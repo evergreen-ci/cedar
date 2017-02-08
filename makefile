@@ -138,7 +138,7 @@ vendor-deps:$(vendorDeps)
 -include $(buildDir)/makefile.vendor
 nestedVendored := vendor/github.com/tychoish/grip
 nestedVendored += vendor/github.com/mongodb/amboy
-nestedVendored += vendor/github.com/mongodb/amboy/vendor/github.com/tychoish/gimlet
+nestedVendored += vendor/github.com/mongodb/curator
 nestedVendored := $(foreach project,$(nestedVendored),$(project)/build/vendor)
 $(buildDir)/makefile.vendor:$(buildDir)/render-gopath makefile
 	@mkdir -p $(buildDir)
@@ -156,6 +156,15 @@ vendor-clean:
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/davecgh/
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/pmezard/
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/tychoish/grip/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/tychoish/grip/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/tychoish/gimlet/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/mongodb/amboy/
+	rm -rf vendor/github.com/mongodb/curator/vendor/golang.org/x/net/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/pkg/errors/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/stretchr/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/davecgh/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/pmezard/
+	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/urfave/cli/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 change-go-version:
@@ -164,6 +173,7 @@ change-go-version:
 vendor:$(buildDir)/vendor/src
 	@$(MAKE) $(makeArgs) -C vendor/github.com/tychoish/grip $@
 	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/amboy $@
+	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/curator $@
 $(buildDir)/vendor/src:$(buildDir)/make-vendor $(buildDir)/render-gopath
 	@./$(buildDir)/make-vendor
 #   targets to build the small programs used to support vendoring.
