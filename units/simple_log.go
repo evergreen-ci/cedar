@@ -57,6 +57,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
 	grip.Alert("would save data to s3")
+
 	// s3.SaveData(opts{bucket: bucketName; key:LogID, c.Content})
 
 	grip.Alert("would save remove copy of content from this job here")
@@ -70,12 +71,12 @@ func (j *saveSimpleLogToDBJob) Run() {
 	}
 	grip.Debug(q)
 
-	session, _, err := sink.GetMgoSession()
+	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem fetching database connection"))
 		return
 	}
-	grip.Debug(session)
+	grip.Debugln("session:", session, "db:", db)
 
 	grip.Info("would create a document here in the db")
 	// model.CreateLogRecord(session, j.LogID)

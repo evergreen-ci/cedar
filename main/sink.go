@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/rest"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -72,6 +73,12 @@ func service() cli.Command {
 				Value:  "mongodb://localhost:27017",
 				EnvVar: "SINK_MONGODB_URL",
 			},
+			cli.StringFlag{
+				Name:   "bucket",
+				Usage:  "specify a bucket name to use for storing data in s3",
+				EnvVar: "SINK_BUCKET_NAME",
+				Value:  "build-curator-testing",
+			},
 		},
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
@@ -80,6 +87,10 @@ func service() cli.Command {
 				MongoDBURI: c.String("dbUri"),
 				Port:       c.Int("o"),
 			}
+
+			sink.SetConf(&sink.SinkConfiguration{
+				BucketName: c.String("bucket"),
+			})
 
 			if err := service.Validate(); err != nil {
 				return errors.Wrap(err, "problem validating service")

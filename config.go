@@ -1,5 +1,5 @@
 package sink
 
-type SinkConfiguration stuct {
+type SinkConfiguration struct {
 	BucketName string
 }

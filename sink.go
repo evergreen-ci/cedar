@@ -122,11 +122,11 @@ func (c *appServicesCache) getMgoSession() (*mgo.Session, *mgo.Database, error) 
 	return s, s.DB(DBName), nil
 }
 
-func (c *appServicesCache) setConf(conf *SinkConfguration) {
+func (c *appServicesCache) setConf(conf *SinkConfiguration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.conf = *conf
+	c.conf = conf
 }
 
 func (c *appServicesCache) getConf() *SinkConfiguration {
@@ -134,8 +134,8 @@ func (c *appServicesCache) getConf() *SinkConfiguration {
 	defer c.mutex.RUnlock()
 
 	// copy the struct
-	out := SyncConfig{}
-	*out = *c.conf
+	out := SinkConfiguration{}
+	out = *c.conf
 
 	return &out
 }
