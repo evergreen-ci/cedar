@@ -35,6 +35,9 @@ func SetDriverOpts(name string, opts driver.MongoDBOptions) error {
 func SetMgoSession(s *mgo.Session) error                  { return servicesCache.setMgoSession(s) }
 func GetMgoSession() (*mgo.Session, *mgo.Database, error) { return servicesCache.getMgoSession() }
 
+func SetConf(conf *SinkConfiguration) { servicesCache.setConf(conf) }
+func GetConf() *SinkConfiguration     { return servicesCache.getConf() }
+
 ////////////////////////////////////////////////////////////////////////
 //
 // internal implementation of the cache
@@ -45,6 +48,7 @@ type appServicesCache struct {
 	driverQueueName string
 	driverOpts      driver.MongoDBOptions
 	session         *mgo.Session
+	conf            *SinkConfiguration
 
 	mutex sync.RWMutex
 }
@@ -116,4 +120,22 @@ func (c *appServicesCache) getMgoSession() (*mgo.Session, *mgo.Database, error) 
 
 	s := c.session.Clone()
 	return s, s.DB(DBName), nil
+}
+
+func (c *appServicesCache) setConf(conf *SinkConfguration) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.conf = *conf
+}
+
+func (c *appServicesCache) getConf() *SinkConfiguration {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	// copy the struct
+	out := SyncConfig{}
+	*out = *c.conf
+
+	return &out
 }
