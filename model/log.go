@@ -1,9 +1,6 @@
 package model
 
-import (
-	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/db"
-)
+import "github.com/tychoish/sink/db"
 
 var (
 	LogsCollection = "logs"
@@ -20,5 +17,5 @@ type Log struct {
 }
 
 func (l *Log) Insert() error {
-	return db.Insert(LogsCollection, l)
+	return errors.WithStack(db.Insert(LogsCollection, l))
 }
