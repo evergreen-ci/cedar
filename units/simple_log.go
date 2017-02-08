@@ -8,7 +8,9 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
+	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/sink"
 )
 
 func init() {
@@ -55,8 +57,40 @@ func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
 	grip.Alert("would save data to s3")
-	grip.Alert("would save remove copy of content from this job here")
-	grip.Alert("would submit multiple jobs to trigger post processing")
+	// s3.SaveData(opts{bucket: bucketName; key:LogID, c.Content})
 
-	return
+	grip.Alert("would save remove copy of content from this job here")
+	// j.Content = []string{}
+
+	grip.Alert("would submit multiple jobs to trigger post processing")
+	q, err := sink.GetQueue()
+	if err != nil {
+		j.AddError(errors.Wrap(err, "problem fetching queue"))
+		return
+	}
+	grip.Debug(q)
+
+	session, err := sink.GetMgoSession()
+	if err != nil {
+		j.AddError(errors.Wrap(err, "problem fetching database connection"))
+		return
+	}
+	grip.Debug(session)
+
+	grip.Info("would create a document here in the db")
+	// model.CreateLogRecord(session, j.LogID)
+
+	// lots of the following jobs should happen here, should happen here:
+	// if err := q.Put(MakeParserJobOne(j.LogID, j.Content)); err != nil {
+	// 	j.AddError(err)
+	// 	return
+	// }
+
+	// as an intermediary we could just do a lot of log parsing
+	// here. to start with and then move that out to other jobs
+	// later.
+	//
+	// eventually we'll want this to be in seperate jobs because
+	// we'll want to add additional parsers and be able to
+	// idempotently update our records/metadata for each log.
 }
