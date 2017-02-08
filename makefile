@@ -150,12 +150,14 @@ vendor-clean:
 	rm -rf vendor/github.com/stretchr/testify/vendor/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/tychoish/grip/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/tychoish/gimlet/
+	rm -rf vendor/github.com/mongodb/amboy/vendor/gopkg.in/mgo.v2
 	rm -rf vendor/github.com/mongodb/amboy/vendor/golang.org/x/net/
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/davecgh/
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/pmezard/
 	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/tychoish/grip/
-	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*"| xargs rm -rf
+	rm -rf vendor/gopkg.in/mgo.v2/harness/
+	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 change-go-version:
 	rm -rf $(buildDir)/make-vendor $(buildDir)/render-gopath
 	@$(MAKE) $(makeArgs) vendor > /dev/null 2>&1
