@@ -102,7 +102,7 @@ func (c *appServicesCache) setMgoSession(s *mgo.Session) error {
 	return nil
 }
 
-func (c *appServicesCache) getMgoSession() (*mgo.Session, error) {
+func (c *appServicesCache) getMgoSession() (*mgo.Session, *mgo.Database, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -111,5 +111,5 @@ func (c *appServicesCache) getMgoSession() (*mgo.Session, error) {
 	}
 
 	s := c.session.Clone()
-	return s, nil
+	return s, s.DB(c.driverOpts.) nil
 }
