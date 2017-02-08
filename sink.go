@@ -6,6 +6,7 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
+	"github.com/tychoish/grip"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -19,9 +20,10 @@ func init() {
 }
 
 type appServicesCache struct {
-	queue      amboy.Queue
-	driverOpts driver.MongoDBOptions
-	session    *mgo.Session
+	queue           amboy.Queue
+	driverQueueName string
+	driverOpts      driver.MongoDBOptions
+	session         *mgo.Session
 
 	mutex sync.RWMutex
 }
@@ -38,15 +40,18 @@ func SetQueue(q amboy.Queue) error {
 		return errors.New("cannot set queue to nil")
 	}
 
+	grip.Noticef("caching a %T queue in a global cache for use in tasks", q)
 	servicesCache.queue = q
 	return nil
 }
 
-func SetDriverOpts(opts driver.MongoDBOptions) error {
+func SetDriverOpts(name string, opts driver.MongoDBOptions) error {
+	// we might want to remove this, as you can't create a driver
+	// instance without the driver name which
 	servicesCache.mutex.Lock()
 	defer servicesCache.mutex.Unlock()
 
-	if opts.URI == "" || opts.DB == "" {
+	if opts.URI == "" || opts.DB == "" || name == "" {
 		return errors.Errorf("driver options %+v is not valid", opts)
 	}
 
@@ -76,6 +81,7 @@ func SetMgoSession(s *mgo.Session) error {
 	if s == nil {
 		return errors.New("cannot use a nil session")
 	}
+	grip.Notice("caching a mongodb session in the services cache")
 
 	servicesCache.session = s
 	return nil

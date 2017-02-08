@@ -43,12 +43,16 @@ func (s *Service) Validate() error {
 		grip.Infof("configured a local queue with %d workers", s.Workers)
 	} else {
 		remoteQueue := queue.NewRemoteUnordered(runtime.NumCPU())
-		mongoDriver := driver.NewMongoDB(queueName, driver.MongoDBOptions{
+		opts := driver.MongoDBOptions{
 			URI:      s.MongoDBURI,
 			DB:       dbName,
 			Priority: true,
-		})
+		}
+		if err := sink.SetDriverOpts(queueName, opts); err != nil {
+			return errors.Wrap(err, "problem caching driver options")
+		}
 
+		mongoDriver := driver.NewMongoDB(queueName, opts)
 		if err := remoteQueue.SetDriver(mongoDriver); err != nil {
 			return errors.Wrap(err, "problem configuring driver")
 		}
@@ -56,6 +60,8 @@ func (s *Service) Validate() error {
 		grip.Infof("configured a remote mongodb-backed queue "+
 			"[db=%s, prefix=%s, priority=%t]", dbName, queueName, true)
 
+		// create and cache a db session for use in
+		// tasks. this should probably move elsewhere.
 		session, err := mgo.Dial(s.MongoDBURI)
 		if err != nil {
 			return errors.Wrapf(err, "could not connect to db %s", s.MongoDBURI)
