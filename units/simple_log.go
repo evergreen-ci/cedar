@@ -70,7 +70,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	}
 	grip.Debug(q)
 
-	session, err := sink.GetMgoSession()
+	session, _, err := sink.GetMgoSession()
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem fetching database connection"))
 		return

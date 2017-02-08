@@ -10,6 +10,10 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
+const (
+	DBName = "sink"
+)
+
 // Should be specified with -ldflags at build time
 var BuildRevision = ""
 
@@ -28,8 +32,8 @@ func SetDriverOpts(name string, opts driver.MongoDBOptions) error {
 	return servicesCache.setDriverOpts(name, opts)
 }
 
-func SetMgoSession(s *mgo.Session) error   { return servicesCache.setMgoSession(s) }
-func GetMgoSession() (*mgo.Session, error) { return servicesCache.getMgoSession() }
+func SetMgoSession(s *mgo.Session) error                  { return servicesCache.setMgoSession(s) }
+func GetMgoSession() (*mgo.Session, *mgo.Database, error) { return servicesCache.getMgoSession() }
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -107,9 +111,9 @@ func (c *appServicesCache) getMgoSession() (*mgo.Session, *mgo.Database, error) 
 	defer c.mutex.RUnlock()
 
 	if c.session == nil {
-		return nil, errors.New("no valid session defined")
+		return nil, nil, errors.New("no valid session defined")
 	}
 
 	s := c.session.Clone()
-	return s, s.DB(c.driverOpts.) nil
+	return s, s.DB(DBName), nil
 }

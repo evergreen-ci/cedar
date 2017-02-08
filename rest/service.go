@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	dbName    = "sink"
 	queueName = "queue"
 )
 
@@ -45,7 +44,7 @@ func (s *Service) Validate() error {
 		remoteQueue := queue.NewRemoteUnordered(runtime.NumCPU())
 		opts := driver.MongoDBOptions{
 			URI:      s.MongoDBURI,
-			DB:       dbName,
+			DB:       sink.DBName,
 			Priority: true,
 		}
 		if err := sink.SetDriverOpts(queueName, opts); err != nil {
@@ -58,7 +57,7 @@ func (s *Service) Validate() error {
 		}
 		s.queue = remoteQueue
 		grip.Infof("configured a remote mongodb-backed queue "+
-			"[db=%s, prefix=%s, priority=%t]", dbName, queueName, true)
+			"[db=%s, prefix=%s, priority=%t]", sink.DBName, queueName, true)
 
 		// create and cache a db session for use in
 		// tasks. this should probably move elsewhere.
