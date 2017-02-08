@@ -13,14 +13,14 @@ import (
 )
 
 const (
-	dBName    = "sink"
+	dbName    = "sink"
 	queueName = "queue"
 )
 
 type Service struct {
 	Workers    int
 	MongoDBURI string
-	Port
+	Port       int
 
 	// internal settings
 	queue amboy.Queue
@@ -36,22 +36,23 @@ func (s *Service) Validate() error {
 		s.queue = queue.NewLocalUnordered(s.Workers)
 		grip.Infof("configured a local queue with %d workers", s.Workers)
 	} else {
-		remoteQueue := queue.RemoteUnordered(runtime.NumCPU())
-		mongoDriver := driver.NewMongoDB(dbPrefix, driver.MongoDBOptions{
+		remoteQueue := queue.NewRemoteUnordered(runtime.NumCPU())
+		mongoDriver := driver.NewMongoDB(queueName, driver.MongoDBOptions{
 			URI:      s.MongoDBURI,
-			DB:       dBName,
+			DB:       dbName,
 			Priority: true,
 		})
 
 		if err := remoteQueue.SetDriver(mongoDriver); err != nil {
 			return errors.Wrap(err, "problem configuring driver")
 		}
+		s.queue = remoteQueue
 		grip.Infof("configured a remote mongodb-backed queue "+
 			"[db=%s, prefix=%s, priority=%t]", dbName, queueName, true)
 	}
 
 	if s.Port == 0 {
-		s.Port == 3000
+		s.Port = 3000
 	}
 
 	s.app = gimlet.NewApp()
@@ -59,11 +60,13 @@ func (s *Service) Validate() error {
 	if err := s.app.SetPort(s.Port); err != nil {
 		return errors.WithStack(err)
 	}
+
+	return nil
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	grip.NoticeWhenf(s.MongoDBURI == "", "sink service on port %s, with local queue", s.Port)
-	grip.NoticeWhenf(s.MongoDBURI != "", "sink service on port %s, with db-backed queue", s.Port)
+	grip.NoticeWhenf(s.MongoDBURI == "", "sink service on port %d, with local queue", s.Port)
+	grip.NoticeWhenf(s.MongoDBURI != "", "sink service on port %d, with db-backed queue", s.Port)
 
 	if s.queue == nil || s.app == nil {
 		return errors.New("application is not valid")
@@ -84,10 +87,10 @@ func (s *Service) Start(ctx context.Context) error {
 	}
 
 	grip.Noticef("completed sink service; shutting down")
+
+	return nil
 }
 
 func (s *Service) addRoutes() {
-	app := s.app.App()
-
-	app.AddRoute("/status").Version(1).Get().Handler(s.statusHandler)
+	s.app.AddRoute("/status").Version(1).Get().Handler(s.statusHandler)
 }
