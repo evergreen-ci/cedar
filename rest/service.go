@@ -118,4 +118,5 @@ func (s *Service) Start(ctx context.Context) error {
 
 func (s *Service) addRoutes() {
 	s.app.AddRoute("/status").Version(1).Get().Handler(s.statusHandler)
+	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Handler(s.simpleLogInjestion)
 }
