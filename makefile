@@ -45,10 +45,10 @@ gopath := $(shell go env GOPATH)
 lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "./buildscripts/*" )
 testSrcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*")
-testOutput := $(foreach target,$(packages),$(buildDir)/test.$(target).out)
-raceOutput := $(foreach target,$(packages),$(buildDir)/race.$(target).out)
-coverageOutput := $(foreach target,$(packages),$(buildDir)/coverage.$(target).out)
-coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/coverage.$(target).html)
+testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
+raceOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).race)
+coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
+coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
 	go get $(subst $(gopath)/src/,,$@)
@@ -121,7 +121,7 @@ test-%:$(buildDir)/output.%.test
 	@grep -s -q -e "^PASS" $<
 coverage-%:$(buildDir)/output.%.coverage
 	@grep -s -q -e "^PASS" $<
-html-coverage-%:$(buildDir)/output.%.coverage $(buildDir)/output.%.coverage.html
+html-coverage-%:$(buildDir)/output.%.coverage.html $(buildDir)/output.%.coverage.html
 	@grep -s -q -e "^PASS" $<
 # end convienence targets
 
