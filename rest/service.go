@@ -3,12 +3,15 @@ package rest
 import (
 	"runtime"
 
+	mgo "gopkg.in/mgo.v2"
+
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/sink"
 	"golang.org/x/net/context"
 )
 
@@ -32,6 +35,9 @@ func (s *Service) Validate() error {
 		s.Workers = runtime.NumCPU()
 	}
 
+	// TODO make it possible to have a local queue but still pass a MongoDBURI
+	// TODO move default setting into a seperate function
+
 	if s.MongoDBURI == "" {
 		s.queue = queue.NewLocalUnordered(s.Workers)
 		grip.Infof("configured a local queue with %d workers", s.Workers)
@@ -49,6 +55,19 @@ func (s *Service) Validate() error {
 		s.queue = remoteQueue
 		grip.Infof("configured a remote mongodb-backed queue "+
 			"[db=%s, prefix=%s, priority=%t]", dbName, queueName, true)
+
+		session, err := mgo.Dial(s.MongoDBURI)
+		if err != nil {
+			return errors.Wrapf(err, "could not connect to db %s", s.MongoDBURI)
+		}
+
+		if err := sink.SetMgoSession(session); err != nil {
+			return errors.Wrap(err, "problem caching DB session")
+		}
+	}
+
+	if err := sink.SetQueue(s.queue); err != nil {
+		return errors.Wrap(err, "problem caching amboy queue")
 	}
 
 	if s.Port == 0 {
