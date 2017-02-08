@@ -8,6 +8,7 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
+	"github.com/mongodb/curator/sthree"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/sink"
@@ -57,29 +58,39 @@ func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
 	grip.Alert("would save data to s3")
+	conf := sink.GetConf()
 
-	// s3.SaveData(opts{bucket: bucketName; key:LogID, c.Content})
+	bucket := sthree.GetBucket(conf.BucketName)
+	grip.Infoln("got s3 bucket object for:", bucket)
 
-	grip.Alert("would save remove copy of content from this job here")
-	// j.Content = []string{}
+	// TODO uncomment this when MAKE-158 closes so we can update the vendoring.
+	//
+	// if err := bucket.Write([]byte(strings.Join(j.Content, "\n"))); err != nil {
+	// 	j.AddError(errors.Wrap(err, "problem writing to s3"))
+	// 	return
+	// }
 
-	grip.Alert("would submit multiple jobs to trigger post processing")
-	q, err := sink.GetQueue()
-	if err != nil {
-		j.AddError(errors.Wrap(err, "problem fetching queue"))
-		return
-	}
-	grip.Debug(q)
+	// clear the content from the job document after saving it.
+	j.Content = []string{}
 
+	// get access to the db so that we can create a record for the
+	// document, with the s3 id set.
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem fetching database connection"))
 		return
 	}
 	grip.Debugln("session:", session, "db:", db)
-
 	grip.Info("would create a document here in the db")
 	// model.CreateLogRecord(session, j.LogID)
+
+	q, err := sink.GetQueue()
+	if err != nil {
+		j.AddError(errors.Wrap(err, "problem fetching queue"))
+		return
+	}
+	grip.Debug(q)
+	grip.Alert("would submit multiple jobs to trigger post processing, if needed")
 
 	// lots of the following jobs should happen here, should happen here:
 	// if err := q.Put(MakeParserJobOne(j.LogID, j.Content)); err != nil {
