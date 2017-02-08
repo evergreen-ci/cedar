@@ -1,13 +1,7 @@
 package rest
 
 import (
-	"runtime"
-
-	mgo "gopkg.in/mgo.v2"
-
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
@@ -20,9 +14,7 @@ const (
 )
 
 type Service struct {
-	Workers    int
-	MongoDBURI string
-	Port       int
+	Port int
 
 	// internal settings
 	queue amboy.Queue
@@ -30,57 +22,24 @@ type Service struct {
 }
 
 func (s *Service) Validate() error {
-	if s.Workers <= 0 {
-		s.Workers = runtime.NumCPU()
-	}
+	var err error
 
-	// TODO make it possible to have a local queue but still pass a MongoDBURI
-	// TODO move default setting into a seperate function
-
-	if s.MongoDBURI == "" {
-		s.queue = queue.NewLocalUnordered(s.Workers)
-		grip.Infof("configured a local queue with %d workers", s.Workers)
-	} else {
-		remoteQueue := queue.NewRemoteUnordered(runtime.NumCPU())
-		opts := driver.MongoDBOptions{
-			URI:      s.MongoDBURI,
-			DB:       sink.DBName,
-			Priority: true,
-		}
-		if err := sink.SetDriverOpts(queueName, opts); err != nil {
-			return errors.Wrap(err, "problem caching driver options")
-		}
-
-		mongoDriver := driver.NewMongoDB(queueName, opts)
-		if err := remoteQueue.SetDriver(mongoDriver); err != nil {
-			return errors.Wrap(err, "problem configuring driver")
-		}
-		s.queue = remoteQueue
-		grip.Infof("configured a remote mongodb-backed queue "+
-			"[db=%s, prefix=%s, priority=%t]", sink.DBName, queueName, true)
-
-		// create and cache a db session for use in
-		// tasks. this should probably move elsewhere.
-		session, err := mgo.Dial(s.MongoDBURI)
+	if s.queue == nil {
+		s.queue, err = sink.GetQueue()
 		if err != nil {
-			return errors.Wrapf(err, "could not connect to db %s", s.MongoDBURI)
-		}
-
-		if err := sink.SetMgoSession(session); err != nil {
-			return errors.Wrap(err, "problem caching DB session")
+			return errors.Wrap(err, "problem getting queue")
 		}
 	}
 
-	if err := sink.SetQueue(s.queue); err != nil {
-		return errors.Wrap(err, "problem caching amboy queue")
+	if s.app == nil {
+		s.app = gimlet.NewApp()
+		s.app.SetDefaultVersion(1)
 	}
 
 	if s.Port == 0 {
 		s.Port = 3000
 	}
 
-	s.app = gimlet.NewApp()
-	s.app.SetDefaultVersion(1)
 	if err := s.app.SetPort(s.Port); err != nil {
 		return errors.WithStack(err)
 	}
@@ -89,9 +48,6 @@ func (s *Service) Validate() error {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	grip.NoticeWhenf(s.MongoDBURI == "", "sink service on port %d, with local queue", s.Port)
-	grip.NoticeWhenf(s.MongoDBURI != "", "sink service on port %d, with db-backed queue", s.Port)
-
 	if s.queue == nil || s.app == nil {
 		return errors.New("application is not valid")
 	}
