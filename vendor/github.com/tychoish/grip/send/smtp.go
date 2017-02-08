@@ -141,6 +141,7 @@ type SMTPOptions struct {
 	client   *smtp.Client
 	fromAddr *mail.Address
 	toAddrs  []*mail.Address
+	parser   *mail.AddressParser
 	mutex    sync.Mutex
 }
 
@@ -161,8 +162,9 @@ func (o *SMTPOptions) ResetRecipients() {
 func (o *SMTPOptions) AddRecipient(name, address string) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
+	o.init()
 
-	addr, err := mail.ParseAddress(fmt.Sprintf("%s <%s>", name, address))
+	addr, err := o.parser.Parse(fmt.Sprintf("%s <%s>", name, address))
 	if err != nil {
 		return err
 	}
@@ -182,8 +184,9 @@ func (o *SMTPOptions) AddRecipients(addresses ...string) error {
 
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
+	o.init()
 
-	addrs, err := mail.ParseAddressList(strings.Join(addresses, ","))
+	addrs, err := o.parser.ParseList(strings.Join(addresses, ","))
 	if err != nil {
 		return err
 	}
@@ -193,6 +196,12 @@ func (o *SMTPOptions) AddRecipients(addresses ...string) error {
 	return nil
 }
 
+func (o *SMTPOptions) init() {
+	if o.parser == nil {
+		o.parser = &mail.AddressParser{}
+	}
+}
+
 // Validate checks the contents of the SMTPOptions struct and sets
 // default values in appropriate cases. Returns an error if the struct
 // is not valid. The constructor for the SMTP sender calls this method
@@ -200,6 +209,7 @@ func (o *SMTPOptions) AddRecipients(addresses ...string) error {
 func (o *SMTPOptions) Validate() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
+	o.init()
 
 	// setup defaults
 
