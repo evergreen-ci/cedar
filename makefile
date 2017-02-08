@@ -1,7 +1,7 @@
 # start project configuration
 name := sink
 buildDir := build
-packages := 
+packages := $(name) units
 orgPath := github.com/tychoish
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -218,4 +218,5 @@ phony += clean
 # end dependency targets
 
 # configure phony targets
-.PHONY:$(phony)
+.FORCE:
+.PHONY:$(phony) .FORCE
