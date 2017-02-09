@@ -9,10 +9,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	queueName = "queue"
-)
-
 type Service struct {
 	Port int
 

@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	DBName = "sink"
+	DBName    = "sink"
+	QueueName = "queue"
 )
 
 // Should be specified with -ldflags at build time
