@@ -33,10 +33,12 @@ func NewAppLogger() *AppLogging {
 // the duration upon completion and the status of the response.
 func (l *AppLogging) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	start := time.Now()
-	l.Infof("Started %s %s", r.Method, r.URL.Path)
+	id := getNumber()
+	l.Infof("[id=%d] started %s %s", id, r.Method, r.URL.Path)
 
 	next(rw, r)
 
 	res := rw.(negroni.ResponseWriter)
-	l.Infof("Completed %v %s in %v", res.Status(), http.StatusText(res.Status()), time.Since(start))
+	l.Infof("[id=%d] completed %v %s in %v", id, res.Status(),
+		http.StatusText(res.Status()), time.Since(start))
 }
