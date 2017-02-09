@@ -88,8 +88,9 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 // GET /simple_log/{id}
 
 type simpleLogContentResponse struct {
-	LogID string `json:"logId"`
-	Error string `json:"err"`
+	LogID string   `json:"logId"`
+	Error string   `json:"err,omitempty"`
+	URLS  []string `json:"urls"`
 }
 
 func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
