@@ -21,7 +21,8 @@ func Worker() cli.Command {
 		}, "\n"),
 		Flags: baseFlags(),
 		Action: func(c *cli.Context) error {
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			workers := c.Int("workers")
 			mongodbURI := c.String("dbUri")
 			bucket := c.String("bucket")

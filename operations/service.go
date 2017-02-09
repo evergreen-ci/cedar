@@ -23,7 +23,9 @@ func Service() cli.Command {
 				EnvVar: "SINK_SERVICE_PORT",
 			}),
 		Action: func(c *cli.Context) error {
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			workers := c.Int("workers")
 			mongodbURI := c.String("dbUri")
 			runLocal := c.Bool("localQueue")
