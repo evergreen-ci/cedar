@@ -45,7 +45,7 @@ type simpleLogRequest struct {
 	Content   string    `json:"content"`
 }
 
-type simpleLogResponse struct {
+type simpleLogInjestionResponse struct {
 	Errors []string `json:"errors,omitempty"`
 	JobID  string   `json:"jobId,omitempty"`
 	LogID  string   `json:"logId"`
@@ -53,8 +53,9 @@ type simpleLogResponse struct {
 
 func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 	req := &simpleLogRequest{}
-	resp := &simpleLogResponse{}
+	resp := &simpleLogInjestionResponse{}
 	resp.LogID = gimlet.GetVars(r)["id"]
+	defer r.Body.Close()
 
 	if resp.LogID == "" {
 		resp.Errors = []string{"no log id specified"}
@@ -78,6 +79,30 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 		gimlet.WriteInternalErrorJSON(w, resp)
 		return
 	}
+
+	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /simple_log/{id}
+
+type simpleLogContentResponse struct {
+	LogID string `json:"logId"`
+	Error string `json:"err"`
+}
+
+func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
+	resp := &simpleLogContentResponse{}
+
+	resp.LogID = gimlet.GetVars(r)["id"]
+	if resp.LogID == "" {
+		resp.Error = "no log specified"
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	// TODO add more data and populate it from the database
 
 	gimlet.WriteJSON(w, resp)
 }
