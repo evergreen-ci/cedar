@@ -6,6 +6,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/tychoish/gimlet"
+	"github.com/tychoish/grip"
+	"golang.org/x/net/context"
+	"golang.org/x/net/context/ctxhttp"
 )
 
 const (
@@ -154,4 +158,28 @@ func (c *Client) getURL(endpoint string) string {
 	}
 
 	return strings.Join(url, "/")
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// Public Operations that Interact with the Service
+//
+////////////////////////////////////////////////////////////////////////
+
+func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
+	out := &StatusResponse{}
+	url := c.getURL("/v1/status")
+	grip.Debugln("GET", url)
+	resp, err := ctxhttp.Get(ctx, c.client, url)
+	if err != nil {
+		grip.Warning(err)
+		grip.Debugf("%+v", resp)
+	}
+	defer resp.Body.Close()
+
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return nil, errors.Wrap(err, "problem reading rstatus result")
+	}
+
+	return out, nil
 }

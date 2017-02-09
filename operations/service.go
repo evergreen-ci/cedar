@@ -2,6 +2,7 @@ package operations
 
 import (
 	"github.com/pkg/errors"
+	"github.com/tychoish/grip"
 	"github.com/tychoish/sink/rest"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -48,7 +49,10 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem starting services")
 			}
 
-			return errors.WithStack(service.Run())
+			grip.Noticef("starting sink service on :%d", c.Int("port"))
+			service.Run()
+			grip.Info("completed service, terminating.")
+			return nil
 		},
 	}
 

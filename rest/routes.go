@@ -16,7 +16,7 @@ import (
 //
 // GET /status
 
-type statusResponse struct {
+type StatusResponse struct {
 	Revision     string           `json:"revision"`
 	QueueStats   amboy.QueueStats `json:"queue,omitempty"`
 	QueueRunning bool             `json:"running"`
@@ -24,7 +24,7 @@ type statusResponse struct {
 
 // statusHandler processes the GET request for
 func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
-	resp := &statusResponse{Revision: sink.BuildRevision}
+	resp := &StatusResponse{Revision: sink.BuildRevision}
 
 	if s.queue != nil {
 		resp.QueueRunning = s.queue.Started()

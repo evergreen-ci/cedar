@@ -18,7 +18,7 @@ func Worker() cli.Command {
 		Usage: strings.Join([]string{
 			"run a data processing node without a web front-end",
 			"runs jobs until there is no more pending work, or 1 minute, whichever is longer",
-		}, "\n"),
+		}, "\n\t"),
 		Flags: baseFlags(),
 		Action: func(c *cli.Context) error {
 			ctx, cancel := context.WithCancel(context.Background())
