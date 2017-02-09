@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	DBName    = "sink"
 	QueueName = "queue"
 )
 
@@ -119,8 +118,12 @@ func (c *appServicesCache) getMgoSession() (*mgo.Session, *mgo.Database, error) 
 		return nil, nil, errors.New("no valid session defined")
 	}
 
+	if c.conf.DatabaseName == "" {
+		return nil, nil, errors.New("no database defined")
+	}
+
 	s := c.session.Clone()
-	return s, s.DB(DBName), nil
+	return s, s.DB(c.conf.DatabaseName), nil
 }
 
 func (c *appServicesCache) setConf(conf *SinkConfiguration) {

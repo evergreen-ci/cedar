@@ -5,11 +5,17 @@ import (
 	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	mgo "gopkg.in/mgo.v2"
 )
 
-func configure(numWorkers int, localQueue bool, mongodbURI, bucket string) error {
+func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
+	sink.SetConf(&sink.SinkConfiguration{
+		BucketName:   bucket,
+		DatabaseName: dbName,
+	})
+
 	if localQueue {
 		q := queue.NewLocalUnordered(numWorkers)
 		grip.Infof("configured local queue with %d workers", numWorkers)
@@ -20,7 +26,7 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket string) error
 		q := queue.NewRemoteUnordered(numWorkers)
 		opts := driver.MongoDBOptions{
 			URI:      mongodbURI,
-			DB:       sink.DBName,
+			DB:       dbName,
 			Priority: true,
 		}
 
@@ -37,13 +43,9 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket string) error
 			return errors.Wrap(err, "problem caching queue")
 		}
 
-		grip.Infof("configured a remote mongodb-backed queue "+
-			"[db=%s, prefix=%s, priority=%t]", sink.DBName, sink.QueueName, true)
+		grip.Info(message.MakeFieldsMessage("configured a remote mongodb-backed queue",
+			message.Fields{"db": dbName, "prefix": sink.QueueName, "priority": true}))
 	}
-
-	sink.SetConf(&sink.SinkConfiguration{
-		BucketName: bucket,
-	})
 
 	// create and cache a db session for use in tasks
 	session, err := mgo.Dial(mongodbURI)

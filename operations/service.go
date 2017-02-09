@@ -28,8 +28,9 @@ func Service() cli.Command {
 			mongodbURI := c.String("dbUri")
 			runLocal := c.Bool("localQueue")
 			bucket := c.String("bucket")
+			dbName := c.String("dbName")
 
-			if err := configure(workers, runLocal, mongodbURI, bucket); err != nil {
+			if err := configure(workers, runLocal, mongodbURI, bucket, dbName); err != nil {
 				return errors.WithStack(err)
 			}
 

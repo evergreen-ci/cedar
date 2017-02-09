@@ -25,8 +25,9 @@ func Worker() cli.Command {
 			workers := c.Int("workers")
 			mongodbURI := c.String("dbUri")
 			bucket := c.String("bucket")
+			dbName := c.String("dbName")
 
-			if err := configure(workers, false, mongodbURI, bucket); err != nil {
+			if err := configure(workers, false, mongodbURI, bucket, dbName); err != nil {
 				return errors.WithStack(err)
 			}
 

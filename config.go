@@ -1,5 +1,6 @@
 package sink
 
 type SinkConfiguration struct {
-	BucketName string
+	BucketName   string
+	DatabaseName string
 }

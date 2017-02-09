@@ -16,6 +16,12 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 			EnvVar: "SINK_MONGODB_URL",
 		},
 		cli.StringFlag{
+			Name:   "database",
+			Usage:  "specify a database name to use",
+			Value:  "sink",
+			EnvVar: "SINK_DATABASE_NAME",
+		},
+		cli.StringFlag{
 			Name:   "bucket",
 			Usage:  "specify a bucket name to use for storing data in s3",
 			EnvVar: "SINK_BUCKET_NAME",
