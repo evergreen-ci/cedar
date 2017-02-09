@@ -2,6 +2,7 @@ package units
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mongodb/amboy"
@@ -11,7 +12,9 @@ import (
 	"github.com/mongodb/curator/sthree"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
+	"github.com/tychoish/sink/model"
 )
 
 func init() {
@@ -63,12 +66,12 @@ func (j *saveSimpleLogToDBJob) Run() {
 	bucket := sthree.GetBucket(conf.BucketName)
 	grip.Infoln("got s3 bucket object for:", bucket)
 
-	// TODO uncomment this when MAKE-158 closes so we can update the vendoring.
-	//
-	// if err := bucket.Write([]byte(strings.Join(j.Content, "\n"))); err != nil {
-	// 	j.AddError(errors.Wrap(err, "problem writing to s3"))
-	// 	return
-	// }
+	s3Key := fmt.Sprintf("simple-log/%s.%d", j.LogID, j.Increment)
+	err := bucket.Write([]byte(strings.Join(j.Content, "\n")), s3Key, "")
+	if err != nil {
+		j.AddError(errors.Wrap(err, "problem writing to s3"))
+		return
+	}
 
 	// clear the content from the job document after saving it.
 	j.Content = []string{}
@@ -80,9 +83,22 @@ func (j *saveSimpleLogToDBJob) Run() {
 		j.AddError(errors.Wrap(err, "problem fetching database connection"))
 		return
 	}
-	grip.Debugln("session:", session, "db:", db)
+
+	grip.Debug(message.Fields{"session": session, "db": db})
 	grip.Info("would create a document here in the db")
-	// model.CreateLogRecord(session, j.LogID)
+	doc := &model.Log{
+		LogID:       j.LogID,
+		Segment:     j.Increment,
+		URL:         fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
+		NumberLines: -1,
+	}
+
+	if err = doc.Insert(); err != nil {
+		grip.Warning(message.Fields{"msg": "problem inserting document for log",
+			"doc": doc})
+		j.AddError(errors.Wrap(err, "problem inserting record for document"))
+		return
+	}
 
 	q, err := sink.GetQueue()
 	if err != nil {

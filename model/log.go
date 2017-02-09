@@ -2,7 +2,7 @@ package model
 
 import "github.com/tychoish/sink/db"
 
-var (
+const (
 	LogsCollection = "logs"
 )
 
