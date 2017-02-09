@@ -1,17 +1,8 @@
 package parser
 
 import (
-	"fmt"
-
-	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/dependency"
-	"github.com/mongodb/amboy/job"
 	"github.com/pkg/errors"
 	"github.com/tychoish/sink/model/log"
-)
-
-const (
-	parserJobName = "parse-simple-log"
 )
 
 // ParserOptions is all possible inputs to parsers
@@ -21,7 +12,7 @@ type ParserOptions struct {
 }
 
 type Parser interface {
-	Initialize(opts *ParserOptions) error
+	Initialize(opts ParserOptions) error
 	// Parse takes in a string slice
 	Parse() error
 }
@@ -32,7 +23,7 @@ type SimpleParser struct {
 	Content []string
 }
 
-func (sp *SimpleParser) Initialize(opts *ParserOptions) error {
+func (sp *SimpleParser) Initialize(opts ParserOptions) error {
 	if opts.Id == "" {
 		return errors.New("no id given")
 	}
@@ -52,44 +43,4 @@ func (sp *SimpleParser) Parse() error {
 		return err
 	}
 	return l.SetNumberLines(len(sp.Content))
-}
-
-type saveParserToDBJob struct {
-	Parser    Parser         `bson:"parser" json:"parser" yaml:"parser"`
-	Opts      *ParserOptions `bson:"opts" json:"opts" yaml:"opts"`
-	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-}
-
-func saveSimpleParserToDbJobFactory() amboy.Job {
-	j := &saveParserToDBJob{
-		Base: &job.Base{
-			JobType: amboy.JobType{
-				Name:    parserJobName,
-				Version: 1,
-			},
-		},
-	}
-	j.SetDependency(dependency.NewAlways())
-	return j
-}
-func MakeParserJob(parser Parser, opts *ParserOptions) amboy.Job {
-	// create the parser with the log id and content
-	j := saveSimpleParserToDbJobFactory().(*saveParserToDBJob)
-	j.SetID(fmt.Sprintf("%s-%s", j.Type(), opts.Id))
-	j.Parser = parser
-	j.Opts = opts
-	return j
-}
-
-func (j *saveParserToDBJob) Run() {
-	defer j.MarkComplete()
-	err := j.Parser.Initialize(j.Opts)
-	if err != nil {
-		j.AddError(errors.Wrap(err, "error initializing parser"))
-		return
-	}
-	err = j.Parser.Parse()
-	if err != nil {
-		j.AddError(errors.Wrap(err, "error parsing content"))
-	}
 }

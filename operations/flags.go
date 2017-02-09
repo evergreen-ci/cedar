@@ -25,6 +25,6 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 			Name:   "bucket",
 			Usage:  "specify a bucket name to use for storing data in s3",
 			EnvVar: "SINK_BUCKET_NAME",
-			Value:  "build-curator-testing",
+			Value:  "build-test-curator",
 		})
 }

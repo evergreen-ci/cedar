@@ -46,7 +46,7 @@ type simpleLogRequest struct {
 	Content   string    `json:"content"`
 }
 
-type simpleLogInjestionResponse struct {
+type SimpleLogInjestionResponse struct {
 	Errors []string `json:"errors,omitempty"`
 	JobID  string   `json:"jobId,omitempty"`
 	LogID  string   `json:"logId"`
@@ -54,7 +54,7 @@ type simpleLogInjestionResponse struct {
 
 func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 	req := &simpleLogRequest{}
-	resp := &simpleLogInjestionResponse{}
+	resp := &SimpleLogInjestionResponse{}
 	resp.LogID = gimlet.GetVars(r)["id"]
 	defer r.Body.Close()
 
@@ -88,7 +88,7 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 //
 // GET /simple_log/{id}
 
-type simpleLogContentResponse struct {
+type SimpleLogContentResponse struct {
 	LogID string   `json:"logId"`
 	Error string   `json:"err,omitempty"`
 	URLS  []string `json:"urls"`
@@ -96,7 +96,7 @@ type simpleLogContentResponse struct {
 
 // simpleLogRetrieval takes in a log id and returns the log documents associated with that log id.
 func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
-	resp := &simpleLogContentResponse{}
+	resp := &SimpleLogContentResponse{}
 
 	resp.LogID = gimlet.GetVars(r)["id"]
 	if resp.LogID == "" {

@@ -1,9 +1,12 @@
 package rest
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
@@ -15,6 +18,7 @@ import (
 const (
 	defaultClientPort int = 3000
 	maxClientPort         = 65535
+	jsonMimeType          = "application/json"
 )
 
 // Client provides an interface for interacting with a remote amboy
@@ -172,13 +176,44 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 	grip.Debugln("GET", url)
 	resp, err := ctxhttp.Get(ctx, c.client, url)
 	if err != nil {
-		grip.Warning(err)
-		grip.Debugf("%+v", resp)
+		return nil, errors.Wrap(err, "problem with request")
 	}
 	defer resp.Body.Close()
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem reading rstatus result")
+	}
+
+	return out, nil
+}
+
+func (c *Client) WriteSimpleLog(ctx context.Context, logId, data string, increment int) (*SimpleLogInjestionResponse, error) {
+	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logId))
+
+	req := &simpleLogRequest{
+		Time:      time.Now(),
+		Increment: increment,
+		Content:   data,
+	}
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem converting json")
+	}
+
+	grip.Debugln("POST", url)
+	resp, err := ctxhttp.Post(ctx, c.client, url, jsonMimeType, bytes.NewBuffer(payload))
+	grip.Debugf("%+v", resp)
+	if err != nil {
+		grip.Warning(err)
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	out := &SimpleLogInjestionResponse{}
+
+	if err := gimlet.GetJSON(resp.Body, out); err != nil {
+		return nil, errors.Wrap(err, "problem parsing request")
 	}
 
 	return out, nil

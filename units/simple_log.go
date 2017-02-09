@@ -18,8 +18,12 @@ import (
 	"github.com/tychoish/sink/parser"
 )
 
+const (
+	saveSimpleLogJobName = "save-simple-log"
+)
+
 func init() {
-	registry.AddJobType("save-simple-log", func() amboy.Job {
+	registry.AddJobType(saveSimpleLogJobName, func() amboy.Job {
 		return saveSimpleLogToDBJobFactory()
 	})
 }
@@ -36,7 +40,7 @@ func saveSimpleLogToDBJobFactory() amboy.Job {
 	j := &saveSimpleLogToDBJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
-				Name:    "save-simple-log",
+				Name:    saveSimpleLogJobName,
 				Version: 1,
 			},
 		},
@@ -111,17 +115,20 @@ func (j *saveSimpleLogToDBJob) Run() {
 	grip.Debug(q)
 	grip.Alert("would submit multiple jobs to trigger post processing, if needed")
 
-	parserOpts := &parser.ParserOptions{
+	parserOpts := parser.ParserOptions{
 		Id:      doc.Id,
 		Content: j.Content,
 	}
-	parsers := []parser.Parser{&parser.SimpleParser{}}
-	for _, p := range parsers {
-		if err := q.Put(parser.MakeParserJob(p, parserOpts)); err != nil {
-			j.AddError(err)
-			return
-		}
-	}
+
+	// TODO talk about the structuar of the parser interface, it causes a panic that I don't quite understand yet
+
+	// parsers := []parser.Parser{&parser.SimpleParser{}}
+	// for _, p := range parsers {
+	// 	if err := q.Put(MakeParserJob(p, parserOpts)); err != nil {
+	// 		j.AddError(err)
+	// 		return
+	// 	}
+	// }
 	// TODO: make this a loop for putting all jobs for all parsers
 
 	// as an intermediary we could just do a lot of log parsing
