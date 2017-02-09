@@ -44,7 +44,11 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem validating service")
 			}
 
-			return errors.WithStack(service.Start(ctx))
+			if err := service.Start(ctx); err != nil {
+				return errors.Wrap(err, "problem starting services")
+			}
+
+			return errors.WithStack(service.Run())
 		},
 	}
 

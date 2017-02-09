@@ -74,6 +74,9 @@ func (j *saveSimpleLogToDBJob) Run() {
 		return
 	}
 
+	// clear the content from the job document after saving it.
+	j.Content = []string{}
+
 	// get access to the db so that we can create a record for the
 	// document, with the s3 id set.
 	session, db, err := sink.GetMgoSession()
@@ -114,9 +117,6 @@ func (j *saveSimpleLogToDBJob) Run() {
 		j.AddError(err)
 		return
 	}
-
-	// clear the content from the job document after saving it.
-	j.Content = []string{}
 
 	// as an intermediary we could just do a lot of log parsing
 	// here. to start with and then move that out to other jobs

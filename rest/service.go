@@ -58,13 +58,14 @@ func (s *Service) Start(ctx context.Context) error {
 		return errors.Wrap(err, "problem resolving routes")
 	}
 
-	if err := s.app.Run(); err != nil {
-		return errors.Wrap(err, "problem running service")
-	}
-
 	grip.Noticef("completed sink service; shutting down")
 
 	return nil
+}
+
+// Run starts the REST service. All errors are logged.
+func (s *Service) Run() {
+	grip.CatchAlert(s.app.Run())
 }
 
 func (s *Service) addRoutes() {

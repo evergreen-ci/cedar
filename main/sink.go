@@ -28,6 +28,7 @@ func buildApp() *cli.App {
 
 	app.Commands = []cli.Command{
 		operations.Service(),
+		operations.Client(),
 		operations.Worker(),
 	}
 

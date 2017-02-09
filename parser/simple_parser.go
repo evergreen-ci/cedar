@@ -11,7 +11,7 @@ import (
 	"github.com/tychoish/sink/model/log"
 )
 
-var (
+const (
 	parserJobName = "parse-simple-log"
 )
 

@@ -110,11 +110,10 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
-	urls := []string{}
+
 	for _, l := range allLogs {
-		urls = append(urls, l.URL)
+		resp.URLS = append(resp.URLS, l.URL)
 	}
-	resp.URLS = urls
 
 	gimlet.WriteJSON(w, resp)
 }
