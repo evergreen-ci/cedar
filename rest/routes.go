@@ -8,6 +8,7 @@ import (
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/sink"
+	"github.com/tychoish/sink/model/log"
 	"github.com/tychoish/sink/units"
 )
 
@@ -93,6 +94,7 @@ type simpleLogContentResponse struct {
 	URLS  []string `json:"urls"`
 }
 
+// simpleLogRetrieval takes in a log id and returns the log documents associated with that log id.
 func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 	resp := &simpleLogContentResponse{}
 
@@ -102,8 +104,17 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
-
-	// TODO add more data and populate it from the database
+	allLogs, err := log.FindAll(log.ById(resp.LogID))
+	if err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+	urls := []string{}
+	for _, l := range allLogs {
+		urls = append(urls, l.URL)
+	}
+	resp.URLS = urls
 
 	gimlet.WriteJSON(w, resp)
 }

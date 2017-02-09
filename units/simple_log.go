@@ -14,7 +14,7 @@ import (
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/model"
+	"github.com/tychoish/sink/model/log"
 )
 
 func init() {
@@ -86,7 +86,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 
 	grip.Debug(message.Fields{"session": session, "db": db})
 	grip.Info("would create a document here in the db")
-	doc := &model.Log{
+	doc := &log.Log{
 		LogID:       j.LogID,
 		Segment:     j.Increment,
 		URL:         fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),

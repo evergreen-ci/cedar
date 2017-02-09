@@ -54,7 +54,6 @@ func ClearCollections(collections ...string) error {
 
 // Update updates one matching document in the collection.
 func Update(collection string, query interface{}, update interface{}) error {
-
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		return err
@@ -62,4 +61,23 @@ func Update(collection string, query interface{}, update interface{}) error {
 	defer session.Close()
 
 	return db.C(collection).Update(query, update)
+}
+
+// FindAll finds the items from the specified collection and unmarshals them into the
+// provided interface, which must be a slice.
+func FindAll(collection string, query interface{},
+	projection interface{}, sort []string, skip int, limit int,
+	out interface{}) error {
+
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	q := db.C(collection).Find(query).Select(projection)
+	if len(sort) != 0 {
+		q = q.Sort(sort...)
+	}
+	return q.Skip(skip).Limit(limit).All(out)
 }
