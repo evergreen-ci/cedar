@@ -15,6 +15,7 @@ import (
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model/log"
+	"github.com/tychoish/sink/parser"
 )
 
 func init() {
@@ -57,10 +58,6 @@ func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Jo
 	return j
 }
 
-func MakeParserJob(logId, content string) amboy.Job {
-	return nil
-}
-
 func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
@@ -77,9 +74,6 @@ func (j *saveSimpleLogToDBJob) Run() {
 		return
 	}
 
-	// clear the content from the job document after saving it.
-	j.Content = []string{}
-
 	// get access to the db so that we can create a record for the
 	// document, with the s3 id set.
 	session, db, err := sink.GetMgoSession()
@@ -90,7 +84,9 @@ func (j *saveSimpleLogToDBJob) Run() {
 
 	grip.Debug(message.Fields{"session": session, "db": db})
 	grip.Info("would create a document here in the db")
+	// in a simple log the log id and the id are different
 	doc := &log.Log{
+		Id:          j.LogID,
 		LogId:       j.LogID,
 		Segment:     j.Increment,
 		URL:         fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
@@ -112,11 +108,15 @@ func (j *saveSimpleLogToDBJob) Run() {
 	grip.Debug(q)
 	grip.Alert("would submit multiple jobs to trigger post processing, if needed")
 
-	// lots of the following jobs should happen here, should happen here:
-	// if err := q.Put(MakeParserJobOne(j.LogID, j.Content)); err != nil {
-	// 	j.AddError(err)
-	// 	return
-	// }
+	// TODO: might want to make parser job something that takes in a queue of different parsers and creates jobs for
+	// of them
+	if err := q.Put(parser.MakeParserJob(doc.Id, j.Content, time.Now(), 0)); err != nil {
+		j.AddError(err)
+		return
+	}
+
+	// clear the content from the job document after saving it.
+	j.Content = []string{}
 
 	// as an intermediary we could just do a lot of log parsing
 	// here. to start with and then move that out to other jobs
