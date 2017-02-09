@@ -27,4 +27,4 @@ imports:
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
 
 - name: github.com/mongodb/curator
-  version: 1953292283a5d94b209bf160fafff24cd73d6f4b
+  version: e89ad68b484dcf99606a97f21897733ac1156f8a
