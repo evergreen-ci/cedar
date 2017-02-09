@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
@@ -15,7 +14,14 @@ const (
 	parserJobName = "parse-simple-log"
 )
 
+// ParserOptions is all possible inputs to parsers
+type ParserOptions struct {
+	Id      string
+	Content []string
+}
+
 type Parser interface {
+	Initialize(opts *ParserOptions) error
 	// Parse takes in a string slice
 	Parse() error
 }
@@ -24,6 +30,19 @@ type Parser interface {
 type SimpleParser struct {
 	Id      string
 	Content []string
+}
+
+func (sp *SimpleParser) Initialize(opts *ParserOptions) error {
+	if opts.Id == "" {
+		return errors.New("no id given")
+	}
+	if len(opts.Content) == 0 {
+		return errors.New("no content")
+	}
+	sp.Id = opts.Id
+	sp.Content = opts.Content
+
+	return nil
 }
 
 // Parse takes the log id
@@ -35,16 +54,14 @@ func (sp *SimpleParser) Parse() error {
 	return l.SetNumberLines(len(sp.Content))
 }
 
-type saveSimpleParserToDBJob struct {
-	Timestamp time.Time `bson:"ts" json:"ts" yaml:"timestamp"`
-	Content   []string  `bson:"content" json:"content" yaml:"content"`
-	Increment int       `bson:"i" json:"inc" yaml:"increment"`
-	LogId     string    `bson:"logId" json:"logId" yaml:"logId"`
+type saveParserToDBJob struct {
+	Parser    Parser         `bson:"parser" json:"parser" yaml:"parser"`
+	Opts      *ParserOptions `bson:"opts" json:"opts" yaml:"opts"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 }
 
 func saveSimpleParserToDbJobFactory() amboy.Job {
-	j := &saveSimpleParserToDBJob{
+	j := &saveParserToDBJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
 				Name:    parserJobName,
@@ -55,24 +72,23 @@ func saveSimpleParserToDbJobFactory() amboy.Job {
 	j.SetDependency(dependency.NewAlways())
 	return j
 }
-func MakeParserJob(logId string, content []string, ts time.Time, inc int) amboy.Job {
-	j := saveSimpleParserToDbJobFactory().(*saveSimpleParserToDBJob)
-	j.SetID(fmt.Sprintf("%s-%s-%d", j.Type(), logId, inc))
-	j.Timestamp = ts
-	j.Content = content
-	j.LogId = logId
-	j.Increment = inc
-
+func MakeParserJob(parser Parser, opts *ParserOptions) amboy.Job {
+	// create the parser with the log id and content
+	j := saveSimpleParserToDbJobFactory().(*saveParserToDBJob)
+	j.SetID(fmt.Sprintf("%s-%s", j.Type(), opts.Id))
+	j.Parser = parser
+	j.Opts = opts
 	return j
 }
 
-func (j *saveSimpleParserToDBJob) Run() {
+func (j *saveParserToDBJob) Run() {
 	defer j.MarkComplete()
-	p := SimpleParser{
-		Id:      j.LogId,
-		Content: j.Content,
+	err := j.Parser.Initialize(j.Opts)
+	if err != nil {
+		j.AddError(errors.Wrap(err, "error initializing parser"))
+		return
 	}
-	err := p.Parse()
+	err = j.Parser.Parse()
 	if err != nil {
 		j.AddError(errors.Wrap(err, "error parsing content"))
 	}

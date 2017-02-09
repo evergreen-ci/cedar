@@ -111,12 +111,18 @@ func (j *saveSimpleLogToDBJob) Run() {
 	grip.Debug(q)
 	grip.Alert("would submit multiple jobs to trigger post processing, if needed")
 
-	// TODO: might want to make parser job something that takes in a queue of different parsers and creates jobs for
-	// of them
-	if err := q.Put(parser.MakeParserJob(doc.Id, j.Content, time.Now(), 0)); err != nil {
-		j.AddError(err)
-		return
+	parserOpts := &parser.ParserOptions{
+		Id:      doc.Id,
+		Content: j.Content,
 	}
+	parsers := []parser.Parser{&parser.SimpleParser{}}
+	for _, p := range parsers {
+		if err := q.Put(parser.MakeParserJob(p, parserOpts)); err != nil {
+			j.AddError(err)
+			return
+		}
+	}
+	// TODO: make this a loop for putting all jobs for all parsers
 
 	// as an intermediary we could just do a lot of log parsing
 	// here. to start with and then move that out to other jobs
