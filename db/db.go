@@ -1,8 +1,11 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/tychoish/sink"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func Insert(collection string, item interface{}) error {
@@ -12,7 +15,7 @@ func Insert(collection string, item interface{}) error {
 	}
 	defer session.Close()
 
-	return errors.Wrap(db.C(collection).Insert(item), "problem inserting restul")
+	return errors.Wrap(db.C(collection).Insert(item), "problem inserting result")
 }
 
 // FindOne finds one item from the specified collection and unmarshals it into the
@@ -30,4 +33,33 @@ func FindOne(coll string, query interface{}, proj interface{}, sort []string, ou
 	}
 
 	return errors.Wrap(q.One(out), "problem resolving results")
+}
+
+// ClearCollections clears all documents from all the specified collections, returning an error
+// immediately if clearing any one of them fails.
+func ClearCollections(collections ...string) error {
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+	for _, collection := range collections {
+		_, err = db.C(collection).RemoveAll(bson.M{})
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("couldn't clear collection: %v", collection))
+		}
+	}
+	return nil
+}
+
+// Update updates one matching document in the collection.
+func Update(collection string, query interface{}, update interface{}) error {
+
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	return db.C(collection).Update(query, update)
 }
