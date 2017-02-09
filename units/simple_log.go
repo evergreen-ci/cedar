@@ -57,6 +57,10 @@ func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Jo
 	return j
 }
 
+func MakeParserJob(logId, content string) amboy.Job {
+	return nil
+}
+
 func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
@@ -87,7 +91,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	grip.Debug(message.Fields{"session": session, "db": db})
 	grip.Info("would create a document here in the db")
 	doc := &log.Log{
-		LogID:       j.LogID,
+		LogId:       j.LogID,
 		Segment:     j.Increment,
 		URL:         fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
 		NumberLines: -1,
