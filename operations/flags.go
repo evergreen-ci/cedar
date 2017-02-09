@@ -5,18 +5,18 @@ import "github.com/urfave/cli"
 func baseFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.IntFlag{
-			Name:  "workers, jobs",
+			Name:  "workers",
 			Usage: "specify the number of worker jobs this process will have",
 			Value: 2,
 		},
 		cli.StringFlag{
-			Name:   "dbUri, d",
+			Name:   "dbUri",
 			Usage:  "specify a mongodb connection string",
 			Value:  "mongodb://localhost:27017",
 			EnvVar: "SINK_MONGODB_URL",
 		},
 		cli.StringFlag{
-			Name:   "database",
+			Name:   "dbName",
 			Usage:  "specify a database name to use",
 			Value:  "sink",
 			EnvVar: "SINK_DATABASE_NAME",

@@ -1,7 +1,7 @@
 # start project configuration
 name := sink
 buildDir := build
-packages := $(name) units
+packages := $(name) units operations
 orgPath := github.com/tychoish
 projectPath := $(orgPath)/$(name)
 # end project configuration
