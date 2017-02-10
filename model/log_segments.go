@@ -76,7 +76,6 @@ func (l *LogSegment) Remove() error {
 
 func (l *LogSegments) Find(query *db.Q) error {
 	err := query.FindAll(LogSegmentsCollection, l)
-	// fmt.Println("--->", err, len(l))
 	if err != nil && err != mgo.ErrNotFound {
 		return errors.Wrapf(err, "problem running log query %+v", query)
 	}

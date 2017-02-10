@@ -12,6 +12,8 @@ import (
 	"github.com/mongodb/curator/sthree"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/sink"
+	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/model"
 )
 
@@ -57,7 +59,7 @@ func MakeMergeSimpleLogJob(logID string) amboy.Job {
 func (j *mergeSimpleLogJob) Run() {
 	logs := &model.LogSegments{}
 
-	err := errors.Wrap(logs.Find(model.ByLogID(j.LogID).Sort([]string{"-" + model.SegmentKey})),
+	err := errors.Wrap(logs.Find(model.ByLogID(j.LogID).Sort([]string{"-" + model.SegmentIDKey})),
 		"problem running query for all logs of a segment")
 
 	if err != nil {
@@ -67,15 +69,15 @@ func (j *mergeSimpleLogJob) Run() {
 	}
 
 	record := &model.LogRecord{}
-	err = record.Find(query.IDQuery(j.LogID))
+	err = record.Find(db.IDQuery(j.LogID))
 
 	if err != nil {
 		grip.Infof("no existing record for %s, creating...", j.LogID)
 
-		prototypeLog := &model.Log{}
+		prototypeLog := &model.LogSegment{}
 		if err := prototypeLog.Find(model.ByLogID(j.LogID)); err != nil {
 			err = errors.Wrapf(err, "problem finding a prototype log for %s", j.LogID)
-			grip.Wraning(err)
+			grip.Warning(err)
 			j.AddError(err)
 			return
 		}
@@ -91,6 +93,7 @@ func (j *mergeSimpleLogJob) Run() {
 		}
 
 	}
+	conf := sink.GetConf()
 	bucket := sthree.GetBucket(conf.BucketName)
 
 	buffer := bytes.NewBuffer([]byte{})
@@ -116,7 +119,7 @@ func (j *mergeSimpleLogJob) Run() {
 		}
 	}
 
-	err = errors.Wrap(bucket.Write(record.KeyName, buffer.Bytes(), ""),
+	err = errors.Wrap(bucket.Write(buffer.Bytes(), record.KeyName, ""),
 		"problem writing merged data to s3")
 	if err != nil {
 		grip.Error(err)
@@ -128,12 +131,14 @@ func (j *mergeSimpleLogJob) Run() {
 	for _, log := range segments {
 		err = errors.Wrap(bucket.Delete(log.KeyName), "problem deleting segment from logs")
 		if err != nil {
+			catcher.Add(err)
 			j.AddError(err)
 			continue
 		}
 
 		log.Remove()
 	}
+	grip.Info(catcher.Resolve())
 
 	err = errors.Wrapf(record.Insert(), "problem saving master log record for %s", j.LogID)
 	if err != nil {
