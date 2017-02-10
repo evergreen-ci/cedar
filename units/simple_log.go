@@ -61,9 +61,11 @@ func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Jo
 
 	return j
 }
+func (j *saveSimpleLogToDBJob) clear() { j.Content = []string{} }
 
 func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
+	defer j.clear()
 
 	conf := sink.GetConf()
 
@@ -76,9 +78,6 @@ func (j *saveSimpleLogToDBJob) Run() {
 		j.AddError(errors.Wrap(err, "problem writing to s3"))
 		return
 	}
-
-	// clear the content from the job document after saving it.
-	j.Content = []string{}
 
 	// in a simple log the log id and the id are different
 	doc := &model.Log{
@@ -111,19 +110,25 @@ func (j *saveSimpleLogToDBJob) Run() {
 	// TODO: I think this needs to get data out of s3 rather than
 	// get handed to it from memory.
 	//
-	parserOpts := &parser.SimpleParserOptions{
-		ID:      j.LogID,
-		Content: j.Content,
+	opts := &parser.SimpleLog{Name: j.LogID, Content: j.Content}
+	parsers := []parser.ParserFactory{
+		parser.MakeSimpleLogUnit,
 	}
 
-	parsers := []ParserJobFactory{
-		MakeSimpleLogParserJob,
-	}
-
-	for _, parseJob := range parsers {
-		if err := q.Put(parseJob(j.LogID, parserOpts)); err != nil {
+	for _, factory := range parsers {
+		p, err := factory(j.LogID, opts)
+		fmt.Println(p.ID(), err)
+		if err != nil {
+			grip.Error(err)
 			j.AddError(err)
-			return
+			continue
 		}
+
+		if err := q.Put(p); err != nil {
+			grip.Error(err)
+			j.AddError(err)
+			continue
+		}
+		grip.Noticeln("added parsing job for:", j.LogID)
 	}
 }
