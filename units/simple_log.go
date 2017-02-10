@@ -79,16 +79,6 @@ func (j *saveSimpleLogToDBJob) Run() {
 	// clear the content from the job document after saving it.
 	j.Content = []string{}
 
-	// get access to the db so that we can create a record for the
-	// document, with the s3 id set.
-	session, db, err := sink.GetMgoSession()
-	if err != nil {
-		j.AddError(errors.Wrap(err, "problem fetching database connection"))
-		return
-	}
-
-	grip.Debug(message.Fields{"session": session, "db": db})
-	grip.Info("would create a document here in the db")
 	// in a simple log the log id and the id are different
 	doc := &log.Log{
 		LogID:       j.LogID,
