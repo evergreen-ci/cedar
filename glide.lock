@@ -6,7 +6,7 @@ imports:
 - name: github.com/mongodb/amboy
   version: fef06792a99996cdf558314a510b7c683b8f933a
 - name: github.com/tychoish/grip
-  version: 0ed407197c91ff0f63c91eb7e385d5dc6175918e
+  version: 05012f72a43902abf84e5f41824d0abfa5e5be24
 # 
 - name: github.com/stretchr/objx
   version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
