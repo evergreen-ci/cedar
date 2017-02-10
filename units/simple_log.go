@@ -14,7 +14,8 @@ import (
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/model/log"
+	"github.com/tychoish/sink/model"
+	"github.com/tychoish/sink/parser"
 )
 
 const (
@@ -80,11 +81,16 @@ func (j *saveSimpleLogToDBJob) Run() {
 	j.Content = []string{}
 
 	// in a simple log the log id and the id are different
-	doc := &log.Log{
-		LogID:       j.LogID,
-		Segment:     j.Increment,
-		URL:         fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
-		NumberLines: -1,
+	doc := &model.Log{
+		LogID:   j.LogID,
+		Segment: j.Increment,
+		URL:     fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
+		Bucket:  bucket.String(),
+		KeyName: s3Key,
+		Metrics: model.LogMetrics{
+			NumberLines:       -1,
+			LetterFrequencies: map[string]int{},
+		},
 	}
 
 	if err = doc.Insert(); err != nil {
@@ -101,30 +107,23 @@ func (j *saveSimpleLogToDBJob) Run() {
 		j.AddError(errors.Wrap(err, "problem fetching queue"))
 		return
 	}
-	grip.Debug(q)
-	grip.Alert("would submit multiple jobs to trigger post processing, if needed")
 
-	// TODO talk about the structuar of the parser interface, it causes a panic that I don't quite understand yet
-
-	// parserOpts := parser.ParserOptions{
-	// 	ID:      doc.ID,
-	// 	Content: j.Content,
-	// }
-
-	// parsers := []parser.Parser{&parser.SimpleParser{}}
-	// for _, p := range parsers {
-	// 	if err := q.Put(MakeParserJob(p, parserOpts)); err != nil {
-	// 		j.AddError(err)
-	// 		return
-	// 	}
-	// }
-	// TODO: make this a loop for putting all jobs for all parsers
-
-	// as an intermediary we could just do a lot of log parsing
-	// here. to start with and then move that out to other jobs
-	// later.
+	// TODO: I think this needs to get data out of s3 rather than
+	// get handed to it from memory.
 	//
-	// eventually we'll want this to be in seperate jobs because
-	// we'll want to add additional parsers and be able to
-	// idempotently update our records/metadata for each log.
+	parserOpts := &parser.SimpleParserOptions{
+		ID:      j.LogID,
+		Content: j.Content,
+	}
+
+	parsers := []ParserJobFactory{
+		MakeSimpleLogParserJob,
+	}
+
+	for _, parseJob := range parsers {
+		if err := q.Put(parseJob(j.LogID, parserOpts)); err != nil {
+			j.AddError(err)
+			return
+		}
+	}
 }
