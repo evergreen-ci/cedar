@@ -110,25 +110,18 @@ func (j *saveSimpleLogToDBJob) Run() {
 	// TODO: I think this needs to get data out of s3 rather than
 	// get handed to it from memory.
 	//
-	opts := &parser.SimpleLog{Name: j.LogID, Content: j.Content}
-	parsers := []parser.ParserFactory{
-		parser.MakeSimpleLogUnit,
+	opts := &parser.SimpleLog{Key: j.LogID, Content: j.Content}
+	p, err := parser.MakeSimpleLogUnit(j.LogID, opts)
+	if err != nil {
+		grip.Error(err)
+		j.AddError(err)
+		return
 	}
 
-	for _, factory := range parsers {
-		p, err := factory(j.LogID, opts)
-		fmt.Println(p.ID(), err)
-		if err != nil {
-			grip.Error(err)
-			j.AddError(err)
-			continue
-		}
-
-		if err := q.Put(p); err != nil {
-			grip.Error(err)
-			j.AddError(err)
-			continue
-		}
-		grip.Noticeln("added parsing job for:", j.LogID)
+	if err := q.Put(p); err != nil {
+		grip.Error(err)
+		j.AddError(err)
+		return
 	}
+	grip.Noticeln("added parsing job for:", j.LogID)
 }

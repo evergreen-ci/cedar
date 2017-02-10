@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mongodb/amboy"
@@ -22,7 +23,7 @@ const (
 
 // SimpleLog parses simple log content
 type SimpleLog struct {
-	Name      string   `bson:"_id" json:"id" yaml:"id"`
+	Key       string   `bson:"logID" json:"logID" yaml:"logID"`
 	Content   []string `bson:"content" json:"content" yaml:"content"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 
@@ -44,7 +45,7 @@ func simpleLogParserFactory(name string) Parser {
 	return sp
 }
 
-func (sp *SimpleLog) SetID(n string) { sp.Base.SetID(n) }
+func (sp *SimpleLog) SetID(n string) { sp.Base.SetID(fmt.Sprintf("%s-%d", n, job.GetNumber())) }
 func (sp *SimpleLog) SetOptions(opts interface{}) error {
 	if opts != nil {
 		input, ok := opts.(*SimpleLog)
@@ -54,7 +55,7 @@ func (sp *SimpleLog) SetOptions(opts interface{}) error {
 		sp = input
 	}
 
-	if sp.Name == "" {
+	if sp.Key == "" {
 		return errors.New("no id given")
 	}
 
@@ -79,7 +80,7 @@ func (sp *SimpleLog) Run() {
 
 	l := &model.Log{}
 
-	if err := l.Find(db.IDQuery(sp.Name)); err != nil {
+	if err := l.Find(db.IDQuery(sp.Key)); err != nil {
 		sp.AddError(errors.Wrap(err, "problem running query"))
 		return
 	}

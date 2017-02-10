@@ -6,6 +6,7 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/registry"
 	"github.com/pkg/errors"
+	"github.com/tychoish/grip"
 )
 
 type ParserFactoryFactory func(string) Parser
@@ -31,7 +32,8 @@ func RegisterParserUnit(name string, pf ParserFactoryFactory) ParserFactory {
 		if err := j.SetOptions(opts); err != nil {
 			return nil, errors.Wrapf(err, "problem constructing %s (%s)", id, j.ID())
 		}
+
+		grip.Infoln("constructed parsing job for:", j.ID())
 		return j, nil
 	}
-
 }
