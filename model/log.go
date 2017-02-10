@@ -1,10 +1,9 @@
-package log
+package model
 
 import (
 	"github.com/pkg/errors"
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
-	"github.com/tychoish/sink/model"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -19,20 +18,30 @@ type Log struct {
 	LogID   string        `bson:"log_id"`
 	URL     string        `bson:"url"`
 	Segment int           `bson:"seg"`
+	Bucket  string        `bson:"bucket"`
+	KeyName string        `bson:"key"`
 
 	// parsed out information
-	NumberLines int `bson:"lines"`
+	Metrics LogMetrics `bson:"metrics"`
 
-	model.Metadata `bson:"metadata"`
+	Metadata `bson:"metadata"`
+}
+
+type LogMetrics struct {
+	NumberLines       int            `bson:"lines"`
+	LetterFrequencies map[string]int `bson:"frequencies"`
+	UniqueLetters     int            `bson:"letters"`
 }
 
 var (
-	IDKey          = bsonutil.MustHaveTag(Log{}, "ID")
-	LogIDKey       = bsonutil.MustHaveTag(Log{}, "LogID")
-	URLKey         = bsonutil.MustHaveTag(Log{}, "URL")
-	Segment        = bsonutil.MustHaveTag(Log{}, "Segment")
-	NumberLinesKey = bsonutil.MustHaveTag(Log{}, "NumberLines")
-	MetadataKey    = bsonutil.MustHaveTag(Log{}, "Metadata")
+	IDKey                = bsonutil.MustHaveTag(Log{}, "ID")
+	LogIDKey             = bsonutil.MustHaveTag(Log{}, "LogID")
+	URLKey               = bsonutil.MustHaveTag(Log{}, "URL")
+	SegmentKey           = bsonutil.MustHaveTag(Log{}, "Segment")
+	MetricsKey           = bsonutil.MustHaveTag(Log{}, "Metrics")
+	MetadataKey          = bsonutil.MustHaveTag(Log{}, "Metadata")
+	NumberLinesKey       = bsonutil.MustHaveTag(LogMetrics{}, "NumberLines")
+	LetterFrequenciesKey = bsonutil.MustHaveTag(LogMetrics{}, "LetterFrequencies")
 )
 
 func (l *Log) Insert() error {
@@ -49,11 +58,11 @@ func (l *Log) SetNumberLines(n int) error {
 	return errors.WithStack(db.Update(LogsCollection,
 		bson.M{
 			IDKey: l.ID,
-			MetadataKey + "." + model.ModKey: l.Metadata.Modifications,
+			MetadataKey + "." + ModKey: l.Metadata.Modifications,
 		},
 		bson.M{
-			"$inc": bson.M{MetadataKey + "." + model.ModKey: 1},
-			"$set": bson.M{NumberLinesKey: l.NumberLines},
+			"$inc": bson.M{MetadataKey + "." + ModKey: 1},
+			"$set": bson.M{MetricsKey + "." + NumberLinesKey: l.Metrics.NumberLines},
 		},
 	))
 }
@@ -66,7 +75,7 @@ func ByID(id string) db.Q {
 	return db.Query(bson.M{IDKey: id})
 }
 
-func FindOne(query db.Q) (*Log, error) {
+func FindOneLog(query db.Q) (*Log, error) {
 	l := &Log{}
 	err := db.FindOneQ(LogsCollection, query, l)
 	if err == mgo.ErrNotFound {
@@ -74,7 +83,7 @@ func FindOne(query db.Q) (*Log, error) {
 	}
 	return l, err
 }
-func FindAll(query db.Q) ([]Log, error) {
+func FindAllLogs(query db.Q) ([]Log, error) {
 	logs := []Log{}
 	err := db.FindAllQ(LogsCollection, query, &logs)
 	if err == mgo.ErrNotFound {

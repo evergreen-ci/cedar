@@ -8,7 +8,7 @@ import (
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/model/log"
+	"github.com/tychoish/sink/model"
 	"github.com/tychoish/sink/units"
 )
 
@@ -104,7 +104,7 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
-	allLogs, err := log.FindAll(log.ByLogID(resp.LogID))
+	allLogs, err := model.FindAllLogs(model.ByLogID(resp.LogID))
 	if err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteErrorJSON(w, resp)
