@@ -61,7 +61,11 @@ func (l *Log) Find(query *db.Q) error {
 	}
 
 	err := query.FindOne(LogsCollection, l)
-	if err != nil && err != mgo.ErrNotFound {
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+
+	if err != nil {
 		return errors.Wrapf(err, "problem running log query %+v", query)
 	}
 

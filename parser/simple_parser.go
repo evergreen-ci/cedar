@@ -9,7 +9,6 @@ import (
 	"github.com/mongodb/amboy/job"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
-	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/model"
 )
 
@@ -47,20 +46,30 @@ func simpleLogParserFactory(name string) Parser {
 
 func (sp *SimpleLog) SetID(n string) { sp.Base.SetID(fmt.Sprintf("%s-%d", n, job.GetNumber())) }
 func (sp *SimpleLog) SetOptions(opts interface{}) error {
+	var input *SimpleLog
+	var ok bool
+
 	if opts != nil {
-		input, ok := opts.(*SimpleLog)
+		input, ok = opts.(*SimpleLog)
 		if !ok {
 			return errors.Errorf("options is %T not %T", input, sp)
 		}
-		sp = input
 	}
 
 	if sp.Key == "" {
-		return errors.New("no id given")
+		if input == nil || input.Key == "" {
+			return errors.New("no id given")
+		}
+
+		sp.Key = input.Key
 	}
 
 	if len(sp.Content) == 0 {
-		return errors.New("no content")
+		if input == nil || len(input.Content) == 0 {
+			return errors.New("no content")
+		}
+
+		sp.Content = input.Content
 	}
 
 	if sp.freq == nil {
@@ -76,28 +85,40 @@ func (sp *SimpleLog) reset() {
 
 // Parse takes the log id
 func (sp *SimpleLog) Run() {
+	defer sp.MarkComplete()
 	defer sp.reset()
 
 	l := &model.Log{}
 
-	if err := l.Find(db.IDQuery(sp.Key)); err != nil {
-		sp.AddError(errors.Wrap(err, "problem running query"))
+	if err := l.Find(model.ByLogID(sp.Key)); err != nil {
+		err = errors.Wrap(err, "problem running query")
+		grip.Warning(err)
+		sp.AddError(err)
 		return
 	}
 
-	for i := 0; i <= len(sp.Content)+1; i++ {
-		char := sp.Content[i]
+	if sp.freq == nil {
+		sp.freq = map[string]int{}
+	}
 
-		if strings.Contains(char, letters) {
-			total := sp.freq[char]
-			total++
-			sp.freq[char] = total
+	for _, line := range sp.Content {
+		for i := 0; i < len(line); i++ {
+			char := string(line[i])
+
+			if strings.Contains(letters, char) {
+				total := sp.freq[char]
+				total++
+				sp.freq[char] = total
+			}
 		}
+
 	}
 	grip.Infof("letter frequencies: %+v", sp.freq)
 
 	// TODO shouldn't this count new line characters rather than characters?
 	if err := l.SetNumberLines(len(sp.Content)); err != nil {
-		sp.AddError(errors.Wrap(err, "problem setting metadata"))
+		err = errors.Wrap(err, "problem setting metadata")
+		grip.Warning(err)
+		sp.AddError(err)
 	}
 }
