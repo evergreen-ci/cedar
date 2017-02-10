@@ -15,7 +15,6 @@ import (
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model/log"
-	"github.com/tychoish/sink/parser"
 )
 
 const (
@@ -115,12 +114,12 @@ func (j *saveSimpleLogToDBJob) Run() {
 	grip.Debug(q)
 	grip.Alert("would submit multiple jobs to trigger post processing, if needed")
 
-	parserOpts := parser.ParserOptions{
-		Id:      doc.Id,
-		Content: j.Content,
-	}
-
 	// TODO talk about the structuar of the parser interface, it causes a panic that I don't quite understand yet
+
+	// parserOpts := parser.ParserOptions{
+	// 	Id:      doc.Id,
+	// 	Content: j.Content,
+	// }
 
 	// parsers := []parser.Parser{&parser.SimpleParser{}}
 	// for _, p := range parsers {

@@ -187,8 +187,8 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 	return out, nil
 }
 
-func (c *Client) WriteSimpleLog(ctx context.Context, logId, data string, increment int) (*SimpleLogInjestionResponse, error) {
-	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logId))
+func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increment int) (*SimpleLogInjestionResponse, error) {
+	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logID))
 
 	req := &simpleLogRequest{
 		Time:      time.Now(),
@@ -217,4 +217,23 @@ func (c *Client) WriteSimpleLog(ctx context.Context, logId, data string, increme
 	}
 
 	return out, nil
+}
+
+func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogContentResponse, error) {
+	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logID))
+	out := &SimpleLogContentResponse{}
+
+	grip.Debugln("GET", url)
+	resp, err := ctxhttp.Get(ctx, c.client, url)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return nil, errors.Wrap(err, "problem reading rstatus result")
+	}
+
+	return out, nil
+
 }

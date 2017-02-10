@@ -33,6 +33,7 @@ func Client() cli.Command {
 		Subcommands: []cli.Command{
 			printStatus(),
 			postSimpleLog(),
+			getSimpleLog(),
 		},
 	}
 }
@@ -60,7 +61,7 @@ func printStatus() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			fmt.Println(string(out))
+			fmt.Println(out)
 			return nil
 		},
 	}
@@ -136,4 +137,40 @@ func postSimpleLog() cli.Command {
 			return nil
 		},
 	}
+}
+
+func getSimpleLog() cli.Command {
+	return cli.Command{
+		Name:  "get-simple-log",
+		Usage: "prints json document for the simple log",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "log",
+				Usage: "identifier for the log",
+			},
+		},
+		Action: func(c *cli.Context) error {
+			ctx := context.Background()
+			logID := c.String("log")
+
+			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			resp, err := client.GetSimpleLog(ctx, logID)
+			if err != nil {
+				return errors.Wrapf(err, "problem getting log for '%s'", logID)
+			}
+			grip.Debug(resp)
+			out, err := pretyJSON(resp)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			fmt.Println(out)
+			return nil
+		},
+	}
+
 }
