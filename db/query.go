@@ -60,7 +60,7 @@ func (q Q) Limit(limit int) Q {
 
 // FindOneQ runs a Q query against the given collection, applying the results to "out."
 // Only reads one document from the DB.
-func FindOneQ(collection string, q Q, out interface{}) error {
+func (q Q) FindOne(collection string, out interface{}) error {
 	return FindOne(
 		collection,
 		q.filter,
@@ -70,8 +70,8 @@ func FindOneQ(collection string, q Q, out interface{}) error {
 	)
 }
 
-// FindAllQ runs a Q query against the given collection, applying the results to "out."
-func FindAllQ(collection string, q Q, out interface{}) error {
+// FindAll runs a Q query against the given collection, applying the results to "out."
+func (q Q) FindAll(collection string, out interface{}) error {
 	return FindAll(
 		collection,
 		q.filter,

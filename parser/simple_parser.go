@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/model"
 )
 
@@ -61,8 +62,9 @@ func (sp *SimpleParser) Reset() {
 
 // Parse takes the log id
 func (sp *SimpleParser) Parse() error {
-	l, err := model.FindOneLog(model.ByID(sp.opts.ID))
-	if err != nil {
+	l := &model.Log{}
+
+	if err := l.Find(db.IDQuery(sp.opts.ID)); err != nil {
 		return err
 	}
 

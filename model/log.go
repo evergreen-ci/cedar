@@ -12,6 +12,8 @@ var (
 	LogsCollection = "logs"
 )
 
+type Logs []Log
+
 type Log struct {
 	// common log information
 	ID      bson.ObjectId `bson:"_id"`
@@ -24,7 +26,8 @@ type Log struct {
 	// parsed out information
 	Metrics LogMetrics `bson:"metrics"`
 
-	Metadata `bson:"metadata"`
+	Metadata  `bson:"metadata"`
+	populated bool
 }
 
 type LogMetrics struct {
@@ -52,6 +55,37 @@ func (l *Log) Insert() error {
 	return errors.WithStack(db.Insert(LogsCollection, l))
 }
 
+func (l *Log) Find(query db.Q) error {
+	if l.populated {
+		l = &Log{}
+	}
+
+	err := query.FindOne(LogsCollection, l)
+	if err != nil && err != mgo.ErrNotFound {
+		return errors.Wrapf(err, "problem running log query %+v", query)
+	}
+
+	return nil
+}
+
+func (l Logs) Find(query db.Q) error {
+	if len(l) > 0 {
+		l = Logs{}
+	}
+
+	err := query.FindAll(LogsCollection, &l)
+	if err != nil && err != mgo.ErrNotFound {
+		return errors.Wrapf(err, "problem running log query %+v", query)
+	}
+
+	return nil
+
+}
+
+func (l Logs) Logs() []Log {
+	return []Log(l)
+}
+
 func (l *Log) SetNumberLines(n int) error {
 	// find the log, check the version
 	// modify the log, save it
@@ -68,26 +102,5 @@ func (l *Log) SetNumberLines(n int) error {
 }
 
 func ByLogID(id string) db.Q {
-	return db.Query(bson.M{LogIDKey: id})
-}
-
-func ByID(id string) db.Q {
-	return db.Query(bson.M{IDKey: id})
-}
-
-func FindOneLog(query db.Q) (*Log, error) {
-	l := &Log{}
-	err := db.FindOneQ(LogsCollection, query, l)
-	if err == mgo.ErrNotFound {
-		return l, nil
-	}
-	return l, err
-}
-func FindAllLogs(query db.Q) ([]Log, error) {
-	logs := []Log{}
-	err := db.FindAllQ(LogsCollection, query, &logs)
-	if err == mgo.ErrNotFound {
-		return logs, nil
-	}
-	return logs, err
+	return db.StringKeyQuery(LogIDKey, id)
 }
