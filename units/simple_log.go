@@ -51,7 +51,7 @@ func saveSimpleLogToDBJobFactory() amboy.Job {
 
 func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Job {
 	j := saveSimpleLogToDBJobFactory().(*saveSimpleLogToDBJob)
-	j.SetID(fmt.Sprintf("%s-%s-%d", j.Type(), logID, inc))
+	j.SetID(fmt.Sprintf("%s-%s-%d", j.Type().Name, logID, inc))
 
 	j.Timestamp = ts
 	j.Content = append(j.Content, content)
@@ -64,7 +64,6 @@ func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Jo
 func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
-	grip.Alert("would save data to s3")
 	conf := sink.GetConf()
 
 	bucket := sthree.GetBucket(conf.BucketName)
@@ -92,8 +91,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	grip.Info("would create a document here in the db")
 	// in a simple log the log id and the id are different
 	doc := &log.Log{
-		Id:          j.LogID,
-		LogId:       j.LogID,
+		LogID:       j.LogID,
 		Segment:     j.Increment,
 		URL:         fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
 		NumberLines: -1,
@@ -101,7 +99,9 @@ func (j *saveSimpleLogToDBJob) Run() {
 
 	if err = doc.Insert(); err != nil {
 		grip.Warning(message.Fields{"msg": "problem inserting document for log",
-			"doc": doc})
+			"id":    doc.ID,
+			"error": err,
+			"doc":   fmt.Sprintf("%+v", doc)})
 		j.AddError(errors.Wrap(err, "problem inserting record for document"))
 		return
 	}
@@ -117,7 +117,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	// TODO talk about the structuar of the parser interface, it causes a panic that I don't quite understand yet
 
 	// parserOpts := parser.ParserOptions{
-	// 	Id:      doc.Id,
+	// 	ID:      doc.ID,
 	// 	Content: j.Content,
 	// }
 

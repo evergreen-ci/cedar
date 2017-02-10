@@ -15,10 +15,10 @@ var (
 
 type Log struct {
 	// common log information
-	Id      string `bson:"_id"`
-	LogId   string `bson:"log_id"`
-	URL     string `bson:"url"`
-	Segment int    `bson:"seg"`
+	ID      bson.ObjectId `bson:"_id"`
+	LogID   string        `bson:"log_id"`
+	URL     string        `bson:"url"`
+	Segment int           `bson:"seg"`
 
 	// parsed out information
 	NumberLines int `bson:"lines"`
@@ -27,8 +27,8 @@ type Log struct {
 }
 
 var (
-	IdKey          = bsonutil.MustHaveTag(Log{}, "Id")
-	LogIdKey       = bsonutil.MustHaveTag(Log{}, "LogId")
+	IDKey          = bsonutil.MustHaveTag(Log{}, "ID")
+	LogIDKey       = bsonutil.MustHaveTag(Log{}, "LogID")
 	URLKey         = bsonutil.MustHaveTag(Log{}, "URL")
 	Segment        = bsonutil.MustHaveTag(Log{}, "Segment")
 	NumberLinesKey = bsonutil.MustHaveTag(Log{}, "NumberLines")
@@ -36,6 +36,10 @@ var (
 )
 
 func (l *Log) Insert() error {
+	if l.ID == "" {
+		l.ID = bson.NewObjectId()
+	}
+
 	return errors.WithStack(db.Insert(LogsCollection, l))
 }
 
@@ -44,7 +48,7 @@ func (l *Log) SetNumberLines(n int) error {
 	// modify the log, save it
 	return errors.WithStack(db.Update(LogsCollection,
 		bson.M{
-			IdKey: l.Id,
+			IDKey: l.ID,
 			MetadataKey + "." + model.ModKey: l.Metadata.Modifications,
 		},
 		bson.M{
@@ -54,12 +58,12 @@ func (l *Log) SetNumberLines(n int) error {
 	))
 }
 
-func ByLogId(id string) db.Q {
-	return db.Query(bson.M{LogIdKey: id})
+func ByLogID(id string) db.Q {
+	return db.Query(bson.M{LogIDKey: id})
 }
 
-func ById(id string) db.Q {
-	return db.Query(bson.M{IdKey: id})
+func ByID(id string) db.Q {
+	return db.Query(bson.M{IDKey: id})
 }
 
 func FindOne(query db.Q) (*Log, error) {

@@ -7,7 +7,7 @@ import (
 
 // ParserOptions is all possible inputs to parsers
 type ParserOptions struct {
-	Id      string
+	ID      string
 	Content []string
 }
 
@@ -19,18 +19,18 @@ type Parser interface {
 
 // SimpleParser implements the Parser interface
 type SimpleParser struct {
-	Id      string
+	ID      string
 	Content []string
 }
 
 func (sp *SimpleParser) Initialize(opts ParserOptions) error {
-	if opts.Id == "" {
+	if opts.ID == "" {
 		return errors.New("no id given")
 	}
 	if len(opts.Content) == 0 {
 		return errors.New("no content")
 	}
-	sp.Id = opts.Id
+	sp.ID = opts.ID
 	sp.Content = opts.Content
 
 	return nil
@@ -38,7 +38,7 @@ func (sp *SimpleParser) Initialize(opts ParserOptions) error {
 
 // Parse takes the log id
 func (sp *SimpleParser) Parse() error {
-	l, err := log.FindOne(log.ById(sp.Id))
+	l, err := log.FindOne(log.ByID(sp.ID))
 	if err != nil {
 		return err
 	}

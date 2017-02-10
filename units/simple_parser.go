@@ -43,7 +43,7 @@ func saveParserToDBJobFactory() amboy.Job {
 func MakeParserJob(parser parser.Parser, opts parser.ParserOptions) amboy.Job {
 	// create the parser with the log id and content
 	j := saveParserToDBJobFactory().(*saveParserToDBJob)
-	j.SetID(fmt.Sprintf("%s-%s", j.Type(), opts.Id))
+	j.SetID(fmt.Sprintf("%s-%s", j.Type().Name, opts.ID))
 	j.Parser = parser
 	j.Opts = opts
 	return j
