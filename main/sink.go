@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/send"
 	"github.com/tychoish/sink/operations"
 	"github.com/urfave/cli"
 )
@@ -54,4 +55,6 @@ func buildApp() *cli.App {
 func loggingSetup(name, level string) {
 	grip.SetName(name)
 	grip.SetThreshold(level)
+	sender := send.MakeCallSiteConsoleLogger(3)
+	_ = grip.SetSender(sender)
 }
