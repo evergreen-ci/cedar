@@ -11,21 +11,21 @@ type Q struct {
 
 // Query creates a db.Q for the given MongoDB query. The filter
 // can be a struct, bson.D, bson.M, nil, etc.
-func Query(filter interface{}) Q {
-	return Q{filter: filter}
+func Query(filter interface{}) *Q {
+	return &Q{filter: filter}
 }
 
-func (q Q) Filter(filter interface{}) Q {
+func (q *Q) Filter(filter interface{}) *Q {
 	q.filter = filter
 	return q
 }
 
-func (q Q) Project(projection interface{}) Q {
+func (q *Q) Project(projection interface{}) *Q {
 	q.projection = projection
 	return q
 }
 
-func (q Q) WithFields(fields ...string) Q {
+func (q *Q) WithFields(fields ...string) *Q {
 	projection := map[string]int{}
 	for _, f := range fields {
 		projection[f] = 1
@@ -34,7 +34,7 @@ func (q Q) WithFields(fields ...string) Q {
 	return q
 }
 
-func (q Q) WithoutFields(fields ...string) Q {
+func (q *Q) WithoutFields(fields ...string) *Q {
 	projection := map[string]int{}
 	for _, f := range fields {
 		projection[f] = 0
@@ -43,24 +43,24 @@ func (q Q) WithoutFields(fields ...string) Q {
 	return q
 }
 
-func (q Q) Sort(sort []string) Q {
+func (q *Q) Sort(sort []string) *Q {
 	q.sort = sort
 	return q
 }
 
-func (q Q) Skip(skip int) Q {
+func (q *Q) Skip(skip int) *Q {
 	q.skip = skip
 	return q
 }
 
-func (q Q) Limit(limit int) Q {
+func (q *Q) Limit(limit int) *Q {
 	q.limit = limit
 	return q
 }
 
 // FindOneQ runs a Q query against the given collection, applying the results to "out."
 // Only reads one document from the DB.
-func (q Q) FindOne(collection string, out interface{}) error {
+func (q *Q) FindOne(collection string, out interface{}) error {
 	return FindOne(
 		collection,
 		q.filter,
@@ -71,7 +71,7 @@ func (q Q) FindOne(collection string, out interface{}) error {
 }
 
 // FindAll runs a Q query against the given collection, applying the results to "out."
-func (q Q) FindAll(collection string, out interface{}) error {
+func (q *Q) FindAll(collection string, out interface{}) error {
 	return FindAll(
 		collection,
 		q.filter,

@@ -55,7 +55,7 @@ func (l *Log) Insert() error {
 	return errors.WithStack(db.Insert(LogsCollection, l))
 }
 
-func (l *Log) Find(query db.Q) error {
+func (l *Log) Find(query *db.Q) error {
 	if l.populated {
 		l = &Log{}
 	}
@@ -68,7 +68,7 @@ func (l *Log) Find(query db.Q) error {
 	return nil
 }
 
-func (l Logs) Find(query db.Q) error {
+func (l Logs) Find(query *db.Q) error {
 	if len(l) > 0 {
 		l = Logs{}
 	}
@@ -101,6 +101,6 @@ func (l *Log) SetNumberLines(n int) error {
 	))
 }
 
-func ByLogID(id string) db.Q {
+func ByLogID(id string) *db.Q {
 	return db.StringKeyQuery(LogIDKey, id)
 }
