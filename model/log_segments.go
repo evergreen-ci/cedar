@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/pkg/errors"
+	"github.com/tychoish/grip"
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
 	"gopkg.in/mgo.v2"
@@ -38,11 +39,11 @@ type LogMetrics struct {
 var (
 	IDKey                = bsonutil.MustHaveTag(LogSegment{}, "ID")
 	LogIDKey             = bsonutil.MustHaveTag(LogSegment{}, "LogID")
-	URLKey               = bsonutil.MustHaveTag(LogSegment{}, "URL")
-	KeyNameKey           = bsonutil.MustHaveTag(LogSegment{}, "KeyName")
-	SegmentKey           = bsonutil.MustHaveTag(LogSegment{}, "Segment")
-	MetricsKey           = bsonutil.MustHaveTag(LogSegment{}, "Metrics")
-	MetadataKey          = bsonutil.MustHaveTag(LogSegment{}, "Metadata")
+	SgmentURLKey         = bsonutil.MustHaveTag(LogSegment{}, "URL")
+	SegmentKeyNameKey    = bsonutil.MustHaveTag(LogSegment{}, "KeyName")
+	SegmentIDKey         = bsonutil.MustHaveTag(LogSegment{}, "Segment")
+	SegmentMetricsKey    = bsonutil.MustHaveTag(LogSegment{}, "Metrics")
+	SegmentMetadataKey   = bsonutil.MustHaveTag(LogSegment{}, "Metadata")
 	NumberLinesKey       = bsonutil.MustHaveTag(LogMetrics{}, "NumberLines")
 	UniqueLetters        = bsonutil.MustHaveTag(LogMetrics{}, "UniqueLetters")
 	LetterFrequenciesKey = bsonutil.MustHaveTag(LogMetrics{}, "LetterFrequencies")
@@ -53,11 +54,11 @@ func (l *LogSegment) Insert() error {
 		l.ID = bson.NewObjectId()
 	}
 
-	return errors.WithStack(db.Insert(LogSegementsCollection, l))
+	return errors.WithStack(db.Insert(LogSegmentsCollection, l))
 }
 
 func (l *LogSegment) Find(query *db.Q) error {
-	err := query.FindOne(LogSegementsCollection, l)
+	err := query.FindOne(LogSegmentsCollection, l)
 	if err == mgo.ErrNotFound {
 		return nil
 	}
@@ -70,38 +71,38 @@ func (l *LogSegment) Find(query *db.Q) error {
 }
 
 func (l *LogSegment) Remove() error {
-	db.RemoveOne(LogSegmentsCollection, l.ID)
+	return db.RemoveOne(LogSegmentsCollection, l.ID)
 }
 
-func (l LogSegments) Find(query *db.Q) error {
-	if len(l) > 0 {
-		l = LogSegments{}
-	}
-
-	err := query.FindAll(LogSegementsCollection, &l)
+func (l *LogSegments) Find(query *db.Q) error {
+	err := query.FindAll(LogSegmentsCollection, l)
+	// fmt.Println("--->", err, len(l))
 	if err != nil && err != mgo.ErrNotFound {
 		return errors.Wrapf(err, "problem running log query %+v", query)
 	}
-
 	return nil
-
 }
 
-func (l LogSegments) LogSegments() []LogSegment {
-	return []LogSegment(l)
+func (l *LogSegments) LogSegments() []LogSegment {
+	ret := []LogSegment(*l)
+	grip.Alertln(len(ret), "::", l)
+
+	return ret
 }
 
 func (l *LogSegment) SetNumberLines(n int) error {
 	// find the log, check the version
 	// modify the log, save it
-	return errors.WithStack(db.Update(LogSegementsCollection,
+	return errors.WithStack(db.Update(LogSegmentsCollection,
 		bson.M{
 			IDKey: l.ID,
-			MetadataKey + "." + ModKey: l.Metadata.Modifications,
+			SegmentMetadataKey + "." + ModKey: l.Metadata.Modifications,
 		},
 		bson.M{
-			"$inc": bson.M{MetadataKey + "." + ModKey: 1},
-			"$set": bson.M{MetricsKey + "." + NumberLinesKey: l.Metrics.NumberLines},
+			"$set": bson.M{
+				SegmentMetadataKey + "." + ModKey:        l.Metrics.NumberLines + 1,
+				SegmentMetricsKey + "." + NumberLinesKey: l.Metrics.NumberLines,
+			},
 		},
 	))
 }

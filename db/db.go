@@ -78,7 +78,7 @@ func FindAll(coll string, query, proj interface{}, sort []string, skip, limit in
 	return errors.WithStack(q.Skip(skip).Limit(limit).All(out))
 }
 
-func RemoveOne(coll, id string) error {
+func RemoveOne(coll string, id interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		return err

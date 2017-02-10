@@ -1,11 +1,12 @@
 package model
 
 import (
+	"github.com/pkg/errors"
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
 )
 
-var LogsCollection = "simple.log.records"
+var LogRecordCollection = "simple.log.records"
 
 type LogRecord struct {
 	LogID       string `bson:"_id"`
@@ -25,11 +26,11 @@ var (
 )
 
 func (l *LogRecord) Insert() error {
-	return errors.WithStack(db.Insert(LogsCollection, l))
+	return errors.WithStack(db.Insert(LogRecordCollection, l))
 }
 
 func (l *LogRecord) Find(query *db.Q) error {
-	err := query.FindOne(LogRecord, l)
+	err := query.FindOne(LogRecordCollection, l)
 	// if err == mgo.ErrNotFound {
 	// 	return nil
 	// }
