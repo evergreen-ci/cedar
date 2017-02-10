@@ -104,7 +104,7 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
-	allLogs := &model.Logs{}
+	allLogs := &model.LogSegments{}
 
 	query := model.ByLogID(resp.LogID)
 	if err := allLogs.Find(query); err != nil {
@@ -113,7 +113,7 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, l := range allLogs.Logs() {
+	for _, l := range allLogs.LogSegments() {
 		resp.URLS = append(resp.URLS, l.URL)
 	}
 

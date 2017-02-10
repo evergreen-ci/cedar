@@ -88,7 +88,7 @@ func (sp *SimpleLog) Run() {
 	defer sp.MarkComplete()
 	defer sp.reset()
 
-	l := &model.Log{}
+	l := &model.LogSegment{}
 
 	if err := l.Find(model.ByLogID(sp.Key)); err != nil {
 		err = errors.Wrap(err, "problem running query")

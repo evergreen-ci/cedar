@@ -1,0 +1,144 @@
+package units
+
+import (
+	"bytes"
+	"fmt"
+	"time"
+
+	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/dependency"
+	"github.com/mongodb/amboy/job"
+	"github.com/mongodb/amboy/registry"
+	"github.com/mongodb/curator/sthree"
+	"github.com/pkg/errors"
+	"github.com/tychoish/grip"
+	"github.com/tychoish/sink/model"
+)
+
+const (
+	mergeSimpleLogJobName = "merge-simple-log"
+)
+
+func init() {
+	registry.AddJobType(mergeSimpleLogJobName, func() amboy.Job {
+		return mergeSimpleLogJobFactory()
+	})
+}
+
+type mergeSimpleLogJob struct {
+	LogID     string `bson:"logID" json:"logID" yaml:"logID"`
+	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+}
+
+func mergeSimpleLogJobFactory() amboy.Job {
+	j := &mergeSimpleLogJob{
+		Base: &job.Base{
+			JobType: amboy.JobType{
+				Name:    mergeSimpleLogJobName,
+				Version: 1,
+			},
+		},
+	}
+
+	j.SetDependency(dependency.NewAlways())
+	return j
+}
+
+func MakeMergeSimpleLogJob(logID string) amboy.Job {
+	j := mergeSimpleLogJobFactory().(*mergeSimpleLogJob)
+	j.SetID(fmt.Sprintf("%s-%s-%s", j.Type().Name, logID,
+		time.Now().Format("2006-01-02.15")))
+
+	j.LogID = logID
+
+	return j
+}
+
+func (j *mergeSimpleLogJob) Run() {
+	logs := &model.LogSegments{}
+
+	err := errors.Wrap(logs.Find(model.ByLogID(j.LogID).Sort([]string{"-" + model.SegmentKey})),
+		"problem running query for all logs of a segment")
+
+	if err != nil {
+		grip.Warning(err)
+		j.AddError(err)
+		return
+	}
+
+	record := &model.LogRecord{}
+	err = record.Find(query.IDQuery(j.LogID))
+
+	if err != nil {
+		grip.Infof("no existing record for %s, creating...", j.LogID)
+
+		prototypeLog := &model.Log{}
+		if err := prototypeLog.Find(model.ByLogID(j.LogID)); err != nil {
+			err = errors.Wrapf(err, "problem finding a prototype log for %s", j.LogID)
+			grip.Wraning(err)
+			j.AddError(err)
+			return
+		}
+		record.LogID = j.LogID
+		record.Bucket = prototypeLog.Bucket
+		record.KeyName = fmt.Sprintf("simple-log/%s", j.LogID)
+
+		if err := record.Insert(); err != nil {
+			err = errors.Wrap(err, "problem inserting log record document")
+			grip.Warning(err)
+			j.AddError(err)
+			return
+		}
+
+	}
+	bucket := sthree.GetBucket(conf.BucketName)
+
+	buffer := bytes.NewBuffer([]byte{})
+	segments := logs.LogSegments()
+	for _, log := range segments {
+		seg, err := bucket.Read(log.KeyName)
+		if err != nil {
+			errors.Wrapf(err, "problem reading segment %s from bucket %s",
+				log.KeyName, bucket)
+			grip.Critical(err)
+			j.AddError(err)
+			return
+		}
+		_, err = buffer.Write(seg)
+		if err != nil {
+			err = errors.Wrap(err, "problem writing data to buffer")
+			j.AddError(err)
+			return
+		}
+
+		if log.Segment > record.LastSegment {
+			record.LastSegment = log.Segment
+		}
+	}
+
+	err = errors.Wrap(bucket.Write(record.KeyName, buffer.Bytes(), ""),
+		"problem writing merged data to s3")
+	if err != nil {
+		grip.Error(err)
+		j.AddError(err)
+		return
+	}
+
+	catcher := grip.NewCatcher()
+	for _, log := range segments {
+		err = errors.Wrap(bucket.Delete(log.KeyName), "problem deleting segment from logs")
+		if err != nil {
+			j.AddError(err)
+			continue
+		}
+
+		log.Remove()
+	}
+
+	err = errors.Wrapf(record.Insert(), "problem saving master log record for %s", j.LogID)
+	if err != nil {
+		grip.Critical(err)
+		j.AddError(err)
+		return
+	}
+}

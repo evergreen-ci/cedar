@@ -1,8 +1,6 @@
 package db
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/tychoish/sink"
 	"gopkg.in/mgo.v2/bson"
@@ -15,12 +13,12 @@ func Insert(collection string, item interface{}) error {
 	}
 	defer session.Close()
 
-	return errors.Wrap(db.C(collection).Insert(item), "problem inserting result")
+	return errors.WithStack(db.C(collection).Insert(item))
 }
 
 // FindOne finds one item from the specified collection and unmarshals it into the
 // provided interface, which must be a pointer.
-func FindOne(coll string, query interface{}, proj interface{}, sort []string, out interface{}) error {
+func FindOne(coll string, query, proj interface{}, sort []string, out interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		return errors.Wrap(err, "problem getting session")
@@ -32,7 +30,7 @@ func FindOne(coll string, query interface{}, proj interface{}, sort []string, ou
 		q = q.Sort(sort...)
 	}
 
-	return errors.Wrap(q.One(out), "problem resolving results")
+	return errors.WithStack(q.One(out))
 }
 
 // ClearCollections clears all documents from all the specified collections, returning an error
@@ -46,28 +44,26 @@ func ClearCollections(collections ...string) error {
 	for _, collection := range collections {
 		_, err = db.C(collection).RemoveAll(bson.M{})
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("couldn't clear collection: %v", collection))
+			return errors.Wrapf(err, "couldn't clear collection: %s", collection)
 		}
 	}
 	return nil
 }
 
 // Update updates one matching document in the collection.
-func Update(collection string, query interface{}, update interface{}) error {
+func Update(collection string, query, update interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	return db.C(collection).Update(query, update)
+	return errors.WithStack(db.C(collection).Update(query, update))
 }
 
 // FindAll finds the items from the specified collection and unmarshals them into the
 // provided interface, which must be a slice.
-func FindAll(collection string, query interface{},
-	projection interface{}, sort []string, skip int, limit int,
-	out interface{}) error {
+func FindAll(coll string, query, proj interface{}, sort []string, skip, limit int, out interface{}) error {
 
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
@@ -75,9 +71,20 @@ func FindAll(collection string, query interface{},
 	}
 	defer session.Close()
 
-	q := db.C(collection).Find(query).Select(projection)
+	q := db.C(coll).Find(query).Select(proj)
 	if len(sort) != 0 {
 		q = q.Sort(sort...)
 	}
-	return q.Skip(skip).Limit(limit).All(out)
+	return errors.WithStack(q.Skip(skip).Limit(limit).All(out))
+}
+
+func RemoveOne(coll, id string) error {
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	return errors.WithStack(db.C(coll).Remove(bson.M{"_id": id}))
+
 }

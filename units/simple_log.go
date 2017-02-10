@@ -80,7 +80,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	}
 
 	// in a simple log the log id and the id are different
-	doc := &model.Log{
+	doc := &model.LogSegment{
 		LogID:   j.LogID,
 		Segment: j.Increment,
 		URL:     fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
