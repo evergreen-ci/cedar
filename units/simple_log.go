@@ -15,11 +15,10 @@ import (
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
-	"github.com/tychoish/sink/parser"
 )
 
 const (
-	saveSimpleLogJobName = "save-simple-log"
+	saveSimpleLogJobName = "simple-log-save"
 )
 
 func init() {
@@ -52,6 +51,7 @@ func saveSimpleLogToDBJobFactory() amboy.Job {
 
 func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Job {
 	j := saveSimpleLogToDBJobFactory().(*saveSimpleLogToDBJob)
+
 	j.SetID(fmt.Sprintf("%s-%s-%d", j.Type().Name, logID, inc))
 
 	j.Timestamp = ts
@@ -61,11 +61,9 @@ func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Jo
 
 	return j
 }
-func (j *saveSimpleLogToDBJob) clear() { j.Content = []string{} }
 
 func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
-	defer j.clear()
 
 	conf := sink.GetConf()
 
@@ -78,6 +76,9 @@ func (j *saveSimpleLogToDBJob) Run() {
 		j.AddError(errors.Wrap(err, "problem writing to s3"))
 		return
 	}
+
+	// if we get here the data is safe in s3 so we can clear this.
+	defer func() { j.Content = []string{} }()
 
 	// in a simple log the log id and the id are different
 	doc := &model.LogSegment{
@@ -101,27 +102,35 @@ func (j *saveSimpleLogToDBJob) Run() {
 		return
 	}
 
+	// TODO: I think this needs to get data out of s3 rather than
+	// get handed to it from memory, which requires a DB round trip.
+	//
+	parser := &parseSimpleLog{Key: j.LogID, Content: j.Content}
+
+	// TODO: in the future there should be a parser/post-processing
+	// interface that's amboy.Job+Validate(), so we can generate
+	// slices of parsers and run the validate->put steps in a loop.
+	//
+	if err := parser.Validate(); err != nil {
+		err = errors.Wrap(err, "problem creating parser job")
+		grip.Error(err)
+		j.AddError(err)
+		return
+	}
+
 	q, err := sink.GetQueue()
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem fetching queue"))
+		err = errors.Wrap(err, "problem fetching queue")
+		grip.Critical(err)
+		j.AddError(err)
 		return
 	}
 
-	// TODO: I think this needs to get data out of s3 rather than
-	// get handed to it from memory.
-	//
-	opts := &parser.SimpleLog{Key: j.LogID, Content: j.Content}
-	p, err := parser.MakeSimpleLogUnit(j.LogID, opts)
-	if err != nil {
+	if err := q.Put(pparser); err != nil {
 		grip.Error(err)
 		j.AddError(err)
 		return
 	}
 
-	if err := q.Put(p); err != nil {
-		grip.Error(err)
-		j.AddError(err)
-		return
-	}
 	grip.Noticeln("added parsing job for:", j.LogID)
 }

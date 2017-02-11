@@ -1,75 +1,56 @@
-package parser
+package units
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
+	"github.com/mongodb/amboy/registry"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/sink/model"
 )
 
-var (
-	MakeSimpleLogUnit = RegisterParserUnit("parse-simple-log", simpleLogParserFactory)
-)
-
 const (
-	letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	parseSimpleLogJobName = "simple-log-parse"
+	letters               = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 )
 
-// SimpleLog parses simple log content
-type SimpleLog struct {
+// parseSimpleLog parses simple log content
+type parseSimpleLog struct {
 	Key       string   `bson:"logID" json:"logID" yaml:"logID"`
 	Content   []string `bson:"content" json:"content" yaml:"content"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 
 	// TODO persist this somehow
-	freq map[string]int
+	freq     map[string]int
+	numLines int
 }
 
-func simpleLogParserFactory(name string) Parser {
-	sp := &SimpleLog{
-		Base: &job.Base{
-			JobType: amboy.JobType{
-				Name:    name,
-				Version: 1,
+func init() {
+	registry.AddJobType(parseSimpleLogJobName, func() amboy.Job {
+		sp := &parseSimpleLog{
+			Base: &job.Base{
+				JobType: amboy.JobType{
+					Name:    parseSimpleLogJobName,
+					Version: 1,
+				},
 			},
-		},
-	}
-	sp.SetDependency(dependency.NewAlways())
+		}
+		sp.SetDependency(dependency.NewAlways())
 
-	return sp
+		return sp
+	})
 }
 
-func (sp *SimpleLog) SetID(n string) { sp.Base.SetID(fmt.Sprintf("%s-%d", n, job.GetNumber())) }
-func (sp *SimpleLog) SetOptions(opts interface{}) error {
-	var input *SimpleLog
-	var ok bool
-
-	if opts != nil {
-		input, ok = opts.(*SimpleLog)
-		if !ok {
-			return errors.Errorf("options is %T not %T", input, sp)
-		}
-	}
-
+func (sp *parseSimpleLog) Validate() error {
 	if sp.Key == "" {
-		if input == nil || input.Key == "" {
-			return errors.New("no id given")
-		}
-
-		sp.Key = input.Key
+		return errors.New("no id given")
 	}
 
 	if len(sp.Content) == 0 {
-		if input == nil || len(input.Content) == 0 {
-			return errors.New("no content")
-		}
-
-		sp.Content = input.Content
+		return errors.New("no content")
 	}
 
 	if sp.freq == nil {
@@ -79,12 +60,12 @@ func (sp *SimpleLog) SetOptions(opts interface{}) error {
 	return nil
 }
 
-func (sp *SimpleLog) reset() {
+func (sp *parseSimpleLog) reset() {
 	sp.Content = []string{}
 }
 
 // Parse takes the log id
-func (sp *SimpleLog) Run() {
+func (sp *parseSimpleLog) Run() {
 	defer sp.MarkComplete()
 	defer sp.reset()
 
@@ -115,8 +96,9 @@ func (sp *SimpleLog) Run() {
 	}
 	grip.Infof("letter frequencies: %+v", sp.freq)
 
+	sp.numLines = len(sp.Content)
 	// TODO shouldn't this count new line characters rather than characters?
-	if err := l.SetNumberLines(len(sp.Content)); err != nil {
+	if err := l.SetNumberLines(sp.numLines); err != nil {
 		err = errors.Wrap(err, "problem setting metadata")
 		grip.Warning(err)
 		sp.AddError(err)
