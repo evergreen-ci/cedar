@@ -43,6 +43,7 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 
 type SystemEvents struct {
 	Level  string        `json:"level,omitempty"`
+	Total  int           `json:"total,omitempty"`
 	Count  int           `json:"count,omitempty"`
 	Events []model.Event `json:"events"`
 	Err    string        `json:"error"`
@@ -80,6 +81,8 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp.Events = e.Events()
+	resp.Total = e.CountLevel(l)
+	resp.Count = len(resp.Events)
 	gimlet.WriteJSON(w, resp)
 }
 

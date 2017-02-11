@@ -74,6 +74,14 @@ func (e *Events) FindLevel(level string, limit int) error {
 	return nil
 }
 
+func (e *Events) CountLevel(level string) (int, error) {
+	return db.Query(bson.M{eventLevelKey: level}).Count()
+}
+
+func (e *Events) Count() (int, error) {
+	return db.Query(bson.M{}).Count()
+}
+
 // TODO add count method to events
 
 ////////////////////////////////////////

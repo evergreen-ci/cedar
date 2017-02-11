@@ -82,3 +82,8 @@ func (q *Q) FindAll(collection string, out interface{}) error {
 		out,
 	)
 }
+
+// CountQ runs a Q count query against the given collection.
+func (q *Q) Count(collection string) (int, error) {
+	return Count(collection, q.filter)
+}
