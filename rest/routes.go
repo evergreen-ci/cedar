@@ -106,8 +106,7 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 	}
 	allLogs := &model.LogSegments{}
 
-	query := model.ByLogID(resp.LogID)
-	if err := allLogs.Find(query); err != nil {
+	if err := allLogs.Find(resp.LogID, false); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteErrorJSON(w, resp)
 		return

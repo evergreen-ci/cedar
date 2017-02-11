@@ -59,7 +59,7 @@ func MakeMergeSimpleLogJob(logID string) amboy.Job {
 func (j *mergeSimpleLogJob) Run() {
 	logs := &model.LogSegments{}
 
-	err := errors.Wrap(logs.Find(model.ByLogID(j.LogID).Sort([]string{"-" + model.SegmentIDKey})),
+	err := errors.Wrap(logs.Find(j.LogID, true),
 		"problem running query for all logs of a segment")
 
 	if err != nil {
@@ -75,7 +75,7 @@ func (j *mergeSimpleLogJob) Run() {
 		grip.Infof("no existing record for %s, creating...", j.LogID)
 
 		prototypeLog := &model.LogSegment{}
-		if err := prototypeLog.Find(model.ByLogID(j.LogID)); err != nil {
+		if err := prototypeLog.Find(j.LogID, -1); err != nil {
 			err = errors.Wrapf(err, "problem finding a prototype log for %s", j.LogID)
 			grip.Warning(err)
 			j.AddError(err)

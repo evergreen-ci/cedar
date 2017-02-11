@@ -20,6 +20,7 @@ const (
 // parseSimpleLog parses simple log content
 type parseSimpleLog struct {
 	Key       string   `bson:"logID" json:"logID" yaml:"logID"`
+	Segment   int      `bson:"seg" json:"seg" yaml:"seg"`
 	Content   []string `bson:"content" json:"content" yaml:"content"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 
@@ -30,21 +31,28 @@ type parseSimpleLog struct {
 
 func init() {
 	registry.AddJobType(parseSimpleLogJobName, func() amboy.Job {
-		sp := &parseSimpleLog{
-			Base: &job.Base{
-				JobType: amboy.JobType{
-					Name:    parseSimpleLogJobName,
-					Version: 1,
-				},
-			},
-		}
+		sp := &parseSimpleLog{}
+		sp.setup()
 		sp.SetDependency(dependency.NewAlways())
 
 		return sp
 	})
 }
 
+func (sp *parseSimpleLog) setup() {
+	if sp.Base == nil {
+		sp.Base = &job.Base{
+			JobType: amboy.JobType{
+				Name:    parseSimpleLogJobName,
+				Version: 1,
+			},
+		}
+	}
+}
+
 func (sp *parseSimpleLog) Validate() error {
+	sp.setup()
+
 	if sp.Key == "" {
 		return errors.New("no id given")
 	}
@@ -71,7 +79,7 @@ func (sp *parseSimpleLog) Run() {
 
 	l := &model.LogSegment{}
 
-	if err := l.Find(model.ByLogID(sp.Key)); err != nil {
+	if err := l.Find(sp.Key, sp.Segment); err != nil {
 		err = errors.Wrap(err, "problem running query")
 		grip.Warning(err)
 		sp.AddError(err)

@@ -9,7 +9,7 @@ type Metadata struct {
 }
 
 var (
-	VersionKey = bsonutil.MustHaveTag(Metadata{}, "Version")
-	ModKey     = bsonutil.MustHaveTag(Metadata{}, "Modifications")
-	UnitsKey   = bsonutil.MustHaveTag(Metadata{}, "Units")
+	metadataModificationKey = bsonutil.MustHaveTag(Metadata{}, "Modifications")
+	metadataVersionKey      = bsonutil.MustHaveTag(Metadata{}, "Version")
+	metadataUnitsKey        = bsonutil.MustHaveTag(Metadata{}, "Units")
 )

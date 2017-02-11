@@ -105,7 +105,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	// TODO: I think this needs to get data out of s3 rather than
 	// get handed to it from memory, which requires a DB round trip.
 	//
-	parser := &parseSimpleLog{Key: j.LogID, Content: j.Content}
+	parser := &parseSimpleLog{Key: j.LogID, Segment: j.Increment, Content: j.Content}
 
 	// TODO: in the future there should be a parser/post-processing
 	// interface that's amboy.Job+Validate(), so we can generate
@@ -126,7 +126,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 		return
 	}
 
-	if err := q.Put(pparser); err != nil {
+	if err := q.Put(parser); err != nil {
 		grip.Error(err)
 		j.AddError(err)
 		return

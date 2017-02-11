@@ -4,9 +4,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
+	mgo "gopkg.in/mgo.v2"
 )
 
-var LogRecordCollection = "simple.log.records"
+const logRecordCollection = "simple.log.records"
+
+// GOAL: the model package should export types with methods that wrap
+//    up all required database interaction using functionality from the
+//    database package. We should not export Key names or query builders
 
 type LogRecord struct {
 	LogID       string `bson:"_id"`
@@ -15,25 +20,31 @@ type LogRecord struct {
 	Bucket      string `bson:"bucket"`
 	KeyName     string `bson:"key"`
 	Metadata    `bson:"metadata"`
+
+	populated bool
 }
 
 var (
-	LogRecordIDKey  = bsonutil.MustHaveTag(LogRecord{}, "LogID")
-	URLKey          = bsonutil.MustHaveTag(LogRecord{}, "URL")
-	KeyNameKey      = bsonutil.MustHaveTag(LogRecord{}, "KeyName")
-	LastSegementKey = bsonutil.MustHaveTag(LogRecord{}, "LastSegment")
-	MetadataKey     = bsonutil.MustHaveTag(LogRecord{}, "Metadata")
+	logRecordIDKey           = bsonutil.MustHaveTag(LogRecord{}, "LogID")
+	logRecordURLKey          = bsonutil.MustHaveTag(LogRecord{}, "URL")
+	logRecordKeyNameKey      = bsonutil.MustHaveTag(LogRecord{}, "KeyName")
+	logRecordLastSegementKey = bsonutil.MustHaveTag(LogRecord{}, "LastSegment")
+	logRecordMetadataKey     = bsonutil.MustHaveTag(LogRecord{}, "Metadata")
 )
 
+func (l *LogRecord) IsNil() bool { return l.populated }
+
 func (l *LogRecord) Insert() error {
-	return errors.WithStack(db.Insert(LogRecordCollection, l))
+	return errors.WithStack(db.Insert(logRecordCollection, l))
 }
 
 func (l *LogRecord) Find(query *db.Q) error {
-	err := query.FindOne(LogRecordCollection, l)
-	// if err == mgo.ErrNotFound {
-	// 	return nil
-	// }
+	err := query.FindOne(logRecordCollection, l)
+	l.populated = false
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	l.populated = true
 
 	if err != nil {
 		return errors.Wrapf(err, "problem running log query %+v", query)
