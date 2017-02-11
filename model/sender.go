@@ -22,12 +22,14 @@ const eventCollection = "application.events"
 
 // Event is a translation of
 type Event struct {
-	Component   string      `bson:"com" json:"component"`
-	Message     string      `bson:"m" json:"message"`
-	Payload     interface{} `bson:"data" json:"payload"`
-	MessageType string      `bson:"mtype" json:"type"`
-	Timestamp   time.Time   `bson:"ts" json:"time"`
-	Level       string      `bson:"l" json:"level"`
+	ID           bson.ObjectId `bson:"_id" json:"id"`
+	Component    string        `bson:"com" json:"component"`
+	Message      string        `bson:"m" json:"message"`
+	Payload      interface{}   `bson:"data" json:"payload"`
+	MessageType  string        `bson:"mtype" json:"type"`
+	Timestamp    time.Time     `bson:"ts" json:"time"`
+	Level        string        `bson:"l" json:"level"`
+	Acknowledged bool          `bson:"ack" json:"acknowledged"`
 }
 
 var (
@@ -41,6 +43,7 @@ var (
 
 func NewEvent(m message.Composer) *Event {
 	return &Event{
+		ID:          bson.NewObjectId(),
 		Message:     m.String(),
 		Payload:     m.Raw(),
 		MessageType: fmt.Sprintf("%T", m),
@@ -49,7 +52,26 @@ func NewEvent(m message.Composer) *Event {
 	}
 }
 
+func (e *Event) IsNil() bool   { return e.populated }
 func (e *Event) Insert() error { return db.Insert(eventCollection, e) }
+
+func (e *Event) FindID(id string) error {
+	oid := bson.ObjectIdHex(id)
+	e.ID = oid
+
+	e.populated = false
+	if err := db.FindOne(eventCollection, e, interface{}, []string{}, e); err != nil {
+		return errors.WithStack(err)
+	}
+	e.populated = false
+
+	return nil
+}
+
+func (e *Event) Acknowledge() error {
+	e.Acknowledged = true
+	return db.UpdateID(e.ID, e)
+}
 
 type Events struct {
 	slice     []Event

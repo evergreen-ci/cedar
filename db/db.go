@@ -9,7 +9,7 @@ import (
 func Insert(collection string, item interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "problem getting session")
 	}
 	defer session.Close()
 
@@ -38,7 +38,7 @@ func FindOne(coll string, query, proj interface{}, sort []string, out interface{
 func ClearCollections(collections ...string) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "problem getting session")
 	}
 	defer session.Close()
 	for _, collection := range collections {
@@ -54,11 +54,22 @@ func ClearCollections(collections ...string) error {
 func Update(collection string, query, update interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "problem getting session")
 	}
 	defer session.Close()
 
 	return errors.WithStack(db.C(collection).Update(query, update))
+}
+
+// UpdateId updates one _id-matching document in the collection.
+func UpdateId(collection string, id, update interface{}) error {
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return errors.Wrap(err, "problem getting session")
+	}
+	defer session.Close()
+
+	return errors.WithStack(db.C(collection).UpdateId(id, update))
 }
 
 // FindAll finds the items from the specified collection and unmarshals them into the
@@ -67,7 +78,7 @@ func FindAll(coll string, query, proj interface{}, sort []string, skip, limit in
 
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "problem getting session")
 	}
 	defer session.Close()
 
@@ -81,10 +92,22 @@ func FindAll(coll string, query, proj interface{}, sort []string, skip, limit in
 func RemoveOne(coll string, id interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "problem getting session")
 	}
 	defer session.Close()
 
 	return errors.WithStack(db.C(coll).Remove(bson.M{"_id": id}))
 
+}
+
+// Count run a count command with the specified query against the collection.f
+func Count(collection string, query interface{}) (int, error) {
+	session, db, err := sink.GetMgoSession()
+
+	if err != nil {
+		return 0, err
+	}
+	defer session.Close()
+
+	return db.C(collection).Find(query).Count()
 }
