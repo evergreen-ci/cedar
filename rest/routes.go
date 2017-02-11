@@ -39,9 +39,9 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 
 ////////////////////////////////////////////////////////////////////////
 //
-// GET /status/events/{level}limit=<int>
+// GET /status/events/{level}?limit=<int>
 
-type SystemEvents struct {
+type SystemEventsResponse struct {
 	Level  string        `json:"level,omitempty"`
 	Total  int           `json:"total,omitempty"`
 	Count  int           `json:"count,omitempty"`
@@ -51,7 +51,7 @@ type SystemEvents struct {
 
 func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	l := gimlet.GetVars(r)["level"]
-	resp := &SystemEvents{}
+	resp := &SystemEventsResponse{}
 
 	if l == "" {
 		resp.Err = "no level specified"
@@ -83,6 +83,70 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	resp.Events = e.Events()
 	resp.Total = e.CountLevel(l)
 	resp.Count = len(resp.Events)
+	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /status/events/{id}
+
+type SystemEventResponse struct {
+	ID    string       `json:"id"`
+	Error string       `json:"error"`
+	Event *model.Event `json:"event"`
+}
+
+func (s *Service) getSystembEvent(w http.ResponseWriter, r *http.Request) {
+	id := gimlet.GetVars(r)["id"]
+	resp := &SystemEventResponse{}
+	if id == "" {
+		resp.Error = "id not specified"
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+	resp.ID = id
+
+	event := &model.Event{}
+	if err := event.FindID(id); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteIErrorJSON(w, resp)
+		return
+	}
+
+	resp.Event = event
+	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// POST /status/events/{id}/acknowledge
+//
+// (nothing is read from the body)
+
+func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request) {
+	id := gimlet.GetVars(r)["id"]
+	resp := &SystemEventResponse{}
+	if id == "" {
+		resp.Error = "id not specified"
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+	resp.ID = id
+
+	event := &model.Event{}
+	if err := event.FindID(id); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteIErrorJSON(w, resp)
+		return
+	}
+	resp.Event = resp
+
+	if err := event.Acknowledge(); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteIErrorJSON(w, resp)
+		return
+	}
+
 	gimlet.WriteJSON(w, resp)
 }
 

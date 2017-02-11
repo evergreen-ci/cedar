@@ -2,7 +2,6 @@ package operations
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"github.com/tychoish/grip"
 	"github.com/tychoish/sink/rest"
 	"github.com/urfave/cli"
+	"golang.org/x/net/context"
 )
 
 func Client() cli.Command {
@@ -35,6 +35,7 @@ func Client() cli.Command {
 			postSimpleLog(),
 			getSimpleLog(),
 			getSystemStatusEvents(),
+			systemEvent(),
 		},
 	}
 }
@@ -179,10 +180,10 @@ func getSimpleLog() cli.Command {
 func getSystemStatusEvents() cli.Command {
 	return cli.Command{
 		Name:  "get-system-events",
-		Usage: "writes ",
+		Usage: "prints json for all system events of a specified level",
 		Flags: []cli.Flag{
 			cli.StringFlag{
-				Ndame: "level",
+				Name:  "level",
 				Usage: "specify a filter to a level for messages",
 			},
 			cli.Intflag{
@@ -212,6 +213,55 @@ func getSystemStatusEvents() cli.Command {
 
 			fmt.Println(out)
 			return nil
+		},
+	}
+}
+
+func systemEvent() cli.Command {
+	return cli.Command{
+		Name:  "system-event",
+		Usage: "prints json for a specific system event",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "id",
+				Usage: "specify the Id of a log message",
+			},
+			cli.BoolFlag{
+				Name:  "acknowledge",
+				Usage: "acknowledge the alert when specified",
+			},
+		},
+		Action: func(c *cli.Context) {
+			ctx := context.Background()
+
+			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			id := c.String("id")
+
+			var resp *rest.SystemEventResponse
+
+			if c.Bool("acknowledge") {
+				resp, err = client.AcknowledgeSystemEvent(ctx, id)
+			} else {
+				resp, err = client.GetSystemEvent(ctx, id)
+			}
+
+			if err != nil {
+				return errors.Wrap(err, "problem with system event request")
+			}
+
+			grip.Debug(resp)
+			out, err := pretyJSON(resp)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			fmt.Println(out)
+			return nil
+
 		},
 	}
 

@@ -8,6 +8,7 @@ import (
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
+	"golang.org/x/net/context"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -64,4 +65,8 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	sink.SetSystemSender(sender)
 
 	return nil
+}
+
+func backgroundJobs(ctx context.Context) error {
+
 }
