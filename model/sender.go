@@ -1,4 +1,4 @@
-package db
+package model
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/grip/send"
+	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -21,11 +22,11 @@ const eventCollection = "application.events"
 
 // Event is a translation of
 type Event struct {
-	Message     string      `bson:"message"`
-	Payload     interface{} `bson:"pyaload"`
-	MessageType string      `bson:"mtype"`
-	Timestamp   time.Time   `bson:"ts"`
-	Level       string      `bson:"level"`
+	Message     string      `bson:"m" json:"message"`
+	Payload     interface{} `bson:"data" json:"payload"`
+	MessageType string      `bson:"mtype" json:"type"`
+	Timestamp   time.Time   `bson:"ts" json:"time"`
+	Level       string      `bson:"l" json:"level"`
 }
 
 var (
@@ -47,7 +48,7 @@ func NewEvent(m message.Composer) *Event {
 }
 
 func (e *Event) Insert() error {
-	return Insert(eventCollection, e)
+	return db.Insert(eventCollection, e)
 }
 
 type Events struct {
@@ -59,12 +60,12 @@ func (e *Events) Events() []Event { return e.slice }
 func (e *Events) IsNil() bool     { return e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
-	query := Query(bson.M{
+	query := db.Query(bson.M{
 		eventLevelKey: level,
 	})
 
 	e.populated = false
-	err := FindAll(eventCollection, query, nil, []string{eventTimestampKey}, 0, limit, e.slice)
+	err := db.FindAll(eventCollection, query, nil, []string{eventTimestampKey}, 0, limit, e.slice)
 	if err != nil {
 		return errors.WithStack(err)
 	}
