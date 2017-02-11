@@ -34,6 +34,7 @@ func Client() cli.Command {
 			printStatus(),
 			postSimpleLog(),
 			getSimpleLog(),
+			getSystemStatusEvents(),
 		},
 	}
 }
@@ -162,6 +163,47 @@ func getSimpleLog() cli.Command {
 			if err != nil {
 				return errors.Wrapf(err, "problem getting log for '%s'", logID)
 			}
+			grip.Debug(resp)
+			out, err := pretyJSON(resp)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			fmt.Println(out)
+			return nil
+		},
+	}
+
+}
+
+func getSystemStatusEvents() cli.Command {
+	return cli.Command{
+		Name:  "get-system-events",
+		Usage: "writes ",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Ndame: "level",
+				Usage: "specify a filter to a level for messages",
+			},
+			cli.Intflag{
+				Name:  "limit",
+				Usage: "specify a number of messages to retrieve, defaults to no limit",
+				Value: -1,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			ctx := context.Background()
+
+			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			resp, err := client.GetSystemEvents(ctx, c.String("level"), c.Int("limit"))
+			if err != nil {
+				return errors.Wrap(err, "problem getting system event log")
+			}
+
 			grip.Debug(resp)
 			out, err := pretyJSON(resp)
 			if err != nil {

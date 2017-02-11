@@ -231,9 +231,27 @@ func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogCont
 	defer resp.Body.Close()
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading rstatus result")
+		return nil, errors.Wrap(err, "problem reading simple log result")
 	}
 
 	return out, nil
+}
 
+func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (*SystemEvents, error) {
+	url := c.getURL(fmt.Sprintf("/v1/status/events/%s?limit=%d", level, limit))
+	out := &SimpleLogContentResponse{}
+
+	grip.Debugln("GET", url)
+	resp, err := ctxhttp.Get(ctx, c.client, url)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+
+	defer resp.Body.Close()
+
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return nil, errors.Wrap(err, "problem reading system status result")
+	}
+
+	return out, nil
 }

@@ -1,12 +1,15 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/level"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
 	"github.com/tychoish/sink/units"
@@ -31,6 +34,52 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 		resp.QueueStats = s.queue.Stats()
 	}
 
+	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /status/events/{level}limit=<int>
+
+type SystemEvents struct {
+	Level  string        `json:"level,omitempty"`
+	Count  int           `json:"count,omitempty"`
+	Events []model.Event `json:"events"`
+	Err    string        `json:"error"`
+}
+
+func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
+	l := gimlet.GetVars(r)["level"]
+	resp := &SystemEvents{}
+
+	if l == "" {
+		resp.Err = "no level specified"
+		grip.WriteErrorJSON(w, resp)
+		return
+	}
+
+	if !level.IsValidPriority(level.FromString(l)) {
+		resp.Err = fmt.Sprintf("%s is not a valid level", l)
+	}
+	resp.Level = l
+
+	limitArg := r.URL.Query()["limit"]
+	limit, err := strconv.Atoi(limitArg)
+	if err != nil {
+		resp.Err = fmt.Sprintf("%s is not a valid limit [%s]", limitArg, err.Error())
+		grip.WriteErrorJSON(w, resp)
+		return
+	}
+
+	e := &model.Events{}
+	err = e.FindLevel(l, limit)
+	if err != nil {
+		resp.Err = "problem running query for events"
+		gimlet.WriteInternalErrorJSON(w, resp)
+		return
+	}
+
+	resp.Events = e.Events()
 	gimlet.WriteJSON(w, resp)
 }
 
