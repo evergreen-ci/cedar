@@ -22,6 +22,7 @@ const eventCollection = "application.events"
 
 // Event is a translation of
 type Event struct {
+	Component   string      `bson:"com" json:"component"`
 	Message     string      `bson:"m" json:"message"`
 	Payload     interface{} `bson:"data" json:"payload"`
 	MessageType string      `bson:"mtype" json:"type"`
@@ -30,6 +31,7 @@ type Event struct {
 }
 
 var (
+	eventComponentKey   = bsonutil.MustHaveTag(Event{}, "Component")
 	eventMessageKey     = bsonutil.MustHaveTag(Event{}, "Message")
 	eventPayloadKey     = bsonutil.MustHaveTag(Event{}, "Payload")
 	eventMessageTypeKey = bsonutil.MustHaveTag(Event{}, "MessageType")
@@ -104,6 +106,7 @@ func NewDBSender(name string) (send.Sender, error) {
 func (s *mongoDBSender) Send(m message.Composer) {
 	if s.Level().ShouldLog(m) {
 		e := NewEvent(m)
+		e.Component = s.Name()
 		if err := e.Insert(); err != nil {
 			s.ErrorHandler(err, m)
 		}

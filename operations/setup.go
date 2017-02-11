@@ -7,6 +7,7 @@ import (
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
+	"github.com/tychoish/sink/model"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -55,6 +56,12 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	if err := sink.SetMgoSession(session); err != nil {
 		return errors.Wrap(err, "problem caching DB session")
 	}
+
+	sender, err := model.NewDBSender("sink")
+	if err != nil {
+		return errors.Wrapf(err, "problem setting system sender")
+	}
+	sink.SetSystemSender(sender)
 
 	return nil
 }

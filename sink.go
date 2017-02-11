@@ -7,6 +7,8 @@ import (
 	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/logging"
+	"github.com/tychoish/grip/send"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -25,18 +27,18 @@ func init() {
 	}
 }
 
-func SetQueue(q amboy.Queue) error   { return servicesCache.setQueue(q) }
-func GetQueue() (amboy.Queue, error) { return servicesCache.getQueue() }
-
+func SetQueue(q amboy.Queue) error                        { return servicesCache.setQueue(q) }
+func GetQueue() (amboy.Queue, error)                      { return servicesCache.getQueue() }
+func SetMgoSession(s *mgo.Session) error                  { return servicesCache.setMgoSession(s) }
+func GetMgoSession() (*mgo.Session, *mgo.Database, error) { return servicesCache.getMgoSession() }
+func SetConf(conf *SinkConfiguration)                     { servicesCache.setConf(conf) }
+func GetConf() *SinkConfiguration                         { return servicesCache.getConf() }
+func GetSystemSender() send.Sender                        { return servicesCache.sysSender }
+func SetSystemSender(s *send.Sender)                      { servicesCache.setSeystemEventLog(s) }
+func GetLogger() grip.Journaler                           { return servicesCache.getLogger() }
 func SetDriverOpts(name string, opts driver.MongoDBOptions) error {
 	return servicesCache.setDriverOpts(name, opts)
 }
-
-func SetMgoSession(s *mgo.Session) error                  { return servicesCache.setMgoSession(s) }
-func GetMgoSession() (*mgo.Session, *mgo.Database, error) { return servicesCache.getMgoSession() }
-
-func SetConf(conf *SinkConfiguration) { servicesCache.setConf(conf) }
-func GetConf() *SinkConfiguration     { return servicesCache.getConf() }
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -49,6 +51,8 @@ type appServicesCache struct {
 	driverOpts      driver.MongoDBOptions
 	session         *mgo.Session
 	conf            *SinkConfiguration
+	sysSender       send.Sender
+	logger          grip.Journaler
 
 	mutex sync.RWMutex
 }
@@ -142,4 +146,27 @@ func (c *appServicesCache) getConf() *SinkConfiguration {
 	out = *c.conf
 
 	return &out
+}
+
+func (c *appServicesCache) setSeystemEventLog(s send.Sender) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.sysSender = s
+	c.logger = logging.NewGrip("sink")
+	return errors.WithStack(c.loger.SetSender(s))
+}
+
+func (c *appServicesCache) getSystemEventLog() send.Sender {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.sysSender
+}
+
+func (c *appServicesCache) getLogger() grip.Journaler {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.logger
 }
