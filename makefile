@@ -166,6 +166,9 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/pmezard/
 	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/urfave/cli/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
+	git checkout vendor/github.com/mongodb/amboy/makefile
+	git checkout vendor/github.com/mongodb/curator/makefile
+	git checkout vendor/github.com/mongodb/curator/vendor/github.com/tychoish/lru/makefile
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 change-go-version:
 	rm -rf $(buildDir)/make-vendor $(buildDir)/render-gopath
