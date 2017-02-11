@@ -49,9 +49,7 @@ func NewEvent(m message.Composer) *Event {
 	}
 }
 
-func (e *Event) Insert() error {
-	return db.Insert(eventCollection, e)
-}
+func (e *Event) Insert() error { return db.Insert(eventCollection, e) }
 
 type Events struct {
 	slice     []Event
@@ -82,18 +80,12 @@ func (e *Events) FindLevel(level string, limit int) error {
 //
 // Implementation of send.Sender
 
-type mongoDBSender struct {
-	*send.Base
-}
+type mongoDBSender struct{ *send.Base }
 
-func MakeDBSender() (send.Sender, error) {
-	return NewDBSender("")
-}
+func MakeDBSender() (send.Sender, error) { return NewDBSender("") }
 
 func NewDBSender(name string) (send.Sender, error) {
-	s := &mongoDBSender{
-		Base: send.NewBase(name),
-	}
+	s := &mongoDBSender{send.NewBase(name)}
 
 	err := s.SetErrorHandler(send.ErrorHandlerFromSender(grip.GetSender()))
 	if err != nil {
