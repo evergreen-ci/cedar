@@ -68,5 +68,9 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 }
 
 func backgroundJobs(ctx context.Context) error {
+	// TODO: develop a specification format, either here or in
+	// amboy so that you can specify a list of amboy.QueueOperation
+	// functions + specific intervals
 
+	return nil
 }

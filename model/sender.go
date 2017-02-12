@@ -30,6 +30,8 @@ type Event struct {
 	Timestamp    time.Time     `bson:"ts" json:"time"`
 	Level        string        `bson:"l" json:"level"`
 	Acknowledged bool          `bson:"ack" json:"acknowledged"`
+
+	populated bool
 }
 
 var (
@@ -60,7 +62,7 @@ func (e *Event) FindID(id string) error {
 	e.ID = oid
 
 	e.populated = false
-	if err := db.FindOne(eventCollection, e, interface{}, []string{}, e); err != nil {
+	if err := db.FindOne(eventCollection, e, bson.M{}, []string{}, e); err != nil {
 		return errors.WithStack(err)
 	}
 	e.populated = false
@@ -70,7 +72,7 @@ func (e *Event) FindID(id string) error {
 
 func (e *Event) Acknowledge() error {
 	e.Acknowledged = true
-	return db.UpdateID(e.ID, e)
+	return db.UpdateID(eventCollection, e.ID, e)
 }
 
 type Events struct {
@@ -82,9 +84,7 @@ func (e *Events) Events() []Event { return e.slice }
 func (e *Events) IsNil() bool     { return e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
-	query := db.Query(bson.M{
-		eventLevelKey: level,
-	})
+	query := db.Query(bson.M{eventLevelKey: level})
 
 	e.populated = false
 	err := db.FindAll(eventCollection, query, nil, []string{eventTimestampKey}, 0, limit, e.slice)
@@ -97,11 +97,11 @@ func (e *Events) FindLevel(level string, limit int) error {
 }
 
 func (e *Events) CountLevel(level string) (int, error) {
-	return db.Query(bson.M{eventLevelKey: level}).Count()
+	return db.Query(bson.M{eventLevelKey: level}).Count(eventCollection)
 }
 
 func (e *Events) Count() (int, error) {
-	return db.Query(bson.M{}).Count()
+	return db.Query(bson.M{}).Count(eventCollection)
 }
 
 // TODO add count method to events

@@ -34,7 +34,7 @@ func GetMgoSession() (*mgo.Session, *mgo.Database, error) { return servicesCache
 func SetConf(conf *SinkConfiguration)                     { servicesCache.setConf(conf) }
 func GetConf() *SinkConfiguration                         { return servicesCache.getConf() }
 func GetSystemSender() send.Sender                        { return servicesCache.sysSender }
-func SetSystemSender(s *send.Sender)                      { servicesCache.setSeystemEventLog(s) }
+func SetSystemSender(s send.Sender)                       { servicesCache.setSeystemEventLog(s) }
 func GetLogger() grip.Journaler                           { return servicesCache.getLogger() }
 func SetDriverOpts(name string, opts driver.MongoDBOptions) error {
 	return servicesCache.setDriverOpts(name, opts)
@@ -154,7 +154,7 @@ func (c *appServicesCache) setSeystemEventLog(s send.Sender) error {
 
 	c.sysSender = s
 	c.logger = logging.NewGrip("sink")
-	return errors.WithStack(c.loger.SetSender(s))
+	return errors.WithStack(c.logger.SetSender(s))
 }
 
 func (c *appServicesCache) getSystemEventLog() send.Sender {

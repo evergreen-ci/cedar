@@ -61,8 +61,8 @@ func Update(collection string, query, update interface{}) error {
 	return errors.WithStack(db.C(collection).Update(query, update))
 }
 
-// UpdateId updates one _id-matching document in the collection.
-func UpdateId(collection string, id, update interface{}) error {
+// UpdateID updates one _id-matching document in the collection.
+func UpdateID(collection string, id, update interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		return errors.Wrap(err, "problem getting session")

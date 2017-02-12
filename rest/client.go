@@ -258,7 +258,7 @@ func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (
 
 func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventResponse, error) {
 	url := c.getURL("/v1/status/events/" + id)
-	out := &SystemEventsResponse{}
+	out := &SystemEventResponse{}
 	grip.Debugln("GET", url)
 
 	resp, err := ctxhttp.Get(ctx, c.client, url)
@@ -275,12 +275,12 @@ func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventRes
 	return out, nil
 }
 
-func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (SystemEventResponse, error) {
+func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*SystemEventResponse, error) {
 	url := c.getURL(fmt.Sprintf("/v1/status/events/%s/acknowledge", id))
-	out := &SystemEventsResponse{}
+	out := &SystemEventResponse{}
 	grip.Debugln("POST", url)
 
-	resp, err := ctxhttp.POST(ctx, c.client, url)
+	resp, err := ctxhttp.Post(ctx, c.client, url, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem with request")
 	}

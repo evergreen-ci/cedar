@@ -55,7 +55,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 
 	if l == "" {
 		resp.Err = "no level specified"
-		grip.WriteErrorJSON(w, resp)
+		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
 
@@ -64,11 +64,11 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	resp.Level = l
 
-	limitArg := r.URL.Query()["limit"]
+	limitArg := r.URL.Query()["limit"][0]
 	limit, err := strconv.Atoi(limitArg)
 	if err != nil {
 		resp.Err = fmt.Sprintf("%s is not a valid limit [%s]", limitArg, err.Error())
-		grip.WriteErrorJSON(w, resp)
+		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
 
@@ -76,12 +76,17 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	err = e.FindLevel(l, limit)
 	if err != nil {
 		resp.Err = "problem running query for events"
-		gimlet.WriteInternalErrorJSON(w, resp)
+		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
 
 	resp.Events = e.Events()
-	resp.Total = e.CountLevel(l)
+	resp.Total, err = e.CountLevel(l)
+	if err != nil {
+		resp.Err = fmt.Sprintf("problem fetching errors: %+v", err)
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
 	resp.Count = len(resp.Events)
 	gimlet.WriteJSON(w, resp)
 }
@@ -109,7 +114,7 @@ func (s *Service) getSystembEvent(w http.ResponseWriter, r *http.Request) {
 	event := &model.Event{}
 	if err := event.FindID(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteIErrorJSON(w, resp)
+		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
 
@@ -136,14 +141,14 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	event := &model.Event{}
 	if err := event.FindID(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteIErrorJSON(w, resp)
+		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
-	resp.Event = resp
+	resp.Event = event
 
 	if err := event.Acknowledge(); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteIErrorJSON(w, resp)
+		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
 

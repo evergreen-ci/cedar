@@ -186,7 +186,7 @@ func getSystemStatusEvents() cli.Command {
 				Name:  "level",
 				Usage: "specify a filter to a level for messages",
 			},
-			cli.Intflag{
+			cli.IntFlag{
 				Name:  "limit",
 				Usage: "specify a number of messages to retrieve, defaults to no limit",
 				Value: -1,
@@ -231,7 +231,7 @@ func systemEvent() cli.Command {
 				Usage: "acknowledge the alert when specified",
 			},
 		},
-		Action: func(c *cli.Context) {
+		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
 			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
