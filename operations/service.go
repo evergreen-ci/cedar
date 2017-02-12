@@ -37,6 +37,10 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
+			if err := backgroundJobs(ctx); err != nil {
+				return errors.Wrap(err, "problem starting background jobs")
+			}
+
 			service := &rest.Service{
 				Port: c.Int("port"),
 			}

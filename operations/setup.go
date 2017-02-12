@@ -1,6 +1,9 @@
 package operations
 
 import (
+	"time"
+
+	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
@@ -8,6 +11,7 @@ import (
 	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
+	"github.com/tychoish/sink/units"
 	"golang.org/x/net/context"
 	mgo "gopkg.in/mgo.v2"
 )
@@ -71,6 +75,28 @@ func backgroundJobs(ctx context.Context) error {
 	// TODO: develop a specification format, either here or in
 	// amboy so that you can specify a list of amboy.QueueOperation
 	// functions + specific intervals
+	//
+	// In the mean time, we'll just register intervals here, and
+	// hard code the configuration
+
+	q, err := sink.GetQueue()
+	if err != nil {
+		return errors.Wrap(err, "problem fetching queue")
+	}
+
+	// This isn't how we'd do this in the long term, but I want to
+	// have one job running on an interval
+	var count int
+	amboy.PeriodicQueueOperation(ctx, q, func(cue amboy.Queue) error {
+		name := "periodic-poc"
+		count++
+		j := units.NewHelloWorldJob(name)
+		err = cue.Put(j)
+		grip.Error(message.NewErrorWrap(err,
+			"problem scheduling job %s (count: %d)", name, count))
+
+		return err
+	}, time.Minute, true)
 
 	return nil
 }
