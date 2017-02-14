@@ -4,7 +4,7 @@ imports:
 - name: github.com/urfave/cli
   version: 01857ac33766ce0c93856370626f9799281c14f4
 - name: github.com/mongodb/amboy
-  version: 938bebe264fbb5d8522ab0bdb776bc54096d3f5e
+  version: e92b16a4cd54e09e0717fd7cf83eaddbb8253672
 - name: github.com/tychoish/grip
   version: 1301610ab12d347125302a422b39fcaefc46d8bb
 
