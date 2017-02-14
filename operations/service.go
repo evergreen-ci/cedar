@@ -8,6 +8,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Service returns the ./sink client sub-command object, which is
+// responsible for starting the service.
 func Service() cli.Command {
 	return cli.Command{
 		Name:  "service",

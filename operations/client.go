@@ -14,6 +14,9 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Client returns the entry point for the ./sink client sub-command,
+// which itself hosts a number of sub-commands. This client relies on
+// an accessible sink service.
 func Client() cli.Command {
 	return cli.Command{
 		Name:  "client",

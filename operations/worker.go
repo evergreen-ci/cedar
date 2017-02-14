@@ -12,6 +12,9 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Worker returns the ./sink worker command, which is responsible for
+// starting a sink service that does *not* host the REST API, and only
+// processes jobs from the queue.
 func Worker() cli.Command {
 	return cli.Command{
 		Name: "worker",
