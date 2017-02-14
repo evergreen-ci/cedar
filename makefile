@@ -13,7 +13,7 @@ projectPath := $(orgPath)/$(name)
 #   vendorize all of these dependencies.
 lintDeps := github.com/alecthomas/gometalinter
 #   include test files and give linters 40s to run to avoid timeouts
-lintArgs := --tests --deadline=1m --vendor --concurrency=4
+lintArgs := --tests --deadline=14m --vendor --concurrency=3
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
 lintArgs += --disable="gotype" --disable="gas"
@@ -36,6 +36,8 @@ lintArgs += --exclude="warning: package comment should be of the form \"Package 
 #   known issues that the linter picks up that are not relevant in our cases
 lintArgs += --exclude="file is not goimported" # top-level mains aren't imported
 lintArgs += --exclude="error return value not checked .defer.*"
+lintArgs += --exclude="\w+Key is unused.*"
+lintArgs += --exclude="unused global variable \w+Key"
 # end linting configuration
 
 

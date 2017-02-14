@@ -56,6 +56,7 @@ func (s *ClientSuite) SetupSuite() {
 	s.NoError(err)
 	s.server = httptest.NewServer(router)
 	session, err := mgo.Dial("mongodb://localhost:27017")
+	require.NoError(err)
 	require.NoError(sink.SetMgoSession(session))
 
 	portStart := strings.LastIndex(s.server.URL, ":")

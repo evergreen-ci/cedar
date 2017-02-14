@@ -59,5 +59,4 @@ func Service() cli.Command {
 			return nil
 		},
 	}
-
 }

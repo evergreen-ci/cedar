@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/amboy/queue/driver"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -53,24 +52,4 @@ func (s *ServiceCacheSuite) TestQueueGetterRetrivesQueue() {
 	s.NotNil(q)
 	s.NoError(err)
 	s.Equal(retrieved, q)
-}
-
-func (s *ServiceCacheSuite) TestDriverOptionsSetter() {
-	nilOpts := driver.MongoDBOptions{}
-	opts := driver.MongoDBOptions{
-		URI: "mongodb://foo",
-		DB:  "dbname",
-	}
-
-	s.Equal("", s.cache.driverQueueName)
-	s.Equal(nilOpts, s.cache.driverOpts)
-
-	s.Error(s.cache.setDriverOpts("foo", nilOpts))
-	s.Equal(nilOpts, s.cache.driverOpts)
-
-	s.Error(s.cache.setDriverOpts("", opts))
-	s.Equal(nilOpts, s.cache.driverOpts)
-
-	s.NoError(s.cache.setDriverOpts("foo", opts))
-	s.Equal(opts, s.cache.driverOpts)
 }

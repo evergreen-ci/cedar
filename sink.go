@@ -1,10 +1,23 @@
+/*
+Package sink holds a a number of application level constants and
+shared resources for the sink application.
+
+Services Cache
+
+The sink package maintains a public interface to a shared cache of
+interfaces and services for use in building tools within sink. The
+sink package has no dependencies to any sub-packages, and all methods
+in the public interface are thread safe.
+
+In practice these values are set in the operations package. See
+sink/operations/setup.go for details.
+*/
 package sink
 
 import (
 	"sync"
 
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/queue/driver"
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/logging"
@@ -12,11 +25,14 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
+// Sink defines a number of application level constants used
+// throughout the application.
 const (
 	QueueName = "queue"
 )
 
-// Should be specified with -ldflags at build time
+// BuildRevision stores the commit in the git repository at build time
+// and is specified with -ldflags at build time
 var BuildRevision = ""
 
 var servicesCache *appServicesCache
@@ -27,32 +43,61 @@ func init() {
 	}
 }
 
-func SetQueue(q amboy.Queue) error                        { return servicesCache.setQueue(q) }
-func GetQueue() (amboy.Queue, error)                      { return servicesCache.getQueue() }
-func SetMgoSession(s *mgo.Session) error                  { return servicesCache.setMgoSession(s) }
+// SetQueue configures the global application cache's shared queue.
+func SetQueue(q amboy.Queue) error { return servicesCache.setQueue(q) }
+
+// GetQueue retrieves the application's shared queue, which is cache
+// for easy access from within units or inside of requests or command
+// line operations
+func GetQueue() (amboy.Queue, error) { return servicesCache.getQueue() }
+
+// SetMgoSession set's the application's mgo session for later use in
+// conjunction with GetMgoSession by models and work units.
+func SetMgoSession(s *mgo.Session) error { return servicesCache.setMgoSession(s) }
+
+// GetMgoSession returns a copy of the session, a database, and an
+// error for use in a local operation. Callers should be sure to close
+// the session when their operation is complete; typically by using a
+// "defer session.Closed()" operation.
 func GetMgoSession() (*mgo.Session, *mgo.Database, error) { return servicesCache.getMgoSession() }
-func SetConf(conf *SinkConfiguration)                     { servicesCache.setConf(conf) }
-func GetConf() *SinkConfiguration                         { return servicesCache.getConf() }
-func GetSystemSender() send.Sender                        { return servicesCache.sysSender }
-func SetSystemSender(s send.Sender)                       { servicesCache.setSeystemEventLog(s) }
-func GetLogger() grip.Journaler                           { return servicesCache.getLogger() }
-func SetDriverOpts(name string, opts driver.MongoDBOptions) error {
-	return servicesCache.setDriverOpts(name, opts)
-}
+
+// SetConf register's the application configuration, replacing an
+// existing configuration as needed.
+func SetConf(conf *Configuration) { servicesCache.setConf(conf) }
+
+// GetConf returns a copy of the global configuration object. Even
+// though the method returns a pointer, the underlying data is copied.
+func GetConf() *Configuration { return servicesCache.getConf() }
+
+// GetSystemSender returns a grip/send.Sender interface for use when
+// logging system events. When extending sink, you should generally log
+// messages using the default grip interface; however, the system
+// event Sender and logger are available to log events to the database
+// or other services for more critical issues encoutered during offline
+// processing. In typical configurations these events are logged to
+// the database and exposed via a rest endpoint.
+func GetSystemSender() send.Sender { return servicesCache.sysSender }
+
+// SetSystemSender configures the system logger.
+func SetSystemSender(s send.Sender) error { return servicesCache.setSeystemEventLog(s) }
+
+// GetLogger returns a compatible grip.Jounaler interface for use in
+// logging offline issues to the database.
+func GetLogger() grip.Journaler { return servicesCache.getLogger() }
 
 ////////////////////////////////////////////////////////////////////////
 //
 // internal implementation of the cache
 
+// see the documentation for the corresponding global methods for
+
 type appServicesCache struct {
-	name            string
-	queue           amboy.Queue
-	driverQueueName string
-	driverOpts      driver.MongoDBOptions
-	session         *mgo.Session
-	conf            *SinkConfiguration
-	sysSender       send.Sender
-	logger          grip.Journaler
+	name      string
+	queue     amboy.Queue
+	session   *mgo.Session
+	conf      *Configuration
+	sysSender send.Sender
+	logger    grip.Journaler
 
 	mutex sync.RWMutex
 }
@@ -83,18 +128,6 @@ func (c *appServicesCache) getQueue() (amboy.Queue, error) {
 	}
 
 	return c.queue, nil
-}
-
-func (c *appServicesCache) setDriverOpts(name string, opts driver.MongoDBOptions) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if opts.URI == "" || opts.DB == "" || name == "" {
-		return errors.Errorf("driver options %+v is not valid", opts)
-	}
-
-	c.driverOpts = opts
-	return nil
 }
 
 func (c *appServicesCache) setMgoSession(s *mgo.Session) error {
@@ -130,19 +163,19 @@ func (c *appServicesCache) getMgoSession() (*mgo.Session, *mgo.Database, error) 
 	return s, s.DB(c.conf.DatabaseName), nil
 }
 
-func (c *appServicesCache) setConf(conf *SinkConfiguration) {
+func (c *appServicesCache) setConf(conf *Configuration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.conf = conf
 }
 
-func (c *appServicesCache) getConf() *SinkConfiguration {
+func (c *appServicesCache) getConf() *Configuration {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	// copy the struct
-	out := SinkConfiguration{}
+	out := Configuration{}
 	out = *c.conf
 
 	return &out

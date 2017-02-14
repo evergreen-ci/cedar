@@ -1,6 +1,7 @@
 package sink
 
-type SinkConfiguration struct {
+// Configuration defines
+type Configuration struct {
 	BucketName   string
 	DatabaseName string
 }

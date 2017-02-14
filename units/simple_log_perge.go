@@ -75,7 +75,7 @@ func (j *mergeSimpleLogJob) Run() {
 		grip.Infof("no existing record for %s, creating...", j.LogID)
 
 		prototypeLog := &model.LogSegment{}
-		if err := prototypeLog.Find(j.LogID, -1); err != nil {
+		if err = prototypeLog.Find(j.LogID, -1); err != nil {
 			err = errors.Wrapf(err, "problem finding a prototype log for %s", j.LogID)
 			grip.Warning(err)
 			j.AddError(err)
@@ -85,7 +85,7 @@ func (j *mergeSimpleLogJob) Run() {
 		record.Bucket = prototypeLog.Bucket
 		record.KeyName = fmt.Sprintf("simple-log/%s", j.LogID)
 
-		if err := record.Insert(); err != nil {
+		if err = record.Insert(); err != nil {
 			err = errors.Wrap(err, "problem inserting log record document")
 			grip.Warning(err)
 			j.AddError(err)
@@ -98,10 +98,11 @@ func (j *mergeSimpleLogJob) Run() {
 
 	buffer := bytes.NewBuffer([]byte{})
 	segments := logs.LogSegments()
+	var seg []byte
 	for _, log := range segments {
-		seg, err := bucket.Read(log.KeyName)
+		seg, err = bucket.Read(log.KeyName)
 		if err != nil {
-			errors.Wrapf(err, "problem reading segment %s from bucket %s",
+			err = errors.Wrapf(err, "problem reading segment %s from bucket %s",
 				log.KeyName, bucket)
 			grip.Critical(err)
 			j.AddError(err)
@@ -136,7 +137,7 @@ func (j *mergeSimpleLogJob) Run() {
 			continue
 		}
 
-		log.Remove()
+		catcher.Add(log.Remove())
 	}
 	grip.Info(catcher.Resolve())
 

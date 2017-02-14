@@ -6,6 +6,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// Insert inserts a document into a collection.
 func Insert(collection string, item interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
@@ -89,6 +90,8 @@ func FindAll(coll string, query, proj interface{}, sort []string, skip, limit in
 	return errors.WithStack(q.Skip(skip).Limit(limit).All(out))
 }
 
+// RemoveOne removes a single document from a collection that has the
+// specified _id field.
 func RemoveOne(coll string, id interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {

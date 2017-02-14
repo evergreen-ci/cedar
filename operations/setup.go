@@ -17,7 +17,7 @@ import (
 )
 
 func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
-	sink.SetConf(&sink.SinkConfiguration{
+	sink.SetConf(&sink.Configuration{
 		BucketName:   bucket,
 		DatabaseName: dbName,
 	})
@@ -34,10 +34,6 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 			URI:      mongodbURI,
 			DB:       dbName,
 			Priority: true,
-		}
-
-		if err := sink.SetDriverOpts(sink.QueueName, opts); err != nil {
-			return errors.Wrap(err, "problem caching queue driver options")
 		}
 
 		mongoDriver := driver.NewMongoDB(sink.QueueName, opts)
@@ -58,7 +54,7 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to db %s", mongodbURI)
 	}
-	if err := sink.SetMgoSession(session); err != nil {
+	if err = sink.SetMgoSession(session); err != nil {
 		return errors.Wrap(err, "problem caching DB session")
 	}
 
@@ -66,7 +62,10 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	if err != nil {
 		return errors.Wrapf(err, "problem setting system sender")
 	}
-	sink.SetSystemSender(sender)
+
+	if err = sink.SetSystemSender(sender); err != nil {
+		return errors.Wrap(err, "problem setting cached log sender")
+	}
 
 	return nil
 }

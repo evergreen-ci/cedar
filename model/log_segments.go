@@ -118,7 +118,7 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 }
 
 func (l *LogSegments) IsNil() bool               { return l.populated }
-func (l *LogSegments) LogSegments() []LogSegment { return []LogSegment(l.logs) }
+func (l *LogSegments) LogSegments() []LogSegment { return l.logs }
 
 func (l *LogSegment) SetNumberLines(n int) error {
 	// find the log, check the version
