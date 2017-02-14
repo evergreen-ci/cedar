@@ -83,8 +83,15 @@ func (l *LogSegment) Find(logID string, segment int) error {
 	return nil
 }
 
-func (l *LogSegment) IsNil() bool   { return l.populated }
-func (l *LogSegment) Remove() error { return db.RemoveOne(logSegmentsCollection, l.ID) }
+func (l *LogSegment) IsNil() bool { return l.populated }
+
+func (l *LogSegment) Remove() error {
+	query := db.Query(bson.M{
+		logSegmentDocumentIDKey: l.ID,
+	})
+
+	return errors.WithStack(query.RemoveOne(logSegmentsCollection))
+}
 
 ///////////////////////////////////
 //
@@ -129,16 +136,17 @@ func (l *LogSegment) SetNumberLines(n int) error {
 		numLines = bsonutil.GetDottedKeyName(logSegmentMetricsKey, logMetricsNumberLinesKey)
 	)
 
-	return errors.WithStack(db.Update(logSegmentsCollection,
-		bson.M{
-			logSegmentDocumentIDKey: l.ID,
-			modCount:                l.Metadata.Modifications,
+	query := db.Query(bson.M{
+		logSegmentDocumentIDKey: l.ID,
+		modCount:                l.Metadata.Modifications,
+	})
+
+	err := query.Update(logSegmentsCollection, bson.M{
+		"$set": bson.M{
+			modCount: l.Metrics.NumberLines + 1,
+			numLines: l.Metrics.NumberLines,
 		},
-		bson.M{
-			"$set": bson.M{
-				modCount: l.Metrics.NumberLines + 1,
-				numLines: l.Metrics.NumberLines,
-			},
-		},
-	))
+	})
+
+	return errors.WithStack(err)
 }

@@ -20,23 +20,6 @@ func Insert(collection string, item interface{}) error {
 	return errors.WithStack(db.C(collection).Insert(item))
 }
 
-// FindOne finds one item from the specified collection and unmarshals it into the
-// provided interface, which must be a pointer.
-func FindOne(coll string, query, proj interface{}, sort []string, out interface{}) error {
-	session, db, err := sink.GetMgoSession()
-	if err != nil {
-		return errors.Wrap(err, "problem getting session")
-	}
-	defer session.Close()
-
-	q := db.C(coll).Find(query).Select(proj)
-	if len(sort) != 0 {
-		q = q.Sort(sort...)
-	}
-
-	return errors.WithStack(q.One(out))
-}
-
 // ClearCollections clears all documents from all the specified collections, returning an error
 // immediately if clearing any one of them fails.
 func ClearCollections(collections ...string) error {
@@ -54,17 +37,6 @@ func ClearCollections(collections ...string) error {
 	return nil
 }
 
-// Update updates one matching document in the collection.
-func Update(collection string, query, update interface{}) error {
-	session, db, err := sink.GetMgoSession()
-	if err != nil {
-		return errors.Wrap(err, "problem getting session")
-	}
-	defer session.Close()
-
-	return errors.WithStack(db.C(collection).Update(query, update))
-}
-
 // UpdateID updates one _id-matching document in the collection.
 func UpdateID(collection string, id, update interface{}) error {
 	session, db, err := sink.GetMgoSession()
@@ -76,9 +48,37 @@ func UpdateID(collection string, id, update interface{}) error {
 	return errors.WithStack(db.C(collection).UpdateId(id, update))
 }
 
-// FindAll finds the items from the specified collection and unmarshals them into the
+// findOne finds one item from the specified collection and unmarshals it into the
+// provided interface, which must be a pointer.
+func findOne(coll string, query, proj interface{}, sort []string, out interface{}) error {
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return errors.Wrap(err, "problem getting session")
+	}
+	defer session.Close()
+
+	q := db.C(coll).Find(query).Select(proj)
+	if len(sort) != 0 {
+		q = q.Sort(sort...)
+	}
+
+	return errors.WithStack(q.One(out))
+}
+
+// runUpdate updates one matching document in the collection.
+func runUpdate(collection string, query, update interface{}) error {
+	session, db, err := sink.GetMgoSession()
+	if err != nil {
+		return errors.Wrap(err, "problem getting session")
+	}
+	defer session.Close()
+
+	return errors.WithStack(db.C(collection).Update(query, update))
+}
+
+// findAll finds the items from the specified collection and unmarshals them into the
 // provided interface, which must be a slice.
-func FindAll(coll string, query, proj interface{}, sort []string, skip, limit int, out interface{}) error {
+func findAll(coll string, query, proj interface{}, sort []string, skip, limit int, out interface{}) error {
 
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
@@ -93,21 +93,19 @@ func FindAll(coll string, query, proj interface{}, sort []string, skip, limit in
 	return errors.WithStack(q.Skip(skip).Limit(limit).All(out))
 }
 
-// RemoveOne removes a single document from a collection that has the
-// specified _id field.
-func RemoveOne(coll string, id interface{}) error {
+// removeOne removes a single document from a collection.
+func removeOne(coll string, query interface{}) error {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
 		return errors.Wrap(err, "problem getting session")
 	}
 	defer session.Close()
 
-	return errors.WithStack(db.C(coll).Remove(bson.M{"_id": id}))
-
+	return errors.WithStack(db.C(coll).Remove(query))
 }
 
-// Count run a count command with the specified query against the collection.f
-func Count(collection string, query interface{}) (int, error) {
+// count run a count command with the specified query against the collection.f
+func count(collection string, query interface{}) (int, error) {
 	session, db, err := sink.GetMgoSession()
 
 	if err != nil {

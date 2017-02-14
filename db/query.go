@@ -1,5 +1,7 @@
 package db
 
+import "github.com/pkg/errors"
+
 // Q holds all information necessary to execute a query
 type Q struct {
 	filter     interface{} // should be bson.D or bson.M
@@ -61,18 +63,18 @@ func (q *Q) Limit(limit int) *Q {
 // FindOne runs a Q query against the given collection, applying the results to "out."
 // Only reads one document from the DB.
 func (q *Q) FindOne(collection string, out interface{}) error {
-	return FindOne(
+	return errors.WithStack(findOne(
 		collection,
 		q.filter,
 		q.projection,
 		q.sort,
 		out,
-	)
+	))
 }
 
 // FindAll runs a Q query against the given collection, applying the results to "out."
 func (q *Q) FindAll(collection string, out interface{}) error {
-	return FindAll(
+	return errors.WithStack(findAll(
 		collection,
 		q.filter,
 		q.projection,
@@ -80,10 +82,21 @@ func (q *Q) FindAll(collection string, out interface{}) error {
 		q.skip,
 		q.limit,
 		out,
-	)
+	))
+}
+
+func (q *Q) Update(coll string, update interface{}) error {
+	return errors.WithStack(runUpdate(coll, q.filter, update))
 }
 
 // Count runs a Q count query against the given collection.
 func (q *Q) Count(collection string) (int, error) {
-	return Count(collection, q.filter)
+	count, err := count(collection, q.filter)
+	err = errors.WithStack(err)
+
+	return count, err
+}
+
+func (q *Q) RemoveOne(collection string) error {
+	return errors.WithStack(removeOne(collection, q.filter))
 }
