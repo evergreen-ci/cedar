@@ -35,12 +35,13 @@ func helloWorldJobFactory() amboy.Job {
 
 func NewHelloWorldJob(name string) amboy.Job {
 	j := helloWorldJobFactory().(*helloWorldJob)
-	j.SetID(fmt.Sprintf("%s-%d-%s-%s", j.Type().Name, job.GetNumber(), time.Now(), name))
+	j.SetID(fmt.Sprintf("%s-%d-%s-%s", j.Type().Name, job.GetNumber(),
+		time.Now().Format("2006-01-02::15.04.05"), name))
 	j.TaskID = name
 	return j
 }
 
 func (j *helloWorldJob) Run() {
 	defer j.MarkComplete()
-	grip.Alertf("hello world job running, now: %s (%s)", j.ID(), j.TaskID)
+	grip.Alertln("hello world job running, now:", j.ID())
 }
