@@ -35,6 +35,7 @@ type Event struct {
 }
 
 var (
+	eventIDKey          = bsonutil.MustHaveTag(Event{}, "ID")
 	eventComponentKey   = bsonutil.MustHaveTag(Event{}, "Component")
 	eventMessageKey     = bsonutil.MustHaveTag(Event{}, "Message")
 	eventPayloadKey     = bsonutil.MustHaveTag(Event{}, "Payload")
@@ -55,17 +56,20 @@ func NewEvent(m message.Composer) *Event {
 }
 
 func (e *Event) IsNil() bool   { return e.populated }
-func (e *Event) Insert() error { return db.Insert(eventCollection, e) }
+func (e *Event) Insert() error { return errors.WithStack(db.Insert(eventCollection, e)) }
 
 func (e *Event) FindID(id string) error {
 	oid := bson.ObjectIdHex(id)
-	e.ID = oid
+
+	query := db.Query(bson.M{
+		eventIDKey: oid,
+	})
 
 	e.populated = false
-	if err := db.FindOne(eventCollection, e, bson.M{}, []string{}, e); err != nil {
+	if err := query.FindOne(eventCollection, e); err != nil {
 		return errors.WithStack(err)
 	}
-	e.populated = false
+	e.populated = true
 
 	return nil
 }
@@ -76,19 +80,22 @@ func (e *Event) Acknowledge() error {
 }
 
 type Events struct {
-	slice     []Event
+	slice     []*Event
 	populated bool
 }
 
-func (e *Events) Events() []Event { return e.slice }
+func (e *Events) Slice() []*Event { return e.slice }
 func (e *Events) IsNil() bool     { return e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
-	query := db.Query(bson.M{eventLevelKey: level})
+	query := db.Query(bson.M{eventLevelKey: level}).Sort(eventTimestampKey)
+
+	if limit > 0 {
+		query.Limit(limit)
+	}
 
 	e.populated = false
-	err := db.FindAll(eventCollection, query, nil, []string{eventTimestampKey}, 0, limit, e.slice)
-	if err != nil {
+	if err := query.FindAll(eventCollection, e.slice); err != nil {
 		return errors.WithStack(err)
 	}
 	e.populated = true
@@ -103,8 +110,6 @@ func (e *Events) CountLevel(level string) (int, error) {
 func (e *Events) Count() (int, error) {
 	return db.Query(bson.M{}).Count(eventCollection)
 }
-
-// TODO add count method to events
 
 ////////////////////////////////////////
 //

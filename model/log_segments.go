@@ -101,7 +101,7 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 	})
 
 	if sorted {
-		query.Sort([]string{"-" + logSegmentSegmentIDKey})
+		query.Sort("-" + logSegmentSegmentIDKey)
 	}
 
 	err := query.FindAll(logSegmentsCollection, l.logs)

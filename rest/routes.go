@@ -42,11 +42,11 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 // GET /status/events/{level}?limit=<int>
 
 type SystemEventsResponse struct {
-	Level  string        `json:"level,omitempty"`
-	Total  int           `json:"total,omitempty"`
-	Count  int           `json:"count,omitempty"`
-	Events []model.Event `json:"events"`
-	Err    string        `json:"error"`
+	Level  string         `json:"level,omitempty"`
+	Total  int            `json:"total,omitempty"`
+	Count  int            `json:"count,omitempty"`
+	Events []*model.Event `json:"events"`
+	Err    string         `json:"error"`
 }
 
 func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +80,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Events = e.Events()
+	resp.Events = e.Slice()
 	resp.Total, err = e.CountLevel(l)
 	if err != nil {
 		resp.Err = fmt.Sprintf("problem fetching errors: %+v", err)

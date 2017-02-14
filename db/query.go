@@ -43,7 +43,7 @@ func (q *Q) WithoutFields(fields ...string) *Q {
 	return q
 }
 
-func (q *Q) Sort(sort []string) *Q {
+func (q *Q) Sort(sort ...string) *Q {
 	q.sort = sort
 	return q
 }

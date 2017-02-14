@@ -6,6 +6,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// PROPOSAL: these functions should be private with exposed
+//    functionality via methods on the db.Q type.
+
 // Insert inserts a document into a collection.
 func Insert(collection string, item interface{}) error {
 	session, db, err := sink.GetMgoSession()

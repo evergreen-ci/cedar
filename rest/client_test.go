@@ -14,15 +14,9 @@ import (
 	"github.com/mongodb/amboy/queue"
 	"github.com/stretchr/testify/suite"
 	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/level"
 	"github.com/tychoish/sink"
 	"golang.org/x/net/context"
 )
-
-func init() {
-	grip.SetThreshold(level.Debug)
-
-}
 
 type ClientSuite struct {
 	service *Service
