@@ -294,8 +294,8 @@ func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
 type SystemInformationResponse struct {
 	Error string                `json:"error,omitempty"`
 	Data  []*message.SystemInfo `json:"data"`
-	Total int                   `json:"total"`
-	Limit int                   `json:"limit"`
+	Total int                   `json:"total,omitempty"`
+	Limit int                   `json:"limit,omitempty"`
 }
 
 func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
@@ -306,8 +306,6 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
-
-	var limit int
 
 	startArg := r.FormValue("start")
 	if startArg == "" {
@@ -326,16 +324,15 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 
 	limitArg := r.FormValue("limit")
 	if limitArg != "" {
-		limit, err = strconv.Atoi(limitArg)
+		resp.Limit, err = strconv.Atoi(limitArg)
 		if err != nil {
 			resp.Error = err.Error()
 			gimlet.WriteErrorJSON(w, resp)
 			return
 		}
 	} else {
-		limit = 100
+		resp.Limit = 100
 	}
-	resp.Limit = limit
 
 	end := time.Now()
 	endArg := r.FormValue("end")
@@ -357,7 +354,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	resp.Total = count
 
-	err = out.FindHostnameBetween(host, start, end, limit)
+	err = out.FindHostnameBetween(host, start, end, resp.Limit)
 	if err != nil {
 		resp.Error = fmt.Sprintf("could not retrieve results, %s", err.Error())
 		gimlet.WriteErrorJSON(w, resp)
