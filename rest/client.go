@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/message"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 )
@@ -187,6 +188,10 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 	return out, nil
 }
 
+///////////////////////////////////
+//
+// Simple Log Example Handler
+
 func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increment int) (*SimpleLogInjestionResponse, error) {
 	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logID))
 
@@ -236,6 +241,10 @@ func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogCont
 
 	return out, nil
 }
+
+///////////////////////////////////
+//
+// System Events/Logging
 
 func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (*SystemEventsResponse, error) {
 	url := c.getURL(fmt.Sprintf("/v1/status/events/%s?limit=%d", level, limit))
@@ -292,4 +301,58 @@ func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*System
 	}
 
 	return out, nil
+}
+
+///////////////////////////////////
+//
+// System Information
+
+func (c *Client) SendSystemInfo(info *message.SystemInfo) (*SystemInfoReceivedResponse, error) {
+	payload, err := json.Marshal(info)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem converting json")
+	}
+
+	grip.Debugln("POST", url)
+	resp, err := ctxhttp.Post(ctx, c.client, url, jsonMimeType, bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	out := &SystemInfoRecivedResponse{}
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return nil, errors.Wrap(err, "problem reading system info result")
+	}
+
+	return out, nil
+}
+
+func (c *Client) GetSystemInformation(host string, start, end time.Time, limit int) ([]*message.SystemInfo, error) {
+	url := c.getURL(fmt.Sprintf("/v1/system_info/host/%s?limit=%d", host, limit))
+	if !start.IsZero() {
+		url += fmt.Sprintf("&start=%s", start.Format(time.RFC3339))
+	}
+
+	if !end.IsZero() {
+		url += fmt.Sprintf("&end=%s", end.Format(time.RFC3339))
+	}
+
+	grip.Debugln("GET", url)
+	resp, err := ctxhttp.Get(ctx, c.client, url)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	out := &SystemInformationResponse{}
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return nil, errors.Wrap(err, "problem reading system status result")
+	}
+
+	if out.Error != "" {
+		return nil, errors.Errorf("encountered problem server-side: %s", out.Error)
+	}
+
+	return out.Data, nil
 }

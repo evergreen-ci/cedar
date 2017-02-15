@@ -247,7 +247,7 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 //
 // body: json produced by grip/message.SystemInfo documents
 
-type SystemInfoRecivedResponse struct {
+type SystemInfoReceivedResponse struct {
 	ID        string    `json:"id,omitempty"`
 	Hostname  string    `json:"host,omitempty"`
 	Timestamp time.Time `json:"time,omitempty"`
@@ -255,7 +255,7 @@ type SystemInfoRecivedResponse struct {
 }
 
 func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
-	resp := &SystemInfoRecivedResponse{}
+	resp := &SystemInfoReceivedResponse{}
 	req := message.SystemInfo{}
 	defer r.Body.Close()
 
