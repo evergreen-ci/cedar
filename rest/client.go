@@ -307,12 +307,13 @@ func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*System
 //
 // System Information
 
-func (c *Client) SendSystemInfo(info *message.SystemInfo) (*SystemInfoReceivedResponse, error) {
+func (c *Client) SendSystemInfo(ctx context.Context, info *message.SystemInfo) (*SystemInfoReceivedResponse, error) {
 	payload, err := json.Marshal(info)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem converting json")
 	}
 
+	url := c.getURL("/v1/system_info")
 	grip.Debugln("POST", url)
 	resp, err := ctxhttp.Post(ctx, c.client, url, jsonMimeType, bytes.NewBuffer(payload))
 	if err != nil {
@@ -320,7 +321,7 @@ func (c *Client) SendSystemInfo(info *message.SystemInfo) (*SystemInfoReceivedRe
 	}
 	defer resp.Body.Close()
 
-	out := &SystemInfoRecivedResponse{}
+	out := &SystemInfoReceivedResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem reading system info result")
 	}
@@ -328,7 +329,7 @@ func (c *Client) SendSystemInfo(info *message.SystemInfo) (*SystemInfoReceivedRe
 	return out, nil
 }
 
-func (c *Client) GetSystemInformation(host string, start, end time.Time, limit int) ([]*message.SystemInfo, error) {
+func (c *Client) GetSystemInformation(ctx context.Context, host string, start, end time.Time, limit int) ([]*message.SystemInfo, error) {
 	url := c.getURL(fmt.Sprintf("/v1/system_info/host/%s?limit=%d", host, limit))
 	if !start.IsZero() {
 		url += fmt.Sprintf("&start=%s", start.Format(time.RFC3339))

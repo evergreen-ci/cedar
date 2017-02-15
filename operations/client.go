@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/tychoish/grip"
+	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink/rest"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -39,6 +42,7 @@ func Client() cli.Command {
 			getSimpleLog(),
 			getSystemStatusEvents(),
 			systemEvent(),
+			systemInfo(),
 		},
 	}
 }
@@ -264,8 +268,196 @@ func systemEvent() cli.Command {
 
 			fmt.Println(out)
 			return nil
-
 		},
 	}
 
+}
+
+func systemInfo() cli.Command {
+	return cli.Command{
+		Name:  "sysinfo",
+		Usage: "save and access systems utilization metrics information",
+		Subcommands: []cli.Command{
+			systemInfoSend(),
+			systemInfoImport(),
+			systemInfoGet(),
+		},
+	}
+}
+
+func systemInfoGet() cli.Command {
+	host, _ := os.Hostname()
+
+	return cli.Command{
+		Name:  "get",
+		Usage: "returns system info documents for a host",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "host",
+				Usage: "specify name of host",
+				Value: host,
+			},
+			cli.StringFlag{
+				Name:  "start",
+				Usage: "RFC3339 formatted time. defaults to 24 hours ago",
+				Value: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+			},
+			cli.StringFlag{
+				Name:  "end",
+				Usage: "RFC3339 formatted time. defaults to current",
+				Value: time.Now().Format(time.RFC3339),
+			},
+			cli.IntFlag{
+				Name:  "limit",
+				Usage: "number of results to return. defaults to no limit",
+				Value: -1,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			ctx := context.Background()
+
+			client, err := rest.NewClient(c.Parent().String("host"),
+				c.Parent().Int("port"), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+			catcher := grip.NewCatcher()
+			start, err := time.Parse(time.RFC3339, c.String("start"))
+			catcher.Add(err)
+			end, err := time.Parse(time.RFC3339, c.String("end"))
+			catcher.Add(err)
+			if catcher.HasErrors() {
+				return errors.Wrap(err, "problem pasring dates")
+			}
+
+			msgs, err := client.GetSystemInformation(ctx, c.String("host"), start, end, c.Int("limit"))
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			out, err := pretyJSON(msgs)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			fmt.Println(out)
+			return nil
+		},
+	}
+}
+
+func systemInfoSend() cli.Command {
+	return cli.Command{
+		Name:  "send",
+		Usage: "collects and sends a system information document to the remote service",
+		Action: func(c *cli.Context) error {
+			ctx := context.Background()
+
+			client, err := rest.NewClient(c.Parent().String("host"),
+				c.Parent().Int("port"), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			msg := message.CollectSystemInfo().(*message.SystemInfo)
+
+			resp, err := client.SendSystemInfo(ctx, msg)
+			if err != nil {
+				return errors.Wrap(err, "problem sending system info")
+			}
+
+			grip.Debug(resp)
+			out, err := pretyJSON(resp)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			fmt.Println(out)
+			return nil
+		},
+	}
+
+}
+
+func systemInfoImport() cli.Command {
+	return cli.Command{
+		Name:  "import",
+		Usage: "import system info data from a json file, one line per document",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "file",
+				Usage: "specify the file that holds sysinfo json",
+				Value: "sysinfo.json",
+			},
+		},
+		Action: func(c *cli.Context) error {
+			ctx := context.Background()
+
+			client, err := rest.NewClient(c.Parent().String("host"),
+				c.Parent().Int("port"), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			fn := c.String("file")
+			f, err := os.Open(fn)
+			if err != nil {
+				return errors.Wrapf(err, "problem opening file '%s'", fn)
+			}
+			r := bufio.NewReader(f)
+
+			catcher := grip.NewCatcher()
+			var count int
+			var line []byte
+			for {
+				ln, prefix, err := r.ReadLine()
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					return errors.Wrap(err, "problem reading file: "+fn)
+				}
+
+				count++
+				if prefix {
+					line = append(line, ln...)
+					continue
+				}
+
+				if len(line) > 0 {
+					msg := &message.SystemInfo{}
+
+					err := json.Unmarshal(line, msg)
+					if err != nil {
+						catcher.Add(err)
+						continue
+					}
+
+					resp, err := client.SendSystemInfo(ctx, msg)
+					grip.Debugf("%+v", resp)
+					if err != nil {
+						grip.Warning(err)
+						grip.Alert(resp.Error)
+						return errors.Wrap(err, "problem sending data")
+					}
+					line = []byte{}
+				}
+
+				msg := &message.SystemInfo{}
+				if err = json.Unmarshal(ln, msg); err != nil {
+					catcher.Add(err)
+					continue
+				}
+
+				resp, err := client.SendSystemInfo(ctx, msg)
+				grip.Debugf("%+v", resp)
+				if err != nil {
+					grip.Warning(err)
+					grip.Alert(resp.Error)
+					return errors.Wrap(err, "problem sending data")
+				}
+			}
+
+			return catcher.Resolve()
+		},
+	}
 }
