@@ -106,7 +106,9 @@ func (sp *parseSimpleLog) Run() {
 
 	sp.numLines = len(sp.Content)
 	// TODO shouldn't this count new line characters rather than characters?
-	if err := l.SetNumberLines(sp.numLines); err != nil {
+	l.Metrics.NumberLines = len(sp.Content)
+
+	if err := l.Save(); err != nil {
 		err = errors.Wrap(err, "problem setting metadata")
 		grip.Warning(err)
 		sp.AddError(err)

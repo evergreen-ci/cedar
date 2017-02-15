@@ -50,15 +50,15 @@ func (i *SystemInformationRecord) FindID(id string) error {
 	return nil
 }
 
-type SystemInformantionRecords struct {
+type SystemInformationRecords struct {
 	slice     []*SystemInformationRecord
 	populated bool
 }
 
-func (i *SystemInformantionRecords) IsNil() bool                       { return i.populated }
-func (i *SystemInformantionRecords) Slice() []*SystemInformationRecord { return i.slice }
+func (i *SystemInformationRecords) IsNil() bool                       { return i.populated }
+func (i *SystemInformationRecords) Slice() []*SystemInformationRecord { return i.slice }
 
-func (i *SystemInformantionRecords) runQuery(query *db.Q) error {
+func (i *SystemInformationRecords) runQuery(query *db.Q) error {
 	i.populated = false
 	if err := query.FindAll(sysInfoCollection, i.slice); err != nil {
 		return errors.WithStack(err)
@@ -68,7 +68,7 @@ func (i *SystemInformantionRecords) runQuery(query *db.Q) error {
 	return nil
 }
 
-func (i *SystemInformantionRecords) FindHostname(host string, limit int) error {
+func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
 	query := db.Query(bson.M{
 		sysInfoHostKey: host,
 	})
@@ -80,7 +80,7 @@ func (i *SystemInformantionRecords) FindHostname(host string, limit int) error {
 	return errors.WithStack(i.runQuery(query))
 }
 
-func (i *SystemInformantionRecords) FindHostnameBetween(host string, before, after time.Time, limit int) error {
+func (i *SystemInformationRecords) FindHostnameBetween(host string, before, after time.Time, limit int) error {
 	query := db.Query(bson.M{
 		sysInfoHostKey: host,
 		sysInfoTimestampKey: bson.M{
@@ -96,7 +96,7 @@ func (i *SystemInformantionRecords) FindHostnameBetween(host string, before, aft
 	return errors.WithStack(i.runQuery(query))
 }
 
-func (i *SystemInformantionRecords) FindBetween(before, after time.Time, limit int) error {
+func (i *SystemInformationRecords) FindBetween(before, after time.Time, limit int) error {
 	query := db.Query(bson.M{
 		sysInfoTimestampKey: bson.M{
 			"$lt": before,
@@ -111,12 +111,23 @@ func (i *SystemInformantionRecords) FindBetween(before, after time.Time, limit i
 	return errors.WithStack(i.runQuery(query))
 }
 
-func (i *SystemInformantionRecords) CountBetween(before, after time.Time) (int, error) {
+func (i *SystemInformationRecords) CountBetween(before, after time.Time) (int, error) {
 	query := db.Query(bson.M{
 		sysInfoTimestampKey: bson.M{
 			"$lt": before,
 			"$gt": after,
 		},
+	})
+
+	c, err := query.Count(sysInfoCollection)
+	err = errors.WithStack(err)
+
+	return c, err
+}
+
+func (i *SystemInformationRecords) CountHostname(host string) (int, error) {
+	query := db.Query(bson.M{
+		sysInfoHostKey: host,
 	})
 
 	c, err := query.Count(sysInfoCollection)

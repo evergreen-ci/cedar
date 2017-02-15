@@ -127,26 +127,8 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 func (l *LogSegments) IsNil() bool               { return l.populated }
 func (l *LogSegments) LogSegments() []LogSegment { return l.logs }
 
-func (l *LogSegment) SetNumberLines(n int) error {
-	// find the log, check the version
-	// modify the log, save it
+func (l *LogSegment) Save() error {
+	query := l.Metadata.IsolatedUpdateQuery(logSegmentMetadataKey, l.ID)
 
-	var (
-		modCount = bsonutil.GetDottedKeyName(logSegmentMetadataKey, metadataModificationKey)
-		numLines = bsonutil.GetDottedKeyName(logSegmentMetricsKey, logMetricsNumberLinesKey)
-	)
-
-	query := db.Query(bson.M{
-		logSegmentDocumentIDKey: l.ID,
-		modCount:                l.Metadata.Modifications,
-	})
-
-	err := query.Update(logSegmentsCollection, bson.M{
-		"$set": bson.M{
-			modCount: l.Metrics.NumberLines + 1,
-			numLines: l.Metrics.NumberLines,
-		},
-	})
-
-	return errors.WithStack(err)
+	return errors.WithStack(query.Update(logSegmentsCollection, l))
 }

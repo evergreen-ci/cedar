@@ -10,6 +10,7 @@ import (
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/level"
+	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
 	"github.com/tychoish/sink/units"
@@ -235,6 +236,136 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 
 	for _, l := range allLogs.LogSegments() {
 		resp.URLS = append(resp.URLS, l.URL)
+	}
+
+	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// POST /system_info/
+//
+// body: json produced by grip/message.SystemInfo documents
+
+type SystemInfoRecivedResponse struct {
+	ID        string    `json:"id,omitempty"`
+	Hostname  string    `json:"host,omitempty"`
+	Timestamp time.Time `json:"time,omitempty"`
+	Error     string    `json:"err,omitempty"`
+}
+
+func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
+	resp := &SystemInfoRecivedResponse{}
+	req := message.SystemInfo{}
+	defer r.Body.Close()
+
+	if err := gimlet.GetJSON(r.Body, &req); err != nil {
+		grip.Error(err)
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	data := &model.SystemInformationRecord{
+		Data:      req,
+		Hostname:  req.Hostname,
+		Timestamp: req.Time,
+	}
+
+	if data.Timestamp.IsZero() {
+		data.Timestamp = time.Now()
+	}
+
+	if err := data.Insert(); err != nil {
+		grip.Error(err)
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	resp.ID = string(data.ID)
+	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /system_info/host/{hostname}?start=[timestamp]<,end=[timestamp],limit=[num]>
+
+type SystemInformationResponse struct {
+	Error string                `json:"error,omitempty"`
+	Data  []*message.SystemInfo `json:"data"`
+	Total int                   `json:"total"`
+	Limit int                   `json:"limit"`
+}
+
+func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
+	resp := &SystemInformationResponse{}
+	host := gimlet.GetVars(r)["host"]
+	if host == "" {
+		resp.Error = "no host specified"
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	var limit int
+
+	startArg := r.FormValue("start")
+	if startArg == "" {
+		resp.Error = "no start time argument"
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	start, err := time.Parse(time.RFC3339, startArg)
+	if err != nil {
+		resp.Error = fmt.Sprintf("could not parse time string '%s' in to RFC3339: %+v",
+			startArg, err.Error())
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	limitArg := r.FormValue("limit")
+	if limitArg != "" {
+		limit, err = strconv.Atoi(limitArg)
+		if err != nil {
+			resp.Error = err.Error()
+			gimlet.WriteErrorJSON(w, resp)
+			return
+		}
+	} else {
+		limit = 100
+	}
+	resp.Limit = limit
+
+	end := time.Now()
+	endArg := r.FormValue("end")
+	if endArg != "" {
+		end, err = time.Parse(time.RFC3339, endArg)
+		if err != nil {
+			resp.Error = err.Error()
+			gimlet.WriteErrorJSON(w, resp)
+			return
+		}
+	}
+
+	out := &model.SystemInformationRecords{}
+	count, err := out.CountHostname(host)
+	if err != nil {
+		resp.Error = fmt.Sprintf("could not count '%s' host: %s", host, err.Error())
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+	resp.Total = count
+
+	err = out.FindHostnameBetween(host, start, end, limit)
+	if err != nil {
+		resp.Error = fmt.Sprintf("could not retrieve results, %s", err.Error())
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	for _, d := range out.Slice() {
+		resp.Data = append(resp.Data, &d.Data)
 	}
 
 	gimlet.WriteJSON(w, resp)
