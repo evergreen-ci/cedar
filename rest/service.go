@@ -73,6 +73,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/status/events/{level}").Version(1).Get().Handler(s.getSystemEvents)
 	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Handler(s.simpleLogInjestion)
 	s.app.AddRoute("/simple_log/{id}").Version(1).Get().Handler(s.simpleLogRetrieval)
+	s.app.AddRoute("/simple_log/{id}/text").Version(1).Get().Handler(s.simpleLogGetText)
 	s.app.AddRoute("/system_info").Version(1).Post().Handler(s.recieveSystemInfo)
 	s.app.AddRoute("/system_info/host/{host}").Version(1).Post().Handler(s.fetchSystemInfo)
 }

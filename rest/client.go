@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -240,6 +241,26 @@ func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogCont
 	}
 
 	return out, nil
+}
+
+func (c *Client) GetSimpleLogText(ctx context.Context, logID string) ([]string, error) {
+	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s/text", logID))
+
+	grip.Debugln("GET", url)
+	resp, err := ctxhttp.Get(ctx, c.client, url)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	var out []string
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		out = append(out, scanner.Text())
+	}
+
+	return out, errors.Wrap(scanner.Err(), "problem reading output")
 }
 
 ///////////////////////////////////

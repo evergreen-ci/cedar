@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/curator/sthree"
 	"github.com/tychoish/gimlet"
 	"github.com/tychoish/grip"
 	"github.com/tychoish/grip/level"
@@ -234,11 +235,41 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, l := range allLogs.LogSegments() {
+	for _, l := range allLogs.Slice() {
 		resp.URLS = append(resp.URLS, l.URL)
 	}
 
 	gimlet.WriteJSON(w, resp)
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /simple_log/{id}/text
+
+func (s *Service) simpleLogGetText(w http.ResponseWriter, r *http.Request) {
+	id := gimlet.GetVars(r)["id"]
+	allLogs := &model.LogSegments{}
+
+	if err := allLogs.Find(id, true); err != nil {
+		gimlet.WriteErrorText(w, err.Error())
+		return
+	}
+
+	var bucket *sthree.Bucket
+	for _, l := range allLogs.Slice() {
+		if bucket.String() != l.Bucket {
+			bucket = sthree.GetBucket(l.Bucket)
+		}
+
+		data, err := bucket.Read(l.KeyName)
+		if err != nil {
+			grip.Warning(err)
+			gimlet.WriteInternalErrorText(w, err.Error())
+			return
+		}
+
+		gimlet.WriteText(w, data)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
