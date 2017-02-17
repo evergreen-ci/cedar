@@ -124,8 +124,8 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 	return nil
 }
 
-func (l *LogSegments) IsNil() bool               { return l.populated }
-func (l *LogSegments) LogSegments() []LogSegment { return l.logs }
+func (l *LogSegments) IsNil() bool         { return l.populated }
+func (l *LogSegments) Slice() []LogSegment { return l.logs }
 
 func (l *LogSegment) Save() error {
 	query := l.Metadata.IsolatedUpdateQuery(logSegmentMetadataKey, l.ID)

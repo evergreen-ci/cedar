@@ -97,7 +97,7 @@ func (j *mergeSimpleLogJob) Run() {
 	bucket := sthree.GetBucket(conf.BucketName)
 
 	buffer := bytes.NewBuffer([]byte{})
-	segments := logs.LogSegments()
+	segments := logs.Slice()
 	var seg []byte
 	for _, log := range segments {
 		seg, err = bucket.Read(log.KeyName)
