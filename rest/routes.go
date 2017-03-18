@@ -8,10 +8,10 @@ import (
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/curator/sthree"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
+	"github.com/mongodb/grip/message"
 	"github.com/tychoish/gimlet"
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/level"
-	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
 	"github.com/tychoish/sink/units"

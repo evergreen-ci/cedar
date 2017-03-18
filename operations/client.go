@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink/rest"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"

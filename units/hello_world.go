@@ -8,7 +8,7 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/tychoish/grip"
+	"github.com/mongodb/grip"
 )
 
 type helloWorldJob struct {

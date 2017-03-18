@@ -18,10 +18,10 @@ import (
 	"sync"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/logging"
+	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/logging"
-	"github.com/tychoish/grip/send"
 	mgo "gopkg.in/mgo.v2"
 )
 

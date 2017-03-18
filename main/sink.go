@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/send"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/send"
 	"github.com/tychoish/sink/operations"
 	"github.com/urfave/cli"
 )

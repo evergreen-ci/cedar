@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/message"
-	"github.com/tychoish/grip/send"
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
 	"gopkg.in/mgo.v2/bson"

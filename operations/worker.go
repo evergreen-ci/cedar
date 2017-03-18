@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"github.com/tychoish/grip"
 	"github.com/tychoish/sink"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"

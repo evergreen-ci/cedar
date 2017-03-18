@@ -6,9 +6,9 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/queue/driver"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink"
 	"github.com/tychoish/sink/model"
 	"github.com/tychoish/sink/units"
@@ -23,7 +23,7 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	})
 
 	if localQueue {
-		q := queue.NewLocalUnordered(numWorkers)
+		q := queue.NewLocalLimitedSize(numWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", numWorkers)
 		if err := sink.SetQueue(q); err != nil {
 			return errors.Wrap(err, "problem configuring queue")

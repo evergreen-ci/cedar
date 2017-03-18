@@ -2,9 +2,9 @@ package rest
 
 import (
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
-	"github.com/tychoish/grip"
 	"github.com/tychoish/sink"
 	"golang.org/x/net/context"
 )

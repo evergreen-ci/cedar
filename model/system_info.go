@@ -3,8 +3,8 @@ package model
 import (
 	"time"
 
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/grip/message"
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
 	"gopkg.in/mgo.v2/bson"
