@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/tychoish/grip"
+	"github.com/mongodb/grip"
 )
 
 // WriteTextResponse writes data to the response body with the given

@@ -4,9 +4,11 @@ imports:
 - name: github.com/urfave/cli
   version: 01857ac33766ce0c93856370626f9799281c14f4
 - name: github.com/mongodb/amboy
-  version: e92b16a4cd54e09e0717fd7cf83eaddbb8253672
-- name: github.com/tychoish/grip
-  version: 1301610ab12d347125302a422b39fcaefc46d8bb
+  version: f87f53adf7868cc55a409b04a178cc52609824e7
+- name: github.com/mongodb/grip
+  version: 07578aa100ecdf0d5a1611e2ef43742ff6c77240
+- name: github.com/mongodb/curator
+  version: 3e528249ffb7c2c7292fdeb8293cd9a5ade58336
 
 - name: github.com/stretchr/objx
   version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
@@ -25,6 +27,3 @@ imports:
   version: f2346dba345d687591d37c3cf98f9ddd4b71d18a
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
-
-- name: github.com/mongodb/curator
-  version: e89ad68b484dcf99606a97f21897733ac1156f8a

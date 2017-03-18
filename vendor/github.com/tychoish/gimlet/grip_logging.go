@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tychoish/grip"
-	"github.com/tychoish/grip/logging"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/logging"
 	"github.com/urfave/negroni"
 )
 
