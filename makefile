@@ -13,14 +13,13 @@ projectPath := $(orgPath)/$(name)
 #   vendorize all of these dependencies.
 lintDeps := github.com/alecthomas/gometalinter
 #   include test files and give linters 40s to run to avoid timeouts
-lintArgs := --tests --deadline=14m --vendor --concurrency=3
+lintArgs := --tests --deadline=14m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
-lintArgs += --disable="gotype" --disable="gas"
+lintArgs += --disable="gotype" --disable="gas" --enable="goimports"
 lintArgs += --skip="build" --skip="buildscripts"
 #   enable and configure additional linters
-lintArgs += --enable="goimports"
-lintArgs += --linter='misspell:misspell ./*.go:PATH:LINE:COL:MESSAGE' --enable=misspell
+lintArgs += 
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
 #   the gotype linter has an imperfect compilation simulator and
 #   produces the following false postive errors:
@@ -54,6 +53,10 @@ coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
 	go get $(subst $(gopath)/src/,,$@)
+$(buildDir)/run-linter:buildscripts/run-linter.go $(buildDir)/.lintSetup
+	$(vendorGopath) go build -o $@ $<
+$(buildDir)/.lintSetup:$(lintDeps)
+	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
 
 
@@ -95,9 +98,7 @@ $(buildDir)/dist-source.tar.gz:$(buildDir)/make-tarball $(srcFiles) $(testSrcFil
 
 
 # userfacing targets for basic build and development operations
-lint:$(lintDeps)
-	@-$(gopath)/bin/gometalinter --install >/dev/null
-	$(gopath)/bin/gometalinter $(lintArgs) ./...
+lint:$(buildDir)/output.lint
 build:$(buildDir)/$(name)
 build-race:$(buildDir)/$(name).race
 test:$(foreach target,$(packages),test-$(target))
@@ -109,9 +110,11 @@ list-tests:
 list-race:
 	@echo -e "test (race detector) targets:" $(foreach target,$(packages),\\n\\trace-$(target))
 phony += lint lint-deps build build-race race test coverage coverage-html list-race list-tests
-.PRECIOUS: $(testOutput) $(raceOutput) $(coverageOutput) $(coverageHtmlOutput)
-.PRECIOUS: $(foreach target,$(packages),$(buildDir)/test.$(target))
-.PRECIOUS: $(foreach target,$(packages),$(buildDir)/race.$(target))
+.PRECIOUS:$(testOutput) $(raceOutput) $(coverageOutput) $(coverageHtmlOutput)
+.PRECIOUS:$(foreach target,$(packages),$(buildDir)/test.$(target))
+.PRECIOUS:$(foreach target,$(packages),$(buildDir)/race.$(target))
+.PRECIOUS:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
+.PRECIOUS:$(buildDir)/output.lint
 # end front-ends
 
 
@@ -125,6 +128,8 @@ coverage-%:$(buildDir)/output.%.coverage
 	@grep -s -q -e "^PASS" $<
 html-coverage-%:$(buildDir)/output.%.coverage.html $(buildDir)/output.%.coverage.html
 	@grep -s -q -e "^PASS" $<
+lint-%:$(buildDir)/output.%.lint
+	@grep -v -s -q "^--- FAIL" $<
 # end convienence targets
 
 
@@ -221,6 +226,11 @@ $(buildDir)/output.%.test:$(buildDir)/test.% .FORCE
 	./$< $(testArgs) 2>&1 | tee $@
 $(buildDir)/output.%.race:$(buildDir)/race.% .FORCE
 	./$< $(testArgs) 2>&1 | tee $@
+#  targets to generate gotest output from the linter.
+$(buildDir)/output.%.lint:$(buildDir)/run-linter $(testSrcFiles) .FORCE
+	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
+$(buildDir)/output.lint:$(buildDir)/run-linter .FORCE
+	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
 #  targets to process and generate coverage reports
 $(buildDir)/output.%.coverage:$(buildDir)/test.% .FORCE
 	./$< $(testTimeout) -test.coverprofile=$@ || true
