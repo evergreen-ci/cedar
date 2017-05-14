@@ -25,6 +25,9 @@ func (s *Service) Validate() error {
 		if err != nil {
 			return errors.Wrap(err, "problem getting queue")
 		}
+		if s.queue == nil {
+			return errors.New("no queue defined")
+		}
 	}
 
 	if s.app == nil {
