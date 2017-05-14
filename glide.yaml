@@ -11,4 +11,5 @@ import:
 - package: github.com/pmezard/go-difflib
 - package: github.com/davecgh/go-spew
 - package: github.com/tychoish/gimlet
+- package: github.com/tychoish/depgraph
 - package: gopkg.in/mgo.v2
