@@ -76,6 +76,7 @@ func (e *Event) FindID(id string) error {
 
 func (e *Event) Acknowledge() error {
 	e.Acknowledged = true
+
 	return db.UpdateID(eventCollection, e.ID, e)
 }
 

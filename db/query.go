@@ -100,3 +100,7 @@ func (q *Q) Count(collection string) (int, error) {
 func (q *Q) RemoveOne(collection string) error {
 	return errors.WithStack(removeOne(collection, q.filter))
 }
+
+func (q *Q) Iter(collection string) ResultsIterator {
+	return iter(collection, q.filter, q.projection, q.sort, q.skip, q.limit)
+}

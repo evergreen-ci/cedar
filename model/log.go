@@ -5,6 +5,7 @@ import (
 	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/db/bsonutil"
 	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const logRecordCollection = "simple.log.records"
@@ -38,8 +39,9 @@ func (l *LogRecord) Insert() error {
 	return errors.WithStack(db.Insert(logRecordCollection, l))
 }
 
-func (l *LogRecord) Find(query *db.Q) error {
-	err := query.FindOne(logRecordCollection, l)
+func (l *LogRecord) Find(id string) error {
+	err := db.Query(bson.M{logRecordIDKey: id}).FindOne(logRecordCollection, l)
+
 	l.populated = false
 	if err == mgo.ErrNotFound {
 		return nil

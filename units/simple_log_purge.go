@@ -13,7 +13,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/db"
 	"github.com/tychoish/sink/model"
 )
 
@@ -69,9 +68,8 @@ func (j *mergeSimpleLogJob) Run() {
 	}
 
 	record := &model.LogRecord{}
-	err = record.Find(db.IDQuery(j.LogID))
 
-	if err != nil {
+	if err = record.Find(j.LogID); err != nil {
 		grip.Infof("no existing record for %s, creating...", j.LogID)
 
 		prototypeLog := &model.LogSegment{}

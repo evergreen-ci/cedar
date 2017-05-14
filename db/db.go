@@ -107,7 +107,6 @@ func removeOne(coll string, query interface{}) error {
 // count run a count command with the specified query against the collection.f
 func count(collection string, query interface{}) (int, error) {
 	session, db, err := sink.GetMgoSession()
-
 	if err != nil {
 		return 0, err
 	}
