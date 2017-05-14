@@ -143,7 +143,7 @@ vendor-deps:$(vendorDeps)
 #   new-style vendor directories. When this codebase can drop support
 #   for go1.4, we can delete most of this.
 -include $(buildDir)/makefile.vendor
-nestedVendored := vendor/github.com/tychoish/grip
+nestedVendored := vendor/github.com/mongodb/grip
 nestedVendored += vendor/github.com/mongodb/amboy
 nestedVendored += vendor/github.com/mongodb/curator
 nestedVendored := $(foreach project,$(nestedVendored),$(project)/build/vendor)
@@ -184,7 +184,7 @@ change-go-version:
 	rm -rf $(buildDir)/make-vendor $(buildDir)/render-gopath
 	@$(MAKE) $(makeArgs) vendor > /dev/null 2>&1
 vendor:$(buildDir)/vendor/src
-	@$(MAKE) $(makeArgs) -C vendor/github.com/tychoish/grip $@
+	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/grip $@
 	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/amboy $@
 	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/curator $@
 $(buildDir)/vendor/src:$(buildDir)/make-vendor $(buildDir)/render-gopath
