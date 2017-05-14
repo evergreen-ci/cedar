@@ -49,7 +49,7 @@ func (l *LogRecord) Find(id string) error {
 	l.populated = true
 
 	if err != nil {
-		return errors.Wrapf(err, "problem running log query %+v", query)
+		return errors.Wrap(err, "problem running log query")
 	}
 
 	return nil

@@ -12,7 +12,7 @@ type ResultsIterator interface {
 func iter(collection string, query interface{}, project interface{}, sort []string, skip, limit int) ResultsIterator {
 	session, db, err := sink.GetMgoSession()
 	if err != nil {
-		return 0, err
+		return nil
 	}
 	defer session.Close()
 
