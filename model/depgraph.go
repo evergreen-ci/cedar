@@ -153,13 +153,14 @@ func (n *GraphNode) Insert() error {
 }
 
 var (
-	graphEdgeIDKey                  = bsonutil.MustHaveTag(GraphEdge{}, "ID")
-	graphEdgeGraphKey               = bsonutil.MustHaveTag(GraphEdge{}, "Graph")
-	graphEdgeTypeKey                = bsonutil.MustHaveTag(GraphEdge{}, "Type")
-	graphEdgeFromNodeKey            = bsonutil.MustHaveTag(GraphEdge{}, "FromNode")
-	graphEdgeToNodeKey              = bsonutil.MustHaveTag(GraphEdge{}, "ToNodes")
-	graphEdgeRelationshipGraphIDKey = bsonutil.MustHaveTag(depgraph.NodeRelationship{}, "GraphID")
-	graphEdgeRelationshipNameKey    = bsonutil.MustHaveTag(depgraph.NodeRelationship{}, "Name")
+	graphEdgeIDKey       = bsonutil.MustHaveTag(GraphEdge{}, "ID")
+	graphEdgeGraphKey    = bsonutil.MustHaveTag(GraphEdge{}, "Graph")
+	graphEdgeTypeKey     = bsonutil.MustHaveTag(GraphEdge{}, "Type")
+	graphEdgeFromNodeKey = bsonutil.MustHaveTag(GraphEdge{}, "FromNode")
+	graphEdgeToNodeKey   = bsonutil.MustHaveTag(GraphEdge{}, "ToNodes")
+
+	graphRelationshipGraphIDKey = bsonutil.MustHaveTag(depgraph.NodeRelationship{}, "GraphID")
+	graphRelationshipNameKey    = bsonutil.MustHaveTag(depgraph.NodeRelationship{}, "Name")
 )
 
 type GraphEdge struct {
