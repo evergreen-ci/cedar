@@ -79,4 +79,11 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/simple_log/{id}/text").Version(1).Get().Handler(s.simpleLogGetText)
 	s.app.AddRoute("/system_info").Version(1).Post().Handler(s.recieveSystemInfo)
 	s.app.AddRoute("/system_info/host/{host}").Version(1).Post().Handler(s.fetchSystemInfo)
+
+	s.app.AddRoute("/depgraph/{id}").Version(1).Post().Handler(s.createDepGraph)
+	s.app.AddRoute("/depgraph/{id}").Version(1).Get().Handler(s.resolveDepGraph)
+	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Post().Handler(s.addDepGraphNodes)
+	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Get().Handler(s.getDepGraphNodes)
+	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Post().Handler(s.addDepGraphEdges)
+	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Get().Handler(s.getDepGraphEdges)
 }

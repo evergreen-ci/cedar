@@ -378,3 +378,7 @@ func (c *Client) GetSystemInformation(ctx context.Context, host string, start, e
 
 	return out.Data, nil
 }
+
+///////////////////////////////////
+//
+// Dependency Graph Info

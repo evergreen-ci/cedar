@@ -398,3 +398,51 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 
 	gimlet.WriteJSON(w, resp)
 }
+
+////////////////////////////////////////////////////////////////////////
+//
+// POST /depgraph/{id}
+
+func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
+
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /depgraph/{id}
+
+func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
+
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// POST /depgraph/{id}/nodes
+
+func (s *Service) addDepGraphNodes(w http.ResponseWriter, r *http.Request) {
+
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /depgraph/{id}/nodes
+
+func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
+
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// POST /depgraph/{id}/edges
+
+func (s *Service) addDepGraphEdges(w http.ResponseWriter, r *http.Request) {
+
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// GET /depgraph/{id}/edges
+
+func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
+
+}
