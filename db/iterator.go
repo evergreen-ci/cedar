@@ -2,6 +2,7 @@ package db
 
 import "github.com/tychoish/sink"
 
+// ResultsIterator
 type ResultsIterator interface {
 	All(interface{}) error
 	Next(interface{}) bool

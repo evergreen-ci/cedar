@@ -95,6 +95,17 @@ func (g *GraphMetadata) GetEdges() <-chan *GraphEdge {
 	return out
 }
 
+func (g *GraphMetadata) AllEdges() ([]*GraphEdge, error) {
+	out := []*GraphEdge{}
+	err := db.Query(bson.M{graphEdgeGraphKey: g.BuildID}).FindAll(depEdgeCollection, out)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return out, nil
+}
+
 func (g *GraphMetadata) GetNodes() <-chan *GraphNode {
 	out := make(chan *GraphEdge)
 
@@ -115,6 +126,17 @@ func (g *GraphMetadata) GetNodes() <-chan *GraphNode {
 	}()
 
 	return out
+}
+
+func (g *GraphMetadata) AllNodes() ([]*GraphNode, error) {
+	out := []*GraphNode{}
+	err := db.Query(bson.M{graphNodeGraphNameKey: g.BuildID}).Iter(depNodeCollection)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return out, nil
 }
 
 var (

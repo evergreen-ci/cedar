@@ -403,16 +403,71 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 //
 // POST /depgraph/{id}
 
-func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
+type createDepGraphResponse struct {
+	Error   string `json:"error,omitempty"`
+	ID      string `json:"id,omitempty"`
+	Created bool   `json:"created"`
+}
 
+func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
+	resp := createDepGraphResponse{}
+	id := mux.Vars(r)["id"]
+	g := &model.GraphMetadata{}
+	g.Find(id)
+	if g.IsNil() {
+		g.BuildID = id
+		if err := g.Insert(); err != nil {
+			resp.Error = err.Error()
+			gimlet.WriteErrorJSON(w, resp)
+			return
+		}
+		resp.Created = true
+	}
+
+	resp.ID = g.BuildID
+	gimlet.WriteJSON(w, resp)
 }
 
 ////////////////////////////////////////////////////////////////////////
 //
 // GET /depgraph/{id}
 
-func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
+type depGraphResolvedRespose struct {
+	Nodes []*model.GraphNode `json:"nodes"`
+	Edges []*model.GraphEdge `json:"edges"`
+	Error string             `json:"error,omitempty"`
+	ID    string             `json:"id"`
+}
 
+func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	resp := depGraphResolvedRespose{ID: id}
+	g := &model.GraphMetadata{}
+
+	if err := g.Find(id); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	catcher := grip.NewCatcher()
+
+	nodes, err := g.AllNodes()
+	catcher.Add(err)
+
+	edges, err := g.AllEdges()
+	catcher.Add(err)
+
+	if catcher.HasErrors() {
+		resp.Error = catcher.Resolve()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	resp.Edges = edges
+	resp.Nodes = nodes
+
+	gimlet.WriteJSON(w, resp)
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -420,15 +475,38 @@ func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
 // POST /depgraph/{id}/nodes
 
 func (s *Service) addDepGraphNodes(w http.ResponseWriter, r *http.Request) {
-
 }
 
 ////////////////////////////////////////////////////////////////////////
 //
 // GET /depgraph/{id}/nodes
 
-func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
+type depGraphNodesRespose struct {
+	Nodes []*model.GraphNode `json:"nodes"`
+	Error string             `json:"error,omitempty"`
+	ID    string             `json:"id"`
+}
 
+func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	resp := depGraphNodesRespose{ID: id}
+	g := &model.GraphMetadata{}
+
+	if err := g.Find(id); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	nodes, err := g.AllNodes()
+	if err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	resp.Nodes = nodes
+	gimlet.WriteJSON(w, resp)
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -443,6 +521,30 @@ func (s *Service) addDepGraphEdges(w http.ResponseWriter, r *http.Request) {
 //
 // GET /depgraph/{id}/edges
 
-func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
+type depGraphEdgesRespose struct {
+	Edges []*model.GraphEdge `json:"edges"`
+	Error string             `json:"error,omitempty"`
+	ID    string             `json:"id"`
+}
 
+func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	resp := depGraphEdgesRespose{ID: id}
+	g := &model.GraphMetadata{}
+
+	if err := g.Find(id); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	edges, err := g.AllEdges()
+	if err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
+	resp.Edges = edges
+	gimlet.WriteJSON(w, resp)
 }
