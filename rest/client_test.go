@@ -11,10 +11,10 @@ import (
 
 	mgo "gopkg.in/mgo.v2"
 
+	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"github.com/tychoish/sink"
 	"golang.org/x/net/context"
 )
 

@@ -63,14 +63,14 @@ $(buildDir)/.lintSetup:$(lintDeps)
 # implementation details for building the binary and creating a
 # convienent link in the working directory
 define crossCompile
-	@$(vendorGopath) ./$(buildDir)/build-cross-compile -buildName=$* -ldflags="-X=github.com/tychoish/sink.BuildRevision=`git rev-parse HEAD`" -goBinary="`which go`" -output=$@
+	@$(vendorGopath) ./$(buildDir)/build-cross-compile -buildName=$* -ldflags="-X=github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -goBinary="`which go`" -output=$@
 endef
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	$(vendorGopath) go build -ldflags "-X github.com/tychoish/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
+	$(vendorGopath) go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
 $(buildDir)/$(name).race:$(srcFiles)
-	$(vendorGopath) go build -race -ldflags "-X github.com/tychoish/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
+	$(vendorGopath) go build -race -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
 # end dependency installation tools
 
 

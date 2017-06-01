@@ -1,9 +1,9 @@
 package model
 
 import (
+	"github.com/evergreen-ci/sink/db"
+	"github.com/evergreen-ci/sink/db/bsonutil"
 	"github.com/pkg/errors"
-	"github.com/tychoish/sink/db"
-	"github.com/tychoish/sink/db/bsonutil"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )

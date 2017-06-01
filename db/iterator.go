@@ -1,6 +1,6 @@
 package db
 
-import "github.com/tychoish/sink"
+import "github.com/evergreen-ci/sink"
 
 // ResultsIterator
 type ResultsIterator interface {

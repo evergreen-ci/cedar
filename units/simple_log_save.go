@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -13,8 +15,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/model"
 )
 
 const (

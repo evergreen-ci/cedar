@@ -1,8 +1,8 @@
 package db
 
 import (
+	"github.com/evergreen-ci/sink"
 	"github.com/pkg/errors"
-	"github.com/tychoish/sink"
 	"gopkg.in/mgo.v2/bson"
 )
 

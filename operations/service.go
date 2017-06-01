@@ -1,9 +1,9 @@
 package operations
 
 import (
+	"github.com/evergreen-ci/sink/rest"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"github.com/tychoish/sink/rest"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
 )

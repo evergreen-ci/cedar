@@ -1,11 +1,11 @@
 package rest
 
 import (
+	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
-	"github.com/tychoish/sink"
 	"golang.org/x/net/context"
 )
 

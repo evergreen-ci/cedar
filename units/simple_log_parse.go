@@ -3,13 +3,13 @@ package units
 import (
 	"strings"
 
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"github.com/tychoish/sink/model"
 )
 
 const (

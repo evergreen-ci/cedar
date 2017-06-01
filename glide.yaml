@@ -1,4 +1,4 @@
-package: github.com/tychoish/sink
+package: github.com/evergreen-ci/sink
 import:
 - package: github.com/urfave/cli
   version: ^1.17.0

@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
+	"github.com/evergreen-ci/sink/operations"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/send"
-	"github.com/tychoish/sink/operations"
 	"github.com/urfave/cli"
 )
 

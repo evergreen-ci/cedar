@@ -3,15 +3,15 @@ package operations
 import (
 	"time"
 
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/queue/driver"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/sink"
-	"github.com/tychoish/sink/model"
-	"github.com/tychoish/sink/units"
 	"golang.org/x/net/context"
 	mgo "gopkg.in/mgo.v2"
 )
