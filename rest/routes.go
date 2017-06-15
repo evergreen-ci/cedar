@@ -460,7 +460,7 @@ func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
 	catcher.Add(err)
 
 	if catcher.HasErrors() {
-		resp.Error = catcher.Resolve()
+		resp.Error = catcher.Resolve().Error()
 		gimlet.WriteErrorJSON(w, resp)
 		return
 	}
