@@ -23,9 +23,9 @@ type Evergreen struct {
 
 //Provider holds account information for a single provider.
 type Provider struct {
-	Name     string     `json:"name,omitempty"`
-	Accounts []*Account `json:"accounts,omitempty"`
-	Cost     float32    `json:"cost,omitempty"`
+	Name     string     `json:"name,omitempty" yaml:"name,omitempty"`
+	Accounts []*Account `json:"accounts,omitempty" yaml:",omitempty"`
+	Cost     float32    `json:"cost,omitempty" yaml:"cost,omitempty"`
 }
 
 //Project holds the name and tasks for a single project.
