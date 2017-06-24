@@ -1,7 +1,7 @@
 # start project configuration
 name := sink
 buildDir := build
-packages := $(name) rest units operations
+packages := $(name) rest units operations cost
 orgPath := github.com/tychoish
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -19,7 +19,6 @@ lintArgs := --tests --deadline=14m --vendor
 lintArgs += --disable="gotype" --disable="gas" --enable="goimports"
 lintArgs += --skip="build" --skip="buildscripts"
 #   enable and configure additional linters
-lintArgs += 
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
 #   the gotype linter has an imperfect compilation simulator and
 #   produces the following false postive errors:
@@ -211,6 +210,9 @@ phony += vendor vendor-deps vendor-clean vendor-sync change-go-version
 testRunDeps := $(name)
 testTimeout := --test.timeout=20m
 testArgs := -test.v $(testTimeout)
+ifneq (,$(RUN_TEST))
+testArgs += -test.run='$(RUN_TEST)'
+endif
 #  targets to compile
 $(buildDir)/test.%:$(testSrcFiles)
 	$(vendorGopath) go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./$(subst -,/,$*)
