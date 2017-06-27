@@ -3,8 +3,9 @@ package operations
 import (
 	"time"
 
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/cost"
 	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -12,7 +13,6 @@ import (
 //which has required flags.
 func Spend() cli.Command {
 	// get current time, round back to the start of the previous hour
-	const layout = "2017-05-23T17:00"
 	return cli.Command{
 		Name:  "spend",
 		Usage: "generate a report covering Evergreen and AWS data",
@@ -25,27 +25,38 @@ func Spend() cli.Command {
 				Name:  "granularity",
 				Value: 4 * time.Hour, //Default value
 			},
+			cli.StringFlag{
+				Name:  "config",
+				Usage: "path to configuration file",
+			},
 		},
 		Action: func(c *cli.Context) error {
 			var startTime time.Time
-			var err error
 			start := c.String("start")
 			granularity := c.Duration("granularity")
-
-			if start != "" {
-				startTime, err = time.Parse(layout, start)
+			var err error
+			file := c.String("config")
+			if file != "" {
+				err = configureSpend(file)
 				if err != nil {
-					return errors.Wrap(err, "incorrect start format: "+
-						"should be YYYY-MM-DDTHH:MM")
+					return err
 				}
-			} else {
-				now := time.Now()
-				startTime = now.Add(-granularity)
 			}
+
+			if granularity == 0 { //empty duration
+				granularity, err = sink.GetSpendConfig().GetGranularity()
+				if err != nil {
+					return err
+				}
+			}
+			startTime, err = cost.GetStartTime(start, granularity)
+			if err != nil {
+				return err
+			}
+
 			grip.Noticef("Not yet implemented: will generate a report for the "+
 				"given %s and %s", startTime, granularity)
 			return nil
 		},
 	}
-
 }

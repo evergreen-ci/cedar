@@ -17,6 +17,7 @@ package sink
 import (
 	"sync"
 
+	"github.com/evergreen-ci/sink/cost"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
@@ -85,6 +86,14 @@ func SetSystemSender(s send.Sender) error { return servicesCache.setSeystemEvent
 // logging offline issues to the database.
 func GetLogger() grip.Journaler { return servicesCache.getLogger() }
 
+// GetSpendConfig returns the current configuration settings for the spend
+// command line tool.
+func GetSpendConfig() *cost.Config { return servicesCache.getSpendConfig() }
+
+// SetSpendConfig updates the configuration settings for the spend command
+// line tool using the given yaml file.
+func SetSpendConfig(file string) error { return servicesCache.setSpendConfig(file) }
+
 ////////////////////////////////////////////////////////////////////////
 //
 // internal implementation of the cache
@@ -92,12 +101,13 @@ func GetLogger() grip.Journaler { return servicesCache.getLogger() }
 // see the documentation for the corresponding global methods for
 
 type appServicesCache struct {
-	name      string
-	queue     amboy.Queue
-	session   *mgo.Session
-	conf      *Configuration
-	sysSender send.Sender
-	logger    grip.Journaler
+	name        string
+	queue       amboy.Queue
+	session     *mgo.Session
+	conf        *Configuration
+	sysSender   send.Sender
+	logger      grip.Journaler
+	spendConfig *cost.Config
 
 	mutex sync.RWMutex
 }
@@ -202,4 +212,37 @@ func (c *appServicesCache) getLogger() grip.Journaler {
 	defer c.mutex.RUnlock()
 
 	return c.logger
+}
+
+func (c *appServicesCache) getSpendConfig() *cost.Config {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	if c.spendConfig == nil {
+		c.spendConfig = &cost.Config{}
+	}
+	return c.spendConfig
+}
+
+func (c *appServicesCache) setSpendConfig(file string) error {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	newConfig, err := cost.YAMLToConfig(file)
+	if err != nil {
+		return err
+	}
+	configFile := c.getSpendConfig()
+	if newConfig.Opts.Directory != "" {
+		configFile.Opts.Directory = newConfig.Opts.Directory
+	}
+	if newConfig.Opts.Duration != "" {
+		configFile.Opts.Duration = newConfig.Opts.Duration
+	}
+
+	if configFile.Providers != nil {
+		configFile.UpdateSpendProviders(newConfig.Providers)
+	} else {
+		configFile.Providers = newConfig.Providers
+	}
+	return nil
 }
