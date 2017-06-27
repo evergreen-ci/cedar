@@ -53,3 +53,15 @@ func (s *ServiceCacheSuite) TestQueueGetterRetrivesQueue() {
 	s.NoError(err)
 	s.Equal(retrieved, q)
 }
+
+func (s *ServiceCacheSuite) TestSetSpendConfig() {
+	file := "cost/testdata/spend_test.yml"
+	err := s.cache.setSpendConfig(file)
+	s.NoError(err)
+	configFile := s.cache.spendConfig
+	s.Equal(configFile.Opts.Duration, "8h")
+
+	file = "not_real.yaml"
+	err = s.cache.setSpendConfig(file)
+	s.Error(err)
+}
