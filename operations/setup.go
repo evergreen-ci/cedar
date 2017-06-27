@@ -99,3 +99,8 @@ func backgroundJobs(ctx context.Context) error {
 
 	return nil
 }
+
+// configureSpend calls the sink functions to configure spend
+func configureSpend(path string) error {
+	return sink.SetSpendConfig(path)
+}
