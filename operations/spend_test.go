@@ -10,7 +10,6 @@ import (
 
 func init() {
 	grip.SetName("sink.operations.test")
-
 }
 
 // CommandsSuite provide a group of tests of the entry points and
@@ -25,17 +24,15 @@ func TestCommandSuite(t *testing.T) {
 
 func (s *CommandsSuite) TestSpendFlags() {
 	cmd := Spend()
-	s.Len(cmd.Flags, 2)
+	s.Len(cmd.Flags, 3)
 	for _, flag := range cmd.Flags {
 		name := flag.GetName()
 
-		if name == "start" {
+		if name == "start" || name == "config" {
 			s.IsType(cli.StringFlag{}, flag)
 		} else {
-			s.Equal(name, "granularity")
+			s.Equal("granularity", name)
 			s.IsType(cli.DurationFlag{}, flag)
 		}
 	}
 }
-
-//Further tests will be written after spend functionality is written
