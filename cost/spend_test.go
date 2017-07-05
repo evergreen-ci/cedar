@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/sink/amazon"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -90,4 +91,44 @@ func (c *CostSuite) TestYAMLToConfig() {
 	file = "not_real.yaml"
 	_, err = YAMLToConfig(file)
 	c.Error(err)
+}
+
+func (c *CostSuite) TestCreateItemFromEC2Instance() {
+	key := &amazon.ItemKey{
+		ItemType: "reserved",
+		Name:     "c3.4xlarge",
+	}
+	item1 := &amazon.EC2Item{
+		Launched:   true,
+		Terminated: false,
+		FixedPrice: 120.0,
+		Price:      12.42,
+		Uptime:     3.0,
+		Count:      5,
+	}
+	item2 := &amazon.EC2Item{
+		Launched:   false,
+		Terminated: true,
+		FixedPrice: 35.0,
+		Price:      0.33,
+		Uptime:     1.00,
+		Count:      2,
+	}
+	item3 := &amazon.EC2Item{
+		Launched:   true,
+		Terminated: false,
+		FixedPrice: 49.0,
+		Price:      0.5,
+		Uptime:     1.00,
+		Count:      1,
+	}
+	items := []*amazon.EC2Item{item1, item2, item3}
+	item := createItemFromEC2Instance(key, items)
+	c.Equal(item.Name, key.Name)
+	c.Equal(item.ItemType, string(key.ItemType))
+	c.Equal(item.AvgPrice, float32(4.42))
+	c.Equal(item.FixedPrice, float32(68))
+	c.Equal(item.AvgUptime, float32(1.67))
+	c.Equal(item.Launched, 6)
+	c.Equal(item.Terminated, 2)
 }
