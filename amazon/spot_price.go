@@ -1,0 +1,56 @@
+package amazon
+
+import (
+	"math"
+	"sort"
+	"strconv"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+)
+
+type spotPrices []*ec2.SpotPrice
+
+// The folowing spotPrices methods are to implement sort.Sort
+func (slice spotPrices) Len() int {
+	return len(slice)
+}
+
+func (slice spotPrices) Less(i, j int) bool {
+	return (*slice[i].Timestamp).After(*slice[j].Timestamp)
+}
+
+func (slice spotPrices) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
+}
+
+// calculatePrice takes in a TimeRange and returns the price for this range
+// using the given spotPrices.
+func (slice spotPrices) calculatePrice(times TimeRange) float64 {
+	price := 0.0
+	computed := 0.0
+	totalTime := times.End.Sub(times.Start).Hours()
+	totalTime = math.Ceil(totalTime)
+	lastTime := times.End
+
+	// sorts slice in descending time order
+	sort.Sort(slice)
+
+	// If the first time stamp is before the report starts, set to report start
+	if slice[len(slice)-1].Timestamp.Before(times.End) {
+		slice[len(slice)-1].Timestamp = &times.Start
+	}
+
+	for _, block := range slice {
+		available := lastTime.Sub(*block.Timestamp).Hours()
+		remaining := totalTime - computed
+		used := math.Min(available, remaining)
+		blockPrice, err := strconv.ParseFloat(*block.SpotPrice, 64)
+		if err != nil {
+			return 0.0
+		}
+		price += blockPrice * used
+		computed += used
+		lastTime = *block.Timestamp
+	}
+	return price
+}

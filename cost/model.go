@@ -70,6 +70,7 @@ type Item struct {
 	ItemType   string  `json:"type,omitempty"`
 	Launched   int     `json:"launched,omitempty"`
 	Terminated int     `json:"terminated,omitempty"`
+	FixedPrice float32 `json:"fixed_price, omitempty"`
 	AvgPrice   float32 `json:"avg_price,omitempty"`
 	AvgUptime  float32 `json:"avg_uptime,omitempty"`
 	TotalHours int     `json:"total_hours,omitempty"`
