@@ -29,19 +29,18 @@ func (slice spotPrices) calculatePrice(times TimeRange) float64 {
 	price := 0.0
 	computed := 0.0
 	totalTime := times.End.Sub(times.Start).Hours()
-	totalTime = math.Ceil(totalTime)
 	lastTime := times.End
 
 	// sorts slice in descending time order
 	sort.Sort(slice)
 
-	// If the first time stamp is before the report starts, set to report start
-	if slice[len(slice)-1].Timestamp.Before(times.End) {
-		slice[len(slice)-1].Timestamp = &times.Start
-	}
-
 	for _, block := range slice {
 		available := lastTime.Sub(*block.Timestamp).Hours()
+		if available < 0 {
+			// error in API results
+			return 0
+		}
+
 		remaining := totalTime - computed
 		used := math.Min(available, remaining)
 		blockPrice, err := strconv.ParseFloat(*block.SpotPrice, 64)

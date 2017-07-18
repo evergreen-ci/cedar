@@ -1,11 +1,11 @@
 package operations
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
-	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -22,8 +22,7 @@ func Spend() cli.Command {
 				Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
 			},
 			cli.DurationFlag{
-				Name:  "granularity",
-				Value: 4 * time.Hour, //Default value
+				Name: "granularity",
 			},
 			cli.StringFlag{
 				Name:  "config",
@@ -31,7 +30,6 @@ func Spend() cli.Command {
 			},
 		},
 		Action: func(c *cli.Context) error {
-			var startTime time.Time
 			start := c.String("start")
 			granularity := c.Duration("granularity")
 			var err error
@@ -39,23 +37,26 @@ func Spend() cli.Command {
 			if file != "" {
 				err = configureSpend(file)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "Problem with config file")
 				}
 			}
-
+			config := sink.GetSpendConfig()
 			if granularity == 0 { //empty duration
-				granularity, err = sink.GetSpendConfig().GetGranularity()
+				granularity, err = config.GetGranularity()
 				if err != nil {
-					return err
+					return errors.Wrap(err, "Problem with granularity")
 				}
 			}
-			startTime, err = cost.GetStartTime(start, granularity)
-			if err != nil {
-				return err
-			}
 
-			grip.Noticef("Not yet implemented: will generate a report for the "+
-				"given %s and %s", startTime, granularity)
+			report, err := cost.CreateReport(start, granularity, config)
+			if err != nil {
+				return errors.Wrap(err, "Problem generating report")
+			}
+			filename := fmt.Sprintf("%s_%s.txt", report.Report.Begin, granularity.String())
+			err = report.Print(config, filename)
+			if err != nil {
+				return errors.Wrap(err, "Problem printing report")
+			}
 			return nil
 		},
 	}
