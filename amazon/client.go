@@ -4,8 +4,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -14,19 +16,20 @@ type resType string
 
 const (
 	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
-	tagLayout = "20060102150405"
-	utcLayout = "2006-01-02T15:04:05.000Z"
-	spot      = itemType("spot")
-	reserved  = itemType("reserved")
-	fixed     = resType("Fixed Price")
-	hourly    = resType("No Upfront")
-	partial   = resType("Partial Upfront")
-	startTag  = "start-time"
-	active    = "active"
-	open      = "open"
-	failed    = "failed"
-	retired   = "retired"
-	marked    = "marked-for-termination"
+	tagLayout      = "20060102150405"
+	utcLayout      = "2006-01-02T15:04:05.000Z"
+	spot           = itemType("spot")
+	reserved       = itemType("reserved")
+	fixed          = resType("Fixed Price")
+	hourly         = resType("No Upfront")
+	partial        = resType("Partial Upfront")
+	startTag       = "start-time"
+	active         = "active"
+	open           = "open"
+	failed         = "failed"
+	retired        = "retired"
+	marked         = "marked-for-termination"
+	defaultAccount = "default"
 )
 
 var ignoreCodes = []string{"canceled-before-fulfillment", "schedule-expired", "bad-parameters", "system-error"}
@@ -36,7 +39,6 @@ var amazonTerminated = []string{"instance-terminated-by-price", "instance-termin
 // Client holds information for the amazon client
 type Client struct {
 	ec2Client *ec2.EC2
-	//Do we want to include an http.Client option?
 }
 
 // EC2Item is information for an item for a particular Name and ItemType
@@ -73,7 +75,9 @@ type AccountHash map[string]itemHash
 // NewClient returns a new populated client
 func NewClient() *Client {
 	client := &Client{}
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String("us-east-1"),
+	}))
 	client.ec2Client = ec2.New(sess)
 	return client
 }
@@ -242,6 +246,29 @@ func isValidInstance(item *EC2Item, err error, itemRange TimeRange, uptimeRange 
 	return true
 }
 
+// updateAccounts uses the given key and owner to add the item to the accounts object.
+func (accounts AccountHash) updateAccounts(owner string, item *EC2Item, key *ItemKey) {
+	curAccount := accounts[owner]
+	if curAccount == nil {
+		curAccount = make(itemHash)
+	}
+	placed := false
+	for curKey, curItems := range curAccount {
+		//Check if we can add it to an existing key
+		if key.Name == curKey.Name && key.ItemType == curKey.ItemType &&
+			key.duration == curKey.duration {
+			placed = true
+			curAccount[curKey] = append(curItems, item)
+			break
+		}
+	}
+	if placed == false {
+		curAccount[key] = []*EC2Item{item}
+	}
+	accounts[owner] = curAccount
+	//return accounts
+}
+
 // getSpotPrice takes in a spot request, a product description, and a time range.
 // It queries the EC2 API and returns the overall price.
 func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) float64 {
@@ -268,10 +295,10 @@ func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) flo
 func (c *Client) getEC2SpotInstances(accounts AccountHash, reportRange TimeRange) (AccountHash, error) {
 	resp, err := c.ec2Client.DescribeSpotInstanceRequests(nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Error from SpotRequests API call")
 	}
 	for _, req := range resp.SpotInstanceRequests {
-		owner, err := getTagVal(req.Tags, "owner")
+		owner := defaultAccount
 		key := populateSpotKey(req)
 		item := populateItemFromSpot(req)
 		itemRange := getSpotRange(req)
@@ -285,10 +312,8 @@ func (c *Client) getEC2SpotInstances(accounts AccountHash, reportRange TimeRange
 		item.setUptime(uptimeRange)
 		item.Price = c.getSpotPrice(req, uptimeRange)
 
-		//update account
-		curAccount := accounts[owner]
-		curAccount[key] = append(curAccount[key], item)
-		accounts[owner] = curAccount
+		accounts.updateAccounts(owner, item, key)
+
 	}
 	return accounts, nil
 }
@@ -303,7 +328,7 @@ func (c *Client) getEC2ReservedInstances(accounts AccountHash,
 		return nil, err
 	}
 	for _, inst := range resp.ReservedInstances {
-		owner, err := getTagVal(inst.Tags, "owner")
+		owner := defaultAccount
 		key := populateReservedKey(inst)
 		item := populateItemFromReserved(inst)
 		itemRange := getReservedRange(inst)
@@ -316,10 +341,8 @@ func (c *Client) getEC2ReservedInstances(accounts AccountHash,
 		item.setUptime(uptimeRange)
 		item.setReservedPrice(inst)
 
-		//update account
-		curAccount := accounts[owner]
-		curAccount[key] = append(curAccount[key], item)
-		accounts[owner] = curAccount
+		accounts.updateAccounts(owner, item, key)
+
 	}
 	return accounts, nil
 }
@@ -329,13 +352,16 @@ func (c *Client) getEC2ReservedInstances(accounts AccountHash,
 func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
 	// accounts maps from account name to the items
 	accounts := make(AccountHash)
-	accounts, err := c.getEC2SpotInstances(accounts, reportRange)
+	grip.Notice("Getting EC2 Reserved Instances")
+	accounts, err := c.getEC2ReservedInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
-	accounts, err = c.getEC2ReservedInstances(accounts, reportRange)
+	grip.Notice("Getting EC2 Spot Instances")
+	accounts, err = c.getEC2SpotInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
+
 	return accounts, nil
 }

@@ -3,6 +3,6 @@ opts:
   duration: 8h
 
 providers:
-  - fakecompany:
-      cost: 50000.0
+  - name: fakecompany
+    cost: 50000.0
 ...

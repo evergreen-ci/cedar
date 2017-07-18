@@ -1,6 +1,9 @@
 package amazon
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -9,11 +12,26 @@ import (
 )
 
 type SpotPriceSuite struct {
+	prices spotPrices
 	suite.Suite
 }
 
 func TestSpotPriceSuite(t *testing.T) {
 	suite.Run(t, new(SpotPriceSuite))
+}
+
+func (s *SpotPriceSuite) SetupTest() {
+	spotPriceHistory := &ec2.DescribeSpotPriceHistoryOutput{}
+	file, err := ioutil.ReadFile("testdata/spot-price-data.txt")
+	if err != nil {
+		fmt.Printf("Error reading file: %s\n", err)
+	}
+
+	err = json.Unmarshal(file, spotPriceHistory)
+	if err != nil {
+		fmt.Printf("Error unmarshalling file: %s\n", err)
+	}
+	s.prices = spotPrices(spotPriceHistory.SpotPriceHistory)
 }
 
 func (s *SpotPriceSuite) TestCalculatePriceOnePrice() {
@@ -64,4 +82,15 @@ func (s *SpotPriceSuite) TestCalculatePriceManyPrices() {
 	price := blocks.calculatePrice(times)
 	expectedPrice := 0.84 + 1.25 + (0.5 * 0.75)
 	s.Equal(price, expectedPrice)
+}
+
+func (s *SpotPriceSuite) TestCalculateRealPrices() {
+	time1, _ := time.Parse(utcLayout, "2017-07-19T06:19:00.000Z")
+	time2, _ := time.Parse(utcLayout, "2017-07-19T10:19:00.000Z")
+	times := TimeRange{
+		Start: time1,
+		End:   time2,
+	}
+	price := s.prices.calculatePrice(times)
+	s.Equal(0.17559225, price)
 }

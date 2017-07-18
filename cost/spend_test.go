@@ -28,7 +28,7 @@ func (c *CostSuite) SetupTest() {
 }
 
 func (c *CostSuite) TestGetGranularity() {
-	c.config.Opts.Duration = "0s"
+	c.config.Opts.Duration = ""
 	granularity, err := c.config.GetGranularity() //zero Duration
 	c.NoError(err)
 	c.Equal(granularity.String(), "4h0m0s")
@@ -66,28 +66,29 @@ func (c *CostSuite) TestUpdateSpendProviders() {
 	c.EqualValues(result[2], newProv2)
 }
 
-func (c *CostSuite) TestGetStartTime() {
+func (c *CostSuite) TestGetTimes() {
 	start := "2017-05-26T12:00"
 	granularity := 4 * time.Hour
-
-	startTime, err := GetStartTime(start, granularity)
+	startTime, _ := time.Parse(layout, start)
+	endTime := startTime.Add(granularity)
+	times, err := getTimes(start, granularity)
 	c.NoError(err)
-	str := startTime.String()
-	c.Equal(str[0:10], start[0:10])   //YYYY-MM-DD
-	c.Equal(str[11:16], start[11:16]) //HH:MM
-
-	_, err = GetStartTime("", granularity)
+	c.Equal(times.start, startTime)
+	c.Equal(times.end, endTime)
+	_, err = getTimes("", granularity)
 	c.NoError(err)
 
-	_, err = GetStartTime("2011T00:00", granularity)
+	_, err = getTimes("2011T00:00", granularity)
 	c.Error(err)
 }
 
 func (c *CostSuite) TestYAMLToConfig() {
 	file := "testdata/spend_test.yml"
-	_, err := YAMLToConfig(file)
+	config, err := YAMLToConfig(file)
 	c.NoError(err)
-
+	c.Equal(config.Opts.Duration, "8h")
+	c.Equal(config.Providers[0].Name, "fakecompany")
+	c.Equal(config.Providers[0].Cost, float32(50000))
 	file = "not_real.yaml"
 	_, err = YAMLToConfig(file)
 	c.Error(err)
@@ -131,4 +132,16 @@ func (c *CostSuite) TestCreateItemFromEC2Instance() {
 	c.Equal(item.AvgUptime, float32(1.67))
 	c.Equal(item.Launched, 6)
 	c.Equal(item.Terminated, 2)
+}
+
+func (c *CostSuite) TestPrint() {
+	report := Report{
+		Begin:     "start time",
+		End:       "end time",
+		Generated: time.Now().String(),
+	}
+	output := Output{Report: report}
+	config := &Config{}
+	filepath := ""
+	output.Print(config, filepath)
 }
