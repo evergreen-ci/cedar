@@ -65,10 +65,10 @@ func createTestStruct() Output {
 		Tasks: []*Task{task1},
 	}
 	distro1 := &Distro{
-		Name:          "ubuntu1604-build",
-		Provider:      "ec2",
-		InstanceType:  "c3.4xlarge",
-		InstanceHours: 12,
+		Name:            "ubuntu1604-build",
+		Provider:        "ec2",
+		InstanceType:    "c3.4xlarge",
+		InstanceSeconds: 12,
 	}
 
 	evergreen1 := Evergreen{

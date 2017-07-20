@@ -33,10 +33,7 @@ func (s *ClientSuite) SetupSuite() {
 
 func (s *ClientSuite) TestDoReqFunction() {
 	//Construct Client
-	Client := &Client{
-		APIRoot:    s.info.root,
-		httpClient: s.client,
-	}
+	Client := NewClient(s.info.root, s.client, "", "")
 
 	resp, err := Client.doReq("GET", "/hosts")
 	s.Nil(err)
@@ -58,10 +55,7 @@ func (s *ClientSuite) TestGetRelFunction() {
 }
 
 func (s *ClientSuite) TestGetPathFunction() {
-	Client := &Client{
-		APIRoot:    s.info.root,
-		httpClient: s.client,
-	}
+	Client := NewClient(s.info.root, s.client, "", "")
 	link := "<https://evergreen.mongodb.com/rest/v2/hosts?limit=100>; rel=\"next\""
 	path, err := Client.getPath(link)
 	s.Nil(err)
@@ -72,29 +66,43 @@ func (s *ClientSuite) TestGetPathFunction() {
 }
 
 func (s *ClientSuite) TestGetFunction() {
-	Client := &Client{
-		APIRoot:    s.info.root,
-		httpClient: s.client,
-	}
+	Client := NewClient(s.info.root, s.client, "", "")
 	_, _, err := Client.get("/hosts")
 	s.Nil(err)
 }
 
-func (s *ClientSuite) TestGetHostsFunction() {
-	Client := &Client{
-		APIRoot:    s.info.root,
-		httpClient: s.client,
+// TestGetDistrosFunction tests that GetDistros runs without error.
+func (s *ClientSuite) TestGetDistrosFunction() {
+	Client := NewClient(s.info.root, s.client, "", "")
+	distros, err := Client.GetDistros()
+	for _, d := range distros {
+		s.NotEmpty(d.DistroID)
 	}
-	hosts, errs := Client.GetHosts(300)
-	count := 0
-	for h := range hosts {
-		count++
-		s.NotEmpty(h.HostID)
-	}
+	s.NoError(err)
+}
 
-	for err := range errs {
-		s.NoError(err)
-	}
+// TestGetDistroFunctionFail tests against the local APIServer for correct
+// behaviors given certain use cases.
+func (s *ClientSuite) TestGetDistroFunctionFail() {
+	Client := NewClient(s.info.root, s.client, "", "")
+	distroID := "archlinux-build"
 
-	s.Equal(count, 300)
+	// Test the case where the queried distro has tasks in the given time range.
+	// This test will be implemented later when architectures for IntegrationTests
+	// are in place for sink.
+
+	// Test the case where the queried distro has no tasks in the given time range,
+	// by an invalid start time. GetDistro should succeed, but sumTimeTaken,
+	// provider, intancetype must result in zero-values.
+	dc, err := Client.GetDistroCost(distroID, "2017-07-19T19:37:53%2B00:00", "1h")
+	s.NoError(err)
+	s.Equal(distroID, dc.DistroID)
+
+	// Test valid failures - i.e. searching for non-existent distros, invalid time.
+	dc, err = Client.GetDistroCost(distroID, "2017-07-19T19:37:53", "1h")
+	s.Error(err)
+	dc, err = Client.GetDistroCost("fake", "2017-07-19T19:37:53%2B00:00", "1h")
+	s.Error(err)
+	dc, err = Client.GetDistroCost(distroID, "", "")
+	s.Error(err)
 }
