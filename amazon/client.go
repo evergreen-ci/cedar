@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"math"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,22 +13,17 @@ import (
 )
 
 type itemType string
-type resType string
 
 const (
 	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
 	tagLayout      = "20060102150405"
 	utcLayout      = "2006-01-02T15:04:05.000Z"
-	spot           = itemType("spot")
+	ondemandLayout = "2006-01-02 15:04:05 MST"
+	spot           = itemType(ec2.InstanceLifecycleTypeSpot)
+	scheduled      = itemType(ec2.InstanceLifecycleTypeScheduled)
 	reserved       = itemType("reserved")
-	fixed          = resType("Fixed Price")
-	hourly         = resType("No Upfront")
-	partial        = resType("Partial Upfront")
+	onDemand       = itemType("on-demand")
 	startTag       = "start-time"
-	active         = "active"
-	open           = "open"
-	failed         = "failed"
-	retired        = "retired"
 	marked         = "marked-for-termination"
 	defaultAccount = "default"
 )
@@ -56,7 +52,7 @@ type EC2Item struct {
 type ItemKey struct {
 	Name         string
 	ItemType     itemType
-	offeringType resType
+	offeringType string
 	duration     int64
 }
 
@@ -103,25 +99,36 @@ func populateSpotKey(inst *ec2.SpotInstanceRequest) *ItemKey {
 	}
 }
 
-// populateReservedKey creates an ItemKey using a reserved instance and the item type
+// populateReservedKey creates an ItemKey using a reserved instance
 func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
 	return &ItemKey{
 		Name:         *inst.InstanceType,
 		ItemType:     reserved,
 		duration:     *inst.Duration,
-		offeringType: resType(*inst.OfferingType),
+		offeringType: *inst.OfferingType,
+	}
+}
+
+// populateOnDemandKey creates an ItemKey using an on-demand instance
+func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
+	return &ItemKey{
+		Name:     *inst.InstanceType,
+		ItemType: onDemand,
 	}
 }
 
 // populateItemFromSpot creates an EC2Item from a spot request result and fills in
 // the isLaunched and isTerminated values.
 func populateItemFromSpot(req *ec2.SpotInstanceRequest) *EC2Item {
+
+	if *req.State == ec2.SpotInstanceStateOpen || *req.State == ec2.SpotInstanceStateFailed {
+		return nil
+	}
+	if req.Status == nil || stringInSlice(*req.Status.Code, ignoreCodes) {
+		return nil
+	}
 	item := &EC2Item{}
-	if *req.State == open || *req.State == failed {
-		return nil
-	} else if stringInSlice(*req.Status.Code, ignoreCodes) {
-		return nil
-	} else if *req.State == active || *(req.Status.Code) == marked {
+	if *req.State == ec2.SpotInstanceStateActive || *(req.Status.Code) == marked {
 		item.Launched = true
 		return item
 	}
@@ -133,9 +140,9 @@ func populateItemFromSpot(req *ec2.SpotInstanceRequest) *EC2Item {
 // fills in the isLaunched, isTerminated, and count values.
 func populateItemFromReserved(inst *ec2.ReservedInstances) *EC2Item {
 	var isTerminated, isLaunched bool
-	if *inst.State == retired {
+	if *inst.State == ec2.ReservedInstanceStateRetired {
 		isTerminated = true
-	} else if *inst.State == active {
+	} else if *inst.State == ec2.ReservedInstanceStateActive {
 		isLaunched = true
 	} else {
 		return nil
@@ -148,10 +155,24 @@ func populateItemFromReserved(inst *ec2.ReservedInstances) *EC2Item {
 	}
 }
 
+// populateItemFromOnDemandcreates an EC2Item from an on-demand instance and
+// fills in the isLaunched and isTerminated fields.
+func populateItemFromOnDemand(inst *ec2.Instance) *EC2Item {
+	item := &EC2Item{}
+	if *inst.State.Name == ec2.InstanceStateNamePending {
+		return nil
+	} else if *inst.State.Name == ec2.InstanceStateNameRunning {
+		item.Launched = true
+	} else {
+		item.Terminated = true
+	}
+	return item
+}
+
 // getSpotRange returns the instance running time range from the spot request result.
 // Note: if the instance was terminated by amazon, we subtract one hour.
 func getSpotRange(req *ec2.SpotInstanceRequest) TimeRange {
-	endTime, _ := time.Parse(utcLayout, "") //TODO: Should be the zero instance but check this
+	endTime, _ := time.Parse(utcLayout, "")
 	res := TimeRange{}
 	start, err := getTagVal(req.Tags, "start-time")
 	if err != nil {
@@ -162,7 +183,7 @@ func getSpotRange(req *ec2.SpotInstanceRequest) TimeRange {
 		return res
 	}
 	res.Start = startTime
-	if *req.State == active { // no end time
+	if *req.State == ec2.SpotInstanceStateActive { // no end time
 		return res
 	}
 	if req.Status != nil && req.Status.UpdateTime != nil {
@@ -188,6 +209,33 @@ func getReservedRange(inst *ec2.ReservedInstances) TimeRange {
 
 	res.Start = *inst.Start
 	res.End = *inst.End
+	return res
+}
+
+// getOnDemandRange returns the instance running time range from the reserved instance response item.
+// We assume end time in the state transition reason to be "<some message> (YYYY-MM-DD HH:MM:SS MST)"
+func getOnDemandRange(inst *ec2.Instance) TimeRange {
+	res := TimeRange{}
+	if inst.LaunchTime == nil || *inst.State.Name == ec2.InstanceStateNamePending {
+		return res
+	}
+	res.Start = *inst.LaunchTime
+
+	if *inst.State.Name == ec2.InstanceStateNameRunning {
+		return res
+	}
+	//retrieving the end time from the state transition reason
+	reason := *inst.StateTransitionReason
+	split := strings.Split(reason, "(")
+	if len(split) <= 1 { // no time in state transition reason
+		return TimeRange{}
+	}
+	timeString := strings.Trim(split[1], ")")
+	end, err := time.Parse(ondemandLayout, timeString)
+	if err != nil {
+		return TimeRange{}
+	}
+	res.End = end
 	return res
 }
 
@@ -226,15 +274,37 @@ func (item *EC2Item) setUptime(times TimeRange) {
 // setReservedPrice takes in a reserved instance item and sets the item price
 // based on the instance's offering type and prices.
 func (item *EC2Item) setReservedPrice(inst *ec2.ReservedInstances) {
-	instType := resType(*inst.OfferingType)
-	if instType == fixed || instType == partial {
+	instType := *inst.OfferingType
+	if instType == ec2.OfferingTypeValuesAllUpfront || instType == ec2.OfferingTypeValuesPartialUpfront {
 		item.FixedPrice = *inst.FixedPrice
 	}
-	if instType == hourly || instType == partial {
+	if instType == ec2.OfferingTypeValuesNoUpfront || instType == ec2.OfferingTypeValuesPartialUpfront {
 		if inst.RecurringCharges != nil {
 			item.Price = *inst.RecurringCharges[0].Amount * float64(item.Uptime)
 		}
 	}
+}
+
+// setOnDemandPrice takes in an on-demand instance item and prices object and
+// sets the item price based on the instance's availability zone, instance type,
+// product description, and uptime. In case of error, the price is set to 0.
+func (item *EC2Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
+	var productDesc string
+	if inst.Placement == nil || inst.Placement.AvailabilityZone == nil {
+		return
+	}
+	if inst.InstanceType == nil {
+		return
+	}
+	if inst.Platform == nil {
+		productDesc = "Linux"
+	} else {
+		productDesc = *inst.Platform
+	}
+	instanceType := *inst.InstanceType
+	availZone := *inst.Placement.AvailabilityZone
+	price := pricing.fetchPrice(productDesc, instanceType, availZone)
+	item.Price = price * float64(item.Uptime)
 }
 
 // isValidInstance takes in an item, an error, and two time ranges.
@@ -266,13 +336,12 @@ func (accounts AccountHash) updateAccounts(owner string, item *EC2Item, key *Ite
 		curAccount[key] = []*EC2Item{item}
 	}
 	accounts[owner] = curAccount
-	//return accounts
 }
 
-// getSpotPrice takes in a spot request, a product description, and a time range.
-// It queries the EC2 API and returns the overall price.
-func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) float64 {
-	//How to get description?
+// getSpotPricePage recursively iterates through pages of spot requests and returns
+// a compiled ec2.DescribeSpotPriceHistoryOutput object.
+func (c *Client) getSpotPricePage(req *ec2.SpotInstanceRequest, times TimeRange,
+	nextToken *string) *ec2.DescribeSpotPriceHistoryOutput {
 	input := &ec2.DescribeSpotPriceHistoryInput{
 		InstanceTypes:       []*string{req.LaunchSpecification.InstanceType},
 		ProductDescriptions: []*string{req.ProductDescription},
@@ -280,13 +349,34 @@ func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) flo
 		StartTime:           &times.Start,
 		EndTime:             &times.End,
 	}
-
+	if nextToken != nil && *nextToken != "" {
+		input = input.SetNextToken(*nextToken)
+	}
 	res, err := c.ec2Client.DescribeSpotPriceHistory(input)
-	// TODO: work in something for nextToken
+
 	if err != nil {
+		return nil
+	}
+	for res.NextToken != nil && *res.NextToken != "" {
+		prevPrices := res.SpotPriceHistory
+		res = c.getSpotPricePage(req, times, res.NextToken)
+		if res == nil {
+			return nil
+		}
+		res.SpotPriceHistory = append(prevPrices, res.SpotPriceHistory...)
+	}
+	return res
+}
+
+// getSpotPrice takes in a spot request, a product description, and a time range.
+// It queries the EC2 API and returns the overall price.
+func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) float64 {
+	//How to get description?
+	priceData := c.getSpotPricePage(req, times, nil)
+	if priceData == nil {
 		return 0.0
 	}
-	return spotPrices(res.SpotPriceHistory).calculatePrice(times)
+	return spotPrices(priceData.SpotPriceHistory).calculatePrice(times)
 }
 
 // getEC2SpotInstances gets reserved EC2 Instances and retrieves its uptime,
@@ -347,6 +437,70 @@ func (c *Client) getEC2ReservedInstances(accounts AccountHash,
 	return accounts, nil
 }
 
+// getEC2OnDemandInstancesPage recursively iterates through pages of on-demand instances
+// and retrieves its uptime, average hourly price, number of launched and terminated instances,
+// and item type. These instances are then added to the given accounts.
+func (c *Client) getEC2OnDemandInstancesPage(accounts AccountHash, reportRange TimeRange,
+	pricing *prices, nextToken *string) (AccountHash, error) {
+	var input *ec2.DescribeInstancesInput
+	if nextToken != nil && *nextToken != "" {
+		//create filter
+		input = input.SetNextToken(*nextToken)
+	}
+	resp, err := c.ec2Client.DescribeInstances(input)
+	if err != nil {
+		return nil, err
+	}
+
+	//iterate through instances
+	for _, res := range resp.Reservations {
+		for _, inst := range res.Instances {
+			owner := defaultAccount
+			if inst.InstanceLifecycle != nil {
+				break
+			}
+			key := populateOnDemandKey(inst)
+			item := populateItemFromOnDemand(inst)
+			itemRange := getOnDemandRange(inst)
+			//instance start and end
+			uptimeRange := getUptimeRange(itemRange, reportRange)
+			if !isValidInstance(item, err, itemRange, uptimeRange) {
+				break
+			}
+			item.setUptime(uptimeRange)
+			item.setOnDemandPrice(inst, pricing)
+
+			accounts.updateAccounts(owner, item, key)
+		}
+	}
+	// if there's a next page, recursively add next page information
+	for resp.NextToken != nil && *resp.NextToken != "" {
+		accounts, err = c.getEC2OnDemandInstancesPage(accounts, reportRange,
+			pricing, resp.NextToken)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return accounts, nil
+}
+
+// getEC2OnDemandInstances gets all EC2 on-demand instances and retrieves its uptime,
+// average hourly price, number of launched and terminated instances,
+// and item type. These instances are then added to the given accounts.
+func (c *Client) getEC2OnDemandInstances(accounts AccountHash,
+	reportRange TimeRange) (AccountHash, error) {
+	pricing, err := getOnDemandPriceInformation()
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem fetching on-demand price information")
+	}
+	accounts, err = c.getEC2OnDemandInstancesPage(accounts, reportRange,
+		pricing, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem fetching on-demand instances page")
+	}
+	return accounts, nil
+}
+
 // GetEC2Instances gets all EC2Instances and creates an array of accounts.
 // Note this function is public but I may change that when adding non EC2 Amazon services.
 func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
@@ -354,6 +508,11 @@ func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
 	accounts := make(AccountHash)
 	grip.Notice("Getting EC2 Reserved Instances")
 	accounts, err := c.getEC2ReservedInstances(accounts, reportRange)
+	if err != nil {
+		return nil, err
+	}
+	grip.Notice("Getting EC2 On-Demand Instances")
+	accounts, err = c.getEC2OnDemandInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
