@@ -57,7 +57,7 @@ func createTestStruct() Output {
 		Name:         "compile",
 		Distro:       "ubuntu1604-build",
 		BuildVariant: "x...",
-		TaskMinutes:  1242,
+		TaskSeconds:  1242,
 	}
 
 	project1 := &Project{

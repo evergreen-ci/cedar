@@ -54,7 +54,7 @@ type Task struct {
 	Name         string `json:"name,omitempty"`
 	Distro       string `json:"distro,omitempty"`
 	BuildVariant string `json:"build_variant,omitempty"`
-	TaskMinutes  int    `json:"task_minutes,omitempty"`
+	TaskSeconds  int    `json:"task_seconds,omitempty"`
 }
 
 //Service holds the item information for a single service within an account.
