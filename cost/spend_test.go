@@ -31,7 +31,7 @@ func (c *CostSuite) TestGetGranularity() {
 	c.config.Opts.Duration = ""
 	granularity, err := c.config.GetGranularity() //zero Duration
 	c.NoError(err)
-	c.Equal(granularity.String(), "4h0m0s")
+	c.Equal(granularity.String(), "1h0m0s")
 	c.config.Opts.Duration = "12h"
 	granularity, err = c.config.GetGranularity()
 	c.NoError(err)
@@ -86,7 +86,7 @@ func (c *CostSuite) TestYAMLToConfig() {
 	file := "testdata/spend_test.yml"
 	config, err := YAMLToConfig(file)
 	c.NoError(err)
-	c.Equal(config.Opts.Duration, "8h")
+	c.Equal(config.Opts.Duration, "4h")
 	c.Equal(config.Providers[0].Name, "fakecompany")
 	c.Equal(config.Providers[0].Cost, float32(50000))
 	file = "not_real.yaml"
@@ -94,12 +94,12 @@ func (c *CostSuite) TestYAMLToConfig() {
 	c.Error(err)
 }
 
-func (c *CostSuite) TestCreateItemFromEC2Instance() {
+func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 	key := &amazon.ItemKey{
 		ItemType: "reserved",
 		Name:     "c3.4xlarge",
 	}
-	item1 := &amazon.EC2Item{
+	item1 := &amazon.Item{
 		Launched:   true,
 		Terminated: false,
 		FixedPrice: 120.0,
@@ -107,7 +107,7 @@ func (c *CostSuite) TestCreateItemFromEC2Instance() {
 		Uptime:     3.0,
 		Count:      5,
 	}
-	item2 := &amazon.EC2Item{
+	item2 := &amazon.Item{
 		Launched:   false,
 		Terminated: true,
 		FixedPrice: 35.0,
@@ -115,7 +115,7 @@ func (c *CostSuite) TestCreateItemFromEC2Instance() {
 		Uptime:     1.00,
 		Count:      2,
 	}
-	item3 := &amazon.EC2Item{
+	item3 := &amazon.Item{
 		Launched:   true,
 		Terminated: false,
 		FixedPrice: 49.0,
@@ -123,8 +123,8 @@ func (c *CostSuite) TestCreateItemFromEC2Instance() {
 		Uptime:     1.00,
 		Count:      1,
 	}
-	items := []*amazon.EC2Item{item1, item2, item3}
-	item := createItemFromEC2Instance(key, items)
+	items := []*amazon.Item{item1, item2, item3}
+	item := createCostItemFromAmazonItems(key, items)
 	c.Equal(item.Name, key.Name)
 	c.Equal(item.ItemType, string(key.ItemType))
 	c.Equal(item.AvgPrice, float32(4.42))

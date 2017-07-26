@@ -13,6 +13,7 @@ import (
 )
 
 type itemType string
+type serviceType string
 
 const (
 	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
@@ -26,6 +27,8 @@ const (
 	startTag       = "start-time"
 	marked         = "marked-for-termination"
 	defaultAccount = "default"
+	EC2Service     = serviceType("ec2") //service name for ec2
+	EBSService     = serviceType("ebs") //service name for ebs
 )
 
 var ignoreCodes = []string{"canceled-before-fulfillment", "schedule-expired", "bad-parameters", "system-error"}
@@ -37,8 +40,8 @@ type Client struct {
 	ec2Client *ec2.EC2
 }
 
-// EC2Item is information for an item for a particular Name and ItemType
-type EC2Item struct {
+// Item is information for an item for a particular Name and ItemType
+type Item struct {
 	Product    string
 	Launched   bool
 	Terminated bool
@@ -48,8 +51,9 @@ type EC2Item struct {
 	Count      int
 }
 
-// ItemKey is used together with EC2Item to create a hashtable from ItemKey to []EC2Item
+// ItemKey is used together with Item to create a hashtable from ItemKey to []Item
 type ItemKey struct {
+	Service      serviceType
 	Name         string
 	ItemType     itemType
 	offeringType string
@@ -62,10 +66,10 @@ type TimeRange struct {
 	End   time.Time
 }
 
-// Maps the ItemKey to an array of EC2Items
-type itemHash map[*ItemKey][]*EC2Item
+// Maps the ItemKey to an array of Items
+type itemHash map[*ItemKey][]*Item
 
-// AccountHash maps an owner to an itemHash, i.e. ItemKeys and EC2Items
+// AccountHash maps an owner to an itemHash, i.e. ItemKeys and Items
 type AccountHash map[string]itemHash
 
 // NewClient returns a new populated client
@@ -94,6 +98,7 @@ func getTagVal(tags []*ec2.Tag, key string) (string, error) {
 // populateSpotKey creates an ItemKey using a spot request and the item type
 func populateSpotKey(inst *ec2.SpotInstanceRequest) *ItemKey {
 	return &ItemKey{
+		Service:  EC2Service,
 		Name:     *inst.LaunchSpecification.InstanceType,
 		ItemType: spot,
 	}
@@ -102,6 +107,7 @@ func populateSpotKey(inst *ec2.SpotInstanceRequest) *ItemKey {
 // populateReservedKey creates an ItemKey using a reserved instance
 func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
 	return &ItemKey{
+		Service:      EC2Service,
 		Name:         *inst.InstanceType,
 		ItemType:     reserved,
 		duration:     *inst.Duration,
@@ -112,14 +118,15 @@ func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
 // populateOnDemandKey creates an ItemKey using an on-demand instance
 func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
 	return &ItemKey{
+		Service:  EC2Service,
 		Name:     *inst.InstanceType,
 		ItemType: onDemand,
 	}
 }
 
-// populateItemFromSpot creates an EC2Item from a spot request result and fills in
+// populateItemFromSpot creates an Item from a spot request result and fills in
 // the isLaunched and isTerminated values.
-func populateItemFromSpot(req *ec2.SpotInstanceRequest) *EC2Item {
+func populateItemFromSpot(req *ec2.SpotInstanceRequest) *Item {
 
 	if *req.State == ec2.SpotInstanceStateOpen || *req.State == ec2.SpotInstanceStateFailed {
 		return nil
@@ -127,7 +134,7 @@ func populateItemFromSpot(req *ec2.SpotInstanceRequest) *EC2Item {
 	if req.Status == nil || stringInSlice(*req.Status.Code, ignoreCodes) {
 		return nil
 	}
-	item := &EC2Item{}
+	item := &Item{}
 	if *req.State == ec2.SpotInstanceStateActive || *(req.Status.Code) == marked {
 		item.Launched = true
 		return item
@@ -136,9 +143,9 @@ func populateItemFromSpot(req *ec2.SpotInstanceRequest) *EC2Item {
 	return item
 }
 
-// populateItemFromReserved creates an EC2Item from a reserved response item and
+// populateItemFromReserved creates an Item from a reserved response item and
 // fills in the isLaunched, isTerminated, and count values.
-func populateItemFromReserved(inst *ec2.ReservedInstances) *EC2Item {
+func populateItemFromReserved(inst *ec2.ReservedInstances) *Item {
 	var isTerminated, isLaunched bool
 	if *inst.State == ec2.ReservedInstanceStateRetired {
 		isTerminated = true
@@ -148,17 +155,17 @@ func populateItemFromReserved(inst *ec2.ReservedInstances) *EC2Item {
 		return nil
 	}
 
-	return &EC2Item{
+	return &Item{
 		Launched:   isLaunched,
 		Terminated: isTerminated,
 		Count:      int(*inst.InstanceCount),
 	}
 }
 
-// populateItemFromOnDemandcreates an EC2Item from an on-demand instance and
+// populateItemFromOnDemandcreates an Item from an on-demand instance and
 // fills in the isLaunched and isTerminated fields.
-func populateItemFromOnDemand(inst *ec2.Instance) *EC2Item {
-	item := &EC2Item{}
+func populateItemFromOnDemand(inst *ec2.Instance) *Item {
+	item := &Item{}
 	if *inst.State.Name == ec2.InstanceStateNamePending {
 		return nil
 	} else if *inst.State.Name == ec2.InstanceStateNameRunning {
@@ -266,14 +273,14 @@ func getUptimeRange(itemRange TimeRange, reportRange TimeRange) TimeRange {
 // setUptime returns the start/end time within the report for the item given,
 // and sets the end time - start time as the item's uptime.
 // Note that the uptime is rounded up, in hours.
-func (item *EC2Item) setUptime(times TimeRange) {
+func (item *Item) setUptime(times TimeRange) {
 	uptime := times.End.Sub(times.Start).Hours()
 	item.Uptime = int(math.Ceil(uptime))
 }
 
 // setReservedPrice takes in a reserved instance item and sets the item price
 // based on the instance's offering type and prices.
-func (item *EC2Item) setReservedPrice(inst *ec2.ReservedInstances) {
+func (item *Item) setReservedPrice(inst *ec2.ReservedInstances) {
 	instType := *inst.OfferingType
 	if instType == ec2.OfferingTypeValuesAllUpfront || instType == ec2.OfferingTypeValuesPartialUpfront {
 		item.FixedPrice = *inst.FixedPrice
@@ -288,7 +295,7 @@ func (item *EC2Item) setReservedPrice(inst *ec2.ReservedInstances) {
 // setOnDemandPrice takes in an on-demand instance item and prices object and
 // sets the item price based on the instance's availability zone, instance type,
 // product description, and uptime. In case of error, the price is set to 0.
-func (item *EC2Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
+func (item *Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
 	var productDesc string
 	if inst.Placement == nil || inst.Placement.AvailabilityZone == nil {
 		return
@@ -309,7 +316,7 @@ func (item *EC2Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
 
 // isValidInstance takes in an item, an error, and two time ranges.
 // It returns true if the item is not nil, there is no error, and the TimeRanges are non empty.
-func isValidInstance(item *EC2Item, err error, itemRange TimeRange, uptimeRange TimeRange) bool {
+func isValidInstance(item *Item, err error, itemRange TimeRange, uptimeRange TimeRange) bool {
 	if item == nil || err != nil || itemRange == (TimeRange{}) || uptimeRange == (TimeRange{}) {
 		return false
 	}
@@ -317,7 +324,7 @@ func isValidInstance(item *EC2Item, err error, itemRange TimeRange, uptimeRange 
 }
 
 // updateAccounts uses the given key and owner to add the item to the accounts object.
-func (accounts AccountHash) updateAccounts(owner string, item *EC2Item, key *ItemKey) {
+func (accounts AccountHash) updateAccounts(owner string, item *Item, key *ItemKey) {
 	curAccount := accounts[owner]
 	if curAccount == nil {
 		curAccount = make(itemHash)
@@ -326,14 +333,14 @@ func (accounts AccountHash) updateAccounts(owner string, item *EC2Item, key *Ite
 	for curKey, curItems := range curAccount {
 		//Check if we can add it to an existing key
 		if key.Name == curKey.Name && key.ItemType == curKey.ItemType &&
-			key.duration == curKey.duration {
+			key.duration == curKey.duration && key.Service == curKey.Service {
 			placed = true
 			curAccount[curKey] = append(curItems, item)
 			break
 		}
 	}
 	if placed == false {
-		curAccount[key] = []*EC2Item{item}
+		curAccount[key] = []*Item{item}
 	}
 	accounts[owner] = curAccount
 }
@@ -506,21 +513,89 @@ func (c *Client) getEC2OnDemandInstances(accounts AccountHash,
 func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
 	// accounts maps from account name to the items
 	accounts := make(AccountHash)
-	grip.Notice("Getting EC2 Reserved Instances")
+	grip.Info("Getting EC2 Reserved Instances")
 	accounts, err := c.getEC2ReservedInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
-	grip.Notice("Getting EC2 On-Demand Instances")
+	grip.Info("Getting EC2 On-Demand Instances")
 	accounts, err = c.getEC2OnDemandInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
-	grip.Notice("Getting EC2 Spot Instances")
+	grip.Info("Getting EC2 Spot Instances")
 	accounts, err = c.getEC2SpotInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
 
+	return accounts, nil
+}
+
+// invalidVolume returns true if a necessary volume field is nil, or if
+// the volume was created after the report range or is still being created.
+func invalidVolume(vol *ec2.Volume, reportRange TimeRange) bool {
+	if vol.State == nil || vol.CreateTime == nil || vol.VolumeType == nil {
+		return true
+	}
+	state := *vol.State
+	createTime := *vol.CreateTime
+	if createTime.After(reportRange.End) || state == ec2.VolumeStateCreating ||
+		state == ec2.VolumeStateError {
+		return true
+	}
+	return false
+}
+
+// getEBSItemsPage recursively iterates through pages of EBS volumes
+// and retrieves its average hourly price, number of launched and terminated instances,
+// and volume type and adds this information to accounts.
+func (c *Client) addEBSItemsPage(accounts AccountHash, reportRange TimeRange, pricing *EBSPrices,
+	nextToken *string) (AccountHash, error) {
+	grip.Info("Getting EBS Items")
+	input := &ec2.DescribeVolumesInput{}
+	if nextToken != nil && *nextToken != "" {
+		//create filter
+		input = input.SetNextToken(*nextToken)
+	}
+	resp, err := c.ec2Client.DescribeVolumes(input)
+	if err != nil || resp == nil {
+		return nil, err
+	}
+	for _, vol := range resp.Volumes {
+		owner := defaultAccount
+		if invalidVolume(vol, reportRange) {
+			break
+		}
+		key := &ItemKey{
+			ItemType: itemType(*vol.VolumeType),
+			Service:  EBSService,
+		}
+		item := &Item{}
+		if *vol.State == ec2.VolumeStateAvailable || *vol.State == ec2.VolumeStateInUse {
+			item.Launched = true
+			item.Price = pricing.getEBSPrice(vol, reportRange)
+		} else { //state is deleting, deleted, or error
+			item.Terminated = true
+		}
+		accounts.updateAccounts(owner, item, key)
+	}
+	// if there's a next page, recursively add next page information
+	for resp.NextToken != nil && *resp.NextToken != "" {
+		accounts, err = c.addEBSItemsPage(accounts, reportRange,
+			pricing, resp.NextToken)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return accounts, nil
+}
+
+// AddEBSItems gets all EBSVolumes and adds these items to accounts.
+func (c *Client) AddEBSItems(accounts AccountHash, reportRange TimeRange, pricing *EBSPrices) (AccountHash, error) {
+	accounts, err := c.addEBSItemsPage(accounts, reportRange, pricing, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem fetching EBS items page")
+	}
 	return accounts, nil
 }
