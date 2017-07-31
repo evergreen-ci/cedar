@@ -91,10 +91,9 @@ func (c *Client) getPath(link string) (string, error) {
 	start := 1
 	end := len(link) - 1 //remove trailing >
 	url := link[start:end]
-	// TODO: ADD THIS BACK FOR PRODUCTION EVERGREEN
-	// if !strings.HasPrefix(url, c.apiRoot) {
-	// 	return "", errors.New("Invalid link")
-	// }
+	if !strings.HasPrefix(url, c.apiRoot) {
+		return "", errors.New("Invalid link")
+	}
 	start = len(c.apiRoot)
 	path := url[start:]
 	return path, nil
@@ -124,8 +123,6 @@ func (c *Client) get(path string) ([]byte, string, error) {
 			return nil, "", errors.WithStack(err)
 		}
 
-		// TODO: REMOVE THIS FOR PRODUCTION EVERGREEN
-		link = strings.Replace(link, "evg", "localhost", 1)
 		link, err = c.getPath(link)
 		if err != nil {
 			return nil, "", errors.WithStack(err)
@@ -139,4 +136,3 @@ func (c *Client) get(path string) ([]byte, string, error) {
 
 	return out, link, nil
 }
-

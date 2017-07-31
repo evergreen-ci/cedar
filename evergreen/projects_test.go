@@ -28,11 +28,9 @@ func TestProjectsSuite(t *testing.T) {
 }
 
 func (s *ProjectSuite) SetupSuite() {
-	// TODO: the following values are only for testing until production Evergreen
-	// has the routes that we need.
-	s.info.root = "http://localhost:8080/api/rest/v2/"
-	s.info.user = "admin"
-	s.info.key = "abb623665fdbf368a1db980dde6ee0f0"
+	s.info.root = "https://evergreen-staging.corp.mongodb.com/rest/v2/"
+	s.info.user = "USER"
+	s.info.key = "KEY"
 	s.client = &http.Client{}
 }
 
@@ -51,22 +49,18 @@ func (s *ProjectSuite) TestGetProjects() {
 // for the project given. Authentication is needed for this route.
 func (s *ProjectSuite) TestGetTaskCostsByProject() {
 	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
-	// TODO: Right now the test is written for the locally running API server.
-	// Change for the production evergreen later.
-	output := Client.getTaskCostsByProject("amboy", "1970-01-01T00:00:00%2B00:00", "1h")
+	output := Client.getTaskCostsByProject("mci", "2017-07-25T10:00:00Z", "4h")
 	for out := range output {
 		s.NoError(out.err)
 		s.NotEmpty(out.taskcost.TimeTaken)
 	}
 }
 
-// Tests GetEvergreenProjectsData(), which retrieves all task costs from
+// Tests GetEvergreenProjectsData(), which retrieves all task costs
 // for each project in Evergreen. Authentication is needed for this route.
 func (s *ProjectSuite) TestGetEvergreenProjectsData() {
 	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
-	// TODO: Right now the test is written for the locally running API server.
-	// Change for the production evergreen later.
-	starttime, _ := time.Parse(time.RFC3339, "1970-01-01T00:00:00+00:00")
+	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("1h")
 	projectUnits, err := Client.GetEvergreenProjectsData(starttime, duration)
 	s.NoError(err)

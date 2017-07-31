@@ -39,7 +39,7 @@ type Distro struct {
 	Name            string `json:"name,omitempty"`
 	Provider        string `json:"provider,omitempty"`
 	InstanceType    string `json:"instance_type,omitempty"`
-	InstanceSeconds int    `json:"instance_seconds,omitempty"`
+	InstanceSeconds int64  `json:"instance_seconds,omitempty"`
 }
 
 //Account holds the name and services of a single account for a provider.
@@ -54,7 +54,7 @@ type Task struct {
 	Name         string `json:"name,omitempty"`
 	Distro       string `json:"distro,omitempty"`
 	BuildVariant string `json:"build_variant,omitempty"`
-	TaskSeconds  int    `json:"task_seconds,omitempty"`
+	TaskSeconds  int64  `json:"task_seconds,omitempty"`
 }
 
 //Service holds the item information for a single service within an account.

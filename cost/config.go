@@ -7,6 +7,9 @@ type Config struct {
 	Opts      Options           `yaml:"opts"`
 	Pricing   *amazon.EBSPrices `yaml:"pricing"`
 	Providers []*Provider       `yaml:"providers"`
+	RootURL   string            `yaml:"root_url"`
+	User      string            `yaml:"evergreen_user"`
+	Key       string            `yaml:"evergreen_api_key"`
 }
 
 // Options holds user submitted default options for the cost tool.

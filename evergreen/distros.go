@@ -80,7 +80,10 @@ func (c *Client) getDistroCosts(distroIDs []string, st,
 			return nil,
 				errors.Wrap(err, "error when getting distro cost data from Evergreen")
 		}
-		distroCosts = append(distroCosts, evgdc)
+		// Only include distro costs with meaningful information
+		if evgdc.SumTimeTaken > 0 {
+			distroCosts = append(distroCosts, evgdc)
+		}
 	}
 	return distroCosts, nil
 }

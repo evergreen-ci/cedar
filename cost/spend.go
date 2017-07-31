@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/evergreen-ci/sink/amazon"
+	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -261,6 +263,14 @@ func CreateReport(start string, granularity time.Duration, config *Config) (*Out
 	if err != nil {
 		return output, errors.Wrap(err, "Problem retrieving providers information")
 	}
+
+	c := evergreen.NewClient(config.RootURL, &http.Client{}, config.User, config.Key)
+	evg, err := getEvergreenData(c, reportRange.start, granularity)
+	if err != nil {
+		return &Output{}, errors.Wrap(err, "Problem retrieving evergreen information")
+	}
+	output.Evergreen = *evg
+
 	output.Report = Report{
 		Begin:     reportRange.start.String(),
 		End:       reportRange.end.String(),

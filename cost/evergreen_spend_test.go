@@ -29,32 +29,32 @@ func TestEvergreenSpendSuite(t *testing.T) {
 }
 
 func (s *EvergreenSpendSuite) SetupSuite() {
-	// TODO: the following values are only for testing until production Evergreen
-	// has the routes that we need.
-	s.info.root = "http://localhost:8080/api/rest/v2/"
-	s.info.user = "admin"
-	s.info.key = "abb623665fdbf368a1db980dde6ee0f0"
+	s.info.root = "https://evergreen-staging.corp.mongodb.com/rest/v2/"
+	s.info.user = "USER"
+	s.info.key = "KEY"
 	s.client = &http.Client{}
 }
 
-// // TestGetEvergreenDistrosData tests that GetEvergreenDistrosData
-// // runs without error
-// func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
-// 	client := evergreen.NewClient(s.info.root, s.client, "", "")
-// 	starttime, _ := time.Parse(time.RFC3339, "2017-07-01T00:00:00+00:00")
-// 	duration, _ := time.ParseDuration("10h")
-// 	distros, err := GetEvergreenDistrosData(client, starttime, duration)
-// 	for _, d := range distros {
-// 		s.NotEmpty(d)
-// 	}
-// 	s.NoError(err)
-// }
+// TestGetEvergreenDistrosData tests that GetEvergreenDistrosData
+// runs without error
+func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
+	client := evergreen.NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
+	duration, _ := time.ParseDuration("48h")
+	distros, err := getEvergreenDistrosData(client, starttime, duration)
+	for _, d := range distros {
+		s.NotEmpty(d)
+	}
+	s.NoError(err)
+}
 
+// TestGetEvergreenDistrosData tests that GetEvergreenProjectsData
+// runs without error
 func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
-	client := evergreen.NewClient("http://localhost:8080/api/rest/v2/", s.client, "admin", "abb623665fdbf368a1db980dde6ee0f0")
-	starttime, _ := time.Parse(time.RFC3339, "1970-01-01T00:00:00+00:00")
+	client := evergreen.NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("1h")
-	projects, err := GetEvergreenProjectsData(client, starttime, duration)
+	projects, err := getEvergreenProjectsData(client, starttime, duration)
 	s.NoError(err)
 	for _, p := range projects {
 		s.NotEmpty(p.Name)
@@ -65,10 +65,10 @@ func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
 }
 
 func (s *EvergreenSpendSuite) TestGetEvergreenData() {
-	client := evergreen.NewClient("http://localhost:8080/api/rest/v2/", s.client, "admin", "abb623665fdbf368a1db980dde6ee0f0")
-	starttime, _ := time.Parse(time.RFC3339, "1970-01-01T00:00:00+00:00")
-	duration, _ := time.ParseDuration("1h")
-	evergreen, err := GetEvergreenData(client, starttime, duration)
+	client := evergreen.NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
+	duration, _ := time.ParseDuration("4h")
+	evergreen, err := getEvergreenData(client, starttime, duration)
 	s.NoError(err)
 	for _, p := range evergreen.Projects {
 		s.NotEmpty(p.Name)

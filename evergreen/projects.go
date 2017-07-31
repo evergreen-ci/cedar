@@ -138,6 +138,7 @@ func (c *Client) getProjectIDs() ([]string, error) {
 	for out := range output {
 		if out.err != nil {
 			catcher.Add(out.err)
+			break
 		}
 		projectIDs = append(projectIDs, out.output.Identifier)
 	}
@@ -184,7 +185,10 @@ func (c *Client) GetEvergreenProjectsData(starttime time.Time, duration time.Dur
 		}
 		pu.Name = projectID
 		pu.Tasks = taskCosts
-		projectUnits = append(projectUnits, pu)
+		// Only include task costs with meaningful information
+		if len(taskCosts) > 0 {
+			projectUnits = append(projectUnits, pu)
+		}
 	}
 
 	return projectUnits, nil
