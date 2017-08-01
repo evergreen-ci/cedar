@@ -39,6 +39,7 @@ var amazonTerminated = []string{"instance-terminated-by-price", "instance-termin
 // Client holds information for the amazon client
 type Client struct {
 	ec2Client *ec2.EC2
+	context   aws.Context
 }
 
 // Item is information for an item for a particular Name and ItemType
@@ -80,6 +81,7 @@ func NewClient() *Client {
 		Region: aws.String("us-east-1"),
 	}))
 	client.ec2Client = ec2.New(sess)
+	client.context = aws.BackgroundContext()
 	return client
 }
 
@@ -378,8 +380,8 @@ func (c *Client) getSpotPricePage(ctx context.Context, req *ec2.SpotInstanceRequ
 	if nextToken != nil && *nextToken != "" {
 		input = input.SetNextToken(*nextToken)
 	}
-	res, err := c.ec2Client.DescribeSpotPriceHistoryWithContext(ctx, input)
 
+	res, err := c.ec2Client.DescribeSpotPriceHistoryWithContext(ctx, input)
 	if err != nil {
 		return nil
 	}
