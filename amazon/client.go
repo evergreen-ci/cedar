@@ -15,6 +15,7 @@ import (
 type itemType string
 type serviceType string
 
+
 const (
 	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
 	tagLayout      = "20060102150405"
@@ -118,6 +119,14 @@ func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
 // populateOnDemandKey creates an ItemKey using an on-demand instance
 func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
 	return &ItemKey{
+		Name:     *inst.InstanceType,
+		ItemType: onDemand,
+	}
+}
+
+// populateOnDemandKey creates an ItemKey using an on-demand instance
+func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
+	return &ItemKey{
 		Service:  EC2Service,
 		Name:     *inst.InstanceType,
 		ItemType: onDemand,
@@ -127,14 +136,15 @@ func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
 // populateItemFromSpot creates an Item from a spot request result and fills in
 // the isLaunched and isTerminated values.
 func populateItemFromSpot(req *ec2.SpotInstanceRequest) *Item {
-
 	if *req.State == ec2.SpotInstanceStateOpen || *req.State == ec2.SpotInstanceStateFailed {
 		return nil
 	}
 	if req.Status == nil || stringInSlice(*req.Status.Code, ignoreCodes) {
 		return nil
 	}
+
 	item := &Item{}
+
 	if *req.State == ec2.SpotInstanceStateActive || *(req.Status.Code) == marked {
 		item.Launched = true
 		return item
@@ -161,6 +171,7 @@ func populateItemFromReserved(inst *ec2.ReservedInstances) *Item {
 		Count:      int(*inst.InstanceCount),
 	}
 }
+
 
 // populateItemFromOnDemandcreates an Item from an on-demand instance and
 // fills in the isLaunched and isTerminated fields.
@@ -280,6 +291,7 @@ func (item *Item) setUptime(times TimeRange) {
 
 // setReservedPrice takes in a reserved instance item and sets the item price
 // based on the instance's offering type and prices.
+
 func (item *Item) setReservedPrice(inst *ec2.ReservedInstances) {
 	instType := *inst.OfferingType
 	if instType == ec2.OfferingTypeValuesAllUpfront || instType == ec2.OfferingTypeValuesPartialUpfront {
@@ -295,6 +307,7 @@ func (item *Item) setReservedPrice(inst *ec2.ReservedInstances) {
 // setOnDemandPrice takes in an on-demand instance item and prices object and
 // sets the item price based on the instance's availability zone, instance type,
 // product description, and uptime. In case of error, the price is set to 0.
+
 func (item *Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
 	var productDesc string
 	if inst.Placement == nil || inst.Placement.AvailabilityZone == nil {
@@ -518,11 +531,13 @@ func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
 	if err != nil {
 		return nil, err
 	}
+  
 	grip.Info("Getting EC2 On-Demand Instances")
 	accounts, err = c.getEC2OnDemandInstances(accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
+
 	grip.Info("Getting EC2 Spot Instances")
 	accounts, err = c.getEC2SpotInstances(accounts, reportRange)
 	if err != nil {

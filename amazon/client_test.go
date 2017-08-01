@@ -421,6 +421,7 @@ func (s *ClientSuite) TestSetOnDemandPrice() {
 	price := 1.2
 	pricing := &prices{}
 	(*pricing)[info] = price
+
 	item := &Item{Uptime: 4}
 	s.ondemand.Placement = nil
 	item.setOnDemandPrice(s.ondemand, pricing)

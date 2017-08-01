@@ -36,10 +36,10 @@ type Project struct {
 
 //Distro holds the information for a single distro in Evergreen.
 type Distro struct {
-	Name          string `json:"name,omitempty"`
-	Provider      string `json:"provider,omitempty"`
-	InstanceType  string `json:"instance_type,omitempty"`
-	InstanceHours int    `json:"instance_hours,omitempty"`
+	Name            string `json:"name,omitempty"`
+	Provider        string `json:"provider,omitempty"`
+	InstanceType    string `json:"instance_type,omitempty"`
+	InstanceSeconds int    `json:"instance_seconds,omitempty"`
 }
 
 //Account holds the name and services of a single account for a provider.
@@ -54,7 +54,7 @@ type Task struct {
 	Name         string `json:"name,omitempty"`
 	Distro       string `json:"distro,omitempty"`
 	BuildVariant string `json:"build_variant,omitempty"`
-	TaskMinutes  int    `json:"task_minutes,omitempty"`
+	TaskSeconds  int    `json:"task_seconds,omitempty"`
 }
 
 //Service holds the item information for a single service within an account.

@@ -1,7 +1,6 @@
 package evergreen
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,44 +9,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-//Client holds the credentials for the Evergreen API
+// Client holds the credentials for the Evergreen API.
 type Client struct {
-	APIRoot    string
+	apiRoot    string
 	httpClient *http.Client
-	User       string
-	APIKey     string
+	user       string
+	apiKey     string
 }
 
-//Host holds information for a single host
-type Host struct {
-	HostID      string `json:"host_id"`
-	Distro      Distro `json:"distro"`
-	Provisioned bool   `json:"provisioned"`
-	StartedBy   string `json:"started_by"`
-	HostType    string `json:"host_type"`
-	UserType    string `json:"user"`
-	Status      string `json:"status"`
-	RunningTask Task   `json:"running_task"`
-}
-
-//Distro holds information for a single distro within a host
-type Distro struct {
-	DistroID string `json:"distro_id"`
-	Provider string `json:"provider"`
-}
-
-//Task holds information for a single task within a host
-type Task struct {
-	TaskID       string `json:"task_id"`
-	Name         string `json:"name"`
-	DispatchTime string `json:"dispatch_time"`
-	VersionID    string `json:"version_id"`
-	BuildID      string `json:"build_id"`
+// NewClient is a constructs a new Client using the parameters given.
+func NewClient(apiRoot string, httpClient *http.Client, user string,
+	apiKey string) *Client {
+	return &Client{
+		apiRoot:    apiRoot,
+		httpClient: httpClient,
+		user:       user,
+		apiKey:     apiKey,
+	}
 }
 
 // getURL returns a URL for the given path.
 func (c *Client) getURL(path string) string {
-	return fmt.Sprintf("%s/%s", c.APIRoot, path)
+	return fmt.Sprintf("%s/%s", c.apiRoot, path)
 }
 
 // doReq performs a request of the given method type against path.
@@ -62,10 +45,9 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 		return nil, err
 	}
 
-	req.Header.Add("Api-Key", c.APIKey)
-	req.Header.Add("Api-User", c.User)
+	req.Header.Add("Api-Key", c.apiKey)
+	req.Header.Add("Api-User", c.user)
 	resp, err := c.httpClient.Do(req)
-
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +55,10 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 		msg := fmt.Sprintf("empty response from server for %s request for URL %s", method, url)
 		return nil, errors.New(msg)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("http request failed (not 200 OK)")
+	}
+
 	return resp, nil
 }
 
@@ -92,7 +78,7 @@ func getRel(link string) (string, error) {
 		return "", errors.New("incorrect rel format")
 	}
 	rel := rels[1]
-	if rel != "next" && rel != "last" {
+	if rel != "next" && rel != "prev" {
 		return "", errors.New("error parsing link")
 	}
 	return rel, nil
@@ -105,10 +91,11 @@ func (c *Client) getPath(link string) (string, error) {
 	start := 1
 	end := len(link) - 1 //remove trailing >
 	url := link[start:end]
-	if !strings.HasPrefix(url, c.APIRoot) {
-		return "", errors.New("Invalid link")
-	}
-	start = len(c.APIRoot)
+	// TODO: ADD THIS BACK FOR PRODUCTION EVERGREEN
+	// if !strings.HasPrefix(url, c.apiRoot) {
+	// 	return "", errors.New("Invalid link")
+	// }
+	start = len(c.apiRoot)
 	path := url[start:]
 	return path, nil
 }
@@ -136,11 +123,16 @@ func (c *Client) get(path string) ([]byte, string, error) {
 		if err != nil {
 			return nil, "", errors.WithStack(err)
 		}
+
+		// TODO: REMOVE THIS FOR PRODUCTION EVERGREEN
+		link = strings.Replace(link, "evg", "localhost", 1)
 		link, err = c.getPath(link)
 		if err != nil {
 			return nil, "", errors.WithStack(err)
 		}
-		if rel == "last" {
+
+		// If the first link is "prev," we are at the end.
+		if rel == "prev" {
 			link = ""
 		}
 	}
@@ -148,44 +140,3 @@ func (c *Client) get(path string) ([]byte, string, error) {
 	return out, link, nil
 }
 
-// GetHosts is an example wrapper function of get for a specific query.
-// If limit is negative, GetHosts will return all hosts.
-// Otherwise, will return the number of hosts <= limit.
-func (c *Client) GetHosts(limit int) (<-chan *Host, <-chan error) {
-	out := make(chan *Host)
-	errs := make(chan error)
-
-	// TODO: replace limit with contexts for cancelation
-	go func() {
-		seen := 0
-		for {
-			data, link, err := c.get("/hosts")
-			if err != nil {
-				errs <- err
-				break
-			}
-			hosts := []*Host{}
-			if err := json.Unmarshal(data, &hosts); err != nil {
-				errs <- err
-				break
-			}
-
-			for _, h := range hosts {
-				seen++
-				out <- h
-			}
-
-			if limit > 0 && seen >= limit {
-				break
-			}
-
-			if link == "" {
-				break
-			}
-		}
-		close(out)
-		close(errs)
-	}()
-
-	return out, errs
-}
