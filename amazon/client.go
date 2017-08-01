@@ -15,7 +15,6 @@ import (
 type itemType string
 type serviceType string
 
-
 const (
 	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
 	tagLayout      = "20060102150405"
@@ -119,14 +118,6 @@ func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
 // populateOnDemandKey creates an ItemKey using an on-demand instance
 func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
 	return &ItemKey{
-		Name:     *inst.InstanceType,
-		ItemType: onDemand,
-	}
-}
-
-// populateOnDemandKey creates an ItemKey using an on-demand instance
-func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
-	return &ItemKey{
 		Service:  EC2Service,
 		Name:     *inst.InstanceType,
 		ItemType: onDemand,
@@ -171,7 +162,6 @@ func populateItemFromReserved(inst *ec2.ReservedInstances) *Item {
 		Count:      int(*inst.InstanceCount),
 	}
 }
-
 
 // populateItemFromOnDemandcreates an Item from an on-demand instance and
 // fills in the isLaunched and isTerminated fields.
@@ -531,7 +521,7 @@ func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
 	if err != nil {
 		return nil, err
 	}
-  
+
 	grip.Info("Getting EC2 On-Demand Instances")
 	accounts, err = c.getEC2OnDemandInstances(accounts, reportRange)
 	if err != nil {
