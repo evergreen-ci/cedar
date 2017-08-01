@@ -238,6 +238,9 @@ func (c *appServicesCache) setSpendConfig(file string) error {
 	if newConfig.Opts.Duration != "" {
 		configFile.Opts.Duration = newConfig.Opts.Duration
 	}
+	if newConfig.Pricing != nil {
+		configFile.Pricing = newConfig.Pricing
+	}
 
 	if configFile.Providers != nil {
 		configFile.UpdateSpendProviders(newConfig.Providers)

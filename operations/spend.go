@@ -18,15 +18,15 @@ func Spend() cli.Command {
 		Usage: "generate a report covering Evergreen and AWS data",
 		Flags: []cli.Flag{
 			cli.StringFlag{
+				Name:  "config",
+				Usage: "path to configuration file, and EBS pricing information, is required",
+			},
+			cli.StringFlag{
 				Name:  "start",
 				Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
 			},
 			cli.DurationFlag{
 				Name: "granularity",
-			},
-			cli.StringFlag{
-				Name:  "config",
-				Usage: "path to configuration file",
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -34,13 +34,17 @@ func Spend() cli.Command {
 			granularity := c.Duration("granularity")
 			var err error
 			file := c.String("config")
-			if file != "" {
-				err = configureSpend(file)
-				if err != nil {
-					return errors.Wrap(err, "Problem with config file")
-				}
+			if file == "" {
+				return errors.New("Configuration file is required")
+			}
+			err = configureSpend(file)
+			if err != nil {
+				return errors.Wrap(err, "Problem with config file")
 			}
 			config := sink.GetSpendConfig()
+			if config.Pricing == nil {
+				return errors.New("Configuration file requires EBS pricing information")
+			}
 			if granularity == 0 { //empty duration
 				granularity, err = config.GetGranularity()
 				if err != nil {

@@ -1,9 +1,12 @@
 package cost
 
+import "github.com/evergreen-ci/sink/amazon"
+
 // Config holds information from a user submitted cost config file.
 type Config struct {
-	Opts      Options     `yaml:"opts"`
-	Providers []*Provider `yaml:"providers"`
+	Opts      Options           `yaml:"opts"`
+	Pricing   *amazon.EBSPrices `yaml:"pricing"`
+	Providers []*Provider       `yaml:"providers"`
 }
 
 // Options holds user submitted default options for the cost tool.

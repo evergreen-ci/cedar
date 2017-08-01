@@ -59,7 +59,7 @@ func (s *ServiceCacheSuite) TestSetSpendConfig() {
 	err := s.cache.setSpendConfig(file)
 	s.NoError(err)
 	configFile := s.cache.spendConfig
-	s.Equal(configFile.Opts.Duration, "8h")
+	s.Equal(configFile.Opts.Duration, "4h")
 
 	file = "not_real.yaml"
 	err = s.cache.setSpendConfig(file)

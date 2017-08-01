@@ -31,7 +31,7 @@ type timeRange struct {
 func (c *Config) GetGranularity() (time.Duration, error) {
 	configDur := c.Opts.Duration
 	var err error
-	granularity := 4 * time.Hour //default value
+	granularity := time.Hour //default value
 	if configDur != "" {
 		granularity, err = time.ParseDuration(configDur)
 		if err != nil {
@@ -120,8 +120,8 @@ func avg(vals []float64) float64 {
 }
 
 // setItems sets the number of launched and terminated instances of the given cost item.
-// The sums are calculated from the information in the ec2Item array.
-func (res *Item) setSums(items []*amazon.EC2Item) {
+// The sums are calculated from the information in the Item array.
+func (res *Item) setSums(items []*amazon.Item) {
 	res.Launched, res.Terminated, res.TotalHours = 0, 0, 0
 	for _, item := range items {
 		if item.Launched {
@@ -143,8 +143,8 @@ func (res *Item) setSums(items []*amazon.EC2Item) {
 }
 
 // avgItems sets the average price, fixed price, and uptime of the given cost item.
-// The averages are calculated from the information in the ec2Item array.
-func (res *Item) setAverages(items []*amazon.EC2Item) {
+// The averages are calculated from the information in the Item array.
+func (res *Item) setAverages(items []*amazon.Item) {
 	var prices, uptimes, fixedPrices []float64
 	for _, item := range items {
 		if item.Price != 0.0 {
@@ -169,7 +169,7 @@ func (res *Item) setAverages(items []*amazon.EC2Item) {
 }
 
 // createItemFromEC2Instance creates a new cost.Item using a key/item array pair.
-func createItemFromEC2Instance(key *amazon.ItemKey, items []*amazon.EC2Item) *Item {
+func createCostItemFromAmazonItems(key *amazon.ItemKey, items []*amazon.Item) *Item {
 	item := &Item{
 		Name:     key.Name,
 		ItemType: string(key.ItemType),
@@ -181,46 +181,54 @@ func createItemFromEC2Instance(key *amazon.ItemKey, items []*amazon.EC2Item) *It
 }
 
 // getAccounts takes in a range for the report, and returns an array of accounts
-// containing EC2 instances.
-func getAWSAccounts(reportRange timeRange) ([]*Account, error) {
+// containing EC2 and EBS instances.
+func getAWSAccounts(reportRange timeRange, config *Config) ([]*Account, error) {
 	awsReportRange := amazon.TimeRange{
 		Start: reportRange.start,
 		End:   reportRange.end,
 	}
 	client := amazon.NewClient()
-	grip.Notice("Getting instances from client")
 	accounts, err := client.GetEC2Instances(awsReportRange)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem getting EC2 instances")
 	}
+	accounts, err = client.AddEBSItems(accounts, awsReportRange, config.Pricing)
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem getting EBS instances")
+	}
 	var accountReport []*Account
-
 	for owner, instances := range accounts {
-		service := &Service{
-			Name: ec2,
+		grip.Infof("Iterating through %d instance types", len(instances))
+		ec2Service := &Service{
+			Name: string(amazon.EC2Service),
 		}
-		grip.Noticef("Iterating through %d instances", len(instances))
+		ebsService := &Service{
+			Name: string(amazon.EBSService),
+		}
 		for key, items := range instances {
-			item := createItemFromEC2Instance(key, items)
-			service.Items = append(service.Items, item)
+			item := createCostItemFromAmazonItems(key, items)
+			if key.Service == amazon.EC2Service {
+				ec2Service.Items = append(ec2Service.Items, item)
+			} else {
+				ebsService.Items = append(ebsService.Items, item)
+			}
 		}
 		account := &Account{
 			Name:     owner,
-			Services: []*Service{service},
+			Services: []*Service{ec2Service, ebsService},
 		}
 		accountReport = append(accountReport, account)
 	}
 	return accountReport, nil
-
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(reportRange timeRange) (*Provider, error) {
+func getAWSProvider(reportRange timeRange, config *Config) (*Provider, error) {
 	var err error
 	res := &Provider{
 		Name: aws,
 	}
-	res.Accounts, err = getAWSAccounts(reportRange)
+	res.Accounts, err = getAWSAccounts(reportRange, config)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +237,7 @@ func getAWSProvider(reportRange timeRange) (*Provider, error) {
 
 // getAllProviders returns the AWS provider and any providers in the config file
 func getAllProviders(reportRange timeRange, config *Config) ([]*Provider, error) {
-	awsProvider, err := getAWSProvider(reportRange)
+	awsProvider, err := getAWSProvider(reportRange, config)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +250,7 @@ func getAllProviders(reportRange timeRange, config *Config) ([]*Provider, error)
 
 // CreateReport returns an Output using a start string, granularity, and Config information.
 func CreateReport(start string, granularity time.Duration, config *Config) (*Output, error) {
-	grip.Notice("Creating the report\n")
+	grip.Info("Creating the report\n")
 	output := &Output{}
 	reportRange, err := getTimes(start, granularity)
 	if err != nil {
@@ -275,7 +283,7 @@ func (report *Output) Print(config *Config, filepath string) error {
 		return nil
 	}
 	filepath = strings.Join([]string{config.Opts.Directory, filepath}, "/")
-	grip.Noticef("Printing the report to %s\n", filepath)
+	grip.Infof("Printing the report to %s\n", filepath)
 	file, err := os.Create(filepath)
 	if err != nil {
 		return errors.Wrap(err, "Problem creating file")

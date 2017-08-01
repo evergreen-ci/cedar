@@ -362,7 +362,7 @@ func (s *ClientSuite) TestSetUptime() {
 		Start: start,
 		End:   end,
 	}
-	item := &EC2Item{}
+	item := &Item{}
 	item.setUptime(times)
 	s.Equal(item.Uptime, 3)
 }
@@ -372,7 +372,7 @@ func (s *ClientSuite) TestSetReservedPriceFixed() {
 	price := float64(120)
 	s.reserved.OfferingType = &offeringType
 	s.reserved.FixedPrice = &price
-	item := &EC2Item{}
+	item := &Item{}
 	item.setReservedPrice(s.reserved)
 	s.Equal(item.FixedPrice, 120.0)
 	s.Equal(item.Price, 0.0)
@@ -386,7 +386,7 @@ func (s *ClientSuite) TestSetReservedPriceNoUpfront() {
 		Amount: &amount,
 	}
 	s.reserved.RecurringCharges = []*ec2.RecurringCharge{charge}
-	item := &EC2Item{
+	item := &Item{
 		Uptime: 3,
 	}
 	item.setReservedPrice(s.reserved)
@@ -400,7 +400,7 @@ func (s *ClientSuite) TestSetReservedPricePartial() {
 	amount := 0.84
 	s.reserved.OfferingType = &offeringType
 	s.reserved.FixedPrice = &price
-	item := &EC2Item{
+	item := &Item{
 		Uptime: 3,
 	}
 	charge := &ec2.RecurringCharge{
@@ -421,7 +421,8 @@ func (s *ClientSuite) TestSetOnDemandPrice() {
 	price := 1.2
 	pricing := &prices{}
 	(*pricing)[info] = price
-	item := &EC2Item{Uptime: 4}
+
+	item := &Item{Uptime: 4}
 	s.ondemand.Placement = nil
 	item.setOnDemandPrice(s.ondemand, pricing)
 	s.Equal(item.Price, 0.0)
@@ -438,7 +439,7 @@ func (s *ClientSuite) TestSetOnDemandPrice() {
 }
 
 func (s *ClientSuite) TestIsValidInstance() {
-	item := &EC2Item{Price: 0.48}
+	item := &Item{Price: 0.48}
 	time1, _ := time.Parse(utcLayout, "2017-07-05T19:04:05.000Z")
 	time2, _ := time.Parse(utcLayout, "2017-07-08T20:04:05.000Z")
 	range1 := TimeRange{
