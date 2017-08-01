@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 type itemType string
@@ -348,9 +349,24 @@ func (accounts AccountHash) updateAccounts(owner string, item *Item, key *ItemKe
 	accounts[owner] = curAccount
 }
 
+// invalidVolume returns true if a necessary volume field is nil, or if
+// the volume was created after the report range or is still being created.
+func invalidVolume(vol *ec2.Volume, reportRange TimeRange) bool {
+	if vol.State == nil || vol.CreateTime == nil || vol.VolumeType == nil {
+		return true
+	}
+	state := *vol.State
+	createTime := *vol.CreateTime
+	if createTime.After(reportRange.End) || state == ec2.VolumeStateCreating ||
+		state == ec2.VolumeStateError {
+		return true
+	}
+	return false
+}
+
 // getSpotPricePage recursively iterates through pages of spot requests and returns
 // a compiled ec2.DescribeSpotPriceHistoryOutput object.
-func (c *Client) getSpotPricePage(req *ec2.SpotInstanceRequest, times TimeRange,
+func (c *Client) getSpotPricePage(ctx context.Context, req *ec2.SpotInstanceRequest, times TimeRange,
 	nextToken *string) *ec2.DescribeSpotPriceHistoryOutput {
 	input := &ec2.DescribeSpotPriceHistoryInput{
 		InstanceTypes:       []*string{req.LaunchSpecification.InstanceType},
@@ -362,14 +378,14 @@ func (c *Client) getSpotPricePage(req *ec2.SpotInstanceRequest, times TimeRange,
 	if nextToken != nil && *nextToken != "" {
 		input = input.SetNextToken(*nextToken)
 	}
-	res, err := c.ec2Client.DescribeSpotPriceHistory(input)
+	res, err := c.ec2Client.DescribeSpotPriceHistoryWithContext(ctx, input)
 
 	if err != nil {
 		return nil
 	}
 	for res.NextToken != nil && *res.NextToken != "" {
 		prevPrices := res.SpotPriceHistory
-		res = c.getSpotPricePage(req, times, res.NextToken)
+		res = c.getSpotPricePage(ctx, req, times, res.NextToken)
 		if res == nil {
 			return nil
 		}
@@ -380,9 +396,9 @@ func (c *Client) getSpotPricePage(req *ec2.SpotInstanceRequest, times TimeRange,
 
 // getSpotPrice takes in a spot request, a product description, and a time range.
 // It queries the EC2 API and returns the overall price.
-func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) float64 {
+func (c *Client) getSpotPrice(ctx context.Context, req *ec2.SpotInstanceRequest, times TimeRange) float64 {
 	//How to get description?
-	priceData := c.getSpotPricePage(req, times, nil)
+	priceData := c.getSpotPricePage(ctx, req, times, nil)
 	if priceData == nil {
 		return 0.0
 	}
@@ -392,8 +408,8 @@ func (c *Client) getSpotPrice(req *ec2.SpotInstanceRequest, times TimeRange) flo
 // getEC2SpotInstances gets reserved EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2SpotInstances(accounts AccountHash, reportRange TimeRange) (AccountHash, error) {
-	resp, err := c.ec2Client.DescribeSpotInstanceRequests(nil)
+func (c *Client) getEC2SpotInstances(ctx context.Context, accounts AccountHash, reportRange TimeRange) (AccountHash, error) {
+	resp, err := c.ec2Client.DescribeSpotInstanceRequestsWithContext(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error from SpotRequests API call")
 	}
@@ -410,7 +426,7 @@ func (c *Client) getEC2SpotInstances(accounts AccountHash, reportRange TimeRange
 		}
 		item.Product = *req.ProductDescription
 		item.setUptime(uptimeRange)
-		item.Price = c.getSpotPrice(req, uptimeRange)
+		item.Price = c.getSpotPrice(ctx, req, uptimeRange)
 
 		accounts.updateAccounts(owner, item, key)
 
@@ -421,9 +437,9 @@ func (c *Client) getEC2SpotInstances(accounts AccountHash, reportRange TimeRange
 // getEC2ReservedInstances gets reserved EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2ReservedInstances(accounts AccountHash,
+func (c *Client) getEC2ReservedInstances(ctx context.Context, accounts AccountHash,
 	reportRange TimeRange) (AccountHash, error) {
-	resp, err := c.ec2Client.DescribeReservedInstances(nil)
+	resp, err := c.ec2Client.DescribeReservedInstancesWithContext(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -450,14 +466,14 @@ func (c *Client) getEC2ReservedInstances(accounts AccountHash,
 // getEC2OnDemandInstancesPage recursively iterates through pages of on-demand instances
 // and retrieves its uptime, average hourly price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2OnDemandInstancesPage(accounts AccountHash, reportRange TimeRange,
+func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, accounts AccountHash, reportRange TimeRange,
 	pricing *prices, nextToken *string) (AccountHash, error) {
 	var input *ec2.DescribeInstancesInput
 	if nextToken != nil && *nextToken != "" {
 		//create filter
 		input = input.SetNextToken(*nextToken)
 	}
-	resp, err := c.ec2Client.DescribeInstances(input)
+	resp, err := c.ec2Client.DescribeInstancesWithContext(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +501,7 @@ func (c *Client) getEC2OnDemandInstancesPage(accounts AccountHash, reportRange T
 	}
 	// if there's a next page, recursively add next page information
 	for resp.NextToken != nil && *resp.NextToken != "" {
-		accounts, err = c.getEC2OnDemandInstancesPage(accounts, reportRange,
+		accounts, err = c.getEC2OnDemandInstancesPage(ctx, accounts, reportRange,
 			pricing, resp.NextToken)
 		if err != nil {
 			return nil, err
@@ -497,13 +513,13 @@ func (c *Client) getEC2OnDemandInstancesPage(accounts AccountHash, reportRange T
 // getEC2OnDemandInstances gets all EC2 on-demand instances and retrieves its uptime,
 // average hourly price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2OnDemandInstances(accounts AccountHash,
+func (c *Client) getEC2OnDemandInstances(ctx context.Context, accounts AccountHash,
 	reportRange TimeRange) (AccountHash, error) {
 	pricing, err := getOnDemandPriceInformation()
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching on-demand price information")
 	}
-	accounts, err = c.getEC2OnDemandInstancesPage(accounts, reportRange,
+	accounts, err = c.getEC2OnDemandInstancesPage(ctx, accounts, reportRange,
 		pricing, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching on-demand instances page")
@@ -513,23 +529,23 @@ func (c *Client) getEC2OnDemandInstances(accounts AccountHash,
 
 // GetEC2Instances gets all EC2Instances and creates an array of accounts.
 // Note this function is public but I may change that when adding non EC2 Amazon services.
-func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
+func (c *Client) GetEC2Instances(ctx context.Context, reportRange TimeRange) (AccountHash, error) {
 	// accounts maps from account name to the items
 	accounts := make(AccountHash)
 	grip.Info("Getting EC2 Reserved Instances")
-	accounts, err := c.getEC2ReservedInstances(accounts, reportRange)
+	accounts, err := c.getEC2ReservedInstances(ctx, accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
 
 	grip.Info("Getting EC2 On-Demand Instances")
-	accounts, err = c.getEC2OnDemandInstances(accounts, reportRange)
+	accounts, err = c.getEC2OnDemandInstances(ctx, accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
 
 	grip.Info("Getting EC2 Spot Instances")
-	accounts, err = c.getEC2SpotInstances(accounts, reportRange)
+	accounts, err = c.getEC2SpotInstances(ctx, accounts, reportRange)
 	if err != nil {
 		return nil, err
 	}
@@ -537,25 +553,10 @@ func (c *Client) GetEC2Instances(reportRange TimeRange) (AccountHash, error) {
 	return accounts, nil
 }
 
-// invalidVolume returns true if a necessary volume field is nil, or if
-// the volume was created after the report range or is still being created.
-func invalidVolume(vol *ec2.Volume, reportRange TimeRange) bool {
-	if vol.State == nil || vol.CreateTime == nil || vol.VolumeType == nil {
-		return true
-	}
-	state := *vol.State
-	createTime := *vol.CreateTime
-	if createTime.After(reportRange.End) || state == ec2.VolumeStateCreating ||
-		state == ec2.VolumeStateError {
-		return true
-	}
-	return false
-}
-
 // getEBSItemsPage recursively iterates through pages of EBS volumes
 // and retrieves its average hourly price, number of launched and terminated instances,
 // and volume type and adds this information to accounts.
-func (c *Client) addEBSItemsPage(accounts AccountHash, reportRange TimeRange, pricing *EBSPrices,
+func (c *Client) addEBSItemsPage(ctx context.Context, accounts AccountHash, reportRange TimeRange, pricing *EBSPrices,
 	nextToken *string) (AccountHash, error) {
 	grip.Info("Getting EBS Items")
 	input := &ec2.DescribeVolumesInput{}
@@ -563,7 +564,7 @@ func (c *Client) addEBSItemsPage(accounts AccountHash, reportRange TimeRange, pr
 		//create filter
 		input = input.SetNextToken(*nextToken)
 	}
-	resp, err := c.ec2Client.DescribeVolumes(input)
+	resp, err := c.ec2Client.DescribeVolumesWithContext(ctx, input)
 	if err != nil || resp == nil {
 		return nil, err
 	}
@@ -587,7 +588,7 @@ func (c *Client) addEBSItemsPage(accounts AccountHash, reportRange TimeRange, pr
 	}
 	// if there's a next page, recursively add next page information
 	for resp.NextToken != nil && *resp.NextToken != "" {
-		accounts, err = c.addEBSItemsPage(accounts, reportRange,
+		accounts, err = c.addEBSItemsPage(ctx, accounts, reportRange,
 			pricing, resp.NextToken)
 		if err != nil {
 			return nil, err
@@ -597,8 +598,8 @@ func (c *Client) addEBSItemsPage(accounts AccountHash, reportRange TimeRange, pr
 }
 
 // AddEBSItems gets all EBSVolumes and adds these items to accounts.
-func (c *Client) AddEBSItems(accounts AccountHash, reportRange TimeRange, pricing *EBSPrices) (AccountHash, error) {
-	accounts, err := c.addEBSItemsPage(accounts, reportRange, pricing, nil)
+func (c *Client) AddEBSItems(ctx context.Context, accounts AccountHash, reportRange TimeRange, pricing *EBSPrices) (AccountHash, error) {
+	accounts, err := c.addEBSItemsPage(ctx, accounts, reportRange, pricing, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching EBS items page")
 	}
