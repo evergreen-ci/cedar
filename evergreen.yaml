@@ -22,7 +22,6 @@ variables:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/evergreen
-      - func: setup-credentials
       - func: set-up-mongodb
       - func: run-make
         vars: { target: "${task_name}" }
