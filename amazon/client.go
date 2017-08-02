@@ -406,7 +406,7 @@ func (c *Client) getEC2SpotInstances(accounts AccountHash, reportRange TimeRange
 		uptimeRange := getUptimeRange(itemRange, reportRange)
 		if !isValidInstance(item, err, itemRange, uptimeRange) {
 			//skip to the next instance
-			break
+			continue
 		}
 		item.Product = *req.ProductDescription
 		item.setUptime(uptimeRange)
@@ -435,7 +435,7 @@ func (c *Client) getEC2ReservedInstances(accounts AccountHash,
 		//instance start and end
 		uptimeRange := getUptimeRange(itemRange, reportRange)
 		if !isValidInstance(item, err, itemRange, uptimeRange) {
-			break
+			continue
 		}
 
 		item.setUptime(uptimeRange)
@@ -467,7 +467,7 @@ func (c *Client) getEC2OnDemandInstancesPage(accounts AccountHash, reportRange T
 		for _, inst := range res.Instances {
 			owner := defaultAccount
 			if inst.InstanceLifecycle != nil {
-				break
+				continue
 			}
 			key := populateOnDemandKey(inst)
 			item := populateItemFromOnDemand(inst)
@@ -475,7 +475,7 @@ func (c *Client) getEC2OnDemandInstancesPage(accounts AccountHash, reportRange T
 			//instance start and end
 			uptimeRange := getUptimeRange(itemRange, reportRange)
 			if !isValidInstance(item, err, itemRange, uptimeRange) {
-				break
+				continue
 			}
 			item.setUptime(uptimeRange)
 			item.setOnDemandPrice(inst, pricing)
@@ -570,7 +570,7 @@ func (c *Client) addEBSItemsPage(accounts AccountHash, reportRange TimeRange, pr
 	for _, vol := range resp.Volumes {
 		owner := defaultAccount
 		if invalidVolume(vol, reportRange) {
-			break
+			continue
 		}
 		key := &ItemKey{
 			ItemType: itemType(*vol.VolumeType),
