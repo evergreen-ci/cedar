@@ -46,6 +46,12 @@ func Spend() cli.Command {
 			if config.Pricing == nil {
 				return errors.New("Configuration file requires EBS pricing information")
 			}
+			if !config.S3Info.IsValid() {
+				return errors.New("Configuration file requires S3 bucket information")
+			}
+			if !config.EvergreenInfo.IsValid() {
+				return errors.New("Configuration file requires evergreen user, key, and rootURL")
+			}
 			if granularity == 0 { //empty duration
 				granularity, err = config.GetGranularity()
 				if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -18,18 +19,21 @@ type serviceType string
 
 const (
 	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
+	EC2Service     = serviceType("ec2") // service is the service name for ec2
+	EBSService     = serviceType("ebs") // service name for ebs
+	S3Service      = serviceType("s3")  // service name for s3
 	tagLayout      = "20060102150405"
 	utcLayout      = "2006-01-02T15:04:05.000Z"
 	ondemandLayout = "2006-01-02 15:04:05 MST"
-	spot           = itemType(ec2.InstanceLifecycleTypeSpot)
-	scheduled      = itemType(ec2.InstanceLifecycleTypeScheduled)
-	reserved       = itemType("reserved")
-	onDemand       = itemType("on-demand")
+
+	spot      = itemType(ec2.InstanceLifecycleTypeSpot)
+	scheduled = itemType(ec2.InstanceLifecycleTypeScheduled)
+	reserved  = itemType("reserved")
+	onDemand  = itemType("on-demand")
+
 	startTag       = "start-time"
 	marked         = "marked-for-termination"
-	defaultAccount = "default"
-	EC2Service     = serviceType("ec2") //service name for ec2
-	EBSService     = serviceType("ebs") //service name for ebs
+	defaultAccount = "kernel-build"
 )
 
 var ignoreCodes = []string{"canceled-before-fulfillment", "schedule-expired", "bad-parameters", "system-error"}
@@ -39,7 +43,7 @@ var amazonTerminated = []string{"instance-terminated-by-price", "instance-termin
 // Client holds information for the amazon client
 type Client struct {
 	ec2Client *ec2.EC2
-	context   aws.Context
+	s3Client  *s3.S3
 }
 
 // Item is information for an item for a particular Name and ItemType
@@ -81,7 +85,7 @@ func NewClient() *Client {
 		Region: aws.String("us-east-1"),
 	}))
 	client.ec2Client = ec2.New(sess)
-	client.context = aws.BackgroundContext()
+	client.s3Client = s3.New(sess)
 	return client
 }
 
@@ -407,7 +411,7 @@ func (c *Client) getSpotPrice(ctx context.Context, req *ec2.SpotInstanceRequest,
 	return spotPrices(priceData.SpotPriceHistory).calculatePrice(times)
 }
 
-// getEC2SpotInstances gets reserved EC2 Instances and retrieves its uptime,
+// getEC2SpotInstances gets spot EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
 func (c *Client) getEC2SpotInstances(ctx context.Context, accounts AccountHash, reportRange TimeRange) (AccountHash, error) {
@@ -555,7 +559,7 @@ func (c *Client) GetEC2Instances(ctx context.Context, reportRange TimeRange) (Ac
 	return accounts, nil
 }
 
-// getEBSItemsPage recursively iterates through pages of EBS volumes
+// addEBSItemsPage recursively iterates through pages of EBS volumes
 // and retrieves its average hourly price, number of launched and terminated instances,
 // and volume type and adds this information to accounts.
 func (c *Client) addEBSItemsPage(ctx context.Context, accounts AccountHash, reportRange TimeRange, pricing *EBSPrices,
