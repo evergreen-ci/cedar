@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/evergreen-ci/sink/amazon"
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/grip"
@@ -184,17 +186,17 @@ func createCostItemFromAmazonItems(key *amazon.ItemKey, items []*amazon.Item) *I
 
 // getAccounts takes in a range for the report, and returns an array of accounts
 // containing EC2 and EBS instances.
-func getAWSAccounts(reportRange timeRange, config *Config) ([]*Account, error) {
+func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) ([]*Account, error) {
 	awsReportRange := amazon.TimeRange{
 		Start: reportRange.start,
 		End:   reportRange.end,
 	}
 	client := amazon.NewClient()
-	accounts, err := client.GetEC2Instances(awsReportRange)
+	accounts, err := client.GetEC2Instances(ctx, awsReportRange)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem getting EC2 instances")
 	}
-	accounts, err = client.AddEBSItems(accounts, awsReportRange, config.Pricing)
+	accounts, err = client.AddEBSItems(ctx, accounts, awsReportRange, config.Pricing)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem getting EBS instances")
 	}
@@ -225,12 +227,12 @@ func getAWSAccounts(reportRange timeRange, config *Config) ([]*Account, error) {
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(reportRange timeRange, config *Config) (*Provider, error) {
+func getAWSProvider(ctx context.Context, reportRange timeRange, config *Config) (*Provider, error) {
 	var err error
 	res := &Provider{
 		Name: aws,
 	}
-	res.Accounts, err = getAWSAccounts(reportRange, config)
+	res.Accounts, err = getAWSAccounts(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +240,8 @@ func getAWSProvider(reportRange timeRange, config *Config) (*Provider, error) {
 }
 
 // getAllProviders returns the AWS provider and any providers in the config file
-func getAllProviders(reportRange timeRange, config *Config) ([]*Provider, error) {
-	awsProvider, err := getAWSProvider(reportRange, config)
+func getAllProviders(ctx context.Context, reportRange timeRange, config *Config) ([]*Provider, error) {
+	awsProvider, err := getAWSProvider(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +253,7 @@ func getAllProviders(reportRange timeRange, config *Config) ([]*Provider, error)
 }
 
 // CreateReport returns an Output using a start string, granularity, and Config information.
-func CreateReport(start string, granularity time.Duration, config *Config) (*Output, error) {
+func CreateReport(ctx context.Context, start string, granularity time.Duration, config *Config) (*Output, error) {
 	grip.Info("Creating the report\n")
 	output := &Output{}
 	reportRange, err := getTimes(start, granularity)
@@ -259,7 +261,7 @@ func CreateReport(start string, granularity time.Duration, config *Config) (*Out
 		return output, errors.Wrap(err, "Problem retrieving report start and end")
 	}
 
-	output.Providers, err = getAllProviders(reportRange, config)
+	output.Providers, err = getAllProviders(ctx, reportRange, config)
 	if err != nil {
 		return output, errors.Wrap(err, "Problem retrieving providers information")
 	}

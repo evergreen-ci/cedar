@@ -7,6 +7,7 @@ import (
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
+	"golang.org/x/net/context"
 )
 
 //Spend returns the entry point for the ./sink spend sub-command,
@@ -51,8 +52,8 @@ func Spend() cli.Command {
 					return errors.Wrap(err, "Problem with granularity")
 				}
 			}
-
-			report, err := cost.CreateReport(start, granularity, config)
+			ctx := context.Background()
+			report, err := cost.CreateReport(ctx, start, granularity, config)
 			if err != nil {
 				return errors.Wrap(err, "Problem generating report")
 			}
