@@ -43,11 +43,7 @@ var amazonTerminated = []string{"instance-terminated-by-price", "instance-termin
 // Client holds information for the amazon client
 type Client struct {
 	ec2Client *ec2.EC2
-<<<<<<< HEAD
 	s3Client  *s3.S3
-=======
-	context   aws.Context
->>>>>>> MAKE-226 incorporate contexts
 }
 
 // Item is information for an item for a particular Name and ItemType
@@ -89,11 +85,7 @@ func NewClient() *Client {
 		Region: aws.String("us-east-1"),
 	}))
 	client.ec2Client = ec2.New(sess)
-<<<<<<< HEAD
 	client.s3Client = s3.New(sess)
-=======
-	client.context = aws.BackgroundContext()
->>>>>>> MAKE-226 incorporate contexts
 	return client
 }
 
