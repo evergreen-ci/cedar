@@ -5,6 +5,12 @@ opts:
 s3_info:
   s3key_start: brian.samek/s3_testdata
   s3bucket: boxes.10gen.com/
+evergreen_info:
+  evergreen_user: user
+  evergreen_api_key: key
+  root_url: http://rooturl.com
+aws_accounts:
+  - kernel-build
 pricing:
   gp2: 0.10
   io1GB: 0.125

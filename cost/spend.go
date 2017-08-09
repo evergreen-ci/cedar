@@ -172,7 +172,7 @@ func (res *Item) setAverages(items []*amazon.Item) {
 }
 
 // createItemFromEC2Instance creates a new cost.Item using a key/item array pair.
-func createCostItemFromAmazonItems(key *amazon.ItemKey, items []*amazon.Item) *Item {
+func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) *Item {
 	item := &Item{
 		Name:     key.Name,
 		ItemType: string(key.ItemType),
@@ -183,58 +183,69 @@ func createCostItemFromAmazonItems(key *amazon.ItemKey, items []*amazon.Item) *I
 	return item
 }
 
-// getAccounts takes in a range for the report, and returns an array of accounts
+//getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
+func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, config *Config,
+	owner string) (*Account, error) {
+	grip.Infof("Compiling data for account owner %s", owner)
+	client, err := amazon.NewClient(owner)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Problem getting client %s", owner)
+	}
+	instances, err := client.GetEC2Instances(ctx, reportRange)
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem getting EC2 instances")
+	}
+	instances, err = client.AddEBSItems(ctx, instances, reportRange, config.Pricing)
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem getting EBS instances")
+	}
+	s3info := config.S3Info
+	s3info.Owner = owner
+	ec2Service := &Service{
+		Name: string(amazon.EC2Service),
+	}
+	ebsService := &Service{
+		Name: string(amazon.EBSService),
+	}
+	s3Service := &Service{
+		Name: string(amazon.S3Service),
+	}
+	s3Service.Cost, err = client.GetS3Cost(s3info, reportRange)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
+	}
+	grip.Infof("Iterating through %d instance types", len(instances))
+	for key, items := range instances {
+		item := createCostItemFromAmazonItems(key, items)
+		if key.Service == amazon.EC2Service {
+			ec2Service.Items = append(ec2Service.Items, item)
+		} else {
+			ebsService.Items = append(ebsService.Items, item)
+		}
+	}
+	account := &Account{
+		Name:     owner,
+		Services: []*Service{ec2Service, ebsService, s3Service},
+	}
+	return account, nil
+}
+
+// getAWSAccounts takes in a range for the report, and returns an array of accounts
 // containing EC2 and EBS instances.
 func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) ([]*Account, error) {
 	awsReportRange := amazon.TimeRange{
 		Start: reportRange.start,
 		End:   reportRange.end,
 	}
-	client := amazon.NewClient()
-	accounts, err := client.GetEC2Instances(ctx, awsReportRange)
-	if err != nil {
-		return nil, errors.Wrap(err, "Problem getting EC2 instances")
-	}
-	accounts, err = client.AddEBSItems(ctx, accounts, awsReportRange, config.Pricing)
-	if err != nil {
-		return nil, errors.Wrap(err, "Problem getting EBS instances")
-	}
-	s3info := config.S3Info
-	if s3info == nil {
-		return nil, errors.New("We have a problem")
-	}
-	var accountReport []*Account
-	for owner, instances := range accounts {
-		grip.Infof("Iterating through %d instance types", len(instances))
-		ec2Service := &Service{
-			Name: string(amazon.EC2Service),
-		}
-		ebsService := &Service{
-			Name: string(amazon.EBSService),
-		}
-		s3Service := &Service{
-			Name: string(amazon.S3Service),
-		}
-		s3info.Owner = owner
-		s3Service.Cost, err = client.GetS3Cost(s3info, awsReportRange)
+	var allAccounts []*Account
+	for _, owner := range config.Accounts {
+		account, err := getAWSAccountByOwner(ctx, awsReportRange, config, owner)
 		if err != nil {
-			return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
+			return nil, err
 		}
-		for key, items := range instances {
-			item := createCostItemFromAmazonItems(key, items)
-			if key.Service == amazon.EC2Service {
-				ec2Service.Items = append(ec2Service.Items, item)
-			} else {
-				ebsService.Items = append(ebsService.Items, item)
-			}
-		}
-		account := &Account{
-			Name:     owner,
-			Services: []*Service{ec2Service, ebsService, s3Service},
-		}
-		accountReport = append(accountReport, account)
+		allAccounts = append(allAccounts, account)
 	}
-	return accountReport, nil
+	return allAccounts, nil
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
@@ -278,7 +289,6 @@ func CreateReport(ctx context.Context, start string, granularity time.Duration, 
 	}
 
 	c := evergreen.NewClient(&http.Client{}, config.EvergreenInfo)
-
 	evg, err := getEvergreenData(c, reportRange.start, granularity)
 	if err != nil {
 		return &Output{}, errors.Wrap(err, "Problem retrieving evergreen information")

@@ -247,6 +247,9 @@ func (c *appServicesCache) setSpendConfig(file string) error {
 	if newConfig.S3Info != nil {
 		configFile.S3Info = newConfig.S3Info
 	}
+	if len(newConfig.Accounts) != 0 {
+		configFile.Accounts = newConfig.Accounts
+	}
 	if configFile.Providers != nil {
 		configFile.UpdateSpendProviders(newConfig.Providers)
 	} else {
