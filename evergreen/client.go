@@ -17,15 +17,32 @@ type Client struct {
 	apiKey     string
 }
 
+// EvergreenInfo stores the root URL, username, and API key for the user
+type EvergreenInfo struct {
+	RootURL string `yaml:"root_url"`
+	User    string `yaml:"evergreen_user"`
+	Key     string `yaml:"evergreen_api_key"`
+}
+
 // NewClient is a constructs a new Client using the parameters given.
-func NewClient(apiRoot string, httpClient *http.Client, user string,
-	apiKey string) *Client {
+func NewClient(httpClient *http.Client, info *EvergreenInfo) *Client {
 	return &Client{
-		apiRoot:    apiRoot,
+		apiRoot:    info.RootURL,
 		httpClient: httpClient,
-		user:       user,
-		apiKey:     apiKey,
+		user:       info.User,
+		apiKey:     info.Key,
 	}
+}
+
+// Checks that a user, API key, and root URL are given in the EvergreenInfo struct.
+func (e *EvergreenInfo) IsValid() bool {
+	if e == nil {
+		return false
+	}
+	if e.RootURL == "" || e.User == "" || e.Key == "" {
+		return false
+	}
+	return true
 }
 
 // getURL returns a URL for the given path.

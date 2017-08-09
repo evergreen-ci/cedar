@@ -95,7 +95,6 @@ func YAMLToConfig(file string) (*Config, error) {
 	if err != nil {
 		return newConfig, errors.Wrap(err, fmt.Sprintf("invalid file: %s", file))
 	}
-
 	err = yaml.Unmarshal(yamlFile, newConfig)
 	if err != nil {
 		return newConfig, errors.Wrap(err, "invalid yaml format")
@@ -200,6 +199,10 @@ func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) 
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem getting EBS instances")
 	}
+	s3info := config.S3Info
+	if s3info == nil {
+		return nil, errors.New("We have a problem")
+	}
 	var accountReport []*Account
 	for owner, instances := range accounts {
 		grip.Infof("Iterating through %d instance types", len(instances))
@@ -208,6 +211,14 @@ func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) 
 		}
 		ebsService := &Service{
 			Name: string(amazon.EBSService),
+		}
+		s3Service := &Service{
+			Name: string(amazon.S3Service),
+		}
+		s3info.Owner = owner
+		s3Service.Cost, err = client.GetS3Cost(s3info, awsReportRange)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
 		}
 		for key, items := range instances {
 			item := createCostItemFromAmazonItems(key, items)
@@ -219,7 +230,7 @@ func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) 
 		}
 		account := &Account{
 			Name:     owner,
-			Services: []*Service{ec2Service, ebsService},
+			Services: []*Service{ec2Service, ebsService, s3Service},
 		}
 		accountReport = append(accountReport, account)
 	}
@@ -266,7 +277,8 @@ func CreateReport(ctx context.Context, start string, granularity time.Duration, 
 		return output, errors.Wrap(err, "Problem retrieving providers information")
 	}
 
-	c := evergreen.NewClient(config.RootURL, &http.Client{}, config.User, config.Key)
+	c := evergreen.NewClient(&http.Client{}, config.EvergreenInfo)
+
 	evg, err := getEvergreenData(c, reportRange.start, granularity)
 	if err != nil {
 		return &Output{}, errors.Wrap(err, "Problem retrieving evergreen information")

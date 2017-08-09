@@ -15,11 +15,7 @@ func init() {
 
 type DistrosSuite struct {
 	client *http.Client
-	info   struct {
-		root string
-		user string
-		key  string
-	}
+	info   *EvergreenInfo
 	suite.Suite
 }
 
@@ -28,15 +24,17 @@ func TestDistrosSuite(t *testing.T) {
 }
 
 func (s *DistrosSuite) SetupSuite() {
-	s.info.root = "https://evergreen-staging.corp.mongodb.com/rest/v2/"
-	s.info.user = "USER"
-	s.info.key = "KEY"
+	s.info = &EvergreenInfo{
+		RootURL: "https://evergreen-staging.corp.mongodb.com/rest/v2/",
+		User:    "USER",
+		Key:     "KEY",
+	}
 	s.client = &http.Client{}
 }
 
 // TestGetDistrosFunction tests that GetDistros runs without error.
 func (s *DistrosSuite) TestGetDistrosFunction() {
-	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	Client := NewClient(s.client, s.info)
 	distros, err := Client.GetDistros()
 	for _, d := range distros {
 		s.NotEmpty(d.DistroID)
@@ -47,7 +45,7 @@ func (s *DistrosSuite) TestGetDistrosFunction() {
 // TestGetDistroFunctionFail tests against the local APIServer for correct
 // behaviors given certain use cases.
 func (s *DistrosSuite) TestGetDistroFunctionFail() {
-	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	Client := NewClient(s.client, s.info)
 	distroID := "archlinux-build"
 
 	// Test the case where the queried distro has tasks in the given time range.
@@ -73,7 +71,7 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 // Tests GetEvergreenDistrosData(), which retrieves all distro costs
 // for each distro in Evergreen. Authentication is needed for this route.
 func (s *DistrosSuite) TestGetEvergreenDistrosData() {
-	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	Client := NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-31T10:00:00Z")
 	duration, _ := time.ParseDuration("48h")
 	distroCosts, err := Client.GetEvergreenDistrosData(starttime, duration)

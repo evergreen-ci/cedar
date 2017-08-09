@@ -14,11 +14,7 @@ func init() {
 
 type ClientSuite struct {
 	client *http.Client
-	info   struct {
-		root string
-		user string
-		key  string
-	}
+	info   *EvergreenInfo
 	suite.Suite
 }
 
@@ -27,13 +23,16 @@ func TestClientSuite(t *testing.T) {
 }
 
 func (s *ClientSuite) SetupSuite() {
-	s.info.root = "https://evergreen.mongodb.com/rest/v2/"
+	s.info = &EvergreenInfo{
+		RootURL: "https://evergreen.mongodb.com/rest/v2/",
+	}
 	s.client = &http.Client{}
 }
 
 func (s *ClientSuite) TestDoReqFunction() {
 	//Construct Client
-	Client := NewClient(s.info.root, s.client, "", "")
+
+	Client := NewClient(s.client, s.info)
 
 	resp, err := Client.doReq("GET", "/hosts")
 	s.Nil(err)
@@ -55,7 +54,7 @@ func (s *ClientSuite) TestGetRelFunction() {
 }
 
 func (s *ClientSuite) TestGetPathFunction() {
-	Client := NewClient(s.info.root, s.client, "", "")
+	Client := NewClient(s.client, s.info)
 	link := "<https://evergreen.mongodb.com/rest/v2/hosts?limit=100>; rel=\"next\""
 	path, err := Client.getPath(link)
 	s.Nil(err)
@@ -67,8 +66,7 @@ func (s *ClientSuite) TestGetPathFunction() {
 }
 
 func (s *ClientSuite) TestGetFunction() {
-	Client := NewClient(s.info.root, s.client, "", "")
+	Client := NewClient(s.client, s.info)
 	_, _, err := Client.get("/hosts")
 	s.Nil(err)
 }
-

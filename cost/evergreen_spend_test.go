@@ -16,11 +16,7 @@ func init() {
 
 type EvergreenSpendSuite struct {
 	client *http.Client
-	info   struct {
-		root string
-		user string
-		key  string
-	}
+	info   *evergreen.EvergreenInfo
 	suite.Suite
 }
 
@@ -29,19 +25,22 @@ func TestEvergreenSpendSuite(t *testing.T) {
 }
 
 func (s *EvergreenSpendSuite) SetupSuite() {
-	s.info.root = "https://evergreen-staging.corp.mongodb.com/rest/v2/"
-	s.info.user = "USER"
-	s.info.key = "KEY"
+	s.info = &evergreen.EvergreenInfo{
+		RootURL: "https://evergreen-staging.corp.mongodb.com/rest/v2/",
+		User:    "USER",
+		Key:     "KEY",
+	}
 	s.client = &http.Client{}
 }
 
 // TestGetEvergreenDistrosData tests that GetEvergreenDistrosData
 // runs without error
 func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
-	client := evergreen.NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	client := evergreen.NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("48h")
 	distros, err := getEvergreenDistrosData(client, starttime, duration)
+
 	for _, d := range distros {
 		s.NotEmpty(d)
 	}
@@ -51,7 +50,7 @@ func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
 // TestGetEvergreenDistrosData tests that GetEvergreenProjectsData
 // runs without error
 func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
-	client := evergreen.NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	client := evergreen.NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("1h")
 	projects, err := getEvergreenProjectsData(client, starttime, duration)
@@ -65,7 +64,7 @@ func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
 }
 
 func (s *EvergreenSpendSuite) TestGetEvergreenData() {
-	client := evergreen.NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	client := evergreen.NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("4h")
 	evergreen, err := getEvergreenData(client, starttime, duration)

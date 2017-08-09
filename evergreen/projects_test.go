@@ -15,11 +15,7 @@ func init() {
 
 type ProjectSuite struct {
 	client *http.Client
-	info   struct {
-		root string
-		user string
-		key  string
-	}
+	info   *EvergreenInfo
 	suite.Suite
 }
 
@@ -28,16 +24,18 @@ func TestProjectsSuite(t *testing.T) {
 }
 
 func (s *ProjectSuite) SetupSuite() {
-	s.info.root = "https://evergreen-staging.corp.mongodb.com/rest/v2/"
-	s.info.user = "USER"
-	s.info.key = "KEY"
+	s.info = &EvergreenInfo{
+		RootURL: "https://evergreen-staging.corp.mongodb.com/rest/v2/",
+		User:    "USER",
+		Key:     "KEY",
+	}
 	s.client = &http.Client{}
 }
 
 // Tests getProjects(), which retrieves all projects from Evergreen.
 // Authentication is needed for this route.
 func (s *ProjectSuite) TestGetProjects() {
-	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	Client := NewClient(s.client, s.info)
 	output := Client.getProjects()
 	for out := range output {
 		s.NoError(out.err)
@@ -48,7 +46,7 @@ func (s *ProjectSuite) TestGetProjects() {
 // Tests getTaskCostsByProject(), which retrieves all task costs from Evergreen
 // for the project given. Authentication is needed for this route.
 func (s *ProjectSuite) TestGetTaskCostsByProject() {
-	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	Client := NewClient(s.client, s.info)
 	output := Client.getTaskCostsByProject("mci", "2017-07-25T10:00:00Z", "4h")
 	for out := range output {
 		s.NoError(out.err)
@@ -59,7 +57,7 @@ func (s *ProjectSuite) TestGetTaskCostsByProject() {
 // Tests GetEvergreenProjectsData(), which retrieves all task costs
 // for each project in Evergreen. Authentication is needed for this route.
 func (s *ProjectSuite) TestGetEvergreenProjectsData() {
-	Client := NewClient(s.info.root, s.client, s.info.user, s.info.key)
+	Client := NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("1h")
 	projectUnits, err := Client.GetEvergreenProjectsData(starttime, duration)

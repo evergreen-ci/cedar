@@ -1,15 +1,17 @@
 package cost
 
-import "github.com/evergreen-ci/sink/amazon"
+import (
+	"github.com/evergreen-ci/sink/amazon"
+	"github.com/evergreen-ci/sink/evergreen"
+)
 
 // Config holds information from a user submitted cost config file.
 type Config struct {
-	Opts      Options           `yaml:"opts"`
-	Pricing   *amazon.EBSPrices `yaml:"pricing"`
-	Providers []*Provider       `yaml:"providers"`
-	RootURL   string            `yaml:"root_url"`
-	User      string            `yaml:"evergreen_user"`
-	Key       string            `yaml:"evergreen_api_key"`
+	Opts          Options                  `yaml:"opts"`
+	S3Info        *amazon.S3Info           `yaml:"s3_info"`
+	EvergreenInfo *evergreen.EvergreenInfo `yaml:"evergreen_info"`
+	Pricing       *amazon.EBSPrices        `yaml:"pricing"`
+	Providers     []*Provider              `yaml:"providers"`
 }
 
 // Options holds user submitted default options for the cost tool.
