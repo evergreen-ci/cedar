@@ -95,7 +95,7 @@ func (c *CostSuite) TestYAMLToConfig() {
 }
 
 func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
-	key := &amazon.ItemKey{
+	key := amazon.ItemKey{
 		ItemType: "reserved",
 		Name:     "c3.4xlarge",
 	}

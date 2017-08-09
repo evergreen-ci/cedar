@@ -52,6 +52,9 @@ func Spend() cli.Command {
 			if !config.EvergreenInfo.IsValid() {
 				return errors.New("Configuration file requires evergreen user, key, and rootURL")
 			}
+			if len(config.Accounts) == 0 {
+				return errors.New("Configuration file requires at least one AWS account")
+			}
 			if granularity == 0 { //empty duration
 				granularity, err = config.GetGranularity()
 				if err != nil {

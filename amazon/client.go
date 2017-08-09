@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -31,9 +32,8 @@ const (
 	reserved  = itemType("reserved")
 	onDemand  = itemType("on-demand")
 
-	startTag       = "start-time"
-	marked         = "marked-for-termination"
-	defaultAccount = "kernel-build"
+	startTag = "start-time"
+	marked   = "marked-for-termination"
 )
 
 var ignoreCodes = []string{"canceled-before-fulfillment", "schedule-expired", "bad-parameters", "system-error"}
@@ -73,20 +73,22 @@ type TimeRange struct {
 }
 
 // Maps the ItemKey to an array of Items
-type itemHash map[*ItemKey][]*Item
-
-// AccountHash maps an owner to an itemHash, i.e. ItemKeys and Items
-type AccountHash map[string]itemHash
+type itemHash map[ItemKey][]*Item
 
 // NewClient returns a new populated client
-func NewClient() *Client {
+func NewClient(owner string) (*Client, error) {
 	client := &Client{}
 	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
+		Region:      aws.String("us-east-1"),
+		Credentials: credentials.NewSharedCredentials("", owner),
 	}))
+	_, err := sess.Config.Credentials.Get()
+	if err != nil {
+		return nil, err
+	}
 	client.ec2Client = ec2.New(sess)
 	client.s3Client = s3.New(sess)
-	return client
+	return client, nil
 }
 
 // getTagVal retrieves from an array of spotEC2 tags the value string for the given key
@@ -103,8 +105,8 @@ func getTagVal(tags []*ec2.Tag, key string) (string, error) {
 }
 
 // populateSpotKey creates an ItemKey using a spot request and the item type
-func populateSpotKey(inst *ec2.SpotInstanceRequest) *ItemKey {
-	return &ItemKey{
+func populateSpotKey(inst *ec2.SpotInstanceRequest) ItemKey {
+	return ItemKey{
 		Service:  EC2Service,
 		Name:     *inst.LaunchSpecification.InstanceType,
 		ItemType: spot,
@@ -112,8 +114,8 @@ func populateSpotKey(inst *ec2.SpotInstanceRequest) *ItemKey {
 }
 
 // populateReservedKey creates an ItemKey using a reserved instance
-func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
-	return &ItemKey{
+func populateReservedKey(inst *ec2.ReservedInstances) ItemKey {
+	return ItemKey{
 		Service:      EC2Service,
 		Name:         *inst.InstanceType,
 		ItemType:     reserved,
@@ -123,8 +125,8 @@ func populateReservedKey(inst *ec2.ReservedInstances) *ItemKey {
 }
 
 // populateOnDemandKey creates an ItemKey using an on-demand instance
-func populateOnDemandKey(inst *ec2.Instance) *ItemKey {
-	return &ItemKey{
+func populateOnDemandKey(inst *ec2.Instance) ItemKey {
+	return ItemKey{
 		Service:  EC2Service,
 		Name:     *inst.InstanceType,
 		ItemType: onDemand,
@@ -334,25 +336,20 @@ func isValidInstance(item *Item, err error, itemRange TimeRange, uptimeRange Tim
 }
 
 // updateAccounts uses the given key and owner to add the item to the accounts object.
-func (accounts AccountHash) updateAccounts(owner string, item *Item, key *ItemKey) {
-	curAccount := accounts[owner]
-	if curAccount == nil {
-		curAccount = make(itemHash)
-	}
+func (items itemHash) updateItems(item *Item, key ItemKey) {
 	placed := false
-	for curKey, curItems := range curAccount {
+	for curKey, curItems := range items {
 		//Check if we can add it to an existing key
 		if key.Name == curKey.Name && key.ItemType == curKey.ItemType &&
 			key.duration == curKey.duration && key.Service == curKey.Service {
 			placed = true
-			curAccount[curKey] = append(curItems, item)
+			items[curKey] = append(curItems, item)
 			break
 		}
 	}
 	if placed == false {
-		curAccount[key] = []*Item{item}
+		items[key] = []*Item{item}
 	}
-	accounts[owner] = curAccount
 }
 
 // invalidVolume returns true if a necessary volume field is nil, or if
@@ -414,13 +411,12 @@ func (c *Client) getSpotPrice(ctx context.Context, req *ec2.SpotInstanceRequest,
 // getEC2SpotInstances gets spot EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2SpotInstances(ctx context.Context, accounts AccountHash, reportRange TimeRange) (AccountHash, error) {
+func (c *Client) getEC2SpotInstances(ctx context.Context, items itemHash, reportRange TimeRange) (itemHash, error) {
 	resp, err := c.ec2Client.DescribeSpotInstanceRequestsWithContext(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error from SpotRequests API call")
 	}
 	for _, req := range resp.SpotInstanceRequests {
-		owner := defaultAccount
 		key := populateSpotKey(req)
 		item := populateItemFromSpot(req)
 		itemRange := getSpotRange(req)
@@ -434,23 +430,22 @@ func (c *Client) getEC2SpotInstances(ctx context.Context, accounts AccountHash, 
 		item.setUptime(uptimeRange)
 		item.Price = c.getSpotPrice(ctx, req, uptimeRange)
 
-		accounts.updateAccounts(owner, item, key)
+		items.updateItems(item, key)
 
 	}
-	return accounts, nil
+	return items, nil
 }
 
 // getEC2ReservedInstances gets reserved EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2ReservedInstances(ctx context.Context, accounts AccountHash,
-	reportRange TimeRange) (AccountHash, error) {
+func (c *Client) getEC2ReservedInstances(ctx context.Context, items itemHash,
+	reportRange TimeRange) (itemHash, error) {
 	resp, err := c.ec2Client.DescribeReservedInstancesWithContext(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	for _, inst := range resp.ReservedInstances {
-		owner := defaultAccount
 		key := populateReservedKey(inst)
 		item := populateItemFromReserved(inst)
 		itemRange := getReservedRange(inst)
@@ -463,17 +458,17 @@ func (c *Client) getEC2ReservedInstances(ctx context.Context, accounts AccountHa
 		item.setUptime(uptimeRange)
 		item.setReservedPrice(inst)
 
-		accounts.updateAccounts(owner, item, key)
+		items.updateItems(item, key)
 
 	}
-	return accounts, nil
+	return items, nil
 }
 
 // getEC2OnDemandInstancesPage recursively iterates through pages of on-demand instances
 // and retrieves its uptime, average hourly price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, accounts AccountHash, reportRange TimeRange,
-	pricing *prices, nextToken *string) (AccountHash, error) {
+func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, items itemHash, reportRange TimeRange,
+	pricing *prices, nextToken *string) (itemHash, error) {
 	var input *ec2.DescribeInstancesInput
 	if nextToken != nil && *nextToken != "" {
 		//create filter
@@ -487,7 +482,6 @@ func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, accounts Accou
 	//iterate through instances
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
-			owner := defaultAccount
 			if inst.InstanceLifecycle != nil {
 				continue
 			}
@@ -502,68 +496,68 @@ func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, accounts Accou
 			item.setUptime(uptimeRange)
 			item.setOnDemandPrice(inst, pricing)
 
-			accounts.updateAccounts(owner, item, key)
+			items.updateItems(item, key)
 		}
 	}
 	// if there's a next page, recursively add next page information
 	for resp.NextToken != nil && *resp.NextToken != "" {
-		accounts, err = c.getEC2OnDemandInstancesPage(ctx, accounts, reportRange,
+		items, err = c.getEC2OnDemandInstancesPage(ctx, items, reportRange,
 			pricing, resp.NextToken)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return accounts, nil
+	return items, nil
 }
 
 // getEC2OnDemandInstances gets all EC2 on-demand instances and retrieves its uptime,
 // average hourly price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2OnDemandInstances(ctx context.Context, accounts AccountHash,
-	reportRange TimeRange) (AccountHash, error) {
+func (c *Client) getEC2OnDemandInstances(ctx context.Context, items itemHash,
+	reportRange TimeRange) (itemHash, error) {
 	pricing, err := getOnDemandPriceInformation()
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching on-demand price information")
 	}
-	accounts, err = c.getEC2OnDemandInstancesPage(ctx, accounts, reportRange,
+	items, err = c.getEC2OnDemandInstancesPage(ctx, items, reportRange,
 		pricing, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching on-demand instances page")
 	}
-	return accounts, nil
+	return items, nil
 }
 
 // GetEC2Instances gets all EC2Instances and creates an array of accounts.
 // Note this function is public but I may change that when adding non EC2 Amazon services.
-func (c *Client) GetEC2Instances(ctx context.Context, reportRange TimeRange) (AccountHash, error) {
+func (c *Client) GetEC2Instances(ctx context.Context, reportRange TimeRange) (itemHash, error) {
 	// accounts maps from account name to the items
-	accounts := make(AccountHash)
+	items := make(itemHash)
 	grip.Info("Getting EC2 Reserved Instances")
-	accounts, err := c.getEC2ReservedInstances(ctx, accounts, reportRange)
+	items, err := c.getEC2ReservedInstances(ctx, items, reportRange)
 	if err != nil {
 		return nil, err
 	}
 
 	grip.Info("Getting EC2 On-Demand Instances")
-	accounts, err = c.getEC2OnDemandInstances(ctx, accounts, reportRange)
+	items, err = c.getEC2OnDemandInstances(ctx, items, reportRange)
 	if err != nil {
 		return nil, err
 	}
 
 	grip.Info("Getting EC2 Spot Instances")
-	accounts, err = c.getEC2SpotInstances(ctx, accounts, reportRange)
+	items, err = c.getEC2SpotInstances(ctx, items, reportRange)
 	if err != nil {
 		return nil, err
 	}
 
-	return accounts, nil
+	return items, nil
 }
 
 // addEBSItemsPage recursively iterates through pages of EBS volumes
 // and retrieves its average hourly price, number of launched and terminated instances,
 // and volume type and adds this information to accounts.
-func (c *Client) addEBSItemsPage(ctx context.Context, accounts AccountHash, reportRange TimeRange, pricing *EBSPrices,
-	nextToken *string) (AccountHash, error) {
+func (c *Client) addEBSItemsPage(ctx context.Context, items itemHash, reportRange TimeRange, pricing *EBSPrices,
+	nextToken *string) (itemHash, error) {
 	grip.Info("Getting EBS Items")
 	input := &ec2.DescribeVolumesInput{}
 	if nextToken != nil && *nextToken != "" {
@@ -575,11 +569,10 @@ func (c *Client) addEBSItemsPage(ctx context.Context, accounts AccountHash, repo
 		return nil, err
 	}
 	for _, vol := range resp.Volumes {
-		owner := defaultAccount
 		if invalidVolume(vol, reportRange) {
 			continue
 		}
-		key := &ItemKey{
+		key := ItemKey{
 			ItemType: itemType(*vol.VolumeType),
 			Service:  EBSService,
 		}
@@ -590,24 +583,24 @@ func (c *Client) addEBSItemsPage(ctx context.Context, accounts AccountHash, repo
 		} else { //state is deleting, deleted, or error
 			item.Terminated = true
 		}
-		accounts.updateAccounts(owner, item, key)
+		items.updateItems(item, key)
 	}
 	// if there's a next page, recursively add next page information
 	for resp.NextToken != nil && *resp.NextToken != "" {
-		accounts, err = c.addEBSItemsPage(ctx, accounts, reportRange,
+		items, err = c.addEBSItemsPage(ctx, items, reportRange,
 			pricing, resp.NextToken)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return accounts, nil
+	return items, nil
 }
 
 // AddEBSItems gets all EBSVolumes and adds these items to accounts.
-func (c *Client) AddEBSItems(ctx context.Context, accounts AccountHash, reportRange TimeRange, pricing *EBSPrices) (AccountHash, error) {
-	accounts, err := c.addEBSItemsPage(ctx, accounts, reportRange, pricing, nil)
+func (c *Client) AddEBSItems(ctx context.Context, items itemHash, reportRange TimeRange, pricing *EBSPrices) (itemHash, error) {
+	items, err := c.addEBSItemsPage(ctx, items, reportRange, pricing, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching EBS items page")
 	}
-	return accounts, nil
+	return items, nil
 }
