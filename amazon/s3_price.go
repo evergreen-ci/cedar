@@ -27,7 +27,7 @@ type S3Info struct {
 	Owner    string
 }
 
-// Checks that a bucket name and key start are given in the S3Info struct.
+// IsValid checks that a bucket name and key start are given in the S3Info struct.
 func (s *S3Info) IsValid() bool {
 	if s == nil {
 		return false
@@ -81,7 +81,7 @@ func (c *Client) GetS3Cost(info *S3Info, reportRange TimeRange) (float32, error)
 		}
 		lineName := strings.ToLower(line[ownerIdx])
 		serviceName := line[serviceIdx]
-		if lineName == info.Owner && strings.Contains(serviceName, "S3") {
+		if lineName == strings.ToLower(info.Owner) && strings.Contains(serviceName, "S3") {
 			linePrice, err := strconv.ParseFloat(line[costIdx], 32)
 			if err != nil {
 				return 0.0, err

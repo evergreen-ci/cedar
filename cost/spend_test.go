@@ -27,15 +27,15 @@ func (c *CostSuite) SetupTest() {
 	c.config = &Config{Opts: Options{}, Providers: []*Provider{}}
 }
 
-func (c *CostSuite) TestGetGranularity() {
+func (c *CostSuite) TestGetDuration() {
 	c.config.Opts.Duration = ""
-	granularity, err := c.config.GetGranularity() //zero Duration
+	duration, err := c.config.GetDuration() //zero Duration
 	c.NoError(err)
-	c.Equal(granularity.String(), "1h0m0s")
+	c.Equal(duration.String(), "1h0m0s")
 	c.config.Opts.Duration = "12h"
-	granularity, err = c.config.GetGranularity()
+	duration, err = c.config.GetDuration()
 	c.NoError(err)
-	c.Equal(granularity.String(), "12h0m0s")
+	c.Equal(duration.String(), "12h0m0s")
 }
 
 func (c *CostSuite) TestUpdateSpendProviders() {
@@ -68,17 +68,17 @@ func (c *CostSuite) TestUpdateSpendProviders() {
 
 func (c *CostSuite) TestGetTimes() {
 	start := "2017-05-26T12:00"
-	granularity := 4 * time.Hour
+	duration := 4 * time.Hour
 	startTime, _ := time.Parse(layout, start)
-	endTime := startTime.Add(granularity)
-	times, err := getTimes(start, granularity)
+	endTime := startTime.Add(duration)
+	times, err := getTimes(start, duration)
 	c.NoError(err)
 	c.Equal(times.start, startTime)
 	c.Equal(times.end, endTime)
-	_, err = getTimes("", granularity)
+	_, err = getTimes("", duration)
 	c.NoError(err)
 
-	_, err = getTimes("2011T00:00", granularity)
+	_, err = getTimes("2011T00:00", duration)
 	c.Error(err)
 }
 

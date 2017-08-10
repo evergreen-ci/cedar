@@ -27,12 +27,12 @@ func Spend() cli.Command {
 				Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
 			},
 			cli.DurationFlag{
-				Name: "granularity",
+				Name: "duration",
 			},
 		},
 		Action: func(c *cli.Context) error {
 			start := c.String("start")
-			granularity := c.Duration("granularity")
+			duration := c.Duration("duration")
 			var err error
 			file := c.String("config")
 			if file == "" {
@@ -52,21 +52,18 @@ func Spend() cli.Command {
 			if !config.EvergreenInfo.IsValid() {
 				return errors.New("Configuration file requires evergreen user, key, and rootURL")
 			}
-			if len(config.Accounts) == 0 {
-				return errors.New("Configuration file requires at least one AWS account")
-			}
-			if granularity == 0 { //empty duration
-				granularity, err = config.GetGranularity()
+			if duration == 0 { //empty duration
+				duration, err = config.GetDuration()
 				if err != nil {
-					return errors.Wrap(err, "Problem with granularity")
+					return errors.Wrap(err, "Problem with duration")
 				}
 			}
 			ctx := context.Background()
-			report, err := cost.CreateReport(ctx, start, granularity, config)
+			report, err := cost.CreateReport(ctx, start, duration, config)
 			if err != nil {
 				return errors.Wrap(err, "Problem generating report")
 			}
-			filename := fmt.Sprintf("%s_%s.txt", report.Report.Begin, granularity.String())
+			filename := fmt.Sprintf("%s_%s.txt", report.Report.Begin, duration.String())
 			err = report.Print(config, filename)
 			if err != nil {
 				return errors.Wrap(err, "Problem printing report")

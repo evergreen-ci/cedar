@@ -30,19 +30,19 @@ type timeRange struct {
 	end   time.Time
 }
 
-// GetGranularity returns the granularity in the config file as type time.Duration.
+// GetDuration returns the duration in the config file as type time.Duration.
 // If the config file duration is empty, we return the default.
-func (c *Config) GetGranularity() (time.Duration, error) {
+func (c *Config) GetDuration() (time.Duration, error) {
 	configDur := c.Opts.Duration
 	var err error
-	granularity := time.Hour //default value
+	duration := time.Hour //default value
 	if configDur != "" {
-		granularity, err = time.ParseDuration(configDur)
+		duration, err = time.ParseDuration(configDur)
 		if err != nil {
-			return 0, errors.Wrap(err, fmt.Sprintf("Could not parse duration %s", configDur))
+			return 0, errors.Wrapf(err, "Could not parse duration %s", configDur)
 		}
 	}
-	return granularity, nil
+	return duration, nil
 }
 
 // UpdateSpendProviders updates the given config file's providers to include
@@ -66,8 +66,8 @@ func (c *Config) UpdateSpendProviders(newProv []*Provider) {
 
 // getTimes takes in a string of the form "YYYY-MM-DDTHH:MM" as the start
 // time for the report, and converts this to time.Time type. If the given string
-// is empty, we instead default to using the current time minus the granularity.
-func getTimes(s string, granularity time.Duration) (timeRange, error) {
+// is empty, we instead default to using the current time minus the duration.
+func getTimes(s string, duration time.Duration) (timeRange, error) {
 	var startTime, endTime time.Time
 	var err error
 	var res timeRange
@@ -77,10 +77,10 @@ func getTimes(s string, granularity time.Duration) (timeRange, error) {
 			return res, errors.Wrap(err, "incorrect start format: "+
 				"should be YYYY-MM-DDTHH:MM")
 		}
-		endTime = startTime.Add(granularity)
+		endTime = startTime.Add(duration)
 	} else {
 		endTime = time.Now()
-		startTime = endTime.Add(-granularity)
+		startTime = endTime.Add(-duration)
 	}
 	res.start = startTime
 	res.end = endTime
@@ -274,11 +274,11 @@ func getAllProviders(ctx context.Context, reportRange timeRange, config *Config)
 	return providers, nil
 }
 
-// CreateReport returns an Output using a start string, granularity, and Config information.
-func CreateReport(ctx context.Context, start string, granularity time.Duration, config *Config) (*Output, error) {
+// CreateReport returns an Output using a start string, duration, and Config information.
+func CreateReport(ctx context.Context, start string, duration time.Duration, config *Config) (*Output, error) {
 	grip.Info("Creating the report\n")
 	output := &Output{}
-	reportRange, err := getTimes(start, granularity)
+	reportRange, err := getTimes(start, duration)
 	if err != nil {
 		return output, errors.Wrap(err, "Problem retrieving report start and end")
 	}
@@ -289,7 +289,7 @@ func CreateReport(ctx context.Context, start string, granularity time.Duration, 
 	}
 
 	c := evergreen.NewClient(&http.Client{}, config.EvergreenInfo)
-	evg, err := getEvergreenData(c, reportRange.start, granularity)
+	evg, err := getEvergreenData(c, reportRange.start, duration)
 	if err != nil {
 		return &Output{}, errors.Wrap(err, "Problem retrieving evergreen information")
 	}
