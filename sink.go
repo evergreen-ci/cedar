@@ -200,7 +200,7 @@ func (c *appServicesCache) setSeystemEventLog(s send.Sender) error {
 	return errors.WithStack(c.logger.SetSender(s))
 }
 
-func (c *appServicesCache) getSystemEventLog() send.Sender {
+func (c *appServicesCache) getSystemEventLog() send.Sender { // nolint: megacheck
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

@@ -7,6 +7,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+// Deps exposes (or will expose) client functionality for the
+// dependency information graph.
 func Deps() cli.Command {
 	return cli.Command{
 		Name: "deps",

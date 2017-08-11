@@ -95,7 +95,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 
 ////////////////////////////////////////////////////////////////////////
 //
-// GET /status/events/{id}
+// GET /status/event/{id}
 
 type SystemEventResponse struct {
 	ID    string       `json:"id"`
@@ -103,7 +103,7 @@ type SystemEventResponse struct {
 	Event *model.Event `json:"event"`
 }
 
-func (s *Service) getSystembEvent(w http.ResponseWriter, r *http.Request) {
+func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	id := gimlet.GetVars(r)["id"]
 	resp := &SystemEventResponse{}
 	if id == "" {
@@ -126,7 +126,7 @@ func (s *Service) getSystembEvent(w http.ResponseWriter, r *http.Request) {
 
 ////////////////////////////////////////////////////////////////////////
 //
-// POST /status/events/{id}/acknowledge
+// POST /status/event/{id}/acknowledge
 //
 // (nothing is read from the body)
 
@@ -413,7 +413,13 @@ func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 	resp := createDepGraphResponse{}
 	id := gimlet.GetVars(r)["id"]
 	g := &model.GraphMetadata{}
-	g.Find(id)
+
+	if err := g.Find(id); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteErrorJSON(w, resp)
+		return
+	}
+
 	if g.IsNil() {
 		g.BuildID = id
 		if err := g.Insert(); err != nil {

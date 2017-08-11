@@ -91,6 +91,6 @@ func TestModelStructToJSON(t *testing.T) {
 	cost := createTestStruct()
 	raw, err := json.Marshal(cost)
 	assert.NoError(err)
-	json.Unmarshal(raw, &costFromJSON)
+	assert.NoError(json.Unmarshal(raw, &costFromJSON))
 	assert.Equal(costFromJSON, cost)
 }

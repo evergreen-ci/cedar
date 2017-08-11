@@ -63,20 +63,15 @@ func (c *Client) Copy() *Client {
 }
 
 func (c *Client) initClient(host string, port int, prefix string) (*Client, error) {
-	var err error
-
-	err = c.SetHost(host)
-	if err != nil {
+	if err := c.SetHost(host); err != nil {
 		return nil, err
 	}
 
-	err = c.SetPort(port)
-	if err != nil {
+	if err := c.SetPort(port); err != nil {
 		return nil, err
 	}
 
-	err = c.SetPrefix(prefix)
-	if err != nil {
+	if err := c.SetPrefix(prefix); err != nil {
 		return nil, err
 	}
 

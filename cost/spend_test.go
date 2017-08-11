@@ -143,5 +143,5 @@ func (c *CostSuite) TestPrint() {
 	output := Output{Report: report}
 	config := &Config{}
 	filepath := ""
-	output.Print(config, filepath)
+	c.NoError(output.Print(config, filepath))
 }

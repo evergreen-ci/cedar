@@ -22,7 +22,6 @@ import (
 const (
 	layout = "2006-01-02T15:04" //Using reference Mon Jan 2 15:04:05 -0700 MST 2006
 	aws    = "aws"
-	ec2    = "ec2"
 )
 
 type timeRange struct {
@@ -141,7 +140,7 @@ func (res *Item) setSums(items []*amazon.Item) {
 				res.Terminated++
 			}
 		}
-		res.TotalHours += int(item.Uptime)
+		res.TotalHours += item.Uptime
 	}
 }
 
@@ -267,10 +266,11 @@ func getAllProviders(ctx context.Context, reportRange timeRange, config *Config)
 	if err != nil {
 		return nil, err
 	}
+
 	providers := []*Provider{awsProvider}
-	for _, provider := range config.Providers {
-		providers = append(providers, provider)
-	}
+
+	providers = append(providers, config.Providers...)
+
 	return providers, nil
 }
 
