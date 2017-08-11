@@ -21,12 +21,13 @@ type EvergreenSpendSuite struct {
 }
 
 func TestEvergreenSpendSuite(t *testing.T) {
+	t.Skip("integration tests not supported by the service at this time")
 	suite.Run(t, new(EvergreenSpendSuite))
 }
 
 func (s *EvergreenSpendSuite) SetupSuite() {
 	s.info = &evergreen.EvergreenInfo{
-		RootURL: "https://evergreen-staging.corp.mongodb.com/rest/v2/",
+		RootURL: "https://evergreen.mongodb.com/rest/v2/",
 		User:    "USER",
 		Key:     "KEY",
 	}
@@ -68,7 +69,10 @@ func (s *EvergreenSpendSuite) TestGetEvergreenData() {
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("4h")
 	evergreen, err := getEvergreenData(client, starttime, duration)
-	s.NoError(err)
+	s.NotNil(evergreen)
+	if !s.NoError(err) {
+		return
+	}
 	for _, p := range evergreen.Projects {
 		s.NotEmpty(p.Name)
 		for _, task := range p.Tasks {

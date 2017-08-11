@@ -1,6 +1,8 @@
 package cost
 
 import (
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -11,6 +13,12 @@ import (
 
 func init() {
 	grip.SetName("sink.cost.test")
+}
+
+func getDirectoryOfFile() string {
+	_, file, _, _ := runtime.Caller(1)
+
+	return filepath.Dir(file)
 }
 
 // CommandsSuite provide a group of tests for the cost helper functions.
@@ -83,9 +91,12 @@ func (c *CostSuite) TestGetTimes() {
 }
 
 func (c *CostSuite) TestYAMLToConfig() {
-	file := "testdata/spend_test.yml"
+	file := filepath.Join(getDirectoryOfFile(), "testdata", "spend_test.yml")
 	config, err := YAMLToConfig(file)
+
 	c.NoError(err)
+	c.NotNil(c)
+	c.Len(config.Providers, 1)
 	c.Equal(config.Opts.Duration, "4h")
 	c.Equal(config.Providers[0].Name, "fakecompany")
 	c.Equal(config.Providers[0].Cost, float32(50000))

@@ -65,7 +65,9 @@ func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time,
 
 func getEvergreenData(c *evergreen.Client, starttime time.Time,
 	duration time.Duration) (*Evergreen, error) {
+
 	grip.Info("Getting Evergreen Distros")
+
 	distros, err := getEvergreenDistrosData(c, starttime, duration)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in GetEvergreenData")
