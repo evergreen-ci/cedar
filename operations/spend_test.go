@@ -31,7 +31,7 @@ func (s *CommandsSuite) TestSpendFlags() {
 		if name == "start" || name == "config" {
 			s.IsType(cli.StringFlag{}, flag)
 		} else {
-			s.Equal("granularity", name)
+			s.Equal("duration", name)
 			s.IsType(cli.DurationFlag{}, flag)
 		}
 	}
