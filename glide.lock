@@ -30,5 +30,8 @@ imports:
 
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
+- name: gopkg.in/yaml.v2
+  version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
+
 - name: github.com/aws/aws-sdk-go
   version: cf66c348f82c79de333bd788d4f782c4d623ebad
