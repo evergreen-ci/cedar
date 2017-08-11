@@ -9,7 +9,6 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/sink/units"
-	"github.com/gorilla/mux"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/curator/sthree"
 	"github.com/mongodb/grip"
@@ -412,7 +411,7 @@ type createDepGraphResponse struct {
 
 func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 	resp := createDepGraphResponse{}
-	id := mux.Vars(r)["id"]
+	id := gimlet.GetVars(r)["id"]
 	g := &model.GraphMetadata{}
 	g.Find(id)
 	if g.IsNil() {
@@ -441,7 +440,7 @@ type depGraphResolvedRespose struct {
 }
 
 func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := gimlet.GetVars(r)["id"]
 	resp := depGraphResolvedRespose{ID: id}
 	g := &model.GraphMetadata{}
 
@@ -489,7 +488,7 @@ type depGraphNodesRespose struct {
 }
 
 func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := gimlet.GetVars(r)["id"]
 	resp := depGraphNodesRespose{ID: id}
 	g := &model.GraphMetadata{}
 
@@ -529,7 +528,7 @@ type depGraphEdgesRespose struct {
 }
 
 func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := gimlet.GetVars(r)["id"]
 	resp := depGraphEdgesRespose{ID: id}
 	g := &model.GraphMetadata{}
 
