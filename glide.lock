@@ -18,7 +18,7 @@ imports:
   version: 792786c7400a136282c1664665ae0a8db921c6c2
 
 - name: github.com/mongodb/amboy
-  version: 6b894aa8e515aa8a73936337367f9991330f5f52
+  version: 56d6918a6f48eec9f89f90cb9938568ba9c1e2fd
 - name: github.com/mongodb/grip
   version: 681252f59f7127943d863ceb5764ce49382aba76
 - name: github.com/mongodb/curator
