@@ -141,7 +141,7 @@ vendor-deps:$(vendorDeps)
 #   new-style vendor directories. When this codebase can drop support
 #   for go1.4, we can delete most of this.
 -include $(buildDir)/makefile.vendor
-nestedVendored := vendor/github.com/tychoish/grip
+nestedVendored := vendor/github.com/mongodb/grip
 nestedVendored := $(foreach project,$(nestedVendored),$(project)/build/vendor)
 $(buildDir)/makefile.vendor:$(buildDir)/render-gopath makefile
 	@mkdir -p $(buildDir)
@@ -152,12 +152,15 @@ vendor-sync:$(vendorDeps)
 vendor-clean:
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	rm -rf vendor/github.com/stretchr/testify/vendor/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/davecgh/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pmezard/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*.dat" -o -name "*testdata" | xargs rm -rf
 change-go-version:
 	rm -rf $(buildDir)/make-vendor $(buildDir)/render-gopath
 	@$(MAKE) $(makeArgs) vendor > /dev/null 2>&1
 vendor:$(buildDir)/vendor/src
-	$(MAKE) $(makeArgs) -C vendor/github.com/tychoish/grip $@
+	$(MAKE) $(makeArgs) -C vendor/github.com/mongodb/grip $@
 $(buildDir)/vendor/src:$(buildDir)/make-vendor $(buildDir)/render-gopath
 	@./$(buildDir)/make-vendor
 #   targets to build the small programs used to support vendoring.

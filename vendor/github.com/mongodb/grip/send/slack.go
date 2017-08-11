@@ -18,8 +18,7 @@ const (
 )
 
 type slackJournal struct {
-	opts   *SlackOptions
-	client slackClient
+	opts *SlackOptions
 	*Base
 }
 
@@ -31,18 +30,17 @@ func NewSlackLogger(opts *SlackOptions, token string, l LevelInfo) (Sender, erro
 	}
 
 	s := &slackJournal{
-		opts:   opts,
-		client: opts.client,
-		Base:   NewBase(opts.Name),
+		opts: opts,
+		Base: NewBase(opts.Name),
 	}
 
-	s.client.Create(token)
+	s.opts.client.Create(token)
 
 	if err := s.SetLevel(l); err != nil {
 		return nil, err
 	}
 
-	if _, err := s.client.AuthTest(); err != nil {
+	if _, err := s.opts.client.AuthTest(); err != nil {
 		return nil, fmt.Errorf("slack authentication error: %v", err)
 	}
 
@@ -67,7 +65,7 @@ func MakeSlackLogger(opts *SlackOptions) (Sender, error) {
 	token := os.Getenv(slackClientToken)
 	if token == "" {
 		return nil, fmt.Errorf("environment variable %s not defined, cannot create slack client",
-			"foo")
+			slackClientToken)
 	}
 
 	return NewSlackLogger(opts, token, LevelInfo{level.Trace, level.Trace})
@@ -84,7 +82,7 @@ func (s *slackJournal) Send(m message.Composer) {
 	defer s.Base.mutex.RUnlock()
 
 	params := s.opts.getParams(m)
-	if err := s.client.ChatPostMessage(s.opts.Channel, msg, params); err != nil {
+	if err := s.opts.client.ChatPostMessage(s.opts.Channel, msg, params); err != nil {
 		s.errHandler(err, message.NewFormattedMessage(m.Priority(),
 			"%s: %s\n", params.Attachments[0].Fallback, msg))
 	}
@@ -117,7 +115,7 @@ type SlackOptions struct {
 }
 
 func (o *SlackOptions) fieldSetShouldInclude(name string) bool {
-	if name == "time" || name == "msg" {
+	if name == "time" || name == message.FieldsMsgName {
 		return false
 	}
 
@@ -223,7 +221,7 @@ func (o *SlackOptions) getParams(m message.Composer) *slack.ChatPostMessageOpt {
 
 		if ok {
 			for k, v := range fields {
-				if k == "msg" {
+				if k == message.FieldsMsgName {
 					continue
 				}
 				if !o.fieldSetShouldInclude(k) {

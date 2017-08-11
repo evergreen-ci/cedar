@@ -124,8 +124,11 @@ testArgs := -test.v --test.timeout=5m
 ifneq (,$(RUN_TEST))
 testArgs += -test.run='$(RUN_TEST)'
 endif
+ifneq (,$(RUN_CASE))
+testArgs += -testify.m='$(RUN_CASE)'
+endif
 #    to avoid vendoring the coverage tool, install it as needed
-coverDeps := golang.org/x/tools/cmd/cover
+coverDeps := $(if $(DISABLE_COVERAGE),,golang.org/x/tools/cmd/cover)
 coverDeps := $(addprefix $(gopath)/src/,$(coverDeps))
 #    implementation for package coverage and test running,mongodb to produce
 #    and save test output.
@@ -179,9 +182,11 @@ vendor-clean:
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	rm -rf vendor/github.com/stretchr/testify/vendor/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/tychoish/grip/
+	sed -ri 's%(\tlog.*)%// \1%g' `find vendor/github.com/nutmegdevelopment/sumologic/upload/upload.go`
 	rm -rf vendor/github.com/mongodb/amboy/vendor/golang.org/x/net/
 	sed -ri 's/json:"(.*)"/json:"\1" bson:"\1"/' `grep -R -l 'json:\".*\" [^bson]' vendor/github.com/shirou/gopsutil/*` || true
-	find vendor/github.com/shirou/gopsutil/ -name "*.go" | xargs -n 1 go fmt || true
+	find vendor/ -name "*.go" | xargs -n 1 go fmt -w -r '"context" -> "golang.org/x/net/context"'
+	find vendor/github.com/shirou/gopsutil/ -name "*.go" | xargs -n 1 gofmt || true
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*.dat" -o -name "*testdata" | xargs rm -fr
 change-go-version:
 	rm -rf $(buildDir)/make-vendor $(buildDir)/render-gopath
