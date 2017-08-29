@@ -31,7 +31,12 @@ type timeRange struct {
 
 // GetDuration returns the duration in the config file as type time.Duration.
 // If the config file duration is empty, we return the default.
-func (c *Config) GetDuration() (time.Duration, error) {
+func (c *Config) GetDuration(input time.Duration) (time.Duration, error) {
+	if input < time.Minute {
+		grip.Warningf("input time is %s, falling back to the config file or default", input)
+		input = time.Duration(0)
+	}
+
 	configDur := c.Opts.Duration
 	var err error
 	duration := time.Hour //default value
@@ -47,12 +52,13 @@ func (c *Config) GetDuration() (time.Duration, error) {
 // UpdateSpendProviders updates the given config file's providers to include
 // the providers in the given Provider array. If the provider already exists,
 // we update the cost.
-func (c *Config) UpdateSpendProviders(newProv []*Provider) {
+func (c *Config) UpdateSpendProviders(newProv []Provider) {
 	for _, new := range newProv {
 		added := false
-		for _, old := range c.Providers {
-			if new.Name == old.Name {
-				old.Cost = new.Cost
+		for idx := range c.Providers {
+			if new.Name == c.Providers[idx].Name {
+				c.Providers[idx].Cost = new.Cost
+
 				added = true
 				break
 			}
@@ -194,11 +200,11 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem getting EC2 instances")
 	}
-	instances, err = client.AddEBSItems(ctx, instances, reportRange, config.Pricing)
+	instances, err = client.AddEBSItems(ctx, instances, reportRange, &config.Amazon.EBSPrices)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem getting EBS instances")
 	}
-	s3info := config.S3Info
+	s3info := config.Amazon.S3Info
 	s3info.Owner = owner
 	ec2Service := &Service{
 		Name: string(amazon.EC2Service),
@@ -209,7 +215,7 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 	s3Service := &Service{
 		Name: string(amazon.S3Service),
 	}
-	s3Service.Cost, err = client.GetS3Cost(s3info, reportRange)
+	s3Service.Cost, err = client.GetS3Cost(&s3info, reportRange)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
 	}
@@ -237,7 +243,7 @@ func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) 
 		End:   reportRange.end,
 	}
 	var allAccounts []*Account
-	for _, owner := range config.Accounts {
+	for _, owner := range config.Amazon.Accounts {
 		account, err := getAWSAccountByOwner(ctx, awsReportRange, config, owner)
 		if err != nil {
 			return nil, err
@@ -261,13 +267,13 @@ func getAWSProvider(ctx context.Context, reportRange timeRange, config *Config) 
 }
 
 // getAllProviders returns the AWS provider and any providers in the config file
-func getAllProviders(ctx context.Context, reportRange timeRange, config *Config) ([]*Provider, error) {
+func getAllProviders(ctx context.Context, reportRange timeRange, config *Config) ([]Provider, error) {
 	awsProvider, err := getAWSProvider(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
 	}
 
-	providers := []*Provider{awsProvider}
+	providers := []Provider{*awsProvider}
 
 	providers = append(providers, config.Providers...)
 
@@ -288,7 +294,7 @@ func CreateReport(ctx context.Context, start string, duration time.Duration, con
 		return output, errors.Wrap(err, "Problem retrieving providers information")
 	}
 
-	c := evergreen.NewClient(&http.Client{}, config.EvergreenInfo)
+	c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
 	evg, err := getEvergreenData(c, reportRange.start, duration)
 	if err != nil {
 		return &Output{}, errors.Wrap(err, "Problem retrieving evergreen information")

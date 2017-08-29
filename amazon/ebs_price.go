@@ -17,6 +17,16 @@ type EBSPrices struct {
 	Snapshot float64 `yaml:"snapshot"`
 }
 
+func (p *EBSPrices) IsValid() bool {
+	for _, val := range []float64{p.GP2, p.IO1, p.IO1IOPS, p.ST1, p.SC1, p.Standard, p.Snapshot} {
+		if val != 0.0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (pricing *EBSPrices) getPriceByVolumeType(vol *ec2.Volume, durationInDays float64) (float64, float64) {
 	var volumePrice, price float64
 	onemillion := 1000000.0

@@ -95,12 +95,11 @@ func backgroundJobs(ctx context.Context) error {
 			"problem scheduling job %s (count: %d)", name, count))
 
 		return err
-	}, time.Minute, true)
+	},
+		// interval
+		time.Minute,
+		// continue-on-error
+		true)
 
 	return nil
-}
-
-// configureSpend calls the sink functions to configure spend
-func configureSpend(path string) error {
-	return sink.SetSpendConfig(path)
 }

@@ -15,6 +15,7 @@ sink/operations/setup.go for details.
 package sink
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/evergreen-ci/sink/cost"
@@ -217,43 +218,35 @@ func (c *appServicesCache) getLogger() grip.Journaler {
 func (c *appServicesCache) getSpendConfig() *cost.Config {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	if c.spendConfig == nil {
-		c.spendConfig = &cost.Config{}
-	}
+
 	return c.spendConfig
 }
 
 func (c *appServicesCache) setSpendConfig(file string) error {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	newConfig, err := cost.YAMLToConfig(file)
 	if err != nil {
 		return err
 	}
-	configFile := c.getSpendConfig()
-	if newConfig.Opts.Directory != "" {
-		configFile.Opts.Directory = newConfig.Opts.Directory
+
+	errs := []string{}
+	if newConfig.Amazon.EBSPrices.IsValid() {
+		errs = append(errs, "Configuration file requires EBS pricing information")
 	}
-	if newConfig.Opts.Duration != "" {
-		configFile.Opts.Duration = newConfig.Opts.Duration
+	if !newConfig.Amazon.S3Info.IsValid() {
+		errs = append(errs, "Configuration file requires S3 bucket information")
 	}
-	if newConfig.EvergreenInfo != nil {
-		configFile.EvergreenInfo = newConfig.EvergreenInfo
+	if !newConfig.Evergreen.IsValid() {
+		errs = append(errs, "Configuration file requires evergreen user, key, and rootURL")
 	}
-	if newConfig.Pricing != nil {
-		configFile.Pricing = newConfig.Pricing
+
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
 	}
-	if newConfig.S3Info != nil {
-		configFile.S3Info = newConfig.S3Info
-	}
-	if len(newConfig.Accounts) != 0 {
-		configFile.Accounts = newConfig.Accounts
-	}
-	if configFile.Providers != nil {
-		configFile.UpdateSpendProviders(newConfig.Providers)
-	} else {
-		configFile.Providers = newConfig.Providers
-	}
+
+	c.spendConfig = newConfig
+
 	return nil
 }

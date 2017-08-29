@@ -1,25 +1,24 @@
----
-opts:
+options:
   duration: 4h
   directory: testdata
-s3_info:
-  s3key_start: brian.samek/s3_testdata
-  s3bucket: boxes.10gen.com/
-evergreen_info:
-  evergreen_user: user
-  evergreen_api_key: key
-  root_url: http://rooturl.com
-aws_accounts:
-  - kernel-build
-pricing:
-  gp2: 0.10
-  io1GB: 0.125
-  io1IOPS: 0.065
-  st1: 0.045
-  sc1: 0.025
-  standard: 0.05
-  snapshot: 0.05
+evergreen:
+  user: user
+  key: key
+  url: http://rooturl.com
+aws:
+  s3:
+    s3key_start: brian.samek/s3_testdata
+    s3bucket: boxes.10gen.com/
+  accounts:
+    - kernel-build
+  ebs_pricing:
+    gp2: 0.10
+    io1GB: 0.125
+    io1IOPS: 0.065
+    st1: 0.045
+    sc1: 0.025
+    standard: 0.05
+    snapshot: 0.05
 providers:
   - name: fakecompany
     cost: 50000.0
-...

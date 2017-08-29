@@ -3,9 +3,9 @@ package cost
 //Output provides the structure for the report that will be returned for
 //the build cost reporting tool.
 type Output struct {
-	Report    Report      `json:"report,omitempty"`
-	Evergreen Evergreen   `json:"evergreen,omitempty"`
-	Providers []*Provider `json:"providers,omitempty"`
+	Report    Report     `json:"report,omitempty"`
+	Evergreen Evergreen  `json:"evergreen,omitempty"`
+	Providers []Provider `json:"providers,omitempty"`
 }
 
 //Report provides time information on the overall structure.

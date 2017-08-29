@@ -32,39 +32,39 @@ func TestServiceCacheSuite(t *testing.T) {
 }
 
 func (c *CostSuite) SetupTest() {
-	c.config = &Config{Opts: Options{}, Providers: []*Provider{}}
+	c.config = &Config{Opts: Options{}, Providers: []Provider{}}
 }
 
 func (c *CostSuite) TestGetDuration() {
 	c.config.Opts.Duration = ""
-	duration, err := c.config.GetDuration() //zero Duration
+	duration, err := c.config.GetDuration(0) //zero Duration
 	c.NoError(err)
 	c.Equal(duration.String(), "1h0m0s")
 	c.config.Opts.Duration = "12h"
-	duration, err = c.config.GetDuration()
+	duration, err = c.config.GetDuration(0)
 	c.NoError(err)
 	c.Equal(duration.String(), "12h0m0s")
 }
 
 func (c *CostSuite) TestUpdateSpendProviders() {
-	oldProv1 := &Provider{
+	oldProv1 := Provider{
 		Name: "Provider1",
 		Cost: 1234,
 	}
-	oldProv2 := &Provider{
+	oldProv2 := Provider{
 		Name: "Provider2",
 		Cost: 4200,
 	}
-	newProv1 := &Provider{
+	newProv1 := Provider{
 		Name: "Provider2",
 		Cost: 1200,
 	}
-	newProv2 := &Provider{
+	newProv2 := Provider{
 		Name: "Provider3",
 		Cost: 15251,
 	}
-	newProv := []*Provider{newProv1, newProv2}
-	c.config.Providers = []*Provider{oldProv1, oldProv2}
+	newProv := []Provider{newProv1, newProv2}
+	c.config.Providers = []Provider{oldProv1, oldProv2}
 	c.config.UpdateSpendProviders(newProv)
 	result := c.config.Providers
 

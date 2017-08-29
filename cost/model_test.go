@@ -43,11 +43,11 @@ func createTestStruct() Output {
 		Services: []*Service{service1, service2, service3},
 	}
 
-	provider1 := &Provider{
+	provider1 := Provider{
 		Name:     "aws",
 		Accounts: []*Account{account1},
 	}
-	provider2 := &Provider{
+	provider2 := Provider{
 		Name: "macstadium",
 		Cost: 27.12,
 	}
@@ -78,7 +78,7 @@ func createTestStruct() Output {
 	cost = Output{
 		Report:    report1,
 		Evergreen: evergreen1,
-		Providers: []*Provider{provider1, provider2},
+		Providers: []Provider{provider1, provider2},
 	}
 
 	return cost

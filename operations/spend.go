@@ -2,6 +2,7 @@ package operations
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
@@ -32,43 +33,54 @@ func Spend() cli.Command {
 		},
 		Action: func(c *cli.Context) error {
 			start := c.String("start")
-			duration := c.Duration("duration")
-			var err error
 			file := c.String("config")
-			if file == "" {
-				return errors.New("Configuration file is required")
+			dur := c.Duration("duration")
+
+			if err := loadCostConfig(file); err != nil {
+				return errors.Wrap(err, "problem loading cost configuration")
 			}
-			err = configureSpend(file)
-			if err != nil {
-				return errors.Wrap(err, "Problem with config file")
-			}
+
 			config := sink.GetSpendConfig()
-			if config.Pricing == nil {
-				return errors.New("Configuration file requires EBS pricing information")
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			if err := writeCostReport(ctx, config, start, dur); err != nil {
+				return errors.Wrap(err, "problem writing cost report")
 			}
-			if !config.S3Info.IsValid() {
-				return errors.New("Configuration file requires S3 bucket information")
-			}
-			if !config.EvergreenInfo.IsValid() {
-				return errors.New("Configuration file requires evergreen user, key, and rootURL")
-			}
-			if duration == 0 { //empty duration
-				duration, err = config.GetDuration()
-				if err != nil {
-					return errors.Wrap(err, "Problem with duration")
-				}
-			}
-			ctx := context.Background()
-			report, err := cost.CreateReport(ctx, start, duration, config)
-			if err != nil {
-				return errors.Wrap(err, "Problem generating report")
-			}
-			filename := fmt.Sprintf("%s_%s.txt", report.Report.Begin, duration.String())
-			err = report.Print(config, filename)
-			if err != nil {
-				return errors.Wrap(err, "Problem printing report")
-			}
+
 			return nil
 		},
 	}
+}
+
+func loadCostConfig(file string) error {
+	if file == "" {
+		return errors.New("Configuration file is required")
+	}
+
+	if err := sink.SetSpendConfig(file); err != nil {
+		return errors.Wrap(err, "Problem with config file")
+	}
+
+	return nil
+}
+
+func writeCostReport(ctx context.Context, conf *cost.Config, start string, dur time.Duration) error {
+	duration, err := conf.GetDuration(dur)
+	if err != nil {
+		return errors.Wrap(err, "Problem with duration")
+	}
+
+	report, err := cost.CreateReport(ctx, start, duration, conf)
+	if err != nil {
+		return errors.Wrap(err, "Problem generating report")
+	}
+
+	filename := fmt.Sprintf("%s_%s.txt", report.Report.Begin, duration.String())
+	if err := report.Print(conf, filename); err != nil {
+		return errors.Wrap(err, "Problem printing report")
+	}
+
+	return nil
 }

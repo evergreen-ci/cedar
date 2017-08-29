@@ -19,9 +19,9 @@ type Client struct {
 
 // EvergreenInfo stores the root URL, username, and API key for the user
 type EvergreenInfo struct {
-	RootURL string `yaml:"root_url"`
-	User    string `yaml:"evergreen_user"`
-	Key     string `yaml:"evergreen_api_key"`
+	RootURL string `bson:"url" json:"url" yaml:"url"`
+	User    string `bson:"user" json:"user" yaml:"user"`
+	Key     string `bson:"key" json:"key" yaml:"key"`
 }
 
 // NewClient is a constructs a new Client using the parameters given.
