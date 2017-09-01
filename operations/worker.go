@@ -31,11 +31,13 @@ func Worker() cli.Command {
 			bucket := c.String("bucket")
 			dbName := c.String("dbName")
 
-			if err := configure(workers, false, mongodbURI, bucket, dbName); err != nil {
+			env := sink.GetEnvironment()
+
+			if err := configure(env, workers, false, mongodbURI, bucket, dbName); err != nil {
 				return errors.WithStack(err)
 			}
 
-			q, err := sink.GetQueue()
+			q, err := env.GetQueue()
 			if err != nil {
 				return errors.Wrap(err, "problem getting queue")
 			}
@@ -44,7 +46,7 @@ func Worker() cli.Command {
 				return errors.Wrap(err, "problem starting queue")
 			}
 
-			if err = backgroundJobs(ctx); err != nil {
+			if err = backgroundJobs(ctx, env); err != nil {
 				return errors.Wrap(err, "problem starting background jobs")
 			}
 

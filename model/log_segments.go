@@ -1,10 +1,10 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink/db"
-	"github.com/evergreen-ci/sink/db/bsonutil"
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/bsonutil"
 	"github.com/pkg/errors"
-	"gopkg.in/mgo.v2"
+	"github.com/tychoish/anser/db"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -12,12 +12,12 @@ const logSegmentsCollection = "simple.log.segments"
 
 type LogSegment struct {
 	// common log information
-	ID      bson.ObjectId `bson:"_id"`
-	LogID   string        `bson:"log_id"`
-	URL     string        `bson:"url"`
-	Segment int           `bson:"seg"`
-	Bucket  string        `bson:"bucket"`
-	KeyName string        `bson:"key"`
+	ID      string `bson:"_id"`
+	LogID   string `bson:"log_id"`
+	URL     string `bson:"url"`
+	Segment int    `bson:"seg"`
+	Bucket  string `bson:"bucket"`
+	KeyName string `bson:"key"`
 
 	// parsed out information
 	Metrics LogMetrics `bson:"metrics"`
@@ -26,6 +26,7 @@ type LogSegment struct {
 
 	// internal fields used by methods:
 	populated bool
+	env       sink.Environment
 }
 
 var (
@@ -50,16 +51,31 @@ var (
 	logMetricsLetterFrequencyKey = bsonutil.MustHaveTag(LogMetrics{}, "LetterFrequencies")
 )
 
+func (l *LogSegment) Setup(e sink.Environment) { l.env = e }
+func (l *LogSegment) IsNil() bool              { return l.populated }
+
 func (l *LogSegment) Insert() error {
 	if l.ID == "" {
-		l.ID = bson.NewObjectId()
+		l.ID = string(bson.NewObjectId())
 	}
 
-	return errors.WithStack(db.Insert(logSegmentsCollection, l))
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	return errors.WithStack(session.DB(conf.DatabaseName).C(depNodeCollection).Insert(l))
 }
 
 func (l *LogSegment) Find(logID string, segment int) error {
-	filter := bson.M{
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	filter := map[string]interface{}{
 		logSegmentLogIDKey: logID,
 	}
 
@@ -67,30 +83,41 @@ func (l *LogSegment) Find(logID string, segment int) error {
 		filter[logSegmentSegmentIDKey] = segment
 	}
 
-	query := db.Query(filter)
-
 	l.populated = false
-	err := query.FindOne(logSegmentsCollection, l)
-	if err == mgo.ErrNotFound {
+	err = session.DB(conf.DatabaseName).C(logSegmentsCollection).Find(filter).One(l)
+	if db.ResultsNotFound(err) {
 		return nil
 	}
-	l.populated = true
 
 	if err != nil {
-		return errors.Wrapf(err, "problem running log query %+v", query)
+		return errors.Wrapf(err, "problem running log query %+v", filter)
 	}
+
+	l.populated = true
 
 	return nil
 }
 
-func (l *LogSegment) IsNil() bool { return l.populated }
-
 func (l *LogSegment) Remove() error {
-	query := db.Query(bson.M{
-		logSegmentDocumentIDKey: l.ID,
-	})
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
 
-	return errors.WithStack(query.RemoveOne(logSegmentsCollection))
+	return errors.WithStack(session.DB(conf.DatabaseName).C(logSegmentsCollection).RemoveId(l.ID))
+}
+
+func (l *LogSegment) Save() error {
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	filter := l.Metadata.IsolatedUpdateQuery(logSegmentMetadataKey, l.ID)
+	err = errors.WithStack(session.DB(conf.DatabaseName).C(logSegmentsCollection).Update(filter, l))
+	return l.Metadata.Handle(err)
 }
 
 ///////////////////////////////////
@@ -100,35 +127,38 @@ func (l *LogSegment) Remove() error {
 type LogSegments struct {
 	logs      []LogSegment
 	populated bool
+	env       sink.Environment
 }
 
+func (l *LogSegments) Setup(e sink.Environment) { l.env = e }
+func (l *LogSegments) IsNil() bool              { return l.populated }
+func (l *LogSegments) Slice() []LogSegment      { return l.logs }
+
 func (l *LogSegments) Find(logID string, sorted bool) error {
-	query := db.Query(bson.M{
-		logSegmentLogIDKey: logID,
-	})
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	filter := map[string]interface{}{logSegmentLogIDKey: logID}
+	query := session.DB(conf.DatabaseName).C(logSegmentsCollection).Find(filter)
 
 	if sorted {
-		query.Sort("-" + logSegmentSegmentIDKey)
+		query = query.Sort("-" + logSegmentSegmentIDKey)
 	}
 
-	err := query.FindAll(logSegmentsCollection, l.logs)
 	l.populated = false
-	if err == mgo.ErrNotFound {
+	err = query.All(l.logs)
+	if db.ResultsNotFound(err) {
 		return nil
 	}
-	l.populated = true
 
 	if err != nil {
 		return errors.Wrapf(err, "problem running log query %+v", query)
 	}
+
+	l.populated = true
+
 	return nil
-}
-
-func (l *LogSegments) IsNil() bool         { return l.populated }
-func (l *LogSegments) Slice() []LogSegment { return l.logs }
-
-func (l *LogSegment) Save() error {
-	query := l.Metadata.IsolatedUpdateQuery(logSegmentMetadataKey, l.ID)
-
-	return errors.WithStack(query.Update(logSegmentsCollection, l))
 }

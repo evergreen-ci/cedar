@@ -35,17 +35,17 @@ func Spend() cli.Command {
 			start := c.String("start")
 			file := c.String("config")
 			dur := c.Duration("duration")
+			env := sink.GetEnvironment()
 
-			if err := loadCostConfig(file); err != nil {
+			conf, err := loadCostConfig(env, file)
+			if err != nil {
 				return errors.Wrap(err, "problem loading cost configuration")
 			}
-
-			config := sink.GetSpendConfig()
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if err := writeCostReport(ctx, config, start, dur); err != nil {
+			if err := writeCostReport(ctx, conf.Cost, start, dur); err != nil {
 				return errors.Wrap(err, "problem writing cost report")
 			}
 
@@ -54,16 +54,27 @@ func Spend() cli.Command {
 	}
 }
 
-func loadCostConfig(file string) error {
+func loadCostConfig(env sink.Environment, file string) (*sink.Configuration, error) {
 	if file == "" {
-		return errors.New("Configuration file is required")
+		return nil, errors.New("Configuration file is required")
 	}
 
-	if err := sink.SetSpendConfig(file); err != nil {
-		return errors.Wrap(err, "Problem with config file")
+	costConf, err := cost.LoadConfig(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem loading config")
 	}
 
-	return nil
+	conf, err := env.GetConf()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem getting application configuration")
+	}
+
+	conf.Cost = costConf
+	if err = env.SetConf(conf); err != nil {
+		return nil, errors.Wrap(err, "problem saving config")
+	}
+
+	return conf, nil
 }
 
 func writeCostReport(ctx context.Context, conf *cost.Config, start string, dur time.Duration) error {

@@ -33,6 +33,7 @@ type saveSimpleLogToDBJob struct {
 	Increment int       `bson:"i" json:"inc" yaml:"increment"`
 	LogID     string    `bson:"logID" json:"logID" yaml:"logID"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env       sink.Environment
 }
 
 func saveSimpleLogToDBJobFactory() amboy.Job {
@@ -43,13 +44,14 @@ func saveSimpleLogToDBJobFactory() amboy.Job {
 				Version: 1,
 			},
 		},
+		env: sink.GetEnvironment(),
 	}
 	j.SetDependency(dependency.NewAlways())
 
 	return j
 }
 
-func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Job {
+func MakeSaveSimpleLogJob(env sink.Environment, logID, content string, ts time.Time, inc int) amboy.Job {
 	j := saveSimpleLogToDBJobFactory().(*saveSimpleLogToDBJob)
 
 	j.SetID(fmt.Sprintf("%s-%s-%d", j.Type().Name, logID, inc))
@@ -58,20 +60,25 @@ func MakeSaveSimpleLogJob(logID, content string, ts time.Time, inc int) amboy.Jo
 	j.Content = append(j.Content, content)
 	j.LogID = logID
 	j.Increment = inc
-
+	j.env = env
 	return j
 }
 
 func (j *saveSimpleLogToDBJob) Run() {
 	defer j.MarkComplete()
 
-	conf := sink.GetConf()
+	conf, err := j.env.GetConf()
+	if err != nil {
+		grip.Warning(err)
+		j.AddError(err)
+		return
 
+	}
 	bucket := sthree.GetBucket(conf.BucketName)
 	grip.Infoln("got s3 bucket object for:", bucket)
 
 	s3Key := fmt.Sprintf("simple-log/%s.%d", j.LogID, j.Increment)
-	err := bucket.Write([]byte(strings.Join(j.Content, "\n")), s3Key, "")
+	err = bucket.Write([]byte(strings.Join(j.Content, "\n")), s3Key, "")
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem writing to s3"))
 		return
@@ -118,7 +125,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 		return
 	}
 
-	q, err := sink.GetQueue()
+	q, err := j.env.GetQueue()
 	if err != nil {
 		err = errors.Wrap(err, "problem fetching queue")
 		grip.Critical(err)

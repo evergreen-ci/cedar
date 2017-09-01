@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/rest"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
@@ -35,7 +36,9 @@ func Service() cli.Command {
 			bucket := c.String("bucket")
 			dbName := c.String("dbName")
 
-			if err := configure(workers, runLocal, mongodbURI, bucket, dbName); err != nil {
+			env := sink.GetEnvironment()
+
+			if err := configure(env, workers, runLocal, mongodbURI, bucket, dbName); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -51,7 +54,7 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem starting services")
 			}
 
-			if err := backgroundJobs(ctx); err != nil {
+			if err := backgroundJobs(ctx, env); err != nil {
 				return errors.Wrap(err, "problem starting background jobs")
 			}
 

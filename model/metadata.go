@@ -1,9 +1,7 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink/db"
-	"github.com/evergreen-ci/sink/db/bsonutil"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/evergreen-ci/sink/bsonutil"
 )
 
 // Metadata sub-documents are embedded in models to provide
@@ -21,15 +19,23 @@ var (
 	metadataUnitsKey             = bsonutil.MustHaveTag(Metadata{}, "Units")
 )
 
-func (m *Metadata) IsolatedUpdateQuery(metaDataKey string, id interface{}) *db.Q {
+func (m *Metadata) IsolatedUpdateQuery(metaDataKey string, id interface{}) map[string]interface{} {
 	modCount := bsonutil.GetDottedKeyName(metaDataKey, metadataModificationCountKey)
 
-	query := db.Query(bson.M{
+	query := map[string]interface{}{
 		"_id":    id,
 		modCount: m.ModificationCount,
-	})
+	}
 
 	m.ModificationCount++
 
 	return query
+}
+
+func (m *Metadata) Handle(err error) error {
+	if err != nil {
+		m.ModificationCount--
+		return err
+	}
+	return nil
 }

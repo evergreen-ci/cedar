@@ -8,7 +8,7 @@ import (
 )
 
 type ServiceCacheSuite struct {
-	cache *appServicesCache
+	cache *envState
 	suite.Suite
 }
 
@@ -17,7 +17,7 @@ func TestServiceCacheSuite(t *testing.T) {
 }
 
 func (s *ServiceCacheSuite) SetupTest() {
-	s.cache = &appServicesCache{name: "sink.testing"}
+	s.cache = &envState{name: "sink.testing"}
 }
 
 func (s *ServiceCacheSuite) TestDefaultCacheValues() {
@@ -27,41 +27,29 @@ func (s *ServiceCacheSuite) TestDefaultCacheValues() {
 }
 
 func (s *ServiceCacheSuite) TestQueueNotSettableToNil() {
-	s.Error(s.cache.setQueue(nil))
+	s.Error(s.cache.SetQueue(nil))
 	s.Nil(s.cache.queue)
 
 	q := queue.NewLocalOrdered(2)
 	s.NotNil(q)
-	s.NoError(s.cache.setQueue(q))
+	s.NoError(s.cache.SetQueue(q))
 	s.NotNil(s.cache.queue)
 	s.Equal(s.cache.queue, q)
-	s.Error(s.cache.setQueue(nil))
+	s.Error(s.cache.SetQueue(nil))
 	s.NotNil(s.cache.queue)
 	s.Equal(s.cache.queue, q)
 }
 
 func (s *ServiceCacheSuite) TestQueueGetterRetrivesQueue() {
-	q, err := s.cache.getQueue()
+	q, err := s.cache.GetQueue()
 	s.Nil(q)
 	s.Error(err)
 
 	q = queue.NewLocalOrdered(2)
-	s.NoError(s.cache.setQueue(q))
+	s.NoError(s.cache.SetQueue(q))
 
-	retrieved, err := s.cache.getQueue()
+	retrieved, err := s.cache.GetQueue()
 	s.NotNil(q)
 	s.NoError(err)
 	s.Equal(retrieved, q)
-}
-
-func (s *ServiceCacheSuite) TestSetSpendConfig() {
-	file := "cost/testdata/spend_test.yml"
-	err := s.cache.setSpendConfig(file)
-	s.NoError(err)
-	configFile := s.cache.spendConfig
-	s.Equal(configFile.Opts.Duration, "4h")
-
-	file = "not_real.yaml"
-	err = s.cache.setSpendConfig(file)
-	s.Error(err)
 }

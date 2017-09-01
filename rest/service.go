@@ -15,13 +15,18 @@ type Service struct {
 	// internal settings
 	queue amboy.Queue
 	app   *gimlet.APIApp
+	env   sink.Environment
 }
 
 func (s *Service) Validate() error {
 	var err error
 
+	if s.env == nil {
+		s.env = sink.GetEnvironment()
+	}
+
 	if s.queue == nil {
-		s.queue, err = sink.GetQueue()
+		s.queue, err = s.env.GetQueue()
 		if err != nil {
 			return errors.Wrap(err, "problem getting queue")
 		}

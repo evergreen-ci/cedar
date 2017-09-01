@@ -3,12 +3,11 @@ package model
 import (
 	"fmt"
 
-	"github.com/evergreen-ci/sink/db"
-	"github.com/evergreen-ci/sink/db/bsonutil"
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/bsonutil"
 	"github.com/pkg/errors"
+	"github.com/tychoish/anser/db"
 	"github.com/tychoish/depgraph"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -18,31 +17,46 @@ const (
 )
 
 type GraphMetadata struct {
-	BuildID string `bson:"_id"`
-
+	BuildID   string `bson:"_id"`
 	populated bool
+	env       sink.Environment
 }
 
 var (
 	graphMetadataIDKey = bsonutil.MustHaveTag(GraphMetadata{}, "BuildID")
 )
 
-func (g *GraphMetadata) IsNil() bool { return g.populated }
+func (g *GraphMetadata) Setup(e sink.Environment) { g.env = e }
+func (g *GraphMetadata) IsNil() bool              { return g.populated }
 
-func (g *GraphMetadata) Insert() error { return errors.WithStack(db.Insert(depMetadataCollection, g)) }
+func (g *GraphMetadata) Insert() error {
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	return errors.WithStack(session.DB(conf.DatabaseName).C(depMetadataCollection).Insert(g))
+}
 
 func (g *GraphMetadata) Find(id string) error {
-	err := db.Query(bson.M{graphMetadataIDKey: id}).FindOne(depMetadataCollection, g)
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
 
 	g.populated = false
-	if err == mgo.ErrNotFound {
+	err = session.DB(conf.DatabaseName).C(depMetadataCollection).FindId(id).One(g)
+	if db.ResultsNotFound(err) {
 		return nil
 	}
-	g.populated = true
 
 	if err != nil {
 		return errors.Wrap(err, "problem running graph metadata query")
 	}
+
+	g.populated = true
 
 	return nil
 }
@@ -57,6 +71,7 @@ func (g *GraphMetadata) MakeNode(source *depgraph.Node) *GraphNode {
 		GraphName: g.BuildID,
 		Node:      *source,
 		populated: true,
+		env:       g.env,
 	}
 }
 
@@ -70,69 +85,64 @@ func (g *GraphMetadata) MakeEdge(source *depgraph.Edge) *GraphEdge {
 		Graph:     g.BuildID,
 		Edge:      *source,
 		populated: true,
+		env:       g.env,
 	}
 }
 
-func (g *GraphMetadata) GetEdges() <-chan *GraphEdge {
-	out := make(chan *GraphEdge)
+func (g *GraphMetadata) edgeQuery(conf *sink.Configuration, session db.Session) db.Query {
+	return session.DB(conf.DatabaseName).C(depEdgeCollection).Find(map[string]interface{}{
+		graphEdgeGraphKey: g.BuildID,
+	})
+}
 
-	go func() {
-		iter := db.Query(bson.M{graphEdgeGraphKey: g.BuildID}).Iter(depEdgeCollection)
-		if iter == nil {
-			close(out)
-			return
-		}
-		defer iter.Close()
+func (g *GraphMetadata) GetEdges() (db.Iterator, error) {
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-		doc := &GraphEdge{}
-		for iter.Next(doc) {
-			out <- doc
-		}
-
-		close(out)
-	}()
-
-	return out
+	return db.NewCombinedIterator(session, g.edgeQuery(conf, session).Iter()), nil
 }
 
 func (g *GraphMetadata) AllEdges() ([]*GraphEdge, error) {
-	out := []*GraphEdge{}
-	err := db.Query(bson.M{graphEdgeGraphKey: g.BuildID}).FindAll(depEdgeCollection, out)
-
+	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer session.Close()
+	out := []*GraphEdge{}
+
+	if err := g.edgeQuery(conf, session).All(out); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	return out, nil
 }
 
-func (g *GraphMetadata) GetNodes() <-chan *GraphNode {
-	out := make(chan *GraphNode)
+func (g *GraphMetadata) nodeQuery(conf *sink.Configuration, session db.Session) db.Query {
+	return session.DB(conf.DatabaseName).C(depNodeCollection).Find(map[string]interface{}{
+		graphNodeGraphNameKey: g.BuildID,
+	})
+}
 
-	go func() {
-		iter := db.Query(bson.M{graphNodeGraphNameKey: g.BuildID}).Iter(depNodeCollection)
-		if iter == nil {
-			close(out)
-			return
-		}
-		defer iter.Close()
+func (g *GraphMetadata) GetNodes() (db.Iterator, error) {
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-		doc := &GraphNode{}
-		for iter.Next(doc) {
-			out <- doc
-		}
-
-		close(out)
-	}()
-
-	return out
+	return db.NewCombinedIterator(session, g.nodeQuery(conf, session).Iter()), nil
 }
 
 func (g *GraphMetadata) AllNodes() ([]*GraphNode, error) {
-	out := []*GraphNode{}
-	err := db.Query(bson.M{graphNodeGraphNameKey: g.BuildID}).FindAll(depNodeCollection, out)
-
+	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer session.Close()
+
+	out := []*GraphNode{}
+	if err = g.nodeQuery(conf, session).All(out); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -158,10 +168,11 @@ type GraphNode struct {
 	depgraph.Node `bson:"inline"`
 
 	populated bool
+	env       sink.Environment
 }
 
-func (n *GraphNode) IsNil() bool { return n.populated }
-
+func (n *GraphNode) Setup(e sink.Environment) { n.env = e }
+func (n *GraphNode) IsNil() bool              { return n.populated }
 func (n *GraphNode) Insert() error {
 	if !n.populated {
 		return errors.New("cannot insert non-populated document")
@@ -171,7 +182,13 @@ func (n *GraphNode) Insert() error {
 		return errors.New("cannot insert document without an ID")
 	}
 
-	return errors.WithStack(db.Insert(depNodeCollection, n))
+	conf, session, err := sink.GetSessionWithConfig(n.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	return errors.WithStack(session.DB(conf.DatabaseName).C(depNodeCollection).Insert(n))
 }
 
 var (
@@ -191,10 +208,11 @@ type GraphEdge struct {
 	depgraph.Edge `bson:"inline"`
 
 	populated bool
+	env       sink.Environment
 }
 
-func (e *GraphEdge) IsNil() bool { return e.populated }
-
+func (e *GraphEdge) Setup(env sink.Environment) { e.env = env }
+func (e *GraphEdge) IsNil() bool                { return e.populated }
 func (e *GraphEdge) Insert() error {
 	if !e.populated {
 		return errors.New("cannot insert non-populated document")
@@ -204,5 +222,11 @@ func (e *GraphEdge) Insert() error {
 		return errors.New("cannot insert document without an ID")
 	}
 
-	return errors.WithStack(db.Insert(depEdgeCollection, e))
+	conf, session, err := sink.GetSessionWithConfig(e.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	return errors.WithStack(session.DB(conf.DatabaseName).C(depEdgeCollection).Insert(e))
 }

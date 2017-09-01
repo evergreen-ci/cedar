@@ -3,7 +3,6 @@ package cost
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -91,20 +89,6 @@ func getTimes(s string, duration time.Duration) (timeRange, error) {
 	res.end = endTime
 
 	return res, nil
-}
-
-// YAMLToConfig takes a file path, reads it to YAML, and then converts it to a Config struct.
-func YAMLToConfig(file string) (*Config, error) {
-	newConfig := &Config{}
-	yamlFile, err := ioutil.ReadFile(file)
-	if err != nil {
-		return newConfig, errors.Wrap(err, fmt.Sprintf("invalid file: %s", file))
-	}
-	err = yaml.Unmarshal(yamlFile, newConfig)
-	if err != nil {
-		return newConfig, errors.Wrap(err, "invalid yaml format")
-	}
-	return newConfig, nil
 }
 
 // roundUp rounds the input number up, with places representing the number of decimal places.

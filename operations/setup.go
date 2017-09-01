@@ -12,12 +12,13 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"github.com/tychoish/anser/db"
 	"golang.org/x/net/context"
 	mgo "gopkg.in/mgo.v2"
 )
 
-func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
-	sink.SetConf(&sink.Configuration{
+func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
+	env.SetConf(&sink.Configuration{
 		BucketName:   bucket,
 		DatabaseName: dbName,
 	})
@@ -25,7 +26,7 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	if localQueue {
 		q := queue.NewLocalLimitedSize(numWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", numWorkers)
-		if err := sink.SetQueue(q); err != nil {
+		if err := env.SetQueue(q); err != nil {
 			return errors.Wrap(err, "problem configuring queue")
 		}
 	} else {
@@ -41,7 +42,7 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 			return errors.Wrap(err, "problem configuring driver")
 		}
 
-		if err := sink.SetQueue(q); err != nil {
+		if err := env.SetQueue(q); err != nil {
 			return errors.Wrap(err, "problem caching queue")
 		}
 
@@ -54,23 +55,24 @@ func configure(numWorkers int, localQueue bool, mongodbURI, bucket, dbName strin
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to db %s", mongodbURI)
 	}
-	if err = sink.SetMgoSession(session); err != nil {
+
+	if err = env.SetSession(db.WrapSession(session)); err != nil {
 		return errors.Wrap(err, "problem caching DB session")
 	}
 
-	sender, err := model.NewDBSender("sink")
+	sender, err := model.NewDBSender(env, "sink")
 	if err != nil {
 		return errors.Wrapf(err, "problem setting system sender")
 	}
 
-	if err = sink.SetSystemSender(sender); err != nil {
+	if err = env.SetSender(sender); err != nil {
 		return errors.Wrap(err, "problem setting cached log sender")
 	}
 
 	return nil
 }
 
-func backgroundJobs(ctx context.Context) error {
+func backgroundJobs(ctx context.Context, env sink.Environment) error {
 	// TODO: develop a specification format, either here or in
 	// amboy so that you can specify a list of amboy.QueueOperation
 	// functions + specific intervals
@@ -78,7 +80,7 @@ func backgroundJobs(ctx context.Context) error {
 	// In the mean time, we'll just register intervals here, and
 	// hard code the configuration
 
-	q, err := sink.GetQueue()
+	q, err := env.GetQueue()
 	if err != nil {
 		return errors.Wrap(err, "problem fetching queue")
 	}
@@ -86,6 +88,7 @@ func backgroundJobs(ctx context.Context) error {
 	// This isn't how we'd do this in the long term, but I want to
 	// have one job running on an interval
 	var count int
+
 	amboy.PeriodicQueueOperation(ctx, q, func(cue amboy.Queue) error {
 		name := "periodic-poc"
 		count++

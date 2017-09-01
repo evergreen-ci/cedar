@@ -114,7 +114,8 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	resp.ID = id
 
 	event := &model.Event{}
-	if err := event.FindID(id); err != nil {
+	event.Setup(s.env)
+	if err := event.Find(id); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteErrorJSON(w, resp)
 		return
@@ -141,7 +142,8 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	resp.ID = id
 
 	event := &model.Event{}
-	if err := event.FindID(id); err != nil {
+	event.Setup(s.env)
+	if err := event.Find(id); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteErrorJSON(w, resp)
 		return
@@ -194,7 +196,7 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j := units.MakeSaveSimpleLogJob(resp.LogID, req.Content, req.Time, req.Increment)
+	j := units.MakeSaveSimpleLogJob(s.env, resp.LogID, req.Content, req.Time, req.Increment)
 	resp.JobID = j.ID()
 
 	if err := s.queue.Put(j); err != nil {

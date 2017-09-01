@@ -29,6 +29,7 @@ func init() {
 type mergeSimpleLogJob struct {
 	LogID     string `bson:"logID" json:"logID" yaml:"logID"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env       sink.Environment
 }
 
 func mergeSimpleLogJobFactory() amboy.Job {
@@ -39,19 +40,20 @@ func mergeSimpleLogJobFactory() amboy.Job {
 				Version: 1,
 			},
 		},
+		env: sink.GetEnvironment(),
 	}
 
 	j.SetDependency(dependency.NewAlways())
 	return j
 }
 
-func MakeMergeSimpleLogJob(logID string) amboy.Job {
+func MakeMergeSimpleLogJob(env sink.Environment, logID string) amboy.Job {
 	j := mergeSimpleLogJobFactory().(*mergeSimpleLogJob)
 	j.SetID(fmt.Sprintf("%s-%s-%s", j.Type().Name, logID,
 		time.Now().Format("2006-01-02.15")))
 
 	j.LogID = logID
-
+	j.env = env
 	return j
 }
 
@@ -91,7 +93,13 @@ func (j *mergeSimpleLogJob) Run() {
 		}
 
 	}
-	conf := sink.GetConf()
+	conf, err := j.env.GetConf()
+	if err != nil {
+		grip.Warning(err)
+		j.AddError(err)
+		return
+	}
+
 	bucket := sthree.GetBucket(conf.BucketName)
 
 	buffer := bytes.NewBuffer([]byte{})

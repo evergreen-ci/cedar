@@ -3,6 +3,7 @@ package units
 import (
 	"strings"
 
+	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
@@ -78,7 +79,7 @@ func (sp *parseSimpleLog) Run() {
 	defer sp.reset()
 
 	l := &model.LogSegment{}
-
+	l.Setup(sink.GetEnvironment())
 	if err := l.Find(sp.Key, sp.Segment); err != nil {
 		err = errors.Wrap(err, "problem running query")
 		grip.Warning(err)

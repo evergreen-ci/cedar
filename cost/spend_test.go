@@ -92,16 +92,16 @@ func (c *CostSuite) TestGetTimes() {
 
 func (c *CostSuite) TestYAMLToConfig() {
 	file := filepath.Join(getDirectoryOfFile(), "testdata", "spend_test.yml")
-	config, err := YAMLToConfig(file)
+	config, err := LoadConfig(file)
 
 	c.NoError(err)
-	c.NotNil(c)
+	c.NotNil(config)
 	c.Len(config.Providers, 1)
 	c.Equal(config.Opts.Duration, "4h")
 	c.Equal(config.Providers[0].Name, "fakecompany")
 	c.Equal(config.Providers[0].Cost, float32(50000))
 	file = "not_real.yaml"
-	_, err = YAMLToConfig(file)
+	_, err = LoadConfig(file)
 	c.Error(err)
 }
 

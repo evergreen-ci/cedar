@@ -15,6 +15,7 @@ import (
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
+	"github.com/tychoish/anser/db"
 	"golang.org/x/net/context"
 )
 
@@ -27,6 +28,7 @@ type ClientSuite struct {
 		port int
 	}
 	closer context.CancelFunc
+	env    sink.Environment
 	suite.Suite
 }
 
@@ -40,7 +42,8 @@ func (s *ClientSuite) SetupSuite() {
 	s.service = &Service{}
 	require := s.Require()
 
-	require.NoError(sink.SetQueue(queue.NewLocalUnordered(3)))
+	s.env = sink.GetEnvironment()
+	require.NoError(s.env.SetQueue(queue.NewLocalUnordered(3)))
 	require.NoError(s.service.Validate())
 	require.NoError(s.service.Start(ctx))
 
@@ -51,7 +54,7 @@ func (s *ClientSuite) SetupSuite() {
 	s.server = httptest.NewServer(router)
 	session, err := mgo.Dial("mongodb://localhost:27017")
 	require.NoError(err)
-	require.NoError(sink.SetMgoSession(session))
+	require.NoError(s.env.SetSession(db.WrapSession(session)))
 
 	portStart := strings.LastIndex(s.server.URL, ":")
 	port, err := strconv.Atoi(s.server.URL[portStart+1:])

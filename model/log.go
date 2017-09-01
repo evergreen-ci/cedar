@@ -1,11 +1,10 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink/db"
-	"github.com/evergreen-ci/sink/db/bsonutil"
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/bsonutil"
 	"github.com/pkg/errors"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/tychoish/anser/db"
 )
 
 const logRecordCollection = "simple.log.records"
@@ -23,6 +22,7 @@ type LogRecord struct {
 	Metadata    `bson:"metadata"`
 
 	populated bool
+	env       sink.Environment
 }
 
 var (
@@ -33,24 +33,36 @@ var (
 	logRecordMetadataKey     = bsonutil.MustHaveTag(LogRecord{}, "Metadata")
 )
 
-func (l *LogRecord) IsNil() bool { return l.populated }
+func (l *LogRecord) Setup(e sink.Environment) { l.env = e }
+func (l *LogRecord) IsNil() bool              { return l.populated }
 
 func (l *LogRecord) Insert() error {
-	return errors.WithStack(db.Insert(logRecordCollection, l))
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	return errors.WithStack(session.DB(conf.DatabaseName).C(logRecordCollection).Insert(l))
 }
 
 func (l *LogRecord) Find(id string) error {
-	err := db.Query(bson.M{logRecordIDKey: id}).FindOne(logRecordCollection, l)
-
+	conf, session, err := sink.GetSessionWithConfig(l.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
 	l.populated = false
-	if err == mgo.ErrNotFound {
+	err = session.DB(conf.DatabaseName).C(logRecordCollection).FindId(id).One(l)
+	if db.ResultsNotFound(err) {
 		return nil
 	}
-	l.populated = true
 
 	if err != nil {
 		return errors.Wrap(err, "problem running log query")
 	}
+
+	l.populated = true
 
 	return nil
 }
