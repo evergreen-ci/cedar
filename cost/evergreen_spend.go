@@ -18,7 +18,7 @@ func (d *Distro) convertEvgDistroToCostDistro(evgdc *evergreen.DistroCost) {
 func (p *Project) convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) {
 	p.Name = evgpu.Name
 	for _, task := range evgpu.Tasks {
-		costTask := &Task{}
+		costTask := Task{}
 		costTask.Githash = task.Githash
 		costTask.Name = task.DisplayName
 		costTask.BuildVariant = task.BuildVariant
@@ -30,14 +30,14 @@ func (p *Project) convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit
 // GetEvergreenDistrosData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
 func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time,
-	duration time.Duration) ([]*Distro, error) {
-	distros := []*Distro{}
+	duration time.Duration) ([]Distro, error) {
+	distros := []Distro{}
 	evgDistros, err := c.GetEvergreenDistrosData(starttime, duration)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting Evergreen distros data")
 	}
 	for idx := range evgDistros {
-		d := &Distro{}
+		d := Distro{}
 		d.convertEvgDistroToCostDistro(evgDistros[idx])
 		distros = append(distros, d)
 	}
@@ -48,14 +48,14 @@ func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time,
 // GetEvergreenProjectsData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
 func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time,
-	duration time.Duration) ([]*Project, error) {
-	projects := []*Project{}
+	duration time.Duration) ([]Project, error) {
+	projects := []Project{}
 	evgProjects, err := c.GetEvergreenProjectsData(starttime, duration)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting Evergreen projects data")
 	}
 	for idx := range evgProjects {
-		p := &Project{}
+		p := Project{}
 		p.convertEvgProjectUnitToCostProject(evgProjects[idx])
 		projects = append(projects, p)
 	}

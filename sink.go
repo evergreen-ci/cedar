@@ -2,15 +2,12 @@
 Package sink holds a a number of application level constants and
 shared resources for the sink application.
 
-Services Cache
+Environment
 
-The sink package maintains a public interface to a shared cache of
-interfaces and services for use in building tools within sink. The
-sink package has no dependencies to any sub-packages, and all methods
-in the public interface are thread safe.
-
-In practice these values are set in the operations package. See
-sink/operations/setup.go for details.
+The Environment interface provides a collection of application level
+state that holds database sessions, a configuration object, and
+loggers. There is global instance, but using the Environment interface
+allows sink components to be tested without depending on global state.
 */
 package sink
 

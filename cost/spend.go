@@ -161,8 +161,8 @@ func (res *Item) setAverages(items []*amazon.Item) {
 }
 
 // createItemFromEC2Instance creates a new cost.Item using a key/item array pair.
-func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) *Item {
-	item := &Item{
+func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) Item {
+	item := Item{
 		Name:     key.Name,
 		ItemType: string(key.ItemType),
 	}
@@ -190,13 +190,13 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 	}
 	s3info := config.Amazon.S3Info
 	s3info.Owner = owner
-	ec2Service := &Service{
+	ec2Service := Service{
 		Name: string(amazon.EC2Service),
 	}
-	ebsService := &Service{
+	ebsService := Service{
 		Name: string(amazon.EBSService),
 	}
-	s3Service := &Service{
+	s3Service := Service{
 		Name: string(amazon.S3Service),
 	}
 	s3Service.Cost, err = client.GetS3Cost(&s3info, reportRange)
@@ -214,25 +214,25 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 	}
 	account := &Account{
 		Name:     owner,
-		Services: []*Service{ec2Service, ebsService, s3Service},
+		Services: []Service{ec2Service, ebsService, s3Service},
 	}
 	return account, nil
 }
 
 // getAWSAccounts takes in a range for the report, and returns an array of accounts
 // containing EC2 and EBS instances.
-func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) ([]*Account, error) {
+func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) ([]Account, error) {
 	awsReportRange := amazon.TimeRange{
 		Start: reportRange.start,
 		End:   reportRange.end,
 	}
-	var allAccounts []*Account
+	var allAccounts []Account
 	for _, owner := range config.Amazon.Accounts {
 		account, err := getAWSAccountByOwner(ctx, awsReportRange, config, owner)
 		if err != nil {
 			return nil, err
 		}
-		allAccounts = append(allAccounts, account)
+		allAccounts = append(allAccounts, *account)
 	}
 	return allAccounts, nil
 }

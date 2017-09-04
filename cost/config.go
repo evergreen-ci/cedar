@@ -31,7 +31,8 @@ type Options struct {
 	Duration  string `bson:"duration" json:"duration" yaml:"duration"`
 }
 
-// YAMLToConfig takes a file path, reads it to YAML, and then converts it to a Config struct.
+// LoadConfig takes a file path, reads it to YAML, and then converts
+// it to a Config struct.
 func LoadConfig(file string) (*Config, error) {
 	yamlFile, err := ioutil.ReadFile(file)
 	if err != nil {

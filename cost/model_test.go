@@ -15,7 +15,7 @@ func createTestStruct() Output {
 		End:       "2017-05-23T17:12:00.000Z",
 	}
 
-	item1 := &Item{
+	item1 := Item{
 		Name:       "c3.4xlarge",
 		ItemType:   "spot",
 		Launched:   12,
@@ -25,34 +25,34 @@ func createTestStruct() Output {
 		TotalHours: 23,
 	}
 
-	service1 := &Service{
+	service1 := Service{
 		Name:  "ec2",
-		Items: []*Item{item1},
+		Items: []Item{item1},
 	}
-	service2 := &Service{
+	service2 := Service{
 		Name: "ebs",
 		Cost: 5000,
 	}
-	service3 := &Service{
+	service3 := Service{
 		Name: "s3",
 		Cost: 5000,
 	}
 
-	account1 := &Account{
+	account1 := Account{
 		Name:     "kernel-build",
-		Services: []*Service{service1, service2, service3},
+		Services: []Service{service1, service2, service3},
 	}
 
 	provider1 := Provider{
 		Name:     "aws",
-		Accounts: []*Account{account1},
+		Accounts: []Account{account1},
 	}
 	provider2 := Provider{
 		Name: "macstadium",
 		Cost: 27.12,
 	}
 
-	task1 := &Task{
+	task1 := Task{
 		Githash:      "c609be45647fce98d0394221efc5d362ac470b64",
 		Name:         "compile",
 		Distro:       "ubuntu1604-build",
@@ -60,11 +60,11 @@ func createTestStruct() Output {
 		TaskSeconds:  1242,
 	}
 
-	project1 := &Project{
+	project1 := Project{
 		Name:  "mongodb-mongo-master",
-		Tasks: []*Task{task1},
+		Tasks: []Task{task1},
 	}
-	distro1 := &Distro{
+	distro1 := Distro{
 		Name:            "ubuntu1604-build",
 		Provider:        "ec2",
 		InstanceType:    "c3.4xlarge",
@@ -72,8 +72,8 @@ func createTestStruct() Output {
 	}
 
 	evergreen1 := Evergreen{
-		Projects: []*Project{project1},
-		Distros:  []*Distro{distro1},
+		Projects: []Project{project1},
+		Distros:  []Distro{distro1},
 	}
 	cost = Output{
 		Report:    report1,

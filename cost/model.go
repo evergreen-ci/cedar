@@ -17,21 +17,21 @@ type Report struct {
 
 //Evergreen provides a list of the projects and distros in Evergreen.
 type Evergreen struct {
-	Projects []*Project `json:"projects,omitempty"`
-	Distros  []*Distro  `json:"distros,omitempty"`
+	Projects []Project `json:"projects,omitempty"`
+	Distros  []Distro  `json:"distros,omitempty"`
 }
 
 //Provider holds account information for a single provider.
 type Provider struct {
-	Name     string     `json:"name,omitempty" yaml:"name,omitempty"`
-	Accounts []*Account `json:"accounts,omitempty" yaml:",omitempty"`
-	Cost     float32    `json:"cost,omitempty" yaml:"cost,omitempty"`
+	Name     string    `json:"name,omitempty" yaml:"name,omitempty"`
+	Accounts []Account `json:"accounts,omitempty" yaml:",omitempty"`
+	Cost     float32   `json:"cost,omitempty" yaml:"cost,omitempty"`
 }
 
 //Project holds the name and tasks for a single project.
 type Project struct {
-	Name  string  `json:"name,omitempty"`
-	Tasks []*Task `json:"tasks,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Tasks []Task `json:"tasks,omitempty"`
 }
 
 //Distro holds the information for a single distro in Evergreen.
@@ -44,8 +44,8 @@ type Distro struct {
 
 //Account holds the name and services of a single account for a provider.
 type Account struct {
-	Name     string     `json:"name,omitempty"`
-	Services []*Service `json:"services,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Services []Service `json:"services,omitempty"`
 }
 
 //Task holds the information for a single task within a project.
@@ -60,7 +60,7 @@ type Task struct {
 //Service holds the item information for a single service within an account.
 type Service struct {
 	Name  string  `json:"name,omitempty"`
-	Items []*Item `json:"items,omitempty"`
+	Items []Item  `json:"items,omitempty"`
 	Cost  float32 `json:"cost,omitempty"`
 }
 
