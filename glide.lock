@@ -22,7 +22,7 @@ imports:
 - name: github.com/mongodb/grip
   version: 681252f59f7127943d863ceb5764ce49382aba76
 - name: github.com/tychoish/anser
-  version: a612d703dc4db0462de89dd2aee7485a382d779d
+  version: a5cdd2bd81c10870fb83a6d52023b63f27152d9e
 
 - name: github.com/mongodb/curator
   version: 3e528249ffb7c2c7292fdeb8293cd9a5ade58336

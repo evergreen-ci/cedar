@@ -36,9 +36,20 @@ const (
 	marked   = "marked-for-termination"
 )
 
-var ignoreCodes = []string{"canceled-before-fulfillment", "schedule-expired", "bad-parameters", "system-error"}
-var amazonTerminated = []string{"instance-terminated-by-price", "instance-terminated-no-capacity",
-	"instance-terminated-capacity-oversubscribed", "instance-terminated-launch-group-constraint"}
+var (
+	ignoreCodes = []string{
+		"canceled-before-fulfillment",
+		"schedule-expired",
+		"bad-parameters",
+		"system-error",
+	}
+	amazonTerminated = []string{
+		"instance-terminated-by-price",
+		"instance-terminated-no-capacity",
+		"instance-terminated-capacity-oversubscribed",
+		"instance-terminated-launch-group-constraint",
+	}
+)
 
 // Client holds information for the amazon client
 type Client struct {

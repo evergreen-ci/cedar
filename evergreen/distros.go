@@ -71,8 +71,7 @@ func (c *Client) getDistroIDs() ([]string, error) {
 
 // A helper function for GetEvergreenDistrosData that gets provider,
 // instance type, and total time for a given list of distros found.
-func (c *Client) getDistroCosts(distroIDs []string, st,
-	dur string) ([]*DistroCost, error) {
+func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCost, error) {
 	distroCosts := []*DistroCost{}
 	for _, distro := range distroIDs {
 		evgdc, err := c.GetDistroCost(distro, st, dur)
@@ -89,8 +88,7 @@ func (c *Client) getDistroCosts(distroIDs []string, st,
 }
 
 // GetEvergreenDistrosData retrieves distros cost data from Evergreen.
-func (c *Client) GetEvergreenDistrosData(starttime time.Time,
-	duration time.Duration) ([]*DistroCost, error) {
+func (c *Client) GetEvergreenDistrosData(starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
 	st := starttime.Format(time.RFC3339)
 	dur := duration.String()
 
