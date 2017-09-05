@@ -27,7 +27,7 @@ type Amazon struct {
 
 // Options holds user submitted default options for the cost tool.
 type Options struct {
-	Directory string `bson:"directory" json:"directory" yaml:"directory"`
+	Directory string `bson:"directory,omitempty" json:"directory" yaml:"directory"`
 	Duration  string `bson:"duration" json:"duration" yaml:"duration"`
 }
 
