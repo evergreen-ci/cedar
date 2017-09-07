@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/evergreen-ci/sink"
@@ -89,7 +90,7 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 	// have one job running on an interval
 	var count int
 
-	amboy.PeriodicQueueOperation(ctx, q, func(cue amboy.Queue) error {
+	amboy.PeriodicQueueOperation(ctx, q, time.Minute, true, func(cue amboy.Queue) error {
 		name := "periodic-poc"
 		count++
 		j := units.NewHelloWorldJob(name)
@@ -98,11 +99,18 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 			"problem scheduling job %s (count: %d)", name, count))
 
 		return err
-	},
-		// interval
-		time.Minute,
-		// continue-on-error
-		true)
+	})
+
+	amboy.IntervalQueueOperation(ctx, q, 20*time.Minute, time.Now(), true, func(cue amboy.Queue) error {
+		t := time.Now()
+		lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
+
+		id := fmt.Sprintf("brc-%s", lastHour)
+
+		j := units.NewBuildCostReport(env, id)
+		grip.Debug(cue.Put(j))
+		return nil
+	})
 
 	return nil
 }
