@@ -316,7 +316,7 @@ func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.ID = string(data.ID)
+	resp.ID = data.ID
 	gimlet.WriteJSON(w, resp)
 }
 

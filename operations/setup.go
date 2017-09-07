@@ -19,15 +19,18 @@ import (
 )
 
 func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
-	env.SetConf(&sink.Configuration{
+	err := env.SetConf(&sink.Configuration{
 		BucketName:   bucket,
 		DatabaseName: dbName,
 	})
+	if err != nil {
+		return errors.Wrap(err, "problem setting up configuration")
+	}
 
 	if localQueue {
 		q := queue.NewLocalLimitedSize(numWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", numWorkers)
-		if err := env.SetQueue(q); err != nil {
+		if err = env.SetQueue(q); err != nil {
 			return errors.Wrap(err, "problem configuring queue")
 		}
 	} else {
@@ -39,11 +42,11 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 		}
 
 		mongoDriver := driver.NewMongoDB(sink.QueueName, opts)
-		if err := q.SetDriver(mongoDriver); err != nil {
+		if err = q.SetDriver(mongoDriver); err != nil {
 			return errors.Wrap(err, "problem configuring driver")
 		}
 
-		if err := env.SetQueue(q); err != nil {
+		if err = env.SetQueue(q); err != nil {
 			return errors.Wrap(err, "problem caching queue")
 		}
 

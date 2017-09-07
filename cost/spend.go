@@ -29,21 +29,22 @@ type timeRange struct {
 
 // GetDuration returns the duration in the config file as type time.Duration.
 // If the config file duration is empty, we return the default.
-func (c *Config) GetDuration(input time.Duration) (time.Duration, error) {
-	if input < time.Minute {
-		grip.Warningf("input time is %s, falling back to the config file or default", input)
-		input = time.Duration(0)
+func (c *Config) GetDuration(duration time.Duration) (time.Duration, error) {
+	if duration < time.Minute || duration > time.Hour {
+		grip.Warningf("input time is %s, falling back to the config file or default", duration)
+		duration = time.Hour
 	}
 
 	configDur := c.Opts.Duration
 	var err error
-	duration := time.Hour //default value
+
 	if configDur != "" {
 		duration, err = time.ParseDuration(configDur)
 		if err != nil {
 			return 0, errors.Wrapf(err, "Could not parse duration %s", configDur)
 		}
 	}
+
 	return duration, nil
 }
 

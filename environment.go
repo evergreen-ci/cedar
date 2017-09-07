@@ -3,7 +3,6 @@ package sink
 import (
 	"sync"
 
-	"github.com/evergreen-ci/sink/cost"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
@@ -59,13 +58,12 @@ func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 }
 
 type envState struct {
-	name        string
-	queue       amboy.Queue
-	session     db.Session
-	conf        *Configuration
-	sysSender   send.Sender
-	logger      grip.Journaler
-	spendConfig *cost.Config
+	name      string
+	queue     amboy.Queue
+	session   db.Session
+	conf      *Configuration
+	sysSender send.Sender
+	logger    grip.Journaler
 
 	mutex sync.RWMutex
 }
