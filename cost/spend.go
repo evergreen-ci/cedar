@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/evergreen-ci/sink/amazon"
 	"github.com/evergreen-ci/sink/evergreen"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -25,47 +25,6 @@ const (
 type timeRange struct {
 	start time.Time
 	end   time.Time
-}
-
-// GetDuration returns the duration in the config file as type time.Duration.
-// If the config file duration is empty, we return the default.
-func (c *Config) GetDuration(duration time.Duration) (time.Duration, error) {
-	if duration < time.Minute || duration > time.Hour {
-		grip.Warningf("input time is %s, falling back to the config file or default", duration)
-		duration = time.Hour
-	}
-
-	configDur := c.Opts.Duration
-	var err error
-
-	if configDur != "" {
-		duration, err = time.ParseDuration(configDur)
-		if err != nil {
-			return 0, errors.Wrapf(err, "Could not parse duration %s", configDur)
-		}
-	}
-
-	return duration, nil
-}
-
-// UpdateSpendProviders updates the given config file's providers to include
-// the providers in the given Provider array. If the provider already exists,
-// we update the cost.
-func (c *Config) UpdateSpendProviders(newProv []Provider) {
-	for _, new := range newProv {
-		added := false
-		for idx := range c.Providers {
-			if new.Name == c.Providers[idx].Name {
-				c.Providers[idx].Cost = new.Cost
-
-				added = true
-				break
-			}
-		}
-		if !added {
-			c.Providers = append(c.Providers, new)
-		}
-	}
 }
 
 // getTimes takes in a string of the form "YYYY-MM-DDTHH:MM" as the start
@@ -174,7 +133,7 @@ func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) Ite
 }
 
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
-func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, config *Config,
+func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, config *model.CostConfig,
 	owner string) (*Account, error) {
 	grip.Infof("Compiling data for account owner %s", owner)
 	client, err := amazon.NewClient(owner)
@@ -222,7 +181,7 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 
 // getAWSAccounts takes in a range for the report, and returns an array of accounts
 // containing EC2 and EBS instances.
-func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) ([]Account, error) {
+func getAWSAccounts(ctx context.Context, reportRange timeRange, config *model.CostConfig) ([]Account, error) {
 	awsReportRange := amazon.TimeRange{
 		Start: reportRange.start,
 		End:   reportRange.end,
@@ -239,7 +198,7 @@ func getAWSAccounts(ctx context.Context, reportRange timeRange, config *Config) 
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(ctx context.Context, reportRange timeRange, config *Config) (*Provider, error) {
+func getAWSProvider(ctx context.Context, reportRange timeRange, config *model.CostConfig) (*Provider, error) {
 	var err error
 	res := &Provider{
 		Name: aws,
@@ -252,7 +211,7 @@ func getAWSProvider(ctx context.Context, reportRange timeRange, config *Config) 
 }
 
 // getAllProviders returns the AWS provider and any providers in the config file
-func getAllProviders(ctx context.Context, reportRange timeRange, config *Config) ([]Provider, error) {
+func getAllProviders(ctx context.Context, reportRange timeRange, config *model.CostConfig) ([]Provider, error) {
 	awsProvider, err := getAWSProvider(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
@@ -260,13 +219,18 @@ func getAllProviders(ctx context.Context, reportRange timeRange, config *Config)
 
 	providers := []Provider{*awsProvider}
 
-	providers = append(providers, config.Providers...)
+	for _, p := range config.Providers {
+		providers = append(providers, Provider{
+			Name: p.Name,
+			Cost: p.Cost,
+		})
+	}
 
 	return providers, nil
 }
 
 // CreateReport returns an Output using a start string, duration, and Config information.
-func CreateReport(ctx context.Context, start string, duration time.Duration, config *Config) (*Output, error) {
+func CreateReport(ctx context.Context, start string, duration time.Duration, config *model.CostConfig) (*Output, error) {
 	grip.Info("Creating the report\n")
 	output := &Output{}
 	reportRange, err := getTimes(start, duration)
@@ -296,7 +260,7 @@ func CreateReport(ctx context.Context, start string, duration time.Duration, con
 
 // Print writes the report to the given file, using the directory in the config file.
 // If no directory is given, print report to stdout.
-func (report *Output) Print(config *Config, filepath string) error {
+func (report *Output) Print(config *model.CostConfig, filepath string) error {
 	jsonReport, err := json.MarshalIndent(report, "", "    ") // pretty print
 
 	if err != nil {

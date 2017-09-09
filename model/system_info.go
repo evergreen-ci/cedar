@@ -30,6 +30,7 @@ var (
 )
 
 func (i *SystemInformationRecord) Setup(e sink.Environment) { i.env = e }
+func (i *SystemInformationRecord) IsNil() bool              { return i.populated }
 
 func (i *SystemInformationRecord) Insert() error {
 	if i.ID == "" {

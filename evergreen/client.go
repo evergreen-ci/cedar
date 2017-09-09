@@ -17,15 +17,15 @@ type Client struct {
 	apiKey     string
 }
 
-// EvergreenInfo stores the root URL, username, and API key for the user
-type EvergreenInfo struct {
+// ConnectionInfo stores the root URL, username, and API key for the user
+type ConnectionInfo struct {
 	RootURL string `bson:"url" json:"url" yaml:"url"`
 	User    string `bson:"user" json:"user" yaml:"user"`
 	Key     string `bson:"key" json:"key" yaml:"key"`
 }
 
 // NewClient is a constructs a new Client using the parameters given.
-func NewClient(httpClient *http.Client, info *EvergreenInfo) *Client {
+func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
 	return &Client{
 		apiRoot:    info.RootURL,
 		httpClient: httpClient,
@@ -35,7 +35,7 @@ func NewClient(httpClient *http.Client, info *EvergreenInfo) *Client {
 }
 
 // Checks that a user, API key, and root URL are given in the EvergreenInfo struct.
-func (e *EvergreenInfo) IsValid() bool {
+func (e *ConnectionInfo) IsValid() bool {
 	if e == nil {
 		return false
 	}

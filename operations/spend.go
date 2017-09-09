@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -35,9 +35,8 @@ func Spend() cli.Command {
 			start := c.String("start")
 			file := c.String("config")
 			dur := c.Duration("duration")
-			env := sink.GetEnvironment()
 
-			conf, err := loadCostConfig(env, file)
+			conf, err := model.LoadCostConfig(file)
 			if err != nil {
 				return errors.Wrap(err, "problem loading cost configuration")
 			}
@@ -45,7 +44,7 @@ func Spend() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if err := writeCostReport(ctx, conf.Cost, start, dur); err != nil {
+			if err := writeCostReport(ctx, conf, start, dur); err != nil {
 				return errors.Wrap(err, "problem writing cost report")
 			}
 
@@ -54,30 +53,7 @@ func Spend() cli.Command {
 	}
 }
 
-func loadCostConfig(env sink.Environment, file string) (*sink.Configuration, error) {
-	if file == "" {
-		return nil, errors.New("Configuration file is required")
-	}
-
-	costConf, err := cost.LoadConfig(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem loading config")
-	}
-
-	conf, err := env.GetConf()
-	if err != nil {
-		return nil, errors.Wrap(err, "problem getting application configuration")
-	}
-
-	conf.Cost = costConf
-	if err = env.SetConf(conf); err != nil {
-		return nil, errors.Wrap(err, "problem saving config")
-	}
-
-	return conf, nil
-}
-
-func writeCostReport(ctx context.Context, conf *cost.Config, start string, dur time.Duration) error {
+func writeCostReport(ctx context.Context, conf *model.CostConfig, start string, dur time.Duration) error {
 	duration, err := conf.GetDuration(dur)
 	if err != nil {
 		return errors.Wrap(err, "Problem with duration")
@@ -88,7 +64,7 @@ func writeCostReport(ctx context.Context, conf *cost.Config, start string, dur t
 		return errors.Wrap(err, "Problem generating report")
 	}
 
-	filename := fmt.Sprintf("%s_%s.txt", report.Report.Begin, duration.String())
+	filename := fmt.Sprintf("%s_%s.json", report.Report.Begin, duration.String())
 	if err := report.Print(conf, filename); err != nil {
 		return errors.Wrap(err, "Problem printing report")
 	}

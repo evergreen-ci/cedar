@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink/amazon"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -24,7 +25,7 @@ func getDirectoryOfFile() string {
 // CommandsSuite provide a group of tests for the cost helper functions.
 type CostSuite struct {
 	suite.Suite
-	config *Config
+	config *model.CostConfig
 }
 
 func TestServiceCacheSuite(t *testing.T) {
@@ -32,7 +33,7 @@ func TestServiceCacheSuite(t *testing.T) {
 }
 
 func (c *CostSuite) SetupTest() {
-	c.config = &Config{Opts: Options{}, Providers: []Provider{}}
+	c.config = &model.CostConfig{}
 }
 
 func (c *CostSuite) TestGetDuration() {
@@ -44,34 +45,6 @@ func (c *CostSuite) TestGetDuration() {
 	duration, err = c.config.GetDuration(0)
 	c.NoError(err)
 	c.Equal(duration.String(), "12h0m0s")
-}
-
-func (c *CostSuite) TestUpdateSpendProviders() {
-	oldProv1 := Provider{
-		Name: "Provider1",
-		Cost: 1234,
-	}
-	oldProv2 := Provider{
-		Name: "Provider2",
-		Cost: 4200,
-	}
-	newProv1 := Provider{
-		Name: "Provider2",
-		Cost: 1200,
-	}
-	newProv2 := Provider{
-		Name: "Provider3",
-		Cost: 15251,
-	}
-	newProv := []Provider{newProv1, newProv2}
-	c.config.Providers = []Provider{oldProv1, oldProv2}
-	c.config.UpdateSpendProviders(newProv)
-	result := c.config.Providers
-
-	c.Len(result, 3)
-	c.EqualValues(result[0], oldProv1) //Shouldn't change
-	c.EqualValues(result[1], newProv1) //Should change
-	c.EqualValues(result[2], newProv2)
 }
 
 func (c *CostSuite) TestGetTimes() {
@@ -92,7 +65,7 @@ func (c *CostSuite) TestGetTimes() {
 
 func (c *CostSuite) TestYAMLToConfig() {
 	file := filepath.Join(getDirectoryOfFile(), "testdata", "spend_test.yml")
-	config, err := LoadConfig(file)
+	config, err := model.LoadCostConfig(file)
 
 	c.NoError(err)
 	c.NotNil(config)
@@ -101,7 +74,7 @@ func (c *CostSuite) TestYAMLToConfig() {
 	c.Equal(config.Providers[0].Name, "fakecompany")
 	c.Equal(config.Providers[0].Cost, float32(50000))
 	file = "not_real.yaml"
-	_, err = LoadConfig(file)
+	_, err = model.LoadCostConfig(file)
 	c.Error(err)
 }
 
@@ -152,7 +125,7 @@ func (c *CostSuite) TestPrint() {
 		Generated: time.Now().String(),
 	}
 	output := Output{Report: report}
-	config := &Config{}
+	config := &model.CostConfig{}
 	filepath := ""
 	c.NoError(output.Print(config, filepath))
 }

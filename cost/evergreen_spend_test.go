@@ -16,7 +16,7 @@ func init() {
 
 type EvergreenSpendSuite struct {
 	client *http.Client
-	info   *evergreen.EvergreenInfo
+	info   *evergreen.ConnectionInfo
 	suite.Suite
 }
 
@@ -26,7 +26,7 @@ func TestEvergreenSpendSuite(t *testing.T) {
 }
 
 func (s *EvergreenSpendSuite) SetupSuite() {
-	s.info = &evergreen.EvergreenInfo{
+	s.info = &evergreen.ConnectionInfo{
 		RootURL: "https://evergreen.mongodb.com/rest/v2/",
 		User:    "USER",
 		Key:     "KEY",

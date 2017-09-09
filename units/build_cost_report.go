@@ -5,6 +5,7 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
@@ -49,8 +50,8 @@ func (j *buildCostReportJob) Run() {
 	defer cancel()
 	grip.Infoln("would run build cost reporting job:", j.ID())
 
-	conf, err := j.env.GetConf()
-	if err != nil {
+	costConf := &model.CostConfig{}
+	if err := costConf.Find(); err != nil {
 		j.AddError(errors.WithStack(err))
 		return
 	}
@@ -62,7 +63,7 @@ func (j *buildCostReportJob) Run() {
 	reportDur := time.Hour
 
 	// run the report
-	output, err := cost.CreateReport(ctx, startAtStr, reportDur, conf.Cost)
+	output, err := cost.CreateReport(ctx, startAtStr, reportDur, costConf)
 	if err != nil {
 		j.AddError(errors.WithStack(err))
 		return
