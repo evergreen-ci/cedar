@@ -65,7 +65,7 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, start string, 
 	}
 
 	filename := fmt.Sprintf("%s_%s.json", report.Report.Begin, duration.String())
-	if err := report.Print(conf, filename); err != nil {
+	if err := cost.Print(conf, report, filename); err != nil {
 		return errors.Wrap(err, "Problem printing report")
 	}
 

@@ -15,28 +15,28 @@ import (
 	"golang.org/x/net/context"
 )
 
-// CreateReport returns an Output using a start string, duration, and Config information.
-func CreateReport(ctx context.Context, start string, duration time.Duration, config *model.CostConfig) (*Output, error) {
+// CreateReport returns an model.CostReport using a start string, duration, and Config information.
+func CreateReport(ctx context.Context, start string, duration time.Duration, config *model.CostConfig) (*model.CostReport, error) {
 	grip.Info("Creating the report\n")
-	output := &Output{}
+	output := &model.CostReport{}
 	reportRange, err := getTimes(start, duration)
 	if err != nil {
-		return output, errors.Wrap(err, "Problem retrieving report startt and end")
+		return nil, errors.Wrap(err, "Problem retrieving report startt and end")
 	}
 
 	output.Providers, err = getAllProviders(ctx, reportRange, config)
 	if err != nil {
-		return output, errors.Wrap(err, "Problem retrieving providers information")
+		return nil, errors.Wrap(err, "Problem retrieving providers information")
 	}
 
 	c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
 	evg, err := getEvergreenData(c, reportRange.start, duration)
 	if err != nil {
-		return &Output{}, errors.Wrap(err, "Problem retrieving evergreen information")
+		return nil, errors.Wrap(err, "Problem retrieving evergreen information")
 	}
 	output.Evergreen = *evg
 
-	output.Report = Report{
+	output.Report = model.CostReportMetadata{
 		Begin:     reportRange.start.String(),
 		End:       reportRange.end.String(),
 		Generated: time.Now().String(),
@@ -46,7 +46,7 @@ func CreateReport(ctx context.Context, start string, duration time.Duration, con
 
 // Print writes the report to the given file, using the directory in the config file.
 // If no directory is given, print report to stdout.
-func (report *Output) Print(config *model.CostConfig, filepath string) error {
+func Print(config *model.CostConfig, report *model.CostReport, filepath string) error {
 	jsonReport, err := json.MarshalIndent(report, "", "    ") // pretty print
 
 	if err != nil {

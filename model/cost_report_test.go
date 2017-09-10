@@ -1,4 +1,4 @@
-package cost
+package model
 
 import (
 	"encoding/json"
@@ -7,15 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createTestStruct() Output {
-	var cost Output
-	report1 := Report{
+func createTestStruct() CostReport {
+	var cost CostReport
+	report1 := CostReportMetadata{
 		Generated: "2017-05-23T12:11:10.123",
 		Begin:     "2017-05-23T17:00:00.000Z",
 		End:       "2017-05-23T17:12:00.000Z",
 	}
 
-	item1 := Item{
+	item1 := ServiceItem{
 		Name:       "c3.4xlarge",
 		ItemType:   "spot",
 		Launched:   12,
@@ -25,34 +25,34 @@ func createTestStruct() Output {
 		TotalHours: 23,
 	}
 
-	service1 := Service{
+	service1 := AccountService{
 		Name:  "ec2",
-		Items: []Item{item1},
+		Items: []ServiceItem{item1},
 	}
-	service2 := Service{
+	service2 := AccountService{
 		Name: "ebs",
 		Cost: 5000,
 	}
-	service3 := Service{
+	service3 := AccountService{
 		Name: "s3",
 		Cost: 5000,
 	}
 
-	account1 := Account{
+	account1 := CloudAccount{
 		Name:     "kernel-build",
-		Services: []Service{service1, service2, service3},
+		Services: []AccountService{service1, service2, service3},
 	}
 
-	provider1 := Provider{
+	provider1 := CloudProvider{
 		Name:     "aws",
-		Accounts: []Account{account1},
+		Accounts: []CloudAccount{account1},
 	}
-	provider2 := Provider{
+	provider2 := CloudProvider{
 		Name: "macstadium",
 		Cost: 27.12,
 	}
 
-	task1 := Task{
+	task1 := EvergreenTaskCost{
 		Githash:      "c609be45647fce98d0394221efc5d362ac470b64",
 		Name:         "compile",
 		Distro:       "ubuntu1604-build",
@@ -60,25 +60,25 @@ func createTestStruct() Output {
 		TaskSeconds:  1242,
 	}
 
-	project1 := Project{
+	project1 := EvergreenProjectCost{
 		Name:  "mongodb-mongo-master",
-		Tasks: []Task{task1},
+		Tasks: []EvergreenTaskCost{task1},
 	}
-	distro1 := Distro{
+	distro1 := EvergreenDistroCost{
 		Name:            "ubuntu1604-build",
 		Provider:        "ec2",
 		InstanceType:    "c3.4xlarge",
 		InstanceSeconds: 12,
 	}
 
-	evergreen1 := Evergreen{
-		Projects: []Project{project1},
-		Distros:  []Distro{distro1},
+	evergreen1 := EvergreenCost{
+		Projects: []EvergreenProjectCost{project1},
+		Distros:  []EvergreenDistroCost{distro1},
 	}
-	cost = Output{
+	cost = CostReport{
 		Report:    report1,
 		Evergreen: evergreen1,
-		Providers: []Provider{provider1, provider2},
+		Providers: []CloudProvider{provider1, provider2},
 	}
 
 	return cost
@@ -87,7 +87,7 @@ func createTestStruct() Output {
 //Verify that Output struct can be converted to and from JSON.
 func TestModelStructToJSON(t *testing.T) {
 	assert := assert.New(t)
-	var costFromJSON Output
+	var costFromJSON CostReport
 	cost := createTestStruct()
 	raw, err := json.Marshal(cost)
 	assert.NoError(err)

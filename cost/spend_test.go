@@ -119,13 +119,13 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 }
 
 func (c *CostSuite) TestPrint() {
-	report := Report{
+	report := model.CostReportMetadata{
 		Begin:     "start time",
 		End:       "end time",
 		Generated: time.Now().String(),
 	}
-	output := Output{Report: report}
+	output := &model.CostReport{Report: report}
 	config := &model.CostConfig{}
 	filepath := ""
-	c.NoError(output.Print(config, filepath))
+	c.NoError(Print(config, output, filepath))
 }

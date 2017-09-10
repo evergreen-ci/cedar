@@ -12,7 +12,7 @@ const aws = "aws"
 
 // setItems sets the number of launched and terminated instances of the given cost item.
 // The sums are calculated from the information in the Item array.
-func setSums(res *Item, items []*amazon.Item) {
+func setSums(res *model.ServiceItem, items []*amazon.Item) {
 	res.Launched, res.Terminated, res.TotalHours = 0, 0, 0
 	for _, item := range items {
 		if item.Launched {
@@ -35,7 +35,7 @@ func setSums(res *Item, items []*amazon.Item) {
 
 // setAverages sets the average price, fixed price, and uptime of the given cost item.
 // The averages are calculated from the information in the Item array.
-func setAverages(res *Item, items []*amazon.Item) {
+func setAverages(res *model.ServiceItem, items []*amazon.Item) {
 	var prices, uptimes, fixedPrices []float64
 	for _, item := range items {
 		if item.Price != 0.0 {
@@ -60,8 +60,8 @@ func setAverages(res *Item, items []*amazon.Item) {
 }
 
 // createItemFromEC2Instance creates a new cost.Item using a key/item array pair.
-func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) Item {
-	item := Item{
+func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) model.ServiceItem {
+	item := model.ServiceItem{
 		Name:     key.Name,
 		ItemType: string(key.ItemType),
 	}
@@ -72,16 +72,16 @@ func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) Ite
 }
 
 // getAllProviders returns the AWS provider and any providers in the config file
-func getAllProviders(ctx context.Context, reportRange timeRange, config *model.CostConfig) ([]Provider, error) {
+func getAllProviders(ctx context.Context, reportRange timeRange, config *model.CostConfig) ([]model.CloudProvider, error) {
 	awsProvider, err := getAWSProvider(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
 	}
 
-	providers := []Provider{*awsProvider}
+	providers := []model.CloudProvider{*awsProvider}
 
 	for _, p := range config.Providers {
-		providers = append(providers, Provider{
+		providers = append(providers, model.CloudProvider{
 			Name: p.Name,
 			Cost: p.Cost,
 		})
@@ -91,8 +91,7 @@ func getAllProviders(ctx context.Context, reportRange timeRange, config *model.C
 }
 
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
-func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, config *model.CostConfig,
-	owner string) (*Account, error) {
+func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, config *model.CostConfig, owner string) (*model.CloudAccount, error) {
 	grip.Infof("Compiling data for account owner %s", owner)
 	client, err := amazon.NewClient(owner)
 	if err != nil {
@@ -108,13 +107,13 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 	}
 	s3info := config.Amazon.S3Info
 	s3info.Owner = owner
-	ec2Service := Service{
+	ec2Service := model.AccountService{
 		Name: string(amazon.EC2Service),
 	}
-	ebsService := Service{
+	ebsService := model.AccountService{
 		Name: string(amazon.EBSService),
 	}
-	s3Service := Service{
+	s3Service := model.AccountService{
 		Name: string(amazon.S3Service),
 	}
 	s3Service.Cost, err = client.GetS3Cost(&s3info, reportRange)
@@ -130,21 +129,21 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 			ebsService.Items = append(ebsService.Items, item)
 		}
 	}
-	account := &Account{
+	account := &model.CloudAccount{
 		Name:     owner,
-		Services: []Service{ec2Service, ebsService, s3Service},
+		Services: []model.AccountService{ec2Service, ebsService, s3Service},
 	}
 	return account, nil
 }
 
 // getAWSAccounts takes in a range for the report, and returns an array of accounts
 // containing EC2 and EBS instances.
-func getAWSAccounts(ctx context.Context, reportRange timeRange, config *model.CostConfig) ([]Account, error) {
+func getAWSAccounts(ctx context.Context, reportRange timeRange, config *model.CostConfig) ([]model.CloudAccount, error) {
 	awsReportRange := amazon.TimeRange{
 		Start: reportRange.start,
 		End:   reportRange.end,
 	}
-	var allAccounts []Account
+	var allAccounts []model.CloudAccount
 	for _, owner := range config.Amazon.Accounts {
 		account, err := getAWSAccountByOwner(ctx, awsReportRange, config, owner)
 		if err != nil {
@@ -156,9 +155,9 @@ func getAWSAccounts(ctx context.Context, reportRange timeRange, config *model.Co
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(ctx context.Context, reportRange timeRange, config *model.CostConfig) (*Provider, error) {
+func getAWSProvider(ctx context.Context, reportRange timeRange, config *model.CostConfig) (*model.CloudProvider, error) {
 	var err error
-	res := &Provider{
+	res := &model.CloudProvider{
 		Name: aws,
 	}
 	res.Accounts, err = getAWSAccounts(ctx, reportRange, config)
