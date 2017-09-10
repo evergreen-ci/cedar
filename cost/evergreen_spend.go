@@ -29,8 +29,7 @@ func (p *Project) convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit
 
 // GetEvergreenDistrosData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
-func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time,
-	duration time.Duration) ([]Distro, error) {
+func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time, duration time.Duration) ([]Distro, error) {
 	distros := []Distro{}
 	evgDistros, err := c.GetEvergreenDistrosData(starttime, duration)
 	if err != nil {
@@ -47,8 +46,7 @@ func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time,
 
 // GetEvergreenProjectsData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
-func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time,
-	duration time.Duration) ([]Project, error) {
+func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time, duration time.Duration) ([]Project, error) {
 	projects := []Project{}
 	evgProjects, err := c.GetEvergreenProjectsData(starttime, duration)
 	if err != nil {
@@ -63,9 +61,7 @@ func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time,
 	return projects, nil
 }
 
-func getEvergreenData(c *evergreen.Client, starttime time.Time,
-	duration time.Duration) (*Evergreen, error) {
-
+func getEvergreenData(c *evergreen.Client, starttime time.Time, duration time.Duration) (*Evergreen, error) {
 	grip.Info("Getting Evergreen Distros")
 
 	distros, err := getEvergreenDistrosData(c, starttime, duration)
