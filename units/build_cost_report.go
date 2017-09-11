@@ -64,11 +64,11 @@ func (j *buildCostReportJob) Run() {
 	// run the report
 	output, err := cost.CreateReport(ctx, startAt, reportDur, costConf)
 	if err != nil {
+		grip.Warning(err)
 		j.AddError(errors.WithStack(err))
 		return
 	}
 
-	// in the future we'll write this data to a file/s3 but this is just a placeholder
 	grip.Notice(message.Fields{
 		"id":     "build-cost-report",
 		"state":  "output",
@@ -76,4 +76,10 @@ func (j *buildCostReportJob) Run() {
 		"starts": startAt,
 		"report": output,
 	})
+
+	if err := output.Save(); err != nil {
+		grip.Warning(err)
+		j.AddError(err)
+		return
+	}
 }

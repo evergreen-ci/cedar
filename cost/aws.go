@@ -93,7 +93,7 @@ func getAllProviders(ctx context.Context, reportRange timeRange, config *model.C
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
 func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, config *model.CostConfig, owner string) (*model.CloudAccount, error) {
 	grip.Infof("Compiling data for account owner %s", owner)
-	client, err := amazon.NewClient(owner)
+	client, err := amazon.NewClient("", owner)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Problem getting client %s", owner)
 	}

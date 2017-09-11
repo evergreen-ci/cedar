@@ -87,11 +87,11 @@ type TimeRange struct {
 type itemHash map[ItemKey][]*Item
 
 // NewClient returns a new populated client
-func NewClient(owner string) (*Client, error) {
+func NewClient(path, owner string) (*Client, error) {
 	client := &Client{}
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region:      aws.String("us-east-1"),
-		Credentials: credentials.NewSharedCredentials("", owner),
+		Credentials: credentials.NewSharedCredentials(path, owner),
 	}))
 	_, err := sess.Config.Credentials.Get()
 	if err != nil {

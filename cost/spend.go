@@ -45,18 +45,19 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 
 // Print writes the report to the given file, using the directory in the config file.
 // If no directory is given, print report to stdout.
-func Print(config *model.CostConfig, report *model.CostReport, filepath string) error {
+func Print(conf *model.CostConfig, report *model.CostReport, filepath string) error {
 	jsonReport, err := json.MarshalIndent(report, "", "    ") // pretty print
 
 	if err != nil {
 		return errors.Wrap(err, "Problem marshalling report into JSON")
 	}
 	// no directory, print to stdout
-	if config.Opts.Directory == "" {
+	if conf.Opts.Directory == "" {
 		fmt.Printf("%s\n", string(jsonReport))
 		return nil
 	}
-	filepath = strings.Join([]string{config.Opts.Directory, filepath}, "/")
+
+	filepath = strings.Join([]string{conf.Opts.Directory, filepath}, "/")
 	grip.Infof("Printing the report to %s\n", filepath)
 	file, err := os.Create(filepath)
 	if err != nil {
