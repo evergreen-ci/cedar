@@ -14,6 +14,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/tychoish/anser/db"
+	"github.com/tychoish/anser/model"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -23,22 +24,11 @@ const (
 )
 
 type CostConfig struct {
-	ID   string `bson:"_id" json:"id" yaml:"id"`
-	Opts struct {
-		// Options holds user submitted default options for the cost tool.
-		Directory string `bson:"directory,omitempty" json:"directory" yaml:"directory"`
-		Duration  string `bson:"duration" json:"duration" yaml:"duration"`
-	} `bson:"options" json:"options" yaml:"options"`
-	Providers []struct {
-		Name string  `json:"name,omitempty" yaml:"name,omitempty"`
-		Cost float32 `json:"cost,omitempty" yaml:"cost,omitempty"`
-	} `bson:"providers" json:"providers" yaml:"providers"`
+	ID        string                   `bson:"_id" json:"id" yaml:"id"`
+	Opts      CostConfigOptions        `bson:"options" json:"options" yaml:"options"`
+	Providers []CloudProvider          `bson:"providers" json:"providers" yaml:"providers"`
 	Evergreen evergreen.ConnectionInfo `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
-	Amazon    struct {
-		Accounts  []string         `bson:"accounts" json:"accounts" yaml:"accounts"`
-		S3Info    amazon.S3Info    `bson:"s3" json:"s3" yaml:"s3"`
-		EBSPrices amazon.EBSPrices `bson:"ebs_pricing" json:"ebs_pricing" yaml:"ebs_pricing"`
-	} `bson:"aws" json:"aws" yaml:"aws"`
+	Amazon    CostConfigAmazon         `bson:"aws" json:"aws" yaml:"aws"`
 
 	populated bool
 	env       sink.Environment
@@ -49,14 +39,28 @@ var (
 	costConfigProvidersKey = bsonutil.MustHaveTag(CostConfig{}, "Providers")
 	costConfigEvergreenKey = bsonutil.MustHaveTag(CostConfig{}, "Evergreen")
 	costConfigAmazonKey    = bsonutil.MustHaveTag(CostConfig{}, "Amazon")
+)
 
-	// costConfigOptsDirectoryKey   = bsonutil.MustHaveTag(CostConfig{}.Opts, "Directory")
-	// costConfigOptsDurationKey    = bsonutil.MustHaveTag(CostConfig{}.Opts, "Duration")
-	// costConfigProvidersNameKey   = bsonutil.MustHaveTag(CostConfig{}.Providers, "Name")
-	// costConfigProvidersCostKey   = bsonutil.MustHaveTag(CostConfig{}.Providers, "Cost")
-	// costConfigAmazonAccountsKey  = bsonutil.MustHaveTag(CostConfig{}.Amazon, "Accounts")
-	// costConfigAmazonS3InfoKey    = bsonutil.MustHaveTag(CostConfig{}.Amazon, "S3Info")
-	// costConfigAmazonEBSPricesKey = bsonutil.MustHaveTag(CostConfig{}.Amazon, "EBSPrices")
+type CostConfigOptions struct {
+	Directory string `bson:"directory,omitempty" json:"directory" yaml:"directory"`
+	Duration  string `bson:"duration" json:"duration" yaml:"duration"`
+}
+
+var (
+	costConfigOptsDirectoryKey = bsonutil.MustHaveTag(CostConfigOptions{}, "Directory")
+	costConfigOptsDurationKey  = bsonutil.MustHaveTag(CostConfigOptions{}, "Duration")
+)
+
+type CostConfigAmazon struct {
+	Accounts  []string         `bson:"accounts" json:"accounts" yaml:"accounts"`
+	S3Info    amazon.S3Info    `bson:"s3" json:"s3" yaml:"s3"`
+	EBSPrices amazon.EBSPrices `bson:"ebs_pricing" json:"ebs_pricing" yaml:"ebs_pricing"`
+}
+
+var (
+	costConfigAmazonAccountsKey  = bsonutil.MustHaveTag(CostConfigAmazon{}, "Accounts")
+	costConfigAmazonS3InfoKey    = bsonutil.MustHaveTag(CostConfigAmazon{}, "S3Info")
+	costConfigAmazonEBSPricesKey = bsonutil.MustHaveTag(CostConfigAmazon{}, "EBSPrices")
 )
 
 func (c *CostConfig) Setup(e sink.Environment) { c.env = e }
@@ -82,7 +86,6 @@ func (c *CostConfig) Find() error {
 
 func (c *CostConfig) Save() error {
 	// TODO call validate here so we don't save junk data accidentally.
-
 	c.ID = costReportingID
 
 	conf, session, err := sink.GetSessionWithConfig(c.env)
@@ -93,11 +96,12 @@ func (c *CostConfig) Save() error {
 
 	changeInfo, err := session.DB(conf.DatabaseName).C(configurationCollection).UpsertId(costReportingID, c)
 	grip.Debug(message.Fields{
-		"ns":          fmt.Sprintf("%s.%s", conf.DatabaseName, configurationCollection),
+		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: configurationCollection},
 		"id":          costReportingID,
 		"operation":   "save build cost reporting configuration",
 		"change-info": changeInfo,
 	})
+
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find cost reporting document in the database")
 	}
@@ -106,7 +110,7 @@ func (c *CostConfig) Save() error {
 }
 
 // GetDuration returns the duration in the config file as type time.Duration.
-// If the config file duration is empty, we return the default.
+// If the config file duration is empty, or less than one minute, we return the default.
 func (c *CostConfig) GetDuration(duration time.Duration) (time.Duration, error) {
 	if duration < time.Minute {
 		grip.Warningf("input time is %s, falling back to the config file or default", duration)

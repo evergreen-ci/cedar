@@ -55,13 +55,10 @@ func (l *LogRecord) Find(id string) error {
 	l.populated = false
 	err = session.DB(conf.DatabaseName).C(logRecordCollection).FindId(id).One(l)
 	if db.ResultsNotFound(err) {
-		return nil
-	}
-
-	if err != nil {
+		return errors.Wrapf(err, "could not find document with id '%s'", id)
+	} else if err != nil {
 		return errors.Wrap(err, "problem running log query")
 	}
-
 	l.populated = true
 
 	return nil

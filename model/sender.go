@@ -83,10 +83,13 @@ func (e *Event) Find(id string) error {
 	err = session.DB(conf.DatabaseName).C(eventCollection).FindId(id).One(e)
 	if db.ResultsNotFound(err) {
 		return errors.Errorf("could not find event %s", id)
+	} else if err != nil {
+		return errors.Wrapf(err, "problem finding document %s", id)
 	}
+
 	e.populated = true
 
-	return errors.Wrapf(err, "problem finding document %s", id)
+	return nil
 }
 
 func (e *Event) Acknowledge() error {
@@ -115,6 +118,7 @@ type Events struct {
 
 func (e *Events) Setup(env sink.Environment) { e.env = env }
 func (e *Events) Slice() []*Event            { return e.slice }
+func (e *Events) Size() int                  { return len(e.slice) }
 func (e *Events) IsNil() bool                { return e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
@@ -132,8 +136,7 @@ func (e *Events) FindLevel(level string, limit int) error {
 	err = query.All(e.slice)
 	if db.ResultsNotFound(err) {
 		return nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return errors.WithStack(err)
 	}
 

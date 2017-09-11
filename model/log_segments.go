@@ -86,10 +86,8 @@ func (l *LogSegment) Find(logID string, segment int) error {
 	l.populated = false
 	err = session.DB(conf.DatabaseName).C(logSegmentsCollection).Find(filter).One(l)
 	if db.ResultsNotFound(err) {
-		return nil
-	}
-
-	if err != nil {
+		return errors.Wrapf(err, "could not find documet with id %s", logID)
+	} else if err != nil {
 		return errors.Wrapf(err, "problem running log query %+v", filter)
 	}
 
@@ -133,6 +131,7 @@ type LogSegments struct {
 func (l *LogSegments) Setup(e sink.Environment) { l.env = e }
 func (l *LogSegments) IsNil() bool              { return l.populated }
 func (l *LogSegments) Slice() []LogSegment      { return l.logs }
+func (l *LogSegments) Size() int                { return len(l.logs) }
 
 func (l *LogSegments) Find(logID string, sorted bool) error {
 	conf, session, err := sink.GetSessionWithConfig(l.env)
@@ -151,10 +150,8 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 	l.populated = false
 	err = query.All(l.logs)
 	if db.ResultsNotFound(err) {
-		return nil
-	}
-
-	if err != nil {
+		return errors.Wrapf(err, "problem finding document with id '%s'", logID)
+	} else if err != nil {
 		return errors.Wrapf(err, "problem running log query %+v", query)
 	}
 

@@ -49,13 +49,10 @@ func (g *GraphMetadata) Find(id string) error {
 	g.populated = false
 	err = session.DB(conf.DatabaseName).C(depMetadataCollection).FindId(id).One(g)
 	if db.ResultsNotFound(err) {
-		return nil
-	}
-
-	if err != nil {
+		return errors.Wrapf(err, "could not find document with id '%s'", id)
+	} else if err != nil {
 		return errors.Wrap(err, "problem running graph metadata query")
 	}
-
 	g.populated = true
 
 	return nil

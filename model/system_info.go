@@ -56,10 +56,12 @@ func (i *SystemInformationRecord) FindID(id string) error {
 	i.populated = false
 	err = session.DB(conf.DatabaseName).C(sysInfoCollection).FindId(id).One(i)
 	if db.ResultsNotFound(err) {
-		return nil
+		return errors.Wrapf(err, "could not find document with id '%s'", id)
+	} else if err != nil {
+		return errors.WithStack(err)
 	}
 
-	return errors.WithStack(err)
+	return nil
 }
 
 type SystemInformationRecords struct {
@@ -74,12 +76,11 @@ func (i *SystemInformationRecords) Slice() []*SystemInformationRecord { return i
 
 func (i *SystemInformationRecords) runQuery(query db.Query) error {
 	i.populated = false
+
 	err := query.All(i.slice)
 	if db.ResultsNotFound(err) {
 		return nil
-	}
-
-	if err != nil {
+	} else if err != nil {
 		return errors.WithStack(err)
 	}
 
