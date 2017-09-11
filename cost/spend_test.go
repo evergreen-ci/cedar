@@ -48,19 +48,13 @@ func (c *CostSuite) TestGetDuration() {
 }
 
 func (c *CostSuite) TestGetTimes() {
-	start := "2017-05-26T12:00"
+	start, err := time.Parse(layout, "2017-05-26T12:00")
+	c.NoError(err)
 	duration := 4 * time.Hour
-	startTime, _ := time.Parse(layout, start)
-	endTime := startTime.Add(duration)
-	times, err := getTimes(start, duration)
-	c.NoError(err)
-	c.Equal(times.start, startTime)
+	endTime := start.Add(duration)
+	times := getTimes(start, duration)
+	c.Equal(times.start, start)
 	c.Equal(times.end, endTime)
-	_, err = getTimes("", duration)
-	c.NoError(err)
-
-	_, err = getTimes("2011T00:00", duration)
-	c.Error(err)
 }
 
 func (c *CostSuite) TestYAMLToConfig() {
@@ -120,9 +114,9 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 
 func (c *CostSuite) TestPrint() {
 	report := model.CostReportMetadata{
-		Begin:     "start time",
-		End:       "end time",
-		Generated: time.Now().String(),
+		Begin:     time.Now().Add(-2 * time.Hour),
+		End:       time.Now().Add(-time.Hour),
+		Generated: time.Now(),
 	}
 	output := &model.CostReport{Report: report}
 	config := &model.CostConfig{}

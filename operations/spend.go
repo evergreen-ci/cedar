@@ -28,11 +28,15 @@ func Spend() cli.Command {
 				Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
 			},
 			cli.DurationFlag{
-				Name: "duration",
+				Name:  "duration",
+				Value: time.Hour,
 			},
 		},
 		Action: func(c *cli.Context) error {
-			start := c.String("start")
+			start, err := time.Parse("2006-01-02T15:04", c.String("start"))
+			if err != nil {
+				return errors.Wrapf(err, "problem parsing time from %s", c.String("start"))
+			}
 			file := c.String("config")
 			dur := c.Duration("duration")
 
@@ -53,7 +57,7 @@ func Spend() cli.Command {
 	}
 }
 
-func writeCostReport(ctx context.Context, conf *model.CostConfig, start string, dur time.Duration) error {
+func writeCostReport(ctx context.Context, conf *model.CostConfig, start time.Time, dur time.Duration) error {
 	duration, err := conf.GetDuration(dur)
 	if err != nil {
 		return errors.Wrap(err, "Problem with duration")

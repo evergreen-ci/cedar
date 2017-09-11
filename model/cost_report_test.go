@@ -3,16 +3,31 @@ package model
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
+const timeLayout = "2006-01-02T15:04:05.000"
+
 func createTestStruct() CostReport {
-	var cost CostReport
-	report1 := CostReportMetadata{
-		Generated: "2017-05-23T12:11:10.123",
-		Begin:     "2017-05-23T17:00:00.000Z",
-		End:       "2017-05-23T17:12:00.000Z",
+	var (
+		cost CostReport
+		err  error
+	)
+	report1 := CostReportMetadata{}
+
+	report1.Generated, err = time.Parse(timeLayout, "2017-05-23T12:11:10.123")
+	if err != nil {
+		panic(err.Error())
+	}
+	report1.Begin, err = time.Parse(timeLayout, "2017-05-23T17:00:00.000")
+	if err != nil {
+		panic(err.Error())
+	}
+	report1.End, err = time.Parse(timeLayout, "2017-05-23T17:12:00.000")
+	if err != nil {
+		panic(err.Error())
 	}
 
 	item1 := ServiceItem{

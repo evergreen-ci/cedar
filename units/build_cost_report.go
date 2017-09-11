@@ -59,11 +59,10 @@ func (j *buildCostReportJob) Run() {
 	// should be defined when the job is created.
 	startAt := time.Now().Add(-time.Hour)
 	startAt = time.Date(startAt.Year(), startAt.Month(), startAt.Day(), startAt.Hour(), 0, 0, 0, time.Local)
-	startAtStr := startAt.Format("2006-01-02T15:04")
 	reportDur := time.Hour
 
 	// run the report
-	output, err := cost.CreateReport(ctx, startAtStr, reportDur, costConf)
+	output, err := cost.CreateReport(ctx, startAt, reportDur, costConf)
 	if err != nil {
 		j.AddError(errors.WithStack(err))
 		return
@@ -74,7 +73,7 @@ func (j *buildCostReportJob) Run() {
 		"id":     "build-cost-report",
 		"state":  "output",
 		"period": reportDur.String(),
-		"starts": startAtStr,
+		"starts": startAt,
 		"report": output,
 	})
 }
