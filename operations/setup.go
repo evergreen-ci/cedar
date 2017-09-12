@@ -50,8 +50,11 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 			return errors.Wrap(err, "problem caching queue")
 		}
 
-		grip.Info(message.MakeFieldsMessage("configured a remote mongodb-backed queue",
-			message.Fields{"db": dbName, "prefix": sink.QueueName, "priority": true}))
+		grip.Info(message.Fields{
+			"message":  "configured a remote mongodb-backed queue",
+			"db":       dbName,
+			"prefix":   sink.QueueName,
+			"priority": true})
 	}
 
 	// create and cache a db session for use in tasks

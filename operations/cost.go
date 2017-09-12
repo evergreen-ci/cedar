@@ -7,6 +7,8 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/units"
+	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -62,30 +64,59 @@ func loadConfig() cli.Command {
 	}
 }
 
+func collectLoop() cli.Command {
+	return cli.Command{
+		Name:  "collect",
+		Usage: "collect a cost report every hour",
+		Flags: dbFlags(costFlags()...),
+		Action: func(c *cli.Context) error {
+			mongodbURI := c.String("dbUri")
+			dbName := c.String("dbName")
+			env := sink.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			if err := configure(env, 2, false, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
+			q, err := env.GetQueue()
+			if err != nil {
+				return errors.Wrap(err, "problem getting queue")
+			}
+
+			if err := q.Start(ctx); err != nil {
+				return errors.Wrap(err, "problem starting queue")
+			}
+
+			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
+				lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
+
+				id := fmt.Sprintf("brc-%s", lastHour)
+
+				j := units.NewBuildCostReport(env, id)
+				if err := queue.Put(j); err != nil {
+					grip.Warning(err)
+					return err
+				}
+
+				grip.Noticef("scheduled build cost report %s at [%s]", id, time.Now())
+				return nil
+			})
+
+		},
+	}
+}
+
 func generate() cli.Command {
-
-	// get current time, round back to the start of the previous hour
-	now := time.Now().Add(-time.Hour)
-	defaultStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
-
 	return cli.Command{
 		Name:  "generate",
 		Usage: "generate a report",
-		Flags: []cli.Flag{
+		Flags: costFlags(
 			cli.StringFlag{
 				Name:  "config",
 				Usage: "path to configuration file, and EBS pricing information, is required",
-			},
-			cli.StringFlag{
-				Name:  "start",
-				Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
-				Value: defaultStart.Format(sink.ShortDateFormat),
-			},
-			cli.DurationFlag{
-				Name:  "duration",
-				Value: time.Hour,
-			},
-		},
+			}),
 		Action: func(c *cli.Context) error {
 			start, err := time.Parse(sink.ShortDateFormat, c.String("start"))
 			if err != nil {
