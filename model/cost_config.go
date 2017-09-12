@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -85,7 +86,14 @@ func (c *CostConfig) Find() error {
 }
 
 func (c *CostConfig) Save() error {
-	// TODO call validate here so we don't save junk data accidentally.
+	if err := c.Validate(); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if !c.populated {
+		return errors.New("cannot save an non-populated cost configuration")
+	}
+
 	c.ID = costReportingID
 
 	conf, session, err := sink.GetSessionWithConfig(c.env)
@@ -129,9 +137,33 @@ func (c *CostConfig) GetDuration(duration time.Duration) (time.Duration, error) 
 	return duration, nil
 }
 
+func (c *CostConfig) Validate() error {
+	var errs []string
+
+	if !c.Amazon.EBSPrices.IsValid() {
+		errs = append(errs, "Configuration file requires EBS pricing information")
+	}
+	if !c.Amazon.S3Info.IsValid() {
+		errs = append(errs, "Configuration file requires S3 bucket information")
+	}
+	if !c.Evergreen.IsValid() {
+		errs = append(errs, "Configuration file requires evergreen user, key, and rootURL")
+	}
+
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+
+	return nil
+}
+
 // LoadCostConfig takes a file path, reads it to YAML, and then converts
 // it to a Config struct.
 func LoadCostConfig(file string) (*CostConfig, error) {
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		return nil, errors.Errorf("file %s does not exist", file)
+	}
+
 	yamlFile, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("invalid file: %s", file))
@@ -142,21 +174,11 @@ func LoadCostConfig(file string) (*CostConfig, error) {
 		return nil, errors.Wrap(err, "invalid yaml format")
 	}
 
-	var errs []string
-	fmt.Println(newConfig.Amazon.EBSPrices)
-	if !newConfig.Amazon.EBSPrices.IsValid() {
-		errs = append(errs, "Configuration file requires EBS pricing information")
-	}
-	if !newConfig.Amazon.S3Info.IsValid() {
-		errs = append(errs, "Configuration file requires S3 bucket information")
-	}
-	if !newConfig.Evergreen.IsValid() {
-		errs = append(errs, "Configuration file requires evergreen user, key, and rootURL")
+	if err = newConfig.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid cost configuration")
 	}
 
-	if len(errs) > 0 {
-		return nil, errors.New(strings.Join(errs, "; "))
-	}
+	newConfig.populated = true
 
 	return newConfig, nil
 }

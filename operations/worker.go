@@ -22,7 +22,7 @@ func Worker() cli.Command {
 			"run a data processing node without a web front-end",
 			"runs jobs until there is no more pending work, or 1 minute, whichever is longer",
 		}, "\n\t"),
-		Flags: baseFlags(),
+		Flags: baseFlags(dbFlags()...),
 		Action: func(c *cli.Context) error {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

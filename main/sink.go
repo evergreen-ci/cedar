@@ -32,7 +32,7 @@ func buildApp() *cli.App {
 		operations.Client(),
 		operations.Worker(),
 		operations.Deps(),
-		operations.Spend(),
+		operations.Cost(),
 	}
 
 	// These are global options. Use this to configure logging or

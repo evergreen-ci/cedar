@@ -14,7 +14,8 @@ package sink
 // Sink defines a number of application level constants used
 // throughout the application.
 const (
-	QueueName = "queue"
+	QueueName       = "queue"
+	ShortDateFormat = "2006-01-02T15:04"
 )
 
 // BuildRevision stores the commit in the git repository at build time

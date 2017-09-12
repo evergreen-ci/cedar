@@ -10,7 +10,7 @@ import (
 func TestBaseFlags(t *testing.T) {
 	assert := assert.New(t)
 
-	flags := baseFlags()
+	flags := baseFlags(dbFlags())
 	flagMap := map[string]cli.Flag{}
 	for _, f := range flags {
 		flagMap[f.GetName()] = f

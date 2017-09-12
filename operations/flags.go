@@ -2,13 +2,8 @@ package operations
 
 import "github.com/urfave/cli"
 
-func baseFlags(flags ...cli.Flag) []cli.Flag {
+func dbFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
-		cli.IntFlag{
-			Name:  "workers",
-			Usage: "specify the number of worker jobs this process will have",
-			Value: 2,
-		},
 		cli.StringFlag{
 			Name:   "dbUri",
 			Usage:  "specify a mongodb connection string",
@@ -20,6 +15,15 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 			Usage:  "specify a database name to use",
 			Value:  "sink",
 			EnvVar: "SINK_DATABASE_NAME",
+		})
+}
+
+func baseFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags,
+		cli.IntFlag{
+			Name:  "workers",
+			Usage: "specify the number of worker jobs this process will have",
+			Value: 2,
 		},
 		cli.StringFlag{
 			Name:   "bucket",
