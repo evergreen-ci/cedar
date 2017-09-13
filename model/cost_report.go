@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const costReportCollection = "buildCostReports"
+const costReportCollection = "spending.reports"
 
 // CostReport provides the structure for the report that will be returned for
 // the build cost reporting tool.
