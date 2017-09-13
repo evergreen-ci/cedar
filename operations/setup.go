@@ -10,10 +10,10 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/queue/driver"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/mongodb/anser/db"
 	"golang.org/x/net/context"
 	mgo "gopkg.in/mgo.v2"
 )

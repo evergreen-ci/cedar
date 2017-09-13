@@ -55,7 +55,7 @@ func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) er
 	}
 	defer file.Close()
 
-	rendered := repot.String()
+	rendered := report.String()
 	if rendered == "" {
 		return errors.New("problem rendering report")
 	}

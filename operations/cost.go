@@ -95,6 +95,7 @@ func collectLoop() cli.Command {
 			reports.Setup(env)
 
 			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
+				t := time.Now().Add(-time.Hour)
 				lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
 
 				id := fmt.Sprintf("brc-%s", lastHour)
@@ -121,7 +122,9 @@ func collectLoop() cli.Command {
 			case <-ctx.Done():
 				// this will never fire because it never cancels.
 				grip.Alert("collection terminating")
+				return errors.New("collection terminating")
 			}
+			return nil
 		},
 	}
 }
@@ -143,7 +146,7 @@ func write() cli.Command {
 			file := c.String("config")
 			dur := c.Duration("duration")
 
-			conf, err = model.LoadCostConfig(file)
+			conf, err := model.LoadCostConfig(file)
 			if err != nil {
 				return errors.Wrapf(err, "problem loading cost configuration from %s", file)
 			}

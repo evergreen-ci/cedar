@@ -23,6 +23,23 @@ var (
 type EvergreenCost struct {
 	Projects []EvergreenProjectCost `bson:"projects" json:"projects" yaml:"projects"`
 	Distros  []EvergreenDistroCost  `bson:"distros" json:"distros" yaml:"distros"`
+
+	distro   map[string]*EvergreenDistroCost
+	projects map[string]*EvergreenProjectCost
+}
+
+func (c *EvergreenCost) refresh() {
+	c.distro = make(map[string]*EvergreenDistroCost)
+	c.projects = make(map[string]*EvergreenProjectCost)
+
+	for _, p := range c.Projects {
+		c.projects[p.Name] = &p
+		c.projects[p.Name].refresh()
+	}
+
+	for _, d := range c.Distros {
+		c.distro[d.Name] = &d
+	}
 }
 
 var (
@@ -34,6 +51,15 @@ var (
 type EvergreenProjectCost struct {
 	Name  string              `bson:"name" json:"name" yaml:"name"`
 	Tasks []EvergreenTaskCost `bson:"tasks" json:"tasks" yaml:"tasks"`
+
+	tasks map[string]*EvergreenTaskCost
+}
+
+func (c *EvergreenProjectCost) refresh() {
+	c.tasks = make(map[string]*EvergreenTaskCost)
+	for _, t := range c.Tasks {
+		c.tasks[t.Name] = &t
+	}
 }
 
 var (
@@ -66,11 +92,11 @@ type EvergreenTaskCost struct {
 }
 
 var (
-	costReportEvergreenTaskCostGithashKey     = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Githash")
-	costReportEvergreenTaskCostNameKey        = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Name")
-	costReportEvergreenTaskCostDistroKey      = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Distro")
-	costReportEvergreenTaskCostBuildVarianKey = bsonutil.MustHaveTag(EvergreenTaskCost{}, "BuildVariant")
-	costReportEvergreenTaskCostSecondKey      = bsonutil.MustHaveTag(EvergreenTaskCost{}, "TaskSeconds")
+	costReportEvergreenTaskCostGithashKey      = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Githash")
+	costReportEvergreenTaskCostNameKey         = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Name")
+	costReportEvergreenTaskCostDistroKey       = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Distro")
+	costReportEvergreenTaskCostBuildVariantKey = bsonutil.MustHaveTag(EvergreenTaskCost{}, "BuildVariant")
+	costReportEvergreenTaskCostSecondKey       = bsonutil.MustHaveTag(EvergreenTaskCost{}, "TaskSeconds")
 )
 
 // Provider holds account information for a single provider.
@@ -78,6 +104,16 @@ type CloudProvider struct {
 	Name     string         `bson:"name" json:"name" yaml:"name"`
 	Accounts []CloudAccount `bson:"accounts" json:"accounts" yaml:"accounts"`
 	Cost     float32        `bson:"cost" json:"cost" yaml:"cost"`
+
+	accounts map[string]*CloudAccount
+}
+
+func (c *CloudProvider) refresh() {
+	c.accounts = make(map[string]*CloudAccount)
+	for _, a := range c.Accounts {
+		c.accounts[a.Name] = &a
+		c.accounts[a.Name].refresh()
+	}
 }
 
 var (
@@ -90,6 +126,17 @@ var (
 type CloudAccount struct {
 	Name     string           `bson:"name" json:"name" yaml:"name"`
 	Services []AccountService `bson:"services" json:"services" yaml:"services"`
+
+	services map[string]*AccountService
+}
+
+func (c *CloudAccount) refresh() {
+	c.services = make(map[string]*AccountService)
+
+	for _, s := range c.Services {
+		c.services[s.Name] = &s
+		c.services[s.Name].refresh()
+	}
 }
 
 var (
@@ -102,6 +149,16 @@ type AccountService struct {
 	Name  string        `bson:"name" json:"name" yaml:"name"`
 	Items []ServiceItem `bson:"items" json:"items" yaml:"items"`
 	Cost  float32       `bson:"cost" json:"cost" yaml:"cost"`
+
+	items map[string]*ServiceItem
+}
+
+func (s *AccountService) refresh() {
+	s.items = make(map[string]*ServiceItem)
+
+	for _, i := range s.Items {
+		s.items[i.Name] = &i
+	}
 }
 
 var (

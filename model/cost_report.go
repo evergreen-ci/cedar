@@ -5,11 +5,11 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
+	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 )
 
 const costReportCollection = "buildCostReports"
@@ -24,6 +24,16 @@ type CostReport struct {
 
 	env       sink.Environment
 	populated bool
+	providers map[string]*CloudProvider
+}
+
+func (r *CostReport) refresh() {
+	r.providers = make(map[string]*CloudProvider)
+	for _, p := range r.Providers {
+		r.providers[p.Name] = &p
+		r.providers[p.Name].refresh()
+	}
+	r.Evergreen.refresh()
 }
 
 var (
@@ -33,7 +43,7 @@ var (
 )
 
 func (r *CostReport) String() string {
-	jsonReport, err := json.MarshalIndent(report, "", "    ") // pretty print
+	jsonReport, err := json.MarshalIndent(r, "", "    ") // pretty print
 	if err != nil {
 		return ""
 	}
