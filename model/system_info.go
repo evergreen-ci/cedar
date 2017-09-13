@@ -7,7 +7,7 @@ import (
 	"github.com/evergreen-ci/sink/bsonutil"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/anser/db"
+	"github.com/mongodb/anser/db"
 	"gopkg.in/mgo.v2/bson"
 )
 

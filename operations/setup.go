@@ -13,7 +13,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/anser/db"
+	"github.com/mongodb/anser/db"
 	"golang.org/x/net/context"
 	mgo "gopkg.in/mgo.v2"
 )

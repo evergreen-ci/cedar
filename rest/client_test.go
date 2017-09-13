@@ -15,7 +15,7 @@ import (
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"github.com/tychoish/anser/db"
+	"github.com/mongodb/anser/db"
 	"golang.org/x/net/context"
 )
 

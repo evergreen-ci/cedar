@@ -10,7 +10,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"github.com/tychoish/anser/db"
+	"github.com/mongodb/anser/db"
 	"gopkg.in/mgo.v2/bson"
 )
 

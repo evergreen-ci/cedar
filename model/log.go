@@ -4,7 +4,7 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/bsonutil"
 	"github.com/pkg/errors"
-	"github.com/tychoish/anser/db"
+	"github.com/mongodb/anser/db"
 )
 
 const logRecordCollection = "simple.log.records"
