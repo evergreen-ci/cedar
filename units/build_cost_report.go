@@ -69,17 +69,25 @@ func (j *buildCostReportJob) Run() {
 		return
 	}
 
-	grip.Notice(message.Fields{
-		"id":     "build-cost-report",
-		"state":  "output",
-		"period": reportDur.String(),
-		"starts": startAt,
-		"report": output,
-	})
-
 	if err := output.Save(); err != nil {
 		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
+
+	summary := model.NewCostReportSummary(output)
+	if err := summary.Save(); err != nil {
+		grip.Warning(err)
+		j.AddError(err)
+		return
+	}
+
+	grip.Notice(message.Fields{
+		"id":      "build-cost-report",
+		"state":   "output",
+		"period":  reportDur.String(),
+		"starts":  startAt,
+		"summary": summary,
+	})
+
 }
