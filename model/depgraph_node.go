@@ -2,7 +2,7 @@ package model
 
 import (
 	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/bsonutil"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 	"github.com/tychoish/depgraph"
 )

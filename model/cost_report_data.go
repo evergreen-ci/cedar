@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/evergreen-ci/sink/bsonutil"
+	"github.com/mongodb/anser/bsonutil"
 )
 
 // Report provides time information on the overall structure.

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink/bsonutil"
+	"github.com/mongodb/anser/bsonutil"
 )
 
 // Metadata sub-documents are embedded in models to provide

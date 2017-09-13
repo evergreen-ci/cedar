@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/bsonutil"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 	"github.com/mongodb/anser/db"
 	"github.com/tychoish/depgraph"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/amazon"
-	"github.com/evergreen-ci/sink/bsonutil"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"

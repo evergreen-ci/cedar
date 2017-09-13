@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/bsonutil"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"

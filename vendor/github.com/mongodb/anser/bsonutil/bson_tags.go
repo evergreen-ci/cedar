@@ -1,3 +1,8 @@
+// Package bsonutil provides a number of simple common utilities for
+// interacting bson-tagged structs in go.
+//
+// This code originates in the Evergreen project and is a centerpiece
+// of that project's document mapping strategy.
 package bsonutil
 
 import (
