@@ -1,6 +1,8 @@
 package model
 
 import (
+	"encoding/json"
+
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/bsonutil"
 	"github.com/mongodb/grip"
@@ -29,6 +31,15 @@ var (
 	costReportEvergreenKey = bsonutil.MustHaveTag(CostReport{}, "Evergreen")
 	costReportProvidersKey = bsonutil.MustHaveTag(CostReport{}, "Providers")
 )
+
+func (r *CostReport) String() string {
+	jsonReport, err := json.MarshalIndent(report, "", "    ") // pretty print
+	if err != nil {
+		return ""
+	}
+
+	return string(jsonReport)
+}
 
 func (r *CostReport) Setup(e sink.Environment) { r.env = e }
 func (r *CostReport) IsNil() bool              { return r.populated }

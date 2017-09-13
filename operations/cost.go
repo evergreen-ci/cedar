@@ -10,6 +10,7 @@ import (
 	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -23,7 +24,8 @@ func Cost() cli.Command {
 		Usage: "build cost report combining granular Evergreen and AWS data",
 		Subcommands: []cli.Command{
 			loadConfig(),
-			generate(),
+			collectLoop(),
+			write(),
 		},
 	}
 }
@@ -67,7 +69,7 @@ func loadConfig() cli.Command {
 func collectLoop() cli.Command {
 	return cli.Command{
 		Name:  "collect",
-		Usage: "collect a cost report every hour",
+		Usage: "collect a cost report every hour, saving the results to mongodb",
 		Flags: dbFlags(costFlags()...),
 		Action: func(c *cli.Context) error {
 			mongodbURI := c.String("dbUri")
@@ -89,6 +91,9 @@ func collectLoop() cli.Command {
 				return errors.Wrap(err, "problem starting queue")
 			}
 
+			reports := &model.CostReports{}
+			reports.Setup(env)
+
 			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
 				lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
 
@@ -101,17 +106,30 @@ func collectLoop() cli.Command {
 				}
 
 				grip.Noticef("scheduled build cost report %s at [%s]", id, time.Now())
+
+				numReports, _ := reports.Count()
+				grip.Info(message.Fields{
+					"queue":         queue.Stats(),
+					"reports-count": numReports,
+					"scheduled":     id,
+				})
 				return nil
 			})
 
+			grip.Info("process blocking indefinitely to generate reports in the background")
+			select {
+			case <-ctx.Done():
+				// this will never fire because it never cancels.
+				grip.Alert("collection terminating")
+			}
 		},
 	}
 }
 
-func generate() cli.Command {
+func write() cli.Command {
 	return cli.Command{
-		Name:  "generate",
-		Usage: "generate a report",
+		Name:  "write",
+		Usage: "collect and write a build cost report to a file.",
 		Flags: costFlags(
 			cli.StringFlag{
 				Name:  "config",
@@ -125,9 +143,9 @@ func generate() cli.Command {
 			file := c.String("config")
 			dur := c.Duration("duration")
 
-			conf, err := model.LoadCostConfig(file)
+			conf, err = model.LoadCostConfig(file)
 			if err != nil {
-				return errors.Wrap(err, "problem loading cost configuration")
+				return errors.Wrapf(err, "problem loading cost configuration from %s", file)
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -153,8 +171,11 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, start time.Tim
 		return errors.Wrap(err, "Problem generating report")
 	}
 
-	filename := fmt.Sprintf("%s_%s.json", report.Report.Begin, duration.String())
-	if err := cost.Print(conf, report, filename); err != nil {
+	fnDate := report.Report.Begin.Format("2006-01-02-15-04")
+
+	filename := fmt.Sprintf("%s.%s.json", fnDate, duration)
+
+	if err := cost.WriteToFile(conf, report, filename); err != nil {
 		return errors.Wrap(err, "Problem printing report")
 	}
 

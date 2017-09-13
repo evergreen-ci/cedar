@@ -1,11 +1,9 @@
 package cost
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/evergreen-ci/sink/evergreen"
@@ -43,30 +41,28 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 	return output, nil
 }
 
-// Print writes the report to the given file, using the directory in the config file.
-// If no directory is given, print report to stdout.
-func Print(conf *model.CostConfig, report *model.CostReport, filepath string) error {
-	jsonReport, err := json.MarshalIndent(report, "", "    ") // pretty print
-
-	if err != nil {
-		return errors.Wrap(err, "Problem marshalling report into JSON")
-	}
+func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) error {
 	// no directory, print to stdout
 	if conf.Opts.Directory == "" {
-		fmt.Printf("%s\n", string(jsonReport))
-		return nil
+		return errors.New("output directory not specified, cannot write report")
 	}
 
-	filepath = strings.Join([]string{conf.Opts.Directory, filepath}, "/")
-	grip.Infof("Printing the report to %s\n", filepath)
-	file, err := os.Create(filepath)
+	fn = filepath.Join(conf.Opts.Directory, fn)
+	grip.Infof("writing cost report to %s", fn)
+	file, err := os.Create(fn)
 	if err != nil {
-		return errors.Wrap(err, "Problem creating file")
+		return errors.Wrapf(err, "Problem creating file %s", fn)
 	}
 	defer file.Close()
-	_, err = file.Write(jsonReport)
-	if err != nil {
-		return err
+
+	rendered := repot.String()
+	if rendered == "" {
+		return errors.New("problem rendering report")
 	}
+
+	if _, err = file.WriteString(rendered); err != nil {
+		return errors.WithStack(err)
+	}
+
 	return errors.Wrap(err, "Problem writing to file")
 }
