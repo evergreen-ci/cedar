@@ -65,7 +65,7 @@ func (r *CostReportSummaries) IsNil() bool                { return r.populated }
 func (r *CostReportSummaries) Size() int                  { return len(r.reports) }
 func (r *CostReportSummaries) Slice() []CostReportSummary { return r.reports }
 
-func (r *CostReports) Find(start, end time.Time) error {
+func (r *CostReportSummaries) Find(start, end time.Time) error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
