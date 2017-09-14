@@ -9,13 +9,13 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/amazon"
-	"github.com/mongodb/anser/bsonutil"
 	"github.com/evergreen-ci/sink/evergreen"
+	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
+	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 	yaml "gopkg.in/yaml.v2"
 )
 

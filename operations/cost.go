@@ -54,6 +54,7 @@ func loadConfig() cli.Command {
 			if err != nil {
 				return errors.WithStack(err)
 			}
+			conf.Setup(env)
 
 			if err = conf.Save(); err != nil {
 				return errors.WithStack(err)

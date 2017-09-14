@@ -39,7 +39,7 @@ type EvergreenProjectSummary struct {
 }
 
 var (
-	costReportEvergrenProjectSummaryNameKey        = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "ID")
+	costReportEvergrenProjectSummaryNameKey        = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Name")
 	costReportEvergrenProjectSummaryVersionsKey    = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Versions")
 	costReportEvergrenProjectSummaryResourceUseKey = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "ResourceUse")
 )
