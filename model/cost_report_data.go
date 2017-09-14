@@ -69,10 +69,11 @@ var (
 
 // EvergreenDistro holds the information for a single distro in Evergreen.
 type EvergreenDistroCost struct {
-	Name            string `bson:"name" json:"name" yaml:"name"`
-	Provider        string `bson:"provider" json:"provider" yaml:"provider"`
-	InstanceType    string `bson:"instance_type,omitempty" json:"instance_type,omitempty" yaml:"instance_type,omitempty"`
-	InstanceSeconds int64  `bson:"instance_seconds,omitempty" json:"instance_seconds,omitempty" yaml:"instance_seconds,omitempty"`
+	Name            string  `bson:"name" json:"name" yaml:"name"`
+	Provider        string  `bson:"provider" json:"provider" yaml:"provider"`
+	InstanceType    string  `bson:"instance_type,omitempty" json:"instance_type,omitempty" yaml:"instance_type,omitempty"`
+	InstanceSeconds int64   `bson:"instance_seconds,omitempty" json:"instance_seconds,omitempty" yaml:"instance_seconds,omitempty"`
+	EstimatedCost   float64 `bson:"estimated_cost" json:"estimated_cost" yaml:"estimated_cost"`
 }
 
 var (
@@ -80,15 +81,17 @@ var (
 	costReportEvergreenDistroProviderKey        = bsonutil.MustHaveTag(EvergreenDistroCost{}, "Provider")
 	costReportEvergreenDistroInstanceTypeKey    = bsonutil.MustHaveTag(EvergreenDistroCost{}, "InstanceType")
 	costReportEvergreenDistroInstanceSecondsKey = bsonutil.MustHaveTag(EvergreenDistroCost{}, "InstanceSeconds")
+	costReportEvergreenDistroEstimatedCostKey   = bsonutil.MustHaveTag(EvergreenDistroCost{}, "EstimatedCost")
 )
 
 // Task holds the information for a single task within a project.
 type EvergreenTaskCost struct {
-	Githash      string `bson:"githash" json:"githash" yaml:"githash"`
-	Name         string `bson:"name" json:"name" yaml:"name"`
-	Distro       string `bson:"distro" json:"distro" yaml:"distro"`
-	BuildVariant string `bson:"variant" json:"variant" yaml:"variant"`
-	TaskSeconds  int64  `bson:"seconds" json:"seconds" yaml:"seconds"`
+	Githash       string  `bson:"githash" json:"githash" yaml:"githash"`
+	Name          string  `bson:"name" json:"name" yaml:"name"`
+	Distro        string  `bson:"distro" json:"distro" yaml:"distro"`
+	BuildVariant  string  `bson:"variant" json:"variant" yaml:"variant"`
+	TaskSeconds   int64   `bson:"seconds" json:"seconds" yaml:"seconds"`
+	EstimatedCost float64 `bson:"estimated_cost" json:"estimated_cost" yaml:"estimated_cost"`
 }
 
 var (
@@ -97,6 +100,7 @@ var (
 	costReportEvergreenTaskCostDistroKey       = bsonutil.MustHaveTag(EvergreenTaskCost{}, "Distro")
 	costReportEvergreenTaskCostBuildVariantKey = bsonutil.MustHaveTag(EvergreenTaskCost{}, "BuildVariant")
 	costReportEvergreenTaskCostSecondKey       = bsonutil.MustHaveTag(EvergreenTaskCost{}, "TaskSeconds")
+	costReportEvergreenTaskCostEstimationKey   = bsonutil.MustHaveTag(EvergreenTaskCost{}, "EstimatedCost")
 )
 
 // Provider holds account information for a single provider.

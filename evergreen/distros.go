@@ -14,10 +14,11 @@ type Distro struct {
 
 // DistroCost holds full cost and provider information for a distro.
 type DistroCost struct {
-	DistroID     string        `json:"distro_id"`
-	Provider     string        `json:"provider"`
-	InstanceType string        `json:"instance_type,omitempty"`
-	SumTimeTaken time.Duration `json:"sum_time_taken"`
+	DistroID         string        `json:"distro_id"`
+	Provider         string        `json:"provider"`
+	InstanceType     string        `json:"instance_type,omitempty"`
+	SumTimeTaken     time.Duration `json:"sum_time_taken"`
+	SumEstimatedCost float64       `json:"sum_estimated_cost"`
 }
 
 // GetDistros is a wrapper function of get for getting all distros from the

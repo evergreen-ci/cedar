@@ -20,6 +20,7 @@ type TaskCost struct {
 	DistroID     string        `json:"distro"`
 	BuildVariant string        `json:"build_variant"`
 	TimeTaken    time.Duration `json:"time_taken"`
+	Cost         float64       `json:"estimated_cost"`
 }
 
 // ProjectUnit holds together all relevant task cost information for a project
