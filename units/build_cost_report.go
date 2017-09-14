@@ -7,6 +7,7 @@ import (
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
@@ -20,20 +21,23 @@ func init() {
 }
 
 func makeBuildCostReport() *buildCostReportJob {
-	return &buildCostReportJob{
+	j := &buildCostReportJob{
 		env: sink.GetEnvironment(),
-		Base: &job.Base{
+		Base: job.Base{
 			JobType: amboy.JobType{
 				Name:    "build-cost-report",
-				Version: 0,
+				Version: 1,
 			},
 		},
 	}
+
+	j.SetDependency(dependency.NewAlways())
+	return j
 }
 
 type buildCostReportJob struct {
-	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env       sink.Environment
+	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env      sink.Environment
 }
 
 func NewBuildCostReport(env sink.Environment, name string) amboy.Job {
