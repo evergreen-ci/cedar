@@ -4,8 +4,6 @@ import (
 	"time"
 )
 
-const layout = "2006-01-02T15:04" //Using reference Mon Jan 2 15:04:05 -0700 MST 2006
-
 type timeRange struct {
 	start time.Time
 	end   time.Time

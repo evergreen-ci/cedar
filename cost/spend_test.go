@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+const layout = "2006-01-02T15:04" //Using reference Mon Jan 2 15:04:05 -0700 MST 2006
+
 func init() {
 	grip.SetName("sink.cost.test")
 }
@@ -121,5 +123,5 @@ func (c *CostSuite) TestPrint() {
 	output := &model.CostReport{Report: report}
 	config := &model.CostConfig{}
 	filepath := ""
-	c.NoError(Print(config, output, filepath))
+	c.NoError(WriteToFile(config, output, filepath))
 }

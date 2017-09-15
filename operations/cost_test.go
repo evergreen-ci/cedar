@@ -23,7 +23,9 @@ func TestCommandSuite(t *testing.T) {
 }
 
 func (s *CommandsSuite) TestSpendFlags() {
-	cmd := Spend()
+	cmd := Cost()
+	s.Len(cmd.Flags, 0)
+	cmd = write()
 	s.Len(cmd.Flags, 3)
 	for _, flag := range cmd.Flags {
 		name := flag.GetName()

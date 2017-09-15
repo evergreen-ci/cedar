@@ -118,7 +118,7 @@ func (j *saveSimpleLogToDBJob) Run() {
 	// interface that's amboy.Job+Validate(), so we can generate
 	// slices of parsers and run the validate->put steps in a loop.
 	//
-	if err := parser.Validate(); err != nil {
+	if err = parser.Validate(); err != nil {
 		err = errors.Wrap(err, "problem creating parser job")
 		grip.Error(err)
 		j.AddError(err)

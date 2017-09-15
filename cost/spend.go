@@ -1,6 +1,7 @@
 package cost
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -55,7 +56,7 @@ func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) er
 	}
 	defer file.Close()
 
-	rendered := report.String()
+	rendered := fmt.Sprint(report)
 	if rendered == "" {
 		return errors.New("problem rendering report")
 	}

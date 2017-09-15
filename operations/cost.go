@@ -119,13 +119,10 @@ func collectLoop() cli.Command {
 			})
 
 			grip.Info("process blocking indefinitely to generate reports in the background")
-			select {
-			case <-ctx.Done():
-				// this will never fire because it never cancels.
-				grip.Alert("collection terminating")
-				return errors.New("collection terminating")
-			}
-			return nil
+			<-ctx.Done()
+
+			grip.Alert("collection terminating")
+			return errors.New("collection terminating")
 		},
 	}
 }
