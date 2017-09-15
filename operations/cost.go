@@ -26,6 +26,7 @@ func Cost() cli.Command {
 			loadConfig(),
 			collectLoop(),
 			write(),
+			dump(),
 		},
 	}
 }
@@ -95,7 +96,7 @@ func collectLoop() cli.Command {
 			reports := &model.CostReports{}
 			reports.Setup(env)
 
-			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
+			amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
 				t := time.Now().Add(-time.Hour)
 				lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
 
@@ -181,4 +182,48 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, start time.Tim
 	}
 
 	return nil
+}
+
+func dump() cli.Command {
+	return cli.Command{
+		Name:  "dump",
+		Usage: "dump all cost reports to files",
+		Flags: dbFlags(),
+		Action: func(c *cli.Context) error {
+			env := sink.GetEnvironment()
+
+			mongodbURI := c.String("dbUri")
+			dbName := c.String("dbName")
+
+			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
+			conf := &model.CostConfig{}
+			conf.Setup(env)
+			if err := conf.Find(); err != nil {
+				return errors.Wrap(err, "problem loading cost config from the database")
+			}
+
+			reports := &model.CostReports{}
+			reports.Setup(env)
+
+			iter, err := reports.Iterator(time.Time{}, time.Now())
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			defer iter.Close()
+
+			report := &model.CostReport{}
+			for iter.Next(report) {
+				cost.WriteToFile(conf, report, report.ID+".json")
+			}
+
+			if err = iter.Err(); err != nil {
+				return errors.Wrap(err, "problem querying for reports")
+			}
+			return nil
+		},
+	}
+
 }

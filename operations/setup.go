@@ -107,7 +107,7 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 		return err
 	})
 
-	amboy.IntervalQueueOperation(ctx, q, 20*time.Minute, time.Now(), true, func(cue amboy.Queue) error {
+	amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), true, func(cue amboy.Queue) error {
 		t := time.Now()
 		lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
 

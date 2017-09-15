@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
 
@@ -19,24 +20,43 @@ func (r *CostReports) Size() int                { return len(r.reports) }
 func (r *CostReports) Slice() []CostReport      { return r.reports }
 
 func (r *CostReports) Find(start, end time.Time) error {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	session, query, err := r.rangeQuery(start, end)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
 
 	r.populated = false
-	err = session.DB(conf.DatabaseName).C(costReportCollection).Find(map[string]interface{}{
-		costReportReportKey + "." + costReportMetadataBeginKey: start,
-		costReportReportKey + "." + costReportMetadataEndKey:   end,
-	}).All(r.reports)
-
-	if err != nil {
+	if err = query.All(r.reports); err != nil {
 		return errors.Wrap(err, "problem finding cost reports within range")
 	}
 	r.populated = true
 
 	return nil
+}
+
+func (r *CostReports) Iterator(start, end time.Time) (db.Iterator, error) {
+	session, query, err := r.rangeQuery(start, end)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return db.NewCombinedIterator(session, query.Iter()), nil
+
+}
+
+func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(map[string]interface{}{
+		costReportReportKey + "." + costReportMetadataBeginKey: start,
+		costReportReportKey + "." + costReportMetadataEndKey:   end,
+	})
+
+	return session, query, nil
 }
 
 func (r *CostReports) Count() (int, error) {
@@ -66,24 +86,42 @@ func (r *CostReportSummaries) Size() int                  { return len(r.reports
 func (r *CostReportSummaries) Slice() []CostReportSummary { return r.reports }
 
 func (r *CostReportSummaries) Find(start, end time.Time) error {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	session, query, err := r.rangeQuery(start, end)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
 
 	r.populated = false
-	err = session.DB(conf.DatabaseName).C(costReportSummaryCollection).Find(map[string]interface{}{
-		costReportSummaryMetadataKey + "." + costReportMetadataBeginKey: start,
-		costReportSummaryMetadataKey + "." + costReportMetadataEndKey:   end,
-	}).All(r.reports)
-
-	if err != nil {
+	if err = query.All(r.reports); err != nil {
 		return errors.Wrap(err, "problem finding cost reports within range")
 	}
 	r.populated = true
 
 	return nil
+}
+
+func (r *CostReportSummaries) Iterator(start, end time.Time) (db.Iterator, error) {
+	session, query, err := r.rangeQuery(start, end)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return db.NewCombinedIterator(session, query.Iter()), nil
+}
+
+func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	query := session.DB(conf.DatabaseName).C(costReportSummaryCollection).Find(map[string]interface{}{
+		costReportSummaryMetadataKey + "." + costReportMetadataBeginKey: start,
+		costReportSummaryMetadataKey + "." + costReportMetadataEndKey:   end,
+	})
+
+	return session, query, nil
 }
 
 func (r *CostReportSummaries) Count() (int, error) {
