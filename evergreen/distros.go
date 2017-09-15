@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -90,10 +91,11 @@ func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCo
 
 // GetEvergreenDistrosData retrieves distros cost data from Evergreen.
 func (c *Client) GetEvergreenDistrosData(starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
-	st := starttime.Format(time.RFC3339)
+	st := starttime.Format("2006-01-02T15:04:05")
 	dur := duration.String()
 
 	distroIDs, err := c.getDistroIDs()
+	grip.Debug("found ")
 	if err != nil {
 		return nil,
 			errors.Wrap(err, "error in getting distroID in GetEvergreenDistrosData")

@@ -59,6 +59,7 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 
 	out := CostReportSummary{
 		Metadata: r.Report,
+		env:      r.env,
 	}
 
 	for _, p := range r.Evergreen.Projects {

@@ -4,16 +4,16 @@ import (
 	"sync"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"github.com/mongodb/anser/db"
 )
 
 var globalEnv *envState
 
-func init()                       { globalEnv = &envState{name: "global"} }
+func init()                       { globalEnv = &envState{name: "global", conf: &Configuration{}} }
 func GetEnvironment() Environment { return globalEnv }
 
 // Environment objects provide access to shared configuration and
@@ -33,7 +33,7 @@ type Environment interface {
 
 	// GetSender returns a grip/send.Sender interface for use when
 	// logging system events. When extending sink, you should generally log
-	// messages using the default grip interface; however, the system
+	// messages using the default grip interface; hobwever, the system
 	// event Sender and logger are available to log events to the database
 	// or other services for more critical issues encoutered during offline
 	// processing. In typical configurations these events are logged to
@@ -146,10 +146,10 @@ func (c *envState) GetConf() (*Configuration, error) {
 	}
 
 	// copy the struct
-	out := Configuration{}
-	out = *c.conf
+	out := &Configuration{}
+	*out = *c.conf
 
-	return &out, nil
+	return out, nil
 }
 
 func (c *envState) SetSender(s send.Sender) error {

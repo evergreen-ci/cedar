@@ -113,13 +113,13 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 	ebsService := model.AccountService{
 		Name: string(amazon.EBSService),
 	}
-	s3Service := model.AccountService{
-		Name: string(amazon.S3Service),
-	}
-	s3Service.Cost, err = client.GetS3Cost(&s3info, reportRange)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
-	}
+	// s3Service := model.AccountService{
+	// 	Name: string(amazon.S3Service),
+	// }
+	// s3Service.Cost, err = client.GetS3Cost(&s3info, reportRange)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
+	// }
 	grip.Infof("Iterating through %d instance types", len(instances))
 	for key, items := range instances {
 		item := createCostItemFromAmazonItems(key, items)
@@ -130,8 +130,12 @@ func getAWSAccountByOwner(ctx context.Context, reportRange amazon.TimeRange, con
 		}
 	}
 	account := &model.CloudAccount{
-		Name:     owner,
-		Services: []model.AccountService{ec2Service, ebsService, s3Service},
+		Name: owner,
+		Services: []model.AccountService{
+			ec2Service,
+			ebsService,
+			// s3Service,
+		},
 	}
 	return account, nil
 }

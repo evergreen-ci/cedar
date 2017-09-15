@@ -80,7 +80,7 @@ func collectLoop() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if err := configure(env, 2, false, mongodbURI, "", dbName); err != nil {
+			if err := configure(env, 1, false, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
 			}
 

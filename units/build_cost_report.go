@@ -22,7 +22,6 @@ func init() {
 
 func makeBuildCostReport() *buildCostReportJob {
 	j := &buildCostReportJob{
-		env: sink.GetEnvironment(),
 		Base: job.Base{
 			JobType: amboy.JobType{
 				Name:    "build-cost-report",
@@ -54,7 +53,12 @@ func (j *buildCostReportJob) Run() {
 	defer cancel()
 	grip.Infoln("would run build cost reporting job:", j.ID())
 
+	if j.env == nil {
+		j.env = sink.GetEnvironment()
+	}
+
 	costConf := &model.CostConfig{}
+	costConf.Setup(j.env)
 	if err := costConf.Find(); err != nil {
 		j.AddError(errors.WithStack(err))
 		return

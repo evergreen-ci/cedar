@@ -67,15 +67,15 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 
 func getEvergreenData(c *evergreen.Client, starttime time.Time, duration time.Duration) (*model.EvergreenCost, error) {
 	grip.Info("Getting Evergreen Distros")
-
 	distros, err := getEvergreenDistrosData(c, starttime, duration)
 	if err != nil {
-		return nil, errors.Wrap(err, "error in GetEvergreenData")
+		return nil, errors.Wrap(err, "problem getting distro data from evergreen")
 	}
+
 	grip.Info("Getting Evergreen Projects")
 	projects, err := getEvergreenProjectsData(c, starttime, duration)
 	if err != nil {
-		return nil, errors.Wrap(err, "error in GetEvergreenData")
+		return nil, errors.Wrap(err, "problem getting project data from evergreen")
 	}
 	return &model.EvergreenCost{Distros: distros, Projects: projects}, nil
 }

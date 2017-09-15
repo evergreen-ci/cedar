@@ -47,7 +47,7 @@ func (e *ConnectionInfo) IsValid() bool {
 
 // getURL returns a URL for the given path.
 func (c *Client) getURL(path string) string {
-	return fmt.Sprintf("%s/%s", c.apiRoot, path)
+	return fmt.Sprintf("%s/api/rest/v2/%s", c.apiRoot, path)
 }
 
 // doReq performs a request of the given method type against path.
@@ -56,6 +56,7 @@ func (c *Client) getURL(path string) string {
 func (c *Client) doReq(method, path string) (*http.Response, error) {
 	var req *http.Request
 	var err error
+
 	url := c.getURL(path)
 	req, err = http.NewRequest(method, url, nil)
 	if err != nil {
