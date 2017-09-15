@@ -15,91 +15,54 @@ import (
 	"golang.org/x/net/context"
 )
 
-type itemType string
-type serviceType string
-
-const (
-	// layouts use reference Mon Jan 2 15:04:05 -0700 MST 2006
-	EC2Service     = serviceType("ec2") // service is the service name for ec2
-	EBSService     = serviceType("ebs") // service name for ebs
-	S3Service      = serviceType("s3")  // service name for s3
-	tagLayout      = "20060102150405"
-	utcLayout      = "2006-01-02T15:04:05.000Z"
-	ondemandLayout = "2006-01-02 15:04:05 MST"
-
-	spot      = itemType(ec2.InstanceLifecycleTypeSpot)
-	scheduled = itemType(ec2.InstanceLifecycleTypeScheduled)
-	reserved  = itemType("reserved")
-	onDemand  = itemType("on-demand")
-
-	startTag = "start-time"
-	marked   = "marked-for-termination"
-)
-
-var (
-	ignoreCodes = []string{
-		"canceled-before-fulfillment",
-		"schedule-expired",
-		"bad-parameters",
-		"system-error",
-	}
-	amazonTerminated = []string{
-		"instance-terminated-by-price",
-		"instance-terminated-no-capacity",
-		"instance-terminated-capacity-oversubscribed",
-		"instance-terminated-launch-group-constraint",
-	}
-)
-
 // Client holds information for the amazon client
 type Client struct {
 	ec2Client *ec2.EC2
 	s3Client  *s3.S3
 }
 
-// Item is information for an item for a particular Name and ItemType
-type Item struct {
-	Product    string
-	Launched   bool
-	Terminated bool
-	Price      float64
-	FixedPrice float64
-	Uptime     int //stored in number of hours
-	Count      int
-}
-
-// ItemKey is used together with Item to create a hashtable from ItemKey to []Item
-type ItemKey struct {
-	Service      serviceType
-	Name         string
-	ItemType     itemType
-	offeringType string
-	duration     int64
-}
-
-// TimeRange defines a time range by storing a start/end time
-type TimeRange struct {
-	Start time.Time
-	End   time.Time
-}
-
-// Maps the ItemKey to an array of Items
-type itemHash map[ItemKey][]*Item
-
-// NewClient returns a new populated client
-func NewClient(path, owner string) (*Client, error) {
+// newClient returns a new populated client
+func newClient(auth *credentials.Credentials) (*Client, error) {
 	client := &Client{}
-	sess := session.Must(session.NewSession(&aws.Config{
+	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String("us-east-1"),
-		Credentials: credentials.NewSharedCredentials(path, owner),
-	}))
-	_, err := sess.Config.Credentials.Get()
+		Credentials: auth,
+	})
+
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
+
 	client.ec2Client = ec2.New(sess)
 	client.s3Client = s3.New(sess)
+
 	return client, nil
+}
+
+func NewClientAuto() (*Client, error) {
+	creds := credentials.NewEnvCredentials()
+	if _, err := creds.Get(); err == nil {
+		return newClient(creds)
+	}
+
+	for _, profile := range []string{"sink", "bcr", "xgen", "default"} {
+		creds = credentials.NewSharedCredentials("", profile)
+
+		if _, err := creds.Get(); err == nil {
+			return newClient(creds)
+		}
+	}
+
+	return nil, errors.New("could not auto-discover aws credentials in the environment or config file ")
+}
+
+func NewClientWithInfo(keyID, secret string) (*Client, error) {
+	creds := credentials.NewStaticCredentials(keyID, secret, "")
+	if _, err := creds.Get(); err != nil {
+		return nil, errors.Wrapf(err, "problem resolving credentials for keyID: %s", keyID)
+	}
+
+	return newClient(creds)
 }
 
 // getTagVal retrieves from an array of spotEC2 tags the value string for the given key
