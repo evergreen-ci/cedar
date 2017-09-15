@@ -216,7 +216,7 @@ func dump() cli.Command {
 
 			report := &model.CostReport{}
 			for iter.Next(report) {
-				cost.WriteToFile(conf, report, report.ID+".json")
+				grip.Warning(cost.WriteToFile(conf, report, report.ID+".json"))
 			}
 
 			if err = iter.Err(); err != nil {
