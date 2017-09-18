@@ -51,7 +51,11 @@ func (e *ConnectionInfo) IsValid() bool {
 
 // getURL returns a URL for the given path.
 func (c *Client) getURL(path string) string {
-	return fmt.Sprintf("%s/api/rest/v2/%s", c.apiRoot, path)
+	if strings.HasPrefix(path, "/") {
+		path = path[1:]
+	}
+
+	return strings.Join([]string{c.apiRoot, "api", "rest", "v2", path}, "/")
 }
 
 // doReq performs a request of the given method type against path.
@@ -90,6 +94,7 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 			"code":     resp.StatusCode,
 			"path":     url,
 			"method":   method,
+			"user":     c.user,
 			"duration": time.Now().Sub(startAt).String(),
 		}
 		defer resp.Body.Close()
@@ -107,6 +112,13 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 		grip.Warning(msg)
 		return nil, errors.Errorf("http request failed with status %s", resp.Status)
 	}
+
+	grip.Info(message.Fields{
+		"method":   method,
+		"url":      url,
+		"user":     c.user,
+		"duration": time.Now().Sub(startAt).String(),
+	})
 
 	return resp, nil
 }
@@ -152,6 +164,7 @@ func (c *Client) getPath(link string) (string, error) {
 //and parses the link for the next page (this is empty if there is no next page)
 func (c *Client) get(path string) ([]byte, string, error) {
 	link := ""
+	path = strings.TrimRight(path, ":")
 	resp, err := c.doReq("GET", path)
 	if err != nil {
 		return nil, "", errors.WithStack(err)

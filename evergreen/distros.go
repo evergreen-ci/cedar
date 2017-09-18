@@ -3,6 +3,7 @@ package evergreen
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mongodb/grip"
@@ -76,24 +77,49 @@ func (c *Client) getDistroIDs() ([]string, error) {
 // instance type, and total time for a given list of distros found.
 func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCost, error) {
 	distroCosts := []*DistroCost{}
+	costs := make(chan *DistroCost)
+	distros := make(chan string, len(distroIDs))
+	catcher := grip.NewCatcher()
+	wg := &sync.WaitGroup{}
+
 	for _, distro := range distroIDs {
-		evgdc, err := c.GetDistroCost(distro, st, dur)
-		if err != nil {
-			return nil,
-				errors.Wrap(err, "error when getting distro cost data from Evergreen")
-		}
-		// Only include distro costs with meaningful information
+		distros <- distro
+	}
+
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for distro := range distros {
+				dc, err := c.GetDistroCost(distro, st, dur)
+				catcher.Add(errors.Wrap(err, "error when getting distro cost data from Evergreen"))
+				costs <- dc
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(costs)
+	}()
+
+	for evgdc := range costs {
 		if evgdc.SumTimeTaken > 0 {
 			distroCosts = append(distroCosts, evgdc)
 		}
 	}
+
+	if catcher.HasErrors() {
+		return nil, catcher.Resolve()
+	}
+
 	return distroCosts, nil
 }
 
 // GetEvergreenDistrosData retrieves distros cost data from Evergreen.
 func (c *Client) GetEvergreenDistrosData(starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
 	st := starttime.Format("2006-01-02T15:04:05Z07:00")
-	dur := strings.TrimRight(duration.String(), ":0s")
+	dur := strings.TrimRight(duration.String(), "0s")
 
 	distroIDs, err := c.getDistroIDs()
 	grip.Debug("found ")
