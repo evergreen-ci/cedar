@@ -63,6 +63,12 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 
 	startAt := time.Now()
 	url := c.getURL(path)
+	grip.Info(message.Fields{
+		"method": method,
+		"url":    url,
+		"user":   c.user,
+	})
+
 	req, err = http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, err
@@ -93,6 +99,8 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 			}{}
 			if err := json.Unmarshal(data, &doc); err == nil {
 				msg["error"] = doc.Error
+			} else {
+				msg["body"] = string(data)
 			}
 		}
 

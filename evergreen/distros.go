@@ -2,6 +2,7 @@ package evergreen
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/mongodb/grip"
@@ -91,8 +92,8 @@ func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCo
 
 // GetEvergreenDistrosData retrieves distros cost data from Evergreen.
 func (c *Client) GetEvergreenDistrosData(starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
-	st := starttime.Format("2006-01-02T15:04:05")
-	dur := duration.String()
+	st := starttime.Format("2006-01-02T15:04:05Z07:00")
+	dur := strings.TrimRight(duration.String(), ":0s")
 
 	distroIDs, err := c.getDistroIDs()
 	grip.Debug("found ")

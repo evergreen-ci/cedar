@@ -14,7 +14,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const enableEvergreenCollector = false
+const enableEvergreenCollector = true
 
 // CreateReport returns an model.CostReport using a start string, duration, and Config information.
 func CreateReport(ctx context.Context, start time.Time, duration time.Duration, config *model.CostConfig) (*model.CostReport, error) {
