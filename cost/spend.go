@@ -50,6 +50,7 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 
 func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) error {
 	// no directory, print to stdout
+	var err error
 	outputDir := conf.Opts.Directory
 	if outputDir == "" {
 		outputDir, err = os.Getwd()
