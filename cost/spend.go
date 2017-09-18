@@ -22,13 +22,6 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 	output := &model.CostReport{}
 	reportRange := getTimes(start, duration)
 
-	var err error
-	output.Providers, err = getAllProviders(ctx, reportRange, config)
-	if err != nil {
-		return nil, errors.Wrap(err, "Problem retrieving providers information")
-	}
-	grip.Info("collected data from aws")
-
 	if enableEvergreenCollector {
 		c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
 		evg, err := getEvergreenData(c, reportRange.start, duration)
@@ -39,6 +32,13 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 		output.Evergreen = *evg
 
 	}
+
+	var err error
+	output.Providers, err = getAllProviders(ctx, reportRange, config)
+	if err != nil {
+		return nil, errors.Wrap(err, "Problem retrieving providers information")
+	}
+	grip.Info("collected data from aws")
 
 	output.Report = model.CostReportMetadata{
 		Begin:     reportRange.start,

@@ -144,7 +144,9 @@ func (c *Client) getProjectIDs() ([]string, error) {
 		projectIDs = append(projectIDs, out.output.Identifier)
 	}
 	if catcher.HasErrors() {
-		return nil, errors.Wrap(catcher.Resolve(), "error getting projects ids")
+		err = errors.Wrapf(catcher.Resolve(), "error getting projects ids; got:", projectIDs)
+		grip.Warning(err.Error())
+		return nil, err
 	}
 
 	return projectIDs, nil

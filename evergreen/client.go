@@ -51,6 +51,10 @@ func (e *ConnectionInfo) IsValid() bool {
 
 // getURL returns a URL for the given path.
 func (c *Client) getURL(path string) string {
+	if strings.HasPrefix(path, "/api/rest/v2/") {
+		return c.apiRoot + path
+	}
+
 	if strings.HasPrefix(path, "/") {
 		path = path[1:]
 	}

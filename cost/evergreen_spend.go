@@ -10,6 +10,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	enableEvergreenDistroCollector   = false
+	enableEvergreenProjectsCollector = false
+)
+
 // GetEvergreenDistrosData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
 func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time, duration time.Duration) ([]model.EvergreenDistroCost, error) {
@@ -43,8 +48,9 @@ func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time, duration
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting Evergreen projects data")
 	}
-	for idx := range evgProjects {
-		projects = append(projects, convertEvgProjectUnitToCostProject(evgProjects[idx]))
+
+	for _, p := range evgProjects {
+		projects = append(projects, convertEvgProjectUnitToCostProject(p))
 	}
 
 	return projects, nil
@@ -73,16 +79,25 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 }
 
 func getEvergreenData(c *evergreen.Client, starttime time.Time, duration time.Duration) (*model.EvergreenCost, error) {
-	grip.Info("Getting Evergreen Distros")
-	distros, err := getEvergreenDistrosData(c, starttime, duration)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem getting distro data from evergreen")
+	out := &model.EvergreenCost{}
+
+	if enableEvergreenDistroCollector {
+		grip.Info("Getting Evergreen Distros")
+		distros, err := getEvergreenDistrosData(c, starttime, duration)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem getting distro data from evergreen")
+		}
+		out.Distros = distros
 	}
 
-	grip.Info("Getting Evergreen Projects")
-	projects, err := getEvergreenProjectsData(c, starttime, duration)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem getting project data from evergreen")
+	if enableEvergreenProjectsCollector {
+		grip.Info("Getting Evergreen Projects")
+		projects, err := getEvergreenProjectsData(c, starttime, duration)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem getting project data from evergreen")
+		}
+		out.Projects = projects
 	}
-	return &model.EvergreenCost{Distros: distros, Projects: projects}, nil
+
+	return out, nil
 }
