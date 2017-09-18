@@ -14,7 +14,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const disableEvergreenCollector = true
+const enableEvergreenCollector = false
 
 // CreateReport returns an model.CostReport using a start string, duration, and Config information.
 func CreateReport(ctx context.Context, start time.Time, duration time.Duration, config *model.CostConfig) (*model.CostReport, error) {
@@ -23,14 +23,13 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 	reportRange := getTimes(start, duration)
 
 	var err error
-
 	output.Providers, err = getAllProviders(ctx, reportRange, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem retrieving providers information")
 	}
 	grip.Info("collected data from aws")
 
-	if disableEvergreenCollector {
+	if enableEvergreenCollector {
 		c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
 		evg, err := getEvergreenData(c, reportRange.start, duration)
 		if err != nil {
@@ -39,12 +38,14 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 		grip.Info("collected data from evergreen")
 		output.Evergreen = *evg
 
-		output.Report = model.CostReportMetadata{
-			Begin:     reportRange.start,
-			End:       reportRange.end,
-			Generated: time.Now(),
-		}
 	}
+
+	output.Report = model.CostReportMetadata{
+		Begin:     reportRange.start,
+		End:       reportRange.end,
+		Generated: time.Now(),
+	}
+
 	return output, nil
 }
 
