@@ -1,11 +1,15 @@
 package evergreen
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
 
@@ -57,6 +61,7 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 	var req *http.Request
 	var err error
 
+	startAt := time.Now()
 	url := c.getURL(path)
 	req, err = http.NewRequest(method, url, nil)
 	if err != nil {
@@ -74,7 +79,25 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 		return nil, errors.New(msg)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("http request failed (not 200 OK)")
+		msg := message.Fields{
+			"status":   resp.Status,
+			"code":     resp.StatusCode,
+			"path":     url,
+			"method":   method,
+			"duration": time.Now().Sub(startAt).String(),
+		}
+		defer resp.Body.Close()
+		if data, err := ioutil.ReadAll(resp.Body); err == nil {
+			doc := struct {
+				Error string
+			}{}
+			if err := json.Unmarshal(data, &doc); err == nil {
+				msg["error"] = doc.Error
+			}
+		}
+
+		grip.Warning(msg)
+		return nil, errors.Errorf("http request failed with status %s", resp.Status)
 	}
 
 	return resp, nil

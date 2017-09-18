@@ -81,6 +81,7 @@ func getAllProviders(ctx context.Context, reportRange timeRange, config *model.C
 	providers := []model.CloudProvider{*awsProvider}
 
 	for _, p := range config.Providers {
+		grip.Infoln("adding cost data for aws provider:", p.Name)
 		providers = append(providers, model.CloudProvider{
 			Name: p.Name,
 			Cost: p.Cost,

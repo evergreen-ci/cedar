@@ -6,6 +6,7 @@ import (
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
 
@@ -52,6 +53,12 @@ func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time, duration
 func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.EvergreenProjectCost {
 	p := model.EvergreenProjectCost{}
 	p.Name = evgpu.Name
+
+	grip.Info(message.Fields{
+		"message":   "building cost data for evergreen",
+		"project":   evgpu.Name,
+		"num_tasks": len(evgpu.Tasks),
+	})
 	for _, task := range evgpu.Tasks {
 		costTask := model.EvergreenTaskCost{}
 		costTask.Githash = task.Githash
