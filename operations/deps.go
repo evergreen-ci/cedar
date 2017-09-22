@@ -20,6 +20,7 @@ func Dagger() cli.Command {
 			smoke(),
 			filterLibrary(),
 			loadGraphToDB(),
+			cleanDB(),
 		},
 	}
 }
@@ -134,6 +135,49 @@ func loadGraphToDB() cli.Command {
 			grip.Info("adding graph '%s' with '%d' nodes and '%d' edges")
 
 			return err
+		},
+	}
+}
+
+func cleanDB() cli.Command {
+	return cli.Command{
+		Name:  "clean-db",
+		Usage: "if dagger encountered an error loading graphs into the database, this will drop orphan graph parts",
+		Flags: dbFlags(),
+		Action: func(c *cli.Context) error {
+			mongodbURI := c.String("dbUri")
+			dbName := c.String("dbName")
+
+			env := sink.GetEnvironment()
+
+			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
+			graphs := &model.DependencyGraphs{}
+
+			if err := graphs.FindIncomplete(); err != nil {
+				return errors.Wrap(err, "encountered problem finding incomplete graphs")
+			}
+
+			if graphs.IsNil() || graphs.Size() == 0 {
+				grip.Info("found no incomplete errors")
+				return nil
+			}
+
+			catcher := grip.NewSimpleCatcher()
+			for _, g := range graphs.Slice() {
+				catcher.Add(g.RemoveNodes())
+				catcher.Add(g.RemoveEdges())
+			}
+
+			if catcher.HasErrors() {
+				grip.Warningf("encountered error removing %d incomplete graphs", graphs.Size())
+				return catcher.Resolve()
+			}
+
+			grip.Infof("removed nodes and edges from %d incomplete graphs", graphs.Size())
+			return nil
 		},
 	}
 

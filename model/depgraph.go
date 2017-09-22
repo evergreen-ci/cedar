@@ -6,6 +6,8 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/tychoish/depgraph"
 )
@@ -53,6 +55,53 @@ func (g *GraphMetadata) MarkComplete() error {
 			"$set": db.Document{graphMetadataCompleteKey: true},
 		})
 
+	return errors.WithStack(err)
+}
+
+func (g *GraphMetadata) RemoveEdges() error {
+	if !g.populated {
+		return errors.New("cannot remove edges for an unpopulated graph")
+	}
+
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	info, err := session.DB(conf.DatabaseName).C(depEdgeCollection).RemoveAll(db.Document{
+		graphEdgeGraphKey: g.BuildID,
+	})
+
+	grip.Info(message.Fields{
+		"operation":   "removing nodes",
+		"graph_id":    g.BuildID,
+		"change_info": info,
+	})
+
+	return errors.WithStack(err)
+}
+
+func (g *GraphMetadata) RemoveNodes() error {
+	if !g.populated {
+		return errors.New("cannot remove edges for an unpopulated graph")
+	}
+
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	info, err := session.DB(conf.DatabaseName).C(depNodeCollection).RemoveAll(db.Document{
+		graphNodeGraphNameKey: g.BuildID,
+	})
+
+	grip.Info(message.Fields{
+		"operation":   "removing nodes",
+		"graph_id":    g.BuildID,
+		"change_info": info,
+	})
 	return errors.WithStack(err)
 }
 
