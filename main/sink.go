@@ -31,7 +31,7 @@ func buildApp() *cli.App {
 		operations.Service(),
 		operations.Client(),
 		operations.Worker(),
-		operations.Deps(),
+		operations.Dagger(),
 		operations.Cost(),
 	}
 

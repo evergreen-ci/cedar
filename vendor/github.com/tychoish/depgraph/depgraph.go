@@ -17,7 +17,7 @@ import (
 type Graph struct {
 	Edges   []*Edge `json:"edges"`
 	Nodes   []*Node `json:"nodes"`
-	BuildID string
+	BuildID string  `json:"id,omitempty"`
 }
 
 // Node represents a single item in the graph, either a symbol, file,

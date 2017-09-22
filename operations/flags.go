@@ -54,3 +54,12 @@ func costFlags(flags ...cli.Flag) []cli.Flag {
 			Value: time.Hour,
 		})
 }
+
+func depsFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags,
+		cli.StringFlag{
+			Name:  "path",
+			Usage: "source path for dependency graph",
+			Value: "deps.json",
+		})
+}
