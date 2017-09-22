@@ -441,10 +441,10 @@ func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 // GET /depgraph/{id}
 
 type depGraphResolvedRespose struct {
-	Nodes []*model.GraphNode `json:"nodes"`
-	Edges []*model.GraphEdge `json:"edges"`
-	Error string             `json:"error,omitempty"`
-	ID    string             `json:"id"`
+	Nodes []model.GraphNode `json:"nodes"`
+	Edges []model.GraphEdge `json:"edges"`
+	Error string            `json:"error,omitempty"`
+	ID    string            `json:"id"`
 }
 
 func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
@@ -490,9 +490,9 @@ func (s *Service) addDepGraphNodes(w http.ResponseWriter, r *http.Request) {
 // GET /depgraph/{id}/nodes
 
 type depGraphNodesRespose struct {
-	Nodes []*model.GraphNode `json:"nodes"`
-	Error string             `json:"error,omitempty"`
-	ID    string             `json:"id"`
+	Nodes []model.GraphNode `json:"nodes"`
+	Error string            `json:"error,omitempty"`
+	ID    string            `json:"id"`
 }
 
 func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
@@ -530,9 +530,9 @@ func (s *Service) addDepGraphEdges(w http.ResponseWriter, r *http.Request) {
 // GET /depgraph/{id}/edges
 
 type depGraphEdgesRespose struct {
-	Edges []*model.GraphEdge `json:"edges"`
-	Error string             `json:"error,omitempty"`
-	ID    string             `json:"id"`
+	Edges []model.GraphEdge `json:"edges"`
+	Error string            `json:"error,omitempty"`
+	ID    string            `json:"id"`
 }
 
 func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {

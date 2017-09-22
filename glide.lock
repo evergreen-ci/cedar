@@ -29,7 +29,7 @@ imports:
 - name: github.com/tychoish/gimlet
   version: 28d9360d8c9a74d67d05cd1c02dfbe3bd0cc9b9c
 - name: github.com/tychoish/depgraph
-  version: 8f7acd950c98ea9013a1a5b007b69bdb8fa4df0d
+  version: 59aff1b9f9803894549c66e7d1b23cbaedce9369
 
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655

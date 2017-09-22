@@ -167,13 +167,13 @@ func (g *GraphMetadata) GetEdges() (db.Iterator, error) {
 	return db.NewCombinedIterator(session, g.edgeQuery(conf, session).Iter()), nil
 }
 
-func (g *GraphMetadata) AllEdges() ([]*GraphEdge, error) {
+func (g *GraphMetadata) AllEdges() ([]GraphEdge, error) {
 	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	defer session.Close()
-	out := []*GraphEdge{}
+	out := []GraphEdge{}
 
 	if err := g.edgeQuery(conf, session).All(out); err != nil {
 		return nil, errors.WithStack(err)
@@ -197,14 +197,14 @@ func (g *GraphMetadata) GetNodes() (db.Iterator, error) {
 	return db.NewCombinedIterator(session, g.nodeQuery(conf, session).Iter()), nil
 }
 
-func (g *GraphMetadata) AllNodes() ([]*GraphNode, error) {
+func (g *GraphMetadata) AllNodes() ([]GraphNode, error) {
 	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	defer session.Close()
 
-	out := []*GraphNode{}
+	out := []GraphNode{}
 	if err = g.nodeQuery(conf, session).All(out); err != nil {
 		return nil, errors.WithStack(err)
 	}

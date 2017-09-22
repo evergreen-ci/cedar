@@ -15,9 +15,9 @@ import (
 // (files, symbols, libraries, artifacts) along with its denormalized
 // relationships, as well as the nornmalized relationships.
 type Graph struct {
-	Edges   []*Edge `json:"edges"`
-	Nodes   []*Node `json:"nodes"`
-	BuildID string  `json:"id,omitempty"`
+	Edges   []Edge `json:"edges"`
+	Nodes   []Node `json:"nodes"`
+	BuildID string `json:"id,omitempty"`
 }
 
 // Node represents a single item in the graph, either a symbol, file,

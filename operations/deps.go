@@ -21,6 +21,7 @@ func Dagger() cli.Command {
 			filterLibrary(),
 			loadGraphToDB(),
 			cleanDB(),
+			groups(),
 		},
 	}
 }
@@ -62,9 +63,14 @@ func filterLibrary() cli.Command {
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
 			}
+			et := []depgraph.EdgeType{
+				depgraph.ImplicitLibraryToLibrary,
+				depgraph.LibraryToLibrary,
+				depgraph.LibraryToSymbol,
+			}
 
 			// make graph library only
-			libgraph := graph.Filter(depgraph.LibraryToLibrary, depgraph.Library)
+			libgraph := graph.Filter(et, []depgraph.NodeType{depgraph.Library, depgraph.Symbol})
 
 			return errors.Wrap(writeJSON(c.String("output"), libgraph),
 				"problem writing filtered graph")
@@ -108,7 +114,7 @@ func loadGraphToDB() cli.Command {
 
 			catcher := grip.NewSimpleCatcher()
 			for _, node := range graph.Nodes {
-				ndb := gdb.MakeNode(node)
+				ndb := gdb.MakeNode(&node)
 				if err = ndb.Insert(); err != nil {
 					catcher.Add(err)
 					continue
@@ -117,7 +123,7 @@ func loadGraphToDB() cli.Command {
 			}
 
 			for _, edge := range graph.Edges {
-				edb := gdb.MakeEdge(edge)
+				edb := gdb.MakeEdge(&edge)
 				if err = edb.Insert(); err != nil {
 					catcher.Add(err)
 					continue
@@ -181,4 +187,48 @@ func cleanDB() cli.Command {
 		},
 	}
 
+}
+
+func groups() cli.Command {
+	return cli.Command{
+		Name:  "groups",
+		Usage: "return list of dependency cycles/groups",
+		Flags: depsFlags(
+			cli.StringFlag{
+				Name:  "output",
+				Value: "cycleReport.json",
+				Usage: "specify the path to the filtered library graph",
+			},
+			cli.StringFlag{
+				Name:  "prefix",
+				Value: "build/cached/",
+				Usage: "specify a prefix for objects to remove",
+			}),
+		Action: func(c *cli.Context) error {
+			fn := c.String("path")
+			grip.Infoln("starting to load graph from:", fn)
+			graph, err := depgraph.New("cli", fn)
+			if err != nil {
+				return errors.Wrap(err, "problem loading graph")
+			}
+
+			graph.AddImplicitEdges()
+
+			et := []depgraph.EdgeType{
+				depgraph.ImplicitLibraryToLibrary,
+				depgraph.LibraryToLibrary,
+			}
+
+			libgraph := graph.Filter(et, []depgraph.NodeType{depgraph.Library, depgraph.Symbol})
+			grip.Infof("filtered library dependency graph with %d nodes and %d edges",
+				len(libgraph.Nodes), len(libgraph.Edges))
+
+			report := depgraph.NewCycleReport(graph.Mapping(c.String("prefix")))
+			grip.Infof("found %d cycles in graph with %d nodes",
+				len(report.Cycles), len(report.Graph))
+
+			return errors.Wrap(writeJSON(c.String("output"), report),
+				"problem cycle report")
+		},
+	}
 }
