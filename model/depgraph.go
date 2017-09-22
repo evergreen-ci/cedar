@@ -5,8 +5,8 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/db"
+	"github.com/pkg/errors"
 	"github.com/tychoish/depgraph"
 )
 
@@ -18,12 +18,14 @@ const (
 
 type GraphMetadata struct {
 	BuildID   string `bson:"_id"`
+	Complete  bool   `bson:"complete"`
 	populated bool
 	env       sink.Environment
 }
 
 var (
-	graphMetadataIDKey = bsonutil.MustHaveTag(GraphMetadata{}, "BuildID")
+	graphMetadataIDKey       = bsonutil.MustHaveTag(GraphMetadata{}, "BuildID")
+	graphMetadataCompleteKey = bsonutil.MustHaveTag(GraphMetadata{}, "Complete")
 )
 
 func (g *GraphMetadata) Setup(e sink.Environment) { g.env = e }
@@ -37,6 +39,21 @@ func (g *GraphMetadata) Insert() error {
 	defer session.Close()
 
 	return errors.WithStack(session.DB(conf.DatabaseName).C(depMetadataCollection).Insert(g))
+}
+
+func (g *GraphMetadata) MarkComplete() error {
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	err = session.DB(conf.DatabaseName).C(depMetadataCollection).UpdateId(g.BuildID,
+		db.Document{
+			"$set": db.Document{graphMetadataCompleteKey: true},
+		})
+
+	return errors.WithStack(err)
 }
 
 func (g *GraphMetadata) Find(id string) error {

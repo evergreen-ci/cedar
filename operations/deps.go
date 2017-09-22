@@ -1,11 +1,11 @@
 package operations
 
 import (
-	"encoding/json"
-	"os"
-
+	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/tychoish/depgraph"
 	"github.com/urfave/cli"
 )
@@ -19,6 +19,7 @@ func Dagger() cli.Command {
 		Subcommands: []cli.Command{
 			smoke(),
 			filterLibrary(),
+			loadGraphToDB(),
 		},
 	}
 }
@@ -68,29 +69,72 @@ func filterLibrary() cli.Command {
 				"problem writing filtered graph")
 		},
 	}
-
 }
 
-func writeJSON(fn string, data interface{}) error {
-	out, err := json.MarshalIndent(data, "", "   ")
-	if err != nil {
-		return errors.Wrap(err, "problem writing libgraph to disk")
+func loadGraphToDB() cli.Command {
+	return cli.Command{
+		Name:  "load",
+		Usage: "load a graph from a file into a local database",
+		Flags: dbFlags(depsFlags()...),
+		Action: func(c *cli.Context) error {
+			mongodbURI := c.String("dbUri")
+			dbName := c.String("dbName")
+			fn := c.String("path")
+
+			env := sink.GetEnvironment()
+
+			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
+			grip.Infoln("loading graph from:", fn)
+			graph, err := depgraph.New("cli", fn)
+			if err != nil {
+				return errors.Wrap(err, "problem loading graph")
+			}
+
+			if graph.BuildID == "" {
+				graph.BuildID = uuid.NewV4().String()
+			}
+
+			gdb := &model.GraphMetadata{
+				BuildID: graph.BuildID,
+			}
+			gdb.Setup(env)
+			if err := gdb.Insert(); err != nil {
+				return errors.Wrapf(err, "problem saving root node for %s", graph.BuildID)
+			}
+
+			catcher := grip.NewSimpleCatcher()
+			for _, node := range graph.Nodes {
+				ndb := gdb.MakeNode(node)
+				if err = ndb.Insert(); err != nil {
+					catcher.Add(err)
+					continue
+				}
+				grip.Debugf("adding node for '%s'", ndb.ID)
+			}
+
+			for _, edge := range graph.Edges {
+				edb := gdb.MakeEdge(edge)
+				if err = edb.Insert(); err != nil {
+					catcher.Add(err)
+					continue
+				}
+				grip.Debugf("adding edge for '%s'", edb.ID)
+			}
+
+			if catcher.HasErrors() {
+				return catcher.Resolve()
+			}
+			if err = gdb.MarkComplete(); err != nil {
+				return errors.WithStack(err)
+			}
+
+			grip.Info("adding graph '%s' with '%d' nodes and '%d' edges")
+
+			return err
+		},
 	}
 
-	f, err := os.Create(fn)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer f.Close()
-
-	out = append(out, []byte("\n")...)
-	if _, err = f.Write(out); err != nil {
-		return err
-	}
-
-	if err = f.Sync(); err != nil {
-		return err
-	}
-
-	return nil
 }
