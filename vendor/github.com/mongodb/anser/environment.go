@@ -18,9 +18,10 @@ import (
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
+	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -33,12 +34,7 @@ var globalEnv *envState
 
 var dialTimeout = 10 * time.Second
 
-func init() {
-	globalEnv = &envState{
-		migrations: make(map[string]db.MigrationOperation),
-		processor:  make(map[string]db.Processor),
-	}
-}
+func init() { ResetEnvironment() }
 
 // Environment exposes the execution environment for the migration
 // utility, and is the method by which, potentially serialized job
@@ -58,12 +54,24 @@ type Environment interface {
 	RegisterDocumentProcessor(string, db.Processor) error
 	GetDocumentProcessor(string) (db.Processor, bool)
 	NewDependencyManager(string, map[string]interface{}, model.Namespace) dependency.Manager
+	RegisterCloser(func() error)
+	Close() error
 }
 
 // GetEnvironment returns the global environment object. Because this
 // produces a pointer to the global object, make sure that you have a
 // way to replace it with a mock as needed for testing.
 func GetEnvironment() Environment { return globalEnv }
+
+// ResetEnvironment resets the global environment object. Use this
+// only in testing (and only when you must.) It is not safe for
+// concurrent use.
+func ResetEnvironment() {
+	globalEnv = &envState{
+		migrations: make(map[string]db.MigrationOperation),
+		processor:  make(map[string]db.Processor),
+	}
+}
 
 type envState struct {
 	queue      amboy.Queue
@@ -72,6 +80,7 @@ type envState struct {
 	deps       model.DependencyNetworker
 	migrations map[string]db.MigrationOperation
 	processor  map[string]db.Processor
+	closers    []func() error
 	isSetup    bool
 	mu         sync.RWMutex
 }
@@ -200,4 +209,32 @@ func (e *envState) NewDependencyManager(migrationID string, query map[string]int
 	d.NS = ns
 
 	return d
+}
+
+func (e *envState) RegisterCloser(closer func() error) {
+	if closer == nil {
+		return
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.closers = append(e.closers, closer)
+}
+
+func (e *envState) Close() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	grip.Noticef("closing %d resources registered in the anser environment", len(e.closers))
+
+	catcher := grip.NewSimpleCatcher()
+	for _, closer := range e.closers {
+		catcher.Add(closer())
+	}
+
+	if catcher.HasErrors() {
+		grip.Warningf("encountered %d errors closingoanser resources, out of %d", catcher.Len(), len(e.closers))
+	}
+
+	return catcher.Resolve()
 }
