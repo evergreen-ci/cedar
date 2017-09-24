@@ -144,7 +144,7 @@ func (g *GraphMetadata) MakeEdge(source *depgraph.Edge) *GraphEdge {
 	}
 
 	return &GraphEdge{
-		ID:        fmt.Sprintf("%s.%s.%d", g.BuildID, source.Type, source.FromNode.GraphID),
+		ID:        fmt.Sprintf("%s.%s", g.BuildID, source.ID()),
 		Graph:     g.BuildID,
 		Edge:      *source,
 		populated: true,
@@ -206,6 +206,38 @@ func (g *GraphMetadata) AllNodes() ([]GraphNode, error) {
 
 	out := []GraphNode{}
 	if err = g.nodeQuery(conf, session).All(out); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return out, nil
+}
+
+func (g *GraphMetadata) Resolve() (*depgraph.Graph, error) {
+	iter, err := g.GetEdges()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	out := &depgraph.Graph{}
+	edge := &GraphEdge{}
+	for iter.Next(edge) {
+		out.Edges = append(out.Edges, edge.Edge)
+	}
+
+	if err = iter.Close(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	iter, err = g.GetNodes()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	node := &GraphNode{}
+	for iter.Next(node) {
+		out.Nodes = append(out.Nodes, node.Node)
+	}
+
+	if err = iter.Close(); err != nil {
 		return nil, errors.WithStack(err)
 	}
 

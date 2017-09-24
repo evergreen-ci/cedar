@@ -19,7 +19,7 @@ func (g *Graph) addAllImplicitLibraryDependencyEdges() {
 func (g *Graph) addImplicitEdgesForNode(n Node) {
 	var edgeType EdgeType
 
-	switch n.Relationships.Type {
+	switch n.Type() {
 	case Library:
 		edgeType = ImplicitLibraryToLibrary
 	case Artifact:

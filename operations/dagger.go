@@ -17,33 +17,11 @@ func Dagger() cli.Command {
 		Name:  "dagger",
 		Usage: "access mongodb library dependency information",
 		Subcommands: []cli.Command{
-			smoke(),
 			filterLibrary(),
 			loadGraphToDB(),
 			cleanDB(),
 			groups(),
-			dot(),
-		},
-	}
-}
-
-func smoke() cli.Command {
-	return cli.Command{
-		Name:  "smoke",
-		Usage: "load a graph to perform a smoke test",
-		Flags: depsFlags(),
-		Action: func(c *cli.Context) error {
-			fn := c.String("path")
-			grip.Infoln("starting to load graph from:", fn)
-			graph, err := depgraph.New("cli", fn)
-			if err != nil {
-				return errors.Wrap(err, "problem loading graph")
-			}
-
-			grip.Infof("first node: %+v", graph.Nodes[0])
-			grip.Infof("first edge: %+v", graph.Edges[0])
-
-			return nil
+			process(),
 		},
 	}
 }
@@ -64,14 +42,21 @@ func filterLibrary() cli.Command {
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
 			}
-			et := []depgraph.EdgeType{
-				depgraph.ImplicitLibraryToLibrary,
-				depgraph.LibraryToLibrary,
-				depgraph.LibraryToSymbol,
-			}
+
+			graph.Annotate() // add in implicit deps
 
 			// make graph library only
-			libgraph := graph.Filter(et, []depgraph.NodeType{depgraph.Library, depgraph.Symbol})
+			libgraph := graph.Filter(
+				[]depgraph.EdgeType{
+					depgraph.ImplicitLibraryToLibrary,
+					depgraph.LibraryToLibrary,
+					depgraph.LibraryToSymbol,
+				},
+				[]depgraph.NodeType{
+					depgraph.Library,
+				})
+
+			libgraph.Prune("third_party")
 
 			return errors.Wrap(writeJSON(c.String("output"), libgraph),
 				"problem writing filtered graph")
@@ -239,10 +224,10 @@ func groups() cli.Command {
 	}
 }
 
-func dot() cli.Command {
+func process() cli.Command {
 	return cli.Command{
-		Name:  "dot",
-		Usage: "return dot format of a graph",
+		Name:  "process",
+		Usage: "takes a dagger graph and filters, prunes, and renders several output formats",
 		Flags: depsFlags(
 			cli.StringFlag{
 				Name:  "output",
@@ -258,7 +243,15 @@ func dot() cli.Command {
 				Name:  "prune",
 				Usage: "drop edges containing this string",
 			},
-			cli.BoolFlag{
+			cli.BoolTFlag{
+				Name:  "noCycle",
+				Usage: "disables the cycle report",
+			},
+			cli.BoolTFlag{
+				Name:  "noDot",
+				Usage: "disables dot output",
+			},
+			cli.BoolTFlag{
 				Name:  "full",
 				Usage: "render the full graph, otherwise focus on library relationships",
 			}),
@@ -272,40 +265,44 @@ func dot() cli.Command {
 
 			graph.Annotate()
 
-			if !c.Bool("full") {
-				et := []depgraph.EdgeType{
-					depgraph.ImplicitLibraryToLibrary,
-					depgraph.LibraryToLibrary,
-				}
-
-				graph = graph.Filter(et, []depgraph.NodeType{depgraph.Library})
-				grip.Infof("filtered library dependency graph with %d nodes and %d edges",
+			if c.BoolT("full") {
+				graph = graph.Filter(
+					[]depgraph.EdgeType{
+						depgraph.ImplicitLibraryToLibrary,
+						depgraph.LibraryToLibrary,
+					},
+					[]depgraph.NodeType{
+						depgraph.Library,
+					})
+				grip.Infof("filtered library dependency to graph with %d nodes and %d edges",
 					len(graph.Nodes), len(graph.Edges))
 			}
 
 			graph.Prune(c.String("prune"))
-
 			report := graph.Mapping(c.String("prefix"))
-
-			grip.Info("generating dot file")
-
-			dot := report.Dot()
-			cycles := depgraph.NewCycleReport(report)
-
-			grip.Infof("found %d cycles in graph with %d nodes",
-				len(cycles.Cycles), len(cycles.Graph))
-
-			grip.Info("writing dot file to disk")
-			if err = writeString(c.String("output")+".dot", dot); err != nil {
-				return errors.Wrap(err, "problem writing dot file")
-			}
 
 			if err = writeJSON(c.String("output")+".json", report); err != nil {
 				return errors.Wrap(err, "problem writing json file")
 			}
 
-			if err = writeJSON(c.String("output")+"-cycles.json", cycles); err != nil {
-				return errors.Wrap(err, "problem writing json file")
+			if c.BoolT("noDot") {
+				grip.Info("generating dot file")
+				dot := report.Dot()
+				grip.Info("writing dot file to disk")
+
+				if err = writeString(c.String("output")+".dot", dot); err != nil {
+					return errors.Wrap(err, "problem writing dot file")
+				}
+			}
+
+			if c.BoolT("noCycle") {
+				cycles := depgraph.NewCycleReport(report)
+				grip.Infof("found %d cycles in graph with %d nodes",
+					len(cycles.Cycles), len(cycles.Graph))
+
+				if err = writeJSON(c.String("output")+"-cycles.json", cycles); err != nil {
+					return errors.Wrap(err, "problem writing json file")
+				}
 			}
 
 			return nil

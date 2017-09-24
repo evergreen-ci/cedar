@@ -33,13 +33,13 @@ func (g *Graph) Filter(et []EdgeType, nt []NodeType) *Graph {
 	}
 
 	for _, edge := range g.Edges {
-		if typeSliceIs(etint, int(edge.Type)) {
+		if typeSliceIs(etint, int(edge.Type())) {
 			output.Edges = append(output.Edges, edge)
 		}
 	}
 
 	for _, node := range g.Nodes {
-		if typeSliceIs(ntint, int(node.Relationships.Type)) {
+		if typeSliceIs(ntint, int(node.Type())) {
 			output.Nodes = append(output.Nodes, node)
 		}
 	}
@@ -60,43 +60,6 @@ func (g *Graph) Prune(matching string) {
 		if strings.Contains(node.Name, matching) {
 			continue
 		}
-		files := []string{}
-		for _, f := range node.Relationships.Files {
-			if strings.Contains(f, matching) {
-				continue
-			}
-			files = append(files, f)
-		}
-		node.Relationships.Files = files
-
-		files = []string{}
-		for _, f := range node.Relationships.DependentFiles {
-			if strings.Contains(f, matching) {
-				continue
-			}
-			files = append(files, f)
-		}
-		node.Relationships.DependentFiles = files
-
-		files = []string{}
-		for _, f := range node.Relationships.Libraries {
-			if strings.Contains(f, matching) {
-				continue
-			}
-
-			files = append(files, f)
-		}
-		node.Relationships.Libraries = files
-
-		files = []string{}
-		for _, f := range node.Relationships.DependentLibraries {
-			if strings.Contains(f, matching) {
-				continue
-			}
-
-			files = append(files, f)
-		}
-		node.Relationships.DependentLibraries = files
 
 		newNodes = append(newNodes, node)
 	}
