@@ -22,6 +22,7 @@ func Dagger() cli.Command {
 			loadGraphToDB(),
 			cleanDB(),
 			groups(),
+			dot(),
 		},
 	}
 }
@@ -200,6 +201,10 @@ func groups() cli.Command {
 				Usage: "specify the path to the filtered library graph",
 			},
 			cli.StringFlag{
+				Name:  "prune",
+				Usage: "drop edges containing this string",
+			},
+			cli.StringFlag{
 				Name:  "prefix",
 				Value: "build/cached/",
 				Usage: "specify a prefix for objects to remove",
@@ -212,14 +217,15 @@ func groups() cli.Command {
 				return errors.Wrap(err, "problem loading graph")
 			}
 
-			graph.AddImplicitEdges()
+			graph.Prune(c.String("prune"))
+			graph.Annotate()
 
 			et := []depgraph.EdgeType{
 				depgraph.ImplicitLibraryToLibrary,
 				depgraph.LibraryToLibrary,
 			}
 
-			libgraph := graph.Filter(et, []depgraph.NodeType{depgraph.Library, depgraph.Symbol})
+			libgraph := graph.Filter(et, []depgraph.NodeType{depgraph.Library})
 			grip.Infof("filtered library dependency graph with %d nodes and %d edges",
 				len(libgraph.Nodes), len(libgraph.Edges))
 
@@ -229,6 +235,81 @@ func groups() cli.Command {
 
 			return errors.Wrap(writeJSON(c.String("output"), report),
 				"problem cycle report")
+		},
+	}
+}
+
+func dot() cli.Command {
+	return cli.Command{
+		Name:  "dot",
+		Usage: "return dot format of a graph",
+		Flags: depsFlags(
+			cli.StringFlag{
+				Name:  "output",
+				Value: "libs",
+				Usage: "specify the path to the filtered library graph, dot/json extensions added",
+			},
+			cli.StringFlag{
+				Name:  "prefix",
+				Value: "build/cached/",
+				Usage: "specify a prefix for objects to remove",
+			},
+			cli.StringFlag{
+				Name:  "prune",
+				Usage: "drop edges containing this string",
+			},
+			cli.BoolFlag{
+				Name:  "full",
+				Usage: "render the full graph, otherwise focus on library relationships",
+			}),
+		Action: func(c *cli.Context) error {
+			fn := c.String("path")
+			grip.Infoln("starting to load graph from:", fn)
+			graph, err := depgraph.New("cli", fn)
+			if err != nil {
+				return errors.Wrap(err, "problem loading graph")
+			}
+
+			graph.Annotate()
+
+			if !c.Bool("full") {
+				et := []depgraph.EdgeType{
+					depgraph.ImplicitLibraryToLibrary,
+					depgraph.LibraryToLibrary,
+				}
+
+				graph = graph.Filter(et, []depgraph.NodeType{depgraph.Library})
+				grip.Infof("filtered library dependency graph with %d nodes and %d edges",
+					len(graph.Nodes), len(graph.Edges))
+			}
+
+			graph.Prune(c.String("prune"))
+
+			report := graph.Mapping(c.String("prefix"))
+
+			grip.Info("generating dot file")
+
+			dot := report.Dot()
+			cycles := depgraph.NewCycleReport(report)
+
+			grip.Infof("found %d cycles in graph with %d nodes",
+				len(cycles.Cycles), len(cycles.Graph))
+
+			grip.Info("writing dot file to disk")
+			if err = writeString(c.String("output")+".dot", dot); err != nil {
+				return errors.Wrap(err, "problem writing dot file")
+			}
+
+			if err = writeJSON(c.String("output")+".json", report); err != nil {
+				return errors.Wrap(err, "problem writing json file")
+			}
+
+			if err = writeJSON(c.String("output")+"-cycles.json", cycles); err != nil {
+				return errors.Wrap(err, "problem writing json file")
+			}
+
+			return nil
+
 		},
 	}
 }

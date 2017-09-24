@@ -2,6 +2,7 @@ package depgraph
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,6 +19,10 @@ type Graph struct {
 	Edges   []Edge `json:"edges"`
 	Nodes   []Node `json:"nodes"`
 	BuildID string `json:"id,omitempty"`
+
+	mapsPopulated bool
+	edges         map[string]Edge
+	nodes         map[string]Node
 }
 
 // Node represents a single item in the graph, either a symbol, file,
@@ -49,6 +54,8 @@ type Edge struct {
 	ToNodes  []NodeRelationship `bson:"to_node" json:"to_node"`
 }
 
+func (e Edge) ID() string { return fmt.Sprintf("%s.%s", e.FromNode.Name, e.Type) }
+
 // New parses a graph and returns the graph structure. New takes a
 // build id and a path to the graph source. The path may either be a
 // URL which it will download into the current directory, or the location
@@ -76,7 +83,7 @@ func New(build, path string) (*Graph, error) {
 	if err = json.Unmarshal(data, g); err != nil {
 		return nil, errors.Wrap(err, "problem reading json")
 	}
-
+	g.refresh() // populate the maps
 	g.BuildID = build
 
 	return g, nil

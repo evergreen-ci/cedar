@@ -2,6 +2,8 @@ package depgraph
 
 import (
 	"strings"
+
+	"github.com/mongodb/grip"
 )
 
 func typeSliceIs(slice []int, v int) bool {
@@ -14,16 +16,18 @@ func typeSliceIs(slice []int, v int) bool {
 	return false
 }
 
-// Fliter takes a graph and returns a subset of that graph with only
+// Filter takes a graph and returns a subset of that graph with only
 // the specified node and edge types.
 func (g *Graph) Filter(et []EdgeType, nt []NodeType) *Graph {
 	output := Graph{}
 
 	etint := make([]int, len(et))
 	ntint := make([]int, len(nt))
+
 	for idx := range et {
 		etint[idx] = int(et[idx])
 	}
+
 	for idx := range nt {
 		ntint[idx] = int(nt[idx])
 	}
@@ -43,24 +47,81 @@ func (g *Graph) Filter(et []EdgeType, nt []NodeType) *Graph {
 	return &output
 }
 
-type GraphMap map[string][]string
+// Prune takes a graph and removes all nodes with names contain the
+// specifying string. This modifies the state of the graph.
+func (g *Graph) Prune(matching string) {
+	if matching == "" {
+		grip.Warning("pruning nodes that match the empty strings is a noop")
+		return
+	}
 
-// Graph renders the edges of a graph into
-func (g *Graph) Mapping(stripPrefix string) GraphMap {
-	out := make(map[string][]string)
+	newNodes := []Node{}
+	for _, node := range g.Nodes {
+		if strings.Contains(node.Name, matching) {
+			continue
+		}
+		files := []string{}
+		for _, f := range node.Relationships.Files {
+			if strings.Contains(f, matching) {
+				continue
+			}
+			files = append(files, f)
+		}
+		node.Relationships.Files = files
 
+		files = []string{}
+		for _, f := range node.Relationships.DependentFiles {
+			if strings.Contains(f, matching) {
+				continue
+			}
+			files = append(files, f)
+		}
+		node.Relationships.DependentFiles = files
+
+		files = []string{}
+		for _, f := range node.Relationships.Libraries {
+			if strings.Contains(f, matching) {
+				continue
+			}
+
+			files = append(files, f)
+		}
+		node.Relationships.Libraries = files
+
+		files = []string{}
+		for _, f := range node.Relationships.DependentLibraries {
+			if strings.Contains(f, matching) {
+				continue
+			}
+
+			files = append(files, f)
+		}
+		node.Relationships.DependentLibraries = files
+
+		newNodes = append(newNodes, node)
+	}
+	grip.Infof("pruning %d nodes", len(g.Nodes)-len(newNodes))
+	g.Nodes = newNodes
+
+	newEdges := []Edge{}
 	for _, edge := range g.Edges {
-		if len(edge.ToNodes) == 0 {
+		if strings.Contains(edge.FromNode.Name, matching) {
 			continue
 		}
 
-		targets := make([]string, len(edge.ToNodes))
-		for idx, toEdge := range edge.ToNodes {
-			targets[idx] = strings.TrimLeft(toEdge.Name, stripPrefix)
+		nodes := []NodeRelationship{}
+		for _, node := range edge.ToNodes {
+			if strings.Contains(node.Name, matching) {
+				continue
+			}
+
+			nodes = append(nodes, node)
 		}
+		edge.ToNodes = nodes
 
-		out[strings.TrimLeft(edge.FromNode.Name, stripPrefix)] = targets
+		newEdges = append(newEdges, edge)
 	}
-
-	return GraphMap(out)
+	grip.Infof("pruning %d edges", len(g.Edges)-len(newEdges))
+	g.Edges = newEdges
+	g.refresh()
 }

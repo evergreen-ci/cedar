@@ -29,7 +29,7 @@ imports:
 - name: github.com/tychoish/gimlet
   version: 28d9360d8c9a74d67d05cd1c02dfbe3bd0cc9b9c
 - name: github.com/tychoish/depgraph
-  version: 59aff1b9f9803894549c66e7d1b23cbaedce9369
+  version: ff7d6250f752c61b5a53b0ecf7a048079d139bcb
 
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
@@ -38,3 +38,5 @@ imports:
 
 - name: github.com/aws/aws-sdk-go
   version: cf66c348f82c79de333bd788d4f782c4d623ebad
+- name: github.com/awalterschulze/gographviz
+  version: 7c3cf72121515513fad9d6c9a090db2aa4f47143

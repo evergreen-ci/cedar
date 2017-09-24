@@ -5,7 +5,6 @@ import (
 
 	"github.com/evergreen-ci/sink/operations"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/send"
 	"github.com/urfave/cli"
 )
 
@@ -57,6 +56,4 @@ func buildApp() *cli.App {
 func loggingSetup(name, level string) {
 	grip.SetName(name)
 	grip.SetThreshold(level)
-	sender := send.MakeCallSiteConsoleLogger(3)
-	_ = grip.SetSender(sender)
 }
