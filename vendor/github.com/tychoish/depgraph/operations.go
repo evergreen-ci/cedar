@@ -33,7 +33,7 @@ func (g *Graph) Filter(et []EdgeType, nt []NodeType) *Graph {
 	}
 
 	for _, edge := range g.Edges {
-		if typeSliceIs(etint, int(edge.Type())) {
+		if typeSliceIs(etint, int(edge.Type)) {
 			output.Edges = append(output.Edges, edge)
 		}
 	}
