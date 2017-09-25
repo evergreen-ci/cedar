@@ -8,16 +8,12 @@ import (
 )
 
 var (
-	graphNodeIDKey                    = bsonutil.MustHaveTag(GraphNode{}, "ID")
-	graphNodeGraphNameKey             = bsonutil.MustHaveTag(GraphNode{}, "GraphName")
-	graphNodeNameKey                  = bsonutil.MustHaveTag(GraphNode{}, "Name")
-	graphNodeGraphIDKey               = bsonutil.MustHaveTag(GraphNode{}, "GraphID")
-	graphNodeRelationshipsKey         = bsonutil.MustHaveTag(GraphNode{}, "Relationships")
-	graphNodeRelationshipsDepLibsKey  = bsonutil.MustHaveTag(GraphNode{}.Relationships, "DependentLibraries")
-	graphNodeRelationshipsLibKey      = bsonutil.MustHaveTag(GraphNode{}.Relationships, "Libraries")
-	graphNodeRelationshipsFilesKey    = bsonutil.MustHaveTag(GraphNode{}.Relationships, "Files")
-	graphNodeRelationshipsDepFilesKey = bsonutil.MustHaveTag(GraphNode{}.Relationships, "DependentFiles")
-	graphNodeRelationshipsTypeKey     = bsonutil.MustHaveTag(GraphNode{}.Relationships, "Type")
+	graphNodeIDKey                = bsonutil.MustHaveTag(GraphNode{}, "ID")
+	graphNodeGraphNameKey         = bsonutil.MustHaveTag(GraphNode{}, "GraphName")
+	graphNodeNameKey              = bsonutil.MustHaveTag(GraphNode{}, "Name")
+	graphNodeGraphIDKey           = bsonutil.MustHaveTag(GraphNode{}, "GraphID")
+	graphNodeRelationshipsKey     = bsonutil.MustHaveTag(GraphNode{}, "Relationships")
+	graphNodeRelationshipsTypeKey = bsonutil.MustHaveTag(GraphNode{}.Relationships, "Type")
 )
 
 type GraphNode struct {
