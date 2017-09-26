@@ -8,18 +8,19 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 const (
-	enableEvergreenDistroCollector   = false
-	enableEvergreenProjectsCollector = false
+	enableEvergreenDistroCollector   = true
+	enableEvergreenProjectsCollector = true
 )
 
 // GetEvergreenDistrosData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
-func getEvergreenDistrosData(c *evergreen.Client, starttime time.Time, duration time.Duration) ([]model.EvergreenDistroCost, error) {
+func getEvergreenDistrosData(ctx context.Context, c *evergreen.Client, starttime time.Time, duration time.Duration) ([]model.EvergreenDistroCost, error) {
 	distros := []model.EvergreenDistroCost{}
-	evgDistros, err := c.GetEvergreenDistrosData(starttime, duration)
+	evgDistros, err := c.GetEvergreenDistrosData(ctx, starttime, duration)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting Evergreen distros data")
 	}
@@ -42,9 +43,9 @@ func convertEvgDistroToCostDistro(evgdc *evergreen.DistroCost) model.EvergreenDi
 
 // GetEvergreenProjectsData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
-func getEvergreenProjectsData(c *evergreen.Client, starttime time.Time, duration time.Duration) ([]model.EvergreenProjectCost, error) {
+func getEvergreenProjectsData(ctx context.Context, c *evergreen.Client, starttime time.Time, duration time.Duration) ([]model.EvergreenProjectCost, error) {
 	projects := []model.EvergreenProjectCost{}
-	evgProjects, err := c.GetEvergreenProjectsData(starttime, duration)
+	evgProjects, err := c.GetEvergreenProjectsData(ctx, starttime, duration)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting Evergreen projects data")
 	}
@@ -78,12 +79,12 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 	return p
 }
 
-func getEvergreenData(c *evergreen.Client, starttime time.Time, duration time.Duration) (*model.EvergreenCost, error) {
+func getEvergreenData(ctx context.Context, c *evergreen.Client, starttime time.Time, duration time.Duration) (*model.EvergreenCost, error) {
 	out := &model.EvergreenCost{}
 
 	if enableEvergreenDistroCollector {
 		grip.Info("Getting Evergreen Distros")
-		distros, err := getEvergreenDistrosData(c, starttime, duration)
+		distros, err := getEvergreenDistrosData(ctx, c, starttime, duration)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem getting distro data from evergreen")
 		}
@@ -92,7 +93,7 @@ func getEvergreenData(c *evergreen.Client, starttime time.Time, duration time.Du
 
 	if enableEvergreenProjectsCollector {
 		grip.Info("Getting Evergreen Projects")
-		projects, err := getEvergreenProjectsData(c, starttime, duration)
+		projects, err := getEvergreenProjectsData(ctx, c, starttime, duration)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem getting project data from evergreen")
 		}

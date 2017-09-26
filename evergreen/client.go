@@ -8,9 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jpillora/backoff"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 // Client holds the credentials for the Evergreen API.
@@ -60,6 +62,50 @@ func (c *Client) getURL(path string) string {
 	}
 
 	return strings.Join([]string{c.apiRoot, "api", "rest", "v2", path}, "/")
+}
+
+func (c *Client) getBackoff() *backoff.Backoff {
+	return &backoff.Backoff{
+		Min:    250 * time.Millisecond,
+		Max:    5 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+}
+
+func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.Response, error) {
+	if method == "" || path == "" {
+		return nil, errors.New("invalid request")
+	}
+
+	backoff := c.getBackoff()
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	for i := 0; i < 10; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, errors.New("request canceled")
+		case <-timer.C:
+			resp, err := c.doReq(method, path)
+			if err != nil {
+				grip.Warningf("request %s of %s encountered error '%v'; retrying", method, path, err)
+			} else if resp == nil {
+				grip.Warningf("request %s of %s encountered nil result; retrying", method, path)
+			} else if resp.StatusCode == http.StatusOK {
+				return resp, nil
+			} else if resp.StatusCode == http.StatusNotFound {
+				return nil, errors.Errorf("%s resource (%s) is not found", path, method)
+			} else if resp.StatusCode == http.StatusUnauthorized {
+				return nil, errors.Errorf("access denied for %s of %s", method, path)
+			} else {
+				grip.Infof("problem with status %s on request %s of %s, retrying", resp.StatusCode, method, path)
+			}
+
+			timer.Reset(backoff.Duration())
+		}
+	}
+
+	return nil, errors.New("%s of %s reached maximum retries")
 }
 
 // doReq performs a request of the given method type against path.
@@ -166,10 +212,10 @@ func (c *Client) getPath(link string) (string, error) {
 
 // get performs a GET request for path, transforms the response body to JSON,
 //and parses the link for the next page (this is empty if there is no next page)
-func (c *Client) get(path string) ([]byte, string, error) {
+func (c *Client) get(ctx context.Context, path string) ([]byte, string, error) {
 	link := ""
 	path = strings.TrimRight(path, ":")
-	resp, err := c.doReq("GET", path)
+	resp, err := c.retryRequest(ctx, "GET", path)
 	if err != nil {
 		return nil, "", errors.WithStack(err)
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 // Distro holds information for a single distro within a host.
@@ -26,8 +27,8 @@ type DistroCost struct {
 
 // GetDistros is a wrapper function of get for getting all distros from the
 // Evergreen API.
-func (c *Client) GetDistros() ([]*Distro, error) {
-	data, link, err := c.get("/distros")
+func (c *Client) GetDistros(ctx context.Context) ([]*Distro, error) {
+	data, link, err := c.get(ctx, "/distros")
 	if link != "" {
 		return nil, errors.New("/distros should not be a paginated route")
 	}
@@ -43,9 +44,9 @@ func (c *Client) GetDistros() ([]*Distro, error) {
 
 // GetDistroCost is a wrapper function of get for getting all distro costs
 // from the evergreen API given a distroID.
-func (c *Client) GetDistroCost(distroID, starttime, duration string) (*DistroCost, error) {
-	data, link, err := c.get("/cost/distro/" + distroID +
-		"?starttime=" + starttime + "&duration=" + duration)
+func (c *Client) GetDistroCost(ctx context.Context, distroID, starttime, duration string) (*DistroCost, error) {
+	data, link, err := c.get(ctx, "/cost/distro/"+distroID+
+		"?starttime="+starttime+"&duration="+duration)
 	if link != "" {
 		return nil, errors.New("/cost/distro should not be a paginated route")
 	}
@@ -61,9 +62,9 @@ func (c *Client) GetDistroCost(distroID, starttime, duration string) (*DistroCos
 
 // A helper function for GetEvergreenDistrosData that gets distroID of
 // all distros by calling GetDistros.
-func (c *Client) getDistroIDs() ([]string, error) {
+func (c *Client) getDistroIDs(ctx context.Context) ([]string, error) {
 	distroIDs := []string{}
-	distros, err := c.GetDistros()
+	distros, err := c.GetDistros(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting distros ids")
 	}
@@ -75,7 +76,7 @@ func (c *Client) getDistroIDs() ([]string, error) {
 
 // A helper function for GetEvergreenDistrosData that gets provider,
 // instance type, and total time for a given list of distros found.
-func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCost, error) {
+func (c *Client) getDistroCosts(ctx context.Context, distroIDs []string, st, dur string) ([]*DistroCost, error) {
 	distroCosts := []*DistroCost{}
 	costs := make(chan *DistroCost)
 	distros := make(chan string, len(distroIDs))
@@ -91,7 +92,11 @@ func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCo
 		go func() {
 			defer wg.Done()
 			for distro := range distros {
-				dc, err := c.GetDistroCost(distro, st, dur)
+				if ctx.Err() != nil {
+					return
+				}
+
+				dc, err := c.GetDistroCost(ctx, distro, st, dur)
 				catcher.Add(errors.Wrap(err, "error when getting distro cost data from Evergreen"))
 				costs <- dc
 			}
@@ -117,16 +122,16 @@ func (c *Client) getDistroCosts(distroIDs []string, st, dur string) ([]*DistroCo
 }
 
 // GetEvergreenDistrosData retrieves distros cost data from Evergreen.
-func (c *Client) GetEvergreenDistrosData(starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
+func (c *Client) GetEvergreenDistrosData(ctx context.Context, starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
 	st := starttime.Format("2006-01-02T15:04:05Z07:00")
 	dur := strings.TrimRight(duration.String(), "0s")
 
-	distroIDs, err := c.getDistroIDs()
+	distroIDs, err := c.getDistroIDs(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting distroID in GetEvergreenDistrosData")
 	}
 
-	distroCosts, err := c.getDistroCosts(distroIDs, st, dur)
+	distroCosts, err := c.getDistroCosts(ctx, distroIDs, st, dur)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in getting distro costs in GetEvergreenDistrosData")
 	}

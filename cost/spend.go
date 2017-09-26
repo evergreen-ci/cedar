@@ -24,7 +24,7 @@ func CreateReport(ctx context.Context, start time.Time, duration time.Duration, 
 
 	if enableEvergreenCollector {
 		c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
-		evg, err := getEvergreenData(c, reportRange.start, duration)
+		evg, err := getEvergreenData(ctx, c, reportRange.start, duration)
 		if err != nil {
 			return nil, errors.Wrap(err, "Problem retrieving evergreen information")
 		}

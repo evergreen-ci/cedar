@@ -6,6 +6,7 @@ import (
 
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 // Project holds information for a single distro within a host
@@ -41,13 +42,13 @@ type taskWorkUnit struct {
 
 // GetProjects is a wrapper function of get for retrieving all projects
 // from the Evergreen API.
-func (c *Client) getProjects() <-chan projectWorkUnit {
+func (c *Client) getProjects(ctx context.Context) <-chan projectWorkUnit {
 	output := make(chan projectWorkUnit)
 
 	go func() {
 		path := "projects"
 		for {
-			data, link, err := c.get(path)
+			data, link, err := c.get(ctx, path)
 			if err != nil {
 				output <- projectWorkUnit{
 					err: err,
@@ -83,15 +84,14 @@ func (c *Client) getProjects() <-chan projectWorkUnit {
 
 // GetTaskCostsForProject is a wrapper function of get for a getting all
 // task costs for a project in a given time range from the Evergreen API.
-func (c *Client) getTaskCostsByProject(projectID, starttime,
-	duration string) <-chan taskWorkUnit {
+func (c *Client) getTaskCostsByProject(ctx context.Context, projectID, starttime, duration string) <-chan taskWorkUnit {
 	output := make(chan taskWorkUnit)
 
 	go func() {
 		path := "cost/project/" + projectID + "/tasks?starttime=" + starttime +
 			"&duration=" + duration
 		for {
-			data, link, err := c.get(path)
+			data, link, err := c.get(ctx, path)
 			if err != nil {
 				output <- taskWorkUnit{
 					err: err,
@@ -128,15 +128,20 @@ func (c *Client) getTaskCostsByProject(projectID, starttime,
 
 // A helper function for GetEvergreenProjectsData that gets projectID of
 // all distros by calling GetProjects.
-func (c *Client) getProjectIDs() ([]string, error) {
+func (c *Client) getProjectIDs(ctx context.Context) ([]string, error) {
 	projectIDs := []string{}
 	catcher := grip.NewCatcher()
-	output := c.getProjects()
+	output := c.getProjects(ctx)
 	for out := range output {
 		if out.err != nil {
 			catcher.Add(out.err)
 			break
 		}
+		if ctx.Err() != nil {
+			catcher.Add(errors.New("operation canceled"))
+			break
+		}
+
 		projectIDs = append(projectIDs, out.output.Identifier)
 	}
 	if catcher.HasErrors() {
@@ -149,10 +154,10 @@ func (c *Client) getProjectIDs() ([]string, error) {
 }
 
 // A helper function
-func (c *Client) readTaskCostsByProject(projectID string, st, dur string) ([]TaskCost, error) {
+func (c *Client) readTaskCostsByProject(ctx context.Context, projectID string, st, dur string) ([]TaskCost, error) {
 	taskCosts := []TaskCost{}
 	catcher := grip.NewCatcher()
-	output := c.getTaskCostsByProject(projectID, st, dur)
+	output := c.getTaskCostsByProject(ctx, projectID, st, dur)
 	for out := range output {
 		if out.err != nil {
 			catcher.Add(out.err)
@@ -167,19 +172,19 @@ func (c *Client) readTaskCostsByProject(projectID string, st, dur string) ([]Tas
 }
 
 // GetEvergreenProjectsData retrieves project cost information from Evergreen.
-func (c *Client) GetEvergreenProjectsData(starttime time.Time, duration time.Duration) ([]ProjectUnit, error) {
+func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Time, duration time.Duration) ([]ProjectUnit, error) {
 	st := starttime.Format(time.RFC3339)
 	dur := duration.String()
 
 	projectUnits := []ProjectUnit{}
 	pu := ProjectUnit{}
 
-	projectIDs, err := c.getProjectIDs()
+	projectIDs, err := c.getProjectIDs(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting projects in GetEvergreenProjectsData")
 	}
 	for _, projectID := range projectIDs {
-		taskCosts, err := c.readTaskCostsByProject(projectID, st, dur)
+		taskCosts, err := c.readTaskCostsByProject(ctx, projectID, st, dur)
 		if err != nil {
 			return nil, errors.Wrap(err, "error in getting task costs in GetEvergreenProjectsData")
 		}
