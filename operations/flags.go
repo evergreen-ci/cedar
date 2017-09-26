@@ -49,6 +49,10 @@ func costFlags(flags ...cli.Flag) []cli.Flag {
 			Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
 			Value: defaultStart.Format(sink.ShortDateFormat),
 		},
+		cli.BoolFlag{
+			Name:  "continue-on-error",
+			Usage: "log but do not abort on collection errors",
+		},
 		cli.DurationFlag{
 			Name:  "duration",
 			Value: time.Hour,

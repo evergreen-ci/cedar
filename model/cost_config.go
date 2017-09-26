@@ -43,13 +43,15 @@ var (
 )
 
 type CostConfigOptions struct {
-	Directory string `bson:"directory,omitempty" json:"directory" yaml:"directory"`
-	Duration  string `bson:"duration" json:"duration" yaml:"duration"`
+	Directory              string `bson:"directory,omitempty" json:"directory" yaml:"directory"`
+	Duration               string `bson:"duration" json:"duration" yaml:"duration"`
+	AllowIncompleteResults bool   `bson:"allow_incomplete" json:"allow_incomplete" yaml:"allow_incomplete"`
 }
 
 var (
-	costConfigOptsDirectoryKey = bsonutil.MustHaveTag(CostConfigOptions{}, "Directory")
-	costConfigOptsDurationKey  = bsonutil.MustHaveTag(CostConfigOptions{}, "Duration")
+	costConfigOptsDirectoryKey       = bsonutil.MustHaveTag(CostConfigOptions{}, "Directory")
+	costConfigOptsDurationKey        = bsonutil.MustHaveTag(CostConfigOptions{}, "Duration")
+	costConfigOptsAllowIncompleteKey = bsonutil.MustHaveTag(CostConfigOptions{}, "AllowIncompleteResults")
 )
 
 type CostConfigAmazon struct {
