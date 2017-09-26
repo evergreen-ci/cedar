@@ -15,3 +15,4 @@ import:
 - package: github.com/tychoish/depgraph
 - package: gopkg.in/mgo.v2
 - package: github.com/awalterschulze/gographviz
+- package: github.com/tychoish/tarjana

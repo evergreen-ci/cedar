@@ -40,3 +40,6 @@ imports:
   version: cf66c348f82c79de333bd788d4f782c4d623ebad
 - name: github.com/awalterschulze/gographviz
   version: 7c3cf72121515513fad9d6c9a090db2aa4f47143
+
+- name: github.com/tychoish/tarjan
+  version: fcd3f3321826209eac4a6f41c0108624d948e499
