@@ -25,17 +25,17 @@ type TaskCost struct {
 
 // ProjectUnit holds together all relevant task cost information for a project
 type ProjectUnit struct {
-	Name  string      `json:"name"`
-	Tasks []*TaskCost `json:"tasks"`
+	Name  string     `json:"name"`
+	Tasks []TaskCost `json:"tasks"`
 }
 
 type projectWorkUnit struct {
-	output *Project
+	output Project
 	err    error
 }
 
 type taskWorkUnit struct {
-	taskcost *TaskCost
+	taskcost TaskCost
 	err      error
 }
 
@@ -50,17 +50,15 @@ func (c *Client) getProjects() <-chan projectWorkUnit {
 			data, link, err := c.get(path)
 			if err != nil {
 				output <- projectWorkUnit{
-					output: nil,
-					err:    err,
+					err: err,
 				}
 				break
 			}
 
-			projects := []*Project{}
+			projects := []Project{}
 			if err := json.Unmarshal(data, &projects); err != nil {
 				output <- projectWorkUnit{
-					output: nil,
-					err:    err,
+					err: err,
 				}
 				break
 			}
@@ -96,17 +94,15 @@ func (c *Client) getTaskCostsByProject(projectID, starttime,
 			data, link, err := c.get(path)
 			if err != nil {
 				output <- taskWorkUnit{
-					taskcost: nil,
-					err:      err,
+					err: err,
 				}
 				break
 			}
 
-			tasks := []*TaskCost{}
+			tasks := []TaskCost{}
 			if err := json.Unmarshal(data, &tasks); err != nil {
 				output <- taskWorkUnit{
-					taskcost: nil,
-					err:      err,
+					err: err,
 				}
 				break
 			}
@@ -153,13 +149,14 @@ func (c *Client) getProjectIDs() ([]string, error) {
 }
 
 // A helper function
-func (c *Client) readTaskCostsByProject(projectID string, st, dur string) ([]*TaskCost, error) {
-	taskCosts := []*TaskCost{}
+func (c *Client) readTaskCostsByProject(projectID string, st, dur string) ([]TaskCost, error) {
+	taskCosts := []TaskCost{}
 	catcher := grip.NewCatcher()
 	output := c.getTaskCostsByProject(projectID, st, dur)
 	for out := range output {
 		if out.err != nil {
 			catcher.Add(out.err)
+			continue
 		}
 		taskCosts = append(taskCosts, out.taskcost)
 	}

@@ -122,10 +122,8 @@ func (c *Client) GetEvergreenDistrosData(starttime time.Time, duration time.Dura
 	dur := strings.TrimRight(duration.String(), "0s")
 
 	distroIDs, err := c.getDistroIDs()
-	grip.Debug("found ")
 	if err != nil {
-		return nil,
-			errors.Wrap(err, "error in getting distroID in GetEvergreenDistrosData")
+		return nil, errors.Wrap(err, "error in getting distroID in GetEvergreenDistrosData")
 	}
 
 	distroCosts, err := c.getDistroCosts(distroIDs, st, dur)
