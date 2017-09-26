@@ -47,6 +47,10 @@ func loadConfig() cli.Command {
 			mongodbURI := c.String("dbUri")
 			dbName := c.String("dbName")
 
+			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
 			conf, err := model.LoadCostConfig(fileName)
 			if err != nil {
 				return errors.WithStack(err)
@@ -147,8 +151,8 @@ func write() cli.Command {
 			}
 
 			continueOnError := c.Bool("continue-on-error")
-			if !conf.AllowIncompleteResults && continueOnError {
-				conf.AllowIncompleteResults = continueOnError
+			if !conf.Opts.AllowIncompleteResults && continueOnError {
+				conf.Opts.AllowIncompleteResults = continueOnError
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
