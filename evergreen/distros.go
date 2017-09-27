@@ -99,6 +99,10 @@ func (c *Client) getDistroCosts(ctx context.Context, distroIDs []string, st, dur
 
 				dc, err := c.GetDistroCost(ctx, distro, st, dur)
 				catcher.Add(errors.Wrap(err, "error when getting distro cost data from Evergreen"))
+				if dc == nil {
+					continue
+				}
+
 				costs <- dc
 			}
 		}()

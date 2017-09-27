@@ -3,6 +3,7 @@ package evergreen
 import (
 	"encoding/json"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/mongodb/grip"
@@ -177,25 +178,57 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 	st := starttime.Format(time.RFC3339)
 	dur := duration.String()
 
-	projectUnits := []ProjectUnit{}
-	pu := ProjectUnit{}
-
 	projectIDs, err := c.getProjectIDs(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting projects in GetEvergreenProjectsData")
 	}
+
+	catcher := grip.NewSimpleCatcher()
+	wg := &sync.WaitGroup{}
+	costs := make(chan ProjectUnit)
+	projects := make(chan string, len(projectIDs))
+	projectUnits := []ProjectUnit{}
+
 	for _, idx := range rand.Perm(len(projectIDs)) {
-		projectID := projectIDs[idx]
-		taskCosts, err := c.readTaskCostsByProject(ctx, projectID, st, dur)
-		if err != nil {
-			return nil, errors.Wrap(err, "error in getting task costs in GetEvergreenProjectsData")
-		}
-		pu.Name = projectID
-		pu.Tasks = taskCosts
-		// Only include task costs with meaningful information
-		if len(taskCosts) > 0 {
+		projects <- projectIDs[idx]
+	}
+
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for projectID := range projects {
+				if ctx.Error() != nil {
+					return
+				}
+
+				taskCosts, err := c.readTaskCostsByProject(ctx, projectID, st, dur)
+				catcher.Add(errors.Wrap(err, "error in getting task costs in GetEvergreenProjectsData"))
+				if taskCosts == nil {
+					continue
+				}
+
+				costs <- ProjectUnit{
+					Name:  projectID,
+					Tasks: taskCosts,
+				}
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(costs)
+	}()
+
+	for pu := range costs {
+		if len(pu.Tasks) > 0 {
 			projectUnits = append(projectUnits, pu)
 		}
+	}
+
+	if catcher.HasErrors() {
+		return nil, catcher.Resolve()
 	}
 
 	return projectUnits, nil
