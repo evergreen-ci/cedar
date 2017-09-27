@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	enableEvergreenDistroCollector   = true
+	enableEvergreenDistroCollector   = false
 	enableEvergreenProjectsCollector = true
 )
 

@@ -2,6 +2,7 @@ package evergreen
 
 import (
 	"encoding/json"
+	"math/rand"
 	"time"
 
 	"github.com/mongodb/grip"
@@ -183,7 +184,8 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting projects in GetEvergreenProjectsData")
 	}
-	for _, projectID := range projectIDs {
+	for _, idx := range rand.Perm(len(projectIDs)) {
+		projectID := projectIDs[idx]
 		taskCosts, err := c.readTaskCostsByProject(ctx, projectID, st, dur)
 		if err != nil {
 			return nil, errors.Wrap(err, "error in getting task costs in GetEvergreenProjectsData")

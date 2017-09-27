@@ -36,13 +36,17 @@ func makeBuildCostReport() *buildCostReportJob {
 
 type buildCostReportJob struct {
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+	StartAt  time.Time     `bson:"start_at" json:"start_at" yaml:"start_at"`
+	Duration time.Duration `bson:"duration" json:"duration" yaml:"duration"`
 	env      sink.Environment
 }
 
-func NewBuildCostReport(env sink.Environment, name string) amboy.Job {
+func NewBuildCostReport(env sink.Environment, name string, startAt time.Time, duration time.Duration) amboy.Job {
 	j := makeBuildCostReport()
 
 	j.env = env
+	j.StartAt = startAt
+	j.Duration = duration
 	j.SetID(name)
 	return j
 }
@@ -64,13 +68,8 @@ func (j *buildCostReportJob) Run() {
 		return
 	}
 
-	// should be defined when the job is created.
-	startAt := time.Now().Add(-time.Hour)
-	startAt = time.Date(startAt.Year(), startAt.Month(), startAt.Day(), startAt.Hour(), 0, 0, 0, time.Local)
-	reportDur := time.Hour
-
 	// run the report
-	output, err := cost.CreateReport(ctx, startAt, reportDur, costConf)
+	output, err := cost.CreateReport(ctx, j.StartAt, j.Duration, costConf)
 	if err != nil {
 		grip.Warning(err)
 		j.AddError(errors.WithStack(err))
@@ -93,9 +92,8 @@ func (j *buildCostReportJob) Run() {
 	grip.Notice(message.Fields{
 		"id":      "build-cost-report",
 		"state":   "output",
-		"period":  reportDur.String(),
-		"starts":  startAt,
+		"period":  j.Duration.String(),
+		"starts":  j.StartAt,
 		"summary": summary,
 	})
-
 }

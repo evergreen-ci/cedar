@@ -2,6 +2,7 @@ package evergreen
 
 import (
 	"encoding/json"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +46,7 @@ func (c *Client) GetDistros(ctx context.Context) ([]*Distro, error) {
 // GetDistroCost is a wrapper function of get for getting all distro costs
 // from the evergreen API given a distroID.
 func (c *Client) GetDistroCost(ctx context.Context, distroID, starttime, duration string) (*DistroCost, error) {
-	data, link, err := c.get(ctx, "/cost/distro/"+distroID+
-		"?starttime="+starttime+"&duration="+duration)
+	data, link, err := c.get(ctx, "/cost/distro/"+distroID+"?starttime="+starttime+"&duration="+duration)
 	if link != "" {
 		return nil, errors.New("/cost/distro should not be a paginated route")
 	}
@@ -83,11 +83,12 @@ func (c *Client) getDistroCosts(ctx context.Context, distroIDs []string, st, dur
 	catcher := grip.NewCatcher()
 	wg := &sync.WaitGroup{}
 
-	for _, distro := range distroIDs {
-		distros <- distro
+	for _, idx := range rand.Perm(len(distroIDs)) {
+		distros <- distroIDs[idx]
 	}
+	close(distros)
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 16; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

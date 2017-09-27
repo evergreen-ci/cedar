@@ -108,12 +108,13 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 	})
 
 	amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), true, func(cue amboy.Queue) error {
-		t := time.Now()
-		lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
+		t := time.Now().Add(-time.Hour)
 
-		id := fmt.Sprintf("brc-%s", lastHour)
+		startAt := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
 
-		j := units.NewBuildCostReport(env, id)
+		id := fmt.Sprintf("brc-%s", startAt)
+
+		j := units.NewBuildCostReport(env, id, startAt, 30*time.Minute)
 		grip.Debug(cue.Put(j))
 		return nil
 	})

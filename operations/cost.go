@@ -96,13 +96,17 @@ func collectLoop() cli.Command {
 			reports := &model.CostReports{}
 			reports.Setup(env)
 
-			amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
-				t := time.Now().Add(-time.Hour)
-				lastHour := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
+			duration := c.Duration("duration")
+			startAt, err := time.Parse(sink.ShortDateFormat, c.String("start"))
+			if err != nil {
+				return errors.Wrapf(err, "problem parsing time from %s", c.String("start"))
+			}
 
-				id := fmt.Sprintf("brc-%s", lastHour)
+			amboy.IntervalQueueOperation(ctx, q, 5*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
 
-				j := units.NewBuildCostReport(env, id)
+				id := fmt.Sprintf("brc-%s", startAt)
+
+				j := units.NewBuildCostReport(env, id, startAt, duration)
 				if err := queue.Put(j); err != nil {
 					grip.Warning(err)
 					return err

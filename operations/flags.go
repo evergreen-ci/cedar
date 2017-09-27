@@ -41,6 +41,7 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 func costFlags(flags ...cli.Flag) []cli.Flag {
 	// get current time, round back to the start of the previous hour
 	now := time.Now().Add(-time.Hour)
+
 	defaultStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
 	return append(flags,
