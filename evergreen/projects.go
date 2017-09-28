@@ -149,6 +149,9 @@ func (c *Client) getProjectIDs(ctx context.Context) ([]string, error) {
 	if catcher.HasErrors() {
 		err := errors.Wrapf(catcher.Resolve(), "error getting projects ids; got:", projectIDs)
 		grip.Warning(err.Error())
+		if c.allowIncompleteResults {
+			return projectIDs, nil
+		}
 		return nil, err
 	}
 
@@ -228,6 +231,11 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 	}
 
 	if catcher.HasErrors() {
+		if c.allowIncompleteResults {
+			grip.Warning(catcher.Resolve())
+			return projectUnits, nil
+		}
+
 		return nil, catcher.Resolve()
 	}
 

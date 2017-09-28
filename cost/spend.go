@@ -24,8 +24,6 @@ type EvergreenReportOptions struct {
 	StartAt                time.Time
 }
 
-const enableEvergreenCollector = true
-
 // CreateReport returns an model.CostReport using a start string, duration, and Config information.
 func CreateReport(ctx context.Context, config *model.CostConfig, opts *EvergreenReportOptions) (*model.CostReport, error) {
 	grip.Info("Creating the report")
@@ -54,15 +52,17 @@ func CreateReport(ctx context.Context, config *model.CostConfig, opts *Evergreen
 	grip.Info("collected data from aws")
 
 	output.Report = model.CostReportMetadata{
-		Begin:     reportRange.start,
-		End:       reportRange.end,
-		Generated: time.Now(),
+		Begin:      reportRange.start,
+		End:        reportRange.end,
+		Generated:  time.Now(),
+		Incomplete: opts.AllowIncompleteResults,
 	}
 
 	return output, nil
 }
 
 func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) error {
+
 	var err error
 	// no directory, print to stdout
 	outputDir := conf.Opts.Directory
