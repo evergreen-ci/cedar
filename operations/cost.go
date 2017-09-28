@@ -72,7 +72,7 @@ func collectLoop() cli.Command {
 	return cli.Command{
 		Name:  "collect",
 		Usage: "collect a cost report every hour, saving the results to mongodb",
-		Flags: dbFlags(costFlags()...),
+		Flags: dbFlags(),
 		Action: func(c *cli.Context) error {
 			mongodbURI := c.String("dbUri")
 			dbName := c.String("dbName")
@@ -96,23 +96,23 @@ func collectLoop() cli.Command {
 			reports := &model.CostReports{}
 			reports.Setup(env)
 
-			duration := c.Duration("duration")
-			startAt, err := time.Parse(sink.ShortDateFormat, c.String("start"))
-			if err != nil {
-				return errors.Wrapf(err, "problem parsing time from %s", c.String("start"))
-			}
-
 			amboy.IntervalQueueOperation(ctx, q, 5*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
+				now := time.Now().Add(-time.Hour)
 
-				id := fmt.Sprintf("brc-%s", startAt)
+				opts := &cost.EvergreenReportOptions{
+					StartAt:  time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC),
+					Duration: time.Hour,
+				}
 
-				j := units.NewBuildCostReport(env, id, startAt, duration)
+				id := fmt.Sprintf("brc-%s", opts.StartAt)
+
+				j := units.NewBuildCostReport(env, id, opts)
 				if err := queue.Put(j); err != nil {
 					grip.Warning(err)
 					return err
 				}
 
-				grip.Noticef("scheduled build cost report %s at [%s]", id, time.Now())
+				grip.Noticef("scheduled build cost report %s at [%s]", id, now)
 
 				numReports, _ := reports.Count()
 				grip.Info(message.Fields{
@@ -162,7 +162,12 @@ func write() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if err := writeCostReport(ctx, conf, start, dur); err != nil {
+			opts := cost.EvergreenReportOptions{
+				StartAt:  start,
+				Duration: dur,
+			}
+
+			if err := writeCostReport(ctx, conf, &opts); err != nil {
 				return errors.Wrap(err, "problem writing cost report")
 			}
 
@@ -171,13 +176,13 @@ func write() cli.Command {
 	}
 }
 
-func writeCostReport(ctx context.Context, conf *model.CostConfig, start time.Time, dur time.Duration) error {
-	duration, err := conf.GetDuration(dur)
+func writeCostReport(ctx context.Context, conf *model.CostConfig, opts *cost.EvergreenReportOptions) error {
+	duration, err := conf.GetDuration(opts.Duration)
 	if err != nil {
 		return errors.Wrap(err, "Problem with duration")
 	}
 
-	report, err := cost.CreateReport(ctx, start, duration, conf)
+	report, err := cost.CreateReport(ctx, conf, opts)
 	if err != nil {
 		return errors.Wrap(err, "Problem generating report")
 	}

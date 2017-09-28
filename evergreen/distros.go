@@ -26,59 +26,45 @@ type DistroCost struct {
 	SumEstimatedCost float64       `json:"sum_estimated_cost"`
 }
 
-// GetDistros is a wrapper function of get for getting all distros from the
+// GetDistros returns a slice of the names of all distros from the
 // Evergreen API.
-func (c *Client) GetDistros(ctx context.Context) ([]*Distro, error) {
+func (c *Client) GetDistros(ctx context.Context) ([]string, error) {
 	data, link, err := c.get(ctx, "/distros")
-	if link != "" {
-		return nil, errors.New("/distros should not be a paginated route")
-	}
 	if err != nil {
+		if c.allowIncompleteResults {
+			return []string{}, nil
+		}
 		return nil, errors.Wrap(err, "error in getting distros")
 	}
-	distros := []*Distro{}
+	grip.WarningWhen(link != "", "/distros should not be a paginated route")
+	distros := []Distro{}
 	if err := json.Unmarshal(data, &distros); err != nil {
-		return nil, err
+		if c.allowIncompleteResults {
+			return []string{}, nil
+		}
+		return nil, errors.WithStack(err)
 	}
-	return distros, nil
-}
 
-// GetDistroCost is a wrapper function of get for getting all distro costs
-// from the evergreen API given a distroID.
-func (c *Client) GetDistroCost(ctx context.Context, distroID, starttime, duration string) (*DistroCost, error) {
-	data, link, err := c.get(ctx, "/cost/distro/"+distroID+"?starttime="+starttime+"&duration="+duration)
-	if link != "" {
-		return nil, errors.New("/cost/distro should not be a paginated route")
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "error in GetDistroCost")
-	}
-	distro := &DistroCost{}
-	if err := json.Unmarshal(data, &distro); err != nil {
-		return nil, err
-	}
-	return distro, nil
-}
-
-// A helper function for GetEvergreenDistrosData that gets distroID of
-// all distros by calling GetDistros.
-func (c *Client) getDistroIDs(ctx context.Context) ([]string, error) {
-	distroIDs := []string{}
-	distros, err := c.GetDistros(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting distros ids")
-	}
-	for _, d := range distros {
-		distroIDs = append(distroIDs, d.DistroID)
+	distroIDs := make([]string, len(distros))
+	for idx := range distros {
+		distroIDs[idx] = distros[idx].DistroID
 	}
 	return distroIDs, nil
 }
 
-// A helper function for GetEvergreenDistrosData that gets provider,
-// instance type, and total time for a given list of distros found.
-func (c *Client) getDistroCosts(ctx context.Context, distroIDs []string, st, dur string) ([]*DistroCost, error) {
-	distroCosts := []*DistroCost{}
-	costs := make(chan *DistroCost)
+// GetEvergreenDistrosData retrieves distros cost data from Evergreen.
+func (c *Client) GetEvergreenDistroCosts(ctx context.Context, startAt time.Time, duration time.Duration) ([]DistroCost, error) {
+	distroIDs, err := c.GetDistros(ctx)
+	if err != nil {
+		if c.allowIncompleteResults {
+			return []DistroCost{}, nil
+		}
+
+		return nil, errors.Wrap(err, "error in getting distroID in GetEvergreenDistrosData")
+	}
+
+	distroCosts := []DistroCost{}
+	costs := make(chan DistroCost)
 	distros := make(chan string, len(distroIDs))
 	catcher := grip.NewCatcher()
 	wg := &sync.WaitGroup{}
@@ -97,13 +83,13 @@ func (c *Client) getDistroCosts(ctx context.Context, distroIDs []string, st, dur
 					return
 				}
 
-				dc, err := c.GetDistroCost(ctx, distro, st, dur)
+				dc, err := c.GetDistroCost(ctx, distro, startAt, duration)
 				catcher.Add(errors.Wrap(err, "error when getting distro cost data from Evergreen"))
 				if dc == nil {
 					continue
 				}
 
-				costs <- dc
+				costs <- *dc
 			}
 		}()
 	}
@@ -120,26 +106,32 @@ func (c *Client) getDistroCosts(ctx context.Context, distroIDs []string, st, dur
 	}
 
 	if catcher.HasErrors() {
+		grip.Warning(catcher.Resolve())
+		if c.allowIncompleteResults {
+			return distroCosts, nil
+		}
 		return nil, catcher.Resolve()
 	}
 
 	return distroCosts, nil
 }
 
-// GetEvergreenDistrosData retrieves distros cost data from Evergreen.
-func (c *Client) GetEvergreenDistrosData(ctx context.Context, starttime time.Time, duration time.Duration) ([]*DistroCost, error) {
-	st := starttime.Format("2006-01-02T15:04:05Z07:00")
+// GetDistroCost is a wrapper function of get for getting all distro costs
+// from the evergreen API given a distroID.
+func (c *Client) GetDistroCost(ctx context.Context, distroID string, startAt time.Time, duration time.Duration) (*DistroCost, error) {
+	st := startAt.Format("2006-01-02T15:04:05Z07:00")
 	dur := strings.TrimRight(duration.String(), "0s")
 
-	distroIDs, err := c.getDistroIDs(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "error in getting distroID in GetEvergreenDistrosData")
+	data, link, err := c.get(ctx, "/cost/distro/"+distroID+"?starttime="+st+"&duration="+dur)
+	if link != "" {
+		return nil, errors.New("/cost/distro should not be a paginated route")
 	}
-
-	distroCosts, err := c.getDistroCosts(ctx, distroIDs, st, dur)
 	if err != nil {
-		return nil, errors.Wrap(err, "error in getting distro costs in GetEvergreenDistrosData")
+		return nil, errors.Wrap(err, "error in GetDistroCost")
 	}
-
-	return distroCosts, nil
+	distro := DistroCost{}
+	if err := json.Unmarshal(data, &distro); err != nil {
+		return nil, err
+	}
+	return &distro, nil
 }

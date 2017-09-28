@@ -1,8 +1,6 @@
 package units
 
 import (
-	"time"
-
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
@@ -25,7 +23,7 @@ func makeBuildCostReport() *buildCostReportJob {
 		Base: job.Base{
 			JobType: amboy.JobType{
 				Name:    "build-cost-report",
-				Version: 1,
+				Version: 2,
 			},
 		},
 	}
@@ -36,17 +34,15 @@ func makeBuildCostReport() *buildCostReportJob {
 
 type buildCostReportJob struct {
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	StartAt  time.Time     `bson:"start_at" json:"start_at" yaml:"start_at"`
-	Duration time.Duration `bson:"duration" json:"duration" yaml:"duration"`
+	Options  cost.EvergreenReportOptions `bson:"evg_opts" json:"evg_opts" yaml:"evg_opts"`
 	env      sink.Environment
 }
 
-func NewBuildCostReport(env sink.Environment, name string, startAt time.Time, duration time.Duration) amboy.Job {
+func NewBuildCostReport(env sink.Environment, name string, opts *cost.EvergreenReportOptions) amboy.Job {
 	j := makeBuildCostReport()
 
 	j.env = env
-	j.StartAt = startAt
-	j.Duration = duration
+	j.Options = *opts
 	j.SetID(name)
 	return j
 }
@@ -69,7 +65,7 @@ func (j *buildCostReportJob) Run() {
 	}
 
 	// run the report
-	output, err := cost.CreateReport(ctx, j.StartAt, j.Duration, costConf)
+	output, err := cost.CreateReport(ctx, costConf, &j.Options)
 	if err != nil {
 		grip.Warning(err)
 		j.AddError(errors.WithStack(err))
@@ -92,8 +88,8 @@ func (j *buildCostReportJob) Run() {
 	grip.Notice(message.Fields{
 		"id":      "build-cost-report",
 		"state":   "output",
-		"period":  j.Duration.String(),
-		"starts":  j.StartAt,
+		"period":  j.Options.Duration.String(),
+		"starts":  j.Options.StartAt,
 		"summary": summary,
 	})
 }

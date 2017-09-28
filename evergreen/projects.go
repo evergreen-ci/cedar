@@ -198,7 +198,7 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 		go func() {
 			defer wg.Done()
 			for projectID := range projects {
-				if ctx.Error() != nil {
+				if ctx.Err() != nil {
 					return
 				}
 

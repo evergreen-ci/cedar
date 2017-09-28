@@ -14,17 +14,30 @@ import (
 	"golang.org/x/net/context"
 )
 
+type EvergreenReportOptions struct {
+	DisableAll             bool
+	DisableProjects        bool
+	DisableDistros         bool
+	AllowIncompleteResults bool
+	DryRun                 bool
+	Duration               time.Duration
+	StartAt                time.Time
+}
+
 const enableEvergreenCollector = true
 
 // CreateReport returns an model.CostReport using a start string, duration, and Config information.
-func CreateReport(ctx context.Context, start time.Time, duration time.Duration, config *model.CostConfig) (*model.CostReport, error) {
+func CreateReport(ctx context.Context, config *model.CostConfig, opts *EvergreenReportOptions) (*model.CostReport, error) {
 	grip.Info("Creating the report")
 	output := &model.CostReport{}
-	reportRange := getTimes(start, duration)
+	reportRange := getTimes(opts.StartAt, opts.Duration)
 
-	if enableEvergreenCollector {
+	if opts.DisableAll {
+		grip.Info("skipping entire evergreen report.")
+	} else {
 		c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
-		evg, err := getEvergreenData(ctx, c, reportRange.start, duration)
+		c.SetAllowIncompleteResults(opts.AllowIncompleteResults)
+		evg, err := getEvergreenData(ctx, c, opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "Problem retrieving evergreen information")
 		}

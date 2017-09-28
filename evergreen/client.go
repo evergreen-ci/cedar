@@ -17,10 +17,11 @@ import (
 
 // Client holds the credentials for the Evergreen API.
 type Client struct {
-	apiRoot    string
-	httpClient *http.Client
-	user       string
-	apiKey     string
+	apiRoot                string
+	httpClient             *http.Client
+	user                   string
+	apiKey                 string
+	allowIncompleteResults bool
 }
 
 // ConnectionInfo stores the root URL, username, and API key for the user
@@ -39,6 +40,8 @@ func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
 		apiKey:     info.Key,
 	}
 }
+
+func (c *Client) SetAllowIncompleteResults(shouldAllow bool) { c.allowIncompleteResults = shouldAllow }
 
 // Checks that a user, API key, and root URL are given in the EvergreenInfo struct.
 func (e *ConnectionInfo) IsValid() bool {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
@@ -108,14 +109,19 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 	})
 
 	amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), true, func(cue amboy.Queue) error {
-		t := time.Now().Add(-time.Hour)
+		now := time.Now().Add(-time.Hour)
 
-		startAt := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
+		opts := &cost.EvergreenReportOptions{
+			StartAt:  time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC),
+			Duration: time.Hour,
+		}
 
-		id := fmt.Sprintf("brc-%s", startAt)
+		id := fmt.Sprintf("brc-%s", opts.StartAt)
 
-		j := units.NewBuildCostReport(env, id, startAt, 30*time.Minute)
-		grip.Debug(cue.Put(j))
+		j := units.NewBuildCostReport(env, id, opts)
+		err := cue.Put(j)
+		grip.Warning(err)
+
 		return nil
 	})
 
