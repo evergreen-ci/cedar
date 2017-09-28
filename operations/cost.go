@@ -72,7 +72,7 @@ func collectLoop() cli.Command {
 	return cli.Command{
 		Name:  "collect",
 		Usage: "collect a cost report every hour, saving the results to mongodb",
-		Flags: dbFlags(),
+		Flags: dbFlags(costEvergreenOptionsFlags()...),
 		Action: func(c *cli.Context) error {
 			mongodbURI := c.String("dbUri")
 			dbName := c.String("dbName")
@@ -96,17 +96,21 @@ func collectLoop() cli.Command {
 			reports := &model.CostReports{}
 			reports.Setup(env)
 
+			opts := cost.EvergreenReportOptions{
+				Duration:               time.Hour,
+				DisableAll:             c.BoolT("disableEvgAll"),
+				DisableProjects:        c.BoolT("disableEvgProjects"),
+				DisableDistros:         c.BoolT("disableEvgDistros"),
+				AllowIncompleteResults: c.Bool("continueOnError"),
+			}
+
 			amboy.IntervalQueueOperation(ctx, q, 5*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
 				now := time.Now().Add(-time.Hour)
-
-				opts := &cost.EvergreenReportOptions{
-					StartAt:  time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC),
-					Duration: time.Hour,
-				}
+				opts.StartAt = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
 				id := fmt.Sprintf("brc-%s", opts.StartAt)
 
-				j := units.NewBuildCostReport(env, id, opts)
+				j := units.NewBuildCostReport(env, id, &opts)
 				if err := queue.Put(j); err != nil {
 					grip.Warning(err)
 					return err
@@ -136,11 +140,7 @@ func write() cli.Command {
 	return cli.Command{
 		Name:  "write",
 		Usage: "collect and write a build cost report to a file.",
-		Flags: costFlags(
-			cli.StringFlag{
-				Name:  "config",
-				Usage: "path to configuration file, and EBS pricing information, is required",
-			}),
+		Flags: costFlags(costEvergreenOptionsFlags()...),
 		Action: func(c *cli.Context) error {
 			start, err := time.Parse(sink.ShortDateFormat, c.String("start"))
 			if err != nil {
@@ -154,17 +154,16 @@ func write() cli.Command {
 				return errors.Wrapf(err, "problem loading cost configuration from %s", file)
 			}
 
-			continueOnError := c.Bool("continue-on-error")
-			if !conf.Opts.AllowIncompleteResults && continueOnError {
-				conf.Opts.AllowIncompleteResults = continueOnError
-			}
-
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			opts := cost.EvergreenReportOptions{
-				StartAt:  start,
-				Duration: dur,
+				StartAt:                start,
+				Duration:               dur,
+				DisableAll:             c.BoolT("disableEvgAll"),
+				DisableProjects:        c.BoolT("disableEvgProjects"),
+				DisableDistros:         c.BoolT("disableEvgDistros"),
+				AllowIncompleteResults: c.Bool("continueOnError"),
 			}
 
 			if err := writeCostReport(ctx, conf, &opts); err != nil {

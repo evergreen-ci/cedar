@@ -60,6 +60,31 @@ func costFlags(flags ...cli.Flag) []cli.Flag {
 		})
 }
 
+func costEvergreenOptionsFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags,
+		cli.StringFlag{
+			Name:  "config",
+			Usage: "path to configuration file, and EBS pricing information, is required",
+		},
+		cli.BoolTFlag{
+			Name:  "disableEvgAll",
+			Usage: "specify to disable all evergreen data collection",
+		},
+		cli.BoolTFlag{
+			Name:  "disableEvgProjects",
+			Usage: "specify to disable all evergreen project data collection",
+		},
+		cli.BoolTFlag{
+			Name:  "disableEvgDistros",
+			Usage: "specify to disable all evergreen distro data collection",
+		},
+		cli.BoolFlag{
+			Name:  "continueOnError",
+			Usage: "specify to allow incomplete results",
+		})
+
+}
+
 func depsFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.StringFlag{
