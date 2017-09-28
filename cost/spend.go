@@ -62,7 +62,6 @@ func CreateReport(ctx context.Context, config *model.CostConfig, opts *Evergreen
 }
 
 func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) error {
-
 	var err error
 	// no directory, print to stdout
 	outputDir := conf.Opts.Directory

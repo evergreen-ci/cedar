@@ -8,6 +8,7 @@ import (
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/net/context"
 )
 
 func init() {
@@ -39,8 +40,12 @@ func (s *EvergreenSpendSuite) SetupSuite() {
 func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
 	client := evergreen.NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
-	duration, _ := time.ParseDuration("48h")
-	distros, err := getEvergreenDistrosData(client, starttime, duration)
+	ctx := context.Background()
+	opts := EvergreenReportOptions{
+		StartAt:  starttime,
+		Duration: 48 * time.Hour,
+	}
+	distros, err := getEvergreenDistrosData(ctx, client, &opts)
 
 	for _, d := range distros {
 		s.NotEmpty(d)
@@ -53,8 +58,13 @@ func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
 func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
 	client := evergreen.NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
-	duration, _ := time.ParseDuration("1h")
-	projects, err := getEvergreenProjectsData(client, starttime, duration)
+	ctx := context.Background()
+	opts := EvergreenReportOptions{
+		StartAt:  starttime,
+		Duration: time.Hour,
+	}
+
+	projects, err := getEvergreenProjectsData(ctx, client, &opts)
 	s.NoError(err)
 	for _, p := range projects {
 		s.NotEmpty(p.Name)
@@ -67,8 +77,13 @@ func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
 func (s *EvergreenSpendSuite) TestGetEvergreenData() {
 	client := evergreen.NewClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
-	duration, _ := time.ParseDuration("4h")
-	evergreen, err := getEvergreenData(client, starttime, duration)
+	ctx := context.Background()
+	opts := EvergreenReportOptions{
+		StartAt:  starttime,
+		Duration: 4 * time.Hour,
+	}
+
+	evergreen, err := getEvergreenData(ctx, client, &opts)
 	s.NotNil(evergreen)
 	if !s.NoError(err) {
 		return

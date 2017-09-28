@@ -1,6 +1,8 @@
 package cost
 
 import (
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -115,13 +117,20 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 }
 
 func (c *CostSuite) TestPrint() {
+	tempDir, err := ioutil.TempDir("", "cost-report")
+	c.NoError(err)
+	defer os.RemoveAll(tempDir)
+
 	report := model.CostReportMetadata{
 		Begin:     time.Now().Add(-2 * time.Hour),
 		End:       time.Now().Add(-time.Hour),
 		Generated: time.Now(),
 	}
 	output := &model.CostReport{Report: report}
-	config := &model.CostConfig{}
-	filepath := ""
-	c.NoError(WriteToFile(config, output, filepath))
+	config := &model.CostConfig{
+		Opts: model.CostConfigOptions{
+			Directory: tempDir,
+		},
+	}
+	c.NoError(WriteToFile(config, output, "test"))
 }

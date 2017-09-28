@@ -22,6 +22,7 @@ type Client struct {
 	user                   string
 	apiKey                 string
 	allowIncompleteResults bool
+	maxRetries             int
 }
 
 // ConnectionInfo stores the root URL, username, and API key for the user
@@ -38,6 +39,7 @@ func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
 		httpClient: httpClient,
 		user:       info.User,
 		apiKey:     info.Key,
+		maxRetries: 10,
 	}
 }
 
@@ -84,7 +86,7 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 	backoff := c.getBackoff()
 	timer := time.NewTimer(0)
 	defer timer.Stop()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < c.maxRetries; i++ {
 		select {
 		case <-ctx.Done():
 			return nil, errors.New("request canceled")
@@ -100,7 +102,7 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 				return nil, errors.Errorf("%s resource (%s) is not found", path, method)
 			} else if resp.StatusCode == http.StatusUnauthorized {
 				return nil, errors.Errorf("access denied for %s of %s", method, path)
-			} else {
+			} else { // nolint
 				grip.Infof("problem with status %s on request %s of %s, retrying", resp.StatusCode, method, path)
 			}
 
@@ -108,7 +110,7 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 		}
 	}
 
-	return nil, errors.New("%s of %s reached maximum retries")
+	return nil, errors.Errorf("%s of %s reached maximum retries", c.maxRetries, c.maxRetries)
 }
 
 // doReq performs a request of the given method type against path.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/net/context"
 )
 
 func init() {
@@ -15,7 +16,7 @@ func init() {
 
 type DistrosSuite struct {
 	client *http.Client
-	info   *EvergreenInfo
+	info   *ConnectionInfo
 	suite.Suite
 }
 
@@ -24,8 +25,8 @@ func TestDistrosSuite(t *testing.T) {
 }
 
 func (s *DistrosSuite) SetupSuite() {
-	s.info = &EvergreenInfo{
-		RootURL: "https://evergreen-staging.corp.mongodb.com/rest/v2/",
+	s.info = &ConnectionInfo{
+		RootURL: "https://evergreen.mongodb.com",
 		User:    "USER",
 		Key:     "KEY",
 	}
@@ -35,10 +36,8 @@ func (s *DistrosSuite) SetupSuite() {
 // TestGetDistrosFunction tests that GetDistros runs without error.
 func (s *DistrosSuite) TestGetDistrosFunction() {
 	Client := NewClient(s.client, s.info)
-	distros, err := Client.GetDistros()
-	for _, d := range distros {
-		s.NotEmpty(d.DistroID)
-	}
+	distros, err := Client.GetDistros(context.Background())
+	s.True(len(distros) > 1)
 	s.NoError(err)
 }
 
@@ -46,7 +45,10 @@ func (s *DistrosSuite) TestGetDistrosFunction() {
 // behaviors given certain use cases.
 func (s *DistrosSuite) TestGetDistroFunctionFail() {
 	Client := NewClient(s.client, s.info)
+	Client.maxRetries = 2
 	distroID := "archlinux-build"
+	ctx := context.Background()
+	t := time.Now().Add(-30 * 24 * time.Hour)
 
 	// Test the case where the queried distro has tasks in the given time range.
 	// This test will be implemented later when architectures for IntegrationTests
@@ -55,16 +57,16 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 	// Test the case where the queried distro has no tasks in the given time range,
 	// by an invalid start time. GetDistro should succeed, but sumTimeTaken,
 	// provider, intancetype must result in zero-values.
-	dc, err := Client.GetDistroCost(distroID, "2017-07-27T10:00:00Z", "48h")
+	dc, err := Client.GetDistroCost(ctx, distroID, t, 10*time.Minute)
 	s.NoError(err)
 	s.Equal(distroID, dc.DistroID)
 
 	// Test valid failures - i.e. searching for non-existent distros, invalid time.
-	dc, err = Client.GetDistroCost(distroID, "2017-07-19T19:37:53", "1h")
+	dc, err = Client.GetDistroCost(ctx, distroID, t, time.Hour)
 	s.Error(err)
-	dc, err = Client.GetDistroCost("fake", "2017-07-19T19:37:53Z", "1h")
+	dc, err = Client.GetDistroCost(ctx, "fake", t, time.Hour)
 	s.Error(err)
-	dc, err = Client.GetDistroCost(distroID, "", "")
+	dc, err = Client.GetDistroCost(ctx, distroID, time.Time{}, 0)
 	s.Error(err)
 }
 
@@ -72,9 +74,8 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 // for each distro in Evergreen. Authentication is needed for this route.
 func (s *DistrosSuite) TestGetEvergreenDistrosData() {
 	Client := NewClient(s.client, s.info)
-	starttime, _ := time.Parse(time.RFC3339, "2017-07-31T10:00:00Z")
-	duration, _ := time.ParseDuration("48h")
-	distroCosts, err := Client.GetEvergreenDistrosData(starttime, duration)
+	Client.maxRetries = 2
+	distroCosts, err := Client.GetEvergreenDistroCosts(context.Background(), time.Now().Add(-300*time.Hour), 48*time.Hour)
 	s.NoError(err)
 	for _, dc := range distroCosts {
 		s.NotEmpty(dc.DistroID)
