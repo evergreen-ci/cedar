@@ -51,7 +51,7 @@ functions:
 
          # Run make, called with proper environment variables set,
          # running the target.
-         ${build_env|} make vendor ${target}
+         ${build_env|} make ${target}
   set-up-mongodb:
     - command: shell.exec
       type: system
@@ -172,19 +172,10 @@ buildvariants:
       - archlinux-build
     tasks: [ ".race", ".report" ]
 
-  - name: rhel62-gccgo
-    display_name: RHEL 6.2 (gccgo)
-    expansions:
-      build_env: "PATH=/opt/mongodbtoolchain/v2/bin:$PATH DISABLE_COVERAGE=yes"
-      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.2.9.tgz
-    run_on:
-      - rhel62-small
-    tasks: [ ".test" ]
-
   - name: ubuntu1604
     display_name: Ubuntu 16.04
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "PATH=/opt/go/bin:$PATH DISABLE_COVERAGE=true GOROOT=/opt/go"
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.2.9.tgz
     run_on:
       - ubuntu1604-test

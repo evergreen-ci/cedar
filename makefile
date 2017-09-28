@@ -53,7 +53,7 @@ $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
 	go get $(subst $(gopath)/src/,,$@)
 $(buildDir)/run-linter:buildscripts/run-linter.go $(buildDir)/.lintSetup
-	$(vendorGopath) go build -o $@ $<
+	 go build -o $@ $<
 $(buildDir)/.lintSetup:$(lintDeps)
 	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
@@ -62,14 +62,14 @@ $(buildDir)/.lintSetup:$(lintDeps)
 # implementation details for building the binary and creating a
 # convienent link in the working directory
 define crossCompile
-	@$(vendorGopath) ./$(buildDir)/build-cross-compile -buildName=$* -ldflags="-X=github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -goBinary="`which go`" -output=$@
+	@ ./$(buildDir)/build-cross-compile -buildName=$* -ldflags="-X=github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -goBinary="`which go`" -output=$@
 endef
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	$(vendorGopath) go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
+	 go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
 $(buildDir)/$(name).race:$(srcFiles)
-	$(vendorGopath) go build -race -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
+	 go build -race -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
 # end dependency installation tools
 
 
@@ -80,7 +80,7 @@ $(buildDir)/build-cross-compile:buildscripts/build-cross-compile.go
 	@mkdir -p $(buildDir)
 	go build -o $@ $<
 $(buildDir)/make-tarball:buildscripts/make-tarball.go $(buildDir)/render-gopath
-	$(vendorGopath) go build -o $@ $<
+	 go build -o $@ $<
 dist:$(buildDir)/dist.tar.gz
 dist-test:$(buildDir)/dist-test.tar.gz
 dist-race: $(buildDir)/dist-race.tar.gz
@@ -134,24 +134,6 @@ lint-%:$(buildDir)/output.%.lint
 
 # start vendoring configuration
 #    begin with configuration of dependencies
-vendorDeps := github.com/Masterminds/glide
-vendorDeps := $(addprefix $(gopath)/src/,$(vendorDeps))
-vendor-deps:$(vendorDeps)
-#   this allows us to store our vendored code in vendor and use
-#   symlinks to support vendored code both in the legacy style and with
-#   new-style vendor directories. When this codebase can drop support
-#   for go1.4, we can delete most of this.
--include $(buildDir)/makefile.vendor
-nestedVendored := vendor/github.com/mongodb/grip
-nestedVendored += vendor/github.com/mongodb/amboy
-nestedVendored += vendor/github.com/mongodb/curator
-nestedVendored := $(foreach project,$(nestedVendored),$(project)/build/vendor)
-$(buildDir)/makefile.vendor:$(buildDir)/render-gopath makefile
-	@mkdir -p $(buildDir)
-	@echo "vendorGopath := \$$(shell \$$(buildDir)/render-gopath $(nestedVendored))" >| $@
-#   targets for the directory components and manipulating vendored files.
-vendor-sync:$(vendorDeps)
-	glide install -s
 vendor-clean:
 	rm -rf vendor/github.com/stretchr/testify/vendor/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/grip/
@@ -178,31 +160,8 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/pmezard/
 	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/urfave/cli/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
-	git checkout vendor/github.com/mongodb/amboy/makefile
-	git checkout vendor/github.com/mongodb/curator/makefile
-	git checkout vendor/github.com/mongodb/curator/vendor/github.com/tychoish/lru/makefile
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
-change-go-version:
-	rm -rf $(buildDir)/make-vendor $(buildDir)/render-gopath
-	@$(MAKE) $(makeArgs) vendor > /dev/null 2>&1
-vendor:$(buildDir)/vendor/src
-	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/grip $@
-	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/amboy $@
-	@$(MAKE) $(makeArgs) -k -C vendor/github.com/mongodb/curator $@
-$(buildDir)/vendor/src:$(buildDir)/make-vendor $(buildDir)/render-gopath
-	@./$(buildDir)/make-vendor
-#   targets to build the small programs used to support vendoring.
-$(buildDir)/make-vendor:buildscripts/make-vendor.go
-	@mkdir -p $(buildDir)
-	go build -o $@ $<
-$(buildDir)/render-gopath:buildscripts/render-gopath.go
-	@mkdir -p $(buildDir)
-	go build -o $@ $<
-#   define dependencies for buildscripts
-buildscripts/make-vendor.go:buildscripts/vendoring/vendoring.go
-buildscripts/render-gopath.go:buildscripts/vendoring/vendoring.go
-#   add phony targets
-phony += vendor vendor-deps vendor-clean vendor-sync change-go-version
+phony += vendor-clean
 # end vendoring tooling configuration
 
 
@@ -218,14 +177,14 @@ testArgs += -test.run='$(RUN_TEST)'
 endif
 #  targets to compile
 $(buildDir)/test.%:$(testSrcFiles)
-	$(vendorGopath) go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./$(subst -,/,$*)
+	 go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./$(subst -,/,$*)
 $(buildDir)/race.%:$(testSrcFiles)
-	$(vendorGopath) go test -race -c -o $@ ./$(subst -,/,$*)
+	 go test -race -c -o $@ ./$(subst -,/,$*)
 #  targets to run any tests in the top-level package
 $(buildDir)/test.$(name):$(testSrcFiles)
-	$(vendorGopath) go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./
+	 go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./
 $(buildDir)/race.$(name):$(testSrcFiles)
-	$(vendorGopath) go test -race -c -o $@ ./
+	 go test -race -c -o $@ ./
 #  targets to run the tests and report the output
 $(buildDir)/output.%.test:$(buildDir)/test.% .FORCE
 	./$< $(testArgs) 2>&1 | tee $@
@@ -241,7 +200,7 @@ $(buildDir)/output.%.coverage:$(buildDir)/test.% .FORCE
 	./$< $(testTimeout) -test.coverprofile=$@ || true
 	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
-	$(vendorGopath) go tool cover -html=$< -o $@
+	 go tool cover -html=$< -o $@
 # end test and coverage artifacts
 
 # clean and other utility targets
