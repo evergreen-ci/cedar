@@ -31,7 +31,7 @@ func convertEvgDistroToCostDistro(evgdc evergreen.DistroCost) model.EvergreenDis
 	d.InstanceType = evgdc.InstanceType
 	d.InstanceSeconds = evgdc.SumTimeTakenMS / 1000
 	d.EstimatedCost = evgdc.EstimatedCost
-	d.NumHosts = evgdc.NumHosts
+	d.NumTasks = evgdc.NumTasks
 	return d
 }
 
