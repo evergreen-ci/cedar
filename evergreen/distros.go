@@ -20,12 +20,12 @@ type Distro struct {
 
 // DistroCost holds full cost and provider information for a distro.
 type DistroCost struct {
-	DistroID      string        `json:"distro_id"`
-	SumTimeTaken  time.Duration `json:"sum_time_taken"`
-	Provider      string        `json:"provider"`
-	InstanceType  string        `json:"instance_type,omitempty"`
-	EstimatedCost float64       `json:"estimated_cost"`
-	NumHosts      int           `json:"num_hosts"`
+	DistroID       string  `json:"distro_id"`
+	SumTimeTakenMS int64   `json:"sum_time_taken"`
+	Provider       string  `json:"provider"`
+	InstanceType   string  `json:"instance_type,omitempty"`
+	EstimatedCost  float64 `json:"estimated_cost"`
+	NumHosts       int     `json:"num_hosts"`
 }
 
 // GetDistros returns a slice of the names of all distros from the
@@ -100,7 +100,7 @@ func (c *Client) GetEvergreenDistroCosts(ctx context.Context, startAt time.Time,
 	close(costs)
 
 	for evgdc := range costs {
-		if evgdc.SumTimeTaken > 0 || evgdc.EstimatedCost > 0 {
+		if evgdc.SumTimeTakenMS > 0 || evgdc.EstimatedCost > 0 {
 			distroCosts = append(distroCosts, evgdc)
 		}
 	}
