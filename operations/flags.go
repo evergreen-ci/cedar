@@ -66,15 +66,15 @@ func costEvergreenOptionsFlags(flags ...cli.Flag) []cli.Flag {
 			Name:  "config",
 			Usage: "path to configuration file, and EBS pricing information, is required",
 		},
-		cli.BoolTFlag{
+		cli.BoolFlag{
 			Name:  "disableEvgAll",
 			Usage: "specify to disable all evergreen data collection",
 		},
-		cli.BoolTFlag{
+		cli.BoolFlag{
 			Name:  "disableEvgProjects",
 			Usage: "specify to disable all evergreen project data collection",
 		},
-		cli.BoolTFlag{
+		cli.BoolFlag{
 			Name:  "disableEvgDistros",
 			Usage: "specify to disable all evergreen distro data collection",
 		},

@@ -3,6 +3,7 @@ package evergreen
 import (
 	"encoding/json"
 	"math/rand"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -64,7 +65,7 @@ func (c *Client) GetEvergreenDistroCosts(ctx context.Context, startAt time.Time,
 	}
 
 	distroCosts := []DistroCost{}
-	costs := make(chan DistroCost)
+	costs := make(chan DistroCost, len(distroIDs))
 	distros := make(chan string, len(distroIDs))
 	catcher := grip.NewCatcher()
 	wg := &sync.WaitGroup{}
@@ -74,7 +75,7 @@ func (c *Client) GetEvergreenDistroCosts(ctx context.Context, startAt time.Time,
 	}
 	close(distros)
 
-	for i := 0; i < 16; i++ {
+	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -94,10 +95,8 @@ func (c *Client) GetEvergreenDistroCosts(ctx context.Context, startAt time.Time,
 		}()
 	}
 
-	go func() {
-		wg.Wait()
-		close(costs)
-	}()
+	wg.Wait()
+	close(costs)
 
 	for evgdc := range costs {
 		if evgdc.SumTimeTaken > 0 {

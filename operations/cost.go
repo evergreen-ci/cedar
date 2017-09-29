@@ -98,9 +98,9 @@ func collectLoop() cli.Command {
 
 			opts := cost.EvergreenReportOptions{
 				Duration:               time.Hour,
-				DisableAll:             c.BoolT("disableEvgAll"),
-				DisableProjects:        c.BoolT("disableEvgProjects"),
-				DisableDistros:         c.BoolT("disableEvgDistros"),
+				DisableAll:             c.Bool("disableEvgAll"),
+				DisableProjects:        c.Bool("disableEvgProjects"),
+				DisableDistros:         c.Bool("disableEvgDistros"),
 				AllowIncompleteResults: c.Bool("continueOnError"),
 			}
 
@@ -160,9 +160,9 @@ func write() cli.Command {
 			opts := cost.EvergreenReportOptions{
 				StartAt:                start,
 				Duration:               dur,
-				DisableAll:             c.BoolT("disableEvgAll"),
-				DisableProjects:        c.BoolT("disableEvgProjects"),
-				DisableDistros:         c.BoolT("disableEvgDistros"),
+				DisableAll:             c.Bool("disableEvgAll"),
+				DisableProjects:        c.Bool("disableEvgProjects"),
+				DisableDistros:         c.Bool("disableEvgDistros"),
 				AllowIncompleteResults: c.Bool("continueOnError"),
 			}
 

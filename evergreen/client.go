@@ -32,20 +32,8 @@ type ConnectionInfo struct {
 	Key     string `bson:"key" json:"key" yaml:"key"`
 }
 
-// NewClient is a constructs a new Client using the parameters given.
-func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
-	return &Client{
-		apiRoot:    info.RootURL,
-		httpClient: httpClient,
-		user:       info.User,
-		apiKey:     info.Key,
-		maxRetries: 10,
-	}
-}
-
-func (c *Client) SetAllowIncompleteResults(shouldAllow bool) { c.allowIncompleteResults = shouldAllow }
-
-// Checks that a user, API key, and root URL are given in the EvergreenInfo struct.
+// IsValid checks that a user, API key, and root URL are given in the
+// ConnectionInfo structure
 func (e *ConnectionInfo) IsValid() bool {
 	if e == nil {
 		return false
@@ -55,6 +43,19 @@ func (e *ConnectionInfo) IsValid() bool {
 	}
 	return true
 }
+
+// NewClient is a constructs a new Client using the parameters given.
+func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
+	return &Client{
+		apiRoot:    info.RootURL,
+		httpClient: httpClient,
+		user:       info.User,
+		apiKey:     info.Key,
+		maxRetries: 5,
+	}
+}
+
+func (c *Client) SetAllowIncompleteResults(shouldAllow bool) { c.allowIncompleteResults = shouldAllow }
 
 // getURL returns a URL for the given path.
 func (c *Client) getURL(path string) string {
@@ -91,7 +92,7 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 		case <-ctx.Done():
 			return nil, errors.New("request canceled")
 		case <-timer.C:
-			resp, err := c.doReq(method, path)
+			resp, err := c.doReq(ctx, method, path)
 			if err != nil {
 				grip.Warningf("request %s of %s encountered error '%v'; retrying", method, path, err)
 			} else if resp == nil {
@@ -116,7 +117,7 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 // doReq performs a request of the given method type against path.
 // If body is not nil, also includes it as a request body as url-encoded data
 // with the appropriate header
-func (c *Client) doReq(method, path string) (*http.Response, error) {
+func (c *Client) doReq(ctx context.Context, method, path string) (*http.Response, error) {
 	var req *http.Request
 	var err error
 
@@ -135,6 +136,7 @@ func (c *Client) doReq(method, path string) (*http.Response, error) {
 
 	req.Header.Add("Api-Key", c.apiKey)
 	req.Header.Add("Api-User", c.user)
+	req = req.WithContext(ctx)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -218,6 +220,8 @@ func (c *Client) getPath(link string) (string, error) {
 // get performs a GET request for path, transforms the response body to JSON,
 //and parses the link for the next page (this is empty if there is no next page)
 func (c *Client) get(ctx context.Context, path string) ([]byte, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	link := ""
 	path = strings.TrimRight(path, ":")
 	resp, err := c.retryRequest(ctx, "GET", path)

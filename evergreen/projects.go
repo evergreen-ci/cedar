@@ -3,6 +3,7 @@ package evergreen
 import (
 	"encoding/json"
 	"math/rand"
+	"runtime"
 	"sync"
 	"time"
 
@@ -91,7 +92,7 @@ func (c *Client) getTaskCostsByProject(ctx context.Context, projectID, starttime
 
 	go func() {
 		path := "cost/project/" + projectID + "/tasks?starttime=" + starttime +
-			"&duration=" + duration
+			"&limit=30&duration=" + duration
 		for {
 			data, link, err := c.get(ctx, path)
 			if err != nil {
@@ -188,15 +189,16 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 
 	catcher := grip.NewSimpleCatcher()
 	wg := &sync.WaitGroup{}
-	costs := make(chan ProjectUnit)
+	costs := make(chan ProjectUnit, len(projectIDs))
 	projects := make(chan string, len(projectIDs))
 	projectUnits := []ProjectUnit{}
 
 	for _, idx := range rand.Perm(len(projectIDs)) {
 		projects <- projectIDs[idx]
 	}
+	close(projects)
 
-	for i := 0; i < 16; i++ {
+	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -219,10 +221,8 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 		}()
 	}
 
-	go func() {
-		wg.Wait()
-		close(costs)
-	}()
+	wg.Wait()
+	close(costs)
 
 	for pu := range costs {
 		if len(pu.Tasks) > 0 {

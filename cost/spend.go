@@ -72,6 +72,12 @@ func WriteToFile(conf *model.CostConfig, report *model.CostReport, fn string) er
 		}
 	}
 
+	if _, err = os.Stat(outputDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(outputDir, 0755); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
 	fn = filepath.Join(outputDir, fn)
 	grip.Infof("writing cost report to %s", fn)
 	file, err := os.Create(fn)
