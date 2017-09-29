@@ -7,6 +7,8 @@ imports:
   version: 1358eff22f0dd0c54fc521042cc607f6ff4b531a
 - name: github.com/urfave/cli
   version: 01857ac33766ce0c93856370626f9799281c14f4
+- name: github.com/jpillora/backoff
+  version: 06c7a16c845dc8e0bf575fafeeca0f5462f5eb4d
 
 - name: github.com/davecgh/go-spew
   version: adab96458c51a58dc1783b3335dcce5461522e75
