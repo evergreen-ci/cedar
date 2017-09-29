@@ -76,6 +76,7 @@ type EvergreenDistroCost struct {
 	InstanceType    string  `bson:"instance_type,omitempty" json:"instance_type,omitempty" yaml:"instance_type,omitempty"`
 	InstanceSeconds int64   `bson:"instance_seconds,omitempty" json:"instance_seconds,omitempty" yaml:"instance_seconds,omitempty"`
 	EstimatedCost   float64 `bson:"estimated_cost" json:"estimated_cost" yaml:"estimated_cost"`
+	NumHosts        int     `bson:"num_hosts" json:"num_hosts" yaml:"num_hosts"`
 }
 
 var (
@@ -84,6 +85,7 @@ var (
 	costReportEvergreenDistroInstanceTypeKey    = bsonutil.MustHaveTag(EvergreenDistroCost{}, "InstanceType")
 	costReportEvergreenDistroInstanceSecondsKey = bsonutil.MustHaveTag(EvergreenDistroCost{}, "InstanceSeconds")
 	costReportEvergreenDistroEstimatedCostKey   = bsonutil.MustHaveTag(EvergreenDistroCost{}, "EstimatedCost")
+	costReportEvergreenDistroNumHostsKey        = bsonutil.MustHaveTag(EvergreenDistroCost{}, "NumHosts")
 )
 
 // Task holds the information for a single task within a project.

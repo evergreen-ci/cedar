@@ -25,6 +25,7 @@ type DistroCost struct {
 	Provider      string        `json:"provider"`
 	InstanceType  string        `json:"instance_type,omitempty"`
 	EstimatedCost float64       `json:"estimated_cost"`
+	NumHosts      int           `json:"num_hosts"`
 }
 
 // GetDistros returns a slice of the names of all distros from the
