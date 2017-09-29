@@ -1,8 +1,6 @@
 package cost
 
 import (
-	"time"
-
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
@@ -31,8 +29,8 @@ func convertEvgDistroToCostDistro(evgdc evergreen.DistroCost) model.EvergreenDis
 	d.Name = evgdc.DistroID
 	d.Provider = evgdc.Provider
 	d.InstanceType = evgdc.InstanceType
-	d.InstanceSeconds = int64(evgdc.SumTimeTaken / time.Second)
-	d.EstimatedCost = evgdc.SumEstimatedCost
+	d.InstanceSeconds = evgdc.SumTimeTaken.Seconds()
+	d.EstimatedCost = evgdc.EstimatedCost
 	return d
 }
 
@@ -66,7 +64,7 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 		costTask.Githash = task.Githash
 		costTask.Name = task.DisplayName
 		costTask.BuildVariant = task.BuildVariant
-		costTask.TaskSeconds = int64(task.TimeTaken / time.Second)
+		costTask.TaskSeconds = task.TimeTaken.Seconds()
 		costTask.EstimatedCost = task.Cost
 		p.Tasks = append(p.Tasks, costTask)
 	}

@@ -19,11 +19,12 @@ type Project struct {
 
 // TaskCost holds full cost and provider information for a task.
 type TaskCost struct {
-	Githash      string        `json:"githash"`
+	ID           string        `json:"task_id"`
 	DisplayName  string        `json:"display_name"`
 	DistroID     string        `json:"distro"`
 	BuildVariant string        `json:"build_variant"`
 	TimeTaken    time.Duration `json:"time_taken"`
+	Githash      string        `json:"githash"`
 	Cost         float64       `json:"estimated_cost"`
 }
 
