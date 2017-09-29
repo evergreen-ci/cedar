@@ -29,7 +29,7 @@ func convertEvgDistroToCostDistro(evgdc evergreen.DistroCost) model.EvergreenDis
 	d.Name = evgdc.DistroID
 	d.Provider = evgdc.Provider
 	d.InstanceType = evgdc.InstanceType
-	d.InstanceSeconds = evgdc.SumTimeTaken.Seconds()
+	d.InstanceSeconds = int64(evgdc.SumTimeTaken.Seconds())
 	d.EstimatedCost = evgdc.EstimatedCost
 	return d
 }
@@ -64,7 +64,7 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 		costTask.Githash = task.Githash
 		costTask.Name = task.DisplayName
 		costTask.BuildVariant = task.BuildVariant
-		costTask.TaskSeconds = task.TimeTaken.Seconds()
+		costTask.TaskSeconds = int64(task.TimeTaken.Seconds())
 		costTask.EstimatedCost = task.Cost
 		p.Tasks = append(p.Tasks, costTask)
 	}
