@@ -108,7 +108,7 @@ func collectLoop() cli.Command {
 				now := time.Now().Add(-time.Hour)
 				opts.StartAt = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
-				id := fmt.Sprintf("brc-%s", opts.StartAt)
+				id := fmt.Sprintf("bcr-%s", opts.StartAt)
 
 				j := units.NewBuildCostReport(env, id, &opts)
 				if err := queue.Put(j); err != nil {

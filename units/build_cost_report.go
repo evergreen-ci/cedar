@@ -80,6 +80,7 @@ func (j *buildCostReportJob) Run() {
 	}
 
 	summary := model.NewCostReportSummary(output)
+	summary.Setup(j.env)
 	if err := summary.Save(); err != nil {
 		grip.Warning(err)
 		j.AddError(err)
