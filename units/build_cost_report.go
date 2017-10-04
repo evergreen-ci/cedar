@@ -51,7 +51,6 @@ func (j *buildCostReportJob) Run() {
 	defer j.MarkComplete()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	grip.Infoln("would run build cost reporting job:", j.ID())
 
 	if j.env == nil {
 		j.env = sink.GetEnvironment()

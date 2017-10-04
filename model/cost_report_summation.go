@@ -58,6 +58,7 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 	r.refresh()
 
 	out := CostReportSummary{
+		ID:       r.ID,
 		Metadata: r.Report,
 		env:      r.env,
 	}
