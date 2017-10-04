@@ -63,6 +63,7 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 	for _, task := range evgpu.Tasks {
 		costTask := model.EvergreenTaskCost{}
 		costTask.Githash = task.Githash
+		costTask.Distro = task.DistroID
 		costTask.Name = task.DisplayName
 		costTask.BuildVariant = task.BuildVariant
 		costTask.TaskSeconds = task.TimeTakenMS / 1000
