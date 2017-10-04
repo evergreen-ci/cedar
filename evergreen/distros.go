@@ -15,7 +15,7 @@ import (
 
 // Distro holds information for a single distro within a host.
 type Distro struct {
-	DistroID string `json:"_id"`
+	DistroID string `json:"name"`
 }
 
 // DistroCost holds full cost and provider information for a distro.
