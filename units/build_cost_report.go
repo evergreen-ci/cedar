@@ -72,6 +72,7 @@ func (j *buildCostReportJob) Run() {
 		return
 	}
 
+	output.Setup(j.env)
 	if err := output.Save(); err != nil {
 		grip.Warning(err)
 		j.AddError(err)
