@@ -184,7 +184,7 @@ type ServiceItem struct {
 	FixedPrice float32 `bson:"fixed_price,omitempty" json:"fixed_price,omitempty" yaml:"fixed_price,omitempty"`
 	AvgPrice   float32 `bson:"avg_price,omitempty" json:"avg_price,omitempty" yaml:"avg_price,omitempty"`
 	AvgUptime  float32 `bson:"avg_uptime,omitempty" json:"avg_uptime,omitempty" yaml:"avg_uptime,omitempty"`
-	TotalHours int     `bson:"total_hors,omitempty" json:"total_hors,omitempty" yaml:"total_hors,omitempty"`
+	TotalHours int     `bson:"total_hours,omitempty" json:"total_hours,omitempty" yaml:"total_hours,omitempty"`
 }
 
 var (
