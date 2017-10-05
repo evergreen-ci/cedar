@@ -35,8 +35,8 @@ func (c *EvergreenCost) refresh() {
 	c.projects = make(map[string]*EvergreenProjectCost)
 
 	for _, p := range c.Projects {
+		p.refresh()
 		c.projects[p.Name] = &p
-		c.projects[p.Name].refresh()
 	}
 
 	for _, d := range c.Distros {
@@ -118,9 +118,13 @@ type CloudProvider struct {
 
 func (c *CloudProvider) refresh() {
 	c.accounts = make(map[string]*CloudAccount)
+	c.Cost = 0
 	for _, a := range c.Accounts {
+		a.refresh()
 		c.accounts[a.Name] = &a
-		c.accounts[a.Name].refresh()
+		for _, s := range a.Services {
+			c.Cost += s.Cost
+		}
 	}
 }
 
@@ -142,8 +146,8 @@ func (c *CloudAccount) refresh() {
 	c.services = make(map[string]*AccountService)
 
 	for _, s := range c.Services {
+		s.refresh()
 		c.services[s.Name] = &s
-		c.services[s.Name].refresh()
 	}
 }
 
@@ -163,8 +167,9 @@ type AccountService struct {
 
 func (s *AccountService) refresh() {
 	s.items = make(map[string]*ServiceItem)
-
+	s.Cost = 0
 	for _, i := range s.Items {
+		s.Cost += i.getCost()
 		s.items[i.Name] = &i
 	}
 }
@@ -185,6 +190,16 @@ type ServiceItem struct {
 	AvgPrice   float32 `bson:"avg_price,omitempty" json:"avg_price,omitempty" yaml:"avg_price,omitempty"`
 	AvgUptime  float32 `bson:"avg_uptime,omitempty" json:"avg_uptime,omitempty" yaml:"avg_uptime,omitempty"`
 	TotalHours int     `bson:"total_hours,omitempty" json:"total_hours,omitempty" yaml:"total_hours,omitempty"`
+}
+
+func (i *ServiceItem) getCost() float32 {
+	if i.FixedPrice != 0 {
+		return float32(i.TotalHours) * i.FixedPrice
+	} else if i.AvgPrice != 0 {
+		return float32(i.TotalHours) * i.AvgPrice
+	}
+
+	return 0
 }
 
 var (

@@ -71,8 +71,8 @@ func (j *buildCostReportJob) Run() {
 		j.AddError(errors.WithStack(err))
 		return
 	}
-	output.Setup(j.env)
 	output.ID = j.ID()
+	output.Setup(j.env)
 	if err := output.Save(); err != nil {
 		grip.Warning(err)
 		j.AddError(err)

@@ -51,7 +51,7 @@ func (r *CostReport) String() string {
 	return string(jsonReport)
 }
 
-func (r *CostReport) Setup(e sink.Environment) { r.env = e }
+func (r *CostReport) Setup(e sink.Environment) { r.env = e; r.refresh() }
 func (r *CostReport) IsNil() bool              { return r.populated }
 func (r *CostReport) FindID(id string) error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
