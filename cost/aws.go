@@ -8,11 +8,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-const aws = "aws"
-
 // setItems sets the number of launched and terminated instances of the given cost item.
 // The sums are calculated from the information in the Item array.
-func setSums(res *model.ServiceItem, items []*amazon.Item) {
+func setSums(res *model.ServiceItem, items []amazon.Item) {
 	res.Launched, res.Terminated, res.TotalHours = 0, 0, 0
 	for _, item := range items {
 		if item.Launched {
@@ -35,7 +33,7 @@ func setSums(res *model.ServiceItem, items []*amazon.Item) {
 
 // setAverages sets the average price, fixed price, and uptime of the given cost item.
 // The averages are calculated from the information in the Item array.
-func setAverages(res *model.ServiceItem, items []*amazon.Item) {
+func setAverages(res *model.ServiceItem, items []amazon.Item) {
 	var prices, uptimes, fixedPrices []float64
 	for _, item := range items {
 		if item.Price != 0.0 {
@@ -60,7 +58,7 @@ func setAverages(res *model.ServiceItem, items []*amazon.Item) {
 }
 
 // createItemFromEC2Instance creates a new cost.Item using a key/item array pair.
-func createCostItemFromAmazonItems(key amazon.ItemKey, items []*amazon.Item) model.ServiceItem {
+func createCostItemFromAmazonItems(key amazon.ItemKey, items []amazon.Item) model.ServiceItem {
 	item := model.ServiceItem{
 		Name:     key.Name,
 		ItemType: string(key.ItemType),
@@ -98,12 +96,14 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 	if err != nil {
 		return nil, errors.Wrapf(err, "Problem getting client %s", owner)
 	}
-	instances, err := client.GetEC2Instances(ctx, reportRange)
-	if err != nil {
+
+	instances := amazon.NewServices()
+
+	if err = client.GetEC2Instances(ctx, reportRange, instances); err != nil {
 		return nil, errors.Wrap(err, "Problem getting EC2 instances")
 	}
-	instances, err = client.AddEBSItems(ctx, instances, reportRange, &config.Amazon.EBSPrices)
-	if err != nil {
+
+	if err = client.AddEBSItems(ctx, instances, reportRange, &config.Amazon.EBSPrices); err != nil {
 		return nil, errors.Wrap(err, "Problem getting EBS instances")
 	}
 	s3info := config.Amazon.S3Info
@@ -121,8 +121,11 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 	// if err != nil {
 	//	return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
 	// }
-	grip.Infof("Iterating through %d instance types", len(instances))
-	for key, items := range instances {
+	grip.Infof("Iterating through %d instance types", instances.Len())
+	for pair := range instances.Iter() {
+		key := pair.Key
+		items := pair.Value
+
 		item := createCostItemFromAmazonItems(key, items)
 		if key.Service == amazon.EC2Service {
 			ec2Service.Items = append(ec2Service.Items, item)
@@ -130,6 +133,7 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 			ebsService.Items = append(ebsService.Items, item)
 		}
 	}
+
 	account := &model.CloudAccount{
 		Name: owner,
 		Services: []model.AccountService{
@@ -165,7 +169,7 @@ func getAWSAccounts(ctx context.Context, reportRange model.TimeRange, config *mo
 func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
 	var err error
 	res := &model.CloudProvider{
-		Name: aws,
+		Name: "aws",
 	}
 	res.Accounts, err = getAWSAccounts(ctx, reportRange, config)
 	if err != nil {
