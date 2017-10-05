@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -162,9 +163,9 @@ func populateItemFromOnDemand(inst *ec2.Instance) *Item {
 
 // getSpotRange returns the instance running time range from the spot request result.
 // Note: if the instance was terminated by amazon, we subtract one hour.
-func getSpotRange(req *ec2.SpotInstanceRequest) TimeRange {
+func getSpotRange(req *ec2.SpotInstanceRequest) model.TimeRange {
 	endTime, _ := time.Parse(utcLayout, "")
-	res := TimeRange{}
+	res := model.TimeRange{}
 	start, err := getTagVal(req.Tags, "start-time")
 	if err != nil {
 		return res
@@ -173,7 +174,7 @@ func getSpotRange(req *ec2.SpotInstanceRequest) TimeRange {
 	if err != nil {
 		return res
 	}
-	res.Start = startTime
+	res.StartAt = startTime
 	if *req.State == ec2.SpotInstanceStateActive { // no end time
 		return res
 	}
@@ -183,34 +184,33 @@ func getSpotRange(req *ec2.SpotInstanceRequest) TimeRange {
 			endTime = endTime.Add(-time.Hour)
 			// If our instance was running for less than an hour
 			if endTime.Before(startTime) {
-				return TimeRange{}
+				return model.TimeRange{}
 			}
 		}
 	}
-	res.End = endTime
+	res.EndAt = endTime
 	return res
 }
 
 // getReservedRange returns the instance running time range from the reserved instance response item.
-func getReservedRange(inst *ec2.ReservedInstances) TimeRange {
-	res := TimeRange{}
+func getReservedRange(inst *ec2.ReservedInstances) model.TimeRange {
+	res := model.TimeRange{}
 	if inst.Start == nil || inst.End == nil {
 		return res
 	}
 
-	res.Start = *inst.Start
-	res.End = *inst.End
+	res.StartAt = *inst.Start
+	res.EndAt = *inst.End
 	return res
 }
 
 // getOnDemandRange returns the instance running time range from the reserved instance response item.
 // We assume end time in the state transition reason to be "<some message> (YYYY-MM-DD HH:MM:SS MST)"
-func getOnDemandRange(inst *ec2.Instance) TimeRange {
-	res := TimeRange{}
+func getOnDemandRange(inst *ec2.Instance) model.TimeRange {
+	res := model.TimeRange{}
 	if inst.LaunchTime == nil || *inst.State.Name == ec2.InstanceStateNamePending {
 		return res
 	}
-	res.Start = *inst.LaunchTime
 
 	if *inst.State.Name == ec2.InstanceStateNameRunning {
 		return res
@@ -219,46 +219,53 @@ func getOnDemandRange(inst *ec2.Instance) TimeRange {
 	reason := *inst.StateTransitionReason
 	split := strings.Split(reason, "(")
 	if len(split) <= 1 { // no time in state transition reason
-		return TimeRange{}
+		return model.TimeRange{}
 	}
 	timeString := strings.Trim(split[1], ")")
 	end, err := time.Parse(ondemandLayout, timeString)
 	if err != nil {
-		return TimeRange{}
+		return model.TimeRange{}
 	}
-	res.End = end
-	return res
+
+	return model.TimeRange{
+		StartAt: *inst.LaunchTime,
+		EndAt:   end,
+	}
 }
 
 // getUptimeRange returns the time range that the item is running, within
 // the constraints of the report range. Note if the instance doesn't overlap
 // with the report time range, it returns an empty range.
-func getUptimeRange(itemRange TimeRange, reportRange TimeRange) TimeRange {
-	if itemRange == (TimeRange{}) {
-		return TimeRange{}
-	} else if itemRange.Start.After(reportRange.End) {
-		return TimeRange{}
-	} else if !itemRange.End.IsZero() && itemRange.End.Before(reportRange.Start) {
-		return TimeRange{}
+func getUptimeRange(itemRange model.TimeRange, reportRange model.TimeRange) model.TimeRange {
+	if itemRange.IsZero() || !itemRange.IsValid() {
+		return model.TimeRange{}
+	} else if !itemRange.EndAt.IsZero() && itemRange.EndAt.Before(reportRange.StartAt) {
+		return model.TimeRange{}
 	}
+
 	// decide uptime start value
-	start := reportRange.Start
-	if itemRange.Start.After(start) {
-		start = itemRange.Start
+	start := reportRange.StartAt
+	if itemRange.StartAt.After(start) {
+		start = itemRange.StartAt
 	}
+
 	// decide uptime end value
-	end := reportRange.End
-	if !itemRange.End.IsZero() && itemRange.End.Before(end) {
-		end = itemRange.End
+	end := reportRange.EndAt
+	if !itemRange.EndAt.IsZero() && itemRange.EndAt.Before(end) {
+		end = itemRange.EndAt
 	}
-	return TimeRange{Start: start, End: end}
+
+	return model.TimeRange{
+		StartAt: start,
+		EndAt:   end,
+	}
 }
 
 // setUptime returns the start/end time within the report for the item given,
 // and sets the end time - start time as the item's uptime.
 // Note that the uptime is rounded up, in hours.
-func (item *Item) setUptime(times TimeRange) {
-	uptime := times.End.Sub(times.Start).Hours()
+func (item *Item) setUptime(times model.TimeRange) {
+	uptime := times.EndAt.Sub(times.StartAt).Hours()
 	item.Uptime = int(math.Ceil(uptime))
 }
 
@@ -302,10 +309,19 @@ func (item *Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
 
 // isValidInstance takes in an item, an error, and two time ranges.
 // It returns true if the item is not nil, there is no error, and the TimeRanges are non empty.
-func isValidInstance(item *Item, err error, itemRange TimeRange, uptimeRange TimeRange) bool {
-	if item == nil || err != nil || itemRange == (TimeRange{}) || uptimeRange == (TimeRange{}) {
+func isValidInstance(item *Item, err error, itemRange model.TimeRange, uptimeRange model.TimeRange) bool {
+	if err != nil {
 		return false
 	}
+
+	if item == nil {
+		return false
+	}
+
+	if itemRange.IsZero() || uptimeRange.IsZero() {
+		return false
+	}
+
 	return true
 }
 
@@ -328,13 +344,13 @@ func (items itemHash) updateItems(item *Item, key ItemKey) {
 
 // invalidVolume returns true if a necessary volume field is nil, or if
 // the volume was created after the report range or is still being created.
-func invalidVolume(vol *ec2.Volume, reportRange TimeRange) bool {
+func invalidVolume(vol *ec2.Volume, reportRange model.TimeRange) bool {
 	if vol.State == nil || vol.CreateTime == nil || vol.VolumeType == nil {
 		return true
 	}
 	state := *vol.State
 	createTime := *vol.CreateTime
-	if createTime.After(reportRange.End) || state == ec2.VolumeStateCreating ||
+	if createTime.After(reportRange.EndAt) || state == ec2.VolumeStateCreating ||
 		state == ec2.VolumeStateError {
 		return true
 	}
@@ -343,14 +359,14 @@ func invalidVolume(vol *ec2.Volume, reportRange TimeRange) bool {
 
 // getSpotPricePage recursively iterates through pages of spot requests and returns
 // a compiled ec2.DescribeSpotPriceHistoryOutput object.
-func (c *Client) getSpotPricePage(ctx context.Context, req *ec2.SpotInstanceRequest, times TimeRange,
+func (c *Client) getSpotPricePage(ctx context.Context, req *ec2.SpotInstanceRequest, times model.TimeRange,
 	nextToken *string) *ec2.DescribeSpotPriceHistoryOutput {
 	input := &ec2.DescribeSpotPriceHistoryInput{
 		InstanceTypes:       []*string{req.LaunchSpecification.InstanceType},
 		ProductDescriptions: []*string{req.ProductDescription},
 		AvailabilityZone:    req.AvailabilityZoneGroup,
-		StartTime:           &times.Start,
-		EndTime:             &times.End,
+		StartTime:           &times.StartAt,
+		EndTime:             &times.EndAt,
 	}
 	if nextToken != nil && *nextToken != "" {
 		input = input.SetNextToken(*nextToken)
@@ -373,7 +389,7 @@ func (c *Client) getSpotPricePage(ctx context.Context, req *ec2.SpotInstanceRequ
 
 // getSpotPrice takes in a spot request, a product description, and a time range.
 // It queries the EC2 API and returns the overall price.
-func (c *Client) getSpotPrice(ctx context.Context, req *ec2.SpotInstanceRequest, times TimeRange) float64 {
+func (c *Client) getSpotPrice(ctx context.Context, req *ec2.SpotInstanceRequest, times model.TimeRange) float64 {
 	//How to get description?
 	priceData := c.getSpotPricePage(ctx, req, times, nil)
 	if priceData == nil {
@@ -385,7 +401,7 @@ func (c *Client) getSpotPrice(ctx context.Context, req *ec2.SpotInstanceRequest,
 // getEC2SpotInstances gets spot EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2SpotInstances(ctx context.Context, items itemHash, reportRange TimeRange) (itemHash, error) {
+func (c *Client) getEC2SpotInstances(ctx context.Context, items itemHash, reportRange model.TimeRange) (itemHash, error) {
 	resp, err := c.ec2Client.DescribeSpotInstanceRequestsWithContext(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error from SpotRequests API call")
@@ -413,8 +429,7 @@ func (c *Client) getEC2SpotInstances(ctx context.Context, items itemHash, report
 // getEC2ReservedInstances gets reserved EC2 Instances and retrieves its uptime,
 // average (hourly and fixed) price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2ReservedInstances(ctx context.Context, items itemHash,
-	reportRange TimeRange) (itemHash, error) {
+func (c *Client) getEC2ReservedInstances(ctx context.Context, items itemHash, reportRange model.TimeRange) (itemHash, error) {
 	resp, err := c.ec2Client.DescribeReservedInstancesWithContext(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -441,8 +456,7 @@ func (c *Client) getEC2ReservedInstances(ctx context.Context, items itemHash,
 // getEC2OnDemandInstancesPage recursively iterates through pages of on-demand instances
 // and retrieves its uptime, average hourly price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, items itemHash, reportRange TimeRange,
-	pricing *prices, nextToken *string) (itemHash, error) {
+func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, items itemHash, reportRange model.TimeRange, pricing *prices, nextToken *string) (itemHash, error) {
 	var input *ec2.DescribeInstancesInput
 	if nextToken != nil && *nextToken != "" {
 		//create filter
@@ -487,8 +501,7 @@ func (c *Client) getEC2OnDemandInstancesPage(ctx context.Context, items itemHash
 // getEC2OnDemandInstances gets all EC2 on-demand instances and retrieves its uptime,
 // average hourly price, number of launched and terminated instances,
 // and item type. These instances are then added to the given accounts.
-func (c *Client) getEC2OnDemandInstances(ctx context.Context, items itemHash,
-	reportRange TimeRange) (itemHash, error) {
+func (c *Client) getEC2OnDemandInstances(ctx context.Context, items itemHash, reportRange model.TimeRange) (itemHash, error) {
 	pricing, err := getOnDemandPriceInformation()
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching on-demand price information")
@@ -503,7 +516,7 @@ func (c *Client) getEC2OnDemandInstances(ctx context.Context, items itemHash,
 
 // GetEC2Instances gets all EC2Instances and creates an array of accounts.
 // Note this function is public but I may change that when adding non EC2 Amazon services.
-func (c *Client) GetEC2Instances(ctx context.Context, reportRange TimeRange) (itemHash, error) {
+func (c *Client) GetEC2Instances(ctx context.Context, reportRange model.TimeRange) (itemHash, error) {
 	// accounts maps from account name to the items
 	items := make(itemHash)
 	grip.Info("Getting EC2 Reserved Instances")
@@ -530,8 +543,7 @@ func (c *Client) GetEC2Instances(ctx context.Context, reportRange TimeRange) (it
 // addEBSItemsPage recursively iterates through pages of EBS volumes
 // and retrieves its average hourly price, number of launched and terminated instances,
 // and volume type and adds this information to accounts.
-func (c *Client) addEBSItemsPage(ctx context.Context, items itemHash, reportRange TimeRange, pricing *EBSPrices,
-	nextToken *string) (itemHash, error) {
+func (c *Client) addEBSItemsPage(ctx context.Context, items itemHash, reportRange model.TimeRange, pricing *model.CostConfigAmazonEBS, nextToken *string) (itemHash, error) {
 	grip.Info("Getting EBS Items")
 	input := &ec2.DescribeVolumesInput{}
 	if nextToken != nil && *nextToken != "" {
@@ -553,7 +565,7 @@ func (c *Client) addEBSItemsPage(ctx context.Context, items itemHash, reportRang
 		item := &Item{}
 		if *vol.State == ec2.VolumeStateAvailable || *vol.State == ec2.VolumeStateInUse {
 			item.Launched = true
-			item.Price = pricing.getEBSPrice(vol, reportRange)
+			item.Price = getEBSPrice(*pricing, vol, reportRange)
 		} else { //state is deleting, deleted, or error
 			item.Terminated = true
 		}
@@ -571,7 +583,7 @@ func (c *Client) addEBSItemsPage(ctx context.Context, items itemHash, reportRang
 }
 
 // AddEBSItems gets all EBSVolumes and adds these items to accounts.
-func (c *Client) AddEBSItems(ctx context.Context, items itemHash, reportRange TimeRange, pricing *EBSPrices) (itemHash, error) {
+func (c *Client) AddEBSItems(ctx context.Context, items itemHash, reportRange model.TimeRange, pricing *model.CostConfigAmazonEBS) (itemHash, error) {
 	items, err := c.addEBSItemsPage(ctx, items, reportRange, pricing, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Problem fetching EBS items page")

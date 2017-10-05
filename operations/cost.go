@@ -187,7 +187,7 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, opts *cost.Eve
 	}
 	report.Setup(sink.GetEnvironment())
 
-	fnDate := report.Report.Begin.Format("2006-01-02-15-04")
+	fnDate := report.Report.Range.StartAt.Format("2006-01-02-15-04")
 	filename := fmt.Sprintf("%s.%s.json", fnDate, duration)
 
 	if err := cost.WriteToFile(conf, report, filename); err != nil {

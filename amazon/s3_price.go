@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/pkg/errors"
 )
 
@@ -27,20 +28,9 @@ type S3Info struct {
 	Owner    string
 }
 
-// IsValid checks that a bucket name and key start are given in the S3Info struct.
-func (s *S3Info) IsValid() bool {
-	if s == nil {
-		return false
-	}
-	if s.Bucket == "" || s.KeyStart == "" {
-		return false
-	}
-	return true
-}
-
 // For now, this function returns an example CSV.
-func (c *Client) fetchS3Spending(info *S3Info, reportRange TimeRange) ([][]string, error) {
-	year, monthNum, _ := reportRange.Start.Date()
+func (c *Client) fetchS3Spending(info *S3Info, reportRange model.TimeRange) ([][]string, error) {
+	year, monthNum, _ := reportRange.StartAt.Date()
 	month := fmt.Sprintf("%d", monthNum)
 	if monthNum < 10 {
 		month = fmt.Sprintf("0%d", monthNum)
@@ -68,7 +58,7 @@ func (c *Client) fetchS3Spending(info *S3Info, reportRange TimeRange) ([][]strin
 }
 
 // GetS3Cost retrieves the current AWS CSV file and returns the S3 cost.
-func (c *Client) GetS3Cost(info *S3Info, reportRange TimeRange) (float32, error) {
+func (c *Client) GetS3Cost(info *S3Info, reportRange model.TimeRange) (float32, error) {
 	lines, err := c.fetchS3Spending(info, reportRange)
 	if err != nil {
 		return 0.0, err

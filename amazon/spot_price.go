@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/evergreen-ci/sink/model"
 )
 
 type spotPrices []*ec2.SpotPrice
@@ -25,11 +26,11 @@ func (slice spotPrices) Swap(i, j int) {
 
 // calculatePrice takes in a TimeRange and returns the price for this range
 // using the given spotPrices.
-func (slice spotPrices) calculatePrice(times TimeRange) float64 {
+func (slice spotPrices) calculatePrice(times model.TimeRange) float64 {
 	price := 0.0
 	computed := 0.0
-	totalTime := times.End.Sub(times.Start).Hours()
-	lastTime := times.End
+	totalTime := times.EndAt.Sub(times.StartAt).Hours()
+	lastTime := times.EndAt
 
 	// sorts slice in descending time order
 	sort.Sort(slice)

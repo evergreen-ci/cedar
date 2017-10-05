@@ -9,15 +9,13 @@ import (
 // Report provides time information on the overall structure.
 type CostReportMetadata struct {
 	Generated  time.Time `bson:"generated" json:"generated" yaml:"generated"`
-	Begin      time.Time `bson:"begin" json:"begin" yaml:"begin"`
-	End        time.Time `bson:"end" json:"end" yaml:"end"`
+	Range      TimeRange `bson:"time_range" json:"time_range" yaml:"time_range"`
 	Incomplete bool      `bson:"incomplete" json:"incomplete" yaml:"incomplete"`
 }
 
 var (
 	costReportMetadataGeneratedKey  = bsonutil.MustHaveTag(CostReportMetadata{}, "Generated")
-	costReportMetadataBeginKey      = bsonutil.MustHaveTag(CostReportMetadata{}, "Begin")
-	costReportMetadataEndKey        = bsonutil.MustHaveTag(CostReportMetadata{}, "End")
+	costReportMetadataRangeKey      = bsonutil.MustHaveTag(CostReportMetadata{}, "Range")
 	costReportMetadataIncompleteKey = bsonutil.MustHaveTag(CostReportMetadata{}, "Incomplete")
 )
 

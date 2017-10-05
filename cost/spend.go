@@ -28,7 +28,7 @@ type EvergreenReportOptions struct {
 func CreateReport(ctx context.Context, config *model.CostConfig, opts *EvergreenReportOptions) (*model.CostReport, error) {
 	grip.Info("Creating the report")
 	output := &model.CostReport{}
-	reportRange := getTimes(opts.StartAt, opts.Duration)
+	reportRange := model.GetTimeRange(opts.StartAt, opts.Duration)
 
 	if opts.DisableAll {
 		grip.Info("skipping entire evergreen report.")
@@ -52,8 +52,7 @@ func CreateReport(ctx context.Context, config *model.CostConfig, opts *Evergreen
 	grip.Info("collected data from aws")
 
 	output.Report = model.CostReportMetadata{
-		Begin:      reportRange.start,
-		End:        reportRange.end,
+		Range:      reportRange,
 		Generated:  time.Now(),
 		Incomplete: opts.AllowIncompleteResults,
 	}

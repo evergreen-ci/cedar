@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
@@ -52,8 +53,8 @@ func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, er
 	}
 
 	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(map[string]interface{}{
-		costReportReportKey + "." + costReportMetadataBeginKey: start,
-		costReportReportKey + "." + costReportMetadataEndKey:   end,
+		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeStartKey): start,
+		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeEndKey):   end,
 	})
 
 	return session, query, nil
@@ -117,8 +118,8 @@ func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Q
 	}
 
 	query := session.DB(conf.DatabaseName).C(costReportSummaryCollection).Find(map[string]interface{}{
-		costReportSummaryMetadataKey + "." + costReportMetadataBeginKey: start,
-		costReportSummaryMetadataKey + "." + costReportMetadataEndKey:   end,
+		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, timeRangeStartKey): start,
+		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, timeRangeEndKey):   end,
 	})
 
 	return session, query, nil

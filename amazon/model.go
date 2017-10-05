@@ -1,7 +1,5 @@
 package amazon
 
-import "time"
-
 type itemType string
 type serviceType string
 
@@ -26,10 +24,4 @@ type ItemKey struct {
 	ItemType     itemType
 	offeringType string
 	duration     int64
-}
-
-// TimeRange defines a time range by storing a start/end time
-type TimeRange struct {
-	Start time.Time
-	End   time.Time
 }

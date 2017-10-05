@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/amazon"
 	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
@@ -52,18 +51,6 @@ var (
 	costConfigOptsDirectoryKey       = bsonutil.MustHaveTag(CostConfigOptions{}, "Directory")
 	costConfigOptsDurationKey        = bsonutil.MustHaveTag(CostConfigOptions{}, "Duration")
 	costConfigOptsAllowIncompleteKey = bsonutil.MustHaveTag(CostConfigOptions{}, "AllowIncompleteResults")
-)
-
-type CostConfigAmazon struct {
-	Accounts  []string         `bson:"accounts" json:"accounts" yaml:"accounts"`
-	S3Info    amazon.S3Info    `bson:"s3" json:"s3" yaml:"s3"`
-	EBSPrices amazon.EBSPrices `bson:"ebs_pricing" json:"ebs_pricing" yaml:"ebs_pricing"`
-}
-
-var (
-	costConfigAmazonAccountsKey  = bsonutil.MustHaveTag(CostConfigAmazon{}, "Accounts")
-	costConfigAmazonS3InfoKey    = bsonutil.MustHaveTag(CostConfigAmazon{}, "S3Info")
-	costConfigAmazonEBSPricesKey = bsonutil.MustHaveTag(CostConfigAmazon{}, "EBSPrices")
 )
 
 func (c *CostConfig) Setup(e sink.Environment) { c.env = e }
