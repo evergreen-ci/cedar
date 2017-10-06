@@ -30,8 +30,8 @@ type CostReport struct {
 func (r *CostReport) refresh() {
 	r.providers = make(map[string]*CloudProvider)
 	for _, p := range r.Providers {
+		p.refresh()
 		r.providers[p.Name] = &p
-		r.providers[p.Name].refresh()
 	}
 	r.Evergreen.refresh()
 }

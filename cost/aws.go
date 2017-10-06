@@ -47,13 +47,13 @@ func setAverages(res *model.ServiceItem, items []amazon.Item) {
 		}
 	}
 	if len(prices) != 0 {
-		res.AvgPrice = float32(avg(prices))
+		res.AvgPrice = avg(prices)
 	}
 	if len(fixedPrices) != 0 {
-		res.FixedPrice = float32(avg(fixedPrices))
+		res.FixedPrice = avg(fixedPrices)
 	}
 	if len(uptimes) != 0 {
-		res.AvgUptime = float32(avg(uptimes))
+		res.AvgUptime = avg(uptimes)
 	}
 }
 
@@ -89,6 +89,30 @@ func getAllProviders(ctx context.Context, reportRange model.TimeRange, config *m
 	return providers, nil
 }
 
+// getAWSProvider specifically creates a provider for AWS and populates those accounts
+func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
+	catcher := grip.NewSimpleCatcher()
+	res := model.CloudProvider{
+		Name: "aws",
+	}
+
+	for _, owner := range config.Amazon.Accounts {
+		account, err := getAWSAccountByOwner(ctx, reportRange, config, owner)
+		if err != nil {
+			catcher.Add(err)
+		}
+
+		res.Cost += account.Cost
+		res.Accounts = append(res.Accounts, account)
+	}
+
+	if catcher.HasErrors() {
+		return nil, catcher.Resolve()
+	}
+
+	return &res, nil
+}
+
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
 func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig, owner string) (*model.CloudAccount, error) {
 	grip.Infof("Compiling data for account owner %s", owner)
@@ -122,20 +146,26 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 	//	return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
 	// }
 	grip.Infof("Iterating through %d instance types", instances.Len())
+	var accountCost float64
 	for pair := range instances.Iter() {
 		key := pair.Key
 		items := pair.Value
 
 		item := createCostItemFromAmazonItems(key, items)
+		cost := item.GetCost()
+		accountCost += cost
 		if key.Service == amazon.EC2Service {
+			ec2Service.Cost += cost
 			ec2Service.Items = append(ec2Service.Items, item)
 		} else {
+			ebsService.Cost += cost
 			ebsService.Items = append(ebsService.Items, item)
 		}
 	}
 
 	account := &model.CloudAccount{
 		Name: owner,
+		Cost: accountCost,
 		Services: []model.AccountService{
 			ec2Service,
 			ebsService,
@@ -143,37 +173,4 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 		},
 	}
 	return account, nil
-}
-
-// getAWSAccounts takes in a range for the report, and returns an array of accounts
-// containing EC2 and EBS instances.
-func getAWSAccounts(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) ([]model.CloudAccount, error) {
-	catcher := grip.NewSimpleCatcher()
-	allAccounts := []model.CloudAccount{}
-	for _, owner := range config.Amazon.Accounts {
-		account, err := getAWSAccountByOwner(ctx, reportRange, config, owner)
-		if err != nil {
-			catcher.Add(err)
-		}
-		allAccounts = append(allAccounts, *account)
-	}
-
-	if catcher.HasErrors() {
-		return nil, catcher.Resolve()
-	}
-
-	return allAccounts, nil
-}
-
-// getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
-	var err error
-	res := &model.CloudProvider{
-		Name: "aws",
-	}
-	res.Accounts, err = getAWSAccounts(ctx, reportRange, config)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
 }

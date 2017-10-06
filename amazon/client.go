@@ -543,14 +543,14 @@ func (c *Client) addEBSItemsPage(ctx context.Context, items *Services, reportRan
 			ItemType: *vol.VolumeType,
 			Service:  EBSService,
 		}
-		item := &Item{}
+		item := Item{}
 		if *vol.State == ec2.VolumeStateAvailable || *vol.State == ec2.VolumeStateInUse {
 			item.Launched = true
 			item.Price = getEBSPrice(*pricing, vol, reportRange)
 		} else { //state is deleting, deleted, or error
 			item.Terminated = true
 		}
-		items.Append(key, *item)
+		items.Append(key, item)
 	}
 	// if there's a next page, recursively add next page information
 	for resp.NextToken != nil && *resp.NextToken != "" {

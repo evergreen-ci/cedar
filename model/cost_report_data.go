@@ -108,8 +108,8 @@ var (
 // Provider holds account information for a single provider.
 type CloudProvider struct {
 	Name     string         `bson:"name" json:"name" yaml:"name"`
+	Cost     float64        `bson:"cost" json:"cost" yaml:"cost"`
 	Accounts []CloudAccount `bson:"accounts" json:"accounts" yaml:"accounts"`
-	Cost     float32        `bson:"cost" json:"cost" yaml:"cost"`
 
 	accounts map[string]*CloudAccount
 }
@@ -117,12 +117,11 @@ type CloudProvider struct {
 func (c *CloudProvider) refresh() {
 	c.accounts = make(map[string]*CloudAccount)
 	c.Cost = 0
+
 	for _, a := range c.Accounts {
 		a.refresh()
+		c.Cost += a.Cost
 		c.accounts[a.Name] = &a
-		for _, s := range a.Services {
-			c.Cost += s.Cost
-		}
 	}
 }
 
@@ -135,6 +134,7 @@ var (
 // Account holds the name and services of a single account for a provider.
 type CloudAccount struct {
 	Name     string           `bson:"name" json:"name" yaml:"name"`
+	Cost     float64          `bson:"cost" json:"cost" yaml:"cost"`
 	Services []AccountService `bson:"services" json:"services" yaml:"services"`
 
 	services map[string]*AccountService
@@ -142,11 +142,14 @@ type CloudAccount struct {
 
 func (c *CloudAccount) refresh() {
 	c.services = make(map[string]*AccountService)
+	c.Cost = 0
 
 	for _, s := range c.Services {
 		s.refresh()
+		c.Cost += s.Cost
 		c.services[s.Name] = &s
 	}
+
 }
 
 var (
@@ -157,8 +160,8 @@ var (
 // Service holds the item information for a single service within an account.
 type AccountService struct {
 	Name  string        `bson:"name" json:"name" yaml:"name"`
+	Cost  float64       `bson:"cost" json:"cost" yaml:"cost"`
 	Items []ServiceItem `bson:"items" json:"items" yaml:"items"`
-	Cost  float32       `bson:"cost" json:"cost" yaml:"cost"`
 
 	items map[string]*ServiceItem
 }
@@ -167,7 +170,7 @@ func (s *AccountService) refresh() {
 	s.items = make(map[string]*ServiceItem)
 	s.Cost = 0
 	for _, i := range s.Items {
-		s.Cost += i.getCost()
+		s.Cost += i.GetCost()
 		s.items[i.Name] = &i
 	}
 }
@@ -180,21 +183,23 @@ var (
 
 // Item holds the information for a single item for a service.
 type ServiceItem struct {
-	Name       string  `bson:"name" json:"name" yaml:"name"`
+	Name       string  `bson:"name,omitempty" json:"name,omitempty" yaml:"name,omitempty"`
 	ItemType   string  `bson:"type" json:"type" yaml:"type"`
 	Launched   int     `bson:"launched" json:"launched" yaml:"launched"`
 	Terminated int     `bson:"terminated" json:"terminated" yaml:"terminated"`
-	FixedPrice float32 `bson:"fixed_price,omitempty" json:"fixed_price,omitempty" yaml:"fixed_price,omitempty"`
-	AvgPrice   float32 `bson:"avg_price,omitempty" json:"avg_price,omitempty" yaml:"avg_price,omitempty"`
-	AvgUptime  float32 `bson:"avg_uptime,omitempty" json:"avg_uptime,omitempty" yaml:"avg_uptime,omitempty"`
+	FixedPrice float64 `bson:"fixed_price,omitempty" json:"fixed_price,omitempty" yaml:"fixed_price,omitempty"`
+	AvgPrice   float64 `bson:"avg_price,omitempty" json:"avg_price,omitempty" yaml:"avg_price,omitempty"`
+	AvgUptime  float64 `bson:"avg_uptime,omitempty" json:"avg_uptime,omitempty" yaml:"avg_uptime,omitempty"`
 	TotalHours int     `bson:"total_hours,omitempty" json:"total_hours,omitempty" yaml:"total_hours,omitempty"`
 }
 
-func (i *ServiceItem) getCost() float32 {
-	if i.FixedPrice != 0 {
-		return float32(i.TotalHours) * i.FixedPrice
-	} else if i.AvgPrice != 0 {
-		return float32(i.TotalHours) * i.AvgPrice
+func (i *ServiceItem) GetCost() float64 {
+	if i.AvgPrice > 0 {
+		return float64(i.TotalHours) * i.AvgPrice
+	}
+
+	if i.FixedPrice > 0 {
+		return float64(i.TotalHours) * i.FixedPrice
 	}
 
 	return 0

@@ -1,6 +1,8 @@
 package amazon
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 // Item is information for an item for a particular Name and ItemType
 type Item struct {
@@ -40,6 +42,7 @@ func (s *Services) Extend(k ItemKey, items []Item) {
 	if v, ok := s.m[k]; ok {
 		v = append(v, items...)
 		s.m[k] = v
+		return
 	}
 
 	s.m[k] = items

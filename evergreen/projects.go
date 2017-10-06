@@ -93,7 +93,7 @@ func (c *Client) getTaskCostsByProject(ctx context.Context, projectID, starttime
 
 	go func() {
 		path := "cost/project/" + projectID + "/tasks?starttime=" + starttime +
-			"&limit=30&duration=" + duration
+			"&limit=20&duration=" + duration
 		for {
 			data, link, err := c.get(ctx, path)
 			if err != nil {
