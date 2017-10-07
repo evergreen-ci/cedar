@@ -103,7 +103,7 @@ func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *mo
 		}
 
 		res.Cost += account.Cost
-		res.Accounts = append(res.Accounts, account)
+		res.Accounts = append(res.Accounts, *account)
 	}
 
 	if catcher.HasErrors() {

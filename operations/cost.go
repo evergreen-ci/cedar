@@ -24,6 +24,7 @@ func Cost() cli.Command {
 		Usage: "build cost report combining granular Evergreen and AWS data",
 		Subcommands: []cli.Command{
 			loadConfig(),
+			printScrn(),
 			collectLoop(),
 			write(),
 			dump(),
@@ -170,6 +171,47 @@ func write() cli.Command {
 				return errors.Wrap(err, "problem writing cost report")
 			}
 
+			return nil
+		},
+	}
+}
+
+func printScrn() cli.Command {
+	return cli.Command{
+		Name:  "print",
+		Usage: "print a cost report to the terminal",
+		Flags: costFlags(costEvergreenOptionsFlags()...),
+		Action: func(c *cli.Context) error {
+			start, err := time.Parse(sink.ShortDateFormat, c.String("start"))
+			if err != nil {
+				return errors.Wrapf(err, "problem parsing time from %s", c.String("start"))
+			}
+			file := c.String("config")
+			dur := c.Duration("duration")
+
+			conf, err := model.LoadCostConfig(file)
+			if err != nil {
+				return errors.Wrapf(err, "problem loading cost configuration from %s", file)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			opts := cost.EvergreenReportOptions{
+				StartAt:                start,
+				Duration:               dur,
+				DisableAll:             c.Bool("disableEvgAll"),
+				DisableProjects:        c.Bool("disableEvgProjects"),
+				DisableDistros:         c.Bool("disableEvgDistros"),
+				AllowIncompleteResults: c.Bool("continueOnError"),
+			}
+
+			report, err := cost.CreateReport(ctx, conf, &opts)
+			if err != nil {
+				return errors.Wrap(err, "Problem generating report")
+			}
+			report.Setup(sink.GetEnvironment())
+			fmt.Println(report.String())
 			return nil
 		},
 	}
