@@ -47,13 +47,11 @@ var (
 )
 
 type EvergreenResourceCostSummary struct {
-	Name    string  `bson:"name" json:"name" yaml:"name"`
 	Seconds int64   `bson:"seconds" json:"seconds" yaml:"seconds"`
 	Cost    float64 `bson:"cost" json:"cost" yaml:"cost"`
 }
 
 var (
-	costReportEvergreenResourceCostSummaryNameKey    = bsonutil.MustHaveTag(EvergreenResourceCostSummary{}, "Name")
 	costReportEvergreenResourceCostSummarySecondsKey = bsonutil.MustHaveTag(EvergreenResourceCostSummary{}, "Seconds")
 	costReportEvergreenResourceCostSummaryCostKey    = bsonutil.MustHaveTag(EvergreenResourceCostSummary{}, "Cost")
 )
@@ -81,15 +79,8 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 		commitSet := map[string]struct{}{}
 		for _, t := range p.Tasks {
 			commitSet[t.Githash] = struct{}{}
-			distro := r.Evergreen.distro[t.Distro]
 			psum.Resources.Cost += t.EstimatedCost
 			psum.Resources.Seconds += t.TaskSeconds
-
-			if distro.InstanceType != "" {
-				psum.Resources.Name = distro.InstanceType
-			} else {
-				psum.Resources.Name = distro.InstanceType
-			}
 		}
 
 		psum.Tasks = len(p.Tasks)
