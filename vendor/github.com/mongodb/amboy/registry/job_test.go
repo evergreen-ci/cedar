@@ -5,10 +5,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
+	"github.com/stretchr/testify/suite"
 )
 
 // AmboyJobRegustrySuite tests the amboy job registry resource, which is
@@ -25,7 +25,7 @@ func TestAmboyJobRegistryResources(t *testing.T) {
 }
 
 func (s *AmboyJobRegustrySuite) SetupSuite() {
-	grip.SetThreshold(level.Emergency)
+	s.NoError(grip.SetThreshold(level.Emergency))
 }
 
 func (s *AmboyJobRegustrySuite) SetupTest() {

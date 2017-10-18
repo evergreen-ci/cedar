@@ -1,12 +1,12 @@
 package amboy
 
 import (
+	"context"
 	"time"
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 // QueueOperation is a named function literal for use in the
@@ -112,7 +112,7 @@ func PeriodicQueueOperation(ctx context.Context, q Queue, interval time.Duration
 // schedule jobs every hour, or similar use-cases.
 func IntervalQueueOperation(ctx context.Context, q Queue, interval time.Duration, startAt time.Time, ignoreErrors bool, op QueueOperation) {
 	go func() {
-		initialWait := time.Now().Sub(startAt)
+		initialWait := time.Since(startAt)
 		if initialWait > time.Second {
 			grip.Infof("waiting %s to start scheduling an interval job", initialWait)
 			time.Sleep(initialWait)

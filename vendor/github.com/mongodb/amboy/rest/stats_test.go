@@ -3,12 +3,12 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
 
 func TestStatusOuputGenerator(t *testing.T) {
@@ -32,7 +32,7 @@ func TestStatusOuputGenerator(t *testing.T) {
 }
 
 func TestStatusMethod(t *testing.T) {
-	assert := assert.New(t)
+	assert := assert.New(t) // nolint
 	ctx := context.Background()
 	service := NewService()
 

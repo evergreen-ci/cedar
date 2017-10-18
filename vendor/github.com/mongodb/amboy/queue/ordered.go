@@ -15,19 +15,19 @@ amboy.Runner interface.
 package queue
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 
-	"github.com/gonum/graph"
-	"github.com/gonum/graph/simple"
-	"github.com/gonum/graph/topo"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/pool"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
+	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/simple"
+	"gonum.org/v1/gonum/graph/topo"
 )
 
 // LocalOrdered implements a dependency aware local queue. The queue
@@ -43,8 +43,8 @@ type LocalOrdered struct {
 	channel    chan amboy.Job
 	tasks      struct {
 		m         map[string]amboy.Job
-		ids       map[string]int
-		nodes     map[int]amboy.Job
+		ids       map[string]int64
+		nodes     map[int64]amboy.Job
 		completed map[string]bool
 		graph     *simple.DirectedGraph
 	}
@@ -61,10 +61,10 @@ func NewLocalOrdered(workers int) *LocalOrdered {
 		channel: make(chan amboy.Job, 100),
 	}
 	q.tasks.m = make(map[string]amboy.Job)
-	q.tasks.ids = make(map[string]int)
-	q.tasks.nodes = make(map[int]amboy.Job)
+	q.tasks.ids = make(map[string]int64)
+	q.tasks.nodes = make(map[int64]amboy.Job)
 	q.tasks.completed = make(map[string]bool)
-	q.tasks.graph = simple.NewDirectedGraph(1, 0)
+	q.tasks.graph = simple.NewDirectedGraph()
 
 	r := pool.NewLocalWorkers(workers, q)
 	q.runner = r
@@ -82,18 +82,15 @@ func (q *LocalOrdered) Put(j amboy.Job) error {
 	defer q.mutex.Unlock()
 
 	if q.started {
-		return fmt.Errorf("cannot add %s because ordered task dispatching has begun", name)
+		return errors.Errorf("cannot add %s because ordered task dispatching has begun", name)
 	}
 
 	if _, ok := q.tasks.m[name]; ok {
-		id := q.tasks.ids[name]
-		q.tasks.m[name] = j
-		q.tasks.nodes[id] = j
-		return nil
+		return errors.Errorf("cannot add %s because duplicate job ids are not allowed", name)
 	}
 
-	id := q.tasks.graph.NewNodeID()
-	node := simple.Node(id)
+	node := q.tasks.graph.NewNode()
+	id := node.ID()
 
 	q.tasks.m[name] = j
 	q.tasks.ids[name] = id
@@ -143,22 +140,44 @@ func (q *LocalOrdered) Next(ctx context.Context) amboy.Job {
 // closed when all results have been exhausted, even if there are more
 // results pending. Other implementations may have different semantics
 // for this method.
-func (q *LocalOrdered) Results() <-chan amboy.Job {
-	q.mutex.RLock()
-	output := make(chan amboy.Job, len(q.tasks.completed))
-	q.mutex.RUnlock()
+func (q *LocalOrdered) Results(ctx context.Context) <-chan amboy.Job {
+	output := make(chan amboy.Job)
 
 	go func() {
 		q.mutex.RLock()
 		defer q.mutex.RUnlock()
+		defer close(output)
 		for _, job := range q.tasks.m {
+			if ctx.Err() != nil {
+				return
+			}
+
 			if job.Status().Completed {
 				output <- job
 			}
 		}
-		close(output)
 	}()
 
+	return output
+}
+
+// JobStats returns job status documents for all jobs tracked by the
+// queue. This implementation returns status for jobs in a random order.
+func (q *LocalOrdered) JobStats(ctx context.Context) <-chan amboy.JobStatusInfo {
+	output := make(chan amboy.JobStatusInfo)
+	go func() {
+		q.mutex.RLock()
+		defer q.mutex.RUnlock()
+		defer close(output)
+		for _, job := range q.tasks.m {
+			if ctx.Err() != nil {
+				return
+			}
+			s := job.Status()
+			s.ID = job.ID()
+			output <- s
+		}
+	}()
 	return output
 }
 
@@ -218,7 +237,6 @@ func (q *LocalOrdered) buildGraph() error {
 			edge := simple.Edge{
 				F: simple.Node(id),
 				T: simple.Node(edgeID),
-				W: 2,
 			}
 			q.tasks.graph.SetEdge(edge)
 		}

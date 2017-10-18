@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/mongodb/amboy/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/context"
 )
 
 type LocalWorkersSuite struct {
@@ -42,6 +42,13 @@ func TestLocalWorkersSuiteSizeOneHundred(t *testing.T) {
 func (s *LocalWorkersSuite) SetupTest() {
 	s.pool = NewLocalWorkers(s.size, nil).(*localWorkers)
 	s.queue = NewQueueTester(s.pool)
+}
+
+func (s *LocalWorkersSuite) TestPanicJobsDoNotPanicHarness() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.NotPanics(func() { worker(ctx, jobsChanWithPanicingJobs(ctx, s.size), s.queue) })
 }
 
 func (s *LocalWorkersSuite) TestConstructedInstanceImplementsInterface() {
@@ -90,7 +97,7 @@ func (s *LocalWorkersSuite) TestPoolStartsAndProcessesJobs() {
 	amboy.Wait(s.queue)
 
 	counter := 0
-	for j := range s.queue.Results() {
+	for j := range s.queue.Results(ctx) {
 		s.True(j.Status().Completed)
 		counter++
 	}
@@ -142,4 +149,15 @@ func TestLocalWorkerPoolConstructorDoesNotAllowSizeValuesLessThanOne(t *testing.
 
 		assert.Equal(1, pool.size)
 	}
+}
+
+func TestPanicJobPanics(t *testing.T) {
+	assert := assert.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for j := range jobsChanWithPanicingJobs(ctx, 8) {
+		assert.Panics(func() { j.Run() })
+	}
+
 }

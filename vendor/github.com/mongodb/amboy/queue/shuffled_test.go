@@ -5,6 +5,7 @@ package queue
 // consistent behavior of this implementation
 
 import (
+	"context"
 	"testing"
 
 	"github.com/mongodb/amboy"
@@ -12,7 +13,6 @@ import (
 	"github.com/mongodb/amboy/pool"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/context"
 )
 
 type ShuffledQueueSuite struct {
@@ -134,7 +134,10 @@ func (s *ShuffledQueueSuite) TestResultsOperationReturnsEmptyChannelIfQueueIsNot
 	s.False(s.queue.Started())
 	count := 0
 
-	for range s.queue.Results() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for range s.queue.Results(ctx) {
 		count++
 	}
 

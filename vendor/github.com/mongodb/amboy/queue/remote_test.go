@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"testing"
@@ -14,7 +15,6 @@ import (
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 )
 
@@ -327,4 +327,29 @@ checkResults:
 	s.True(qStat.Total == created)
 	s.True(qStat.Completed <= observed, fmt.Sprintf("%d <= %d", qStat.Completed, observed))
 	s.Equal(created-numLocked, observed, fmt.Sprintf("%+v", s.queue.Stats()))
+}
+
+func (s RemoteUnorderedSuite) TestJobStatsIterator() {
+	s.require.NoError(s.queue.SetDriver(s.driver))
+
+	names := make(map[string]struct{})
+
+	for i := 0; i < 30; i++ {
+		cmd := fmt.Sprintf("echo 'foo: %d'", i)
+		j := job.NewShellJob(cmd, "")
+
+		s.NoError(s.queue.Put(j))
+		names[j.ID()] = struct{}{}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	counter := 0
+	for stat := range s.queue.JobStats(ctx) {
+		_, ok := names[stat.ID]
+		s.True(ok)
+		counter++
+	}
+	s.Equal(len(names), counter)
+	s.Equal(counter, 30)
 }

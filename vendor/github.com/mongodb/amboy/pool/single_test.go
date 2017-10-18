@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/context"
 )
 
 type SingleRunnerSuite struct {
@@ -23,7 +23,7 @@ func TestSingleWorkerSuite(t *testing.T) {
 }
 
 func (s *SingleRunnerSuite) SetupSuite() {
-	grip.SetThreshold(level.Info)
+	s.NoError(grip.SetThreshold(level.Info))
 }
 
 func (s *SingleRunnerSuite) SetupTest() {
