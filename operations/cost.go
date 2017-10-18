@@ -28,6 +28,7 @@ func Cost() cli.Command {
 			collectLoop(),
 			write(),
 			dump(),
+			summarize(),
 		},
 	}
 }
@@ -133,6 +134,52 @@ func collectLoop() cli.Command {
 
 			grip.Alert("collection terminating")
 			return errors.New("collection terminating")
+		},
+	}
+}
+
+func summarize() cli.Command {
+	return cli.Command{
+		Name:  "summarize",
+		Usage: "reads reports from the database and writes summaries",
+		Flags: dbFlags(),
+		Action: func(c *cli.Context) error {
+			mongodbURI := c.String("dbUri")
+			dbName := c.String("dbName")
+			env := sink.GetEnvironment()
+			if err := configure(env, 1, false, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
+			reports := &model.CostReports{}
+			reports.Setup(env)
+			iter, err := reports.Iterator(time.Time{}, time.Now())
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			num, err := reports.Count()
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			grip.Infof("found %d reports", num)
+
+			report := &model.CostReport{}
+			catcher := grip.NewBasicCatcher()
+			count := 0
+			for iter.Next(report) {
+				count++
+				report.Setup(env)
+				summary := model.NewCostReportSummary(report)
+				grip.Info(message.Fields{
+					"summary": summarize,
+					"number":  count,
+					"total":   num,
+				})
+				catcher.Add(summary.Save())
+			}
+
+			return catcher.Resolve()
 		},
 	}
 }

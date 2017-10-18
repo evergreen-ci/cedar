@@ -33,9 +33,15 @@ var (
 )
 
 type EvergreenProjectSummary struct {
-	Name        string           `bson:"name" json:"name" yaml:"name"`
-	Versions    int              `bson:"versions" json:"versions" yaml:"versions"`
-	ResourceUse map[string]int64 `bson:"resource_use" json:"resource_use" yaml:"resource_use"`
+	Name      string                         `bson:"name" json:"name" yaml:"name"`
+	Versions  int                            `bson:"versions" json:"versions" yaml:"versions"`
+	Resources []EvergreenResourceCostSummary `bson:"resources" json:"resources" yaml:"resources"`
+}
+
+type EvergreenResourceCostSummary struct {
+	Name    string  `bson:"name" json:"name" yaml:"name"`
+	Seconds int64   `bson:"seconds" json:"seconds" yaml:"seconds"`
+	Cost    float64 `bson:"cost" json:"cost" yaml:"cost"`
 }
 
 var (
@@ -63,19 +69,32 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 	}
 
 	for _, p := range r.Evergreen.Projects {
-		psum := EvergreenProjectSummary{Name: p.Name, ResourceUse: map[string]int64{}}
+		psum := EvergreenProjectSummary{Name: p.Name}
 		commitSet := map[string]struct{}{}
+		resources := map[string]EvergreenResourceCostSummary{}
+
 		for _, t := range p.Tasks {
 			commitSet[t.Githash] = struct{}{}
 			distro := r.Evergreen.distro[t.Distro]
 			if distro.InstanceType == "" {
-				psum.ResourceUse[distro.Name] += t.TaskSeconds
+				r := resources[distro.Name]
+				r.Name = distro.Name
+				r.Seconds += t.TaskSeconds
+				r.Cost += t.EstimatedCost
+				resources[distro.Name] = r
 			} else {
-				psum.ResourceUse[distro.InstanceType] += t.TaskSeconds
+				r := resources[distro.InstanceType]
+				r.Name = distro.Name
+				r.Seconds += t.TaskSeconds
+				r.Cost += t.EstimatedCost
+				resources[distro.InstanceType] = r
 			}
 		}
 
 		psum.Versions = len(commitSet)
+		for _, rsum := range resources {
+			psum.Resources = append(psum.Resources, rsum)
+		}
 		out.EvergreenProjects = append(out.EvergreenProjects, psum)
 	}
 
