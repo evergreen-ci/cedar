@@ -105,8 +105,8 @@ func collectLoop() cli.Command {
 				AllowIncompleteResults: c.Bool("continueOnError"),
 			}
 
-			amboy.IntervalQueueOperation(ctx, q, 5*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
-				now := time.Now().Add(-time.Hour)
+			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
+				now := time.Now().Add(-time.Hour).UTC()
 				opts.StartAt = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
 				id := fmt.Sprintf("bcr-%s", opts.StartAt)
@@ -263,7 +263,7 @@ func dump() cli.Command {
 			reports := &model.CostReports{}
 			reports.Setup(env)
 
-			iter, err := reports.Iterator(time.Time{}, time.Now())
+			iter, err := reports.Iterator(time.Time{}, time.Now().UTC())
 			if err != nil {
 				return errors.WithStack(err)
 			}
