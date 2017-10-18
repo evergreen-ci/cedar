@@ -33,10 +33,18 @@ var (
 )
 
 type EvergreenProjectSummary struct {
-	Name      string                         `bson:"name" json:"name" yaml:"name"`
-	Versions  int                            `bson:"versions" json:"versions" yaml:"versions"`
-	Resources []EvergreenResourceCostSummary `bson:"resources" json:"resources" yaml:"resources"`
+	Name      string                       `bson:"name" json:"name" yaml:"name"`
+	Versions  int                          `bson:"versions" json:"versions" yaml:"versions"`
+	Tasks     int                          `bson:"tasks" json:"tasks" yaml:"tasks"`
+	Resources EvergreenResourceCostSummary `bson:"resources" json:"resources" yaml:"resources"`
 }
+
+var (
+	costReportEvergrenProjectSummaryNameKey     = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Name")
+	costReportEvergrenProjectSummaryVersionsKey = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Versions")
+	costReportEvergrenProjectSummaryTasksKey    = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Tasks")
+	costReportEvergrenProjectSummaryResourceKey = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Resources")
+)
 
 type EvergreenResourceCostSummary struct {
 	Name    string  `bson:"name" json:"name" yaml:"name"`
@@ -45,9 +53,9 @@ type EvergreenResourceCostSummary struct {
 }
 
 var (
-	costReportEvergrenProjectSummaryNameKey        = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Name")
-	costReportEvergrenProjectSummaryVersionsKey    = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "Versions")
-	costReportEvergrenProjectSummaryResourceUseKey = bsonutil.MustHaveTag(EvergreenProjectSummary{}, "ResourceUse")
+	costReportEvergreenResourceCostSummaryNameKey    = bsonutil.MustHaveTag(EvergreenResourceCostSummary{}, "Name")
+	costReportEvergreenResourceCostSummarySecondsKey = bsonutil.MustHaveTag(EvergreenResourceCostSummary{}, "Seconds")
+	costReportEvergreenResourceCostSummaryCostKey    = bsonutil.MustHaveTag(EvergreenResourceCostSummary{}, "Cost")
 )
 
 type CloudProviderSummary struct {
@@ -71,30 +79,21 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 	for _, p := range r.Evergreen.Projects {
 		psum := EvergreenProjectSummary{Name: p.Name}
 		commitSet := map[string]struct{}{}
-		resources := map[string]EvergreenResourceCostSummary{}
-
 		for _, t := range p.Tasks {
 			commitSet[t.Githash] = struct{}{}
 			distro := r.Evergreen.distro[t.Distro]
-			if distro.InstanceType == "" {
-				r := resources[distro.Name]
-				r.Name = distro.Name
-				r.Seconds += t.TaskSeconds
-				r.Cost += t.EstimatedCost
-				resources[distro.Name] = r
+			psum.Resources.Cost += t.EstimatedCost
+			psum.Resources.Seconds += t.TaskSeconds
+
+			if distro.InstanceType != "" {
+				psum.Resources.Name = distro.InstanceType
 			} else {
-				r := resources[distro.InstanceType]
-				r.Name = distro.Name
-				r.Seconds += t.TaskSeconds
-				r.Cost += t.EstimatedCost
-				resources[distro.InstanceType] = r
+				psum.Resources.Name = distro.InstanceType
 			}
 		}
 
+		psum.Tasks = len(p.Tasks)
 		psum.Versions = len(commitSet)
-		for _, rsum := range resources {
-			psum.Resources = append(psum.Resources, rsum)
-		}
 		out.EvergreenProjects = append(out.EvergreenProjects, psum)
 	}
 

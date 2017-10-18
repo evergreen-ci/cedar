@@ -172,11 +172,14 @@ func summarize() cli.Command {
 				report.Setup(env)
 				summary := model.NewCostReportSummary(report)
 				grip.Info(message.Fields{
-					"summary": summarize,
+					"summary": summary,
 					"number":  count,
 					"total":   num,
 				})
 				catcher.Add(summary.Save())
+			}
+			if err = iter.Close(); err != nil {
+				return errors.WithStack(err)
 			}
 
 			return catcher.Resolve()

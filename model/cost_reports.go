@@ -28,7 +28,7 @@ func (r *CostReports) Find(start, end time.Time) error {
 	defer session.Close()
 
 	r.populated = false
-	if err = query.All(r.reports); err != nil {
+	if err = query.All(&r.reports); err != nil {
 		return errors.Wrap(err, "problem finding cost reports within range")
 	}
 	r.populated = true
@@ -52,9 +52,9 @@ func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, er
 		return nil, nil, errors.WithStack(err)
 	}
 
-	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(map[string]interface{}{
-		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeStartKey): start,
-		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeEndKey):   end,
+	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(db.Document{
+		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeStartKey): db.Document{"$gte": start},
+		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeEndKey):   db.Document{"$lt": end},
 	})
 
 	return session, query, nil
