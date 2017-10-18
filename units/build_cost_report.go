@@ -48,6 +48,7 @@ func NewBuildCostReport(env sink.Environment, name string, opts *cost.EvergreenR
 }
 
 func (j *buildCostReportJob) Run() {
+	defer grip.Infoln("completed job: ", j.ID())
 	defer j.MarkComplete()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -83,8 +84,6 @@ func (j *buildCostReportJob) Run() {
 	summary.Setup(j.env)
 	if err := summary.Save(); err != nil {
 		grip.Warning(err)
-		j.AddError(err)
-		return
 	}
 
 	grip.Notice(message.Fields{
