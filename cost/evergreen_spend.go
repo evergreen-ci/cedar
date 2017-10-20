@@ -66,7 +66,7 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 		costTask.Distro = task.DistroID
 		costTask.Name = task.DisplayName
 		costTask.BuildVariant = task.BuildVariant
-		costTask.TaskSeconds = task.TimeTakenMS / 1000
+		costTask.TaskSeconds = task.TimeTakenMS / uint64(1000)
 		costTask.EstimatedCost = task.Cost
 		p.Tasks = append(p.Tasks, costTask)
 	}

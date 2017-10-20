@@ -23,7 +23,7 @@ type TaskCost struct {
 	DisplayName  string  `json:"display_name"`
 	DistroID     string  `json:"distro"`
 	BuildVariant string  `json:"build_variant"`
-	TimeTakenMS  int64   `json:"time_taken"`
+	TimeTakenMS  uint64  `json:"time_taken"`
 	Githash      string  `json:"githash"`
 	Cost         float64 `json:"estimated_cost"`
 }

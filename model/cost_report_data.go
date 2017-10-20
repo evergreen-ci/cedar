@@ -92,7 +92,7 @@ type EvergreenTaskCost struct {
 	Name          string  `bson:"name" json:"name" yaml:"name"`
 	Distro        string  `bson:"distro" json:"distro" yaml:"distro"`
 	BuildVariant  string  `bson:"variant" json:"variant" yaml:"variant"`
-	TaskSeconds   int64   `bson:"seconds" json:"seconds" yaml:"seconds"`
+	TaskSeconds   uint64  `bson:"seconds" json:"seconds" yaml:"seconds"`
 	EstimatedCost float64 `bson:"estimated_cost" json:"estimated_cost" yaml:"estimated_cost"`
 }
 

@@ -47,7 +47,7 @@ var (
 )
 
 type EvergreenResourceCostSummary struct {
-	Seconds int64   `bson:"seconds" json:"seconds" yaml:"seconds"`
+	Seconds uint64  `bson:"seconds" json:"seconds" yaml:"seconds"`
 	Cost    float64 `bson:"cost" json:"cost" yaml:"cost"`
 }
 
