@@ -5,15 +5,27 @@ import (
 )
 
 type CostConfigAmazon struct {
-	Accounts  []string            `bson:"accounts" json:"accounts" yaml:"accounts"`
-	S3Info    CostConfigAmazonS3  `bson:"s3" json:"s3" yaml:"s3"`
-	EBSPrices CostConfigAmazonEBS `bson:"ebs_pricing" json:"ebs_pricing" yaml:"ebs_pricing"`
+	Accounts  []CostConfigAmazonAccount `bson:"accounts" json:"accounts" yaml:"accounts"`
+	S3Info    CostConfigAmazonS3        `bson:"s3" json:"s3" yaml:"s3"`
+	EBSPrices CostConfigAmazonEBS       `bson:"ebs_pricing" json:"ebs_pricing" yaml:"ebs_pricing"`
 }
 
 var (
 	costConfigAmazonAccountsKey  = bsonutil.MustHaveTag(CostConfigAmazon{}, "Accounts")
 	costConfigAmazonS3InfoKey    = bsonutil.MustHaveTag(CostConfigAmazon{}, "S3Info")
 	costConfigAmazonEBSPricesKey = bsonutil.MustHaveTag(CostConfigAmazon{}, "EBSPrices")
+)
+
+type CostConfigAmazonAccount struct {
+	Name   string `bson:"name" json:"name" yaml:"name"`
+	Key    string `bson:"key" json:"key" yaml:"key"`
+	Secret string `bson:"secret" json:"secret" yaml:"secret"`
+}
+
+var (
+	costConfigAmazonNameKey   = bsonutil.MustHaveTag(CostConfigAmazonAccount{}, "Name")
+	costConfigAmazonKeyKey    = bsonutil.MustHaveTag(CostConfigAmazonAccount{}, "Key")
+	costConfigAmazonSecretKey = bsonutil.MustHaveTag(CostConfigAmazonAccount{}, "Secret")
 )
 
 type CostConfigAmazonS3 struct {

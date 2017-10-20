@@ -96,8 +96,8 @@ func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *mo
 		Name: "aws",
 	}
 
-	for _, owner := range config.Amazon.Accounts {
-		account, err := getAWSAccountByOwner(ctx, reportRange, config, owner)
+	for _, aws := range config.Amazon.Accounts {
+		account, err := getAWSAccountByOwner(ctx, reportRange, config, aws)
 		if err != nil {
 			catcher.Add(err)
 		}
@@ -114,11 +114,11 @@ func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *mo
 }
 
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
-func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig, owner string) (*model.CloudAccount, error) {
-	grip.Infof("Compiling data for account owner %s", owner)
-	client, err := amazon.NewClientAuto()
+func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig, account model.CostConfigAmazonAccount) (*model.CloudAccount, error) {
+	grip.Infof("Compiling data for account owner %s", account.Name)
+	client, err := amazon.NewClientWithInfo(account.Key, account.Secret)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Problem getting client %s", owner)
+		return nil, errors.Wrapf(err, "Problem getting client %s", account.Name)
 	}
 
 	instances := amazon.NewServices()
@@ -131,7 +131,7 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 		return nil, errors.Wrap(err, "Problem getting EBS instances")
 	}
 	s3info := config.Amazon.S3Info
-	s3info.Owner = owner
+	s3info.Owner = account.Name
 	ec2Service := model.AccountService{
 		Name: string(amazon.EC2Service),
 	}
@@ -163,14 +163,13 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 		}
 	}
 
-	account := &model.CloudAccount{
-		Name: owner,
+	return &model.CloudAccount{
+		Name: account.Name,
 		Cost: accountCost,
 		Services: []model.AccountService{
 			ec2Service,
 			ebsService,
 			// s3Service,
 		},
-	}
-	return account, nil
+	}, nil
 }
