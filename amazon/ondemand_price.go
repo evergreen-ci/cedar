@@ -25,7 +25,7 @@ const (
 //NOTE: most of this code is taken from evergreen-ci/evergreen/cloud/providers/ec2/ec2_util.go
 
 // Terms is an internal type for loading price API results into.
-type Terms struct {
+type terms struct {
 	OnDemand map[string]map[string]struct {
 		PriceDimensions map[string]struct {
 			PricePerUnit struct {
@@ -36,7 +36,7 @@ type Terms struct {
 }
 
 // Product is an internal type for loading product API results into.
-type Product struct {
+type product struct {
 	SKU           string
 	ProductFamily string
 	Attributes    struct {
@@ -51,8 +51,8 @@ type Product struct {
 
 // priceInfo is an internal type that holds price and product API results
 type priceInfo struct {
-	Terms    Terms
-	Products map[string]Product
+	Terms    terms
+	Products map[string]product
 }
 
 // odInfo is an internal type for keying hosts by the attributes that affect billing.
@@ -68,7 +68,7 @@ type prices map[odInfo]float64
 // for the USD dollar amount of an SKU. The for loops are for traversing
 // maps of size one with an unknown key, which is simple to do in a
 // language like python but really ugly here.
-func (t Terms) skuPrice(sku string) float64 {
+func (t terms) skuPrice(sku string) float64 {
 	for _, v := range t.OnDemand[sku] {
 		for _, p := range v.PriceDimensions {
 			// parse -- ignoring errors
@@ -111,7 +111,7 @@ func azToRegion(az string) string {
 
 // isValid return true if the product receiver meets the restrictions previously
 // defined in evergreen-ci/evergreen.
-func (p *Product) isValid() bool {
+func (p *product) isValid() bool {
 	return (p.ProductFamily == "Compute Instance" &&
 		p.Attributes.PreInstalledSW == "NA" &&
 		p.Attributes.Tenancy == "Shared" &&
