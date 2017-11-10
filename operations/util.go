@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func writeJSON(fn string, data interface{}) error {
@@ -19,19 +20,22 @@ func writeJSON(fn string, data interface{}) error {
 	}
 	defer f.Close()
 
-	if _, err = f.Write(out); err != nil {
-		return err
+	return errors.WithStack(writeBytes(f, out))
+}
+
+func writeYAML(fn string, data interface{}) error {
+	out, err := yaml.Marshal(data)
+	if err != nil {
+		return errors.Wrap(err, "problem writing data")
 	}
 
-	if _, err = f.WriteString("\n"); err != nil {
+	f, err := os.Create(fn)
+	if err != nil {
 		return errors.WithStack(err)
 	}
+	defer f.Close()
 
-	if err = f.Sync(); err != nil {
-		return err
-	}
-
-	return nil
+	return errors.WithStack(writeBytes(f, out))
 }
 
 func writeString(fn string, data string) error {
@@ -41,15 +45,19 @@ func writeString(fn string, data string) error {
 	}
 	defer f.Close()
 
-	if _, err = f.WriteString(data); err != nil {
+	return errors.WithStack(writeBytes(f, []byte(data)))
+}
+
+func writeBytes(f *os.File, data []byte) error {
+	if _, err := f.Write(data); err != nil {
 		return errors.WithStack(err)
 	}
 
-	if _, err = f.WriteString("\n"); err != nil {
+	if _, err := f.WriteString("\n"); err != nil {
 		return errors.WithStack(err)
 	}
 
-	if err = f.Sync(); err != nil {
+	if err := f.Sync(); err != nil {
 		return err
 	}
 

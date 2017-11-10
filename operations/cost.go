@@ -23,7 +23,8 @@ func Cost() cli.Command {
 		Name:  "cost",
 		Usage: "build cost report combining granular Evergreen and AWS data",
 		Subcommands: []cli.Command{
-			loadConfig(),
+			loadCostConfig(),
+			dumpCostConfig(),
 			printScrn(),
 			collectLoop(),
 			write(),
@@ -33,7 +34,39 @@ func Cost() cli.Command {
 	}
 }
 
-func loadConfig() cli.Command {
+func dumpCostConfig() cli.Command {
+	return cli.Command{
+		Name:  "dump-config",
+		Usage: "download a cost reporting configuration from the database into a file",
+		Flags: dbFlags(
+			cli.StringFlag{
+				Name:  "file",
+				Usage: "specify path to a build cost reporting config file",
+			}),
+		Action: func(c *cli.Context) error {
+			env := sink.GetEnvironment()
+
+			fileName := c.String("file")
+			mongodbURI := c.String("dbUri")
+			dbName := c.String("dbName")
+
+			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+				return errors.WithStack(err)
+			}
+
+			conf := &model.CostConfig{}
+			conf.Setup(env)
+
+			if err := conf.Find(); err != nil {
+				return errors.WithStack(err)
+			}
+
+			return errors.WithStack(writeJSON(fileName, conf))
+		},
+	}
+}
+
+func loadCostConfig() cli.Command {
 	return cli.Command{
 		Name:  "load-config",
 		Usage: "load a cost reporting configuration into the database from a file",

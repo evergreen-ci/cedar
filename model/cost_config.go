@@ -96,7 +96,7 @@ func (c *CostConfig) Save() error {
 		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: configurationCollection},
 		"id":          costReportingID,
 		"operation":   "save build cost reporting configuration",
-		"change-info": changeInfo,
+		"change_info": changeInfo,
 	})
 
 	if db.ResultsNotFound(err) {
@@ -160,7 +160,7 @@ func LoadCostConfig(file string) (*CostConfig, error) {
 
 	newConfig := &CostConfig{}
 	if err = yaml.Unmarshal(yamlFile, newConfig); err != nil {
-		return nil, errors.Wrap(err, "invalid yaml format")
+		return nil, errors.Wrap(err, "invalid yaml/json format")
 	}
 
 	if err = newConfig.Validate(); err != nil {

@@ -27,6 +27,7 @@ func buildApp() *cli.App {
 	app.Version = "0.0.1-pre"
 
 	app.Commands = []cli.Command{
+		operations.Config(),
 		operations.Service(),
 		operations.Client(),
 		operations.Worker(),
