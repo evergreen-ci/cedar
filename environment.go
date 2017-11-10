@@ -4,11 +4,13 @@ import (
 	"sync"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/queue"
+	"github.com/mongodb/amboy/queue/driver"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/logging"
-	"github.com/mongodb/grip/send"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	mgo "gopkg.in/mgo.v2"
 )
 
 var globalEnv *envState
@@ -19,28 +21,26 @@ func GetEnvironment() Environment { return globalEnv }
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
 type Environment interface {
+	Configure(*Configuration) error
+
 	// GetQueue retrieves the application's shared queue, which is cache
 	// for easy access from within units or inside of requests or command
 	// line operations
 	GetQueue() (amboy.Queue, error)
 
 	GetConf() (*Configuration, error)
-	SetConf(*Configuration) error
 	// SetQueue configures the global application cache's shared queue.
 	SetQueue(amboy.Queue) error
 	GetSession() (db.Session, error)
-	SetSession(db.Session) error
 
-	// GetSender returns a grip/send.Sender interface for use when
+	// GetLogger returns a grip.Journaler interface for use when
 	// logging system events. When extending sink, you should generally log
 	// messages using the default grip interface; hobwever, the system
 	// event Sender and logger are available to log events to the database
 	// or other services for more critical issues encoutered during offline
 	// processing. In typical configurations these events are logged to
 	// the database and exposed via a rest endpoint.
-	GetSender() send.Sender
-	SetSender(send.Sender) error
-	GetLogger() grip.Journaler
+	GetSystemLogger() grip.Journaler
 }
 
 func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
@@ -58,14 +58,53 @@ func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 }
 
 type envState struct {
-	name      string
-	queue     amboy.Queue
-	session   db.Session
-	conf      *Configuration
-	sysSender send.Sender
-	logger    grip.Journaler
+	name    string
+	queue   amboy.Queue
+	session db.Session
+	conf    *Configuration
+	logger  grip.Journaler
 
 	mutex sync.RWMutex
+}
+
+func (c *envState) Configure(conf *Configuration) error {
+	var err error
+
+	// create and cache a db session for use in tasks
+	session, err := mgo.Dial(conf.MongoDBURI)
+	if err != nil {
+		return errors.Wrapf(err, "could not connect to db %s", conf.MongoDBURI)
+	}
+
+	c.session = db.WrapSession(session)
+	c.logger = grip.NewJournaler("sink")
+
+	if conf.UseLocalQueue {
+		c.queue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
+		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
+	} else {
+		q := queue.NewRemoteUnordered(conf.NumWorkers)
+		opts := driver.MongoDBOptions{
+			URI:      conf.MongoDBURI,
+			DB:       conf.DatabaseName,
+			Priority: true,
+		}
+
+		mongoDriver := driver.NewMongoDB(QueueName, opts)
+		if err = q.SetDriver(mongoDriver); err != nil {
+			return errors.Wrap(err, "problem configuring driver")
+		}
+
+		c.queue = q
+
+		grip.Info(message.Fields{
+			"message":  "configured a remote mongodb-backed queue",
+			"db":       conf.DatabaseName,
+			"prefix":   QueueName,
+			"priority": true})
+	}
+
+	return nil
 }
 
 func (c *envState) SetQueue(q amboy.Queue) error {
@@ -96,24 +135,6 @@ func (c *envState) GetQueue() (amboy.Queue, error) {
 	return c.queue, nil
 }
 
-func (c *envState) SetSession(s db.Session) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if c.session != nil {
-		return errors.New("cannot set a session since it already exists")
-	}
-
-	if s == nil {
-		return errors.New("cannot use a nil session")
-	}
-
-	grip.Notice("caching a mongodb session in the services cache")
-
-	c.session = s
-	return nil
-}
-
 func (c *envState) GetSession() (db.Session, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -123,18 +144,6 @@ func (c *envState) GetSession() (db.Session, error) {
 	}
 
 	return c.session.Clone(), nil
-}
-
-func (c *envState) SetConf(conf *Configuration) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if conf == nil {
-		return errors.New("cannot set configuration to nil")
-	}
-
-	c.conf = conf
-	return nil
 }
 
 func (c *envState) GetConf() (*Configuration, error) {
@@ -152,23 +161,7 @@ func (c *envState) GetConf() (*Configuration, error) {
 	return out, nil
 }
 
-func (c *envState) SetSender(s send.Sender) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.sysSender = s
-	c.logger = logging.NewGrip("sink")
-	return errors.WithStack(c.logger.SetSender(s))
-}
-
-func (c *envState) GetSender() send.Sender { // nolint: megacheck
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.sysSender
-}
-
-func (c *envState) GetLogger() grip.Journaler {
+func (c *envState) GetSystemLogger() grip.Journaler {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

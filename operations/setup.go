@@ -9,72 +9,49 @@ import (
 	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/amboy/queue/driver"
-	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	mgo "gopkg.in/mgo.v2"
 )
 
 func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
-	err := env.SetConf(&sink.Configuration{
-		BucketName:   bucket,
-		DatabaseName: dbName,
+	err := env.Configure(&sink.Configuration{
+		BucketName:    bucket,
+		DatabaseName:  dbName,
+		MongoDBURI:    mongodbURI,
+		UseLocalQueue: localQueue,
+		NumWorkers:    numWorkers,
 	})
 	if err != nil {
 		return errors.Wrap(err, "problem setting up configuration")
 	}
 
-	if localQueue {
-		q := queue.NewLocalLimitedSize(numWorkers, 1024)
-		grip.Infof("configured local queue with %d workers", numWorkers)
-		if err = env.SetQueue(q); err != nil {
-			return errors.Wrap(err, "problem configuring queue")
-		}
-	} else {
-		q := queue.NewRemoteUnordered(numWorkers)
-		opts := driver.MongoDBOptions{
-			URI:      mongodbURI,
-			DB:       dbName,
-			Priority: true,
-		}
-
-		mongoDriver := driver.NewMongoDB(sink.QueueName, opts)
-		if err = q.SetDriver(mongoDriver); err != nil {
-			return errors.Wrap(err, "problem configuring driver")
-		}
-
-		if err = env.SetQueue(q); err != nil {
-			return errors.Wrap(err, "problem caching queue")
-		}
-
-		grip.Info(message.Fields{
-			"message":  "configured a remote mongodb-backed queue",
-			"db":       dbName,
-			"prefix":   sink.QueueName,
-			"priority": true})
-	}
-
-	// create and cache a db session for use in tasks
-	session, err := mgo.Dial(mongodbURI)
-	if err != nil {
-		return errors.Wrapf(err, "could not connect to db %s", mongodbURI)
-	}
-
-	if err = env.SetSession(db.WrapSession(session)); err != nil {
-		return errors.Wrap(err, "problem caching DB session")
-	}
-
 	sender, err := model.NewDBSender(env, "sink")
 	if err != nil {
-		return errors.Wrapf(err, "problem setting system sender")
+		return errors.Wrapf(err, "problem creating system sender")
 	}
 
-	if err = env.SetSender(sender); err != nil {
-		return errors.Wrap(err, "problem setting cached log sender")
+	if err := env.GetSystemLogger().SetSender(sender); err != nil {
+		return errors.Wrap(err, "problem setting system sender")
+	}
+
+	appConf := &model.SinkConfig{}
+	appConf.Setup(env)
+	if err := appConf.Find(); err != nil {
+		return errors.Wrap(err, "problem fetching configuration from the database")
+	}
+	if !appConf.IsNil() {
+		if appConf.Splunk.Populated() {
+			splunkSender, err := send.NewSplunkLogger("sink", appConf.Splunk, grip.GetSender().Level())
+			if err != nil {
+				return errors.Wrap(err, "problem building plunk logger")
+			}
+			if err = env.getSplunkLogger().SetSender(splunkSender); err != nil {
+				return errors.Wrap(err, "problem configuring splunk logger")
+			}
+		}
 	}
 
 	return nil

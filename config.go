@@ -2,6 +2,9 @@ package sink
 
 // Configuration defines
 type Configuration struct {
-	BucketName   string
-	DatabaseName string
+	BucketName    string
+	DatabaseName  string
+	MongoDBURI    string
+	UseLocalQueue bool
+	NumWorkers    int
 }
