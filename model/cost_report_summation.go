@@ -57,13 +57,15 @@ var (
 )
 
 type CloudProviderSummary struct {
-	Name     string             `bson:"name" json:"name" yaml:"name"`
-	Services map[string]float64 `bson:"services" json:"services" yaml:"services"`
+	Name      string             `bson:"name" json:"name" yaml:"name"`
+	Services  map[string]float64 `bson:"services" json:"services" yaml:"services"`
+	Resources map[string]float64 `bson:"resources" json:"resources" yaml:"resources"`
 }
 
 var (
-	costReportCloudProviderSummaryNameKey     = bsonutil.MustHaveTag(CloudProviderSummary{}, "Name")
-	costReportCloudProviderSummaryServicesKey = bsonutil.MustHaveTag(CloudProviderSummary{}, "Services")
+	costReportCloudProviderSummaryNameKey      = bsonutil.MustHaveTag(CloudProviderSummary{}, "Name")
+	costReportCloudProviderSummaryServicesKey  = bsonutil.MustHaveTag(CloudProviderSummary{}, "Services")
+	costReportCloudProviderSummaryResourcesKey = bsonutil.MustHaveTag(CloudProviderSummary{}, "Resources")
 )
 
 func NewCostReportSummary(r *CostReport) *CostReportSummary {
@@ -98,6 +100,7 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 		}
 
 		out.ProviderSummary = append(out.ProviderSummary, psum)
+
 	}
 	out.populated = true
 	out.ID = r.ID

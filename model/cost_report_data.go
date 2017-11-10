@@ -149,7 +149,6 @@ func (c *CloudAccount) refresh() {
 		c.Cost += s.Cost
 		c.services[s.Name] = &s
 	}
-
 }
 
 var (
@@ -171,7 +170,7 @@ func (s *AccountService) refresh() {
 	s.Cost = 0
 	for _, i := range s.Items {
 		s.Cost += i.GetCost()
-		s.items[i.Name] = &i
+		s.items[i.ID()] = &i
 	}
 }
 
@@ -191,6 +190,14 @@ type ServiceItem struct {
 	AvgPrice   float64 `bson:"avg_price,omitempty" json:"avg_price,omitempty" yaml:"avg_price,omitempty"`
 	AvgUptime  float64 `bson:"avg_uptime,omitempty" json:"avg_uptime,omitempty" yaml:"avg_uptime,omitempty"`
 	TotalHours int     `bson:"total_hours,omitempty" json:"total_hours,omitempty" yaml:"total_hours,omitempty"`
+}
+
+func (i *ServiceItem) ID() string {
+	if i.Name != "" {
+		return i.Name
+	}
+
+	return i.ItemType
 }
 
 func (i *ServiceItem) GetCost() float64 {
