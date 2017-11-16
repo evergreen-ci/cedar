@@ -61,6 +61,7 @@ func (j *buildCostReportJob) Run() {
 	costConf := &model.CostConfig{}
 	costConf.Setup(j.env)
 	if err := costConf.Find(); err != nil {
+		grip.Warning(err)
 		j.AddError(errors.WithStack(err))
 		return
 	}
