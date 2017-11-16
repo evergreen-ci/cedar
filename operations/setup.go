@@ -10,6 +10,8 @@ import (
 	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
+	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
@@ -33,25 +35,58 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 		return errors.Wrapf(err, "problem creating system sender")
 	}
 
-	if err := env.GetSystemLogger().SetSender(sender); err != nil {
-		return errors.Wrap(err, "problem setting system sender")
+	logLevelInfo := grip.GetSender().Level()
+	loggers := sink.Loggers{
+		System: logging.MakeGrip(sender),
 	}
 
 	appConf := &model.SinkConfig{}
 	appConf.Setup(env)
-	if err := appConf.Find(); err != nil {
+	if err = appConf.Find(); err != nil {
 		return errors.Wrap(err, "problem fetching configuration from the database")
 	}
 	if !appConf.IsNil() {
 		if appConf.Splunk.Populated() {
-			splunkSender, err := send.NewSplunkLogger("sink", appConf.Splunk, grip.GetSender().Level())
+			sender, err = send.NewSplunkLogger("sink", appConf.Splunk, logLevelInfo)
 			if err != nil {
 				return errors.Wrap(err, "problem building plunk logger")
 			}
-			if err = env.getSplunkLogger().SetSender(splunkSender); err != nil {
-				return errors.Wrap(err, "problem configuring splunk logger")
-			}
+			loggers.Events = logging.MakeGrip(sender)
 		}
+
+		if appConf.Slack.Options != nil {
+			sconf := appConf.Slack
+			if err = sconf.Options.Validate(); err != nil {
+				return errors.Wrap(err, "non-nil slack configuration is not valid")
+			}
+
+			if sconf.Token == "" || sconf.Level == "" {
+				return errors.Wrap(err, "must specify slack token and threshold")
+			}
+
+			lvl := send.LevelInfo{
+				Default:   logLevelInfo.Default,
+				Threshold: level.FromString(sconf.Level),
+			}
+
+			sender, err = send.NewSlackLogger(sconf.Options, sconf.Token, lvl)
+			if err != nil {
+				return errors.Wrap(err, "problem constructing slack alert logger")
+			}
+			if err = grip.SetSender(send.NewConfiguredMultiSender(grip.GetSender(), sender)); err != nil {
+				return errors.Wrap(err, "problem configuring application sender")
+			}
+
+			sender, err = send.NewSlackLogger(sconf.Options, sconf.Token, logLevelInfo)
+			if err != nil {
+				return errors.Wrap(err, "problem constructing slack logging service")
+			}
+			loggers.Alerts = logging.MakeGrip(sender)
+		}
+	}
+
+	if err = env.SetLoggers(loggers); err != nil {
+		return errors.Wrap(err, "problem configuring loggers")
 	}
 
 	return nil

@@ -96,6 +96,9 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 			for _, service := range account.Services {
 				psum.Services[service.Name] += float64(service.Cost)
 				out.TotalCost += float64(service.Cost)
+				for _, item := range service.Items {
+					psum.Resources[item.ID()] += item.GetCost()
+				}
 			}
 		}
 
