@@ -90,6 +90,8 @@ type envState struct {
 func (c *envState) Configure(conf *Configuration) error {
 	var err error
 
+	c.conf = conf
+
 	// create and cache a db session for use in tasks
 	session, err := mgo.Dial(conf.MongoDBURI)
 	if err != nil {
