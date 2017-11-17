@@ -65,7 +65,8 @@ func (c *CostConfig) Find() error {
 	c.populated = false
 	err = session.DB(conf.DatabaseName).C(configurationCollection).FindId(costReportingID).One(c)
 	if db.ResultsNotFound(err) {
-		return errors.New("could not find cost reporting document in the database")
+		return errors.Errorf("could not find cost reporting document [%s] in the database [%s.%s]",
+			costReportingID, conf.DatabaseName, configurationCollection)
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding cost config document")
 	}
