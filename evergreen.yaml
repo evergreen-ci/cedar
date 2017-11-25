@@ -27,7 +27,6 @@ variables:
         vars: { target: "${task_name}" }
 
 
-
 #######################################
 #              Functions              #
 #######################################
@@ -51,7 +50,7 @@ functions:
 
          # Run make, called with proper environment variables set,
          # running the target.
-         ${build_env|} make ${target}
+         ${build_env|} make -k ${target}
   set-up-mongodb:
     - command: shell.exec
       type: system
@@ -149,7 +148,6 @@ tasks:
       - func: run-make
         vars:
           target: "coverage-html"
-          make_args: "-k"
 
   - <<: *run-build-with-mongodb
     tags: ["test"]

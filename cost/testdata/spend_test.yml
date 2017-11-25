@@ -10,7 +10,9 @@ aws:
     s3key_start: brian.samek/s3_testdata
     s3bucket: boxes.10gen.com/
   accounts:
-    - kernel-build
+    - name: kernel-build
+      key: "foo-key"
+      secret: "foo-bar"
   ebs_pricing:
     gp2: 0.10
     io1GB: 0.125

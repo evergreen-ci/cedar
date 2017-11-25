@@ -426,8 +426,7 @@ func systemInfoImport() cli.Command {
 				if len(line) > 0 {
 					msg := &message.SystemInfo{}
 
-					err := json.Unmarshal(line, msg)
-					if err != nil {
+					if err = json.Unmarshal(line, msg); err != nil {
 						catcher.Add(err)
 						continue
 					}

@@ -26,15 +26,17 @@ func (s *CommandsSuite) TestSpendFlags() {
 	cmd := Cost()
 	s.Len(cmd.Flags, 0)
 	cmd = write()
-	s.Len(cmd.Flags, 3)
+	s.Len(cmd.Flags, 8)
 	for _, flag := range cmd.Flags {
-		name := flag.GetName()
 
-		if name == "start" || name == "config" {
+		switch flag.GetName() {
+		case "start", "config":
 			s.IsType(cli.StringFlag{}, flag)
-		} else {
-			s.Equal("duration", name)
+		case "duration":
 			s.IsType(cli.DurationFlag{}, flag)
+		case "continue-on-error", "continueOnError", "disableEvgAll", "disableEvgProjects", "disableEvgDistros":
+			s.IsType(cli.BoolFlag{}, flag)
 		}
+
 	}
 }

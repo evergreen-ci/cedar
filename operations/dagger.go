@@ -94,7 +94,7 @@ func loadGraphToDB() cli.Command {
 				BuildID: graph.BuildID,
 			}
 			gdb.Setup(env)
-			if err := gdb.Insert(); err != nil {
+			if err = gdb.Insert(); err != nil {
 				return errors.Wrapf(err, "problem saving root node for %s", graph.BuildID)
 			}
 

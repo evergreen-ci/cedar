@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const layout = "2006-01-02T15:04" //Using reference Mon Jan 2 15:04:05 -0700 MST 2006
-
 func init() {
 	grip.SetName("sink.cost.test")
 }
@@ -51,29 +49,20 @@ func (c *CostSuite) TestGetDuration() {
 	c.Equal(duration.String(), "12h0m0s")
 }
 
-func (c *CostSuite) TestGetTimes() {
-	start, err := time.Parse(layout, "2017-05-26T12:00")
-	c.NoError(err)
-	duration := 4 * time.Hour
-	endTime := start.Add(duration)
-	times := getTimes(start, duration)
-	c.Equal(times.start, start)
-	c.Equal(times.end, endTime)
-}
-
 func (c *CostSuite) TestYAMLToConfig() {
 	file := filepath.Join(getDirectoryOfFile(), "testdata", "spend_test.yml")
 	config, err := model.LoadCostConfig(file)
 
 	c.NoError(err)
-	c.NotNil(config)
-	c.Len(config.Providers, 1)
-	c.Equal(config.Opts.Duration, "4h")
-	c.Equal(config.Providers[0].Name, "fakecompany")
-	c.Equal(config.Providers[0].Cost, float32(50000))
-	file = "not_real.yaml"
-	_, err = model.LoadCostConfig(file)
-	c.Error(err)
+	if c.NotNil(config) {
+		c.Len(config.Providers, 1)
+		c.Equal(config.Opts.Duration, "4h")
+		c.Equal(config.Providers[0].Name, "fakecompany")
+		c.Equal(config.Providers[0].Cost, float64(50000))
+		file = "not_real.yaml"
+		_, err = model.LoadCostConfig(file)
+		c.Error(err)
+	}
 }
 
 func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
@@ -81,7 +70,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		ItemType: "reserved",
 		Name:     "c3.4xlarge",
 	}
-	item1 := &amazon.Item{
+	item1 := amazon.Item{
 		Launched:   true,
 		Terminated: false,
 		FixedPrice: 120.0,
@@ -89,7 +78,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		Uptime:     3.0,
 		Count:      5,
 	}
-	item2 := &amazon.Item{
+	item2 := amazon.Item{
 		Launched:   false,
 		Terminated: true,
 		FixedPrice: 35.0,
@@ -97,7 +86,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		Uptime:     1.00,
 		Count:      2,
 	}
-	item3 := &amazon.Item{
+	item3 := amazon.Item{
 		Launched:   true,
 		Terminated: false,
 		FixedPrice: 49.0,
@@ -105,13 +94,13 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		Uptime:     1.00,
 		Count:      1,
 	}
-	items := []*amazon.Item{item1, item2, item3}
+	items := []amazon.Item{item1, item2, item3}
 	item := createCostItemFromAmazonItems(key, items)
 	c.Equal(item.Name, key.Name)
 	c.Equal(item.ItemType, string(key.ItemType))
-	c.Equal(item.AvgPrice, float32(4.42))
-	c.Equal(item.FixedPrice, float32(68))
-	c.Equal(item.AvgUptime, float32(1.67))
+	c.Equal(item.AvgPrice, float64(4.42))
+	c.Equal(item.FixedPrice, float64(68))
+	c.Equal(item.AvgUptime, float64(1.67))
 	c.Equal(item.Launched, 6)
 	c.Equal(item.Terminated, 2)
 }
@@ -122,8 +111,10 @@ func (c *CostSuite) TestPrint() {
 	defer os.RemoveAll(tempDir)
 
 	report := model.CostReportMetadata{
-		Begin:     time.Now().Add(-2 * time.Hour),
-		End:       time.Now().Add(-time.Hour),
+		Range: model.TimeRange{
+			StartAt: time.Now().Add(-2 * time.Hour),
+			EndAt:   time.Now().Add(-time.Hour),
+		},
 		Generated: time.Now(),
 	}
 	output := &model.CostReport{Report: report}

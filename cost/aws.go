@@ -61,7 +61,7 @@ func setAverages(res *model.ServiceItem, items []amazon.Item) {
 func createCostItemFromAmazonItems(key amazon.ItemKey, items []amazon.Item) model.ServiceItem {
 	item := model.ServiceItem{
 		Name:     key.Name,
-		ItemType: string(key.ItemType),
+		ItemType: key.ItemType,
 	}
 	setSums(&item, items)
 	setAverages(&item, items)

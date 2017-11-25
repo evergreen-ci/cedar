@@ -9,13 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	mgo "gopkg.in/mgo.v2"
-
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"github.com/mongodb/anser/db"
 	"golang.org/x/net/context"
 )
 
@@ -52,9 +49,6 @@ func (s *ClientSuite) SetupSuite() {
 	router, err := s.service.app.Router()
 	s.NoError(err)
 	s.server = httptest.NewServer(router)
-	session, err := mgo.Dial("mongodb://localhost:27017")
-	require.NoError(err)
-	require.NoError(s.env.SetSession(db.WrapSession(session)))
 
 	portStart := strings.LastIndex(s.server.URL, ":")
 	port, err := strconv.Atoi(s.server.URL[portStart+1:])

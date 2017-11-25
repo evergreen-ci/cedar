@@ -42,7 +42,7 @@ func Worker() cli.Command {
 				return errors.Wrap(err, "problem getting queue")
 			}
 
-			if err := q.Start(ctx); err != nil {
+			if err = q.Start(ctx); err != nil {
 				return errors.Wrap(err, "problem starting queue")
 			}
 
