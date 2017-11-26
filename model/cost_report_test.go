@@ -21,11 +21,11 @@ func createTestStruct() CostReport {
 	if err != nil {
 		panic(err.Error())
 	}
-	report1.Begin, err = time.Parse(timeLayout, "2017-05-23T17:00:00.000")
+	report1.Range.StartAt, err = time.Parse(timeLayout, "2017-05-23T17:00:00.000")
 	if err != nil {
 		panic(err.Error())
 	}
-	report1.End, err = time.Parse(timeLayout, "2017-05-23T17:12:00.000")
+	report1.Range.EndAt, err = time.Parse(timeLayout, "2017-05-23T17:12:00.000")
 	if err != nil {
 		panic(err.Error())
 	}

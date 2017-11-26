@@ -1,7 +1,7 @@
 # start project configuration
 name := sink
 buildDir := build
-packages := $(name) rest units operations cost
+packages := $(name) rest units operations cost model
 orgPath := github.com/tychoish
 projectPath := $(orgPath)/$(name)
 # end project configuration
