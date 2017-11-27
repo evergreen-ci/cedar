@@ -30,7 +30,7 @@ type CostReport struct {
 func (r *CostReport) refresh() {
 	r.providers = make(map[string]*CloudProvider)
 	for _, p := range r.Providers {
-		p.refresh()
+		p.refresh(r.Report.Range)
 		r.providers[p.Name] = &p
 	}
 	r.Evergreen.refresh()
@@ -70,6 +70,7 @@ func (r *CostReport) FindID(id string) error {
 	}
 	r.populated = true
 
+	r.refresh()
 	return nil
 }
 

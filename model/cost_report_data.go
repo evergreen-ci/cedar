@@ -114,12 +114,12 @@ type CloudProvider struct {
 	accounts map[string]*CloudAccount
 }
 
-func (c *CloudProvider) refresh() {
+func (c *CloudProvider) refresh(reportRange TimeRange) {
 	c.accounts = make(map[string]*CloudAccount)
 	c.Cost = 0
 
 	for _, a := range c.Accounts {
-		a.refresh()
+		a.refresh(reportRange)
 		c.Cost += a.Cost
 		c.accounts[a.Name] = &a
 	}
@@ -140,12 +140,12 @@ type CloudAccount struct {
 	services map[string]*AccountService
 }
 
-func (c *CloudAccount) refresh() {
+func (c *CloudAccount) refresh(reportRange TimeRange) {
 	c.services = make(map[string]*AccountService)
 	c.Cost = 0
 
 	for _, s := range c.Services {
-		s.refresh()
+		s.refresh(reportRange)
 		c.Cost += s.Cost
 		c.services[s.Name] = &s
 	}
@@ -165,11 +165,11 @@ type AccountService struct {
 	items map[string]*ServiceItem
 }
 
-func (s *AccountService) refresh() {
+func (s *AccountService) refresh(reportRange TimeRange) {
 	s.items = make(map[string]*ServiceItem)
 	s.Cost = 0
 	for _, i := range s.Items {
-		s.Cost += i.GetCost()
+		s.Cost += i.GetCost(reportRange)
 		s.items[i.ID()] = &i
 	}
 }
@@ -200,13 +200,26 @@ func (i *ServiceItem) ID() string {
 	return i.ItemType
 }
 
-func (i *ServiceItem) GetCost() float64 {
-	if i.AvgPrice > 0 {
-		return float64(i.TotalHours) * i.AvgPrice
+func (i *ServiceItem) GetCost(reportRange TimeRange) float64 {
+	var hours float64
+
+	if i.TotalHours > 0 {
+		hours = float64(i.TotalHours)
+	} else if i.AvgUptime > 0 {
+		hours = i.AvgUptime
+	} else {
+		hours = float64(i.Launched-i.Terminated) * reportRange.Duration().Hours()
+		if hours < 0 {
+			return 0
+		}
 	}
 
 	if i.FixedPrice > 0 {
-		return float64(i.TotalHours) * i.FixedPrice
+		return hours * i.FixedPrice
+	}
+
+	if i.AvgPrice > 0 {
+		return hours * i.AvgPrice
 	}
 
 	return 0

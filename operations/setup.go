@@ -42,9 +42,8 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 
 	appConf := &model.SinkConfig{}
 	appConf.Setup(env)
-	if err = appConf.Find(); err != nil {
-		return errors.Wrap(err, "problem fetching configuration from the database")
-	}
+	grip.Warning(appConf.Find())
+
 	if !appConf.IsNil() {
 		if appConf.Splunk.Populated() {
 			sender, err = send.NewSplunkLogger("sink", appConf.Splunk, logLevelInfo)

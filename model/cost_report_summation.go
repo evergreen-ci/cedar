@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
@@ -91,19 +92,26 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 	}
 
 	for _, p := range r.Providers {
-		psum := CloudProviderSummary{Name: p.Name, Services: map[string]float64{}}
+		psum := CloudProviderSummary{
+			Name:      p.Name,
+			Services:  map[string]float64{},
+			Resources: map[string]float64{},
+		}
 		for _, account := range p.Accounts {
 			for _, service := range account.Services {
 				psum.Services[service.Name] += float64(service.Cost)
 				out.TotalCost += float64(service.Cost)
 				for _, item := range service.Items {
-					psum.Resources[item.ID()] += item.GetCost()
+					cost := item.GetCost(r.Report.Range)
+					if cost > 0 {
+						it := strings.Replace(item.ID(), ".", "-", -1)
+						psum.Resources[it] += cost
+					}
 				}
 			}
 		}
 
 		out.ProviderSummary = append(out.ProviderSummary, psum)
-
 	}
 	out.populated = true
 	out.ID = r.ID
@@ -132,7 +140,7 @@ func (r *CostReportSummary) Save() error {
 		"change-info": changeInfo,
 	})
 
-	return errors.Wrap(err, "problem saving cost report summaryt")
+	return errors.Wrap(err, "problem saving cost report summary")
 }
 
 func (r *CostReportSummary) String() string {

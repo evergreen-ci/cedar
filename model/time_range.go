@@ -16,7 +16,7 @@ var (
 	timeRangeEndKey   = bsonutil.MustHaveTag(TimeRange{}, "EndAt")
 )
 
-func (t TimeRange) Duration() time.Duration { return t.StartAt.Sub(t.EndAt) }
+func (t TimeRange) Duration() time.Duration { return t.EndAt.Sub(t.StartAt) }
 func (t TimeRange) IsZero() bool            { return t.StartAt.IsZero() && t.EndAt.IsZero() }
 func (t TimeRange) IsValid() bool           { return t.Duration() < 0 }
 

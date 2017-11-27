@@ -152,7 +152,7 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 		items := pair.Value
 
 		item := createCostItemFromAmazonItems(key, items)
-		cost := item.GetCost()
+		cost := item.GetCost(reportRange)
 		accountCost += cost
 		if key.Service == amazon.EC2Service {
 			ec2Service.Cost += cost
