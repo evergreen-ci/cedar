@@ -12,7 +12,9 @@ import (
 // The sums are calculated from the information in the Item array.
 func setSums(res *model.ServiceItem, items []amazon.Item) {
 	res.Launched, res.Terminated, res.TotalHours = 0, 0, 0
+
 	for _, item := range items {
+
 		if item.Launched {
 			if item.Count != 0 {
 				res.Launched += item.Count
@@ -20,6 +22,7 @@ func setSums(res *model.ServiceItem, items []amazon.Item) {
 				res.Launched++
 			}
 		}
+
 		if item.Terminated {
 			if item.Count != 0 {
 				res.Terminated += item.Count
@@ -27,7 +30,10 @@ func setSums(res *model.ServiceItem, items []amazon.Item) {
 				res.Terminated++
 			}
 		}
+
 		res.TotalHours += item.Uptime
+
+		res.TotalCost += item.Price
 	}
 }
 
@@ -35,6 +41,7 @@ func setSums(res *model.ServiceItem, items []amazon.Item) {
 // The averages are calculated from the information in the Item array.
 func setAverages(res *model.ServiceItem, items []amazon.Item) {
 	var prices, uptimes, fixedPrices []float64
+
 	for _, item := range items {
 		if item.Price != 0.0 {
 			prices = append(prices, item.Price)
@@ -46,6 +53,7 @@ func setAverages(res *model.ServiceItem, items []amazon.Item) {
 			uptimes = append(uptimes, float64(item.Uptime))
 		}
 	}
+
 	if len(prices) != 0 {
 		res.AvgPrice = avg(prices)
 	}

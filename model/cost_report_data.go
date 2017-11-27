@@ -190,6 +190,7 @@ type ServiceItem struct {
 	AvgPrice   float64 `bson:"avg_price,omitempty" json:"avg_price,omitempty" yaml:"avg_price,omitempty"`
 	AvgUptime  float64 `bson:"avg_uptime,omitempty" json:"avg_uptime,omitempty" yaml:"avg_uptime,omitempty"`
 	TotalHours int     `bson:"total_hours,omitempty" json:"total_hours,omitempty" yaml:"total_hours,omitempty"`
+	TotalCost  float64 `bson:"total_cost,omitempty" json:"total_cost,omitempty" yaml:"total_cost,omitempty"`
 }
 
 func (i *ServiceItem) ID() string {
@@ -201,11 +202,23 @@ func (i *ServiceItem) ID() string {
 }
 
 func (i *ServiceItem) GetCost(reportRange TimeRange) float64 {
-	var hours float64
+	if i.TotalCost > 0 {
+		return i.TotalCost
+	}
 
 	if i.TotalHours > 0 {
-		hours = float64(i.TotalHours)
-	} else if i.AvgUptime > 0 {
+		if i.FixedPrice > 0 {
+			return float64(i.TotalHours) * i.FixedPrice
+		} else if i.AvgPrice > 0 {
+			return float64(i.TotalHours) * i.AvgPrice
+		}
+
+		return 0
+	}
+
+	var hours float64
+
+	if i.AvgUptime > 0 {
 		hours = i.AvgUptime
 	} else {
 		hours = float64(i.Launched-i.Terminated) * reportRange.Duration().Hours()

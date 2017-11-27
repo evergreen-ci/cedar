@@ -271,7 +271,6 @@ func (item *Item) setUptime(times model.TimeRange) {
 
 // setReservedPrice takes in a reserved instance item and sets the item price
 // based on the instance's offering type and prices.
-
 func (item *Item) setReservedPrice(inst *ec2.ReservedInstances) {
 	instType := *inst.OfferingType
 
@@ -288,7 +287,6 @@ func (item *Item) setReservedPrice(inst *ec2.ReservedInstances) {
 // setOnDemandPrice takes in an on-demand instance item and prices object and
 // sets the item price based on the instance's availability zone, instance type,
 // product description, and uptime. In case of error, the price is set to 0.
-
 func (item *Item) setOnDemandPrice(inst *ec2.Instance, pricing *prices) {
 	var productDesc string
 	if inst.Placement == nil || inst.Placement.AvailabilityZone == nil {
