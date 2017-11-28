@@ -312,14 +312,17 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, opts *cost.Eve
 	}
 	report.Setup(sink.GetEnvironment())
 
-	fnDate := report.Report.Range.StartAt.Format("2006-01-02-15-04")
-	filename := fmt.Sprintf("%s.%s.json", fnDate, duration)
+	filename := getCostReportFn(report.Report.Range.StartAt, duration)
 
 	if err := cost.WriteToFile(conf, report, filename); err != nil {
 		return errors.Wrap(err, "Problem printing report")
 	}
 
 	return nil
+}
+
+func getCostReportFn(startAt time.Time, duration time.Duration) string {
+	return fmt.Sprintf("%s.%s.json", startAt.Format("2006-01-02-15-04"), duration)
 }
 
 func dump() cli.Command {
@@ -343,6 +346,11 @@ func dump() cli.Command {
 				return errors.Wrap(err, "problem loading cost config from the database")
 			}
 
+			duration, err := conf.GetDuration(time.Hour)
+			if err != nil {
+				return errors.Wrap(err, "Problem with duration")
+			}
+
 			reports := &model.CostReports{}
 			reports.Setup(env)
 
@@ -354,7 +362,8 @@ func dump() cli.Command {
 
 			report := &model.CostReport{}
 			for iter.Next(report) {
-				grip.Warning(cost.WriteToFile(conf, report, report.ID+".json"))
+				fn := getCostReportFn(report.Report.Range.StartAt, duration)
+				grip.Warning(cost.WriteToFile(conf, report, fn))
 			}
 
 			if err = iter.Err(); err != nil {
