@@ -16,6 +16,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+const costReportDateFormat = "2006-01-02-15-04"
+
 // Cost returns the entry point for the ./sink spend sub-command,
 // which has required flags.
 func Cost() cli.Command {
@@ -143,7 +145,7 @@ func collectLoop() cli.Command {
 				now := time.Now().Add(-time.Hour).UTC()
 				opts.StartAt = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
-				id := fmt.Sprintf("bcr-%s", opts.StartAt)
+				id := fmt.Sprintf("bcr-%s", opts.StartAt.Format(costReportDateFormat))
 
 				j := units.NewBuildCostReport(env, id, &opts)
 				if err := queue.Put(j); err != nil {
@@ -322,7 +324,7 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, opts *cost.Eve
 }
 
 func getCostReportFn(startAt time.Time, duration time.Duration) string {
-	return fmt.Sprintf("%s.%s.json", startAt.Format("2006-01-02-15-04"), duration)
+	return fmt.Sprintf("%s.%s.json", startAt.Format(costReportDateFormat), duration)
 }
 
 func dump() cli.Command {

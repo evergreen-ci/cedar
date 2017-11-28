@@ -127,7 +127,7 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 			Duration: time.Hour,
 		}
 
-		id := fmt.Sprintf("bcr-%s", opts.StartAt)
+		id := fmt.Sprintf("bcr-%s", opts.StartAt.Format(costReportDateFormat))
 
 		j := units.NewBuildCostReport(env, id, opts)
 		err := cue.Put(j)
