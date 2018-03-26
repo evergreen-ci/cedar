@@ -8,6 +8,7 @@ variables:
     name: test
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
       - func: run-make
@@ -33,6 +34,7 @@ variables:
 functions:
   run-make:
     command: shell.exec
+    type: test
     params:
        script: |
          set -o errexit
@@ -53,7 +55,7 @@ functions:
          ${build_env|} make -k ${target}
   set-up-mongodb:
     - command: shell.exec
-      type: system
+      type: setup
       params:
         script: |
           set -o errexit
@@ -72,7 +74,7 @@ functions:
           mkdir db_files
           mkdir db_logs
     - command: shell.exec
-      type: system
+      type: setup
       params:
         background: true
         script: |
@@ -84,7 +86,7 @@ functions:
           ./mongod${extension|} --dbpath ./db_files &
           echo "waiting for mongod to start up"
     - command: shell.exec
-      type: system
+      type: setup
       params:
         script: |
           set -o errexit
@@ -99,6 +101,7 @@ functions:
 #######################################
 post:
   - command: gotest.parse_files
+    type: setup
     params:
       files:
         - "gopath/src/github.com/evergreen-ci/sink/build/output.*"
@@ -134,6 +137,7 @@ tasks:
     tags: ["report"]
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
       - func: run-make
@@ -143,6 +147,7 @@ tasks:
     tags: [ "report" ]
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
       - func: run-make
@@ -167,7 +172,6 @@ buildvariants:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.2.9.tgz
     run_on:
       - archlinux-test
-      - archlinux-build
     tasks: [ ".race", ".report" ]
 
   - name: ubuntu1604
