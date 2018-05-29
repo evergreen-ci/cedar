@@ -139,6 +139,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/tychoish/gimlet/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/gopkg.in/mgo.v2
+	rm -rf vendor/github.com/mongodb/amboy/vendor/gonum.org/v1/gonum
 	rm -rf vendor/github.com/mongodb/amboy/vendor/golang.org/x/net/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/stretchr/testify
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/davecgh/go-spew

@@ -31,6 +31,8 @@ imports:
 - name: github.com/tychoish/gimlet
   version: 28d9360d8c9a74d67d05cd1c02dfbe3bd0cc9b9c
 
+- name: gonum.org/v1/gonum
+  version: c75679ee1eff8582bca7583704825721ea1ff701
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
 - name: gopkg.in/yaml.v2
