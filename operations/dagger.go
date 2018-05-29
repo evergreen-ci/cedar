@@ -223,7 +223,7 @@ func findPaths() cli.Command {
 				},
 				[]depgraph.NodeType{depgraph.Library})
 
-			fmt.Prinltn(libgraph) // to make the compiler happy; TODO use graphs correctly
+			fmt.Println(libgraph) // to make the compiler happy; TODO use graphs correctly
 
 			return nil
 		},
