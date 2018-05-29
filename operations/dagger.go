@@ -214,14 +214,14 @@ func findPaths() cli.Command {
 				graph.Prune(prune)
 			}
 
-			graph.Annotate()
-
 			libgraph := graph.Filter( // [edges-to-keep], [nodes-to-keep]
 				[]depgraph.EdgeType{
 					depgraph.LibraryToLibrary,
 					depgraph.ImplicitLibraryToLibrary,
 				},
 				[]depgraph.NodeType{depgraph.Library})
+
+			libgraph.Annotate()
 
 			paths, err := libgraph.AllBetween(c.String("from"), c.String("to"))
 			if err != nil {
