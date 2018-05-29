@@ -1,12 +1,14 @@
 package operations
 
 import (
+	"fmt"
+
 	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/depgraph"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/tychoish/depgraph"
 	"github.com/urfave/cli"
 )
 
@@ -173,6 +175,59 @@ func cleanDB() cli.Command {
 		},
 	}
 
+}
+
+func findPaths() cli.Command {
+	return cli.Command{
+		Name: "find-paths",
+		Usage: fmt.Sprintln("find paths between two nodes on the graph",
+			"uses gograph implementations of graph algorithms."),
+		Flags: depsFlags(
+			cli.StringFlag{
+				Name:  "from, f",
+				Usage: "specify the starting point in the graph",
+			},
+			cli.StringFlag{
+				Name:  "to, t",
+				Usage: "specify the traversal target",
+			},
+			cli.StringFlag{
+				Name:  "output",
+				Value: "pathsReport.json",
+				Usage: "specify the path to the filtered library graph",
+			},
+			cli.StringFlag{
+				Name:  "prune",
+				Usage: "drop edges containing this string",
+			},
+			cli.StringFlag{
+				Name:  "prefix",
+				Value: "build/cached/",
+				Usage: "specify a prefix for objects to remove",
+			}),
+		Action: func(c *cli.Context) error {
+			fn := c.String("path")
+			grip.Infoln("starting to load graph from:", fn)
+			graph, err := depgraph.New("cli", fn)
+			if err != nil {
+				return errors.Wrap(err, "problem loading graph")
+			}
+
+			graph.Prune(c.String("prune"))
+			graph.Annotate()
+
+			libgraph := graph.Filter( // [edges-to-keep], [nodes-to-keep]
+				[]depgraph.EdgeType{
+					depgraph.LibraryToLibrary,
+					depgraph.ImplicitLibraryToLibrary,
+				},
+				[]depgraph.NodeType{depgraph.Library})
+
+			fmt.Prinltn(libgraph) // to make the compiler happy; TODO use graphs correctly
+
+			return nil
+		},
+	}
 }
 
 func groups() cli.Command {

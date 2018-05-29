@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/depgraph"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/depgraph"
 )
 
 const (
