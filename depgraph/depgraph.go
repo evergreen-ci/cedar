@@ -64,32 +64,15 @@ type Edge struct {
 	FromNode NodeRelationship   `bson:"from_node" json:"from_node"`
 	ToNodes  []NodeRelationship `bson:"to_node" json:"to_node"`
 	localID  int64
+	from     *Node
+	firstTo  *Node
 }
 
 // Name returns a dep-graph specific id for this node, which combines the
 func (e Edge) Name() string { return fmt.Sprintf("%d.%d", e.FromNode.GraphID, e.Type) }
 
-// ID returns the graph-system unique id for this edge.
+// ID returns the griaph-system unique id for this edge.
 func (e Edge) ID() int64 { return e.localID }
-
-// From provides the unique ID of the "from" edge. Implemented to
-// support gonum/graph algorithms.
-func (e Edge) From() int64 { return e.FromNode.GraphID }
-
-// To returns the unique graph system id of the first target node
-// defined in the edge. It ignores additional targets in the current
-// implemenation.
-//
-// TODO: when we denormalize edges and create a single edge for each
-// node, this should panic when there are no to nodes, or more than
-// one to node.
-func (e Edge) To() int64 {
-	if len(e.ToNodes) == 0 {
-		return -1
-	}
-
-	return e.ToNodes[0].GraphID
-}
 
 // New parses a graph and returns the graph structure. New takes a
 // build id and a path to the graph source. The path may either be a

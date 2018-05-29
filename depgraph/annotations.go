@@ -31,19 +31,23 @@ func (g *Graph) refresh() {
 		g.seenID(node.GraphID)
 		g.nodes[node.Name] = node
 		g.nodeIndex[node.GraphID] = node
-		if node.GraphID == 0 {
-
-		}
 	}
 
 	g.edges = make(map[string]Edge)
-	for _, edge := range g.Edges {
+	for idx, edge := range g.Edges {
 		edge.localID = g.nextID
 		g.nextID++
 
+		from := g.nodeIndex[edge.FromNode.GraphID]
+		edge.from = &from
+		if len(edge.ToNodes) >= 1 {
+			to := g.nodeIndex[edge.ToNodes[0].GraphID]
+			edge.firstTo = &to
+		}
+
 		g.edges[edge.Name()] = edge
 		g.edgeIndex[edge.localID] = edge
-
+		g.Edges[idx] = edge
 	}
 
 	g.mapsPopulated = true
