@@ -1,7 +1,10 @@
 package depgraph
 
 import (
+	"errors"
+
 	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 )
 
@@ -26,4 +29,38 @@ func (g *Graph) Directed() graph.Directed {
 	}
 
 	return dag
+}
+
+func (g *Graph) AllBetween(from, to string) ([][]*Node, error) {
+
+	fromNode, ok := g.nodes[from]
+	if !ok {
+		return nil, errors.New("could not find from node")
+	}
+	toNode, ok := g.nodes[to]
+	if !ok {
+		return nil, errors.New("could not find to node")
+	}
+	paths, ok := path.JohnsonAllPaths(g.Directed())
+	if !ok {
+		return nil, errors.New("could not find all paths")
+	}
+
+	all, _ := paths.AllBetween(fromNode.ID(), toNode.ID())
+	if len(all) == 0 {
+		return nil, errors.New("found no path between nodes")
+	}
+
+	out := [][]*Node{}
+	for _, group := range all {
+		gr := []*Node{}
+
+		for _, n := range group {
+			node := g.nodeIndex[n.ID()]
+			gr = append(gr, &node)
+		}
+		out = append(out, gr)
+	}
+
+	return out, nil
 }

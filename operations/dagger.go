@@ -222,10 +222,13 @@ func findPaths() cli.Command {
 					depgraph.ImplicitLibraryToLibrary,
 				},
 				[]depgraph.NodeType{depgraph.Library})
+			paths, err := libgraph.AllBetween(c.String("from"), c.String("to"))
+			if err != nil {
+				return errors.Wrap(err, "problem resolving paths")
+			}
 
-			fmt.Println(libgraph) // to make the compiler happy; TODO use graphs correctly
-
-			return nil
+			return errors.Wrap(writeJSON(c.String("output"), paths),
+				"problem writhing path report")
 		},
 	}
 }
