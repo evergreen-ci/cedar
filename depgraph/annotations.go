@@ -27,6 +27,7 @@ func (g *Graph) Annotate() {
 
 func (g *Graph) refresh() {
 	g.nodes = make(map[string]Node)
+	g.nodeIndex = make(map[int64]Node)
 	for _, node := range g.Nodes {
 		g.seenID(node.GraphID)
 		g.nodes[node.Name] = node
@@ -34,6 +35,7 @@ func (g *Graph) refresh() {
 	}
 
 	g.edges = make(map[string]Edge)
+	g.edgeIndex = make(map[int64]Edge)
 	for idx, edge := range g.Edges {
 		edge.localID = g.nextID
 		g.nextID++

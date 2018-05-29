@@ -51,7 +51,6 @@ func (g *Graph) Filter(et []EdgeType, nt []NodeType) *Graph {
 // specifying string. This modifies the state of the graph.
 func (g *Graph) Prune(matching string) {
 	if matching == "" {
-		grip.Warning("pruning nodes that match the empty strings is a noop")
 		return
 	}
 

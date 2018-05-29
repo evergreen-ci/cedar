@@ -21,6 +21,7 @@ func Dagger() cli.Command {
 		Subcommands: []cli.Command{
 			filterLibrary(),
 			loadGraphToDB(),
+			findPaths(),
 			cleanDB(),
 			groups(),
 			process(),
@@ -33,7 +34,7 @@ func filterLibrary() cli.Command {
 		Name:  "filter-library",
 		Usage: "take a full graph and return only the library components",
 		Flags: depsFlags(cli.StringFlag{
-			Name:  "output",
+			Name:  "output, o",
 			Value: "libraryDeps.json",
 			Usage: "specify the path to the filtered library graph",
 		}),
@@ -192,28 +193,27 @@ func findPaths() cli.Command {
 				Usage: "specify the traversal target",
 			},
 			cli.StringFlag{
-				Name:  "output",
+				Name:  "output, o",
 				Value: "pathsReport.json",
 				Usage: "specify the path to the filtered library graph",
 			},
 			cli.StringFlag{
 				Name:  "prune",
 				Usage: "drop edges containing this string",
-			},
-			cli.StringFlag{
-				Name:  "prefix",
-				Value: "build/cached/",
-				Usage: "specify a prefix for objects to remove",
 			}),
 		Action: func(c *cli.Context) error {
 			fn := c.String("path")
+			prune := c.String("prune")
 			grip.Infoln("starting to load graph from:", fn)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
 			}
 
-			graph.Prune(c.String("prune"))
+			if prune != "" {
+				graph.Prune(prune)
+			}
+
 			graph.Annotate()
 
 			libgraph := graph.Filter( // [edges-to-keep], [nodes-to-keep]
@@ -222,6 +222,7 @@ func findPaths() cli.Command {
 					depgraph.ImplicitLibraryToLibrary,
 				},
 				[]depgraph.NodeType{depgraph.Library})
+
 			paths, err := libgraph.AllBetween(c.String("from"), c.String("to"))
 			if err != nil {
 				return errors.Wrap(err, "problem resolving paths")

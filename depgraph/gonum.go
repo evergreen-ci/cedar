@@ -1,8 +1,9 @@
 package depgraph
 
 import (
-	"errors"
-
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
@@ -21,43 +22,61 @@ func (g *Graph) Directed() graph.Directed {
 	dag := simple.NewDirectedGraph()
 
 	for _, n := range g.Nodes {
-		dag.AddNode(&n)
+		dag.AddNode(n)
 	}
 
 	for _, e := range g.Edges {
-		dag.SetEdge(&e)
+		if e.from == nil {
+			grip.Warning(message.Fields{
+				"message": "edge missing incoming node",
+				"name":    e.Name(),
+			})
+			continue
+		}
+
+		if e.firstTo == nil {
+			grip.Warning(message.Fields{
+				"message": "edge missing outgoing node",
+				"name":    e.Name(),
+			})
+			continue
+		}
+
+		dag.SetEdge(e)
 	}
 
 	return dag
 }
 
-func (g *Graph) AllBetween(from, to string) ([][]*Node, error) {
+func (g *Graph) AllBetween(from, to string) ([][]string, error) {
 
 	fromNode, ok := g.nodes[from]
 	if !ok {
-		return nil, errors.New("could not find from node")
+		return nil, errors.Errorf("could not find from node [%s]", from)
 	}
+
 	toNode, ok := g.nodes[to]
 	if !ok {
-		return nil, errors.New("could not find to node")
+		return nil, errors.Errorf("could not find to node, [%s]", to)
 	}
-	paths, ok := path.JohnsonAllPaths(g.Directed())
-	if !ok {
-		return nil, errors.New("could not find all paths")
-	}
+
+	paths := path.DijkstraAllPaths(g.Directed())
 
 	all, _ := paths.AllBetween(fromNode.ID(), toNode.ID())
 	if len(all) == 0 {
-		return nil, errors.New("found no path between nodes")
+		return nil, errors.Errorf("found no path between nodes, [%s => %s]", from, to)
 	}
 
-	out := [][]*Node{}
+	out := [][]string{}
 	for _, group := range all {
-		gr := []*Node{}
+		gr := []string{}
 
 		for _, n := range group {
-			node := g.nodeIndex[n.ID()]
-			gr = append(gr, &node)
+			if n == nil {
+				grip.Warning("found nil node")
+				continue
+			}
+			gr = append(gr, g.nodeIndex[n.ID()].Name)
 		}
 		out = append(out, gr)
 	}

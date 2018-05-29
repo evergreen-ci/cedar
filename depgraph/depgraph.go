@@ -42,7 +42,7 @@ type Node struct {
 
 // ID returns a locally unique identifier for this node. Used to
 // implement an interface the Graph algorithms library.
-func (n *Node) ID() int64 { return n.GraphID }
+func (n Node) ID() int64 { return n.GraphID }
 
 // Type provides a more convenient accessor for data in this embedded field.
 //
