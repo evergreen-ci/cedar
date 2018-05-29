@@ -1,10 +1,13 @@
 hash: 75c7ee1fdb954853d3ab8f1b62b85ad7c1a8719da2d2396238f0eba863fb86e0
 updated: 2016-06-16T14:14:58.047959949-04:00
 imports:
-- name: github.com/pkg/errors
-  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 - name: golang.org/x/net
   version: 1358eff22f0dd0c54fc521042cc607f6ff4b531a
+- name: golang.org/x/exp/rand
+  version: 8460e604b9de9da5834c9f198cadf9dca4b05cac
+- name: github.com/pkg/errors
+  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
+
 - name: github.com/urfave/cli
   version: 01857ac33766ce0c93856370626f9799281c14f4
 - name: github.com/jpillora/backoff
@@ -47,3 +50,4 @@ imports:
   version: fcd3f3321826209eac4a6f41c0108624d948e499
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
+

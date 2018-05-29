@@ -5,6 +5,7 @@ import:
 - package: github.com/mongodb/amboy
 - package: github.com/gonum/gonum
 - package: golang.org/x/net
+- package: golang.org/x/exp/rand
 - package: github.com/mongodb/grip
 - package: github.com/pkg/errors
 - package: github.com/stretchr/testify
