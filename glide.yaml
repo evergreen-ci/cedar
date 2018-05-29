@@ -12,7 +12,6 @@ import:
 - package: github.com/davecgh/go-spew
 - package: github.com/mongodb/anser
 - package: github.com/tychoish/gimlet
-- package: github.com/tychoish/depgraph
 - package: gopkg.in/mgo.v2
 - package: github.com/awalterschulze/gographviz
 - package: github.com/tychoish/tarjan

@@ -23,6 +23,10 @@ type Graph struct {
 	mapsPopulated bool
 	edges         map[string]Edge
 	nodes         map[string]Node
+
+	nodeIndex map[int64]Node
+	edgeIndex map[int64]Edge
+	nextID    int64
 }
 
 // Node represents a single item in the graph, either a symbol, file,
@@ -30,11 +34,15 @@ type Graph struct {
 // denormalized information about a node's relationships to other nodes.
 type Node struct {
 	Name          string `json:"id" bson:"name"`
-	GraphID       int    `bson:"index" json:"index"`
+	GraphID       int64  `bson:"index" json:"index"`
 	Relationships struct {
 		Type NodeType `json:"type" bson:"type"`
 	} `json:"node" bson:"-,inline"`
 }
+
+// ID returns a locally unique identifier for this node. Used to
+// implement an interface the Graph algorithms library.
+func (n *Node) ID() int64 { return n.GraphID }
 
 // Type provides a more convenient accessor for data in this embedded field.
 //
@@ -45,7 +53,7 @@ func (n *Node) Type() NodeType { return n.Relationships.Type }
 
 // NodeRelationship represents a single edge in the graph,
 type NodeRelationship struct {
-	GraphID int    `bson:"index" json:"index"`
+	GraphID int64  `bson:"index" json:"index"`
 	Name    string `json:"id" bson:"name"`
 }
 
@@ -55,9 +63,33 @@ type Edge struct {
 	Type     EdgeType           `json:"type" bson:"type"`
 	FromNode NodeRelationship   `bson:"from_node" json:"from_node"`
 	ToNodes  []NodeRelationship `bson:"to_node" json:"to_node"`
+	localID  int64
 }
 
-func (e Edge) ID() string { return fmt.Sprintf("%d.%d", e.FromNode.GraphID, e.Type) }
+// Name returns a dep-graph specific id for this node, which combines the
+func (e Edge) Name() string { return fmt.Sprintf("%d.%d", e.FromNode.GraphID, e.Type) }
+
+// ID returns the graph-system unique id for this edge.
+func (e Edge) ID() int64 { return e.localID }
+
+// From provides the unique ID of the "from" edge. Implemented to
+// support gonum/graph algorithms.
+func (e Edge) From() int64 { return e.FromNode.GraphID }
+
+// To returns the unique graph system id of the first target node
+// defined in the edge. It ignores additional targets in the current
+// implemenation.
+//
+// TODO: when we denormalize edges and create a single edge for each
+// node, this should panic when there are no to nodes, or more than
+// one to node.
+func (e Edge) To() int64 {
+	if len(e.ToNodes) == 0 {
+		return -1
+	}
+
+	return e.ToNodes[0].GraphID
+}
 
 // New parses a graph and returns the graph structure. New takes a
 // build id and a path to the graph source. The path may either be a

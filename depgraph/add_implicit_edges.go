@@ -36,7 +36,9 @@ func (g *Graph) addImplicitEdgesForNode(n Node) {
 			GraphID: n.GraphID,
 			Name:    n.Name,
 		},
+		localID: g.nextID,
 	}
+	g.nextID++
 
 	deps := make(map[string]struct{})
 	for _, symEdge := range g.Edges {
@@ -75,5 +77,5 @@ func (g *Graph) addImplicitEdgesForNode(n Node) {
 			})
 	}
 
-	g.edges[edge.ID()] = edge
+	g.edges[edge.Name()] = edge
 }
