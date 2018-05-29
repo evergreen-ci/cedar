@@ -6,8 +6,7 @@ package path
 
 import (
 	"math"
-
-	"golang.org/x/exp/rand"
+	"math/rand"
 
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"

@@ -3,8 +3,6 @@ updated: 2016-06-16T14:14:58.047959949-04:00
 imports:
 - name: golang.org/x/net
   version: 1358eff22f0dd0c54fc521042cc607f6ff4b531a
-- name: golang.org/x/exp/rand
-  version: 8460e604b9de9da5834c9f198cadf9dca4b05cac
 - name: github.com/pkg/errors
   version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 
