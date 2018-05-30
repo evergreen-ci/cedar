@@ -41,7 +41,6 @@ func filterLibrary() cli.Command {
 			}),
 		Action: func(c *cli.Context) error {
 			fn := c.String("path")
-			grip.Infoln("starting to load graph from:", fn)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
@@ -84,7 +83,6 @@ func loadGraphToDB() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			grip.Infoln("loading graph from:", fn)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
@@ -198,6 +196,10 @@ func findPaths() cli.Command {
 				Value: "pathsReport.json",
 				Usage: "specify the path to the filtered library graph",
 			},
+			cli.BoolFlag{
+				Name:  "print",
+				Usage: "specify to write the output to standard out.",
+			},
 			cli.StringFlag{
 				Name:  "prune",
 				Usage: "drop edges containing this string",
@@ -205,7 +207,6 @@ func findPaths() cli.Command {
 		Action: func(c *cli.Context) error {
 			fn := c.String("path")
 			prune := c.String("prune")
-			grip.Infoln("starting to load graph from:", fn)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
@@ -228,6 +229,10 @@ func findPaths() cli.Command {
 			paths, err := libgraph.AllBetween(c.String("from"), c.String("to"))
 			if err != nil {
 				return errors.Wrap(err, "problem resolving paths")
+			}
+
+			if c.Bool("print") {
+				return errors.WithStack(printJSON(paths))
 			}
 
 			return errors.Wrap(writeJSON(c.String("output"), paths),
@@ -257,7 +262,6 @@ func groups() cli.Command {
 			}),
 		Action: func(c *cli.Context) error {
 			fn := c.String("path")
-			grip.Infoln("starting to load graph from:", fn)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
@@ -318,7 +322,6 @@ func process() cli.Command {
 			}),
 		Action: func(c *cli.Context) error {
 			fn := c.String("path")
-			grip.Infoln("starting to load graph from:", fn)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")

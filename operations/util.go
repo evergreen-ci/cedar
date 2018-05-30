@@ -2,6 +2,7 @@ package operations
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,16 @@ func writeJSON(fn string, data interface{}) error {
 	defer f.Close()
 
 	return errors.WithStack(writeBytes(f, out))
+}
+
+func printJSON(data interface{}) error {
+	out, err := json.MarshalIndent(data, "", "   ")
+	if err != nil {
+		return errors.Wrap(err, "problem writing data")
+	}
+
+	fmt.Println(string(out))
+	return nil
 }
 
 func writeString(fn string, data string) error {

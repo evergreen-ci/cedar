@@ -95,11 +95,23 @@ func (g *Graph) FlattenEdges() {
 
 		for _, target := range edge.ToNodes {
 			newEdge := edge.copy()
+			newEdge.localID = g.getNextID()
 			newEdge.ToNodes = []NodeRelationship{target}
 			to := g.nodeIndex[target.GraphID]
 			newEdge.firstTo = &to
+
+			edges = append(edges, newEdge)
+			index[newEdge.localID] = newEdge
+			mapping[newEdge.Name()] = newEdge
 		}
 	}
+
+	grip.Info(message.Fields{
+		"message": "flattened edges of graph",
+		"new":     len(edges),
+		"old":     len(g.Edges),
+		"valid":   (len(edges) == len(index)) && (len(edges) == len(mapping)),
+	})
 
 	g.Edges = edges
 	g.edges = mapping

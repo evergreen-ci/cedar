@@ -71,7 +71,7 @@ type Edge struct {
 }
 
 // Name returns a dep-graph specific id for this node, which combines the
-func (e Edge) Name() string { return fmt.Sprintf("%d.%d", e.FromNode.GraphID, e.Type) }
+func (e Edge) Name() string { return fmt.Sprintf("%d.%d.%d", e.FromNode.GraphID, e.Type, e.localID) }
 
 // ID returns the griaph-system unique id for this edge.
 func (e Edge) ID() int64 { return e.localID }
