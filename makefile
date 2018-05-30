@@ -79,7 +79,7 @@ distTestContents := $(foreach pkg,$(packages),$(buildDir)/test.$(pkg) $(buildDir
 $(buildDir)/build-cross-compile:buildscripts/build-cross-compile.go
 	@mkdir -p $(buildDir)
 	go build -o $@ $<
-$(buildDir)/make-tarball:buildscripts/make-tarball.go $(buildDir)/render-gopath
+$(buildDir)/make-tarball:buildscripts/make-tarball.go
 	 go build -o $@ $<
 dist:$(buildDir)/dist.tar.gz
 dist-test:$(buildDir)/dist-test.tar.gz

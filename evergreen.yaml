@@ -169,6 +169,8 @@ tasks:
   - <<: *run-build
     tags: ["dist"]
     name: dist
+    depends_on:
+      - name: "test"
 
   - <<: *run-build-with-mongodb
     tags: ["test"]
@@ -188,7 +190,9 @@ buildvariants:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.4.tgz
     run_on:
       - archlinux-test
-    tasks: [ ".race", ".report" ]
+    tasks: 
+      - name: ".race"
+      - name: ".report"
 
   - name: ubuntu1604
     display_name: Ubuntu 16.04
@@ -197,7 +201,9 @@ buildvariants:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.4.tgz
     run_on:
       - ubuntu1604-test
-    tasks: [ "dist", ".test" ]
+    tasks: 
+      - name: ".test"
+      - name: "dist"
 
   - name: macos
     display_name: macOS 10.12
@@ -206,7 +212,9 @@ buildvariants:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-x86_64-3.6.4.tgz
     run_on:
       - macos-1012
-    tasks: [ "dist", ".test" ]
+    tasks:
+      - name: ".test"
+      - name: "dist"
 
   - name: windows
     display_name: Windows
@@ -217,5 +225,6 @@ buildvariants:
       mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-3.6.4.zip
       extension: ".exe"
       archiveExt: ".zip"
-    tasks: [ "dist", ".test" ]
-
+    tasks:
+      - name: ".test"
+      - name: "dist"
