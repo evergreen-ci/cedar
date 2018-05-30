@@ -177,7 +177,7 @@ buildvariants:
   - name: ubuntu1604
     display_name: Ubuntu 16.04
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH DISABLE_COVERAGE=true GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.2.9.tgz
     run_on:
       - ubuntu1604-test
@@ -186,7 +186,7 @@ buildvariants:
   - name: macos
     display_name: macOS 10.12
     expansions:
-      build_env: "PATH=/usr/local/go/bin:$PATH"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-x86_64-3.2.9.tgz
     run_on:
       - macos-1012
