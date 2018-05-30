@@ -60,7 +60,10 @@ func (g *Graph) AllBetween(from, to string) ([][]string, error) {
 		return nil, errors.Errorf("could not find to node, [%s]", to)
 	}
 
-	paths := path.DijkstraAllPaths(g.Directed())
+	paths, ok := path.JohnsonAllPaths(g.Directed())
+	if !ok {
+		return nil, errors.New("could not resolve paths from graph")
+	}
 
 	all, _ := paths.AllBetween(fromNode.ID(), toNode.ID())
 	if len(all) == 0 {

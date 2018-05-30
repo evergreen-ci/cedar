@@ -33,11 +33,12 @@ func filterLibrary() cli.Command {
 	return cli.Command{
 		Name:  "filter-library",
 		Usage: "take a full graph and return only the library components",
-		Flags: depsFlags(cli.StringFlag{
-			Name:  "output, o",
-			Value: "libraryDeps.json",
-			Usage: "specify the path to the filtered library graph",
-		}),
+		Flags: depsFlags(
+			cli.StringFlag{
+				Name:  "output, o",
+				Value: "libraryDeps.json",
+				Usage: "specify the path to the filtered library graph",
+			}),
 		Action: func(c *cli.Context) error {
 			fn := c.String("path")
 			grip.Infoln("starting to load graph from:", fn)
@@ -289,7 +290,7 @@ func process() cli.Command {
 		Usage: "takes a dagger graph and filters, prunes, and renders several output formats",
 		Flags: depsFlags(
 			cli.StringFlag{
-				Name:  "output",
+				Name:  "output, o",
 				Value: "libs",
 				Usage: "specify the path to the filtered library graph, dot/json extensions added",
 			},
