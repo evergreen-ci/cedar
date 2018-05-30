@@ -187,7 +187,7 @@ buildvariants:
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     expansions:
-      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.4.tgz
+      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.5.tgz
     run_on:
       - archlinux-test
     tasks: 
@@ -198,7 +198,7 @@ buildvariants:
     display_name: Ubuntu 16.04
     expansions:
       build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
-      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.4.tgz
+      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.5.tgz
     run_on:
       - ubuntu1604-test
     tasks: 
@@ -209,7 +209,7 @@ buildvariants:
     display_name: macOS 10.12
     expansions:
       build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
-      mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-x86_64-3.6.4.tgz
+      mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-3.6.5.tgz
     run_on:
       - macos-1012
     tasks:
@@ -222,7 +222,7 @@ buildvariants:
       - windows-64-vs2015-small
     expansions:
       build_env: "GOROOT=c:/go1.8/go DISABLE_COVERAGE=yes PATH=/cygdrive/c/go1.8/go/bin:$PATH"
-      mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-3.6.4.zip
+      mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-3.6.5.zip
       extension: ".exe"
       archiveExt: ".zip"
     tasks:
