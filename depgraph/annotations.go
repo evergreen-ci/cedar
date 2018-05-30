@@ -37,8 +37,7 @@ func (g *Graph) refresh() {
 	g.edges = make(map[string]Edge)
 	g.edgeIndex = make(map[int64]Edge)
 	for idx, edge := range g.Edges {
-		edge.localID = g.nextID
-		g.nextID++
+		edge.localID = g.getNextID()
 
 		from := g.nodeIndex[edge.FromNode.GraphID]
 		edge.from = &from
@@ -71,4 +70,39 @@ func (g *Graph) refresh() {
 			"edge_ids":   len(g.edgeIndex),
 			"build_id":   g.BuildID,
 		})
+}
+
+// FlattenEdges transforms the edges of the graph so that each edge
+// reflects a single connection between two nodes in the graph. As
+// generated and imported Edges represent a single source node and
+// multiple possible target nodes.
+func (g *Graph) FlattenEdges() {
+	if g.edgesFlattened {
+		return
+	}
+
+	edges := []Edge{}
+	index := make(map[int64]Edge)
+	mapping := make(map[string]Edge)
+
+	for _, edge := range g.Edges {
+		if len(edge.ToNodes) <= 1 {
+			edges = append(edges, edge)
+			index[edge.localID] = edge
+			mapping[edge.Name()] = edge
+			continue
+		}
+
+		for _, target := range edge.ToNodes {
+			newEdge := edge.copy()
+			newEdge.ToNodes = []NodeRelationship{target}
+			to := g.nodeIndex[target.GraphID]
+			newEdge.firstTo = &to
+		}
+	}
+
+	g.Edges = edges
+	g.edges = mapping
+	g.edgeIndex = index
+	g.edgesFlattened = true
 }

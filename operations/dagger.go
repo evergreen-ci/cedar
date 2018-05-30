@@ -222,6 +222,7 @@ func findPaths() cli.Command {
 				},
 				[]depgraph.NodeType{depgraph.Library})
 
+			libgraph.FlattenEdges()
 			libgraph.Annotate()
 
 			paths, err := libgraph.AllBetween(c.String("from"), c.String("to"))

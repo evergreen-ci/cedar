@@ -18,6 +18,8 @@ func (e Edge) From() graph.Node { return e.from }
 // implemenation.
 func (e Edge) To() graph.Node { return e.firstTo }
 
+func (e Edge) copy() Edge { return e }
+
 func (g *Graph) Directed() graph.Directed {
 	dag := simple.NewDirectedGraph()
 
@@ -49,7 +51,6 @@ func (g *Graph) Directed() graph.Directed {
 }
 
 func (g *Graph) AllBetween(from, to string) ([][]string, error) {
-
 	fromNode, ok := g.nodes[from]
 	if !ok {
 		return nil, errors.Errorf("could not find from node [%s]", from)

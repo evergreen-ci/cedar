@@ -20,13 +20,15 @@ type Graph struct {
 	Nodes   []Node `json:"nodes"`
 	BuildID string `json:"id,omitempty"`
 
-	mapsPopulated bool
-	edges         map[string]Edge
-	nodes         map[string]Node
+	edgesFlattened bool
+	mapsPopulated  bool
 
+	edges map[string]Edge
+	nodes map[string]Node
+
+	nextID    int64
 	nodeIndex map[int64]Node
 	edgeIndex map[int64]Edge
-	nextID    int64
 }
 
 // Node represents a single item in the graph, either a symbol, file,
