@@ -1,6 +1,8 @@
 hash: 75c7ee1fdb954853d3ab8f1b62b85ad7c1a8719da2d2396238f0eba863fb86e0
 updated: 2016-06-16T14:14:58.047959949-04:00
 imports:
+- name: golang.org/x/exp
+  version: 8460e604b9de9da5834c9f198cadf9dca4b05cac
 - name: golang.org/x/net
   version: 1358eff22f0dd0c54fc521042cc607f6ff4b531a
 - name: github.com/pkg/errors
