@@ -99,8 +99,8 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 		}
 		for _, account := range p.Accounts {
 			for _, service := range account.Services {
-				psum.Services[service.Name] += float64(service.Cost)
-				out.TotalCost += float64(service.Cost)
+				psum.Services[service.Name] += service.Cost
+				out.TotalCost += service.Cost
 				for _, item := range service.Items {
 					cost := item.GetCost(r.Report.Range)
 					if cost > 0 {

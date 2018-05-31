@@ -61,6 +61,7 @@ type CostConfigAmazonEBS struct {
 	Snapshot float64 `bson:"snapshot" json:"snapshot" yaml:"snapshot"`
 }
 
+// nolint
 var (
 	costConfigAwsEbsGP2Key   = bsonutil.MustHaveTag(CostConfigAmazonEBS{}, "GP2")
 	costConfigAwsEbsIO1      = bsonutil.MustHaveTag(CostConfigAmazonEBS{}, "IO1")

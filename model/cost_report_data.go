@@ -42,6 +42,7 @@ func (c *EvergreenCost) refresh() {
 	}
 }
 
+// nolint
 var (
 	costReportEvergreenCostProjectsKey = bsonutil.MustHaveTag(EvergreenCost{}, "Projects")
 	costReportEvergreenCostDistroskey  = bsonutil.MustHaveTag(EvergreenCost{}, "Distros")
@@ -62,6 +63,7 @@ func (c *EvergreenProjectCost) refresh() {
 	}
 }
 
+// nolint
 var (
 	costReportEvergreenProjectCostNameKey  = bsonutil.MustHaveTag(EvergreenProjectCost{}, "Name")
 	costReportEvergreenProjectCostTaskskey = bsonutil.MustHaveTag(EvergreenProjectCost{}, "Tasks")
