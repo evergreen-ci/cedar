@@ -66,7 +66,7 @@ func (r *CostReport) FindID(id string) error {
 	if db.ResultsNotFound(err) {
 		return errors.Errorf("could not find cost reporting document %s in the database", id)
 	} else if err != nil {
-		errors.Wrap(err, "problem finding cost config document")
+		return errors.Wrap(err, "problem finding cost config document")
 	}
 	r.populated = true
 

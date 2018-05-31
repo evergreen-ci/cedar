@@ -144,7 +144,7 @@ func (g *GraphMetadata) MakeEdge(source *depgraph.Edge) *GraphEdge {
 	}
 
 	return &GraphEdge{
-		ID:        fmt.Sprintf("%s.%s", g.BuildID, source.ID()),
+		ID:        fmt.Sprintf("%s.%d", g.BuildID, source.ID()),
 		Graph:     g.BuildID,
 		Edge:      *source,
 		populated: true,

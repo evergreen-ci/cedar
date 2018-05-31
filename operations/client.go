@@ -430,8 +430,8 @@ func systemInfoImport() cli.Command {
 						catcher.Add(err)
 						continue
 					}
-
-					resp, err := client.SendSystemInfo(ctx, msg)
+					var resp *rest.SystemInfoReceivedResponse
+					resp, err = client.SendSystemInfo(ctx, msg)
 					grip.Debugf("%+v", resp)
 					if err != nil {
 						grip.Warning(err)

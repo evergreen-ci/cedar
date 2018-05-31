@@ -36,6 +36,7 @@ lintArgs += --exclude="file is not goimported" # top-level mains aren't imported
 lintArgs += --exclude="error return value not checked .defer.*"
 lintArgs += --exclude="\w+Key is unused.*"
 lintArgs += --exclude="unused global variable \w+Key"
+lintArgs += --exclude=".*unused variable or constant \w+Key"
 # end linting configuration
 
 
