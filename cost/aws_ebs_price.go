@@ -1,10 +1,11 @@
-package amazon
+package cost
 
 import (
 	"math"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 )
 
 func getPriceByVolumeType(pricing model.CostConfigAmazonEBS, vol *ec2.Volume, durationInDays float64) (float64, float64) {
@@ -34,7 +35,7 @@ func getPriceByVolumeType(pricing model.CostConfigAmazonEBS, vol *ec2.Volume, du
 	return price, volumePrice
 }
 
-func getEBSPrice(pricing model.CostConfigAmazonEBS, vol *ec2.Volume, reportRange model.TimeRange) float64 {
+func getEBSPrice(pricing model.CostConfigAmazonEBS, vol *ec2.Volume, reportRange util.TimeRange) float64 {
 	uptimeStart := *vol.CreateTime
 	// if report starts first, set the start of uptime to this
 	if reportRange.StartAt.After(uptimeStart) {

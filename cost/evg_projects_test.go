@@ -1,10 +1,11 @@
-package evergreen
+package cost
 
 import (
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
@@ -16,7 +17,7 @@ func init() {
 
 type ProjectSuite struct {
 	client *http.Client
-	info   *ConnectionInfo
+	info   *model.EvergreenConnectionInfo
 	suite.Suite
 }
 
@@ -25,7 +26,7 @@ func TestProjectsSuite(t *testing.T) {
 }
 
 func (s *ProjectSuite) SetupSuite() {
-	s.info = &ConnectionInfo{
+	s.info = &model.EvergreenConnectionInfo{
 		RootURL: "https://evergreen.mongodb.com/",
 		User:    "USER",
 		Key:     "KEY",
@@ -36,7 +37,7 @@ func (s *ProjectSuite) SetupSuite() {
 // Tests getProjects(), which retrieves all projects from Evergreen.
 // Authentication is needed for this route.
 func (s *ProjectSuite) TestGetProjects() {
-	Client := NewClient(s.client, s.info)
+	Client := NewEvergreenClient(s.client, s.info)
 	Client.maxRetries = 2
 	output := Client.getProjects(context.Background())
 	for out := range output {
@@ -48,18 +49,18 @@ func (s *ProjectSuite) TestGetProjects() {
 // Tests getTaskCostsByProject(), which retrieves all task costs from Evergreen
 // for the project given. Authentication is needed for this route.
 func (s *ProjectSuite) TestGetTaskCostsByProject() {
-	Client := NewClient(s.client, s.info)
+	Client := NewEvergreenClient(s.client, s.info)
 	output := Client.getTaskCostsByProject(context.Background(), "mci", "2017-07-25T10:00:00Z", "4h")
 	for out := range output {
 		s.NoError(out.err)
-		s.NotEmpty(out.taskcost.TimeTaken)
+		s.NotEmpty(out.taskcost.TimeTakenMS)
 	}
 }
 
 // Tests GetEvergreenProjectsData(), which retrieves all task costs
 // for each project in Evergreen. Authentication is needed for this route.
 func (s *ProjectSuite) TestGetEvergreenProjectsData() {
-	Client := NewClient(s.client, s.info)
+	Client := NewEvergreenClient(s.client, s.info)
 	Client.maxRetries = 2
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	duration, _ := time.ParseDuration("1h")

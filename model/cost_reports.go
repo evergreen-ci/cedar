@@ -53,8 +53,8 @@ func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, er
 	}
 
 	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(db.Document{
-		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeStartKey): db.Document{"$gte": start},
-		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, timeRangeEndKey):   db.Document{"$lt": end},
+		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, "start"): db.Document{"$gte": start},
+		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, "end"):   db.Document{"$lt": end},
 	})
 
 	return session, query, nil
@@ -118,8 +118,8 @@ func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Q
 	}
 
 	query := session.DB(conf.DatabaseName).C(costReportSummaryCollection).Find(map[string]interface{}{
-		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, timeRangeStartKey): start,
-		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, timeRangeEndKey):   end,
+		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, "start"): start,
+		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, "end"):   end,
 	})
 
 	return session, query, nil

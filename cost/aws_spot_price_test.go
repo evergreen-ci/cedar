@@ -1,4 +1,4 @@
-package amazon
+package cost
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -44,9 +45,9 @@ func (s *SpotPriceSuite) TestCalculatePriceOnePrice() {
 	start, _ := time.Parse(utcLayout, "2017-07-08T19:04:05.000Z")
 	end, _ := time.Parse(utcLayout, "2017-07-08T22:04:05.000Z")
 	var blocks = spotPrices([]*ec2.SpotPrice{block1})
-	times := TimeRange{
-		Start: start,
-		End:   end,
+	times := util.TimeRange{
+		StartAt: start,
+		EndAt:   end,
 	}
 	price := blocks.calculatePrice(times)
 	s.Equal(price, 3*0.84)
@@ -75,9 +76,9 @@ func (s *SpotPriceSuite) TestCalculatePriceManyPrices() {
 		SpotPrice: &price3,
 	}
 	var blocks = spotPrices([]*ec2.SpotPrice{block1, block3, block2})
-	times := TimeRange{
-		Start: start,
-		End:   end,
+	times := util.TimeRange{
+		StartAt: start,
+		EndAt:   end,
 	}
 	price := blocks.calculatePrice(times)
 	expectedPrice := 0.84 + 1.25 + (0.5 * 0.75)
@@ -87,9 +88,9 @@ func (s *SpotPriceSuite) TestCalculatePriceManyPrices() {
 func (s *SpotPriceSuite) TestCalculateRealPrices() {
 	time1, _ := time.Parse(utcLayout, "2017-07-19T06:19:00.000Z")
 	time2, _ := time.Parse(utcLayout, "2017-07-19T10:19:00.000Z")
-	times := TimeRange{
-		Start: time1,
-		End:   time2,
+	times := util.TimeRange{
+		StartAt: time1,
+		EndAt:   time2,
 	}
 	price := s.prices.calculatePrice(times)
 	s.Equal(0.17559225, price)

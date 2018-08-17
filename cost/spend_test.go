@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink/amazon"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -66,11 +66,11 @@ func (c *CostSuite) TestYAMLToConfig() {
 }
 
 func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
-	key := amazon.ItemKey{
+	key := AWSItemKey{
 		ItemType: "reserved",
 		Name:     "c3.4xlarge",
 	}
-	item1 := amazon.Item{
+	item1 := AWSItem{
 		Launched:   true,
 		Terminated: false,
 		FixedPrice: 120.0,
@@ -78,7 +78,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		Uptime:     3.0,
 		Count:      5,
 	}
-	item2 := amazon.Item{
+	item2 := AWSItem{
 		Launched:   false,
 		Terminated: true,
 		FixedPrice: 35.0,
@@ -86,7 +86,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		Uptime:     1.00,
 		Count:      2,
 	}
-	item3 := amazon.Item{
+	item3 := AWSItem{
 		Launched:   true,
 		Terminated: false,
 		FixedPrice: 49.0,
@@ -94,7 +94,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 		Uptime:     1.00,
 		Count:      1,
 	}
-	items := []amazon.Item{item1, item2, item3}
+	items := []AWSItem{item1, item2, item3}
 	item := createCostItemFromAmazonItems(key, items)
 	c.Equal(item.Name, key.Name)
 	c.Equal(item.ItemType, string(key.ItemType))
@@ -111,7 +111,7 @@ func (c *CostSuite) TestPrint() {
 	defer os.RemoveAll(tempDir)
 
 	report := model.CostReportMetadata{
-		Range: model.TimeRange{
+		Range: util.TimeRange{
 			StartAt: time.Now().Add(-2 * time.Hour),
 			EndAt:   time.Now().Add(-time.Hour),
 		},

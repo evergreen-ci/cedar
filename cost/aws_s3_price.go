@@ -1,4 +1,4 @@
-package amazon
+package cost
 
 import (
 	"encoding/csv"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/pkg/errors"
 )
 
@@ -29,7 +29,7 @@ type S3Info struct {
 }
 
 // For now, this function returns an example CSV.
-func (c *Client) fetchS3Spending(info *S3Info, reportRange model.TimeRange) ([][]string, error) {
+func (c *AWSClient) fetchS3Spending(info *S3Info, reportRange util.TimeRange) ([][]string, error) {
 	year, monthNum, _ := reportRange.StartAt.Date()
 	month := fmt.Sprintf("%d", monthNum)
 	if monthNum < 10 {
@@ -58,7 +58,7 @@ func (c *Client) fetchS3Spending(info *S3Info, reportRange model.TimeRange) ([][
 }
 
 // GetS3Cost retrieves the current AWS CSV file and returns the S3 cost.
-func (c *Client) GetS3Cost(info *S3Info, reportRange model.TimeRange) (float32, error) {
+func (c *AWSClient) GetS3Cost(info *S3Info, reportRange util.TimeRange) (float32, error) {
 	lines, err := c.fetchS3Spending(info, reportRange)
 	if err != nil {
 		return 0.0, err

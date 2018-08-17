@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -24,11 +23,11 @@ const (
 )
 
 type CostConfig struct {
-	ID        string                   `bson:"_id" json:"id" yaml:"id"`
-	Opts      CostConfigOptions        `bson:"options" json:"options" yaml:"options"`
-	Providers []CloudProvider          `bson:"providers" json:"providers" yaml:"providers"`
-	Evergreen evergreen.ConnectionInfo `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
-	Amazon    CostConfigAmazon         `bson:"aws" json:"aws" yaml:"aws"`
+	ID        string                  `bson:"_id" json:"id" yaml:"id"`
+	Opts      CostConfigOptions       `bson:"options" json:"options" yaml:"options"`
+	Providers []CloudProvider         `bson:"providers" json:"providers" yaml:"providers"`
+	Evergreen EvergreenConnectionInfo `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
+	Amazon    CostConfigAmazon        `bson:"aws" json:"aws" yaml:"aws"`
 
 	populated bool
 	env       sink.Environment
@@ -145,6 +144,31 @@ func (c *CostConfig) Validate() error {
 	}
 
 	return nil
+}
+
+// EvergreenConnectionInfo stores the root URL, username, and API key for the user
+type EvergreenConnectionInfo struct {
+	RootURL string `bson:"url" json:"url" yaml:"url"`
+	User    string `bson:"user" json:"user" yaml:"user"`
+	Key     string `bson:"key" json:"key" yaml:"key"`
+}
+
+var (
+	costEvergreenConnInfoRootURLKey = bsonutil.MustHaveTag(EvergreenConnectionInfo{}, "RootURL")
+	costEvergreenConnInfoUserKey    = bsonutil.MustHaveTag(EvergreenConnectionInfo{}, "User")
+	costEvergreenConnInfoKeyKey     = bsonutil.MustHaveTag(EvergreenConnectionInfo{}, "Key")
+)
+
+// IsValid checks that a user, API key, and root URL are given in the
+// ConnectionInfo structure
+func (e *EvergreenConnectionInfo) IsValid() bool {
+	if e == nil {
+		return false
+	}
+	if e.RootURL == "" || e.User == "" || e.Key == "" {
+		return false
+	}
+	return true
 }
 
 // LoadCostConfig takes a file path, reads it to YAML, and then converts

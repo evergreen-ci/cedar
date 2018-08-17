@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink/evergreen"
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
@@ -17,7 +17,7 @@ func init() {
 
 type EvergreenSpendSuite struct {
 	client *http.Client
-	info   *evergreen.ConnectionInfo
+	info   *model.EvergreenConnectionInfo
 	suite.Suite
 }
 
@@ -27,7 +27,7 @@ func TestEvergreenSpendSuite(t *testing.T) {
 }
 
 func (s *EvergreenSpendSuite) SetupSuite() {
-	s.info = &evergreen.ConnectionInfo{
+	s.info = &model.EvergreenConnectionInfo{
 		RootURL: "https://evergreen.mongodb.com/rest/v2/",
 		User:    "USER",
 		Key:     "KEY",
@@ -38,7 +38,7 @@ func (s *EvergreenSpendSuite) SetupSuite() {
 // TestGetEvergreenDistrosData tests that GetEvergreenDistrosData
 // runs without error
 func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
-	client := evergreen.NewClient(s.client, s.info)
+	client := NewEvergreenClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	ctx := context.Background()
 	opts := EvergreenReportOptions{
@@ -56,7 +56,7 @@ func (s *EvergreenSpendSuite) TestGetEvergreenDistrosData() {
 // TestGetEvergreenDistrosData tests that GetEvergreenProjectsData
 // runs without error
 func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
-	client := evergreen.NewClient(s.client, s.info)
+	client := NewEvergreenClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	ctx := context.Background()
 	opts := EvergreenReportOptions{
@@ -75,7 +75,7 @@ func (s *EvergreenSpendSuite) TestGetEvergreenProjectsData() {
 }
 
 func (s *EvergreenSpendSuite) TestGetEvergreenData() {
-	client := evergreen.NewClient(s.client, s.info)
+	client := NewEvergreenClient(s.client, s.info)
 	starttime, _ := time.Parse(time.RFC3339, "2017-07-25T10:00:00Z")
 	ctx := context.Background()
 	opts := EvergreenReportOptions{

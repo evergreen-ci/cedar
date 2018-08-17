@@ -1,8 +1,8 @@
 package cost
 
 import (
-	"github.com/evergreen-ci/sink/amazon"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -10,7 +10,7 @@ import (
 
 // setItems sets the number of launched and terminated instances of the given cost item.
 // The sums are calculated from the information in the Item array.
-func setSums(res *model.ServiceItem, items []amazon.Item) {
+func setSums(res *model.ServiceItem, items []AWSItem) {
 	res.Launched, res.Terminated, res.TotalHours = 0, 0, 0
 
 	for _, item := range items {
@@ -39,7 +39,7 @@ func setSums(res *model.ServiceItem, items []amazon.Item) {
 
 // setAverages sets the average price, fixed price, and uptime of the given cost item.
 // The averages are calculated from the information in the Item array.
-func setAverages(res *model.ServiceItem, items []amazon.Item) {
+func setAverages(res *model.ServiceItem, items []AWSItem) {
 	var prices, uptimes, fixedPrices []float64
 
 	for _, item := range items {
@@ -66,7 +66,7 @@ func setAverages(res *model.ServiceItem, items []amazon.Item) {
 }
 
 // createItemFromEC2Instance creates a new cost.Item using a key/item array pair.
-func createCostItemFromAmazonItems(key amazon.ItemKey, items []amazon.Item) model.ServiceItem {
+func createCostItemFromAmazonItems(key AWSItemKey, items []AWSItem) model.ServiceItem {
 	item := model.ServiceItem{
 		Name:     key.Name,
 		ItemType: key.ItemType,
@@ -78,7 +78,7 @@ func createCostItemFromAmazonItems(key amazon.ItemKey, items []amazon.Item) mode
 }
 
 // getAllProviders returns the AWS provider and any providers in the config file
-func getAllProviders(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) ([]model.CloudProvider, error) {
+func getAllProviders(ctx context.Context, reportRange util.TimeRange, config *model.CostConfig) ([]model.CloudProvider, error) {
 	awsProvider, err := getAWSProvider(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func getAllProviders(ctx context.Context, reportRange model.TimeRange, config *m
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
+func getAWSProvider(ctx context.Context, reportRange util.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
 	catcher := grip.NewSimpleCatcher()
 	res := model.CloudProvider{
 		Name: "aws",
@@ -122,14 +122,14 @@ func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *mo
 }
 
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
-func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig, account model.CostConfigAmazonAccount) (*model.CloudAccount, error) {
+func getAWSAccountByOwner(ctx context.Context, reportRange util.TimeRange, config *model.CostConfig, account model.CostConfigAmazonAccount) (*model.CloudAccount, error) {
 	grip.Infof("Compiling data for account owner %s", account.Name)
-	client, err := amazon.NewClientWithInfo(account.Key, account.Secret)
+	client, err := NewAWSClientWithInfo(account.Key, account.Secret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Problem getting client %s", account.Name)
 	}
 
-	instances := amazon.NewServices()
+	instances := NewAWSServices()
 
 	if err = client.GetEC2Instances(ctx, reportRange, instances); err != nil {
 		return nil, errors.Wrap(err, "Problem getting EC2 instances")
@@ -141,10 +141,10 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 	s3info := config.Amazon.S3Info
 	s3info.Owner = account.Name
 	ec2Service := model.AccountService{
-		Name: string(amazon.EC2Service),
+		Name: string(EC2Service),
 	}
 	ebsService := model.AccountService{
-		Name: string(amazon.EBSService),
+		Name: string(EBSService),
 	}
 	// s3Service := model.AccountService{
 	//	Name: string(amazon.S3Service),
@@ -162,7 +162,7 @@ func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, conf
 		item := createCostItemFromAmazonItems(key, items)
 		cost := item.GetCost(reportRange)
 		accountCost += cost
-		if key.Service == amazon.EC2Service {
+		if key.Service == EC2Service {
 			ec2Service.Cost += cost
 			ec2Service.Items = append(ec2Service.Items, item)
 		} else {

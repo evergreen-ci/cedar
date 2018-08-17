@@ -1,7 +1,6 @@
 package cost
 
 import (
-	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -11,7 +10,7 @@ import (
 
 // GetEvergreenDistrosData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
-func getEvergreenDistrosData(ctx context.Context, c *evergreen.Client, opts *EvergreenReportOptions) ([]model.EvergreenDistroCost, error) {
+func getEvergreenDistrosData(ctx context.Context, c *EvergreenClient, opts *EvergreenReportOptions) ([]model.EvergreenDistroCost, error) {
 	distros := []model.EvergreenDistroCost{}
 	evgDistros, err := c.GetEvergreenDistroCosts(ctx, opts.StartAt, opts.Duration)
 	if err != nil {
@@ -24,7 +23,7 @@ func getEvergreenDistrosData(ctx context.Context, c *evergreen.Client, opts *Eve
 	return distros, nil
 }
 
-func convertEvgDistroToCostDistro(evgdc evergreen.DistroCost) model.EvergreenDistroCost {
+func convertEvgDistroToCostDistro(evgdc EvergreenDistroCost) model.EvergreenDistroCost {
 	d := model.EvergreenDistroCost{}
 	d.Name = evgdc.DistroID
 	d.Provider = evgdc.Provider
@@ -37,7 +36,7 @@ func convertEvgDistroToCostDistro(evgdc evergreen.DistroCost) model.EvergreenDis
 
 // GetEvergreenProjectsData returns distros cost data stored in Evergreen by
 // calling evergreen GetEvergreenDistrosData function.
-func getEvergreenProjectsData(ctx context.Context, c *evergreen.Client, opts *EvergreenReportOptions) ([]model.EvergreenProjectCost, error) {
+func getEvergreenProjectsData(ctx context.Context, c *EvergreenClient, opts *EvergreenReportOptions) ([]model.EvergreenProjectCost, error) {
 	projects := []model.EvergreenProjectCost{}
 	evgProjects, err := c.GetEvergreenProjectsData(ctx, opts.StartAt, opts.Duration)
 	if err != nil {
@@ -51,7 +50,7 @@ func getEvergreenProjectsData(ctx context.Context, c *evergreen.Client, opts *Ev
 	return projects, nil
 }
 
-func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.EvergreenProjectCost {
+func convertEvgProjectUnitToCostProject(evgpu EvergreenProjectUnit) model.EvergreenProjectCost {
 	p := model.EvergreenProjectCost{}
 	p.Name = evgpu.Name
 
@@ -74,7 +73,7 @@ func convertEvgProjectUnitToCostProject(evgpu evergreen.ProjectUnit) model.Everg
 	return p
 }
 
-func getEvergreenData(ctx context.Context, c *evergreen.Client, opts *EvergreenReportOptions) (*model.EvergreenCost, error) {
+func getEvergreenData(ctx context.Context, c *EvergreenClient, opts *EvergreenReportOptions) (*model.EvergreenCost, error) {
 	out := &model.EvergreenCost{}
 
 	if opts.DisableDistros {

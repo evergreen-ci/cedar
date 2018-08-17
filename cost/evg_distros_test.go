@@ -1,10 +1,11 @@
-package evergreen
+package cost
 
 import (
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
@@ -16,7 +17,7 @@ func init() {
 
 type DistrosSuite struct {
 	client *http.Client
-	info   *ConnectionInfo
+	info   *model.EvergreenConnectionInfo
 	suite.Suite
 }
 
@@ -25,7 +26,7 @@ func TestDistrosSuite(t *testing.T) {
 }
 
 func (s *DistrosSuite) SetupSuite() {
-	s.info = &ConnectionInfo{
+	s.info = &model.EvergreenConnectionInfo{
 		RootURL: "https://evergreen.mongodb.com",
 		User:    "USER",
 		Key:     "KEY",
@@ -35,7 +36,7 @@ func (s *DistrosSuite) SetupSuite() {
 
 // TestGetDistrosFunction tests that GetDistros runs without error.
 func (s *DistrosSuite) TestGetDistrosFunction() {
-	Client := NewClient(s.client, s.info)
+	Client := NewEvergreenClient(s.client, s.info)
 	distros, err := Client.GetDistros(context.Background())
 	s.True(len(distros) > 1)
 	s.NoError(err)
@@ -44,7 +45,7 @@ func (s *DistrosSuite) TestGetDistrosFunction() {
 // TestGetDistroFunctionFail tests against the local APIServer for correct
 // behaviors given certain use cases.
 func (s *DistrosSuite) TestGetDistroFunctionFail() {
-	Client := NewClient(s.client, s.info)
+	Client := NewEvergreenClient(s.client, s.info)
 	Client.maxRetries = 2
 	distroID := "archlinux-build"
 	ctx := context.Background()
@@ -58,7 +59,7 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 	// by an invalid start time. GetDistro should succeed, but sumTimeTaken,
 	// provider, intancetype must result in zero-values.
 	dc, err := Client.GetDistroCost(ctx, distroID, t, 10*time.Minute)
-	s.NoError(err)
+	s.Require().NoError(err)
 	s.Equal(distroID, dc.DistroID)
 
 	// Test valid failures - i.e. searching for non-existent distros, invalid time.
@@ -73,12 +74,12 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 // Tests GetEvergreenDistrosData(), which retrieves all distro costs
 // for each distro in Evergreen. Authentication is needed for this route.
 func (s *DistrosSuite) TestGetEvergreenDistrosData() {
-	Client := NewClient(s.client, s.info)
+	Client := NewEvergreenClient(s.client, s.info)
 	Client.maxRetries = 2
 	distroCosts, err := Client.GetEvergreenDistroCosts(context.Background(), time.Now().Add(-300*time.Hour), 48*time.Hour)
 	s.NoError(err)
 	for _, dc := range distroCosts {
 		s.NotEmpty(dc.DistroID)
-		s.NotEmpty(dc.SumTimeTaken)
+		s.NotEmpty(dc.SumTimeTakenMS)
 	}
 }

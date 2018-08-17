@@ -1,4 +1,4 @@
-package evergreen
+package cost
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/evergreen-ci/sink/model"
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -15,8 +16,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Client holds the credentials for the Evergreen API.
-type Client struct {
+// EvergreenClient holds the credentials for the Evergreen API.
+type EvergreenClient struct {
 	apiRoot                string
 	httpClient             *http.Client
 	user                   string
@@ -25,28 +26,9 @@ type Client struct {
 	maxRetries             int
 }
 
-// ConnectionInfo stores the root URL, username, and API key for the user
-type ConnectionInfo struct {
-	RootURL string `bson:"url" json:"url" yaml:"url"`
-	User    string `bson:"user" json:"user" yaml:"user"`
-	Key     string `bson:"key" json:"key" yaml:"key"`
-}
-
-// IsValid checks that a user, API key, and root URL are given in the
-// ConnectionInfo structure
-func (e *ConnectionInfo) IsValid() bool {
-	if e == nil {
-		return false
-	}
-	if e.RootURL == "" || e.User == "" || e.Key == "" {
-		return false
-	}
-	return true
-}
-
-// NewClient is a constructs a new Client using the parameters given.
-func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
-	return &Client{
+// NewEvergreenClient is a constructs a new Client using the parameters given.
+func NewEvergreenClient(httpClient *http.Client, info *model.EvergreenConnectionInfo) *EvergreenClient {
+	return &EvergreenClient{
 		apiRoot:    info.RootURL,
 		httpClient: httpClient,
 		user:       info.User,
@@ -55,10 +37,12 @@ func NewClient(httpClient *http.Client, info *ConnectionInfo) *Client {
 	}
 }
 
-func (c *Client) SetAllowIncompleteResults(shouldAllow bool) { c.allowIncompleteResults = shouldAllow }
+func (c *EvergreenClient) SetAllowIncompleteResults(shouldAllow bool) {
+	c.allowIncompleteResults = shouldAllow
+}
 
 // getURL returns a URL for the given path.
-func (c *Client) getURL(path string) string {
+func (c *EvergreenClient) getURL(path string) string {
 	if strings.HasPrefix(path, "/api/rest/v2/") {
 		return c.apiRoot + path
 	}
@@ -70,7 +54,7 @@ func (c *Client) getURL(path string) string {
 	return strings.Join([]string{c.apiRoot, "api", "rest", "v2", path}, "/")
 }
 
-func (c *Client) getBackoff() *backoff.Backoff {
+func (c *EvergreenClient) getBackoff() *backoff.Backoff {
 	return &backoff.Backoff{
 		Min:    250 * time.Millisecond,
 		Max:    5 * time.Second,
@@ -79,7 +63,7 @@ func (c *Client) getBackoff() *backoff.Backoff {
 	}
 }
 
-func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.Response, error) {
+func (c *EvergreenClient) retryRequest(ctx context.Context, method, path string) (*http.Response, error) {
 	if method == "" || path == "" {
 		return nil, errors.New("invalid request")
 	}
@@ -117,7 +101,7 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 // doReq performs a request of the given method type against path.
 // If body is not nil, also includes it as a request body as url-encoded data
 // with the appropriate header
-func (c *Client) doReq(ctx context.Context, method, path string) (*http.Response, error) {
+func (c *EvergreenClient) doReq(ctx context.Context, method, path string) (*http.Response, error) {
 	var req *http.Request
 	var err error
 
@@ -204,7 +188,7 @@ func getRel(link string) (string, error) {
 
 // getPath parses the result header Link to find the next page's path.
 // Assumes that the url is before a semicolon
-func (c *Client) getPath(link string) (string, error) {
+func (c *EvergreenClient) getPath(link string) (string, error) {
 	link = strings.Split(link, ";")[0]
 	start := 1
 	end := len(link) - 1 //remove trailing >
@@ -219,7 +203,7 @@ func (c *Client) getPath(link string) (string, error) {
 
 // get performs a GET request for path, transforms the response body to JSON,
 //and parses the link for the next page (this is empty if there is no next page)
-func (c *Client) get(ctx context.Context, path string) ([]byte, string, error) {
+func (c *EvergreenClient) get(ctx context.Context, path string) ([]byte, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	link := ""

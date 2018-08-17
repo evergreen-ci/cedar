@@ -1,4 +1,4 @@
-package evergreen
+package cost
 
 import (
 	"encoding/json"
@@ -12,13 +12,13 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Project holds information for a single distro within a host
-type Project struct {
+// EvergreenProject holds information for a single distro within a host
+type EvergreenProject struct {
 	Identifier string `json:"identifier"`
 }
 
 // TaskCost holds full cost and provider information for a task.
-type TaskCost struct {
+type EvergreenTaskCost struct {
 	ID           string  `json:"task_id"`
 	DisplayName  string  `json:"display_name"`
 	DistroID     string  `json:"distro"`
@@ -29,24 +29,24 @@ type TaskCost struct {
 }
 
 // ProjectUnit holds together all relevant task cost information for a project
-type ProjectUnit struct {
-	Name  string     `json:"name"`
-	Tasks []TaskCost `json:"tasks"`
+type EvergreenProjectUnit struct {
+	Name  string              `json:"name"`
+	Tasks []EvergreenTaskCost `json:"tasks"`
 }
 
 type projectWorkUnit struct {
-	output Project
+	output EvergreenProject
 	err    error
 }
 
 type taskWorkUnit struct {
-	taskcost TaskCost
+	taskcost EvergreenTaskCost
 	err      error
 }
 
 // GetProjects is a wrapper function of get for retrieving all projects
 // from the Evergreen API.
-func (c *Client) getProjects(ctx context.Context) <-chan projectWorkUnit {
+func (c *EvergreenClient) getProjects(ctx context.Context) <-chan projectWorkUnit {
 	output := make(chan projectWorkUnit)
 
 	go func() {
@@ -60,7 +60,7 @@ func (c *Client) getProjects(ctx context.Context) <-chan projectWorkUnit {
 				break
 			}
 
-			projects := []Project{}
+			projects := []EvergreenProject{}
 			if err := json.Unmarshal(data, &projects); err != nil {
 				output <- projectWorkUnit{
 					err: err,
@@ -88,7 +88,7 @@ func (c *Client) getProjects(ctx context.Context) <-chan projectWorkUnit {
 
 // GetTaskCostsForProject is a wrapper function of get for a getting all
 // task costs for a project in a given time range from the Evergreen API.
-func (c *Client) getTaskCostsByProject(ctx context.Context, projectID, starttime, duration string) <-chan taskWorkUnit {
+func (c *EvergreenClient) getTaskCostsByProject(ctx context.Context, projectID, starttime, duration string) <-chan taskWorkUnit {
 	output := make(chan taskWorkUnit)
 
 	go func() {
@@ -103,7 +103,7 @@ func (c *Client) getTaskCostsByProject(ctx context.Context, projectID, starttime
 				break
 			}
 
-			tasks := []TaskCost{}
+			tasks := []EvergreenTaskCost{}
 			if err := json.Unmarshal(data, &tasks); err != nil {
 				output <- taskWorkUnit{
 					err: err,
@@ -132,7 +132,7 @@ func (c *Client) getTaskCostsByProject(ctx context.Context, projectID, starttime
 
 // A helper function for GetEvergreenProjectsData that gets projectID of
 // all distros by calling GetProjects.
-func (c *Client) getProjectIDs(ctx context.Context) ([]string, error) {
+func (c *EvergreenClient) getProjectIDs(ctx context.Context) ([]string, error) {
 	projectIDs := []string{}
 	catcher := grip.NewCatcher()
 	output := c.getProjects(ctx)
@@ -161,8 +161,8 @@ func (c *Client) getProjectIDs(ctx context.Context) ([]string, error) {
 }
 
 // A helper function
-func (c *Client) readTaskCostsByProject(ctx context.Context, projectID string, st, dur string) ([]TaskCost, error) {
-	taskCosts := []TaskCost{}
+func (c *EvergreenClient) readTaskCostsByProject(ctx context.Context, projectID string, st, dur string) ([]EvergreenTaskCost, error) {
+	taskCosts := []EvergreenTaskCost{}
 	catcher := grip.NewCatcher()
 	output := c.getTaskCostsByProject(ctx, projectID, st, dur)
 	for out := range output {
@@ -179,7 +179,7 @@ func (c *Client) readTaskCostsByProject(ctx context.Context, projectID string, s
 }
 
 // GetEvergreenProjectsData retrieves project cost information from Evergreen.
-func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Time, duration time.Duration) ([]ProjectUnit, error) {
+func (c *EvergreenClient) GetEvergreenProjectsData(ctx context.Context, starttime time.Time, duration time.Duration) ([]EvergreenProjectUnit, error) {
 	st := starttime.Format(time.RFC3339)
 	dur := duration.String()
 
@@ -190,9 +190,9 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 
 	catcher := grip.NewSimpleCatcher()
 	wg := &sync.WaitGroup{}
-	costs := make(chan ProjectUnit, len(projectIDs))
+	costs := make(chan EvergreenProjectUnit, len(projectIDs))
 	projects := make(chan string, len(projectIDs))
-	projectUnits := []ProjectUnit{}
+	projectUnits := []EvergreenProjectUnit{}
 
 	for _, idx := range rand.Perm(len(projectIDs)) {
 		projects <- projectIDs[idx]
@@ -214,7 +214,7 @@ func (c *Client) GetEvergreenProjectsData(ctx context.Context, starttime time.Ti
 					continue
 				}
 
-				costs <- ProjectUnit{
+				costs <- EvergreenProjectUnit{
 					Name:  projectID,
 					Tasks: taskCosts,
 				}

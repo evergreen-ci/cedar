@@ -1,4 +1,4 @@
-package amazon
+package cost
 
 import (
 	"math"
@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 )
 
 type spotPrices []*ec2.SpotPrice
@@ -26,7 +26,7 @@ func (slice spotPrices) Swap(i, j int) {
 
 // calculatePrice takes in a TimeRange and returns the price for this range
 // using the given spotPrices.
-func (slice spotPrices) calculatePrice(times model.TimeRange) float64 {
+func (slice spotPrices) calculatePrice(times util.TimeRange) float64 {
 	price := 0.0
 	computed := 0.0
 	totalTime := times.EndAt.Sub(times.StartAt).Hours()

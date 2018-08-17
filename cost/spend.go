@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/evergreen-ci/sink/evergreen"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -28,12 +28,12 @@ type EvergreenReportOptions struct {
 func CreateReport(ctx context.Context, config *model.CostConfig, opts *EvergreenReportOptions) (*model.CostReport, error) {
 	grip.Info("Creating the report")
 	output := &model.CostReport{}
-	reportRange := model.GetTimeRange(opts.StartAt, opts.Duration)
+	reportRange := util.GetTimeRange(opts.StartAt, opts.Duration)
 
 	if opts.DisableAll {
 		grip.Info("skipping entire evergreen report.")
 	} else {
-		c := evergreen.NewClient(&http.Client{}, &config.Evergreen)
+		c := NewEvergreenClient(&http.Client{}, &config.Evergreen)
 		c.SetAllowIncompleteResults(opts.AllowIncompleteResults)
 		evg, err := getEvergreenData(ctx, c, opts)
 		if err != nil {
