@@ -13,7 +13,7 @@ import (
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/context"
+	"context"
 )
 
 type ClientSuite struct {

@@ -1,13 +1,13 @@
 package cost
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
 	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/context"
 )
 
 func init() {

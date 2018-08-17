@@ -14,7 +14,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"golang.org/x/net/context"
+	"context"
 )
 
 // Client returns the entry point for the ./sink client sub-command,

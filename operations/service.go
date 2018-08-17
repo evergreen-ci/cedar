@@ -6,7 +6,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"golang.org/x/net/context"
+	"context"
 )
 
 // Service returns the ./sink client sub-command object, which is

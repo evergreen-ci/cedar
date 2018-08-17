@@ -1,6 +1,7 @@
 package cost
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 type EvergreenReportOptions struct {

@@ -9,7 +9,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"golang.org/x/net/context"
+	"context"
 )
 
 // Worker returns the ./sink worker command, which is responsible for

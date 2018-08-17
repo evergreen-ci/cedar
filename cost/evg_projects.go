@@ -1,6 +1,7 @@
 package cost
 
 import (
+	"context"
 	"encoding/json"
 	"math/rand"
 	"runtime"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 // EvergreenProject holds information for a single distro within a host

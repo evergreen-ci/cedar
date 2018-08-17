@@ -1,11 +1,12 @@
 package cost
 
 import (
+	"context"
+
 	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 // setItems sets the number of launched and terminated instances of the given cost item.

@@ -13,7 +13,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"golang.org/x/net/context"
+	"context"
 )
 
 const costReportDateFormat = "2006-01-02-15-04"

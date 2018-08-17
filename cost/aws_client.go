@@ -1,6 +1,7 @@
 package cost
 
 import (
+	"context"
 	"math"
 	"strings"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 // AWSClient holds information for the amazon client

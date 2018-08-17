@@ -6,7 +6,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/tychoish/gimlet"
-	"golang.org/x/net/context"
+	"context"
 )
 
 type Service struct {
