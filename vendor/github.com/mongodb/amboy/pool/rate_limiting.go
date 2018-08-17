@@ -13,11 +13,14 @@ package pool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 )
 
@@ -60,10 +63,21 @@ type simpleRateLimited struct {
 	interval time.Duration
 	queue    amboy.Queue
 	canceler context.CancelFunc
+	wg       sync.WaitGroup
+	mu       sync.Mutex
 }
 
-func (p *simpleRateLimited) Started() bool { return p.canceler != nil }
+func (p *simpleRateLimited) Started() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.canceler != nil
+}
+
 func (p *simpleRateLimited) Start(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.canceler != nil {
 		return nil
 	}
@@ -73,7 +87,7 @@ func (p *simpleRateLimited) Start(ctx context.Context) error {
 
 	ctx, p.canceler = context.WithCancel(ctx)
 
-	jobs := startWorkerServer(ctx, p.queue)
+	jobs := startWorkerServer(ctx, p.queue, &p.wg)
 
 	// start some threads
 	for w := 1; w <= p.size; w++ {
@@ -83,11 +97,18 @@ func (p *simpleRateLimited) Start(ctx context.Context) error {
 	return nil
 }
 
-func (p *simpleRateLimited) worker(ctx context.Context, jobs <-chan amboy.Job) {
+func (p *simpleRateLimited) worker(ctx context.Context, jobs <-chan workUnit) {
 	var (
-		err error
-		job amboy.Job
+		err    error
+		cancel context.CancelFunc
+		job    amboy.Job
 	)
+
+	p.mu.Lock()
+	p.wg.Add(1)
+	p.mu.Unlock()
+
+	defer p.wg.Done()
 
 	defer func() {
 		err = recovery.HandlePanicWithError(recover(), nil, "worker process encountered error")
@@ -98,6 +119,9 @@ func (p *simpleRateLimited) worker(ctx context.Context, jobs <-chan amboy.Job) {
 			}
 			// start a replacement worker.
 			go p.worker(ctx, jobs)
+		}
+		if cancel != nil {
+			cancel()
 		}
 	}()
 
@@ -111,9 +135,46 @@ func (p *simpleRateLimited) worker(ctx context.Context, jobs <-chan amboy.Job) {
 			select {
 			case <-ctx.Done():
 				return
-			case job := <-jobs:
-				job.Run()
+			case wu := <-jobs:
+				if wu.job == nil {
+					continue
+				}
+				job = wu.job
+				cancel = wu.cancel
+
+				ti := amboy.JobTimeInfo{
+					Start: time.Now(),
+				}
+				job.UpdateTimeInfo(ti)
+
+				runJob(ctx, job)
+
+				// belt and suspenders
+				ti.End = time.Now()
+				job.UpdateTimeInfo(ti)
+
 				p.queue.Complete(ctx, job)
+
+				ti.End = time.Now()
+				job.UpdateTimeInfo(ti)
+
+				r := message.Fields{
+					"job":           job.ID(),
+					"job_type":      job.Type().Name,
+					"duration_secs": ti.Duration().Seconds(),
+					"queue_type":    fmt.Sprintf("%T", p.queue),
+					"pool":          "rate limiting",
+				}
+
+				if err := job.Error(); err != nil {
+					r["error"] = err.Error()
+					grip.Error(r)
+				} else {
+					grip.Debug(r)
+				}
+
+				cancel()
+
 				timer.Reset(p.interval)
 			}
 		}
@@ -121,6 +182,9 @@ func (p *simpleRateLimited) worker(ctx context.Context, jobs <-chan amboy.Job) {
 }
 
 func (p *simpleRateLimited) SetQueue(q amboy.Queue) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.canceler != nil {
 		return errors.New("cannot change queue on active runner")
 	}
@@ -130,7 +194,20 @@ func (p *simpleRateLimited) SetQueue(q amboy.Queue) error {
 }
 
 func (p *simpleRateLimited) Close() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.canceler != nil {
 		p.canceler()
+		p.canceler = nil
 	}
+
+	// because of the timer+2 contexts in the worker
+	// implementation, we can end up returning earlier and because
+	// pools are restartable, end up calling wait more than once,
+	// which doesn't affect behavior but does cause this to panic in
+	// tests
+	defer func() { recover() }()
+
+	p.wg.Wait()
 }

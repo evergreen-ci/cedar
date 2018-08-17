@@ -73,15 +73,32 @@ func MakeSlackLogger(opts *SlackOptions) (Sender, error) {
 
 func (s *slackJournal) Send(m message.Composer) {
 	if s.Level().ShouldLog(m) {
-		msg := m.String()
-
 		s.Base.mutex.RLock()
 		defer s.Base.mutex.RUnlock()
 
-		params := s.opts.getParams(m)
-		if err := s.opts.client.ChatPostMessage(s.opts.Channel, msg, params); err != nil {
+		var msg string
+		var params *slack.ChatPostMessageOpt
+		channel := s.opts.Channel
+
+		if slackMsg, ok := m.Raw().(*message.Slack); ok {
+			channel = slackMsg.Target
+			msg, params = slackMsg.Msg, &slack.ChatPostMessageOpt{
+				Attachments: slackMsg.Attachments,
+			}
+
+		} else {
+			msg, params = s.opts.produceMessage(m)
+		}
+
+		params.IconUrl = s.opts.IconURL
+		params.Username = s.opts.Username
+		if len(params.Username) != 0 || len(params.IconUrl) != 0 {
+			params.AsUser = false
+		}
+
+		if err := s.opts.client.ChatPostMessage(channel, msg, params); err != nil {
 			s.ErrorHandler(err, message.NewFormattedMessage(m.Priority(),
-				"%s: %s\n", params.Attachments[0].Fallback, msg))
+				"%s\n", msg))
 		}
 	}
 }
@@ -93,9 +110,13 @@ type SlackOptions struct {
 	// options for the sender, and control where the messages are
 	// sent, which hostname the sender reports itself as, and the
 	// name of the journaler.
-	Channel  string
-	Hostname string
-	Name     string
+	Channel  string `bson:"channel" json:"channel" yaml:"channel"`
+	Hostname string `bson:"hostname" json:"hostname" yaml:"hostname"`
+	Name     string `bson:"name" json:"name" yaml:"name"`
+	// Username and IconURL allow the slack sender to set a display
+	// name and icon. Setting either parameter will force as_user to false.
+	Username string `bson:"username" json:"username" yaml:"username"`
+	IconURL  string `bson:"icon_url" json:"icon_url" yaml:"icon_url"`
 
 	// Configuration options for appending structured data to the
 	// message sent to slack. The BasicMetadata option appends
@@ -104,29 +125,28 @@ type SlackOptions struct {
 	// Composer returns a message.Fields map. If you specify a set
 	// of fields in the FieldsSet value, only those fields will be
 	// attached to the message.
-	BasicMetadata bool
-	Fields        bool
-	FieldsSet     map[string]struct{}
+	BasicMetadata bool            `bson:"add_basic_metadata" json:"add_basic_metadata" yaml:"add_basic_metadata"`
+	Fields        bool            `bson:"use_fields" json:"use_fields" yaml:"use_fields"`
+	AllFields     bool            `bson:"all_fields" json:"all_fields" yaml:"all_fields"`
+	FieldsSet     map[string]bool `bson:"fields" json:"fields" yaml:"fields"`
 
 	client slackClient
 	mutex  sync.RWMutex
 }
 
 func (o *SlackOptions) fieldSetShouldInclude(name string) bool {
-	if name == "time" || name == message.FieldsMsgName {
+	if name == "time" || name == "metadata" {
 		return false
 	}
 
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
 
-	if o.FieldsSet == nil {
+	if o.AllFields || o.FieldsSet == nil {
 		return true
 	}
 
-	_, ok := o.FieldsSet[name]
-
-	return ok
+	return o.FieldsSet[name]
 }
 
 // Validate inspects the contents SlackOptions struct and returns an
@@ -150,7 +170,7 @@ func (o *SlackOptions) Validate() error {
 	}
 
 	if o.FieldsSet == nil {
-		o.FieldsSet = map[string]struct{}{}
+		o.FieldsSet = map[string]bool{}
 	}
 	if o.client == nil {
 		o.client = &slackClientImpl{}
@@ -165,8 +185,8 @@ func (o *SlackOptions) Validate() error {
 		}
 	}
 
-	if !strings.HasPrefix(o.Channel, "#") {
-		o.Channel = "#" + o.Channel
+	if !strings.HasPrefix(o.Channel, "#") && !strings.HasPrefix(o.Channel, "@") {
+		return errors.New("Recipient must begin with '#' or '@'")
 	}
 
 	if len(errs) > 0 {
@@ -175,7 +195,9 @@ func (o *SlackOptions) Validate() error {
 	return nil
 }
 
-func (o *SlackOptions) getParams(m message.Composer) *slack.ChatPostMessageOpt {
+func (o *SlackOptions) produceMessage(m message.Composer) (string, *slack.ChatPostMessageOpt) {
+	var msg string
+
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
 
@@ -208,7 +230,7 @@ func (o *SlackOptions) getParams(m message.Composer) *slack.ChatPostMessageOpt {
 		fallbacks = append(fallbacks, fmt.Sprintf("priority=%s", p))
 		attachment.Fields = append(attachment.Fields,
 			&slack.AttachmentField{
-				Title: "Priority",
+				Title: "priority",
 				Value: p.String(),
 				Short: true,
 			})
@@ -216,12 +238,8 @@ func (o *SlackOptions) getParams(m message.Composer) *slack.ChatPostMessageOpt {
 
 	if o.Fields {
 		fields, ok := m.Raw().(message.Fields)
-
 		if ok {
 			for k, v := range fields {
-				if k == message.FieldsMsgName {
-					continue
-				}
 				if !o.fieldSetShouldInclude(k) {
 					continue
 				}
@@ -235,7 +253,11 @@ func (o *SlackOptions) getParams(m message.Composer) *slack.ChatPostMessageOpt {
 						Short: true,
 					})
 			}
+		} else {
+			msg = m.String()
 		}
+	} else {
+		msg = m.String()
 	}
 
 	if len(fallbacks) > 0 {
@@ -252,7 +274,7 @@ func (o *SlackOptions) getParams(m message.Composer) *slack.ChatPostMessageOpt {
 
 	}
 
-	return &slack.ChatPostMessageOpt{
+	return msg, &slack.ChatPostMessageOpt{
 		Attachments: []*slack.Attachment{&attachment},
 	}
 }

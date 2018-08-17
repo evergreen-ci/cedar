@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/sink/units"
@@ -14,7 +15,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
-	"github.com/tychoish/gimlet"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -57,7 +57,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 
 	if l == "" {
 		resp.Err = "no level specified"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	limit, err := strconv.Atoi(limitArg)
 	if err != nil {
 		resp.Err = fmt.Sprintf("%s is not a valid limit [%s]", limitArg, err.Error())
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	err = e.FindLevel(l, limit)
 	if err != nil {
 		resp.Err = "problem running query for events"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	resp.Total, err = e.CountLevel(l)
 	if err != nil {
 		resp.Err = fmt.Sprintf("problem fetching errors: %+v", err)
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 	resp.Count = len(resp.Events)
@@ -108,7 +108,7 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	resp := &SystemEventResponse{}
 	if id == "" {
 		resp.Error = "id not specified"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 	resp.ID = id
@@ -117,7 +117,7 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	event.Setup(s.env)
 	if err := event.Find(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -136,7 +136,7 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	resp := &SystemEventResponse{}
 	if id == "" {
 		resp.Error = "id not specified"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 	resp.ID = id
@@ -145,14 +145,14 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	event.Setup(s.env)
 	if err := event.Find(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 	resp.Event = event
 
 	if err := event.Acknowledge(); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -185,14 +185,14 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 
 	if resp.LogID == "" {
 		resp.Errors = []string{"no log id specified"}
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
 	if err := gimlet.GetJSON(r.Body, req); err != nil {
 		grip.Error(err)
 		resp.Errors = append(resp.Errors, err.Error())
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 	if err := s.queue.Put(j); err != nil {
 		grip.Error(err)
 		resp.Errors = append(resp.Errors, err.Error())
-		gimlet.WriteInternalErrorJSON(w, resp)
+		gimlet.WriteJSONInternalError(w, resp)
 		return
 	}
 
@@ -226,14 +226,14 @@ func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 	resp.LogID = gimlet.GetVars(r)["id"]
 	if resp.LogID == "" {
 		resp.Error = "no log specified"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 	allLogs := &model.LogSegments{}
 
 	if err := allLogs.Find(resp.LogID, false); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -253,7 +253,7 @@ func (s *Service) simpleLogGetText(w http.ResponseWriter, r *http.Request) {
 	allLogs := &model.LogSegments{}
 
 	if err := allLogs.Find(id, true); err != nil {
-		gimlet.WriteErrorText(w, err.Error())
+		gimlet.WriteTextError(w, err.Error())
 		return
 	}
 
@@ -266,7 +266,7 @@ func (s *Service) simpleLogGetText(w http.ResponseWriter, r *http.Request) {
 		data, err := bucket.Read(l.KeyName)
 		if err != nil {
 			grip.Warning(err)
-			gimlet.WriteInternalErrorText(w, err.Error())
+			gimlet.WriteTextInternalError(w, err.Error())
 			return
 		}
 
@@ -295,7 +295,7 @@ func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
 	if err := gimlet.GetJSON(r.Body, &req); err != nil {
 		grip.Error(err)
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -312,7 +312,7 @@ func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
 	if err := data.Insert(); err != nil {
 		grip.Error(err)
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -336,14 +336,14 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 	host := gimlet.GetVars(r)["host"]
 	if host == "" {
 		resp.Error = "no host specified"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
 	startArg := r.FormValue("start")
 	if startArg == "" {
 		resp.Error = "no start time argument"
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -351,7 +351,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp.Error = fmt.Sprintf("could not parse time string '%s' in to RFC3339: %+v",
 			startArg, err.Error())
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -360,7 +360,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 		resp.Limit, err = strconv.Atoi(limitArg)
 		if err != nil {
 			resp.Error = err.Error()
-			gimlet.WriteErrorJSON(w, resp)
+			gimlet.WriteJSONError(w, resp)
 			return
 		}
 	} else {
@@ -373,7 +373,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 		end, err = time.Parse(time.RFC3339, endArg)
 		if err != nil {
 			resp.Error = err.Error()
-			gimlet.WriteErrorJSON(w, resp)
+			gimlet.WriteJSONError(w, resp)
 			return
 		}
 	}
@@ -382,7 +382,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 	count, err := out.CountHostname(host)
 	if err != nil {
 		resp.Error = fmt.Sprintf("could not count '%s' host: %s", host, err.Error())
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 	resp.Total = count
@@ -390,7 +390,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 	err = out.FindHostnameBetween(host, start, end, resp.Limit)
 	if err != nil {
 		resp.Error = fmt.Sprintf("could not retrieve results, %s", err.Error())
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -418,7 +418,7 @@ func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 
 	if err := g.Find(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -426,7 +426,7 @@ func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 		g.BuildID = id
 		if err := g.Insert(); err != nil {
 			resp.Error = err.Error()
-			gimlet.WriteErrorJSON(w, resp)
+			gimlet.WriteJSONError(w, resp)
 			return
 		}
 		resp.Created = true
@@ -454,7 +454,7 @@ func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
 
 	if err := g.Find(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -468,7 +468,7 @@ func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
 
 	if catcher.HasErrors() {
 		resp.Error = catcher.Resolve().Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -502,14 +502,14 @@ func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
 
 	if err := g.Find(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
 	nodes, err := g.AllNodes()
 	if err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
@@ -542,14 +542,14 @@ func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
 
 	if err := g.Find(id); err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 
 	edges, err := g.AllEdges()
 	if err != nil {
 		resp.Error = err.Error()
-		gimlet.WriteErrorJSON(w, resp)
+		gimlet.WriteJSONError(w, resp)
 		return
 	}
 

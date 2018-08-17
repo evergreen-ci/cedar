@@ -1,12 +1,13 @@
 package operations
 
 import (
+	"context"
+
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/rest"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"context"
 )
 
 // Service returns the ./sink client sub-command object, which is
@@ -59,7 +60,7 @@ func Service() cli.Command {
 			}
 
 			grip.Noticef("starting sink service on :%d", c.Int("port"))
-			service.Run()
+			service.Run(ctx)
 			grip.Info("completed service, terminating.")
 			return nil
 		},

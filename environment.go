@@ -5,7 +5,6 @@ import (
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/amboy/queue/driver"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -105,13 +104,13 @@ func (c *envState) Configure(conf *Configuration) error {
 		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
 	} else {
 		q := queue.NewRemoteUnordered(conf.NumWorkers)
-		opts := driver.MongoDBOptions{
+		opts := queue.MongoDBOptions{
 			URI:      conf.MongoDBURI,
 			DB:       conf.DatabaseName,
 			Priority: true,
 		}
 
-		mongoDriver := driver.NewMongoDB(QueueName, opts)
+		mongoDriver := queue.NewMongoDBDriver(QueueName, opts)
 		if err = q.SetDriver(mongoDriver); err != nil {
 			return errors.Wrap(err, "problem configuring driver")
 		}

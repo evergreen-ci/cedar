@@ -1,6 +1,7 @@
 package units
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -41,7 +42,7 @@ func NewHelloWorldJob(name string) amboy.Job {
 	return j
 }
 
-func (j *helloWorldJob) Run() {
+func (j *helloWorldJob) Run(_ context.Context) {
 	defer j.MarkComplete()
 	grip.Alertln("hello world job running, now:", j.ID())
 }

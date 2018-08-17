@@ -64,20 +64,25 @@ func (s *SlackSuite) TestValidateAndConstructoRequiresValidate() {
 	opts.Hostname = "testsystem.com"
 	s.Error(opts.Validate())
 
+	opts.Name = "test"
 	opts.Channel = "$chat"
 	s.Error(opts.Validate())
-	opts.Name = "test"
+	opts.Channel = "@test"
+	s.NoError(opts.Validate(), "%+v", opts)
+	opts.Channel = "#test"
 	s.NoError(opts.Validate(), "%+v", opts)
 
 	defer os.Setenv(slackClientToken, os.Getenv(slackClientToken))
 	s.NoError(os.Setenv(slackClientToken, "foo"))
 }
 
-func (s *SlackSuite) TestValidateAddsOctothorpToChannelName() {
-	opts := &SlackOptions{Name: "test", Channel: "chat", Hostname: "foo"}
-	s.Equal("chat", opts.Channel)
-	s.NoError(opts.Validate())
+func (s *SlackSuite) TestValidateRequiresOctothorpOrArobase() {
+	opts := &SlackOptions{Name: "test", Channel: "#chat", Hostname: "foo"}
 	s.Equal("#chat", opts.Channel)
+	s.NoError(opts.Validate())
+	opts = &SlackOptions{Name: "test", Channel: "@chat", Hostname: "foo"}
+	s.Equal("@chat", opts.Channel)
+	s.NoError(opts.Validate())
 }
 
 func (s *SlackSuite) TestFieldSetIncludeCheck() {
@@ -87,16 +92,16 @@ func (s *SlackSuite) TestFieldSetIncludeCheck() {
 	s.NotNil(opts.FieldsSet)
 
 	s.False(opts.fieldSetShouldInclude("time"))
-	opts.FieldsSet["time"] = struct{}{}
+	opts.FieldsSet["time"] = true
 	s.False(opts.fieldSetShouldInclude("time"))
 
 	s.False(opts.fieldSetShouldInclude("msg"))
-	opts.FieldsSet["time"] = struct{}{}
+	opts.FieldsSet["time"] = true
 	s.False(opts.fieldSetShouldInclude("msg"))
 
 	for _, f := range []string{"a", "b", "c"} {
 		s.False(opts.fieldSetShouldInclude(f))
-		opts.FieldsSet[f] = struct{}{}
+		opts.FieldsSet[f] = true
 		s.True(opts.fieldSetShouldInclude(f))
 	}
 }
@@ -116,47 +121,55 @@ func (s *SlackSuite) TestGetParamsWithAttachementOptsDisabledLevelImpact() {
 	s.False(opts.Fields)
 	s.False(opts.BasicMetadata)
 
-	params := opts.getParams(message.NewString("foo"))
+	msg, params := opts.produceMessage(message.NewString("foo"))
 	s.Equal("good", params.Attachments[0].Color)
+	s.Equal("foo", msg)
 
 	for _, l := range []level.Priority{level.Emergency, level.Alert, level.Critical} {
-		params = opts.getParams(message.NewDefaultMessage(l, "foo"))
+		msg, params = opts.produceMessage(message.NewDefaultMessage(l, "foo"))
 		s.Equal("danger", params.Attachments[0].Color)
+		s.Equal("foo", msg)
 	}
 
 	for _, l := range []level.Priority{level.Warning, level.Notice} {
-		params = opts.getParams(message.NewDefaultMessage(l, "foo"))
+		msg, params = opts.produceMessage(message.NewDefaultMessage(l, "foo"))
 		s.Equal("warning", params.Attachments[0].Color)
+		s.Equal("foo", msg)
 	}
 
 	for _, l := range []level.Priority{level.Debug, level.Info, level.Trace} {
-		params = opts.getParams(message.NewDefaultMessage(l, "foo"))
+		msg, params = opts.produceMessage(message.NewDefaultMessage(l, "foo"))
 		s.Equal("good", params.Attachments[0].Color)
+		s.Equal("foo", msg)
 	}
 }
 
-func (s *SlackSuite) TestGetParamsWithBasicMetaDataEnabled() {
+func (s *SlackSuite) TestProduceMessageWithBasicMetaDataEnabled() {
 	opts := &SlackOptions{BasicMetadata: true}
 	s.False(opts.Fields)
 	s.True(opts.BasicMetadata)
 
-	params := opts.getParams(message.NewDefaultMessage(level.Alert, "foo"))
+	msg, params := opts.produceMessage(message.NewDefaultMessage(level.Alert, "foo"))
 	s.Equal("danger", params.Attachments[0].Color)
+	s.Equal("foo", msg)
 	s.Len(params.Attachments[0].Fields, 1)
 	s.True(strings.Contains(params.Attachments[0].Fallback, "priority=alert"), params.Attachments[0].Fallback)
 
 	opts.Hostname = "!"
-	params = opts.getParams(message.NewDefaultMessage(level.Alert, "foo"))
+	msg, params = opts.produceMessage(message.NewDefaultMessage(level.Alert, "foo"))
+	s.Equal("foo", msg)
 	s.Len(params.Attachments[0].Fields, 1)
 	s.False(strings.Contains(params.Attachments[0].Fallback, "host"), params.Attachments[0].Fallback)
 
 	opts.Hostname = "foo"
-	params = opts.getParams(message.NewDefaultMessage(level.Alert, "foo"))
+	msg, params = opts.produceMessage(message.NewDefaultMessage(level.Alert, "foo"))
+	s.Equal("foo", msg)
 	s.Len(params.Attachments[0].Fields, 2)
 	s.True(strings.Contains(params.Attachments[0].Fallback, "host=foo"), params.Attachments[0].Fallback)
 
 	opts.Name = "foo"
-	params = opts.getParams(message.NewDefaultMessage(level.Alert, "foo"))
+	msg, params = opts.produceMessage(message.NewDefaultMessage(level.Alert, "foo"))
+	s.Equal("foo", msg)
 	s.Len(params.Attachments[0].Fields, 3)
 	s.True(strings.Contains(params.Attachments[0].Fallback, "journal=foo"), params.Attachments[0].Fallback)
 }
@@ -165,35 +178,42 @@ func (s *SlackSuite) TestFieldsMessageTypeIntegration() {
 	opts := &SlackOptions{Fields: true}
 	s.True(opts.Fields)
 	s.False(opts.BasicMetadata)
-	opts.FieldsSet = map[string]struct{}{
-		"message": struct{}{},
-		"other":   struct{}{},
-		"foo":     struct{}{},
+	opts.FieldsSet = map[string]bool{
+		"message": true,
+		"other":   true,
+		"foo":     true,
 	}
 
-	params := opts.getParams(message.NewDefaultMessage(level.Alert, "foo"))
+	msg, params := opts.produceMessage(message.NewDefaultMessage(level.Alert, "foo"))
+	s.Equal("foo", msg)
 	s.Equal("danger", params.Attachments[0].Color)
 	s.Len(params.Attachments[0].Fields, 0)
 
 	// if the fields are nil, then we end up ignoring things, except the message
-	params = opts.getParams(message.NewFieldsMessage(level.Alert, "foo", message.Fields{}))
-	s.Len(params.Attachments[0].Fields, 0)
+	msg, params = opts.produceMessage(message.NewFieldsMessage(level.Alert, "foo", message.Fields{}))
+	s.Equal("", msg)
+	s.Len(params.Attachments[0].Fields, 1)
 
 	// when msg and the message match we ignore
-	params = opts.getParams(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"msg": "foo"}))
-	s.Len(params.Attachments[0].Fields, 0)
-
-	params = opts.getParams(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"foo": "bar"}))
+	msg, params = opts.produceMessage(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"msg": "foo"}))
+	s.Equal("", msg)
 	s.Len(params.Attachments[0].Fields, 1)
 
-	params = opts.getParams(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"other": "baz"}))
-	s.Len(params.Attachments[0].Fields, 1)
-
-	params = opts.getParams(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"untracked": "false", "other": "bar"}))
-	s.Len(params.Attachments[0].Fields, 1)
-
-	params = opts.getParams(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"foo": "false", "other": "bass"}))
+	msg, params = opts.produceMessage(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"foo": "bar"}))
+	s.Equal("", msg)
 	s.Len(params.Attachments[0].Fields, 2)
+
+	msg, params = opts.produceMessage(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"other": "baz"}))
+	s.Equal("", msg)
+	s.Len(params.Attachments[0].Fields, 2)
+
+	msg, params = opts.produceMessage(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"untracked": "false", "other": "bar"}))
+	s.Equal("", msg)
+	s.Len(params.Attachments[0].Fields, 2)
+
+	msg, params = opts.produceMessage(message.NewFieldsMessage(level.Alert, "foo", message.Fields{"foo": "false", "other": "bass"}))
+	s.Equal("", msg)
+	s.Len(params.Attachments[0].Fields, 3)
 }
 
 func (s *SlackSuite) TestMockSenderWithMakeConstructor() {
@@ -246,6 +266,12 @@ func (s *SlackSuite) TestSendMethod() {
 	m = message.NewDefaultMessage(level.Alert, "world")
 	sender.Send(m)
 	s.Equal(mock.numSent, 1)
+	s.Equal("#test", mock.lastTarget)
+
+	m = message.NewSlackMessage(level.Alert, "#somewhere", "Hi", nil)
+	sender.Send(m)
+	s.Equal(mock.numSent, 2)
+	s.Equal("#somewhere", mock.lastTarget)
 }
 
 func (s *SlackSuite) TestSendMethodWithError() {
@@ -265,6 +291,13 @@ func (s *SlackSuite) TestSendMethodWithError() {
 	mock.failSendingMessage = true
 	sender.Send(m)
 	s.Equal(mock.numSent, 1)
+
+	// sender should not panic with empty attachments
+	s.NotPanics(func() {
+		m = message.NewSlackMessage(level.Alert, "#general", "I am a formatted slack message", nil)
+		sender.Send(m)
+		s.Equal(mock.numSent, 1)
+	})
 }
 
 func (s *SlackSuite) TestCreateMethodChangesClientState() {
@@ -274,4 +307,50 @@ func (s *SlackSuite) TestCreateMethodChangesClientState() {
 	s.Equal(base, new)
 	new.Create("foo")
 	s.NotEqual(base, new)
+}
+
+func (s *SlackSuite) TestSendMethodDoesIncorrectlyAllowTooLowMessages() {
+	sender, err := NewSlackLogger(s.opts, "foo", LevelInfo{level.Trace, level.Info})
+	s.NotNil(sender)
+	s.NoError(err)
+
+	mock, ok := s.opts.client.(*slackClientMock)
+	s.True(ok)
+	s.Equal(mock.numSent, 0)
+
+	s.NoError(sender.SetLevel(LevelInfo{Default: level.Critical, Threshold: level.Alert}))
+	s.Equal(mock.numSent, 0)
+	sender.Send(message.NewDefaultMessage(level.Info, "hello"))
+	s.Equal(mock.numSent, 0)
+	sender.Send(message.NewDefaultMessage(level.Alert, "hello"))
+	s.Equal(mock.numSent, 1)
+	sender.Send(message.NewDefaultMessage(level.Alert, "hello"))
+	s.Equal(mock.numSent, 2)
+}
+
+func (s *SlackSuite) TestSettingBotIdentity() {
+	sender, err := NewSlackLogger(s.opts, "foo", LevelInfo{level.Trace, level.Info})
+	s.NoError(err)
+	s.NotNil(sender)
+
+	mock, ok := s.opts.client.(*slackClientMock)
+	s.True(ok)
+	s.Equal(mock.numSent, 0)
+	s.False(mock.failSendingMessage)
+
+	m := message.NewDefaultMessage(level.Alert, "world")
+	sender.Send(m)
+	s.Equal(1, mock.numSent)
+	s.Empty(mock.lastMsg.Username)
+	s.Empty(mock.lastMsg.IconUrl)
+
+	s.opts.Username = "Grip"
+	s.opts.IconURL = "https://example.com/icon.ico"
+	sender, err = NewSlackLogger(s.opts, "foo", LevelInfo{level.Trace, level.Info})
+	s.NoError(err)
+	sender.Send(m)
+	s.Equal(2, mock.numSent)
+	s.Equal("Grip", mock.lastMsg.Username)
+	s.Equal("https://example.com/icon.ico", mock.lastMsg.IconUrl)
+	s.False(mock.lastMsg.AsUser)
 }

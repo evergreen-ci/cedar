@@ -2,6 +2,8 @@ package pool
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
@@ -14,6 +16,8 @@ import (
 type single struct {
 	canceler context.CancelFunc
 	queue    amboy.Queue
+	wg       sync.WaitGroup
+	mu       sync.Mutex
 }
 
 // NewSingle returns an amboy.Runner implementation with single-worker
@@ -23,6 +27,8 @@ func NewSingle() amboy.Runner { return &single{} }
 // Started returns true when the Runner has begun executing tasks. For
 // LocalWorkers this means that workers are running.
 func (r *single) Started() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return r.canceler != nil
 }
 
@@ -30,6 +36,9 @@ func (r *single) Started() bool {
 // constructed Runner objects. Returns an error if the Runner has
 // started.
 func (r *single) SetQueue(q amboy.Queue) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.canceler != nil {
 		return errors.New("cannot add new queue after starting a runner")
 	}
@@ -44,6 +53,9 @@ func (r *single) SetQueue(q amboy.Queue) error {
 // if the queue is not set. If the Runner is already running, Start is
 // a no-op.
 func (r *single) Start(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.canceler != nil {
 		return nil
 	}
@@ -55,10 +67,10 @@ func (r *single) Start(ctx context.Context) error {
 	workerCtx, cancel := context.WithCancel(ctx)
 	r.canceler = cancel
 
-	jobs := startWorkerServer(workerCtx, r.queue)
+	jobs := startWorkerServer(workerCtx, r.queue, &r.wg)
 
 	go func() {
-		worker(workerCtx, jobs, r.queue)
+		worker(workerCtx, jobs, r.queue, &r.wg)
 		grip.Info("worker process complete")
 	}()
 
@@ -71,7 +83,17 @@ func (r *single) Start(ctx context.Context) error {
 // job will complete and the process will terminate before beginning a
 // new job. If the queue has not started, Close is a no-op.
 func (r *single) Close() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.canceler != nil {
 		r.canceler()
+
+		// to let the workers cancel and exit before we start
+		// waiting.
+		time.Sleep(10 * time.Millisecond)
+
+		r.canceler = nil
+		r.wg.Wait()
 	}
 }

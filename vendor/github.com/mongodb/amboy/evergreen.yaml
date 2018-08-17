@@ -8,6 +8,7 @@ variables:
     name: test
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/amboy
       - func: run-make
@@ -17,10 +18,9 @@ variables:
     # evergreen. The test name should correspond to a make target for
     # that suite
     name: test
-    depends_on:
-      - name: build
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/amboy
       - func: setup-credentials
@@ -30,10 +30,9 @@ variables:
     # runs a make target above, but only on systems that have a
     # running mongod started for testing.
     name: test
-    depends_on:
-      - name: build
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/amboy
       - func: setup-credentials
@@ -47,6 +46,7 @@ variables:
 functions:
   setup-credentials:
     command: shell.exec
+    type: setup
     params:
        silent: true
        script: |
@@ -64,6 +64,7 @@ functions:
          EOF
   run-make:
     command: shell.exec
+    type: test
     params:
        script: |
          set -o errexit
@@ -86,6 +87,7 @@ functions:
     # TODO replace this configuration with something more robust.
     # Current version is borrowed directly rom the Evergreen self tests.
     - command: shell.exec
+      type: setup
       params:
         script: |
           set -o errexit
@@ -104,6 +106,7 @@ functions:
           mkdir db_files
           mkdir db_logs
     - command: shell.exec
+      type: setup
       params:
         background: true
         script: |
@@ -113,6 +116,7 @@ functions:
           ./mongod --dbpath ./db_files &
           echo "waiting for mongod to start up"
     - command: shell.exec
+      type: setup
       params:
         script: |
           cd mongodb
@@ -138,6 +142,7 @@ tasks:
     tags: [ "report" ]
     commands:
       - command: git.get_project
+        type: setup
         params:
           directory: gopath/src/github.com/mongodb/amboy
       - func: setup-credentials
@@ -166,59 +171,37 @@ tasks:
   - <<: *run-go-test-suite-with-mongodb
     name: test-queue
     tags: ["test"]
-  - <<: *run-go-test-suite-with-mongodb
-    name: test-queue-driver
-    tags: ["test"]
 
   # run the suites with the race detector (one variant only)
-  - <<: *run-build
-    tags: ["race"]
-    name: build-race
   - <<: *run-go-test-suite
     name: race-dependency
     tags: ["race"]
-    depends_on:
-      - name: build-race
   - <<: *run-go-test-suite
     name: race-job
     tags: ["race"]
-    depends_on:
-      - name: build-race
   - <<: *run-go-test-suite
     name: race-rest
     tags: ["race"]
-    depends_on:
-      - name: build-race
   - <<: *run-go-test-suite
     name: race-registry
     tags: ["race"]
-    depends_on:
-      - name: build-race
   - <<: *run-go-test-suite
     name: race-pool
     tags: ["race"]
-    depends_on:
-      - name: build-race
   - <<: *run-go-test-suite-with-mongodb
     name: race-queue
     tags: ["race"]
-    depends_on:
-      - name: build-race
-  - <<: *run-go-test-suite-with-mongodb
-    name: race-queue-driver
-    tags: ["race"]
-    depends_on:
-      - name: build-race
-
 
 post:
   - command: gotest.parse_files
+    type: setup
     params:
       files:
         - "gopath/src/github.com/mongodb/amboy/build/test.*.out"
         - "gopath/src/github.com/mongodb/amboy/build/race.*.out"
         - "gopath/src/github.com/mongodb/amboy/build/output.*"
   - command: shell.exec
+    type: setup
     params:
       script: |
         rm -rf amboy
@@ -234,6 +217,7 @@ post:
       content_type: text/html
       permissions: public-read
       display_name: "(html) coverage:"
+      optional: true
   - command: s3.put
     type: system
     params:
@@ -245,6 +229,7 @@ post:
       content_type: text/plain
       permissions: public-read
       display_name: "(txt) coverage:"
+      optional: true
 
 
 #######################################
@@ -252,42 +237,42 @@ post:
 #######################################
 buildvariants:
   - name: race-detector
-    display_name: Race Detector (Arch Linux)
+    display_name: Race Detector
     expansions:
-      mongodb_url: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.2.9.tgz
+      mongodb_url: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.4.tgz
+      build_env: "RUN_COUNT=5"
     run_on:
       - archlinux-test
     tasks:
       - ".race"
-      - ".report"
+
+  - name: report
+    display_name: Reporting
+    run_on:
+      - archlinux-test
+    expansions:
+      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.4.tgz
+      test_timeout: 15m
+    tasks:
+      - name: ".report"
+        stepback: false
 
   - name: ubuntu1604
     display_name: Ubuntu 16.04
     run_on:
       - ubuntu1604-test
     expansions:
-      build_env: "GOROOT=/opt/go DISABLE_COVERAGE=yes"
-      mongodb_url: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-3.4.7.tgz
+      build_env: "DISABLE_COVERAGE=yes GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
+      mongodb_url: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-3.6.4.tgz
     tasks:
       - name: ".dist"
       - name: ".test"
 
-  - name: rhel70
-    display_name: RHEL 7.0
-    expansions:
-      mongodb_url: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-rhel70-3.2.9.tgz
-      build_env: "PATH=/opt/go/bin:$PATH"
-    run_on:
-      - rhel70-small
-    tasks:
-      - ".dist"
-      - ".test"
-
   - name: macos
     display_name: macOS 10.12
     expansions:
-      mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-3.2.9.tgz
-      build_env: "PATH=/usr/local/go/bin:$PATH"
+      mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-3.6.4.tgz
+      build_env: " DISABLE_COVERAGE=yes GOROOT=/usr/local/go1.8/go PATH=/usr/local/go1.8/go/bin:$PATH"
     run_on:
       - macos-1012
     tasks:
@@ -298,11 +283,9 @@ buildvariants:
     display_name: Windows
     run_on:
       - windows-64-vs2015-small
-      - windows-64-vs2013-test
-      - windows-64-vs2010-test
     expansions:
-      build_env: "GOROOT=c:/go DISABLE_COVERAGE=yes"
-      mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-3.2.9.zip
+      build_env: "GOROOT=c:/go1.8/go DISABLE_COVERAGE=yes PATH=/cygdrive/c/go1.8/go/bin:$PATH"
+      mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-3.6.4.zip
       extension: ".exe"
       archiveExt: ".zip"
     tasks:

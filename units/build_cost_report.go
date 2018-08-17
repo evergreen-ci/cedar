@@ -1,6 +1,8 @@
 package units
 
 import (
+	"context"
+
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
@@ -11,7 +13,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"context"
 )
 
 func init() {
@@ -47,11 +48,9 @@ func NewBuildCostReport(env sink.Environment, name string, opts *cost.EvergreenR
 	return j
 }
 
-func (j *buildCostReportJob) Run() {
+func (j *buildCostReportJob) Run(ctx context.Context) {
 	defer grip.Infoln("completed job: ", j.ID())
 	defer j.MarkComplete()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	grip.Infoln("running build cost reporting job:", j.ID())
 
 	if j.env == nil {

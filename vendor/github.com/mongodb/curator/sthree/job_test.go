@@ -1,6 +1,7 @@
 package sthree
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -37,8 +38,11 @@ func TestBucketJobSuiteWithDelete(t *testing.T) {
 }
 
 func (s *BucketJobSuite) SetupSuite() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.bucket = GetBucket("build-test-curator")
-	s.NoError(s.bucket.Open())
+	s.NoError(s.bucket.Open(ctx))
 }
 
 func (s *BucketJobSuite) SetupTest() {
@@ -79,25 +83,25 @@ func (s *BucketJobSuite) TestSyncJobsHaveExpectedJobTypes() {
 }
 
 func (s *BucketJobSuite) TestSyncJobsHaveWellFormedName() {
-	strings.HasSuffix(s.fromJob.ID(), "sync-from")
-	strings.HasSuffix(s.toJob.ID(), "sync-to")
+	s.True(strings.Contains(s.fromJob.ID(), "sync-from"))
+	s.True(strings.Contains(s.toJob.ID(), "sync-to"))
 }
 
 func (s *BucketJobSuite) TestSyncJobsAreIncompleteByDefault() {
 	for _, job := range s.jobs {
-		s.False(job.Completed())
+		s.False(job.Status().Completed)
 	}
 }
 
 func (s *BucketJobSuite) TestMarkCompleteMethodChangesCompleteState() {
-	s.False(s.fromJob.Completed())
-	s.False(s.toJob.Completed())
+	s.False(s.fromJob.Status().Completed)
+	s.False(s.toJob.Status().Completed)
 
 	s.fromJob.MarkComplete()
 	s.toJob.MarkComplete()
 
-	s.True(s.fromJob.Completed())
-	s.True(s.toJob.Completed())
+	s.True(s.fromJob.Status().Completed)
+	s.True(s.toJob.Status().Completed)
 }
 
 func (s *BucketJobSuite) TestAddErrorDoesNotPersistNilErrors() {

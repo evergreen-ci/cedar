@@ -1,6 +1,7 @@
 package units
 
 import (
+	"context"
 	"strings"
 
 	"github.com/evergreen-ci/sink"
@@ -74,7 +75,7 @@ func (sp *parseSimpleLog) reset() {
 }
 
 // Parse takes the log id
-func (sp *parseSimpleLog) Run() {
+func (sp *parseSimpleLog) Run(ctx context.Context) {
 	defer sp.MarkComplete()
 	defer sp.reset()
 

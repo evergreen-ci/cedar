@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"context"
+
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
@@ -15,7 +17,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"context"
 )
 
 func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
@@ -108,7 +109,11 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 	// have one job running on an interval
 	var count int
 
-	amboy.PeriodicQueueOperation(ctx, q, time.Minute, true, func(cue amboy.Queue) error {
+	conf := amboy.QueueOperationConfig{
+		ContinueOnError: true,
+	}
+
+	amboy.PeriodicQueueOperation(ctx, q, time.Minute, conf, func(cue amboy.Queue) error {
 		name := "periodic-poc"
 		count++
 		j := units.NewHelloWorldJob(name)
@@ -119,7 +124,7 @@ func backgroundJobs(ctx context.Context, env sink.Environment) error {
 		return err
 	})
 
-	amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), true, func(cue amboy.Queue) error {
+	amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), conf, func(cue amboy.Queue) error {
 		now := time.Now().Add(-time.Hour)
 
 		opts := &cost.EvergreenReportOptions{

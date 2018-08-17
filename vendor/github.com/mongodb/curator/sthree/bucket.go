@@ -1,6 +1,7 @@
 package sthree
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -17,9 +18,8 @@ import (
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
-	"github.com/pkg/errors"
 	"github.com/mongodb/grip"
-	"golang.org/x/net/context"
+	"github.com/pkg/errors"
 )
 
 func init() {
@@ -39,8 +39,8 @@ func init() {
 
 func getBackoff() *backoff.Backoff {
 	return &backoff.Backoff{
-		Min:    100 * time.Millisecond,
-		Max:    5 * time.Second,
+		Min:    50 * time.Millisecond,
+		Max:    2 * time.Second,
 		Factor: 2,
 		Jitter: true,
 	}
@@ -86,7 +86,7 @@ func (b *Bucket) NewBucket(name string) *Bucket {
 		NewFilePermission: b.NewFilePermission,
 		credentials:       b.credentials,
 		numJobs:           b.numJobs,
-		numRetries:        20,
+		numRetries:        10,
 	}
 
 	buckets.registerBucket(new)
@@ -97,8 +97,8 @@ func (b *Bucket) NewBucket(name string) *Bucket {
 // resource, that runs with dry-run mode. In this mode, all PUT
 // and DELETE operations are no-ops, with more logging, but all other
 // operations (including "GET" operations) are as normal.
-func (b *Bucket) DryRunClone() (*Bucket, error) {
-	clone, err := b.Clone()
+func (b *Bucket) DryRunClone(ctx context.Context) (*Bucket, error) {
+	clone, err := b.Clone(ctx)
 
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (b *Bucket) DryRunClone() (*Bucket, error) {
 	clone.dryRun = true
 
 	if b.queue != nil {
-		err = clone.Open()
+		err = clone.Open(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func (b *Bucket) DryRunClone() (*Bucket, error) {
 
 // Clone returns a copy of the existing bucket, which is not a shared
 // resource.
-func (b *Bucket) Clone() (*Bucket, error) {
+func (b *Bucket) Clone(ctx context.Context) (*Bucket, error) {
 	clone := &Bucket{
 		name:              b.name,
 		NewFilePermission: b.NewFilePermission,
@@ -127,7 +127,7 @@ func (b *Bucket) Clone() (*Bucket, error) {
 	}
 
 	if b.queue != nil {
-		err := clone.Open()
+		err := clone.Open(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +187,7 @@ func (b *Bucket) SetNumRetries(n int) error {
 // process sync to/from jobs. Returns an error if there are issues
 // creating creating the worker queue. Does *not* return an error if
 // the Bucket has been opened, and is a noop in this case.
-func (b *Bucket) Open() error {
+func (b *Bucket) Open(ctx context.Context) error {
 	if b.s3 == nil {
 		b.s3 = s3.New(b.credentials.Auth, b.credentials.Region)
 	}
@@ -200,8 +200,7 @@ func (b *Bucket) Open() error {
 	defer b.mutex.Unlock()
 
 	if b.queue == nil {
-		ctx, cancel := context.WithCancel(context.TODO())
-		b.closer = cancel
+		ctx, b.closer = context.WithCancel(ctx)
 
 		b.queue = queue.NewLocalUnordered(b.numJobs)
 		return errors.Wrap(b.queue.Start(ctx), "starting worker queue for sync jobs")
@@ -612,7 +611,7 @@ func (b *Bucket) deleteGroup(items <-chan s3.Key) error {
 // not exist or if the local file has different content from the
 // remote file. All operations execute in the worker pool, and SyncTo
 // waits for all jobs to complete before returning an aggregated error.
-func (b *Bucket) SyncTo(local, prefix string, withDelete bool) error {
+func (b *Bucket) SyncTo(ctx context.Context, local, prefix string, opts SyncOptions) error {
 	grip.Infof("sync push %s -> %s/%s", local, b.name, prefix)
 
 	remote := b.contents(prefix)
@@ -623,6 +622,10 @@ func (b *Bucket) SyncTo(local, prefix string, withDelete bool) error {
 	catcher.Add(filepath.Walk(local, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			grip.Critical(errors.Wrapf(err, "problem finding file %s", path))
+			return nil
+		}
+
+		if ctx.Err() != nil {
 			return nil
 		}
 
@@ -643,7 +646,7 @@ func (b *Bucket) SyncTo(local, prefix string, withDelete bool) error {
 			remoteFile = s3.Key{Key: keyName}
 		}
 
-		job := newSyncToJob(b, path, remoteFile, withDelete)
+		job := newSyncToJob(b, path, remoteFile, opts.WithDelete)
 
 		err = errors.Wrap(b.queue.Put(job), "problem putting syncTo job into queue")
 		if err != nil {
@@ -656,14 +659,18 @@ func (b *Bucket) SyncTo(local, prefix string, withDelete bool) error {
 		return nil
 	}))
 
-	amboy.WaitInterval(b.queue, 250*time.Millisecond)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
+
+	amboy.WaitCtxInterval(ctx, b.queue, 250*time.Millisecond)
 
 	if catcher.HasErrors() {
 		grip.Alertf("encountered %d problems putting jobs into the syncTo queue", catcher.Len())
 		return catcher.Resolve()
 	}
 
-	if err := amboy.ResolveErrors(context.TODO(), b.queue); err != nil {
+	if err := amboy.ResolveErrors(ctx, b.queue); err != nil {
 		m := fmt.Sprintf("problem with syncTo operation (%s -> %s/%s)",
 			local, b.name, prefix)
 		grip.Alert(m)
@@ -676,17 +683,33 @@ func (b *Bucket) SyncTo(local, prefix string, withDelete bool) error {
 	return nil
 }
 
+// SyncOptions controls the behavior of the sync-to and sync-from operations.
+type SyncOptions struct {
+	WithDelete         bool
+	Timeout            time.Duration
+	QueueCheckInterval time.Duration
+}
+
+// NewDefaultSyncOptions populates a SyncOptions object with reasonable defaults.
+func NewDefaultSyncOptions() SyncOptions {
+	return SyncOptions{
+		Timeout:            10 * time.Minute,
+		WithDelete:         false,
+		QueueCheckInterval: 100 * time.Millisecond,
+	}
+}
+
 // SyncFrom takes a local path and the prefix of a keyname in S3, and
 // and downloads all objects in the bucket that have that prefix to
 // the local system at the path specified by "local". Will *not*
 // download files if the content of the local file have *not* changed.
 // All operations execute in the worker pool, and SyncTo waits for all
 // jobs to complete before returning an aggregated erro
-func (b *Bucket) SyncFrom(local, prefix string, withDelete bool) error {
+func (b *Bucket) SyncFrom(ctx context.Context, local, prefix string, opts SyncOptions) error {
 	grip.Infof("sync pull %s/%s -> %s", b.name, prefix, local)
 
 	for remote := range b.list(prefix) {
-		job := newSyncFromJob(b, filepath.Join(local, remote.Key[len(prefix):]), remote, withDelete)
+		job := newSyncFromJob(b, filepath.Join(local, remote.Key[len(prefix):]), remote, opts.WithDelete)
 
 		// add the job to the queue
 		if err := b.queue.Put(job); err != nil {
@@ -694,9 +717,13 @@ func (b *Bucket) SyncFrom(local, prefix string, withDelete bool) error {
 		}
 	}
 
-	amboy.WaitInterval(b.queue, 250*time.Millisecond)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
 
-	if err := amboy.ResolveErrors(context.TODO(), b.queue); err != nil {
+	amboy.WaitCtxInterval(ctx, b.queue, opts.QueueCheckInterval)
+
+	if err := amboy.ResolveErrors(ctx, b.queue); err != nil {
 		m := fmt.Sprintf("problem with syncFrom operation (%s/%s -> %s)",
 			b.name, prefix, local)
 		grip.Alert(m)

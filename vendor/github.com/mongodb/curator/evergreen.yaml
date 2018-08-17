@@ -1,3 +1,7 @@
+ignore:
+  - "*.md"
+  - "*.rst"
+
 #######################################
 #         YAML Templates              #
 #######################################
@@ -8,6 +12,7 @@ variables:
     name: test
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/curator
       - func: run-make
@@ -22,18 +27,12 @@ variables:
       - name: build
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/curator
       - func: setup-credentials
       - func: run-make
         vars: { target: "${task_name}" }
-  - &generic-linux-distros
-    - rhel62-test
-    - rhel70-small
-    - rhel62-small
-    - linux-64-amzn-test
-    - debian81-test
-    - debian71-test
 
 #######################################
 #              Functions              #
@@ -41,6 +40,7 @@ variables:
 functions:
   setup-credentials:
     command: shell.exec
+    type: setup
     params:
        silent: true
        script: |
@@ -58,6 +58,7 @@ functions:
          EOF
   run-make:
     command: shell.exec
+    type: test
     params:
        script: |
          set -o errexit
@@ -75,7 +76,6 @@ functions:
 
          # Run make, called with proper environment variables set,
          # running the target.
-         ${build_env|} make vendor
          ${build_env|} ${xc_env|} make ${target}
 
 #######################################
@@ -88,11 +88,13 @@ tasks:
     tags: ["dist"]
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/curator
       - func: run-make
         vars: { target: "build dist" }
       - command: s3.put
+        type: setup
         params:
           aws_key: ${aws_key}
           aws_secret: ${aws_secret}
@@ -115,6 +117,7 @@ tasks:
     tags: [ "report" ]
     commands:
       - command: git.get_project
+        type: system
         params:
           directory: gopath/src/github.com/mongodb/curator
       - func: setup-credentials
@@ -122,26 +125,6 @@ tasks:
         vars:
           target: "coverage-html"
           make_args: "-k"
-      - command: s3.put
-        params:
-          aws_key: ${aws_key}
-          aws_secret: ${aws_secret}
-          local_files_include_filter: ["gopath/src/github.com/mongodb/curator/bin/coverage.*.html"]
-          remote_file: evergreen/${task_id}/
-          bucket: mciuploads
-          content_type: text/html
-          permissions: public-read
-          display_name: "(html) coverage:"
-      - command: s3.put
-        params:
-          aws_key: ${aws_key}
-          aws_secret: ${aws_secret}
-          local_files_include_filter: ["gopath/src/github.com/mongodb/curator/bin/coverage.*.out"]
-          remote_file: evergreen/${task_id}/
-          bucket: mciuploads
-          content_type: text/plain
-          permissions: public-read
-          display_name: "(txt) coverage:"
 
   # define tasks for all test suites (modules)
   - <<: *run-go-test-suite
@@ -159,6 +142,12 @@ tasks:
   - <<: *run-go-test-suite
     tags: ["test"]
     name: test-repobuilder
+  - <<: *run-go-test-suite
+    tags: ["test"]
+    name: test-greenbay
+  - <<: *run-go-test-suite
+    tags: ["test"]
+    name: test-greenbay-check
 
   - <<: *run-go-test-suite
     name: race-operations
@@ -185,53 +174,79 @@ tasks:
     tags: ["race"]
     depends_on:
       - name: build-race
+  - <<: *run-go-test-suite
+    name: race-greenbay
+    tags: ["race"]
+    depends_on:
+      - name: build-race
+  - <<: *run-go-test-suite
+    name: race-greenbay-check
+    tags: ["race"]
+    depends_on:
+      - name: build-race
 
   - name: push
     patchable: false
     stepback: false
-    tags: ["dist"]
     depends_on:
     - name: "*"
     commands:
       - command: s3Copy.copy
+        type: test
         params:
           aws_key: ${aws_key}
           aws_secret: ${aws_secret}
           s3_copy_files:
           - {'source': { 'path': 'curator/${build_id}-${build_variant}/curator-dist-${revision}.tar.gz', 'bucket': 'mciuploads' },
-             'destination': { 'path': 'build/curator/curator-dist-${build_variant}-${revision}.tar.gz', 'bucket': 'boxes.10gen.com' }
-            }
+             'destination': { 'path': 'build/curator/curator-dist-${build_variant}-${revision}.tar.gz', 'bucket': 'boxes.10gen.com' } }
+          - {'source': { 'path': 'curator/${build_id}-${build_variant}/curator-dist-${revision}.tar.gz', 'bucket': 'mciuploads' },
+             'destination': { 'path': 'build/curator/curator-dist-${build_variant}-latest.tar.gz', 'bucket': 'boxes.10gen.com' } }
 
 post:
   - command: gotest.parse_files
+    type: setup
     params:
       files:
         - "gopath/src/github.com/mongodb/curator/build/test.*.out"
         - "gopath/src/github.com/mongodb/curator/build/race.*.out"
+        - "gopath/src/github.com/mongodb/curator/build/output.*"
   - command: shell.exec
+    type: setup
     params:
       script: |
         rm -rf curator
         rm -rf ~/.aws
+  - command: s3.put
+    type: system
+    params:
+      aws_key: ${aws_key}
+      aws_secret: ${aws_secret}
+      local_files_include_filter: ["gopath/src/github.com/mongodb/curator/build/output.*.coverage.html"]
+      remote_file: curator/${task_id}/
+      bucket: mciuploads
+      content_type: text/html
+      permissions: public-read
+      display_name: "(html) coverage:"
+  - command: s3.put
+    type: system
+    params:
+      aws_key: ${aws_key}
+      aws_secret: ${aws_secret}
+      local_files_include_filter: ["gopath/src/github.com/mongodb/curator/build/output.*.coverage"]
+      remote_file: curator/${task_id}/
+      bucket: mciuploads
+      content_type: text/plain
+      permissions: public-read
+      display_name: "(txt) coverage:"
 
 #######################################
 #           Buildvariants             #
 #######################################
 buildvariants:
-  - name: archlinux
-    display_name: Arch Linux
-    run_on:
-      - archlinux-test
-      - archlinux-build
-    tasks:
-      - ".dist"
-      - ".test"
-
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     run_on:
       - archlinux-test
-      - archlinux-build
     tasks:
       - ".race"
       - ".report"
@@ -239,111 +254,117 @@ buildvariants:
   - name: rhel70
     display_name: RHEL 7.0
     expansions:
-      build_env: "PATH=/opt/go:$PATH"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
     run_on:
       - rhel70-small
-      - rhel70
     tasks:
       - ".dist"
       - ".test"
+      - name: "push"
 
-  - name: rhel62-gccgo
-    display_name: RHEL 6.2 (gccgo)
-    expansions:
-      build_env: "PATH=/opt/mongodbtoolchain/v2/bin:$PATH"
+  - name: ubuntu1604
+    display_name: Ubuntu 16.04
     run_on:
-      - rhel62-small
+      - ubuntu1604-test
+    expansions:
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
     tasks:
       - ".dist"
       - ".test"
+      - name: "push"
 
-  - name: debian81
-    display_name: Debian 8.1
+  - name: macos
+    display_name: macOS 10.12
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/usr/local/go1.8/go PATH=/usr/local/go1.8/go/bin:$PATH"
     run_on:
-      - debian81-test
+      - macos-1012
     tasks:
       - ".dist"
       - ".test"
-
-  - name: osx
-    display_name: OS X 10.10
-    expansions:
-      build_env: "PATH=/usr/local/go/bin:$PATH"
-    run_on:
-      - osx-1010
-    tasks:
-      - ".dist"
-      - ".test"
+      - name: "push"
 
   # the following targets *just* cross compile the binary for different architectures.
-  - name: solaris
-    display_name: "Solaris (cross-compile)"
-    expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
-      xc_env: "GOARCH=amd64 GOOS=solaris"
-    run_on:
-      *generic-linux-distros
-    tasks:
-      - ".dist"
-
   - name: s390x
     display_name: "zLinux (cross-compile)"
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
       xc_env: "GOARCH=s390x GOOS=linux"
     run_on:
-      *generic-linux-distros
+      - ubuntu1604-test
     tasks:
-      - ".dist"
+      - name: "build"
+        depends_on:
+        - name: ".test"
+          variant: "rhel70"
+      - name: "push"
 
   - name: power
     display_name: "Linux POWER (cross-compile)"
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
       xc_env: "GOARCH=ppc64le GOOS=linux"
     run_on:
-      *generic-linux-distros
+      - ubuntu1604-test
     tasks:
-      - ".dist"
+      - name: "build"
+        depends_on:
+        - name: ".test"
+          variant: "rhel70"
+      - name: "push"
 
   - name: arm
     display_name: "Linux ARM64 (cross-compile)"
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
       xc_env: "GOARCH=arm64 GOOS=linux"
     run_on:
-      *generic-linux-distros
+      - ubuntu1604-test
     tasks:
-      - ".dist"
+      - name: "build"
+        depends_on:
+        - name: ".test"
+          variant: "rhel70"
+      - name: "push"
 
   - name: linux-32
     display_name: "Linux 32-bit (cross-compile)"
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
       xc_env: "GOARCH=386 GOOS=linux"
     run_on:
-      *generic-linux-distros
+      - ubuntu1604-test
     tasks:
-      - ".dist"
+      - name: "build"
+        depends_on:
+        - name: ".test"
+          variant: "rhel70"
+      - name: "push"
 
   - name: windows-64
     display_name: "Windows 64-bit (cross-compile)"
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
       xc_env: "GOARCH=amd64 GOOS=windows"
     run_on:
-      *generic-linux-distros
+      - ubuntu1604-test
     tasks:
-      - ".dist"
+      - name: "build"
+        depends_on:
+        - name: ".test"
+          variant: "rhel70"
+      - name: "push"
 
   - name: windows-32
     display_name: "Windows 32-bit (cross-compile)"
     expansions:
-      build_env: "PATH=/opt/go/bin:$PATH GOROOT=/opt/go"
+      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH"
       xc_env: "GOARCH=386 GOOS=windows"
     run_on:
-      *generic-linux-distros
+      - ubuntu1604-test
     tasks:
-      - ".dist"
+      - name: "build"
+        depends_on:
+        - name: ".test"
+          variant: "rhel70"
+      - name: "push"

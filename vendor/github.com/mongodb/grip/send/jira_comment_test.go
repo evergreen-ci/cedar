@@ -1,7 +1,6 @@
 package send
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/mongodb/grip/level"
@@ -69,7 +68,6 @@ func (j *JiraCommentSuite) TestSendMethod() {
 	j.Equal(mock.numSent, 0)
 
 	m := message.NewDefaultMessage(level.Debug, "sending debug level comment")
-	fmt.Println("--->", sender)
 	sender.Send(m)
 	j.Equal(mock.numSent, numShouldHaveSent)
 
@@ -108,6 +106,21 @@ func (j *JiraCommentSuite) TestCreateMethodChangesClientState() {
 	new := &jiraClientImpl{}
 
 	j.Equal(base, new)
-	j.NoError(new.CreateClient("foo"))
+	j.NoError(new.CreateClient(nil, "foo"))
 	j.NotEqual(base, new)
+}
+
+func (j *JiraCommentSuite) TestSendWithJiraIssueComposer() {
+	c := message.NewJIRACommentMessage(level.Notice, "ABC-123", "Hi")
+
+	sender, err := NewJiraCommentLogger("XYZ-123", j.opts, LevelInfo{level.Trace, level.Info})
+	j.NoError(err)
+	j.Require().NotNil(sender)
+
+	sender.Send(c)
+
+	mock, ok := j.opts.client.(*jiraClientMock)
+	j.True(ok)
+	j.Equal(1, mock.numSent)
+	j.Equal("ABC-123", mock.lastIssue)
 }

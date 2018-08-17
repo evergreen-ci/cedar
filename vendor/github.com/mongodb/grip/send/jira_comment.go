@@ -34,11 +34,11 @@ func NewJiraCommentLogger(id string, opts *JiraOptions, l LevelInfo) (Sender, er
 		Base:    NewBase(id),
 	}
 
-	if err := j.opts.client.CreateClient(opts.BaseURL); err != nil {
+	if err := j.opts.client.CreateClient(opts.HTTPClient, opts.BaseURL); err != nil {
 		return nil, err
 	}
 
-	if _, err := j.opts.client.Authenticate(opts.Username, opts.Password); err != nil {
+	if err := j.opts.client.Authenticate(opts.Username, opts.Password, opts.UseBasicAuth); err != nil {
 		return nil, fmt.Errorf("jira authentication error: %v", err)
 	}
 
@@ -62,7 +62,14 @@ func NewJiraCommentLogger(id string, opts *JiraOptions, l LevelInfo) (Sender, er
 // Send post issues via jiraCommentJournal with information in the message.Composer
 func (j *jiraCommentJournal) Send(m message.Composer) {
 	if j.Level().ShouldLog(m) {
-		if err := j.opts.client.PostComment(j.issueID, m.String()); err != nil {
+		issue := j.issueID
+		if c, ok := m.Raw().(*message.JIRAComment); ok {
+			issue = c.IssueID
+		}
+		if err := j.opts.client.Authenticate(j.opts.Username, j.opts.Password, j.opts.UseBasicAuth); err != nil {
+			j.errHandler(fmt.Errorf("jira authentication error: %v", err), message.NewFormattedMessage(m.Priority(), m.String()))
+		}
+		if err := j.opts.client.PostComment(issue, m.String()); err != nil {
 			j.ErrorHandler(err, m)
 		}
 	}

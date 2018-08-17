@@ -1,12 +1,13 @@
 package rest
 
 import (
+	"context"
+
+	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"github.com/tychoish/gimlet"
-	"context"
 )
 
 type Service struct {
@@ -37,7 +38,6 @@ func (s *Service) Validate() error {
 
 	if s.app == nil {
 		s.app = gimlet.NewApp()
-		s.app.SetDefaultVersion(1)
 	}
 
 	if s.Port == 0 {
@@ -72,8 +72,8 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 // Run starts the REST service. All errors are logged.
-func (s *Service) Run() {
-	grip.CatchAlert(s.app.Run())
+func (s *Service) Run(ctx context.Context) {
+	grip.CatchAlert(s.app.Run(ctx))
 }
 
 func (s *Service) addRoutes() {

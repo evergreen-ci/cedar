@@ -1,6 +1,7 @@
 package sthree
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
@@ -10,8 +11,8 @@ import (
 	"github.com/goamz/goamz/s3"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/job"
-	"github.com/pkg/errors"
 	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
 )
 
 // Not making this job public or registering it with amboy because it
@@ -65,7 +66,7 @@ func (j *syncFromJob) doGet() error {
 // exist, pulls down the remote file, otherwise hashes the local file
 // and compares that hash to the remote file's hash. If they differ,
 // pull the remote file.
-func (j *syncFromJob) Run() {
+func (j *syncFromJob) Run(_ context.Context) {
 	defer j.MarkComplete()
 
 	// if the remote file doesn't exist, we should return early here.
@@ -136,6 +137,4 @@ func (j *syncFromJob) Run() {
 			return
 		}
 	}
-
-	return
 }

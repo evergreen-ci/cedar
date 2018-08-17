@@ -31,8 +31,8 @@ func MakeGrip(s send.Sender) *Grip {
 func NewGrip(name string) *Grip {
 	sender, _ := send.NewNativeLogger(name,
 		send.LevelInfo{
-			Threshold: level.Info,
-			Default:   level.Notice,
+			Threshold: level.Trace,
+			Default:   level.Trace,
 		})
 
 	return &Grip{impl: sender}
@@ -78,12 +78,6 @@ func (g *Grip) sendFatal(m message.Composer) {
 	if g.impl.Level().ShouldLog(m) {
 		g.impl.Send(m)
 		os.Exit(1)
-	}
-}
-
-func (g *Grip) sendConditional(cond bool, m message.Composer) {
-	if cond {
-		g.send(m)
 	}
 }
 

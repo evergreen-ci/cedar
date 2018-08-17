@@ -1,6 +1,7 @@
 package units
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ func MakeSaveSimpleLogJob(env sink.Environment, logID, content string, ts time.T
 	return j
 }
 
-func (j *saveSimpleLogToDBJob) Run() {
+func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 
 	conf, err := j.env.GetConf()

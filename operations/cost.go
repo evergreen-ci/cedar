@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"context"
+
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
@@ -13,7 +15,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"context"
 )
 
 const costReportDateFormat = "2006-01-02-15-04"
@@ -141,7 +142,11 @@ func collectLoop() cli.Command {
 				AllowIncompleteResults: c.Bool("continueOnError"),
 			}
 
-			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), true, func(queue amboy.Queue) error {
+			conf := amboy.QueueOperationConfig{
+				ContinueOnError: true,
+			}
+
+			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), conf, func(queue amboy.Queue) error {
 				now := time.Now().Add(-time.Hour).UTC()
 				opts.StartAt = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 

@@ -2,6 +2,7 @@ package units
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
@@ -57,7 +58,7 @@ func MakeMergeSimpleLogJob(env sink.Environment, logID string) amboy.Job {
 	return j
 }
 
-func (j *mergeSimpleLogJob) Run() {
+func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 	logs := &model.LogSegments{}
 
 	err := errors.Wrap(logs.Find(j.LogID, true),

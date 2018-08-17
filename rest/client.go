@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/tychoish/gimlet"
 )
 
 const (

@@ -1,7 +1,7 @@
 # start project configuration
 name := amboy
 buildDir := build
-packages := $(name) dependency job registry pool queue queue-driver rest
+packages := $(name) dependency job registry pool queue rest logger reporting
 orgPath := github.com/mongodb
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -19,7 +19,7 @@ lintArgs := --tests --deadline=5m --vendor
 lintArgs += --disable="gotype" --disable="gas" --enable="goimports"
 lintArgs += --skip="$(buildDir)" --skip="buildscripts"
 #  add and configure additional linters
-lintArgs += --line-length=100 --dupl-threshold=175 --cyclo-over=17
+lintArgs += --line-length=100 --dupl-threshold=175 --cyclo-over=30
 #  two similar functions triggered the duplicate warning, but they're not.
 lintArgs += --exclude="duplicate of registry.go"
 lintArgs += --exclude="don.t use underscores.*_DependencyState.*"
@@ -59,6 +59,7 @@ $(gopath)/src/%:
 $(buildDir)/run-linter:buildscripts/run-linter.go $(buildDir)/.lintSetup
 	go build -o $@ $<
 $(buildDir)/.lintSetup:$(lintDeps)
+	@mkdir -p $(buildDir)
 	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
 
@@ -123,6 +124,9 @@ endif
 ifneq (,$(RUN_CASE))
 testArgs += -testify.m='$(RUN_CASE)'
 endif
+ifneq (,$(RUN_COUNT))
+testArgs += -test.count='$(RUN_COUNT)'
+endif
 #    to avoid vendoring the coverage tool, install it as needed
 coverDeps := $(if $(DISABLE_COVERAGE),,golang.org/x/tools/cmd/cover)
 coverDeps := $(addprefix $(gopath)/src/,$(coverDeps))
@@ -170,9 +174,22 @@ vendor-sync:$(vendorDeps)
 	glide install -s
 vendor-clean:
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
-	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/stretchr/testify/
-	rm -rf vendor/github.com/tychoish/gimlet/vendor/github.com/mongodb/grip/
+	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/testify/
+	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/testify/
+	rm -rf vendor/gopkg.in/mgo.v2/harness/
+	rm -rf vendor/gopkg.in/mgo.v2/testdb/
+	rm -rf vendor/gopkg.in/mgo.v2/testserver/
+	rm -rf vendor/gopkg.in/mgo.v2/internal/json/testdata
+	rm -rf vendor/gopkg.in/mgo.v2/.git/
+	rm -rf vendor/gopkg.in/mgo.v2/txn/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/gopkg.in/yaml.v2
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/davecgh/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/stretchr/testify/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/data/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/pmezard/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/google/go-cmp/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/kr/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*.dat" -o -name "*testdata" | xargs rm -rf
 #   define dependencies for buildscripts
 phony += vendor-deps vendor-clean

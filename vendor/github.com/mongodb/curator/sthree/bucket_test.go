@@ -1,23 +1,45 @@
 package sthree
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
 
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
+	"github.com/mongodb/amboy/job"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
+	"github.com/mongodb/grip/send"
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"github.com/mongodb/grip"
 )
+
+func init() {
+	grip.SetName("curator.sthree.tests")
+	grip.CatchError(grip.SetSender(send.MakeNative()))
+
+	lvl := grip.GetSender().Level()
+	lvl.Threshold = level.Error
+	_ = grip.GetSender().SetLevel(lvl)
+
+	job.RegisterDefaultJobs()
+}
+
+func GetDirectoryOfFile() string {
+	_, file, _, _ := runtime.Caller(1)
+
+	return filepath.Dir(file)
+}
 
 // BucketSuite contains tests of the base bucket interface for
 // interacting with files and s3 objects, with a simple
@@ -27,6 +49,7 @@ import (
 // run this suite.
 type BucketSuite struct {
 	b          *Bucket
+	registry   *bucketRegistry
 	bucketName string
 	require    *require.Assertions
 	uuid       string
@@ -57,6 +80,8 @@ func (s *BucketSuite) SetupSuite() {
 }
 
 func (s *BucketSuite) SetupTest() {
+	s.registry = newBucketRegistry()
+	s.registry.init()
 	s.b = GetBucket(s.bucketName)
 }
 
@@ -130,11 +155,14 @@ func (s *BucketSuite) TestCredentialSetterDoesNotOverrideCachedCredentialsBucket
 }
 
 func (s *BucketSuite) TestOpenMethodStartsQueueAndConnections() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// make sure that we start out with a non-opened host.
 	s.False(s.b.IsOpen())
 
 	// abort if opening causes an error
-	s.require.NoError(s.b.Open())
+	s.require.NoError(s.b.Open(ctx))
 	s.True(s.b.queue.Started())
 
 	// confirm that the bucket is open
@@ -145,16 +173,20 @@ func (s *BucketSuite) TestOpenMethodStartsQueueAndConnections() {
 	// calling open a second time should be a noop and not change
 	// any of the properties
 	bucketFirst := s.b.bucket
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 	s.Equal(*bucketFirst, *s.b.bucket)
 
 	// cleanup at the end
+	s.b.queue = nil // avoid closing the queue
 	s.b.Close()
 	s.False(s.b.IsOpen())
 }
 
 func (s *BucketSuite) TestContentsAndListProduceIdenticalData() {
-	s.require.NoError(s.b.Open())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.require.NoError(s.b.Open(ctx))
 	var prefix string
 
 	var count int
@@ -177,12 +209,15 @@ func (s *BucketSuite) TestContentsAndListProduceIdenticalData() {
 }
 
 func (s *BucketSuite) TestJobNumberIsConfigurableBeforeBucketOpens() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for i := 1; i < 20; i = i + 2 {
 		s.False(s.b.IsOpen())
 		s.NoError(s.b.SetNumJobs(i))
-		s.NoError(s.b.Open())
+		s.NoError(s.b.Open(ctx))
 		s.True(s.b.IsOpen())
 		s.True(s.b.queue.Started())
+		s.b.queue = nil
 		s.b.Close()
 	}
 }
@@ -209,7 +244,9 @@ func (s *BucketSuite) TestRetriesNumberSetterDoesNotSetToLessThanOrEqualToZero()
 }
 
 func (s *BucketSuite) TestJobNumberIsNotConfigurableAfterBucketOpens() {
-	s.NoError(s.b.Open())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.NoError(s.b.Open(ctx))
 	s.True(s.b.IsOpen())
 
 	existingNum := s.b.numJobs
@@ -218,10 +255,12 @@ func (s *BucketSuite) TestJobNumberIsNotConfigurableAfterBucketOpens() {
 }
 
 func (s *BucketSuite) TestPutOptionUploadsFile() {
-	local := "bucket.go"
+	local := "sthree/bucket.go"
 	remote := filepath.Join(s.uuid, local+".one")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 
 	s.NoError(s.b.Put(local, remote))
 
@@ -231,10 +270,12 @@ func (s *BucketSuite) TestPutOptionUploadsFile() {
 }
 
 func (s *BucketSuite) TestGetRetrievesFileIsTheSameAsSourceData() {
-	local := "bucket.go"
+	local := "sthree/bucket.go"
 	remote := filepath.Join(s.uuid, local+".two")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 
 	// get the hash of the files' contents
 	originalData, err := ioutil.ReadFile(local)
@@ -258,10 +299,12 @@ func (s *BucketSuite) TestGetRetrievesFileIsTheSameAsSourceData() {
 }
 
 func (s *BucketSuite) TestGetMakesEnclosingDirectories() {
-	local := "bucket.go"
+	local := "sthree/bucket.go"
 	remote := filepath.Join(s.uuid, local+".three")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 
 	// upload the file to s3
 	s.NoError(s.b.Put(local, remote))
@@ -284,10 +327,12 @@ func (s *BucketSuite) TestPutReturnsErrorForFilesThatDoNotExist() {
 }
 
 func (s *BucketSuite) TestDeleteOperationRemovesPathFromBucket() {
-	local := "bucket.go"
+	local := "sthree/bucket.go"
 	remote := filepath.Join(s.uuid, local+".four")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 
 	// upload the file to s3
 	s.NoError(s.b.Put(local, remote))
@@ -304,15 +349,17 @@ func (s *BucketSuite) TestDeleteOperationRemovesPathFromBucket() {
 }
 
 func (s *BucketSuite) TestDryRunDeleteOperationDoesNotRemovePathsFromBucket() {
-	local := "bucket.go"
+	local := "sthree/bucket.go"
 	remote := filepath.Join(s.uuid, local+".four")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 	s.False(s.b.dryRun)
-	bucket, err := s.b.DryRunClone()
+	bucket, err := s.b.DryRunClone(ctx)
 	s.True(bucket.dryRun)
 	s.NoError(err)
-	s.NoError(bucket.Open())
+	s.NoError(bucket.Open(ctx))
 	defer bucket.Close()
 
 	// upload the file to s3
@@ -331,8 +378,10 @@ func (s *BucketSuite) TestDryRunDeleteOperationDoesNotRemovePathsFromBucket() {
 }
 
 func (s *BucketSuite) TestDeleteManyOperationRemovesManyPathsFromBucket() {
-	local := "bucket.go"
-	s.NoError(s.b.Open())
+	local := "sthree/bucket.go"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.NoError(s.b.Open(ctx))
 	prefix := uuid.NewV4().String()
 
 	s.Len(s.b.contents(filepath.Join(s.uuid, prefix)), 0)
@@ -353,8 +402,10 @@ func (s *BucketSuite) TestDeleteManyOperationRemovesManyPathsFromBucket() {
 }
 
 func (s *BucketSuite) TestDeleteManySpecialCasesSingleOperation() {
-	local := "bucket.go"
-	s.NoError(s.b.Open())
+	local := "sthree/bucket.go"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.NoError(s.b.Open(ctx))
 	prefix := uuid.NewV4().String()
 
 	s.Len(s.b.contents(filepath.Join(s.uuid, prefix)), 0)
@@ -367,8 +418,10 @@ func (s *BucketSuite) TestDeleteManySpecialCasesSingleOperation() {
 }
 
 func (s *BucketSuite) TestDeleteMatchingRemovesSomePaths() {
-	local := "bucket.go"
-	s.NoError(s.b.Open())
+	local := "sthree/bucket.go"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.NoError(s.b.Open(ctx))
 	prefix := uuid.NewV4().String()
 
 	s.Len(s.b.contents(filepath.Join(s.uuid, prefix)), 0)
@@ -432,18 +485,17 @@ func numFilesInPath(path string, includeDirs bool) (int, error) {
 }
 
 func (s *BucketSuite) TestSyncToUploadsNewFilesWithoutError() {
-	pwd, err := os.Getwd()
-	s.NoError(err)
-
+	pwd := GetDirectoryOfFile()
 	remotePrefix := filepath.Join(s.uuid, "sync-to-one")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 
 	s.Len(s.b.contents(remotePrefix), 0)
 
 	for i := 0; i < 3; i++ {
-		err = s.b.SyncTo(pwd, remotePrefix, false)
-		s.NoError(err)
+		s.NoError(s.b.SyncTo(ctx, pwd, remotePrefix, NewDefaultSyncOptions()))
 
 		num, err := numFilesInPath(pwd, false)
 		s.NoError(err)
@@ -452,46 +504,50 @@ func (s *BucketSuite) TestSyncToUploadsNewFilesWithoutError() {
 }
 
 func (s *BucketSuite) TestSyncToDryRunDoesNotUploadFiles() {
-	pwd, err := os.Getwd()
-	s.NoError(err)
-
+	pwd := GetDirectoryOfFile()
 	remotePrefix := filepath.Join(s.uuid, "sync-to-none")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	bucket, err := s.b.DryRunClone()
+	bucket, err := s.b.DryRunClone(ctx)
 	s.NoError(err)
 
-	s.NoError(bucket.Open())
+	s.NoError(bucket.Open(ctx))
 
 	s.Len(bucket.contents(remotePrefix), 0)
 
-	err = bucket.SyncTo(pwd, remotePrefix, false)
+	err = bucket.SyncTo(ctx, pwd, remotePrefix, NewDefaultSyncOptions())
 	s.NoError(err)
 
 	s.Len(s.b.contents(remotePrefix), 0)
 }
 
 func (s *BucketSuite) TestCloneOpenBucketReturnsOpenBucket() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.False(s.b.IsOpen())
-	s.NoError(s.b.Open())
+	s.NoError(s.b.Open(ctx))
 	s.True(s.b.IsOpen())
 
-	clone, err := s.b.Clone()
+	clone, err := s.b.Clone(ctx)
 	s.NoError(err)
 	s.True(clone.IsOpen())
 }
 
 func (s *BucketSuite) TestSyncFromDownloadsFiles() {
-	pwd, err := os.Getwd()
-	s.NoError(err)
-	s.NoError(s.b.Open())
+	pwd := GetDirectoryOfFile()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.NoError(s.b.Open(ctx))
 
 	remotePrefix := filepath.Join(s.uuid, "sync-from-one")
 
 	s.Len(s.b.contents(remotePrefix), 0)
 
 	// populate bucket.
-	err = s.b.SyncTo(pwd, remotePrefix, false)
-	s.NoError(err)
+	s.NoError(s.b.SyncTo(ctx, pwd, remotePrefix, NewDefaultSyncOptions()))
 	numFiles, err := numFilesInPath(pwd, false)
 	s.NoError(err)
 
@@ -502,7 +558,7 @@ func (s *BucketSuite) TestSyncFromDownloadsFiles() {
 	// do this in a loop to make sure it's idempotent.
 	for i := 0; i < 3; i++ {
 		local := filepath.Join(s.tempDir, "sync-from-one")
-		err = s.b.SyncFrom(local, remotePrefix, false)
+		err = s.b.SyncFrom(ctx, local, remotePrefix, NewDefaultSyncOptions())
 		s.NoError(err)
 
 		// make sure we pulled the right number of files out of the
@@ -514,19 +570,19 @@ func (s *BucketSuite) TestSyncFromDownloadsFiles() {
 }
 
 func (s *BucketSuite) TestSyncFromDryRunDoesNotUploadFiles() {
-	pwd, err := os.Getwd()
-	s.NoError(err)
-
+	pwd := GetDirectoryOfFile()
 	remotePrefix := filepath.Join(s.uuid, "sync-to-none")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	bucket, err := s.b.DryRunClone()
+	bucket, err := s.b.DryRunClone(ctx)
 	s.NoError(err)
 
-	s.NoError(bucket.Open())
+	s.NoError(bucket.Open(ctx))
 
 	s.Len(bucket.contents(remotePrefix), 0)
 
-	err = bucket.SyncFrom(pwd, remotePrefix, false)
+	err = bucket.SyncFrom(ctx, pwd, remotePrefix, NewDefaultSyncOptions())
 	s.NoError(err)
 
 	s.Len(s.b.contents(remotePrefix), 0)
@@ -534,19 +590,19 @@ func (s *BucketSuite) TestSyncFromDryRunDoesNotUploadFiles() {
 }
 
 func (s *BucketSuite) TestSyncFromTestWhenFilesHaveChanged() {
-	pwd, err := os.Getwd()
-	s.NoError(err)
-	s.NoError(s.b.Open())
+	pwd := GetDirectoryOfFile()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.NoError(s.b.Open(ctx))
 
 	remotePrefix := filepath.Join(s.uuid, "sync-round-trip")
-	err = s.b.SyncTo(pwd, remotePrefix, false)
-	s.NoError(err)
+	s.NoError(s.b.SyncTo(ctx, pwd, remotePrefix, NewDefaultSyncOptions()))
 
 	local := filepath.Join(s.tempDir, "sync-round-trip")
-	err = s.b.SyncFrom(local, remotePrefix, false)
-	s.NoError(err)
+	s.NoError(s.b.SyncFrom(ctx, local, remotePrefix, NewDefaultSyncOptions()))
 
-	err = filepath.Walk(local, func(p string, info os.FileInfo, err error) error {
+	s.NoError(filepath.Walk(local, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -554,13 +610,11 @@ func (s *BucketSuite) TestSyncFromTestWhenFilesHaveChanged() {
 		s.NoError(os.Truncate(p, 4))
 
 		return nil
-	})
-	s.NoError(err)
+	}))
 
-	err = s.b.SyncFrom(local, remotePrefix, false)
-	s.NoError(err)
+	s.NoError(s.b.SyncFrom(ctx, local, remotePrefix, NewDefaultSyncOptions()))
 
-	err = filepath.Walk(local, func(p string, info os.FileInfo, err error) error {
+	s.NoError(filepath.Walk(local, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -574,7 +628,5 @@ func (s *BucketSuite) TestSyncFromTestWhenFilesHaveChanged() {
 		}
 
 		return nil
-	})
-
-	s.NoError(err)
+	}))
 }

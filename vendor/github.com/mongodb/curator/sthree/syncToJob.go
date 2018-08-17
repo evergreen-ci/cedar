@@ -1,6 +1,7 @@
 package sthree
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
@@ -11,8 +12,8 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
-	"github.com/pkg/errors"
 	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
 )
 
 // Not making this job public or registering it with amboy because it
@@ -67,7 +68,7 @@ func (j *syncToJob) doPut() error {
 // local file if a remote file exists, and if both the local and
 // remote file exists, compares the hashes between these files and
 // uploads the local file if it differs from the remote file.
-func (j *syncToJob) Run() {
+func (j *syncToJob) Run(_ context.Context) {
 	defer j.MarkComplete()
 
 	// if the local file doesn't exist or has disappeared since

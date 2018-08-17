@@ -3,7 +3,9 @@ package pool
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/job"
@@ -47,8 +49,9 @@ func (s *LocalWorkersSuite) SetupTest() {
 func (s *LocalWorkersSuite) TestPanicJobsDoNotPanicHarness() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	wg := &sync.WaitGroup{}
 
-	s.NotPanics(func() { worker(ctx, jobsChanWithPanicingJobs(ctx, s.size), s.queue) })
+	s.NotPanics(func() { worker(ctx, jobsChanWithPanicingJobs(ctx, s.size), s.queue, wg) })
 }
 
 func (s *LocalWorkersSuite) TestConstructedInstanceImplementsInterface() {
@@ -94,7 +97,7 @@ func (s *LocalWorkersSuite) TestPoolStartsAndProcessesJobs() {
 	s.True(s.pool.Started())
 	s.True(s.queue.Started())
 
-	amboy.Wait(s.queue)
+	amboy.WaitInterval(s.queue, 100*time.Millisecond)
 
 	counter := 0
 	for j := range s.queue.Results(ctx) {
@@ -152,12 +155,12 @@ func TestLocalWorkerPoolConstructorDoesNotAllowSizeValuesLessThanOne(t *testing.
 }
 
 func TestPanicJobPanics(t *testing.T) {
-	assert := assert.New(t)
+	assert := assert.New(t) // nolint
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	for j := range jobsChanWithPanicingJobs(ctx, 8) {
-		assert.Panics(func() { j.Run() })
+	for wu := range jobsChanWithPanicingJobs(ctx, 8) {
+		assert.Panics(func() { wu.job.Run(ctx) })
 	}
 
 }

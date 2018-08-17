@@ -4,7 +4,6 @@ import:
   version: ^1.17.0
 - package: github.com/mongodb/amboy
 - package: github.com/gonum/gonum
-- package: golang.org/x/net
 - package: golang.org/x/exp
 - package: github.com/mongodb/grip
 - package: github.com/pkg/errors
@@ -13,7 +12,7 @@ import:
 - package: github.com/pmezard/go-difflib
 - package: github.com/davecgh/go-spew
 - package: github.com/mongodb/anser
-- package: github.com/tychoish/gimlet
+- package: github.com/evergreen-ci/gimlet
 - package: gopkg.in/mgo.v2
 - package: github.com/awalterschulze/gographviz
 - package: github.com/tychoish/tarjan

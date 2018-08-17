@@ -5,6 +5,8 @@ import (
 
 	"github.com/evergreen-ci/sink/operations"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -46,15 +48,18 @@ func buildApp() *cli.App {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		loggingSetup(app.Name, c.String("level"))
-		return nil
+		return errors.WithStack(loggingSetup(app.Name, c.String("level")))
 	}
 
 	return app
 }
 
 // logging setup is separate to make it unit testable
-func loggingSetup(name, level string) {
-	grip.SetName(name)
-	grip.SetThreshold(level)
+func loggingSetup(name, logLevel string) error {
+	sender := grip.GetSender()
+	sender.SetName(name)
+
+	lvl := sender.Level()
+	lvl.Threshold = level.FromString(logLevel)
+	return errors.WithStack(sender.SetLevel(lvl))
 }

@@ -2,12 +2,14 @@ package send
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -32,11 +34,13 @@ func TestSenderSuite(t *testing.T) {
 func (s *SenderSuite) SetupSuite() {
 	var err error
 	s.rand = rand.New(rand.NewSource(time.Now().Unix()))
-	s.tempDir, err = ioutil.TempDir("", fmt.Sprintf("%v", s.rand))
+	s.tempDir, err = ioutil.TempDir("", "sender-test-")
 	s.Require().NoError(err)
 }
 
 func (s *SenderSuite) SetupTest() {
+	s.Require().NoError(os.MkdirAll(s.tempDir, 0766))
+
 	l := LevelInfo{level.Info, level.Notice}
 	s.senders = map[string]Sender{
 		"slack": &slackJournal{Base: NewBase("slack")},
@@ -57,6 +61,26 @@ func (s *SenderSuite) SetupTest() {
 	s.senders["native"] = native
 
 	s.senders["writer"] = NewWriterSender(native)
+
+	var plain, plainerr, plainfile Sender
+	plain, err = NewPlainLogger("plain", l)
+	s.Require().NoError(err)
+	s.senders["plain"] = plain
+
+	plainerr, err = NewPlainErrorLogger("plain.err", l)
+	s.Require().NoError(err)
+	s.senders["plain.err"] = plainerr
+
+	plainfile, err = NewPlainFileLogger("plain.file", filepath.Join(s.tempDir, "plain.file"), l)
+	s.Require().NoError(err)
+	s.senders["plain.file"] = plainfile
+
+	var asyncOne, asyncTwo Sender
+	asyncOne, err = NewNativeLogger("async-one", l)
+	s.Require().NoError(err)
+	asyncTwo, err = NewNativeLogger("async-two", l)
+	s.Require().NoError(err)
+	s.senders["async"] = NewAsyncGroupSender(context.Background(), 16, asyncOne, asyncTwo)
 
 	nativeErr, err := NewErrorLogger("error", l)
 	s.Require().NoError(err)
@@ -98,9 +122,6 @@ func (s *SenderSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.senders["multi"] = multi
 
-	s.tempDir, err = ioutil.TempDir("", "sender-test")
-	s.Require().NoError(err)
-
 	slackMocked, err := NewSlackLogger(&SlackOptions{
 		client:   &slackClientMock{},
 		Hostname: "testhost",
@@ -126,12 +147,16 @@ func (s *SenderSuite) SetupTest() {
 	s.senders["github-comment"], err = NewGithubCommentLogger("ghcomment", 100, &GithubOptions{})
 	s.Require().NoError(err)
 
+	s.senders["github-status"], err = NewGithubStatusLogger("ghstatus", &GithubOptions{}, "master")
+	s.Require().NoError(err)
+
 	s.senders["gh-mocked"] = &githubLogger{
 		Base: NewBase("gh-mocked"),
 		opts: &GithubOptions{},
 		gh:   &githubClientMock{},
 	}
 	s.NoError(s.senders["gh-mocked"].SetFormatter(MakeDefaultFormatter()))
+
 	s.senders["gh-comment-mocked"] = &githubCommentLogger{
 		Base:  NewBase("gh-mocked"),
 		opts:  &GithubOptions{},
@@ -139,13 +164,24 @@ func (s *SenderSuite) SetupTest() {
 		issue: 200,
 	}
 	s.NoError(s.senders["gh-comment-mocked"].SetFormatter(MakeDefaultFormatter()))
+
+	s.senders["gh-status-mocked"] = &githubStatusMessageLogger{
+		Base: NewBase("gh-status-mocked"),
+		opts: &GithubOptions{},
+		gh:   &githubClientMock{},
+		ref:  "master",
+	}
+	s.NoError(s.senders["gh-status-mocked"].SetFormatter(MakeDefaultFormatter()))
 }
 
-func (s *SenderSuite) TeardownTest() {
-	s.Require().NoError(os.RemoveAll(s.tempDir))
-	for _, sender := range s.senders {
-		s.NoError(sender.Close())
+func (s *SenderSuite) TearDownTest() {
+	if runtime.GOOS == "windows" {
+		_ = s.senders["native-file"].Close()
+		_ = s.senders["callsite-file"].Close()
+		_ = s.senders["json"].Close()
+		_ = s.senders["plain.file"].Close()
 	}
+	s.Require().NoError(os.RemoveAll(s.tempDir))
 }
 
 func (s *SenderSuite) functionalMockSenders() map[string]Sender {
@@ -163,7 +199,7 @@ func (s *SenderSuite) functionalMockSenders() map[string]Sender {
 	return out
 }
 
-func (s *SenderSuite) TeardownSuite() {
+func (s *SenderSuite) TearDownSuite() {
 	s.NoError(s.senders["internal"].Close())
 }
 
@@ -206,6 +242,13 @@ func (s *SenderSuite) TestLevelSetterRejectsInvalidSettings() {
 	}
 
 	for n, sender := range s.senders {
+		if n == "async" {
+			// the async sender doesn't meaningfully have
+			// its own level because it passes this down
+			// to its constituent senders.
+			continue
+		}
+
 		s.NoError(sender.SetLevel(LevelInfo{level.Debug, level.Alert}))
 		for _, l := range levels {
 			s.True(sender.Level().Valid(), string(n))
@@ -218,7 +261,7 @@ func (s *SenderSuite) TestLevelSetterRejectsInvalidSettings() {
 	}
 }
 
-func (s *SenderSuite) TestCloserShouldUsusallyNoop() {
+func (s *SenderSuite) TestCloserShouldUsuallyNoop() {
 	for t, sender := range s.senders {
 		s.NoError(sender.Close(), string(t))
 	}
@@ -240,43 +283,93 @@ func TestBaseConstructor(t *testing.T) {
 	assert.NoError(err)
 	handler := ErrorHandlerFromSender(sink)
 	assert.Equal(0, sink.Len())
+	assert.False(sink.HasMessage())
 
-	for outterIdx, n := range []string{"logger", "grip", "sender"} {
+	for _, n := range []string{"logger", "grip", "sender"} {
 		made := MakeBase(n, func() {}, func() error { return nil })
 		newed := NewBase(n)
 		assert.Equal(made.name, newed.name)
 		assert.Equal(made.level, newed.level)
 		assert.Equal(made.closer(), newed.closer())
 
-		assert.Equal(0, sink.Len())
-
-		for innerIdx, s := range []*Base{made, newed} {
+		for _, s := range []*Base{made, newed} {
 			assert.Error(s.SetFormatter(nil))
 			assert.Error(s.SetErrorHandler(nil))
 			assert.NoError(s.SetErrorHandler(handler))
 			s.ErrorHandler(errors.New("failed"), message.NewString("fated"))
-			assert.True(sink.HasMessage())
-
-			assert.Equal(2, sink.Len(), "%d.%d", outterIdx, innerIdx)
-
-			errMsg := sink.GetMessage()
-			assert.Equal("failed", errMsg.Message.String())
-			assert.Equal("failed", errMsg.Rendered)
-			assert.Equal(level.Error, errMsg.Priority)
-			assert.True(errMsg.Logged)
-
-			msgMsg := sink.GetMessage()
-			assert.Equal("fated", msgMsg.Message.String())
-			assert.Equal("fated", msgMsg.Rendered)
-			assert.Equal(level.Invalid, msgMsg.Priority)
-			assert.False(msgMsg.Logged)
-
-			assert.Equal(0, sink.Len())
-			assert.False(sink.HasMessage())
-
-			s.ErrorHandler(nil, message.NewString("really-fated"))
-			assert.Equal(0, sink.Len())
-			assert.False(sink.HasMessage())
 		}
 	}
+
+	assert.Equal(6, sink.Len())
+	assert.True(sink.HasMessage())
+}
+
+func (s *SenderSuite) TestGithubStatusLogger() {
+	sender := s.senders["gh-status-mocked"].(*githubStatusMessageLogger)
+	client := sender.gh.(*githubClientMock)
+
+	// failed send test
+	client.failSend = true
+	c := message.NewGithubStatusMessage(level.Info, "example", message.GithubStatePending,
+		"https://example.com/hi", "description")
+
+	s.NoError(sender.SetErrorHandler(func(err error, c message.Composer) {
+		s.Equal("failed to create status", err.Error())
+	}))
+	sender.Send(c)
+	s.Equal(0, client.numSent)
+
+	// successful send test
+	client.failSend = false
+	s.NoError(sender.SetErrorHandler(func(err error, c message.Composer) {
+		s.T().Errorf("Got error, but shouldn't have: %s for composer: %s", err.Error(), c.String())
+	}))
+	sender.Send(c)
+	s.Equal(1, client.numSent)
+
+	// WithRepo constructor should override sender's defaults
+	p := message.GithubStatus{
+		Owner:       "somewhere",
+		Repo:        "over",
+		Ref:         "therainbow",
+		Context:     "example",
+		State:       message.GithubStatePending,
+		URL:         "https://example.com/hi",
+		Description: "description",
+	}
+	c = message.NewGithubStatusMessageWithRepo(level.Info, p)
+	s.True(c.Loggable())
+	sender.Send(c)
+	s.Equal(2, client.numSent)
+	s.Equal("somewhere/over@therainbow", client.lastRepo)
+
+	// don't send invalid messages
+	c = message.NewGithubStatusMessage(level.Info, "", message.GithubStatePending,
+		"https://example.com/hi", "description")
+	s.False(c.Loggable())
+	sender.Send(c)
+	s.Equal(2, client.numSent)
+}
+
+func (s *SenderSuite) TestGithubCommentLogger() {
+	sender := s.senders["gh-comment-mocked"].(*githubCommentLogger)
+	client := sender.gh.(*githubClientMock)
+
+	// failed send test
+	client.failSend = true
+	c := message.NewString("hi")
+
+	s.NoError(sender.SetErrorHandler(func(err error, c message.Composer) {
+		s.Equal("failed to create comment", err.Error())
+	}))
+	sender.Send(c)
+	s.Equal(0, client.numSent)
+
+	// successful send test
+	client.failSend = false
+	s.NoError(sender.SetErrorHandler(func(err error, c message.Composer) {
+		s.T().Errorf("Got error, but shouldn't have: %s for composer: %s", err.Error(), c.String())
+	}))
+	sender.Send(c)
+	s.Equal(1, client.numSent)
 }
