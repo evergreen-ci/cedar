@@ -43,7 +43,7 @@ func (c *EvergreenClient) SetAllowIncompleteResults(shouldAllow bool) {
 
 // getURL returns a URL for the given path.
 func (c *EvergreenClient) getURL(path string) string {
-	if strings.HasPrefix(path, "/api/rest/v2/") {
+	if strings.HasPrefix(path, "/rest/v2/") {
 		return c.apiRoot + path
 	}
 
@@ -51,7 +51,7 @@ func (c *EvergreenClient) getURL(path string) string {
 		path = path[1:]
 	}
 
-	return strings.Join([]string{c.apiRoot, "api", "rest", "v2", path}, "/")
+	return strings.Join([]string{c.apiRoot, "rest", "v2", path}, "/")
 }
 
 func (c *EvergreenClient) getBackoff() *backoff.Backoff {

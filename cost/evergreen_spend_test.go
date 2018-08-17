@@ -28,7 +28,7 @@ func TestEvergreenSpendSuite(t *testing.T) {
 
 func (s *EvergreenSpendSuite) SetupSuite() {
 	s.info = &model.EvergreenConnectionInfo{
-		RootURL: "https://evergreen.mongodb.com/rest/v2/",
+		RootURL: "https://evergreen.mongodb.com",
 		User:    "USER",
 		Key:     "KEY",
 	}

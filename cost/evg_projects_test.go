@@ -22,12 +22,13 @@ type ProjectSuite struct {
 }
 
 func TestProjectsSuite(t *testing.T) {
+	t.Skip("integration tests not supported by the service at this time")
 	suite.Run(t, new(ProjectSuite))
 }
 
 func (s *ProjectSuite) SetupSuite() {
 	s.info = &model.EvergreenConnectionInfo{
-		RootURL: "https://evergreen.mongodb.com/",
+		RootURL: "https://evergreen.mongodb.com",
 		User:    "USER",
 		Key:     "KEY",
 	}

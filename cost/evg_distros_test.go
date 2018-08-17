@@ -22,6 +22,7 @@ type DistrosSuite struct {
 }
 
 func TestDistrosSuite(t *testing.T) {
+	t.Skip("integration tests not supported by the service at this time")
 	suite.Run(t, new(DistrosSuite))
 }
 

@@ -1,6 +1,7 @@
 package units
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ func TestSimpleParser(t *testing.T) {
 		Content: []string{"foo", "bar"},
 	}
 	assert.NoError(parser.Validate())
-	parser.Run()
+	parser.Run(context.TODO())
 	// assert.True(parser.Completed())
 
 	// TODO: setup local queue or db service as a prereq
