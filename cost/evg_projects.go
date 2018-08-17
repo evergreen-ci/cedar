@@ -3,6 +3,7 @@ package cost
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -181,7 +182,7 @@ func (c *EvergreenClient) readTaskCostsByProject(ctx context.Context, projectID 
 // GetEvergreenProjectsData retrieves project cost information from Evergreen.
 func (c *EvergreenClient) GetEvergreenProjectsData(ctx context.Context, starttime time.Time, duration time.Duration) ([]EvergreenProjectUnit, error) {
 	st := starttime.Format(time.RFC3339)
-	dur := duration.String()
+	dur := fmt.Sprint(duration)
 
 	projectIDs, err := c.getProjectIDs(ctx)
 	if err != nil {

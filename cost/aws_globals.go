@@ -11,12 +11,9 @@ const (
 	utcLayout      = "2006-01-02T15:04:05.000Z"
 	ondemandLayout = "2006-01-02 15:04:05 MST"
 
-	spot      = ec2.InstanceLifecycleTypeSpot
-	scheduled = ec2.InstanceLifecycleTypeScheduled
-	reserved  = "reserved"
-	onDemand  = "on-demand"
-
-	startTag = "start-time"
+	spot     = ec2.InstanceLifecycleTypeSpot
+	reserved = "reserved"
+	onDemand = "on-demand"
 	marked   = "marked-for-termination"
 )
 

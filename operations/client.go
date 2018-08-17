@@ -2,6 +2,7 @@ package operations
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"context"
 )
 
 // Client returns the entry point for the ./sink client sub-command,
@@ -286,7 +286,8 @@ func systemInfo() cli.Command {
 }
 
 func systemInfoGet() cli.Command {
-	host, _ := os.Hostname()
+	host, err := os.Hostname()
+	grip.Warning(err)
 
 	return cli.Command{
 		Name:  "get",

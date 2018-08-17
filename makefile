@@ -16,7 +16,7 @@ lintDeps := github.com/alecthomas/gometalinter
 lintArgs := --tests --deadline=14m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
-lintArgs += --disable="gotype" --disable="gas" --enable="goimports" --disable="golint"
+lintArgs += --disable="gotype" --disable="gosec" --enable="goimports" --disable="golint"
 lintArgs += --skip="build" --skip="buildscripts"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15

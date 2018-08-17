@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+const startTag = "start-time"
+
 func init() {
 	grip.SetName("sink.amazon.test")
-
 }
 
 type AWSClientSuite struct {
@@ -158,6 +159,7 @@ func (s *AWSClientSuite) TestPopulateItemFromOnDemand() {
 }
 
 func (s *AWSClientSuite) TestGetSpotRangeTerminatedbyUser() {
+
 	key := startTag
 	val := "20170705164309"
 	tag := ec2.Tag{

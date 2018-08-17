@@ -3,6 +3,7 @@ package cost
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"runtime"
 	"strings"
@@ -120,7 +121,7 @@ func (c *EvergreenClient) GetEvergreenDistroCosts(ctx context.Context, startAt t
 // from the evergreen API given a distroID.
 func (c *EvergreenClient) GetDistroCost(ctx context.Context, distroID string, startAt time.Time, duration time.Duration) (*EvergreenDistroCost, error) {
 	st := startAt.Format("2006-01-02T15:04:05Z07:00")
-	dur := strings.TrimRight(duration.String(), "0s")
+	dur := strings.TrimRight(fmt.Sprintf("%s ", duration), "0s ")
 
 	data, link, err := c.get(ctx, "/cost/distro/"+distroID+"?starttime="+st+"&duration="+dur)
 	if link != "" {

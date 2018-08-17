@@ -510,11 +510,7 @@ func (c *AWSClient) GetEC2Instances(ctx context.Context, reportRange util.TimeRa
 	}
 
 	grip.Info("Getting EC2 Spot Instances")
-	if err := c.getEC2SpotInstances(ctx, items, reportRange); err != nil {
-		return err
-	}
-
-	return nil
+	return c.getEC2SpotInstances(ctx, items, reportRange)
 }
 
 // addEBSItemsPage recursively iterates through pages of EBS volumes

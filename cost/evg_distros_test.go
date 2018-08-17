@@ -66,10 +66,13 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 	// Test valid failures - i.e. searching for non-existent distros, invalid time.
 	dc, err = Client.GetDistroCost(ctx, distroID, t, time.Hour)
 	s.Error(err)
+	s.Nil(dc)
 	dc, err = Client.GetDistroCost(ctx, "fake", t, time.Hour)
 	s.Error(err)
+	s.Nil(dc)
 	dc, err = Client.GetDistroCost(ctx, distroID, time.Time{}, 0)
 	s.Error(err)
+	s.Nil(dc)
 }
 
 // Tests GetEvergreenDistrosData(), which retrieves all distro costs

@@ -47,11 +47,7 @@ func (c *EvergreenClient) getURL(path string) string {
 		return c.apiRoot + path
 	}
 
-	if strings.HasPrefix(path, "/") {
-		path = path[1:]
-	}
-
-	return strings.Join([]string{c.apiRoot, "rest", "v2", path}, "/")
+	return strings.Join([]string{c.apiRoot, "rest", "v2", strings.TrimPrefix(path, "/")}, "/")
 }
 
 func (c *EvergreenClient) getBackoff() *backoff.Backoff {
@@ -95,7 +91,7 @@ func (c *EvergreenClient) retryRequest(ctx context.Context, method, path string)
 		}
 	}
 
-	return nil, errors.Errorf("%s of %s reached maximum retries", c.maxRetries, c.maxRetries)
+	return nil, errors.Errorf("%d of %d reached maximum retries", c.maxRetries, c.maxRetries)
 }
 
 // doReq performs a request of the given method type against path.
@@ -136,7 +132,7 @@ func (c *EvergreenClient) doReq(ctx context.Context, method, path string) (*http
 			"path":     url,
 			"method":   method,
 			"user":     c.user,
-			"duration": time.Now().Sub(startAt).String(),
+			"duration": time.Since(startAt).String(),
 		}
 		defer resp.Body.Close()
 		if data, err := ioutil.ReadAll(resp.Body); err == nil {
@@ -158,7 +154,7 @@ func (c *EvergreenClient) doReq(ctx context.Context, method, path string) (*http
 		"method":   method,
 		"url":      url,
 		"user":     c.user,
-		"duration": time.Now().Sub(startAt).String(),
+		"duration": time.Since(startAt).String(),
 	})
 
 	return resp, nil

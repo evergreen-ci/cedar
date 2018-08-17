@@ -19,7 +19,6 @@ import (
 const (
 	defaultClientPort int = 3000
 	maxClientPort         = 65535
-	jsonMimeType          = "application/json"
 )
 
 // Client provides an interface for interacting with a remote amboy
