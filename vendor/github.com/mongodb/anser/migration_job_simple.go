@@ -1,11 +1,15 @@
 package anser
 
 import (
+	"context"
+
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/model"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -28,7 +32,6 @@ func makeSimpleMigration() *simpleMigrationJob {
 			JobType: amboy.JobType{
 				Name:    "simple-migration",
 				Version: 0,
-				Format:  amboy.BSON,
 			},
 		},
 	}
@@ -40,7 +43,16 @@ type simpleMigrationJob struct {
 	MigrationHelper `bson:"-" json:"-" yaml:"-"`
 }
 
-func (j *simpleMigrationJob) Run() {
+func (j *simpleMigrationJob) Run(_ context.Context) {
+	grip.Info(message.Fields{
+		"message":   "starting migration",
+		"operation": "simple",
+		"migration": j.Definition.Migration,
+		"target":    j.Definition.ID,
+		"id":        j.ID(),
+		"ns":        j.Definition.Namespace,
+	})
+
 	defer j.FinishMigration(j.Definition.Migration, &j.Base)
 
 	env := j.Env()

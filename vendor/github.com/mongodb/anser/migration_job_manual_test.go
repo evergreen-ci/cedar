@@ -1,25 +1,27 @@
 package anser
 
 import (
+	"context"
 	"testing"
 
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/mongodb/amboy/registry"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/mock"
 	"github.com/mongodb/anser/model"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
-func passingManualMigrationOp(s db.Session, d bson.Raw) error { return nil }
-func failingManualMigrationOp(s db.Session, d bson.Raw) error { return errors.New("manual fail") }
+func passingManualMigrationOp(s db.Session, d bson.RawD) error { return nil }
+func failingManualMigrationOp(s db.Session, d bson.RawD) error { return errors.New("manual fail") }
 
 func TestManualMigration(t *testing.T) {
 	assert := assert.New(t)
 	env := mock.NewEnvironment()
 	mh := &MigrationHelperMock{Environment: env}
+	ctx := context.Background()
 	const jobTypeName = "manual-migration"
 
 	factory, err := registry.GetJobFactory(jobTypeName)
@@ -41,7 +43,7 @@ func TestManualMigration(t *testing.T) {
 	assert.Equal(jobTypeName, migration.Type().Name)
 
 	job.MigrationHelper = mh
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -58,7 +60,7 @@ func TestManualMigration(t *testing.T) {
 	job.MigrationHelper = mh
 	job.Definition.OperationName = "passing"
 	env.SessionError = errors.New("no session, sorry")
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -71,7 +73,7 @@ func TestManualMigration(t *testing.T) {
 	job.MigrationHelper = mh
 	job.Definition.OperationName = "passing"
 	env.SessionError = nil
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	assert.False(job.HasErrors())
 
@@ -79,7 +81,7 @@ func TestManualMigration(t *testing.T) {
 	job = factory().(*manualMigrationJob)
 	job.MigrationHelper = mh
 	job.Definition.OperationName = "failing"
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -94,7 +96,7 @@ func TestManualMigration(t *testing.T) {
 	job.MigrationHelper = mh
 	env.Session = mock.NewSession()
 	env.Session.DB("foo").C("bar").(*mock.Collection).QueryError = errors.New("query error")
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()

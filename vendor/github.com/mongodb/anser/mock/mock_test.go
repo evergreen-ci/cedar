@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/mongodb/amboy/dependency"
-	"github.com/stretchr/testify/assert"
 	"github.com/mongodb/anser"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestInterfaces(t *testing.T) {
@@ -24,4 +24,5 @@ func TestInterfaces(t *testing.T) {
 	assert.Implements((*model.DependencyNetworker)(nil), &DependencyNetwork{})
 	assert.Implements((*anser.Environment)(nil), &Environment{})
 	assert.Implements((*dependency.Manager)(nil), &DependencyManager{})
+	assert.Implements((*db.BufferedInserter)(nil), &BufferedInserter{})
 }

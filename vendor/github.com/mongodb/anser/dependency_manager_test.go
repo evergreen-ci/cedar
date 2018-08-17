@@ -6,10 +6,10 @@ import (
 
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/registry"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"github.com/mongodb/anser/mock"
 	"github.com/mongodb/anser/model"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -41,16 +41,6 @@ func (s *DependencyManagerSuite) TestFactory() {
 func (s *DependencyManagerSuite) TestDefaultTypeInfo() {
 	s.Zero(s.dep.MigrationID)
 	s.Equal(s.dep.Type().Name, "anser-migration")
-}
-
-func (s *DependencyManagerSuite) TestStateIsPassedIfNoPendingMigrations() {
-	// this is the default state of the mock
-	s.Equal(s.dep.State(), dependency.Passed)
-}
-
-func (s *DependencyManagerSuite) TestStateIsUnresolvedIfPendingMigrationsError() {
-	s.helper.NumPendingMigrations = -1
-	s.Equal(s.dep.State(), dependency.Unresolved)
 }
 
 func (s *DependencyManagerSuite) TestNoEdgesReported() {

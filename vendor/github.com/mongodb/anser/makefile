@@ -1,7 +1,7 @@
 # start project configuration
 name := anser
 buildDir := build
-packages := $(name) mock model db
+packages := $(name) mock model db bsonutil
 orgPath := github.com/mongodb
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -23,9 +23,10 @@ gobin := $(shell which go)
 deps := github.com/mongodb/amboy
 deps += github.com/mongodb/grip
 deps += github.com/pkg/errors
-deps += golang.org/x/net/context
-deps += gopkg.in/mgo.v2
 deps += github.com/stretchr/testify
+deps += github.com/tychoish/tarjan
+deps += github.com/satori/go.uuid
+deps += gopkg.in/mgo.v2
 # end project dependencies
 
 
@@ -175,6 +176,9 @@ testArgs += -test.run='$(RUN_TEST)'
 endif
 ifneq (,$(RUN_CASE))
 testArgs += -testify.m='$(RUN_CASE)'
+endif
+ifneq (,$(RUN_COUNT))
+testArgs += -test.count='$(RUN_COUNT)'
 endif
 #  targets to compile
 $(buildDir)/test.%:$(testSrcFiles) $(coverDeps) $(deps)

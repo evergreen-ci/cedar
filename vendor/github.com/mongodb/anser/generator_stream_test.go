@@ -1,15 +1,16 @@
 package anser
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/mongodb/amboy/registry"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/mongodb/anser/mock"
 	"github.com/mongodb/anser/model"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 type doc struct {
@@ -19,6 +20,7 @@ type doc struct {
 func TestStreamMigrationGenerator(t *testing.T) {
 	const jobTypeName = "stream-migration-generator"
 
+	ctx := context.Background()
 	assert := assert.New(t)
 	env := mock.NewEnvironment()
 	mh := &MigrationHelperMock{Environment: env}
@@ -44,7 +46,7 @@ func TestStreamMigrationGenerator(t *testing.T) {
 	// check that the run method returns an error if it can't get a dependency error
 	env.NetworkError = errors.New("injected network error")
 	job.MigrationHelper = mh
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -57,7 +59,7 @@ func TestStreamMigrationGenerator(t *testing.T) {
 	job = factory().(*streamMigrationGenerator)
 	env.SessionError = errors.New("injected session error")
 	job.MigrationHelper = mh
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -72,7 +74,7 @@ func TestStreamMigrationGenerator(t *testing.T) {
 	job.MigrationHelper = mh
 	env.Session = mock.NewSession()
 	env.Session.DB("foo").C("bar").(*mock.Collection).QueryError = errors.New("query error")
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -98,11 +100,12 @@ func TestStreamMigrationGenerator(t *testing.T) {
 	job = factory().(*streamMigrationGenerator)
 	job.NS = ns
 	job.MigrationHelper = mh
+	job.Limit = 3
 	job.SetID("stream")
 	iter := &mock.Iterator{
 		ShouldIter: true,
 		Results: []interface{}{
-			&doc{"one"}, &doc{"two"}, &doc{"three"},
+			&doc{"one"}, &doc{"two"}, &doc{"three"}, &doc{"four"},
 		},
 	}
 

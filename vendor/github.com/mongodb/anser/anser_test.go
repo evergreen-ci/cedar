@@ -1,13 +1,17 @@
 package anser
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
+	"github.com/mongodb/anser/mock"
+	"github.com/mongodb/anser/model"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
-	"github.com/mongodb/anser/mock"
-	"golang.org/x/net/context"
 )
 
 type ApplicationSuite struct {
@@ -24,7 +28,7 @@ func (s *ApplicationSuite) SetupSuite()    {}
 func (s *ApplicationSuite) TearDownSuite() {}
 func (s *ApplicationSuite) SetupTest() {
 	s.app = &Application{}
-	s.env = &mock.Environment{}
+	s.env = mock.NewEnvironment()
 }
 func (s *ApplicationSuite) TearDownTest() {}
 
@@ -79,6 +83,43 @@ func (s *ApplicationSuite) TestRunDoesNotErrorWithDryRun() {
 	s.NoError(s.app.Setup(s.env))
 
 	ctx := context.Background()
-	s.app.DryRun = true
+	s.app.Options.DryRun = true
 	s.NoError(s.app.Run(ctx))
+}
+
+func (s *ApplicationSuite) TestLimitIsRespected() {
+	opts := model.GeneratorOptions{}
+	job := NewManualMigrationGenerator(s.env, opts, "").(*manualMigrationGenerator)
+
+	job.NS = model.Namespace{DB: "foo", Collection: "bar"}
+	job.Migrations = []*manualMigrationJob{
+		NewManualMigration(s.env, model.Manual{}).(*manualMigrationJob),
+		NewManualMigration(s.env, model.Manual{}).(*manualMigrationJob),
+		NewManualMigration(s.env, model.Manual{}).(*manualMigrationJob),
+	}
+
+	for idx, j := range job.Migrations {
+		j.SetID(fmt.Sprintf("job-test-%d", idx))
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.env.Queue = queue.NewLocalUnordered(2)
+	s.env.Network = mock.NewDependencyNetwork()
+
+	s.NoError(s.env.Queue.Start(ctx))
+	s.NoError(s.env.Queue.Put(job))
+	s.Equal(1, s.env.Queue.Stats().Total)
+	amboy.WaitCtxInterval(ctx, s.env.Queue, 10*time.Millisecond)
+
+	num, err := addMigrationJobs(ctx, s.env.Queue, false, 2)
+	s.NoError(err)
+	amboy.WaitCtxInterval(ctx, s.env.Queue, 100*time.Millisecond)
+
+	// two is the limit:
+	s.Equal(2, num)
+	// one generator plus two jobs:
+	s.Equal(3, s.env.Queue.Stats().Total)
+
 }

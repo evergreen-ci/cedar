@@ -4,10 +4,11 @@ import (
 	"sync"
 
 	"github.com/mongodb/amboy/job"
-	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -79,8 +80,21 @@ func (e *migrationBase) FinishMigration(name string, j *job.Base) {
 	err := e.SaveMigrationEvent(&meta)
 	if err != nil {
 		j.AddError(err)
-		grip.Warningf("encountered problem [%s] saving migration metadata", err.Error())
+		grip.Warning(message.Fields{
+			"message": "encountered problem saving migration event",
+			"id":      j.ID(),
+			"name":    name,
+			"error":   err.Error(),
+		})
+		return
 	}
+
+	grip.Debug(message.Fields{
+		"message":  "completed migration",
+		"id":       j.ID(),
+		"name":     name,
+		"metadata": meta,
+	})
 }
 
 func (e *migrationBase) PendingMigrationOperations(ns model.Namespace, q map[string]interface{}) int {

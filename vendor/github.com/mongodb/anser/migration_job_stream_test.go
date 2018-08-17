@@ -1,13 +1,14 @@
 package anser
 
 import (
+	"context"
 	"testing"
 
 	"github.com/mongodb/amboy/registry"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/mongodb/anser/mock"
 	"github.com/mongodb/anser/model"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStreamMigrationJob(t *testing.T) {
@@ -16,6 +17,7 @@ func TestStreamMigrationJob(t *testing.T) {
 		jobTypeName       = "stream-migration"
 		processorTypeName = "processor-name"
 	)
+	ctx := context.Background()
 	env := mock.NewEnvironment()
 	mh := &MigrationHelperMock{Environment: env}
 
@@ -34,7 +36,7 @@ func TestStreamMigrationJob(t *testing.T) {
 	// first we start off with a "processor not defined error"
 	job.MigrationHelper = mh
 	job.Definition.ProcessorName = processorTypeName
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -51,7 +53,7 @@ func TestStreamMigrationJob(t *testing.T) {
 	job = factory().(*streamMigrationJob)
 	job.Definition.ProcessorName = processorTypeName
 	job.MigrationHelper = mh
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()
@@ -65,7 +67,7 @@ func TestStreamMigrationJob(t *testing.T) {
 	job.MigrationHelper = mh
 	job.Definition.ProcessorName = processorTypeName
 	processor.Iter = &mock.Iterator{}
-	job.Run()
+	job.Run(ctx)
 	assert.False(job.HasErrors())
 	assert.True(job.Status().Completed)
 
@@ -75,7 +77,7 @@ func TestStreamMigrationJob(t *testing.T) {
 	job.MigrationHelper = mh
 	job.Definition.ProcessorName = processorTypeName
 	processor.MigrateError = errors.New("has error 123")
-	job.Run()
+	job.Run(ctx)
 	assert.True(job.Status().Completed)
 	if assert.True(job.HasErrors()) {
 		err = job.Error()

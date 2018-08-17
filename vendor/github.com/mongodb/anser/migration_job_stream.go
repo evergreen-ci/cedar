@@ -1,11 +1,15 @@
 package anser
 
 import (
+	"context"
+
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/model"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 )
 
 func init() {
@@ -26,7 +30,6 @@ func makeStreamProducer() *streamMigrationJob {
 			JobType: amboy.JobType{
 				Name:    "stream-migration",
 				Version: 0,
-				Format:  amboy.BSON,
 			},
 		},
 	}
@@ -38,7 +41,15 @@ type streamMigrationJob struct {
 	MigrationHelper `bson:"-" json:"-" yaml:"-"`
 }
 
-func (j *streamMigrationJob) Run() {
+func (j *streamMigrationJob) Run(_ context.Context) {
+	grip.Info(message.Fields{
+		"message":   "starting migration",
+		"migration": j.Definition.Migration,
+		"operation": "stream",
+		"id":        j.ID(),
+		"ns":        j.Definition.Namespace,
+	})
+
 	defer j.FinishMigration(j.Definition.Migration, &j.Base)
 
 	env := j.Env()

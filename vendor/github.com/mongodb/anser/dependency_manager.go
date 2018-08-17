@@ -11,9 +11,9 @@ package anser
 import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/registry"
-	"github.com/mongodb/grip"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
+	"github.com/mongodb/grip"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -24,10 +24,8 @@ func init() {
 }
 
 type migrationDependency struct {
-	MigrationID string                 `bson:"migration" json:"migration" yaml:"migration"`
-	Query       map[string]interface{} `bson:"query" json:"query" yaml:"query"`
-	NS          model.Namespace        `bson:"namespace" json:"namespace" yaml:"namespace"`
-	T           dependency.TypeInfo    `bson:"type" json:"type" yaml:"type"`
+	MigrationID string              `bson:"migration" json:"migration" yaml:"migration"`
+	T           dependency.TypeInfo `bson:"type" json:"type" yaml:"type"`
 
 	MigrationHelper `bson:"-" json:"-" yaml:"-"`
 	*dependency.JobEdges
@@ -46,13 +44,6 @@ func makeMigrationDependencyManager() *migrationDependency {
 func (d *migrationDependency) Type() dependency.TypeInfo { return d.T }
 
 func (d *migrationDependency) State() dependency.State {
-	switch num := d.PendingMigrationOperations(d.NS, d.Query); num {
-	case -1:
-		return dependency.Unresolved
-	case 0:
-		return dependency.Passed
-	}
-
 	edges := d.Edges()
 	if len(edges) == 0 {
 		return dependency.Ready
