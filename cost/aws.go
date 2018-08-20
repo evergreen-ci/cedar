@@ -139,18 +139,18 @@ func getAWSAccountByOwner(ctx context.Context, reportRange util.TimeRange, confi
 	if err = client.AddEBSItems(ctx, instances, reportRange, &config.Amazon.EBSPrices); err != nil {
 		return nil, errors.Wrap(err, "Problem getting EBS instances")
 	}
-	s3info := config.Amazon.S3Info
-	s3info.Owner = account.Name
-	ec2Service := model.AccountService{
-		Name: string(EC2Service),
+	s3conf := config.Amazon.S3Info
+	s3conf.Owner = account.Name
+	ec2Info := model.AccountService{
+		Name: string(ec2Service),
 	}
-	ebsService := model.AccountService{
-		Name: string(EBSService),
+	ebsInfo := model.AccountService{
+		Name: string(ebsService),
 	}
-	// s3Service := model.AccountService{
-	//	Name: string(amazon.S3Service),
+	// s3SInfo := model.AccountService{
+	//	Name: string(s3Service),
 	// }
-	// s3Service.Cost, err = client.GetS3Cost(&s3info, reportRange)
+	// s3Info.Cost, err = client.GetS3Cost(&s3conf, reportRange)
 	// if err != nil {
 	//	return nil, errors.Wrap(err, "Error fetching S3 Spending CSV")
 	// }
@@ -163,12 +163,12 @@ func getAWSAccountByOwner(ctx context.Context, reportRange util.TimeRange, confi
 		item := createCostItemFromAmazonItems(key, items)
 		cost := item.GetCost(reportRange)
 		accountCost += cost
-		if key.Service == EC2Service {
-			ec2Service.Cost += cost
-			ec2Service.Items = append(ec2Service.Items, item)
+		if key.Service == ec2Service {
+			ec2Info.Cost += cost
+			ec2Info.Items = append(ec2Info.Items, item)
 		} else {
-			ebsService.Cost += cost
-			ebsService.Items = append(ebsService.Items, item)
+			ebsInfo.Cost += cost
+			ebsInfo.Items = append(ebsInfo.Items, item)
 		}
 	}
 
@@ -176,9 +176,9 @@ func getAWSAccountByOwner(ctx context.Context, reportRange util.TimeRange, confi
 		Name: account.Name,
 		Cost: accountCost,
 		Services: []model.AccountService{
-			ec2Service,
-			ebsService,
-			// s3Service,
+			ec2Info,
+			ebsInfo,
+			// s3info,
 		},
 	}, nil
 }

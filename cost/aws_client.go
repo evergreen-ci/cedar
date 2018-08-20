@@ -83,7 +83,7 @@ func getTagVal(tags []*ec2.Tag, key string) (string, error) {
 // populateSpotKey creates an AWSItemKey using a spot request and the item type
 func populateSpotKey(inst *ec2.SpotInstanceRequest) AWSItemKey {
 	return AWSItemKey{
-		Service:  EC2Service,
+		Service:  ec2Service,
 		Name:     *inst.LaunchSpecification.InstanceType,
 		ItemType: spot,
 	}
@@ -92,7 +92,7 @@ func populateSpotKey(inst *ec2.SpotInstanceRequest) AWSItemKey {
 // populateReservedKey creates an AWSItemKey using a reserved instance
 func populateReservedKey(inst *ec2.ReservedInstances) AWSItemKey {
 	return AWSItemKey{
-		Service:      EC2Service,
+		Service:      ec2Service,
 		Name:         *inst.InstanceType,
 		ItemType:     reserved,
 		Duration:     *inst.Duration,
@@ -103,7 +103,7 @@ func populateReservedKey(inst *ec2.ReservedInstances) AWSItemKey {
 // populateOnDemandKey creates an AWSItemKey using an on-demand instance
 func populateOnDemandKey(inst *ec2.Instance) AWSItemKey {
 	return AWSItemKey{
-		Service:  EC2Service,
+		Service:  ec2Service,
 		Name:     *inst.InstanceType,
 		ItemType: onDemand,
 	}
@@ -536,7 +536,7 @@ func (c *AWSClient) addEBSItemsPage(ctx context.Context, items *AWSServices, rep
 		}
 		key := AWSItemKey{
 			ItemType: *vol.VolumeType,
-			Service:  EBSService,
+			Service:  ebsService,
 		}
 		item := AWSItem{}
 		if *vol.State == ec2.VolumeStateAvailable || *vol.State == ec2.VolumeStateInUse {
