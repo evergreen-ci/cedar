@@ -115,7 +115,7 @@ func populateItemFromSpot(req *ec2.SpotInstanceRequest) *AWSItem {
 	if *req.State == ec2.SpotInstanceStateOpen || *req.State == ec2.SpotInstanceStateFailed {
 		return nil
 	}
-	if req.Status == nil || stringInSlice(*req.Status.Code, ignoreCodes) {
+	if req.Status == nil || util.StringInSlice(*req.Status.Code, ignoreCodes) {
 		return nil
 	}
 
@@ -181,7 +181,7 @@ func getSpotRange(req *ec2.SpotInstanceRequest) util.TimeRange {
 	}
 	if req.Status != nil && req.Status.UpdateTime != nil {
 		endTime = *req.Status.UpdateTime
-		if stringInSlice(*req.Status.Code, amazonTerminated) {
+		if util.StringInSlice(*req.Status.Code, amazonTerminated) {
 			endTime = endTime.Add(-time.Hour)
 			// If our instance was running for less than an hour
 			if endTime.Before(startTime) {

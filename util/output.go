@@ -1,4 +1,4 @@
-package operations
+package util
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func writeJSON(fn string, data interface{}) error {
+func WriteJSON(fn string, data interface{}) error {
 	out, err := json.MarshalIndent(data, "", "   ")
 	if err != nil {
 		return errors.Wrap(err, "problem writing data")
@@ -23,7 +23,7 @@ func writeJSON(fn string, data interface{}) error {
 	return errors.WithStack(writeBytes(f, out))
 }
 
-func printJSON(data interface{}) error {
+func PrintJSON(data interface{}) error {
 	out, err := json.MarshalIndent(data, "", "   ")
 	if err != nil {
 		return errors.Wrap(err, "problem writing data")
@@ -33,7 +33,7 @@ func printJSON(data interface{}) error {
 	return nil
 }
 
-func writeString(fn string, data string) error {
+func WriteString(fn string, data string) error {
 	f, err := os.Create(fn)
 	if err != nil {
 		return errors.WithStack(err)

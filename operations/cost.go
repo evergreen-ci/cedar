@@ -10,6 +10,7 @@ import (
 	"github.com/evergreen-ci/sink/cost"
 	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/sink/units"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -64,7 +65,7 @@ func dumpCostConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			return errors.WithStack(writeJSON(fileName, conf))
+			return errors.WithStack(util.WriteJSON(fileName, conf))
 		},
 	}
 }

@@ -56,13 +56,13 @@ func setAverages(res *model.ServiceItem, items []AWSItem) {
 	}
 
 	if len(prices) != 0 {
-		res.AvgPrice = avg(prices)
+		res.AvgPrice = util.Average(prices)
 	}
 	if len(fixedPrices) != 0 {
-		res.FixedPrice = avg(fixedPrices)
+		res.FixedPrice = util.Average(fixedPrices)
 	}
 	if len(uptimes) != 0 {
-		res.AvgUptime = avg(uptimes)
+		res.AvgUptime = util.Average(uptimes)
 	}
 }
 

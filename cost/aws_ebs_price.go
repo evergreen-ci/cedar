@@ -49,5 +49,5 @@ func getEBSPrice(pricing model.CostConfigAmazonEBS, vol *ec2.Volume, reportRange
 
 	price, gbPrice := getPriceByVolumeType(pricing, vol, durationInDays)
 	price += (gbPrice * gbVol * durationInHours) / denominator
-	return roundUp(price, 2)
+	return util.RoundUp(price, 2)
 }

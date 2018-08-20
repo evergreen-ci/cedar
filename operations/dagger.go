@@ -6,6 +6,7 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/depgraph"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -61,7 +62,7 @@ func filterLibrary() cli.Command {
 
 			libgraph.Prune("third_party")
 
-			return errors.Wrap(writeJSON(c.String("output"), libgraph),
+			return errors.Wrap(util.WriteJSON(c.String("output"), libgraph),
 				"problem writing filtered graph")
 		},
 	}
@@ -232,10 +233,10 @@ func findPaths() cli.Command {
 			}
 
 			if c.Bool("print") {
-				return errors.WithStack(printJSON(paths))
+				return errors.WithStack(util.PrintJSON(paths))
 			}
 
-			return errors.Wrap(writeJSON(c.String("output"), paths),
+			return errors.Wrap(util.WriteJSON(c.String("output"), paths),
 				"problem writhing path report")
 		},
 	}
@@ -283,7 +284,7 @@ func groups() cli.Command {
 			grip.Infof("found %d cycles in graph with %d nodes",
 				len(report.Cycles), len(report.Graph))
 
-			return errors.Wrap(writeJSON(c.String("output"), report),
+			return errors.Wrap(util.WriteJSON(c.String("output"), report),
 				"problem cycle report")
 		},
 	}
@@ -345,7 +346,7 @@ func process() cli.Command {
 			graph.Prune(c.String("prune"))
 			report := graph.Mapping(c.String("prefix"))
 
-			if err = writeJSON(c.String("output")+".json", report); err != nil {
+			if err = util.WriteJSON(c.String("output")+".json", report); err != nil {
 				return errors.Wrap(err, "problem writing json file")
 			}
 
@@ -354,7 +355,7 @@ func process() cli.Command {
 				dot := report.Dot()
 				grip.Info("writing dot file to disk")
 
-				if err = writeString(c.String("output")+".dot", dot); err != nil {
+				if err = util.WriteString(c.String("output")+".dot", dot); err != nil {
 					return errors.Wrap(err, "problem writing dot file")
 				}
 			}
@@ -364,7 +365,7 @@ func process() cli.Command {
 				grip.Infof("found %d cycles in graph with %d nodes",
 					len(cycles.Cycles), len(cycles.Graph))
 
-				if err = writeJSON(c.String("output")+"-cycles.json", cycles); err != nil {
+				if err = util.WriteJSON(c.String("output")+"-cycles.json", cycles); err != nil {
 					return errors.Wrap(err, "problem writing json file")
 				}
 			}
