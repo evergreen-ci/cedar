@@ -51,8 +51,8 @@ func dumpCostConfig() cli.Command {
 			env := sink.GetEnvironment()
 
 			fileName := c.String("file")
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
@@ -83,8 +83,8 @@ func loadCostConfig() cli.Command {
 			env := sink.GetEnvironment()
 
 			fileName := c.String("file")
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
@@ -113,8 +113,9 @@ func collectLoop() cli.Command {
 		Usage: "collect a cost report every hour, saving the results to mongodb",
 		Flags: dbFlags(costEvergreenOptionsFlags()...),
 		Action: func(c *cli.Context) error {
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
+
 			env := sink.GetEnvironment()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -137,10 +138,10 @@ func collectLoop() cli.Command {
 
 			opts := cost.EvergreenReportOptions{
 				Duration:               time.Hour,
-				DisableAll:             c.Bool("disableEvgAll"),
-				DisableProjects:        c.Bool("disableEvgProjects"),
-				DisableDistros:         c.Bool("disableEvgDistros"),
-				AllowIncompleteResults: c.Bool("continueOnError"),
+				DisableAll:             c.Bool(costDisableEVGAllFlag),
+				DisableProjects:        c.Bool(costDisableEVGProjectsFlag),
+				DisableDistros:         c.Bool(costDisableEVGDistrosFlag),
+				AllowIncompleteResults: c.Bool(costContinueOnErrorFlag),
 			}
 
 			conf := amboy.QueueOperationConfig{
@@ -185,8 +186,9 @@ func summarize() cli.Command {
 		Usage: "reads reports from the database and writes summaries",
 		Flags: dbFlags(),
 		Action: func(c *cli.Context) error {
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
+
 			env := sink.GetEnvironment()
 			if err := configure(env, 1, false, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
@@ -234,12 +236,12 @@ func write() cli.Command {
 		Usage: "collect and write a build cost report to a file.",
 		Flags: costFlags(costEvergreenOptionsFlags()...),
 		Action: func(c *cli.Context) error {
-			start, err := time.Parse(sink.ShortDateFormat, c.String("start"))
+			start, err := time.Parse(sink.ShortDateFormat, c.String(costStartFlag))
 			if err != nil {
-				return errors.Wrapf(err, "problem parsing time from %s", c.String("start"))
+				return errors.Wrapf(err, "problem parsing time from %s", c.String(costStartFlag))
 			}
-			file := c.String("config")
-			dur := c.Duration("duration")
+			file := c.String(configFlag)
+			dur := c.Duration(costDurationFlag)
 
 			conf, err := model.LoadCostConfig(file)
 			if err != nil {
@@ -252,10 +254,10 @@ func write() cli.Command {
 			opts := cost.EvergreenReportOptions{
 				StartAt:                start,
 				Duration:               dur,
-				DisableAll:             c.Bool("disableEvgAll"),
-				DisableProjects:        c.Bool("disableEvgProjects"),
-				DisableDistros:         c.Bool("disableEvgDistros"),
-				AllowIncompleteResults: c.Bool("continueOnError"),
+				DisableAll:             c.Bool(costDisableEVGAllFlag),
+				DisableProjects:        c.Bool(costDisableEVGProjectsFlag),
+				DisableDistros:         c.Bool(costDisableEVGDistrosFlag),
+				AllowIncompleteResults: c.Bool(costContinueOnErrorFlag),
 			}
 
 			if err := writeCostReport(ctx, conf, &opts); err != nil {
@@ -273,12 +275,12 @@ func printScrn() cli.Command {
 		Usage: "print a cost report to the terminal",
 		Flags: costFlags(costEvergreenOptionsFlags()...),
 		Action: func(c *cli.Context) error {
-			start, err := time.Parse(sink.ShortDateFormat, c.String("start"))
+			start, err := time.Parse(sink.ShortDateFormat, c.String(costStartFlag))
 			if err != nil {
-				return errors.Wrapf(err, "problem parsing time from %s", c.String("start"))
+				return errors.Wrapf(err, "problem parsing time from %s", c.String(costStartFlag))
 			}
-			file := c.String("config")
-			dur := c.Duration("duration")
+			file := c.String(configFlag)
+			dur := c.Duration(costDurationFlag)
 
 			conf, err := model.LoadCostConfig(file)
 			if err != nil {
@@ -291,10 +293,10 @@ func printScrn() cli.Command {
 			opts := cost.EvergreenReportOptions{
 				StartAt:                start,
 				Duration:               dur,
-				DisableAll:             c.Bool("disableEvgAll"),
-				DisableProjects:        c.Bool("disableEvgProjects"),
-				DisableDistros:         c.Bool("disableEvgDistros"),
-				AllowIncompleteResults: c.Bool("continueOnError"),
+				DisableAll:             c.Bool(costDisableEVGAllFlag),
+				DisableProjects:        c.Bool(costDisableEVGProjectsFlag),
+				DisableDistros:         c.Bool(costDisableEVGDistrosFlag),
+				AllowIncompleteResults: c.Bool(costContinueOnErrorFlag),
 			}
 
 			report, err := cost.CreateReport(ctx, conf, &opts)
@@ -340,9 +342,8 @@ func dump() cli.Command {
 		Flags: dbFlags(),
 		Action: func(c *cli.Context) error {
 			env := sink.GetEnvironment()
-
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)

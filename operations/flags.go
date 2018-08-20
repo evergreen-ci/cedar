@@ -1,22 +1,64 @@
 package operations
 
 import (
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/urfave/cli"
 )
 
+////////////////////////////////////////////////////////////////////////
+//
+// Flag Name Constants
+
+const (
+	costStartFlag              = "start"
+	costContinueOnErrorFlag    = "continue-on-error"
+	costDurationFlag           = "duration"
+	costDisableEVGAllFlag      = "disableEvgAll"
+	costDisableEVGProjectsFlag = "disableEvgProjects"
+	costDisableEVGDistrosFlag  = "disableEvgDistros"
+
+	configFlag = "config"
+
+	numWorkersFlag = "workers"
+	bucketNameFlag = "bucket"
+
+	dbURIFlag  = "dbUri"
+	dbNameFlag = "dbName"
+)
+
+////////////////////////////////////////////////////////////////////////
+//
+// Utility Functions
+
+func joinFlagNames(ids ...string) string { return strings.Join(ids, ", ") }
+
+func mergeFlags(in ...[]cli.Flag) []cli.Flag {
+	out := []cli.Flag{}
+
+	for idx := range in {
+		out = append(out, in[idx]...)
+	}
+
+	return out
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// Flag Groups
+
 func dbFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.StringFlag{
-			Name:   "dbUri",
+			Name:   dbURIFlag,
 			Usage:  "specify a mongodb connection string",
 			Value:  "mongodb://localhost:27017",
 			EnvVar: "SINK_MONGODB_URL",
 		},
 		cli.StringFlag{
-			Name:   "dbName",
+			Name:   dbNameFlag,
 			Usage:  "specify a database name to use",
 			Value:  "sink",
 			EnvVar: "SINK_DATABASE_NAME",
@@ -26,12 +68,12 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 func baseFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.IntFlag{
-			Name:  "workers",
+			Name:  numWorkersFlag,
 			Usage: "specify the number of worker jobs this process will have",
 			Value: 2,
 		},
 		cli.StringFlag{
-			Name:   "bucket",
+			Name:   bucketNameFlag,
 			Usage:  "specify a bucket name to use for storing data in s3",
 			EnvVar: "SINK_BUCKET_NAME",
 			Value:  "build-test-curator",
@@ -46,16 +88,16 @@ func costFlags(flags ...cli.Flag) []cli.Flag {
 
 	return append(flags,
 		cli.StringFlag{
-			Name:  "start",
+			Name:  costStartFlag,
 			Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
 			Value: defaultStart.Format(sink.ShortDateFormat),
 		},
 		cli.BoolFlag{
-			Name:  "continue-on-error",
+			Name:  costContinueOnErrorFlag,
 			Usage: "log but do not abort on collection errors",
 		},
 		cli.DurationFlag{
-			Name:  "duration",
+			Name:  costDurationFlag,
 			Value: time.Hour,
 		})
 }
@@ -63,23 +105,23 @@ func costFlags(flags ...cli.Flag) []cli.Flag {
 func costEvergreenOptionsFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.StringFlag{
-			Name:  "config",
+			Name:  configFlag,
 			Usage: "path to configuration file, and EBS pricing information, is required",
 		},
 		cli.BoolFlag{
-			Name:  "disableEvgAll",
+			Name:  costDisableEVGAllFlag,
 			Usage: "specify to disable all evergreen data collection",
 		},
 		cli.BoolFlag{
-			Name:  "disableEvgProjects",
+			Name:  costDisableEVGProjectsFlag,
 			Usage: "specify to disable all evergreen project data collection",
 		},
 		cli.BoolFlag{
-			Name:  "disableEvgDistros",
+			Name:  costDisableEVGDistrosFlag,
 			Usage: "specify to disable all evergreen distro data collection",
 		},
 		cli.BoolFlag{
-			Name:  "continueOnError",
+			Name:  costContinueOnErrorFlag,
 			Usage: "specify to allow incomplete results",
 		})
 
