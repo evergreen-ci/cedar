@@ -2,7 +2,7 @@
 name := sink
 buildDir := build
 packages := $(name) rest units operations cost model
-orgPath := github.com/tychoish
+orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
 
@@ -75,25 +75,9 @@ $(buildDir)/$(name).race:$(srcFiles)
 
 
 # distribution targets and implementation
-distContents := $(agentBuildDir) $(clientBuildDir) $(distArtifacts)
-distTestContents := $(foreach pkg,$(packages),$(buildDir)/test.$(pkg) $(buildDir)/race.$(pkg))
-$(buildDir)/build-cross-compile:buildscripts/build-cross-compile.go
-	@mkdir -p $(buildDir)
-	go build -o $@ $<
-$(buildDir)/make-tarball:buildscripts/make-tarball.go
-	 go build -o $@ $<
 dist:$(buildDir)/dist.tar.gz
-dist-test:$(buildDir)/dist-test.tar.gz
-dist-race: $(buildDir)/dist-race.tar.gz
-dist-source:$(buildDir)/dist-source.tar.gz
-$(buildDir)/dist.tar.gz:$(buildDir)/make-tarball $(binaries)
-	./$< --name $@ --prefix $(name) $(foreach item,$(binaries) $(distContents),--item $(item))
-$(buildDir)/dist-race.tar.gz:$(buildDir)/make-tarball makefile $(raceBinaries)
-	./$< -name $@ --prefix $(name)-race $(foreach item,$(raceBinaries) $(distContents),--item $(item))
-$(buildDir)/dist-test.tar.gz:$(buildDir)/make-tarball makefile $(binaries) $(raceBinaries)
-	./$< -name $@ --prefix $(name)-tests $(foreach item,$(distContents) $(distTestContents),--item $(item)) $(foreach item,,--item $(item))
-$(buildDir)/dist-source.tar.gz:$(buildDir)/make-tarball $(srcFiles) $(testSrcFiles) makefile
-	./$< --name $@ --prefix $(name) $(subst $(name),,$(foreach pkg,$(packages),--item ./$(subst -,/,$(pkg)))) --item ./scripts --item makefile --exclude "$(name)" --exclude "^.git/" --exclude "$(buildDir)/"
+$(buildDir)/dist.tar.gz:$(buildDir)/$(name)
+	tar -C $(buildDir) -czvf $@ $(name)
 # end main build
 
 

@@ -4,3 +4,4 @@ build
 *.out
 sink
 cost-reports
+*.tar.gz
