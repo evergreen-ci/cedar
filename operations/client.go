@@ -17,6 +17,11 @@ import (
 	"github.com/urfave/cli"
 )
 
+const (
+	clientHostFlag = "host"
+	clientPortFlag = "port"
+)
+
 // Client returns the entry point for the ./sink client sub-command,
 // which itself hosts a number of sub-commands. This client relies on
 // an accessible sink service.
@@ -26,13 +31,13 @@ func Client() cli.Command {
 		Usage: "run a simple sink client",
 		Flags: []cli.Flag{
 			cli.StringFlag{
-				Name:  "host",
-				Usage: "host for the remote greenbay instance.",
+				Name:  clientHostFlag,
+				Usage: "host for the remote sink instance.",
 				Value: "http://localhost",
 			},
 			cli.IntFlag{
-				Name:  "port",
-				Usage: "port for the remote greenbay service.",
+				Name:  clientPortFlag,
+				Usage: "port for the remote sink service.",
 				Value: 3000,
 			},
 		},
@@ -54,7 +59,7 @@ func printStatus() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -87,6 +92,7 @@ func pretyJSON(data interface{}) (string, error) {
 }
 
 func postSimpleLog() cli.Command {
+	const logFlag = "log"
 	return cli.Command{
 		Name:  "simple-log-pipe",
 		Usage: "posts a string",
@@ -99,7 +105,7 @@ func postSimpleLog() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -162,7 +168,7 @@ func getSimpleLog() cli.Command {
 			ctx := context.Background()
 			logID := c.String("log")
 
-			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -202,7 +208,7 @@ func getSystemStatusEvents() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -225,32 +231,37 @@ func getSystemStatusEvents() cli.Command {
 }
 
 func systemEvent() cli.Command {
+	const (
+		idFlag  = "id"
+		ackFlag = "acknowledge"
+	)
+
 	return cli.Command{
 		Name:  "system-event",
 		Usage: "prints json for a specific system event",
 		Flags: []cli.Flag{
 			cli.StringFlag{
-				Name:  "id",
+				Name:  idFlag,
 				Usage: "specify the Id of a log message",
 			},
 			cli.BoolFlag{
-				Name:  "acknowledge",
+				Name:  ackFlag,
 				Usage: "acknowledge the alert when specified",
 			},
 		},
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"), c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
 
-			id := c.String("id")
+			id := c.String(idFlag)
 
 			var resp *rest.SystemEventResponse
 
-			if c.Bool("acknowledge") {
+			if c.Bool(ackFlag) {
 				resp, err = client.AcknowledgeSystemEvent(ctx, id)
 			} else {
 				resp, err = client.GetSystemEvent(ctx, id)
@@ -305,7 +316,7 @@ func systemInfoGet() cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "end",
-				Usage: "RFC3339 formatted time. defaults to current",
+				Usage: "RFC3339 formatted time. defaults to current time",
 				Value: time.Now().Format(time.RFC3339),
 			},
 			cli.IntFlag{
@@ -317,11 +328,11 @@ func systemInfoGet() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"),
-				c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
+
 			catcher := grip.NewCatcher()
 			start, err := time.Parse(time.RFC3339, c.String("start"))
 			catcher.Add(err)
@@ -354,8 +365,7 @@ func systemInfoSend() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"),
-				c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -384,23 +394,16 @@ func systemInfoImport() cli.Command {
 	return cli.Command{
 		Name:  "import",
 		Usage: "import system info data from a json file, one line per document",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "file",
-				Usage: "specify the file that holds sysinfo json",
-				Value: "sysinfo.json",
-			},
-		},
+		Flags: addPathFlag(),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String("host"),
-				c.Parent().Int("port"), "")
+			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
 
-			fn := c.String("file")
+			fn := c.String(pathFlagName)
 			f, err := os.Open(fn)
 			if err != nil {
 				return errors.Wrapf(err, "problem opening file '%s'", fn)

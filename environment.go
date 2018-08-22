@@ -14,14 +14,10 @@ import (
 
 var globalEnv *envState
 
-func init()                       { globalEnv = &envState{name: "global", conf: &Configuration{}} }
+func init()                       { resetEnv() }
 func GetEnvironment() Environment { return globalEnv }
 
-type Loggers struct {
-	System grip.Journaler
-	Alerts grip.Journaler
-	Events grip.Journaler
-}
+func resetEnv() { globalEnv = &envState{name: "global", conf: &Configuration{}} }
 
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
@@ -37,29 +33,6 @@ type Environment interface {
 	// SetQueue configures the global application cache's shared queue.
 	SetQueue(amboy.Queue) error
 	GetSession() (db.Session, error)
-
-	SetLoggers(Loggers) error
-
-	// GetSystemLogger returns a grip.Journaler interface for use when
-	// logging system events. When extending sink, you should generally log
-	// messages using the default grip interface; hobwever, the system
-	// event Sender and logger are available to log events to the database
-	// or other services for more critical issues encoutered during offline
-	// processing. In typical configurations these events are logged to
-	// the database and exposed via a rest endpoint.
-	GetSystemLogger() grip.Journaler
-
-	// GetAlertLogger returns a grip.Journaler interface for use
-	// when sending system alerts to administrators. Typically
-	// this will be an interface to send email or slack messages
-	// and should be used to alert on infrequent errors and events
-	// that require manual intervention.
-	GetAlertLogger() grip.Journaler
-
-	// GetEventLogger returns a grip.Journaler interface for
-	// sending data-events to an event logging
-	// service. (e.g. splunk, sumologic, etc.)
-	GetEventLogger() grip.Journaler
 }
 
 func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
@@ -81,18 +54,20 @@ type envState struct {
 	queue   amboy.Queue
 	session db.Session
 	conf    *Configuration
-	loggers Loggers
-
-	mutex sync.RWMutex
+	mutex   sync.RWMutex
 }
 
 func (c *envState) Configure(conf *Configuration) error {
 	var err error
 
+	if err = conf.Validate(); err != nil {
+		return errors.WithStack(err)
+	}
+
 	c.conf = conf
 
 	// create and cache a db session for use in tasks
-	session, err := mgo.Dial(conf.MongoDBURI)
+	session, err := mgo.DialWithTimeout(conf.MongoDBURI, conf.MongoDBDialTimeout)
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to db %s", conf.MongoDBURI)
 	}
@@ -123,15 +98,6 @@ func (c *envState) Configure(conf *Configuration) error {
 			"prefix":   QueueName,
 			"priority": true})
 	}
-
-	return nil
-}
-
-func (c *envState) SetLoggers(l Loggers) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.loggers = l
 
 	return nil
 }
@@ -188,25 +154,4 @@ func (c *envState) GetConf() (*Configuration, error) {
 	*out = *c.conf
 
 	return out, nil
-}
-
-func (c *envState) GetSystemLogger() grip.Journaler {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.loggers.System
-}
-
-func (c *envState) GetAlertLogger() grip.Journaler {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.loggers.Alerts
-}
-
-func (c *envState) GetEventLogger() grip.Journaler {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.loggers.Events
 }

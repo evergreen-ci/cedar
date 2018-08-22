@@ -62,9 +62,6 @@ $(buildDir)/.lintSetup:$(lintDeps)
 
 # implementation details for building the binary and creating a
 # convienent link in the working directory
-define crossCompile
-	@ ./$(buildDir)/build-cross-compile -buildName=$* -ldflags="-X=github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -goBinary="`which go`" -output=$@
-endef
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)

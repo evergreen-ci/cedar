@@ -20,7 +20,8 @@ const (
 	costDisableEVGProjectsFlag = "disableEvgProjects"
 	costDisableEVGDistrosFlag  = "disableEvgDistros"
 
-	configFlag = "config"
+	configFlag   = "config"
+	pathFlagName = "path"
 
 	numWorkersFlag = "workers"
 	bucketNameFlag = "bucket"
@@ -48,6 +49,28 @@ func mergeFlags(in ...[]cli.Flag) []cli.Flag {
 ////////////////////////////////////////////////////////////////////////
 //
 // Flag Groups
+
+func addPathFlag(flags ...cli.Flag) []cli.Flag {
+	return append(flags, cli.StringFlag{
+		Name:  joinFlagNames(pathFlagName, "filename", "file", "f"),
+		Usage: "path to sink input file",
+	})
+}
+
+func addOutputPath(flags ...cli.Flag) []cli.Flag {
+	return append(flags, cli.StringFlag{
+		Name:  joinFlagNames(pathFlagName, "filename", "file", "f"),
+		Usage: "path to the output file",
+	})
+}
+
+func depsFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags, cli.StringFlag{
+		Name:  joinFlagNames(pathFlagName, "filename", "file", "f"),
+		Usage: "source path for dependency graph",
+		Value: "deps.json",
+	})
+}
 
 func dbFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
@@ -125,13 +148,4 @@ func costEvergreenOptionsFlags(flags ...cli.Flag) []cli.Flag {
 			Usage: "specify to allow incomplete results",
 		})
 
-}
-
-func depsFlags(flags ...cli.Flag) []cli.Flag {
-	return append(flags,
-		cli.StringFlag{
-			Name:  "path",
-			Usage: "source path for dependency graph",
-			Value: "deps.json",
-		})
 }

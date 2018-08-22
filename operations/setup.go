@@ -13,10 +13,14 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
-	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
+)
+
+const (
+	loggingBufferCount    = 100
+	loggingBufferDuration = 20 * time.Second
 )
 
 func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
@@ -31,27 +35,35 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 		return errors.Wrap(err, "problem setting up configuration")
 	}
 
-	sender, err := model.NewDBSender(env, "sink")
+	var fallback send.Sender
+	fallback, err = send.NewErrorLogger("sink.error",
+		send.LevelInfo{Default: level.Info, Threshold: level.Debug})
 	if err != nil {
-		return errors.Wrapf(err, "problem creating system sender")
+		return errors.Wrap(err, "problem configuring err fallback logger")
+	}
+
+	defaultSenders := []send.Sender{
+		send.MakeNative(),
 	}
 
 	logLevelInfo := grip.GetSender().Level()
-	loggers := sink.Loggers{
-		System: logging.MakeGrip(sender),
-	}
 
 	appConf := &model.SinkConfig{}
 	appConf.Setup(env)
 	grip.Warning(appConf.Find())
 
 	if !appConf.IsNil() {
+		var sender send.Sender
 		if appConf.Splunk.Populated() {
 			sender, err = send.NewSplunkLogger("sink", appConf.Splunk, logLevelInfo)
 			if err != nil {
 				return errors.Wrap(err, "problem building plunk logger")
 			}
-			loggers.Events = logging.MakeGrip(sender)
+			if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
+				return errors.Wrap(err, "problem configuring error handler")
+			}
+
+			defaultSenders = append(defaultSenders, send.NewBufferedSender(sender, loggingBufferDuration, loggingBufferCount))
 		}
 
 		if appConf.Slack.Options != nil {
@@ -73,23 +85,17 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 			if err != nil {
 				return errors.Wrap(err, "problem constructing slack alert logger")
 			}
-			if err = grip.SetSender(send.NewConfiguredMultiSender(grip.GetSender(), sender)); err != nil {
-				return errors.Wrap(err, "problem configuring application sender")
+			if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
+				return errors.Wrap(err, "problem configuring error handler")
 			}
 
-			sender, err = send.NewSlackLogger(sconf.Options, sconf.Token, logLevelInfo)
-			if err != nil {
-				return errors.Wrap(err, "problem constructing slack logging service")
-			}
-			loggers.Alerts = logging.MakeGrip(sender)
+			// TODO consider using a local queue to buffer
+			// these messages
+			defaultSenders = append(defaultSenders, send.NewBufferedSender(sender, loggingBufferDuration, loggingBufferCount))
 		}
 	}
 
-	if err = env.SetLoggers(loggers); err != nil {
-		return errors.Wrap(err, "problem configuring loggers")
-	}
-
-	return nil
+	return errors.WithStack(grip.SetSender(send.NewConfiguredMultiSender(defaultSenders...)))
 }
 
 func backgroundJobs(ctx context.Context, env sink.Environment) error {

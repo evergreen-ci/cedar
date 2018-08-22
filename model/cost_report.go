@@ -53,7 +53,7 @@ func (r *CostReport) String() string {
 
 func (r *CostReport) Setup(e sink.Environment) { r.env = e; r.refresh() }
 func (r *CostReport) IsNil() bool              { return r.populated }
-func (r *CostReport) FindID(id string) error {
+func (r *CostReport) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -62,7 +62,7 @@ func (r *CostReport) FindID(id string) error {
 
 	r.populated = false
 
-	err = session.DB(conf.DatabaseName).C(costReportCollection).FindId(id).One(r)
+	err = session.DB(conf.DatabaseName).C(costReportCollection).FindId(r.ID).One(r)
 	if db.ResultsNotFound(err) {
 		return errors.Errorf("could not find cost reporting document %s in the database", id)
 	} else if err != nil {
