@@ -36,6 +36,9 @@ type Environment interface {
 }
 
 func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
+	if env == nil {
+		return nil, nil, errors.New("env is nil")
+	}
 	conf, err := env.GetConf()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "problem getting configuration")

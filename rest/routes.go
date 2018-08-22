@@ -113,9 +113,11 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	resp.ID = id
 
-	event := &model.Event{}
+	event := &model.Event{
+		ID: id,
+	}
 	event.Setup(s.env)
-	if err := event.Find(id); err != nil {
+	if err := event.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
 		return
@@ -141,9 +143,11 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	}
 	resp.ID = id
 
-	event := &model.Event{}
+	event := &model.Event{
+		ID: id,
+	}
 	event.Setup(s.env)
-	if err := event.Find(id); err != nil {
+	if err := event.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
 		return
@@ -414,9 +418,11 @@ type createDepGraphResponse struct {
 func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 	resp := createDepGraphResponse{}
 	id := gimlet.GetVars(r)["id"]
-	g := &model.GraphMetadata{}
+	g := &model.GraphMetadata{
+		BuildID: id,
+	}
 
-	if err := g.Find(id); err != nil {
+	if err := g.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
 		return
@@ -424,7 +430,7 @@ func (s *Service) createDepGraph(w http.ResponseWriter, r *http.Request) {
 
 	if g.IsNil() {
 		g.BuildID = id
-		if err := g.Insert(); err != nil {
+		if err := g.Save(); err != nil {
 			resp.Error = err.Error()
 			gimlet.WriteJSONError(w, resp)
 			return
@@ -450,9 +456,11 @@ type depGraphResolvedRespose struct {
 func (s *Service) resolveDepGraph(w http.ResponseWriter, r *http.Request) {
 	id := gimlet.GetVars(r)["id"]
 	resp := depGraphResolvedRespose{ID: id}
-	g := &model.GraphMetadata{}
+	g := &model.GraphMetadata{
+		BuildID: id,
+	}
 
-	if err := g.Find(id); err != nil {
+	if err := g.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
 		return
@@ -498,9 +506,11 @@ type depGraphNodesRespose struct {
 func (s *Service) getDepGraphNodes(w http.ResponseWriter, r *http.Request) {
 	id := gimlet.GetVars(r)["id"]
 	resp := depGraphNodesRespose{ID: id}
-	g := &model.GraphMetadata{}
+	g := &model.GraphMetadata{
+		BuildID: id,
+	}
 
-	if err := g.Find(id); err != nil {
+	if err := g.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
 		return
@@ -538,9 +548,11 @@ type depGraphEdgesRespose struct {
 func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
 	id := gimlet.GetVars(r)["id"]
 	resp := depGraphEdgesRespose{ID: id}
-	g := &model.GraphMetadata{}
+	g := &model.GraphMetadata{
+		BuildID: id,
+	}
 
-	if err := g.Find(id); err != nil {
+	if err := g.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
 		return

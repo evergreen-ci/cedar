@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/evergreen-ci/evergreen/db"
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/model"
@@ -120,7 +121,7 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 }
 
 func (r *CostReportSummary) Setup(e sink.Environment) { r.env = e }
-func (r *CostReportSummary) IsNil() bool              { return r.populated }
+func (r *CostReportSummary) IsNil() bool              { return !r.populated }
 func (r *CostReportSummary) Save() error {
 	if !r.populated {
 		return errors.New("cannot save unpopulated report")
@@ -141,6 +142,24 @@ func (r *CostReportSummary) Save() error {
 	})
 
 	return errors.Wrap(err, "problem saving cost report summary")
+}
+
+func (r *CostReportSummary) Find() error {
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+	r.populated = false
+	err = session.DB(conf.DatabaseName).C(costReportSummaryCollection).FindId(r.ID).One(r)
+	if db.ResultsNotFound(err) {
+		return errors.New("could not find matching cost report")
+	} else if err != nil {
+		return errors.Wrap(err, "problem finding cost report")
+	}
+	r.populated = true
+
+	return nil
 }
 
 func (r *CostReportSummary) String() string {

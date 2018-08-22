@@ -70,9 +70,12 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		return
 	}
 
-	record := &model.LogRecord{}
+	record := &model.LogRecord{
+		LogID: j.LogID,
+	}
 
-	if err = record.Find(j.LogID); err != nil {
+	if err = record.Find(); err != nil {
+		record.LogID = ""
 		grip.Infof("no existing record for %s, creating...", j.LogID)
 
 		prototypeLog := &model.LogSegment{}
@@ -86,7 +89,7 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		record.Bucket = prototypeLog.Bucket
 		record.KeyName = fmt.Sprintf("simple-log/%s", j.LogID)
 
-		if err = record.Insert(); err != nil {
+		if err = record.Save(); err != nil {
 			err = errors.Wrap(err, "problem inserting log record document")
 			grip.Warning(err)
 			j.AddError(err)
@@ -148,7 +151,7 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 	}
 	grip.Info(catcher.Resolve())
 
-	err = errors.Wrapf(record.Insert(), "problem saving master log record for %s", j.LogID)
+	err = errors.Wrapf(record.Save(), "problem saving master log record for %s", j.LogID)
 	if err != nil {
 		grip.Critical(err)
 		j.AddError(err)

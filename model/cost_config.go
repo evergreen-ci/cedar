@@ -53,7 +53,7 @@ var (
 )
 
 func (c *CostConfig) Setup(e sink.Environment) { c.env = e }
-func (c *CostConfig) IsNil() bool              { return c.populated }
+func (c *CostConfig) IsNil() bool              { return !c.populated }
 func (c *CostConfig) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(c.env)
 	if err != nil {

@@ -31,9 +31,12 @@ var (
 )
 
 func (g *GraphMetadata) Setup(e sink.Environment) { g.env = e }
-func (g *GraphMetadata) IsNil() bool              { return g.populated }
+func (g *GraphMetadata) IsNil() bool              { return !g.populated }
 
-func (g *GraphMetadata) Insert() error {
+func (g *GraphMetadata) Save() error {
+	if g.BuildID == "" {
+		return errors.New("cannot save document without id")
+	}
 	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -105,7 +108,7 @@ func (g *GraphMetadata) RemoveNodes() error {
 	return errors.WithStack(err)
 }
 
-func (g *GraphMetadata) Find(id string) error {
+func (g *GraphMetadata) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -113,9 +116,9 @@ func (g *GraphMetadata) Find(id string) error {
 	defer session.Close()
 
 	g.populated = false
-	err = session.DB(conf.DatabaseName).C(depMetadataCollection).FindId(id).One(g)
+	err = session.DB(conf.DatabaseName).C(depMetadataCollection).FindId(g.BuildID).One(g)
 	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find document with id '%s'", id)
+		return errors.Wrapf(err, "could not find document with id '%s'", g.BuildID)
 	} else if err != nil {
 		return errors.Wrap(err, "problem running graph metadata query")
 	}

@@ -6,11 +6,11 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"github.com/mongodb/anser/db"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -59,8 +59,12 @@ func NewEvent(m message.Composer) *Event {
 }
 
 func (e *Event) Setup(env sink.Environment) { e.env = env }
-func (e *Event) IsNil() bool                { return e.populated }
-func (e *Event) Insert() error {
+func (e *Event) IsNil() bool                { return !e.populated }
+func (e *Event) Save() error {
+	if e.ID == "" {
+		return errors.New("cannot save an event without a populated ID")
+	}
+
 	conf, session, err := sink.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -72,7 +76,7 @@ func (e *Event) Insert() error {
 
 func (e *Event) sendLog(coll db.Collection) error { return errors.WithStack(coll.Insert(e)) }
 
-func (e *Event) Find(id string) error {
+func (e *Event) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -80,11 +84,11 @@ func (e *Event) Find(id string) error {
 	defer session.Close()
 
 	e.populated = false
-	err = session.DB(conf.DatabaseName).C(eventCollection).FindId(id).One(e)
+	err = session.DB(conf.DatabaseName).C(eventCollection).FindId(e.ID).One(e)
 	if db.ResultsNotFound(err) {
-		return errors.Errorf("could not find event %s", id)
+		return errors.Errorf("could not find event %s", e.ID)
 	} else if err != nil {
-		return errors.Wrapf(err, "problem finding document %s", id)
+		return errors.Wrapf(err, "problem finding document %s", e.ID)
 	}
 
 	e.populated = true

@@ -97,7 +97,7 @@ func loadGraphToDB() cli.Command {
 				BuildID: graph.BuildID,
 			}
 			gdb.Setup(env)
-			if err = gdb.Insert(); err != nil {
+			if err = gdb.Save(); err != nil {
 				return errors.Wrapf(err, "problem saving root node for %s", graph.BuildID)
 			}
 
@@ -113,7 +113,7 @@ func loadGraphToDB() cli.Command {
 
 			for _, edge := range graph.Edges {
 				edb := gdb.MakeEdge(&edge)
-				if err = edb.Insert(); err != nil {
+				if err = edb.Save(); err != nil {
 					catcher.Add(err)
 					continue
 				}

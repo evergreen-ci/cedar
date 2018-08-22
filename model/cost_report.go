@@ -52,7 +52,7 @@ func (r *CostReport) String() string {
 }
 
 func (r *CostReport) Setup(e sink.Environment) { r.env = e; r.refresh() }
-func (r *CostReport) IsNil() bool              { return r.populated }
+func (r *CostReport) IsNil() bool              { return !r.populated }
 func (r *CostReport) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *CostReport) Find() error {
 
 	err = session.DB(conf.DatabaseName).C(costReportCollection).FindId(r.ID).One(r)
 	if db.ResultsNotFound(err) {
-		return errors.Errorf("could not find cost reporting document %s in the database", id)
+		return errors.Errorf("could not find cost reporting document %s in the database", r.ID)
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding cost config document")
 	}
@@ -75,6 +75,10 @@ func (r *CostReport) Find() error {
 }
 
 func (r *CostReport) Save() error {
+	if r.ID == "" {
+		return errors.New("cannot populate a cost report document without specifying an ID")
+	}
+
 	// TOOD call some kind of validation routine to avoid saving junk data
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {

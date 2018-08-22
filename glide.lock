@@ -25,7 +25,7 @@ imports:
 - name: github.com/mongodb/grip
   version: a4288cec9139bc97135a22e795b086baefb167b2
 - name: github.com/mongodb/anser
-  version: bf50681a4ac1460f872d0ca8c2da0d5a8a5b9772
+  version: 7c8a0ddd4ef846c0e3701ca4a6e5e02f63413338
 - name: github.com/evergreen-ci/gimlet
   version: 713b8d22b5e93a0c25a9f71ca944c86d7ecefe84
 - name: github.com/mongodb/curator

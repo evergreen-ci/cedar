@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/evergreen-ci/evergreen/db"
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/depgraph"
 	"github.com/mongodb/anser/bsonutil"
@@ -28,8 +29,8 @@ type GraphEdge struct {
 }
 
 func (e *GraphEdge) Setup(env sink.Environment) { e.env = env }
-func (e *GraphEdge) IsNil() bool                { return e.populated }
-func (e *GraphEdge) Insert() error {
+func (e *GraphEdge) IsNil() bool                { return !e.populated }
+func (e *GraphEdge) Save() error {
 	if !e.populated {
 		return errors.New("cannot insert non-populated document")
 	}
@@ -45,4 +46,22 @@ func (e *GraphEdge) Insert() error {
 	defer session.Close()
 
 	return errors.WithStack(session.DB(conf.DatabaseName).C(depEdgeCollection).Insert(e))
+}
+
+func (e *GraphEdge) Find() error {
+	conf, session, err := sink.GetSessionWithConfig(e.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+	e.populated = false
+	err = session.DB(conf.DatabaseName).C(costReportSummaryCollection).FindId(e.ID).One(e)
+	if db.ResultsNotFound(err) {
+		return errors.New("could not find matching edge")
+	} else if err != nil {
+		return errors.Wrap(err, "problem finding graph edge")
+	}
+	e.populated = true
+
+	return nil
 }

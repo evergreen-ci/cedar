@@ -3,8 +3,8 @@ package model
 import (
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/db"
+	"github.com/pkg/errors"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -90,7 +90,6 @@ func (l *LogSegment) Find(logID string, segment int) error {
 	} else if err != nil {
 		return errors.Wrapf(err, "problem running log query %+v", filter)
 	}
-
 	l.populated = true
 
 	return nil

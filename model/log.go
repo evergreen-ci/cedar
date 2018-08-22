@@ -3,8 +3,8 @@ package model
 import (
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/pkg/errors"
 	"github.com/mongodb/anser/db"
+	"github.com/pkg/errors"
 )
 
 const logRecordCollection = "simple.log.records"
@@ -34,9 +34,12 @@ var (
 )
 
 func (l *LogRecord) Setup(e sink.Environment) { l.env = e }
-func (l *LogRecord) IsNil() bool              { return l.populated }
+func (l *LogRecord) IsNil() bool              { return !l.populated }
+func (l *LogRecord) Save() error {
+	if l.populated == false {
+		return errors.New("cannot insert a log segment that is not poulated")
+	}
 
-func (l *LogRecord) Insert() error {
 	conf, session, err := sink.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -46,16 +49,18 @@ func (l *LogRecord) Insert() error {
 	return errors.WithStack(session.DB(conf.DatabaseName).C(logRecordCollection).Insert(l))
 }
 
-func (l *LogRecord) Find(id string) error {
+func (l *LogRecord) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
 	l.populated = false
-	err = session.DB(conf.DatabaseName).C(logRecordCollection).FindId(id).One(l)
+
+	err = session.DB(conf.DatabaseName).C(logRecordCollection).FindId(l.LogID).One(l)
+
 	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find document with id '%s'", id)
+		return errors.Wrapf(err, "could not find document with id '%s'", l.LogID)
 	} else if err != nil {
 		return errors.Wrap(err, "problem running log query")
 	}
