@@ -20,8 +20,9 @@ const (
 	costDisableEVGProjectsFlag = "disableEvgProjects"
 	costDisableEVGDistrosFlag  = "disableEvgDistros"
 
-	configFlag   = "config"
-	pathFlagName = "path"
+	configFlag     = "config"
+	pathFlagName   = "path"
+	outputFlagName = "output"
 
 	numWorkersFlag = "workers"
 	bucketNameFlag = "bucket"
@@ -59,8 +60,9 @@ func addPathFlag(flags ...cli.Flag) []cli.Flag {
 
 func addOutputPath(flags ...cli.Flag) []cli.Flag {
 	return append(flags, cli.StringFlag{
-		Name:  joinFlagNames(pathFlagName, "filename", "file", "f"),
+		Name:  joinFlagNames(outputFlagName, "o"),
 		Usage: "path to the output file",
+		Value: "output.json",
 	})
 }
 

@@ -36,7 +36,7 @@ var (
 func (l *LogRecord) Setup(e sink.Environment) { l.env = e }
 func (l *LogRecord) IsNil() bool              { return !l.populated }
 func (l *LogRecord) Save() error {
-	if l.populated == false {
+	if !l.populated {
 		return errors.New("cannot insert a log segment that is not poulated")
 	}
 

@@ -34,14 +34,9 @@ func filterLibrary() cli.Command {
 	return cli.Command{
 		Name:  "filter-library",
 		Usage: "take a full graph and return only the library components",
-		Flags: depsFlags(
-			cli.StringFlag{
-				Name:  "output, o",
-				Value: "libraryDeps.json",
-				Usage: "specify the path to the filtered library graph",
-			}),
+		Flags: mergeFlags(depsFlags(), addOutputPath()),
 		Action: func(c *cli.Context) error {
-			fn := c.String("path")
+			fn := c.String(pathFlagName)
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
@@ -62,7 +57,7 @@ func filterLibrary() cli.Command {
 
 			libgraph.Prune("third_party")
 
-			return errors.Wrap(util.WriteJSON(c.String("output"), libgraph),
+			return errors.Wrap(util.WriteJSON(c.String(outputFlagName), libgraph),
 				"problem writing filtered graph")
 		},
 	}
@@ -72,10 +67,10 @@ func loadGraphToDB() cli.Command {
 	return cli.Command{
 		Name:  "load",
 		Usage: "load a graph from a file into a local database",
-		Flags: dbFlags(depsFlags()...),
+		Flags: mergeFlags(dbFlags(), depsFlags()),
 		Action: func(c *cli.Context) error {
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 			fn := c.String("path")
 
 			env := sink.GetEnvironment()
@@ -140,8 +135,8 @@ func cleanDB() cli.Command {
 		Usage: "if dagger encountered an error loading graphs into the database, this will drop orphan graph parts",
 		Flags: dbFlags(),
 		Action: func(c *cli.Context) error {
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 
 			env := sink.GetEnvironment()
 

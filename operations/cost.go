@@ -111,7 +111,7 @@ func collectLoop() cli.Command {
 	return cli.Command{
 		Name:  "collect",
 		Usage: "collect a cost report every hour, saving the results to mongodb",
-		Flags: dbFlags(costEvergreenOptionsFlags()...),
+		Flags: mergeFlags(dbFlags(), costEvergreenOptionsFlags()),
 		Action: func(c *cli.Context) error {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
@@ -234,7 +234,7 @@ func write() cli.Command {
 	return cli.Command{
 		Name:  "write",
 		Usage: "collect and write a build cost report to a file.",
-		Flags: costFlags(costEvergreenOptionsFlags()...),
+		Flags: mergeFlags(costFlags(), costEvergreenOptionsFlags()),
 		Action: func(c *cli.Context) error {
 			start, err := time.Parse(sink.ShortDateFormat, c.String(costStartFlag))
 			if err != nil {
@@ -273,7 +273,7 @@ func printScrn() cli.Command {
 	return cli.Command{
 		Name:  "print",
 		Usage: "print a cost report to the terminal",
-		Flags: costFlags(costEvergreenOptionsFlags()...),
+		Flags: mergeFlags(costFlags(), costEvergreenOptionsFlags()),
 		Action: func(c *cli.Context) error {
 			start, err := time.Parse(sink.ShortDateFormat, c.String(costStartFlag))
 			if err != nil {

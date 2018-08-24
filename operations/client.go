@@ -110,7 +110,7 @@ func postSimpleLog() cli.Command {
 				return errors.Wrap(err, "problem creating REST client")
 			}
 
-			logID := c.String("log")
+			logID := c.String(logFlag)
 			inc := 0
 			batch := []string{}
 
