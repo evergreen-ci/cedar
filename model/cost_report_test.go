@@ -1,11 +1,14 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/sink"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const timeLayout = "2006-01-02T15:04:05.000"
@@ -108,4 +111,34 @@ func TestModelStructToJSON(t *testing.T) {
 	assert.NoError(err)
 	assert.NoError(json.Unmarshal(raw, &costFromJSON))
 	assert.Equal(costFromJSON, cost)
+}
+
+func TestCostReport(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env := sink.GetEnvironment()
+	require.NoError(t, env.Configure(&sink.Configuration{
+		MongoDBURI:    "mongodb://localhost:27017",
+		DatabaseName:  "sink.test.costreport",
+		NumWorkers:    2,
+		UseLocalQueue: true,
+	}))
+
+	defer func() {
+		conf, session, err := sink.GetSessionWithConfig(env)
+		require.NoError(t, err)
+		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
+			assert.Contains(t, err.Error(), "not found")
+		}
+	}()
+
+	for name, test := range map[string]func(context.Context, *testing.T, sink.Environment, *CostReport){
+		// "": func(ctx context.Context, t *testing.t, env sink.Environment, conf *Costreport) {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			tctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			test(tctx, t, env, &CostReport{})
+		})
+	}
 }

@@ -62,6 +62,7 @@ func (g *Graph) refresh() {
 			"node_ids":   len(g.nodeIndex),
 			"build_id":   g.BuildID,
 		})
+
 	grip.CriticalWhen(len(g.edges) != len(g.edgeIndex),
 		message.Fields{
 			"message":    "graph indexing error",
