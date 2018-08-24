@@ -1,7 +1,7 @@
 # start project configuration
 name := sink
 buildDir := build
-packages := $(name) rest units operations cost model
+packages := $(name) rest units operations cost model depgraph
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration

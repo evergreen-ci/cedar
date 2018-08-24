@@ -180,15 +180,15 @@ func findPaths() cli.Command {
 			"uses gograph implementations of graph algorithms."),
 		Flags: depsFlags(
 			cli.StringFlag{
-				Name:  "from, f",
+				Name:  "from",
 				Usage: "specify the starting point in the graph",
 			},
 			cli.StringFlag{
-				Name:  "to, t",
+				Name:  "to",
 				Usage: "specify the traversal target",
 			},
 			cli.StringFlag{
-				Name:  "output, o",
+				Name:  "output",
 				Value: "pathsReport.json",
 				Usage: "specify the path to the filtered library graph",
 			},
