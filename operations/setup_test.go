@@ -14,7 +14,7 @@ func TestServiceConfiguration(t *testing.T) {
 		},
 		"PanicsWithNilEnv": func(t *testing.T, env sink.Environment) {
 			assert.Panics(t, func() {
-				configure(nil, 2, true, "foo", "bar", "baz")
+				_ = configure(nil, 2, true, "foo", "bar", "baz")
 			})
 		},
 		"ErrorsWithInvalidConfigDatabase": func(t *testing.T, env sink.Environment) {
