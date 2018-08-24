@@ -1,10 +1,10 @@
 package model
 
 import (
-	"github.com/evergreen-ci/evergreen/db"
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/depgraph"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
 
