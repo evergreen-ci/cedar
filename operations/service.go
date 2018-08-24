@@ -13,29 +13,37 @@ import (
 // Service returns the ./sink client sub-command object, which is
 // responsible for starting the service.
 func Service() cli.Command {
+	const (
+		localQueueFlag  = "localQueue"
+		servicePortFlag = "port"
+	)
+
 	return cli.Command{
 		Name:  "service",
 		Usage: "run the sink api service",
-		Flags: baseFlags(dbFlags(
-			cli.BoolFlag{
-				Name:  "localQueue",
-				Usage: "uses a locally-backed queue rather than MongoDB",
-			},
-			cli.IntFlag{
-				Name:   "port, p",
-				Usage:  "specify a port to run the service on",
-				Value:  3000,
-				EnvVar: "SINK_SERVICE_PORT",
-			})...),
+		Flags: mergeFlags(
+			baseFlags(),
+			dbFlags(
+				cli.BoolFlag{
+					Name:  localQueueFlag,
+					Usage: "uses a locally-backed queue rather than MongoDB",
+				},
+				cli.IntFlag{
+					Name:   joinFlagNames(servicePortFlag, "p"),
+					Usage:  "specify a port to run the service on",
+					Value:  3000,
+					EnvVar: "SINK_SERVICE_PORT",
+				})),
 		Action: func(c *cli.Context) error {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			workers := c.Int("workers")
-			mongodbURI := c.String("dbUri")
-			runLocal := c.Bool("localQueue")
-			bucket := c.String("bucket")
-			dbName := c.String("dbName")
+			workers := c.Int(numWorkersFlag)
+			mongodbURI := c.String(dbURIFlag)
+			runLocal := c.Bool(localQueueFlag)
+			bucket := c.String(bucketNameFlag)
+			dbName := c.String(dbNameFlag)
+			port := c.Int(servicePortFlag)
 
 			env := sink.GetEnvironment()
 
@@ -44,7 +52,7 @@ func Service() cli.Command {
 			}
 
 			service := &rest.Service{
-				Port: c.Int("port"),
+				Port: port,
 			}
 
 			if err := service.Validate(); err != nil {
@@ -59,7 +67,7 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem starting background jobs")
 			}
 
-			grip.Noticef("starting sink service on :%d", c.Int("port"))
+			grip.Noticef("starting sink service on :%d", port)
 			service.Run(ctx)
 			grip.Info("completed service, terminating.")
 			return nil
