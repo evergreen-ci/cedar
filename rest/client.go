@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -142,6 +143,10 @@ func (c *Client) Prefix() string {
 func (c *Client) getURL(endpoint string) string {
 	var url []string
 
+	if strings.HasPrefix(endpoint, c.host) {
+		return endpoint
+	}
+
 	if c.port == 80 || c.port == 0 {
 		url = append(url, c.host)
 	} else {
@@ -159,6 +164,21 @@ func (c *Client) getURL(endpoint string) string {
 	return strings.Join(url, "/")
 }
 
+func (c *Client) makeRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, c.getURL(url), body)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	req = req.WithContext(ctx)
+	grip.Debug(message.Fields{
+		"method":   method,
+		"url":      url,
+		"host":     c.host,
+		"nil_body": body == nil,
+	})
+	return req, nil
+}
+
 ////////////////////////////////////////////////////////////////////////
 //
 // Public Operations that Interact with the Service
@@ -167,14 +187,11 @@ func (c *Client) getURL(endpoint string) string {
 
 func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 	out := &StatusResponse{}
-	url := c.getURL("/v1/status")
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
-	}
-	req = req.WithContext(ctx)
 
-	grip.Debugln("GET", url)
+	req, err := c.makeRequest(ctx, http.MethodGet, "/v1/status", nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -194,25 +211,19 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 // Simple Log Example Handler
 
 func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increment int) (*SimpleLogInjestionResponse, error) {
-	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logID))
-
-	req := &simpleLogRequest{
+	payload, err := json.Marshal(simpleLogRequest{
 		Time:      time.Now(),
 		Increment: increment,
 		Content:   data,
-	}
-
-	payload, err := json.Marshal(req)
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "problem converting json")
 	}
 
-	grip.Debugln("POST", url)
-	r, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+	r, err := c.makeRequest(ctx, http.MethodPost, fmt.Sprintf("/v1/simple_log/%s", logID), bytes.NewBuffer(payload))
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	r = r.WithContext(ctx)
 
 	resp, err := c.client.Do(r)
 	if err != nil {
@@ -231,16 +242,10 @@ func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increme
 }
 
 func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogContentResponse, error) {
-	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s", logID))
-	out := &SimpleLogContentResponse{}
-
-	grip.Debugln("GET", url)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, fmt.Sprintf("/v1/simple_log/%s", logID), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -248,6 +253,7 @@ func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogCont
 	}
 	defer resp.Body.Close()
 
+	out := &SimpleLogContentResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem reading simple log result")
 	}
@@ -256,15 +262,10 @@ func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogCont
 }
 
 func (c *Client) GetSimpleLogText(ctx context.Context, logID string) ([]string, error) {
-	url := c.getURL(fmt.Sprintf("/v1/simple_log/%s/text", logID))
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, fmt.Sprintf("/v1/simple_log/%s/text", logID), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
-
-	grip.Debugln("GET", url)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -287,15 +288,10 @@ func (c *Client) GetSimpleLogText(ctx context.Context, logID string) ([]string, 
 // System Events/Logging
 
 func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (*SystemEventsResponse, error) {
-	url := c.getURL(fmt.Sprintf("/v1/status/events/%s?limit=%d", level, limit))
-	out := &SystemEventsResponse{}
-	grip.Debugln("GET", url)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, fmt.Sprintf("/v1/status/events/%s?limit=%d", level, limit), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -303,6 +299,7 @@ func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (
 	}
 	defer resp.Body.Close()
 
+	out := &SystemEventsResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem reading system status result")
 	}
@@ -311,15 +308,10 @@ func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (
 }
 
 func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventResponse, error) {
-	url := c.getURL("/v1/status/events/" + id)
-	out := &SystemEventResponse{}
-	grip.Debugln("GET", url)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, "/v1/status/events/"+id, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -328,6 +320,7 @@ func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventRes
 
 	defer resp.Body.Close()
 
+	out := &SystemEventResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem reading system status result")
 	}
@@ -336,15 +329,10 @@ func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventRes
 }
 
 func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*SystemEventResponse, error) {
-	url := c.getURL(fmt.Sprintf("/v1/status/events/%s/acknowledge", id))
-	out := &SystemEventResponse{}
-	grip.Debugln("POST", url)
-
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	req, err := c.makeRequest(ctx, http.MethodPost, fmt.Sprintf("/v1/status/events/%s/acknowledge", id), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -353,6 +341,7 @@ func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*System
 
 	defer resp.Body.Close()
 
+	out := &SystemEventResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem reading system status result")
 	}
@@ -370,14 +359,10 @@ func (c *Client) SendSystemInfo(ctx context.Context, info *message.SystemInfo) (
 		return nil, errors.Wrap(err, "problem converting json")
 	}
 
-	url := c.getURL("/v1/system_info")
-	grip.Debugln("POST", url)
-
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+	req, err := c.makeRequest(ctx, http.MethodPost, "/v1/system_info", bytes.NewBuffer(payload))
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -403,14 +388,10 @@ func (c *Client) GetSystemInformation(ctx context.Context, host string, start, e
 		url += fmt.Sprintf("&end=%s", end.Format(time.RFC3339))
 	}
 
-	grip.Debugln("GET", url)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.WithStack(err)
 	}
-	req = req.WithContext(ctx)
-
-	grip.Debugln("GET", url)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
