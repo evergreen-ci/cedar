@@ -70,10 +70,10 @@ func (c *SinkConfig) Save() error {
 	// TODO: validate here when that's possible
 
 	if !c.populated {
-		return errors.New("cannot save an non-populated cost configuration")
+		return errors.New("cannot save a non-populated cost configuration")
 	}
 
-	c.ID = costReportingID
+	c.ID = sinkConfigurationID
 
 	conf, session, err := sink.GetSessionWithConfig(c.env)
 	if err != nil {
@@ -88,10 +88,6 @@ func (c *SinkConfig) Save() error {
 		"operation":   "save build cost reporting configuration",
 		"change_info": changeInfo,
 	})
-
-	if db.ResultsNotFound(err) {
-		return errors.New("could not find application configuration in the database")
-	}
 
 	return errors.Wrap(err, "problem saving application configuration")
 }

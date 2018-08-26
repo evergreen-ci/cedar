@@ -79,7 +79,6 @@ func printStatus() cli.Command {
 			return nil
 		},
 	}
-
 }
 
 func pretyJSON(data interface{}) (string, error) {
