@@ -3,11 +3,21 @@ package model
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func (c *CostConfig) PopulateMock() {
+	c.Amazon.EBSPrices.GP2 = 1.0
+	c.Amazon.S3Info.Bucket = "foo"
+	c.Amazon.S3Info.KeyStart = "bar"
+	c.Evergreen.RootURL = "http://evergreen.example.net"
+	c.Evergreen.User = "user"
+	c.Evergreen.Key = "key"
+}
 
 func TestCostConfig(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -37,6 +47,10 @@ func TestCostConfig(t *testing.T) {
 			assert.NotNil(t, conf)
 			assert.True(t, conf.IsNil())
 		},
+		"ValidMock": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			conf.PopulateMock()
+			assert.NoError(t, conf.Validate())
+		},
 		"FindErrorsWithoutConfig": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
 			assert.Error(t, conf.Find())
 		},
@@ -60,7 +74,7 @@ func TestCostConfig(t *testing.T) {
 			assert.Contains(t, err.Error(), "problem finding")
 		},
 		"SimpleRoundTrip": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
-			t.Skip("need valid mock")
+			conf.PopulateMock()
 			conf.Opts.Directory = "foo"
 			conf.populated = true
 			conf.Setup(env)
@@ -69,7 +83,7 @@ func TestCostConfig(t *testing.T) {
 			assert.NoError(t, err)
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
-			t.Skip("need valid mock")
+			conf.PopulateMock()
 			require.NoError(t, env.Configure(&sink.Configuration{
 				MongoDBURI:    "mongodb://localhost:27017",
 				DatabaseName:  "\"", // intentionally invalid
@@ -81,21 +95,61 @@ func TestCostConfig(t *testing.T) {
 			conf.populated = true
 			err := conf.Save()
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "problem saving application")
+			assert.Contains(t, err.Error(), "problem saving cost reporting configuration")
 		},
 		"SaveErrorsWithNoEnvConfigured": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
-			t.Skip("need valid mock")
+			conf.PopulateMock()
 			conf.populated = true
 			err := conf.Save()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "env is nil")
 		},
+		"SaveErrorIfPopulatedIsNotTrue": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			conf.PopulateMock()
+			assert.True(t, conf.IsNil())
+			err := conf.Save()
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "cannot save non-populated")
+		},
+		"DurationMethodMinimumIsAnHour": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			for _, dur := range []time.Duration{time.Second, time.Minute - 2, time.Second * 20} {
+				out, err := conf.GetDuration(dur)
+				assert.NoError(t, err)
+				assert.Equal(t, time.Hour, out)
+			}
+		},
+		"ParseDurationFromStringValid": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			conf.Opts.Duration = time.Hour.String()
+			out, err := conf.GetDuration(time.Hour * 24)
+			assert.NoError(t, err)
+			assert.Equal(t, time.Hour, out)
+		},
+		"ParseDurationFromStringInValid": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			conf.Opts.Duration = time.Hour.String() + "-foo"
+			out, err := conf.GetDuration(time.Hour * 24)
+			assert.Error(t, err)
+			assert.Equal(t, time.Duration(0), out)
+		},
+		"ValidatorForEvergreenConnInfo": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			var info *EvergreenConnectionInfo
+			assert.False(t, info.IsValid())
+			info = &EvergreenConnectionInfo{}
+			assert.False(t, info.IsValid())
 
-		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
-		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
-		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
-		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
-		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
+			conf.PopulateMock()
+			info = &conf.Evergreen
+			assert.True(t, info.IsValid())
+		},
+		"ValidatorForS3Config": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+			var amz *CostConfigAmazonS3
+			assert.False(t, amz.IsValid())
+			amz = &CostConfigAmazonS3{}
+			assert.False(t, amz.IsValid())
+
+			conf.PopulateMock()
+			amz = &conf.Amazon.S3Info
+			assert.True(t, amz.IsValid())
+		},
 		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
 	} {
 		t.Run(name, func(t *testing.T) {

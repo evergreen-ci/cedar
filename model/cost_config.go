@@ -80,7 +80,7 @@ func (c *CostConfig) Save() error {
 	}
 
 	if !c.populated {
-		return errors.New("cannot save an non-populated cost configuration")
+		return errors.New("cannot save non-populated cost configuration")
 	}
 
 	c.ID = costReportingID
@@ -98,10 +98,6 @@ func (c *CostConfig) Save() error {
 		"operation":   "save build cost reporting configuration",
 		"change_info": changeInfo,
 	})
-
-	if db.ResultsNotFound(err) {
-		return errors.New("could not find cost reporting document in the database")
-	}
 
 	return errors.Wrap(err, "problem saving cost reporting configuration")
 }
