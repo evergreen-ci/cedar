@@ -241,8 +241,6 @@ func (i *ServiceItem) GetCost(reportRange util.TimeRange) float64 {
 	return 0
 }
 
-func (i *ServiceItem) GetUsage() {}
-
 var (
 	costReportServiceItemNameKey       = bsonutil.MustHaveTag(ServiceItem{}, "Name")
 	costReportServiceItemItemTpyeKey   = bsonutil.MustHaveTag(ServiceItem{}, "ItemType")

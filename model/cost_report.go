@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const costReportCollection = "spending.reports"
+const costReportCollection = "spendingreports"
 
 // CostReport provides the structure for the report that will be returned for
 // the build cost reporting tool.
@@ -43,11 +43,7 @@ var (
 )
 
 func (r *CostReport) String() string {
-	jsonReport, err := json.MarshalIndent(r, "", "    ") // pretty print
-	if err != nil {
-		return ""
-	}
-
+	jsonReport, _ := json.MarshalIndent(r, "", "    ") // pretty print
 	return string(jsonReport)
 }
 
@@ -93,9 +89,6 @@ func (r *CostReport) Save() error {
 		"operation":   "save build cost report",
 		"change-info": changeInfo,
 	})
-	if db.ResultsNotFound(err) {
-		return errors.New("could not find cost reporting document in the database")
-	}
 
 	return errors.Wrap(err, "problem saving cost reporting configuration")
 }
