@@ -17,7 +17,7 @@ lintArgs := --tests --deadline=14m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
 lintArgs += --disable="gotype" --disable="gosec" --enable="goimports" --disable="golint"
-lintArgs += --skip="build" --skip="buildscripts"
+lintArgs += --skip="build"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
 #   the gotype linter has an imperfect compilation simulator and
@@ -53,7 +53,7 @@ coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
 	go get $(subst $(gopath)/src/,,$@)
-$(buildDir)/run-linter:buildscripts/run-linter.go $(buildDir)/.lintSetup
+$(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup
 	 go build -o $@ $<
 $(buildDir)/.lintSetup:$(lintDeps)
 	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
@@ -65,9 +65,9 @@ $(buildDir)/.lintSetup:$(lintDeps)
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	 go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
+	 go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/$(name).race:$(srcFiles)
-	 go build -race -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ main/$(name).go
+	 go build -race -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 # end dependency installation tools
 
 
@@ -150,6 +150,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/curator/greenbay/
 	rm -rf vendor/github.com/mongodb/curator/repobuilder/
 	rm -rf vendor/github.com/mongodb/curator/operations/
+	rm -rf vendor/github.com/mongodb/curator/cmd/
 	rm -rf vendor/github.com/mongodb/curator/main/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
