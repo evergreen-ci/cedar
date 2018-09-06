@@ -3,5 +3,6 @@ build
 *~
 *.out
 sink
+!cmd/sink
 cost-reports
 *.tar.gz
