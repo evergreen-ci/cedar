@@ -93,8 +93,6 @@ phony += lint lint-deps build build-race race test coverage coverage-html list-r
 
 # convenience targets for runing tests and coverage tasks on a
 # specific package.
-race-%:$(buildDir)/output.%.race
-	@grep -s -q -e "^PASS" $< && ! grep -s -q "^WARNING: DATA RACE" $<
 test-%:$(buildDir)/output.%.test
 	@grep -s -q -e "^PASS" $<
 coverage-%:$(buildDir)/output.%.coverage
@@ -198,6 +196,7 @@ clean:
 	rm -rf $(lintDeps) $(buildDir)/coverage.* $(name) $(buildDir)/$(name)
 phony += clean
 # end dependency targets
+
 
 # configure phony targets
 .FORCE:
