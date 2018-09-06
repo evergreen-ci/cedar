@@ -47,7 +47,6 @@ lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "./buildscripts/*" )
 testSrcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*")
 testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
-raceOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).race)
 coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
 coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 $(gopath)/src/%:
@@ -66,8 +65,6 @@ $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
 	 go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
-$(buildDir)/$(name).race:$(srcFiles)
-	 go build -race -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 # end dependency installation tools
 
 
@@ -81,19 +78,14 @@ $(buildDir)/dist.tar.gz:$(buildDir)/$(name)
 # userfacing targets for basic build and development operations
 lint:$(buildDir)/output.lint
 build:$(buildDir)/$(name)
-build-race:$(buildDir)/$(name).race
 test:$(foreach target,$(packages),test-$(target))
-race:$(foreach target,$(packages),race-$(target))
 coverage:$(coverageOutput)
 coverage-html:$(coverageHtmlOutput)
 list-tests:
 	@echo -e "test targets:" $(foreach target,$(packages),\\n\\ttest-$(target))
-list-race:
-	@echo -e "test (race detector) targets:" $(foreach target,$(packages),\\n\\trace-$(target))
 phony += lint lint-deps build build-race race test coverage coverage-html list-race list-tests
-.PRECIOUS:$(testOutput) $(raceOutput) $(coverageOutput) $(coverageHtmlOutput)
+.PRECIOUS:$(testOutput) $(coverageOutput) $(coverageHtmlOutput)
 .PRECIOUS:$(foreach target,$(packages),$(buildDir)/test.$(target))
-.PRECIOUS:$(foreach target,$(packages),$(buildDir)/race.$(target))
 .PRECIOUS:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 .PRECIOUS:$(buildDir)/output.lint
 # end front-ends
@@ -162,43 +154,48 @@ phony += vendor-clean
 #    This varable includes everything that the tests actually need to
 #    run. (The "build" target is intentional and makes these targetsb
 #    rerun as expected.)
-testRunDeps := $(name)
-testTimeout := --test.timeout=20m
-testArgs := -test.v $(testTimeout)
+testTimeout := -timeout=20m
+testArgs := -v $(testTimeout)
 ifneq (,$(RUN_TEST))
-testArgs += -test.run='$(RUN_TEST)'
+testArgs += -run='$(RUN_TEST)'
 endif
-#  targets to compile
-$(buildDir)/test.%:$(testSrcFiles)
-	 go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./$(subst -,/,$*)
-$(buildDir)/race.%:$(testSrcFiles)
-	 go test -race -c -o $@ ./$(subst -,/,$*)
-#  targets to run any tests in the top-level package
-$(buildDir)/test.$(name):$(testSrcFiles)
-	 go test $(if $(DISABLE_COVERAGE),,-covermode=count) -c -o $@ ./
-$(buildDir)/race.$(name):$(testSrcFiles)
-	 go test -race -c -o $@ ./
-#  targets to run the tests and report the output
-$(buildDir)/output.%.test:$(buildDir)/test.% .FORCE
-	./$< $(testArgs) 2>&1 | tee $@
-$(buildDir)/output.%.race:$(buildDir)/race.% .FORCE
-	./$< $(testArgs) 2>&1 | tee $@
+ifneq (,$(RUN_COUNT))
+testArgs += -count=$(RUN_COUNT)
+endif
+ifneq (,$(SKIP_LONG))
+testArgs += -short
+endif
+ifneq (,$(DISABLE_COVERAGE))
+testArgs += -cover
+endif
+ifneq (,$(RACE_DETECTOR))
+testArgs += -race
+endif
+# test execution and output handlers
+$(buildDir)/output.%.test:.FORCE
+	go test $(testArgs) ./$* | tee $@
+$(buildDir)/output.%.coverage:.FORCE
+	go test $(testArgs) ./$* -covermode=count -coverprofile $@
+	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
+$(buildDir)/output.$(name).test:.FORCE
+	go test $(testArgs) ./ | tee $@
+$(buildDir)/output.$(name).coverage:.FORCE
+	go test $(testArgs) ./ -covermode=count -coverprofile $@
+	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
+$(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
+	 go tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(testSrcFiles) .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
 $(buildDir)/output.lint:$(buildDir)/run-linter .FORCE
 	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
 #  targets to process and generate coverage reports
-$(buildDir)/output.%.coverage:$(buildDir)/test.% .FORCE
-	./$< $(testTimeout) -test.coverprofile=$@ || true
-	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
-$(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
-	 go tool cover -html=$< -o $@
 # end test and coverage artifacts
+
 
 # clean and other utility targets
 clean:
-	rm -rf $(lintDeps) $(buildDir)/test.* $(buildDir)/coverage.* $(buildDir)/race.* $(name) $(buildDir)/$(name)
+	rm -rf $(lintDeps) $(buildDir)/coverage.* $(name) $(buildDir)/$(name)
 phony += clean
 # end dependency targets
 
