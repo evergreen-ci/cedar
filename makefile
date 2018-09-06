@@ -91,19 +91,6 @@ phony += lint lint-deps build build-race race test coverage coverage-html list-r
 # end front-ends
 
 
-# convenience targets for runing tests and coverage tasks on a
-# specific package.
-test-%:$(buildDir)/output.%.test
-	@grep -s -q -e "^PASS" $<
-coverage-%:$(buildDir)/output.%.coverage
-	@grep -s -q -e "^PASS" $<
-html-coverage-%:$(buildDir)/output.%.coverage.html $(buildDir)/output.%.coverage.html
-	@grep -s -q -e "^PASS" $<
-lint-%:$(buildDir)/output.%.lint
-	@grep -v -s -q "^--- FAIL" $<
-# end convienence targets
-
-
 # start vendoring configuration
 #    begin with configuration of dependencies
 vendor-clean:
@@ -148,6 +135,19 @@ phony += vendor-clean
 # end vendoring tooling configuration
 
 
+# convenience targets for runing tests and coverage tasks on a
+# specific package.
+test-%:$(buildDir)/output.%.test
+	@grep -s -q -e "^PASS" $<
+coverage-%:$(buildDir)/output.%.coverage
+	@grep -s -q -e "^PASS" $(buildDir)/output.$*.test
+html-coverage-%:$(buildDir)/output.%.coverage.html
+	@grep -s -q -e "^PASS" $(buildDir)/output.$*.test
+lint-%:$(buildDir)/output.%.lint
+	@grep -v -s -q "^--- FAIL" $<
+# end convienence targets
+
+
 # start test and coverage artifacts
 #    This varable includes everything that the tests actually need to
 #    run. (The "build" target is intentional and makes these targetsb
@@ -173,15 +173,15 @@ endif
 $(buildDir)/output.%.test:.FORCE
 	go test $(testArgs) ./$* | tee $@
 $(buildDir)/output.%.coverage:.FORCE
-	go test $(testArgs) ./$* -covermode=count -coverprofile $@
+	go test $(testArgs) ./$* -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
 	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.$(name).test:.FORCE
 	go test $(testArgs) ./ | tee $@
 $(buildDir)/output.$(name).coverage:.FORCE
-	go test $(testArgs) ./ -covermode=count -coverprofile $@
+	go test $(testArgs) ./ -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
 	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
-	 go tool cover -html=$< -o $@
+	go tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(testSrcFiles) .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
