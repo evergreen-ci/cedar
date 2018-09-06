@@ -163,10 +163,6 @@ func (r *CostReportSummary) Find() error {
 }
 
 func (r *CostReportSummary) String() string {
-	jsonReport, err := json.MarshalIndent(r, "", "    ")
-	if err != nil {
-		return ""
-	}
-
+	jsonReport, _ := json.MarshalIndent(r, "", "    ")
 	return string(jsonReport)
 }

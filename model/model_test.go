@@ -37,7 +37,9 @@ func TestModelInterface(t *testing.T) {
 		&DependencyGraphs{},
 		&CostReports{},
 	}
-	fmt.Println("missing types", len(oddballs)+len(slices))
+	assert.NotNil(t, oddballs)
+	assert.NotNil(t, slices)
+
 	dbName := "sink_test"
 
 	env := sink.GetEnvironment()
