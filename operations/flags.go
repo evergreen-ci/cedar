@@ -20,6 +20,8 @@ const (
 	costDisableEVGProjectsFlag = "disableEvgProjects"
 	costDisableEVGDistrosFlag  = "disableEvgDistros"
 
+	simpleLogIDFlag = "log"
+
 	configFlag     = "config"
 	pathFlagName   = "path"
 	outputFlagName = "output"
@@ -72,6 +74,14 @@ func depsFlags(flags ...cli.Flag) []cli.Flag {
 		Usage: "source path for dependency graph",
 		Value: "deps.json",
 	})
+}
+
+func simpleLogIDFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags, cli.StringFlag{
+		Name:  simpleLogIDFlag,
+		Usage: "identifier for the log",
+	})
+
 }
 
 func dbFlags(flags ...cli.Flag) []cli.Flag {

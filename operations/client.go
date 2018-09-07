@@ -41,6 +41,7 @@ func Client() cli.Command {
 				Value: 3000,
 			},
 		},
+		Before: mergeBeforeFuncs(requireStringFlag(clientHostFlag), requireClientPortFlag),
 		Subcommands: []cli.Command{
 			printStatus(),
 			postSimpleLog(),
@@ -91,16 +92,11 @@ func pretyJSON(data interface{}) (string, error) {
 }
 
 func postSimpleLog() cli.Command {
-	const logFlag = "log"
 	return cli.Command{
-		Name:  "simple-log-pipe",
-		Usage: "posts a string",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "log",
-				Usage: "identifier for the log",
-			},
-		},
+		Name:   "simple-log-pipe",
+		Usage:  "posts a string",
+		Flags:  simpleLogIDFlags(),
+		Before: requireFileExists(simpleLogIDFlag),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
@@ -109,7 +105,7 @@ func postSimpleLog() cli.Command {
 				return errors.Wrap(err, "problem creating REST client")
 			}
 
-			logID := c.String(logFlag)
+			logID := c.String(simpleLogIDFlag)
 			inc := 0
 			batch := []string{}
 
@@ -155,17 +151,13 @@ func postSimpleLog() cli.Command {
 
 func getSimpleLog() cli.Command {
 	return cli.Command{
-		Name:  "get-simple-log",
-		Usage: "prints json document for the simple log",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "log",
-				Usage: "identifier for the log",
-			},
-		},
+		Name:   "get-simple-log",
+		Usage:  "prints json document for the simple log",
+		Flags:  simpleLogIDFlags(),
+		Before: requireFileExists(simpleLogIDFlag),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
-			logID := c.String("log")
+			logID := c.String(simpleLogIDFlag)
 
 			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
 			if err != nil {
@@ -391,9 +383,10 @@ func systemInfoSend() cli.Command {
 
 func systemInfoImport() cli.Command {
 	return cli.Command{
-		Name:  "import",
-		Usage: "import system info data from a json file, one line per document",
-		Flags: addPathFlag(),
+		Name:   "import",
+		Usage:  "import system info data from a json file, one line per document",
+		Flags:  addPathFlag(),
+		Before: requireFileExists(pathFlagName),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
@@ -407,6 +400,7 @@ func systemInfoImport() cli.Command {
 			if err != nil {
 				return errors.Wrapf(err, "problem opening file '%s'", fn)
 			}
+			defer f.Close()
 			r := bufio.NewReader(f)
 
 			catcher := grip.NewCatcher()
