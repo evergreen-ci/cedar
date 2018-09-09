@@ -45,8 +45,6 @@ lintArgs += --exclude=".*unused variable or constant \w+Key"
 gopath := $(shell go env GOPATH)
 lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "./buildscripts/*" )
-testSrcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*")
-testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
 coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
 coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 $(gopath)/src/%:
@@ -84,7 +82,7 @@ coverage-html:$(coverageHtmlOutput)
 list-tests:
 	@echo -e "test targets:" $(foreach target,$(packages),\\n\\ttest-$(target))
 phony += lint lint-deps build build-race race test coverage coverage-html list-race list-tests
-.PRECIOUS:$(testOutput) $(coverageOutput) $(coverageHtmlOutput)
+.PRECIOUS:$(coverageOutput) $(coverageHtmlOutput)
 .PRECIOUS:$(foreach target,$(packages),$(buildDir)/test.$(target))
 .PRECIOUS:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 .PRECIOUS:$(buildDir)/output.lint
@@ -178,7 +176,7 @@ $(buildDir)/output.%.coverage:.FORCE
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
 	go tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
-$(buildDir)/output.%.lint:$(buildDir)/run-linter $(testSrcFiles) .FORCE
+$(buildDir)/output.%.lint:$(buildDir)/run-linter .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
 $(buildDir)/output.lint:$(buildDir)/run-linter .FORCE
 	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
