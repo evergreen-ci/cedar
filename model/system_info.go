@@ -5,9 +5,9 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/mongodb/anser/db"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -30,9 +30,13 @@ var (
 )
 
 func (i *SystemInformationRecord) Setup(e sink.Environment) { i.env = e }
-func (i *SystemInformationRecord) IsNil() bool              { return i.populated }
+func (i *SystemInformationRecord) IsNil() bool              { return !i.populated }
 
-func (i *SystemInformationRecord) Insert() error {
+func (i *SystemInformationRecord) Save() error {
+	if !i.populated {
+		return errors.New("cannot save unpopulated record")
+	}
+
 	if i.ID == "" {
 		i.ID = string(bson.NewObjectId())
 	}
@@ -46,7 +50,7 @@ func (i *SystemInformationRecord) Insert() error {
 	return errors.WithStack(session.DB(conf.DatabaseName).C(sysInfoCollection).Insert(i))
 }
 
-func (i *SystemInformationRecord) FindID(id string) error {
+func (i *SystemInformationRecord) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -54,9 +58,9 @@ func (i *SystemInformationRecord) FindID(id string) error {
 	defer session.Close()
 
 	i.populated = false
-	err = session.DB(conf.DatabaseName).C(sysInfoCollection).FindId(id).One(i)
+	err = session.DB(conf.DatabaseName).C(sysInfoCollection).FindId(i.ID).One(i)
 	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find document with id '%s'", id)
+		return errors.Wrapf(err, "could not find document with id '%s'", i.ID)
 	} else if err != nil {
 		return errors.WithStack(err)
 	}

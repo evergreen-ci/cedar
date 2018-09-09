@@ -29,6 +29,7 @@ func TestModelInterface(t *testing.T) {
 		func() commonModel { return &GraphEdge{} },
 		func() commonModel { return &LogRecord{} },
 		func() commonModel { return &Event{} },
+		func() commonModel { return &SystemInformationRecord{} },
 	}
 	oddballs := []interface{}{
 		&LogSegment{},

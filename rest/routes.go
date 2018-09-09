@@ -313,7 +313,7 @@ func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
 		data.Timestamp = time.Now()
 	}
 
-	if err := data.Insert(); err != nil {
+	if err := data.Save(); err != nil {
 		grip.Error(err)
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)

@@ -46,6 +46,25 @@ func (g *GraphMetadata) Save() error {
 	return errors.WithStack(session.DB(conf.DatabaseName).C(depMetadataCollection).Insert(g))
 }
 
+func (g *GraphMetadata) Find() error {
+	conf, session, err := sink.GetSessionWithConfig(g.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	g.populated = false
+	err = session.DB(conf.DatabaseName).C(depMetadataCollection).FindId(g.BuildID).One(g)
+	if db.ResultsNotFound(err) {
+		return errors.Wrapf(err, "could not find document with id '%s'", g.BuildID)
+	} else if err != nil {
+		return errors.Wrap(err, "problem running graph metadata query")
+	}
+	g.populated = true
+
+	return nil
+}
+
 func (g *GraphMetadata) MarkComplete() error {
 	conf, session, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
@@ -58,7 +77,13 @@ func (g *GraphMetadata) MarkComplete() error {
 			"$set": db.Document{graphMetadataCompleteKey: true},
 		})
 
-	return errors.WithStack(err)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	g.Complete = true
+
+	return nil
 }
 
 func (g *GraphMetadata) RemoveEdges() error {
@@ -106,25 +131,6 @@ func (g *GraphMetadata) RemoveNodes() error {
 		"change_info": info,
 	})
 	return errors.WithStack(err)
-}
-
-func (g *GraphMetadata) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-
-	g.populated = false
-	err = session.DB(conf.DatabaseName).C(depMetadataCollection).FindId(g.BuildID).One(g)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find document with id '%s'", g.BuildID)
-	} else if err != nil {
-		return errors.Wrap(err, "problem running graph metadata query")
-	}
-	g.populated = true
-
-	return nil
 }
 
 func (g *GraphMetadata) MakeNode(source *depgraph.Node) *GraphNode {

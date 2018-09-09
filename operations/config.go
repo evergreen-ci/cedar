@@ -35,8 +35,8 @@ func dumpSinkConfig() cli.Command {
 			env := sink.GetEnvironment()
 
 			fileName := c.String("file")
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
@@ -67,8 +67,8 @@ func loadSinkConfig() cli.Command {
 			env := sink.GetEnvironment()
 
 			fileName := c.String("file")
-			mongodbURI := c.String("dbUri")
-			dbName := c.String("dbName")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)

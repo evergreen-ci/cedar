@@ -74,8 +74,6 @@ func (e *Event) Save() error {
 	return errors.WithStack(e.sendLog(session.DB(conf.DatabaseName).C(eventCollection)))
 }
 
-func (e *Event) sendLog(coll db.Collection) error { return errors.WithStack(coll.Insert(e)) }
-
 func (e *Event) Find() error {
 	conf, session, err := sink.GetSessionWithConfig(e.env)
 	if err != nil {
@@ -95,6 +93,8 @@ func (e *Event) Find() error {
 
 	return nil
 }
+
+func (e *Event) sendLog(coll db.Collection) error { return errors.WithStack(coll.Insert(e)) }
 
 func (e *Event) Acknowledge() error {
 	conf, session, err := sink.GetSessionWithConfig(e.env)
