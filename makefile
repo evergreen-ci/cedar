@@ -171,14 +171,9 @@ testArgs += -race
 endif
 # test execution and output handlers
 $(buildDir)/output.%.test:.FORCE
-	go test $(testArgs) ./$* | tee $@
+	go test $(testArgs) ./$(if $(subst $(name),,$*),$*,) | tee $@
 $(buildDir)/output.%.coverage:.FORCE
-	go test $(testArgs) ./$* -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
-	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
-$(buildDir)/output.$(name).test:.FORCE
-	go test $(testArgs) ./ | tee $@
-$(buildDir)/output.$(name).coverage:.FORCE
-	go test $(testArgs) ./ -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
+	go test $(testArgs) ./$(if $(subst $(name),,$*),$*,) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
 	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
 	go tool cover -html=$< -o $@
