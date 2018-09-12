@@ -47,3 +47,5 @@ imports:
   version: fcd3f3321826209eac4a6f41c0108624d948e499
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
+- name: github.com/montanaflynn/stats
+  version: 1bf9dbcd8cbe1fdb75add3785b1d4a9a646269ab
