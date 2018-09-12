@@ -51,7 +51,7 @@ type PerformanceStatistics struct {
 	samples int
 }
 
-type PerforamnceMetricSummary struct {
+type PerformanceMetricSummary struct {
 	Size     float64
 	Count    float64
 	Workers  float64
@@ -60,10 +60,10 @@ type PerforamnceMetricSummary struct {
 	samples int
 }
 
-type PerformanceTimeSeries []PerforancePoint
+type PerformanceTimeSeries []PerformancePoint
 
 func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
-	out := perfMetricStats{
+	out := PerformanceStatistics{
 		size:     make(stats.Float64Data, len(ts)),
 		count:    make(stats.Float64Data, len(ts)),
 		workers:  make(stats.Float64Data, len(ts)),
@@ -81,10 +81,10 @@ func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 	return out
 }
 
-func (perf *PerformanceStatistics) Mean() (PerforanceMetricSummary, error) {
+func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
 	var err error
 	catcher := grip.NewBasicCatcher()
-	out := PerforamnceMetricSummary{
+	out := PerformanceMetricSummary{
 		samples: perf.samples,
 	}
 	out.Size, err = stats.Mean(perf.size)
@@ -96,7 +96,7 @@ func (perf *PerformanceStatistics) Mean() (PerforanceMetricSummary, error) {
 	out.Workers, err = stats.Mean(perf.workers)
 	catcher.Add(err)
 
-	var dur time.Duration
+	var dur float64
 	dur, err = stats.Mean(perf.workers)
 	catcher.Add(err)
 	out.Duration = time.Duration(dur)
@@ -104,21 +104,25 @@ func (perf *PerformanceStatistics) Mean() (PerforanceMetricSummary, error) {
 	return out, catcher.Resolve()
 }
 
-func (perf *PerforamnceMetricSummary) ThroughputOps() float64  { return perf.Count / perf.samples }
-func (perf *PerforamnceMetricSummary) ThroughputData() float64 { return perf.Size / perf.samples }
+func (perf *PerformanceMetricSummary) ThroughputOps() float64 {
+	return perf.Count / float64(perf.samples)
+}
+func (perf *PerformanceMetricSummary) ThroughputData() float64 {
+	return perf.Size / float64(perf.samples)
+}
 
-func (perf *PerforamnceMetricSummary) Latency() time.Duration {
+func (perf *PerformanceMetricSummary) Latency() time.Duration {
 	return perf.Duration / time.Duration(perf.samples)
 }
 
-func (perf *PerforamnceMetricSummary) AdjustedParallelLatency() time.Duration {
+func (perf *PerformanceMetricSummary) AdjustedParallelLatency() time.Duration {
 	return (perf.Duration / time.Duration(perf.Workers)) / time.Duration(perf.samples)
 }
 
-func (perf *PerforamnceMetricSummary) AdjustedParallelThroughputOps() float64 {
-	return (perf.Count / perf.Workers) / perf.samples
+func (perf *PerformanceMetricSummary) AdjustedParallelThroughputOps() float64 {
+	return (perf.Count / perf.Workers) / float64(perf.samples)
 }
 
-func (perf *PerforamnceMetricSummary) AdjustedParallelThroughputData() float64 {
-	return (perf.Size / perf.Workers) / perf.samples
+func (perf *PerformanceMetricSummary) AdjustedParallelThroughputData() float64 {
+	return (perf.Size / perf.Workers) / float64(perf.samples)
 }
