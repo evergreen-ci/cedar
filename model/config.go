@@ -59,7 +59,7 @@ func (c *SinkConfig) Find() error {
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find application configuration in the database")
 	} else if err != nil {
-		return errors.Wrap(err, "problem finding cost config document")
+		return errors.Wrap(err, "problem finding app config document")
 	}
 
 	c.populated = true
@@ -70,7 +70,7 @@ func (c *SinkConfig) Save() error {
 	// TODO: validate here when that's possible
 
 	if !c.populated {
-		return errors.New("cannot save a non-populated cost configuration")
+		return errors.New("cannot save a non-populated app configuration")
 	}
 
 	c.ID = sinkConfigurationID

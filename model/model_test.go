@@ -30,6 +30,7 @@ func TestModelInterface(t *testing.T) {
 		func() commonModel { return &LogRecord{} },
 		func() commonModel { return &Event{} },
 		func() commonModel { return &SystemInformationRecord{} },
+		func() commonModel { return &PerformanceResult{} },
 	}
 	oddballs := []interface{}{
 		&LogSegment{},
@@ -84,7 +85,7 @@ func TestModelInterface(t *testing.T) {
 	}
 
 	for _, factory := range models {
-		modelName := strings.Trim(fmt.Sprintf("%T", factory()), "*model.")
+		modelName := strings.TrimLeft(fmt.Sprintf("%T", factory()), "*model.")
 		t.Run(modelName, func(t *testing.T) {
 			for name, test := range testCases {
 				t.Run(name, func(t *testing.T) {
