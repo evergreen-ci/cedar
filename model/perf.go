@@ -31,7 +31,7 @@ type PerformanceResult struct {
 
 	// Samples must be collected at a fixed interval in order for
 	// the math that we do on the aggregate values to make sense.
-	SampleFrequency time.Duration
+	SampleFrequency time.Duration `bson:"sample_frequencey"`
 
 	env       sink.Environment
 	populated bool
@@ -100,13 +100,17 @@ func (result *PerformanceResult) Save() error {
 // Component Types
 
 type PerformanceResultID struct {
-	TaskName  string
-	Execution int
-	TestName  string
-	Parent    string
-	Tags      []string
-	Arguments map[string]interface{}
+	TaskName  string                 `bson:"task_name"`
+	Execution int                    `bson:"execution"`
+	TestName  string                 `bson:"test_name"`
+	Parent    string                 `bson:"parent"`
+	Tags      []string               `bson:"tags"`
+	Arguments map[string]interface{} `bson:"test_args"`
 }
+
+// NOTE: it might be nice to make arguments just be a *bson.Document
+// rather than a map type. I think we can change it when we change to
+// the new driver.
 
 func (id *PerformanceResultID) ID() string {
 	buf := &bytes.Buffer{}
@@ -124,6 +128,7 @@ func (id *PerformanceResultID) ID() string {
 	for k, v := range id.Arguments {
 		args = append(args, fmt.Sprintf("%s=%v", k, v))
 	}
+
 	sort.Strings(args)
 	for _, str := range args {
 		buf.WriteString(str)
@@ -153,11 +158,11 @@ type PerformanceStatistics struct {
 }
 
 type PerformanceMetricSummary struct {
-	Size          float64
-	Count         float64
-	Workers       float64
-	TotalDuration time.Duration
-	TotalCount    int64
+	Size          float64       `bson:"size"`
+	Count         float64       `bson:"count"`
+	Workers       float64       `bson:"workers"`
+	TotalDuration time.Duration `bson:"total_duration"`
+	TotalCount    int64         `bson:"total_count"`
 
 	samples int
 	window  time.Duration
