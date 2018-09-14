@@ -29,6 +29,10 @@ type PerformanceResult struct {
 	SourcePath  string                    `bson:"source_path"`
 	DataSummary *PerformanceMetricSummary `bson:"summary,omitempty"`
 
+	// Samples must be collected at a fixed interval in order for
+	// the math that we do on the aggregate values to make sense.
+	SampleFrequency time.Duration
+
 	env       sink.Environment
 	populated bool
 }
@@ -101,6 +105,7 @@ type PerformanceResultID struct {
 	TestName  string
 	Parent    string
 	Tags      []string
+	Arguments map[string]interface{}
 }
 
 func (id *PerformanceResultID) ID() string {
@@ -109,8 +114,18 @@ func (id *PerformanceResultID) ID() string {
 	buf.WriteString(fmt.Sprint(id.Execution))
 	buf.WriteString(id.TestName)
 	buf.WriteString(id.Parent)
+
 	sort.Strings(id.Tags)
 	for _, str := range id.Tags {
+		buf.WriteString(str)
+	}
+
+	args := []string{}
+	for k, v := range id.Arguments {
+		args = append(args, fmt.Sprintf("%s=%v", k, v))
+	}
+	sort.Strings(args)
+	for _, str := range args {
 		buf.WriteString(str)
 	}
 
@@ -127,39 +142,44 @@ type PerformancePoint struct {
 }
 
 type PerformanceStatistics struct {
-	size     stats.Float64Data
-	count    stats.Float64Data
-	workers  stats.Float64Data
-	duration stats.Float64Data
+	size          stats.Float64Data
+	count         stats.Float64Data
+	workers       stats.Float64Data
+	totalDuration time.Duration
+	totalCount    int64
 
 	samples int
+	window  time.Duration
 }
 
 type PerformanceMetricSummary struct {
-	Size     float64
-	Count    float64
-	Workers  float64
-	Duration time.Duration
+	Size          float64
+	Count         float64
+	Workers       float64
+	TotalDuration time.Duration
+	TotalCount    int64
 
 	samples int
+	window  time.Duration
 }
 
 type PerformanceTimeSeries []PerformancePoint
 
-func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
+func (ts PerformanceTimeSeries) Statistics(dur time.Duration) PerformanceStatistics {
 	out := PerformanceStatistics{
-		size:     make(stats.Float64Data, len(ts)),
-		count:    make(stats.Float64Data, len(ts)),
-		workers:  make(stats.Float64Data, len(ts)),
-		duration: make(stats.Float64Data, len(ts)),
-		samples:  len(ts),
+		size:    make(stats.Float64Data, len(ts)),
+		count:   make(stats.Float64Data, len(ts)),
+		workers: make(stats.Float64Data, len(ts)),
+		samples: len(ts),
+		window:  dur,
 	}
 
 	for idx, point := range ts {
 		out.size[idx] = float64(point.Size)
 		out.count[idx] = float64(point.Count)
 		out.workers[idx] = float64(point.Workers)
-		out.duration[idx] = float64(point.Duration)
+		out.totalCount += point.Count
+		out.totalDuration += point.Duration
 	}
 
 	return out
@@ -170,6 +190,7 @@ func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
 	catcher := grip.NewBasicCatcher()
 	out := PerformanceMetricSummary{
 		samples: perf.samples,
+		window:  perf.window,
 	}
 	out.Size, err = stats.Mean(perf.size)
 	catcher.Add(err)
@@ -180,33 +201,28 @@ func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
 	out.Workers, err = stats.Mean(perf.workers)
 	catcher.Add(err)
 
-	var dur float64
-	dur, err = stats.Mean(perf.workers)
-	catcher.Add(err)
-	out.Duration = time.Duration(dur)
-
 	return out, catcher.Resolve()
 }
 
 func (perf *PerformanceMetricSummary) ThroughputOps() float64 {
-	return perf.Count / float64(perf.samples)
+	return perf.Count / float64(perf.window)
 }
 func (perf *PerformanceMetricSummary) ThroughputData() float64 {
-	return perf.Size / float64(perf.samples)
+	return perf.Size / float64(perf.window)
 }
 
 func (perf *PerformanceMetricSummary) Latency() time.Duration {
-	return perf.Duration / time.Duration(perf.samples)
+	return perf.TotalDuration / time.Duration(perf.TotalCount)
 }
 
 func (perf *PerformanceMetricSummary) AdjustedParallelLatency() time.Duration {
-	return (perf.Duration / time.Duration(perf.Workers)) / time.Duration(perf.samples)
+	return (perf.TotalDuration / time.Duration(perf.TotalCount)) / time.Duration(perf.Workers)
 }
 
 func (perf *PerformanceMetricSummary) AdjustedParallelThroughputOps() float64 {
-	return (perf.Count / perf.Workers) / float64(perf.samples)
+	return (perf.Count / perf.Workers) / float64(perf.window)
 }
 
 func (perf *PerformanceMetricSummary) AdjustedParallelThroughputData() float64 {
-	return (perf.Size / perf.Workers) / float64(perf.samples)
+	return (perf.Size / perf.Workers) / float64(perf.window)
 }
