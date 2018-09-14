@@ -100,12 +100,12 @@ func (result *PerformanceResult) Save() error {
 // Component Types
 
 type PerformanceResultID struct {
-	TaskName  string                 `bson:"task_name"`
-	Execution int                    `bson:"execution"`
-	TestName  string                 `bson:"test_name"`
-	Parent    string                 `bson:"parent"`
-	Tags      []string               `bson:"tags"`
-	Arguments map[string]interface{} `bson:"test_args"`
+	TaskName  string            `bson:"task_name"`
+	Execution int               `bson:"execution"`
+	TestName  string            `bson:"test_name"`
+	Parent    string            `bson:"parent"`
+	Tags      []string          `bson:"tags"`
+	Arguments map[string]string `bson:"test_args"`
 }
 
 // NOTE: it might be nice to make arguments just be a *bson.Document
@@ -124,14 +124,16 @@ func (id *PerformanceResultID) ID() string {
 		buf.WriteString(str)
 	}
 
-	args := []string{}
-	for k, v := range id.Arguments {
-		args = append(args, fmt.Sprintf("%s=%v", k, v))
-	}
+	if len(id.Arguments) > 0 {
+		args := []string{}
+		for k, v := range id.Arguments {
+			args = append(args, fmt.Sprintf("%s=%s", k, v))
+		}
 
-	sort.Strings(args)
-	for _, str := range args {
-		buf.WriteString(str)
+		sort.Strings(args)
+		for _, str := range args {
+			buf.WriteString(str)
+		}
 	}
 
 	hash := sha256.New()

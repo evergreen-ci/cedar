@@ -74,6 +74,9 @@ $(buildDir)/dist.tar.gz:$(buildDir)/$(name)
 
 
 # userfacing targets for basic build and development operations
+proto:
+	@mkdir -p perf/internal
+	protoc --go_out=plugins=grpc:perf/internal *.proto
 lint:$(buildDir)/output.lint
 build:$(buildDir)/$(name)
 test:$(foreach target,$(packages),test-$(target))
@@ -186,6 +189,7 @@ $(buildDir)/output.lint:$(buildDir)/run-linter .FORCE
 
 # clean and other utility targets
 clean:
+	rm *.pb.go
 	rm -rf $(lintDeps) $(buildDir)/coverage.* $(name) $(buildDir)/$(name)
 phony += clean
 # end dependency targets
