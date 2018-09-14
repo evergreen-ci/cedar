@@ -12,12 +12,27 @@ import (
 // Other goals of this project are to allow us to have a single
 // interface for interacting with blob storage, and allow us to fully
 // move off of our legacy goamz package and stabalize all blob-storage
-// operations across all projects.
+// operations across all projects. There should be no interface
+// dependencies on external packages required to use this library.
 //
 // See, the following implemenations for previous approaches.
 //
 //   - https://github.com/evergreen-ci/evergreen/blob/master/thirdparty/s3.go
 //   - https://github.com/mongodb/curator/tree/master/sthree
+//
+// The prefered aws sdk is here: https://docs.aws.amazon.com/sdk-for-go/api/
+//
+// In no particular order:
+//  - implementation constructors should make it possible to use
+//    custom http.Clients (to aid in pooling.)
+//  - We should probably implement .String methods.
+//  - Do use the grip package for logging.
+//  - get/put should support multipart upload/download?
+//  - we'll want to do retries with back-off (potentially configurable
+//    in bucketinfo?)
+//  - we might need to have variants that Put/Get byte slices rather
+//    than readers.
+//  - pass contexts to requests for timeouts.
 //
 // Eventually we'll move this package to its own repository, but for
 // now we can do development here.
@@ -62,6 +77,7 @@ type BucketInfo struct {
 	Auth   string
 	Region string
 	Name   string
+	Access string // for puts only, presumably.
 }
 
 ////////////////////////////////////////////////////////////////////////
