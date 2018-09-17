@@ -75,8 +75,8 @@ $(buildDir)/dist.tar.gz:$(buildDir)/$(name)
 
 # userfacing targets for basic build and development operations
 proto:
-	@mkdir -p perf/internal
-	protoc --go_out=plugins=grpc:perf/internal *.proto
+	@mkdir -p rpc/internal
+	protoc --go_out=plugins=grpc:rpc/internal *.proto
 lint:$(buildDir)/output.lint
 build:$(buildDir)/$(name)
 test:$(foreach target,$(packages),test-$(target))
