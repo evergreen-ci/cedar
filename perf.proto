@@ -4,15 +4,13 @@ package sink;
 
 option go_package = "internal";
 
-import "google/protobuf/any.proto";
-
 message ResultID {
   string task_name = 1;
   int32 execution = 2;
   string test_name = 3;
   string parent = 4;
   repeated string tags = 5;
-  map<string, google.protobuf.Any> arguments = 6;
+  map<string, int32> arguments = 6;
 }
 
 message MetricsSeriesStart {
@@ -21,10 +19,16 @@ message MetricsSeriesStart {
   string source_path = 3;
 }
 
+message MetricsSeriesEnd {
+  string id = 1;
+  bool is_complete = 2;
+}
+
 message MetricsResponse {
   string id = 1;
   bool success = 2;
 }
+
 
 message SendResponse {
   string id = 1;
@@ -43,11 +47,6 @@ message MetricsEvent {
   string id = 1;
   int32 interval = 2;
   repeated MetricsPoint Event = 3;
-}
-
-message MetricsSeriesEnd {
-  string id = 1;
-  bool is_complete = 2;
 }
 
 service SinkPerformanceMetrics {

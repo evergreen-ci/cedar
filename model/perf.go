@@ -37,11 +37,13 @@ type PerformanceResult struct {
 	populated bool
 }
 
-func CreatePerformanceResult(info PerformanceResultID, path string) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultID, path string, frequency time.Duration) *PerformanceResult {
 	return &PerformanceResult{
-		ID:        info.ID(),
-		Info:      info,
-		populated: true,
+		ID:              info.ID(),
+		SourcePath:      path,
+		SampleFrequency: frequency,
+		Info:            info,
+		populated:       true,
 	}
 }
 
@@ -100,12 +102,12 @@ func (result *PerformanceResult) Save() error {
 // Component Types
 
 type PerformanceResultID struct {
-	TaskName  string            `bson:"task_name"`
-	Execution int               `bson:"execution"`
-	TestName  string            `bson:"test_name"`
-	Parent    string            `bson:"parent"`
-	Tags      []string          `bson:"tags"`
-	Arguments map[string]string `bson:"test_args"`
+	TaskName  string           `bson:"task_name"`
+	Execution int              `bson:"execution"`
+	TestName  string           `bson:"test_name"`
+	Parent    string           `bson:"parent"`
+	Tags      []string         `bson:"tags"`
+	Arguments map[string]int32 `bson:"test_args"`
 }
 
 // NOTE: it might be nice to make arguments just be a *bson.Document
@@ -127,7 +129,7 @@ func (id *PerformanceResultID) ID() string {
 	if len(id.Arguments) > 0 {
 		args := []string{}
 		for k, v := range id.Arguments {
-			args = append(args, fmt.Sprintf("%s=%s", k, v))
+			args = append(args, fmt.Sprintf("%s=%d", k, v))
 		}
 
 		sort.Strings(args)
