@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -90,6 +91,192 @@ func TestModelInterface(t *testing.T) {
 			for name, test := range testCases {
 				t.Run(name, func(t *testing.T) {
 					test(t, factory())
+				})
+			}
+		})
+	}
+}
+
+type commonModelSlice interface {
+	Setup(e sink.Environment)
+	IsNil() bool
+	Size() int
+}
+
+type checkSliceType func(commonModelSlice) error
+type commonModelSliceFactory func() commonModelSlice
+
+func TestCommonModelSlice(t *testing.T) {
+	dbName := "sink_test"
+
+	env := sink.GetEnvironment()
+	assert.NoError(t, env.Configure(&sink.Configuration{
+		MongoDBURI:   "mongodb://localhost:27017",
+		NumWorkers:   2,
+		DatabaseName: dbName,
+	}))
+
+	session, err := env.GetSession()
+	require.NoError(t, err)
+	require.NoError(t, session.DB(dbName).DropDatabase())
+
+	defer func() {
+		require.NoError(t, session.DB(dbName).DropDatabase())
+	}()
+
+	for _, helpers := range []struct {
+		name     string
+		factory  commonModelSliceFactory
+		check    checkSliceType
+		populate func(int, commonModelSlice)
+	}{
+		{
+			name:    "CostReports",
+			factory: func() commonModelSlice { return &CostReports{} },
+			check: func(s commonModelSlice) error {
+				type slicer interface {
+					commonModelSlice
+					Slice() []CostReport
+				}
+				sl, ok := s.(slicer)
+				if !ok {
+					return errors.New("incorrect type")
+				} else if len(sl.Slice()) != sl.Size() {
+					return errors.New("unexpected slice value")
+				}
+
+				return nil
+			},
+			populate: func(size int, m commonModelSlice) {
+				sl := m.(*CostReports)
+				for i := 0; i < size; i++ {
+					sl.reports = append(sl.reports, createTestStruct())
+				}
+				sl.populated = true
+			},
+		},
+		{
+			name:    "CostReportSummaries",
+			factory: func() commonModelSlice { return &CostReportSummaries{} },
+			check: func(s commonModelSlice) error {
+				type slicer interface {
+					commonModelSlice
+					Slice() []CostReportSummary
+				}
+
+				sl, ok := s.(slicer)
+				if !ok {
+					return errors.New("incorrect type")
+				} else if len(sl.Slice()) != sl.Size() {
+					return errors.New("unexpected slice value")
+				}
+				return nil
+			},
+			populate: func(size int, m commonModelSlice) {
+				sl := m.(*CostReportSummaries)
+				for i := 0; i < size; i++ {
+					sl.reports = append(sl.reports, CostReportSummary{ID: fmt.Sprintf("test_doc_%d", i)})
+				}
+				sl.populated = true
+			},
+		},
+		{
+			name:    "DependencyGraphs",
+			factory: func() commonModelSlice { return &DependencyGraphs{} },
+			check: func(s commonModelSlice) error {
+				type slicer interface {
+					commonModelSlice
+					Slice() []GraphMetadata
+				}
+
+				sl, ok := s.(slicer)
+				if !ok {
+					return errors.New("incorrect type")
+				} else if len(sl.Slice()) != sl.Size() {
+					return errors.New("unexpected slice value")
+				}
+				return nil
+			},
+			populate: func(size int, m commonModelSlice) {
+				sl := m.(*DependencyGraphs)
+				for i := 0; i < size; i++ {
+					sl.graphs = append(sl.graphs, GraphMetadata{BuildID: fmt.Sprintln("grapid", i)})
+				}
+				sl.populated = true
+			},
+		},
+
+		{
+			name:    "SystemInfoRecords",
+			factory: func() commonModelSlice { return &SystemInformationRecords{} },
+			check: func(s commonModelSlice) error {
+				type slicer interface {
+					commonModelSlice
+					Slice() []*SystemInformationRecord
+				}
+
+				sl, ok := s.(slicer)
+				if !ok {
+					return errors.New("incorrect type")
+				} else if len(sl.Slice()) != sl.Size() {
+					return errors.New("unexpected slice value")
+				}
+				return nil
+			},
+			populate: func(size int, m commonModelSlice) {
+				sl := m.(*SystemInformationRecords)
+				for i := 0; i < size; i++ {
+					sl.slice = append(sl.slice, &SystemInformationRecord{ID: fmt.Sprintln("infor", i)})
+				}
+				sl.populated = true
+			},
+		},
+	} {
+		t.Run(helpers.name, func(t *testing.T) {
+			require.NotNil(t, helpers.factory)
+			require.NotNil(t, helpers.check)
+			require.NotNil(t, helpers.populate)
+
+			for _, test := range []struct {
+				name  string
+				check func(*testing.T, commonModelSlice)
+			}{
+				{
+					name: "ValidateFixture",
+					check: func(t *testing.T, m commonModelSlice) {
+						assert.NotNil(t, m)
+					},
+				},
+				{
+					name: "SetupIsSave",
+					check: func(t *testing.T, m commonModelSlice) {
+						assert.NotPanics(t, func() { m.Setup(env) })
+					},
+				},
+				{
+					name: "ValidateSliceType",
+					check: func(t *testing.T, m commonModelSlice) {
+						assert.NoError(t, helpers.check(m))
+					},
+				},
+				{
+					name: "CheckIsNilByDefault",
+					check: func(t *testing.T, m commonModelSlice) {
+						assert.True(t, m.IsNil())
+					},
+				},
+				{
+					name: "PopulateCheck",
+					check: func(t *testing.T, m commonModelSlice) {
+						helpers.populate(10, m)
+						assert.NoError(t, helpers.check(m))
+						assert.Equal(t, 10, m.Size())
+						assert.False(t, m.IsNil())
+					},
+				},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					test.check(t, helpers.factory())
 				})
 			}
 		})

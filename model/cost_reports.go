@@ -16,7 +16,7 @@ type CostReports struct {
 }
 
 func (r *CostReports) Setup(e sink.Environment) { r.env = e }
-func (r *CostReports) IsNil() bool              { return r.populated }
+func (r *CostReports) IsNil() bool              { return !r.populated }
 func (r *CostReports) Size() int                { return len(r.reports) }
 func (r *CostReports) Slice() []CostReport      { return r.reports }
 
@@ -82,7 +82,7 @@ type CostReportSummaries struct {
 }
 
 func (r *CostReportSummaries) Setup(e sink.Environment)   { r.env = e }
-func (r *CostReportSummaries) IsNil() bool                { return r.populated }
+func (r *CostReportSummaries) IsNil() bool                { return !r.populated }
 func (r *CostReportSummaries) Size() int                  { return len(r.reports) }
 func (r *CostReportSummaries) Slice() []CostReportSummary { return r.reports }
 

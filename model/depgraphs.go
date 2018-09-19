@@ -15,7 +15,7 @@ type DependencyGraphs struct {
 }
 
 func (g *DependencyGraphs) Setup(e sink.Environment) { g.env = e }
-func (g *DependencyGraphs) IsNil() bool              { return g.populated }
+func (g *DependencyGraphs) IsNil() bool              { return !g.populated }
 func (g *DependencyGraphs) Size() int                { return len(g.graphs) }
 func (g *DependencyGraphs) Slice() []GraphMetadata   { return g.graphs }
 func (g *DependencyGraphs) FindIncomplete() error {

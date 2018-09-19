@@ -75,8 +75,9 @@ type SystemInformationRecords struct {
 }
 
 func (i *SystemInformationRecords) Setup(e sink.Environment)          { i.env = e }
-func (i *SystemInformationRecords) IsNil() bool                       { return i.populated }
+func (i *SystemInformationRecords) IsNil() bool                       { return !i.populated }
 func (i *SystemInformationRecords) Slice() []*SystemInformationRecord { return i.slice }
+func (i *SystemInformationRecords) Size() int                         { return len(i.slice) }
 
 func (i *SystemInformationRecords) runQuery(query db.Query) error {
 	i.populated = false
