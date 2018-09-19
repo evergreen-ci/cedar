@@ -18,7 +18,7 @@ var (
 
 func (t TimeRange) Duration() time.Duration { return t.StartAt.Sub(t.EndAt) }
 func (t TimeRange) IsZero() bool            { return t.EndAt.IsZero() && t.StartAt.IsZero() }
-func (t TimeRange) IsValid() bool           { return t.Duration() < 0 }
+func (t TimeRange) IsValid() bool           { return t.Duration() >= 0 }
 
 // GetTimeRange builds a time range structure. If startAt is the zero
 // time, then end defaults to the current time and the start time is

@@ -1,11 +1,8 @@
 package model
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-
 	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -13,7 +10,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	yaml "gopkg.in/yaml.v2"
 )
 
 const sinkConfigurationID = "sink-system-configuration"
@@ -93,22 +89,13 @@ func (c *SinkConfig) Save() error {
 }
 
 func LoadSinkConfig(file string) (*SinkConfig, error) {
-	if _, err := os.Stat(file); os.IsNotExist(err) {
-		return nil, errors.Errorf("file %s does not exist", file)
-	}
-
-	yamlFile, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("invalid file: %s", file))
-	}
-
 	newConfig := &SinkConfig{}
 
-	if err := yaml.Unmarshal(yamlFile, newConfig); err != nil {
-		return nil, errors.Wrap(err, "invalid yaml/json format")
+	if err := util.ReadFileYAML(file, newConfig); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	// TODO: validate here
+	// TODO: validate here (?)
 
 	newConfig.populated = true
 

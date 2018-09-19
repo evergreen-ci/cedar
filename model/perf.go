@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
@@ -36,6 +37,14 @@ type PerformanceResult struct {
 	env       sink.Environment
 	populated bool
 }
+
+var (
+	perfIDKey              = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey            = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfSourcePathKey      = bsonutil.MustHaveTag(PerformanceResult{}, "SourcePath")
+	perfDataSummaryKey     = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
+	perfSampleFrequencyKey = bsonutil.MustHaveTag(PerformanceResult{}, "SampleFrequency")
+)
 
 func CreatePerformanceResult(info PerformanceResultID, path string, frequency time.Duration) *PerformanceResult {
 	return &PerformanceResult{
@@ -107,12 +116,17 @@ type PerformanceResultID struct {
 	TestName  string           `bson:"test_name"`
 	Parent    string           `bson:"parent"`
 	Tags      []string         `bson:"tags"`
-	Arguments map[string]int32 `bson:"test_args"`
+	Arguments map[string]int32 `bson:"args"`
 }
 
-// NOTE: it might be nice to make arguments just be a *bson.Document
-// rather than a map type. I think we can change it when we change to
-// the new driver.
+var (
+	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TaskName")
+	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TestName")
+	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Execution")
+	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultID{}, "Parent")
+	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultID{}, "Tags")
+	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Arguments")
+)
 
 func (id *PerformanceResultID) ID() string {
 	buf := &bytes.Buffer{}
@@ -171,6 +185,14 @@ type PerformanceMetricSummary struct {
 	samples int
 	window  time.Duration
 }
+
+var (
+	perfMetricsSummarySizeKey          = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Size")
+	perfMetricsSummaryCountKey         = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Count")
+	perfMetricsSummaryWorkersKey       = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Workers")
+	perfMetricsSummaryTotalDurationKey = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "TotalDuration")
+	perfMetricsSummaryTotalCountKey    = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "TotalCount")
+)
 
 type PerformanceTimeSeries []PerformancePoint
 

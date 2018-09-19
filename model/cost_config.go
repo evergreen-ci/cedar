@@ -1,20 +1,17 @@
 package model
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -170,21 +167,12 @@ func (e *EvergreenConnectionInfo) IsValid() bool {
 // LoadCostConfig takes a file path, reads it to YAML, and then converts
 // it to a Config struct.
 func LoadCostConfig(file string) (*CostConfig, error) {
-	if _, err := os.Stat(file); os.IsNotExist(err) {
-		return nil, errors.Errorf("file %s does not exist", file)
-	}
-
-	yamlFile, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("invalid file: %s", file))
-	}
-
 	newConfig := &CostConfig{}
-	if err = yaml.Unmarshal(yamlFile, newConfig); err != nil {
-		return nil, errors.Wrap(err, "invalid yaml/json format")
+	if err := util.ReadFileYAML(file, newConfig); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	if err = newConfig.Validate(); err != nil {
+	if err := newConfig.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid cost configuration")
 	}
 
