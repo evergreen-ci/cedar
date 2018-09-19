@@ -128,7 +128,7 @@ type LogSegments struct {
 }
 
 func (l *LogSegments) Setup(e sink.Environment) { l.env = e }
-func (l *LogSegments) IsNil() bool              { return l.populated }
+func (l *LogSegments) IsNil() bool              { return !l.populated }
 func (l *LogSegments) Slice() []LogSegment      { return l.logs }
 func (l *LogSegments) Size() int                { return len(l.logs) }
 

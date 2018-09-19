@@ -205,7 +205,6 @@ func TestCommonModelSlice(t *testing.T) {
 				sl.populated = true
 			},
 		},
-
 		{
 			name:    "SystemInfoRecords",
 			factory: func() commonModelSlice { return &SystemInformationRecords{} },
@@ -227,6 +226,56 @@ func TestCommonModelSlice(t *testing.T) {
 				sl := m.(*SystemInformationRecords)
 				for i := 0; i < size; i++ {
 					sl.slice = append(sl.slice, &SystemInformationRecord{ID: fmt.Sprintln("infor", i)})
+				}
+				sl.populated = true
+			},
+		},
+		{
+			name:    "LogSegments",
+			factory: func() commonModelSlice { return &LogSegments{} },
+			check: func(s commonModelSlice) error {
+				type slicer interface {
+					commonModelSlice
+					Slice() []LogSegment
+				}
+
+				sl, ok := s.(slicer)
+				if !ok {
+					return errors.New("incorrect type")
+				} else if len(sl.Slice()) != sl.Size() {
+					return errors.New("unexpected slice value")
+				}
+				return nil
+			},
+			populate: func(size int, m commonModelSlice) {
+				sl := m.(*LogSegments)
+				for i := 0; i < size; i++ {
+					sl.logs = append(sl.logs, LogSegment{ID: fmt.Sprintln("infor", i)})
+				}
+				sl.populated = true
+			},
+		},
+		{
+			name:    "Events",
+			factory: func() commonModelSlice { return &Events{} },
+			check: func(s commonModelSlice) error {
+				type slicer interface {
+					commonModelSlice
+					Slice() []*Event
+				}
+
+				sl, ok := s.(slicer)
+				if !ok {
+					return errors.New("incorrect type")
+				} else if len(sl.Slice()) != sl.Size() {
+					return errors.New("unexpected slice value")
+				}
+				return nil
+			},
+			populate: func(size int, m commonModelSlice) {
+				sl := m.(*Events)
+				for i := 0; i < size; i++ {
+					sl.slice = append(sl.slice, &Event{ID: fmt.Sprintln("event", i)})
 				}
 				sl.populated = true
 			},

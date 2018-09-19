@@ -123,7 +123,7 @@ type Events struct {
 func (e *Events) Setup(env sink.Environment) { e.env = env }
 func (e *Events) Slice() []*Event            { return e.slice }
 func (e *Events) Size() int                  { return len(e.slice) }
-func (e *Events) IsNil() bool                { return e.populated }
+func (e *Events) IsNil() bool                { return !e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
 	conf, session, err := sink.GetSessionWithConfig(e.env)
