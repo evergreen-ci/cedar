@@ -18,11 +18,11 @@ func (m *ResultID) Export() *model.PerformanceResultID {
 }
 
 func (m *MetricsSeriesStart) Export() *model.PerformanceResult {
-	return model.CreatePerformanceResult(m.Id.Export(), m.SourcePath, time.Duration(m.SampleRateDur))
+	return model.CreatePerformanceResult(*m.Id.Export(), m.SourcePath, time.Duration(m.SampleRateDur))
 }
 
 func (m *MetricsPoint) Export() model.PerformancePoint {
-	return &model.PerformancePoint{
+	return model.PerformancePoint{
 		Size:     m.Size,
 		Count:    m.Count,
 		Workers:  m.Workers,
