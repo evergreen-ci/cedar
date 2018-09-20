@@ -79,7 +79,7 @@ proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
 lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
-test:$(foreach target,$(packages),$(buildDir)/output.$(target).test)
+test:$(buildDir)/output.test
 build:$(buildDir)/$(name)
 coverage:$(coverageOutput)
 coverage-html:$(coverageHtmlOutput)
@@ -176,6 +176,10 @@ $(buildDir)/:
 	mkdir -p $@
 $(buildDir)/output.%.test:$(buildDir)/ .FORCE
 	go test $(testArgs) ./$(if $(subst $(name),,$*),$*,) | tee $@
+	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
+$(buildDir)/output.test:$(buildDir)/ .FORCE
+	go test $(testArgs) ./... | tee $@
+	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.%.coverage:$(buildDir)/ .FORCE
 	go test $(testArgs) ./$(if $(subst $(name),,$*),$*,) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
 	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
