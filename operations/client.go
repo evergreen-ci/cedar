@@ -41,7 +41,7 @@ func Client() cli.Command {
 				Value: 3000,
 			},
 		},
-		Before: mergeBeforeFuncs(requireStringFlag(clientHostFlag), requireClientPortFlag),
+		Before: mergeBeforeFuncs(requireClientHostFlag, requireClientPortFlag),
 		Subcommands: []cli.Command{
 			printStatus(),
 			postSimpleLog(),
@@ -316,6 +316,7 @@ func systemInfoGet() cli.Command {
 				Value: -1,
 			},
 		},
+		Before: mergeBeforeFuncs(requireStringFlag("host")),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 

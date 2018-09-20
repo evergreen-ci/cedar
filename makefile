@@ -16,7 +16,8 @@ lintDeps := github.com/alecthomas/gometalinter
 lintArgs := --tests --deadline=14m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
-lintArgs += --disable="gotype" --disable="gosec" --enable="goimports" --disable="golint"
+lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
+lintArgs += --disable="megacheck" --enable="unused" --enable="gosimple"
 lintArgs += --skip="build"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
@@ -77,7 +78,7 @@ $(buildDir)/dist.tar.gz:$(buildDir)/$(name)
 proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
-lint:$(buildDir)/output.lint
+lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 build:$(buildDir)/$(name)
 test:$(foreach target,$(packages),test-$(target))
 coverage:$(coverageOutput)
@@ -86,7 +87,7 @@ list-tests:
 	@echo -e "test targets:" $(foreach target,$(packages),\\n\\ttest-$(target))
 phony += lint lint-deps build build-race race test coverage coverage-html list-race list-tests
 .PRECIOUS:$(coverageOutput) $(coverageHtmlOutput)
-.PRECIOUS:$(foreach target,$(packages),$(buildDir)/test.$(target))
+.PRECIOUS:$(foreach target,$(packages),$(buildDir)/output.$(target).test)
 .PRECIOUS:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 .PRECIOUS:$(buildDir)/output.lint
 # end front-ends
@@ -171,17 +172,19 @@ ifneq (,$(RACE_DETECTOR))
 testArgs += -race
 endif
 # test execution and output handlers
-$(buildDir)/output.%.test:.FORCE
+$(buildDir)/:
+	mkdir -p $@
+$(buildDir)/output.%.test:$(buildDir)/ .FORCE
 	go test $(testArgs) ./$(if $(subst $(name),,$*),$*,) | tee $@
-$(buildDir)/output.%.coverage:.FORCE
+$(buildDir)/output.%.coverage:$(buildDir)/ .FORCE
 	go test $(testArgs) ./$(if $(subst $(name),,$*),$*,) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
 	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
 	go tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
-$(buildDir)/output.%.lint:$(buildDir)/run-linter .FORCE
+$(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
-$(buildDir)/output.lint:$(buildDir)/run-linter .FORCE
+$(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
 #  targets to process and generate coverage reports
 # end test and coverage artifacts

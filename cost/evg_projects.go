@@ -150,7 +150,7 @@ func (c *EvergreenClient) getProjectIDs(ctx context.Context) ([]string, error) {
 		projectIDs = append(projectIDs, out.output.Identifier)
 	}
 	if catcher.HasErrors() {
-		err := errors.Wrapf(catcher.Resolve(), "error getting projects ids; got:", projectIDs)
+		err := errors.Wrapf(catcher.Resolve(), "error getting projects ids; got: %s", projectIDs)
 		grip.Warning(err.Error())
 		if c.allowIncompleteResults {
 			return projectIDs, nil
