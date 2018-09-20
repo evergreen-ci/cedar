@@ -162,6 +162,7 @@ tasks:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
+      - func: set-up-mongodb
       - func: run-make
         vars:
           target: "coverage-html"
