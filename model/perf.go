@@ -27,7 +27,12 @@ type PerformanceResult struct {
 	// we'll probably need to store an identifier so we know which
 	// service to use to access that data. We'd then summarize
 	// that data and store it in the document.
-	SourcePath  string                    `bson:"source_path"`
+	SourcePath string `bson:"source_path"`
+
+	// These should be keyed on implementations of the pail/Bucket
+	// interface.
+	SourceType string `bson:"source_type"`
+
 	DataSummary *PerformanceMetricSummary `bson:"summary,omitempty"`
 
 	// Samples must be collected at a fixed interval in order for
@@ -158,10 +163,11 @@ func (id *PerformanceResultID) ID() string {
 }
 
 type PerformancePoint struct {
-	Size     int64
-	Count    int64
-	Workers  int64
-	Duration time.Duration
+	Size      int64         `bson:"size" json:"size" yaml:"size"`
+	Count     int64         `bson:"count" json:"count" yaml:"count"`
+	Workers   int64         `bson:"workers" json:"workers" yaml:"workers"`
+	Duration  time.Duration `bson:"dur" json:"dur" yaml:"dur"`
+	Timestamp time.Time     `bson:"ts" json:"ts" yaml:"ts"`
 }
 
 type PerformanceStatistics struct {
