@@ -52,7 +52,7 @@ func (b *localFileSystem) Put(ctx context.Context, name string, input io.Reader)
 	}
 	_, err = io.Copy(f, input)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return errors.Wrap(err, "problem copying data to file")
 	}
 	return errors.WithStack(f.Close())

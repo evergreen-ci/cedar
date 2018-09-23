@@ -57,10 +57,6 @@ func TestChecksum(t *testing.T) {
 		out, err = sha1sum(file)
 		assert.NoError(t, err)
 		assert.NotZero(t, out)
-
-		out, err = sha256sum(file)
-		assert.NoError(t, err)
-		assert.NotZero(t, out)
 	})
 }
 

@@ -88,10 +88,8 @@ func (b *gridfsLegacyBucket) openFile(ctx context.Context, name string, create b
 
 	out.GridFile = file
 	go func() {
-		select {
-		case <-ctx.Done():
-			ses.Close()
-		}
+		<-ctx.Done()
+		ses.Close()
 	}()
 
 	return out, nil

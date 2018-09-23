@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/sha1"
-	"crypto/sha256"
 	"fmt"
 	"hash"
 	"io"
@@ -35,11 +34,6 @@ func checksum(hash hash.Hash, path string) (string, error) {
 
 func md5sum(path string) (string, error) {
 	out, err := checksum(md5.New(), path)
-	return out, errors.WithStack(err)
-}
-
-func sha256sum(path string) (string, error) {
-	out, err := checksum(sha256.New(), path)
 	return out, errors.WithStack(err)
 }
 
