@@ -192,6 +192,14 @@ type PerformanceMetricSummary struct {
 	window  time.Duration
 }
 
+type PerformanceTimeSeriesTotal struct {
+	Size     int64         `bson:"size" json:"size" yaml:"size"`
+	Count    int64         `bson:"count" json:"count" yaml:"count"`
+	Workers  int64         `bson:"workers" json:"workers" yaml:"workers"`
+	Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
+	Span     time.Duration `bson:"span" json:"span" yaml:"span"`
+}
+
 var (
 	perfMetricsSummarySizeKey          = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Size")
 	perfMetricsSummaryCountKey         = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Count")
@@ -201,6 +209,26 @@ var (
 )
 
 type PerformanceTimeSeries []PerformancePoint
+
+func (ts PerformanceTimeSeries) Total() PerformanceTimeSeriesTotal {
+	out := PerformanceTimeSeriesTotal{}
+	var lastPoint time.Time
+	for idx, item := range ts {
+		if idx == 0 {
+			lastPoint = item.Timestamp
+		} else {
+			out.Span += item.Timestamp.Sub(lastPoint)
+			lastPoint = item.Timestamp
+		}
+
+		out.Size += item.Size
+		out.Count += item.Count
+		out.Workers += item.Workers
+		out.Duration += item.Duration
+	}
+
+	return out
+}
 
 func (ts PerformanceTimeSeries) Statistics(dur time.Duration) PerformanceStatistics {
 	out := PerformanceStatistics{
