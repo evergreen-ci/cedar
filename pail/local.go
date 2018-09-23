@@ -31,7 +31,7 @@ func NewLocalBucket(path string) (Bucket, error) {
 // directory created for this purpose. Returns an error if there were
 // issues creating the temporary directory. This implementation does
 // not provide a mechanism to delete the temporary directory.
-func NewLocalTemporaryBucket() (Bucket, errors) {
+func NewLocalTemporaryBucket() (Bucket, error) {
 	dir, err := ioutil.TempDir("", "pail-local-tmp-bucket")
 	if err != nil {
 		return nil, errors.Wrap(err, "problem creating temporary directory")
