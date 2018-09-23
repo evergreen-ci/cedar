@@ -3,6 +3,7 @@ package pail
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -11,6 +12,32 @@ import (
 
 type localFileSystem struct {
 	path string
+}
+
+// NewLocalBucket returns an implementation of the Bucket interface
+// that stores files in the local file system. Returns an error if the
+// directory doesn't exist.
+func NewLocalBucket(path string) (Bucket, error) {
+	b := &localFileSystem{path: path}
+	if err := b.Check(nil); err != nil {
+		return nil, errors.WithStack(err)
+
+	}
+	return b, nil
+}
+
+// NewLocalTemporaryBucket returns an "local" bucket implementation
+// that stores resources in the local filesystem in a temporary
+// directory created for this purpose. Returns an error if there were
+// issues creating the temporary directory. This implementation does
+// not provide a mechanism to delete the temporary directory.
+func NewLocalTemporaryBucket() (Bucket, errors) {
+	dir, err := ioutil.TempDir("", "pail-local-tmp-bucket")
+	if err != nil {
+		return nil, errors.Wrap(err, "problem creating temporary directory")
+	}
+
+	return &localFileSystem{path: dir}, nil
 }
 
 func (b *localFileSystem) Check(_ context.Context) error {

@@ -12,7 +12,7 @@ import (
 )
 
 func TestChecksum(t *testing.T) {
-	if usr, _ := user.Current(); usr == nil || usr.Username() == "root" {
+	if usr, _ := user.Current(); usr == nil || usr.Username == "root" {
 		t.Skip("test assumes not root")
 	}
 	_, file, _, _ := runtime.Caller(1)

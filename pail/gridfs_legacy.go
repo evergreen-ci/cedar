@@ -18,12 +18,20 @@ type gridfsLegacyBucket struct {
 	session *mgo.Session
 }
 
+// GridFSOptions support the use and creation of GridFS backed
+// buckets.
 type GridFSOptions struct {
 	Prefix     string
 	Database   string
 	MongoDBURI string
 }
 
+// NewLegacyGridFSBucket creates a Bucket implementation baked by
+// GridFS as implemented by the legacy "mgo" MongoDB driver. This
+// constructor creates a new connection and mgo session.
+//
+// Mgo in general does not offer rich support for contexts, so
+// cancellation may not be robust.
 func NewLegacyGridFSBucket(opts GridFSOptions) (Bucket, error) {
 	if opts.MongoDBURI == "" {
 		return nil, errors.New("cannot create a new bucket without a URI")
@@ -40,6 +48,12 @@ func NewLegacyGridFSBucket(opts GridFSOptions) (Bucket, error) {
 	}, nil
 }
 
+// NewLegacyGridFSBucketWithSession creates a Bucket implementation
+// baked by GridFS as implemented by the legacy "mgo" MongoDB driver,
+// but allows you to reuse an existing session.
+//
+// Mgo in general does not offer rich support for contexts, so
+// cancellation may not be robust.
 func NewLegacyGridFSBucketWithSession(s *mgo.Session, opts GridFSOptions) (Bucket, error) {
 	if s == nil {
 		b, err := NewLegacyGridFSBucket(opts)
