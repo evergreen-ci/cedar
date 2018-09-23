@@ -39,14 +39,18 @@ import (
 
 type Bucket interface {
 	Check(context.Context) error
-	Configure(BucketInfo) error
 
-	// Writer and Reader. It may make sense
-	Writer(context.Context) (io.WriteCloser, error)
-	Reader(context.Context) (io.ReadCloser, error)
+	// Produces a Writer and Reader interface to the file named by
+	// the string.
+	Writer(context.Context, string) (io.WriteCloser, error)
+	Reader(context.Context, string) (io.ReadCloser, error)
 
 	// Put and Get write simple byte streams (in the form of
-	// io.Readers) to/from specfied keys
+	// io.Readers) to/from specfied keys.
+	//
+	// TODOD: consider if these, particularly Get are not
+	// substantively different from Writer/Reader methods, or
+	// might just be a wrapper.
 	Put(context.Context, string, io.Reader) error
 	Get(context.Context, string) (io.ReadCloser, error)
 
@@ -65,6 +69,9 @@ type Bucket interface {
 	// downloading a file.
 	Copy(context.Context, string, string) error
 
+	// Remove the specified object from the bucket.
+	Remove(context.Context, string) error
+
 	// List provides a way to iterator over the contents of a
 	// bucket (for a given prefix.)
 	List(context.Context, string) (BucketIterator, error)
@@ -72,7 +79,8 @@ type Bucket interface {
 
 type BucketInfo struct {
 	// TODO: this will probably need better types and a bunch of
-	// validation. The current
+	// validation. Probably also need to make this implementation
+	// specific and passed to the constructor.
 
 	Auth   string
 	Region string
@@ -93,12 +101,18 @@ type BucketInfo struct {
 type BucketIterator interface {
 	Next(context.Context) bool
 	Err() error
-	Item() *BucketItem
+	Item() BucketItem
 }
 
-type BucketItem struct {
-	Bucket  string
-	KeyName string
+type BucketItem interface {
+	Bucket() string
+	Name() string
+	Get(context.Context) (io.ReadCloser, error)
+}
+
+type bucketItemImpl struct {
+	bucket string
+	key    string
 
 	// TODO add other info?
 
@@ -108,6 +122,8 @@ type BucketItem struct {
 	b Bucket
 }
 
-func (bi *BucketItem) Get(ctx context.Context) (io.ReadCloser, error) {
-	return bi.b.Get(ctx, bi.KeyName)
+func (bi *bucketItemImpl) Name() string   { return bi.key }
+func (bi *bucketItemImpl) Bucket() string { return bi.bucket }
+func (bi *bucketItemImpl) Get(ctx context.Context) (io.ReadCloser, error) {
+	return bi.b.Get(ctx, bi.key)
 }
