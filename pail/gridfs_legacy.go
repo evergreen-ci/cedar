@@ -26,7 +26,7 @@ type GridFSOptions struct {
 	MongoDBURI string
 }
 
-// NewLegacyGridFSBucket creates a Bucket implementation baked by
+// NewLegacyGridFSBucket creates a Bucket implementation backed by
 // GridFS as implemented by the legacy "mgo" MongoDB driver. This
 // constructor creates a new connection and mgo session.
 //
