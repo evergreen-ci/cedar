@@ -18,8 +18,17 @@ message ResultID {
 
 message MetricsSeriesStart {
   ResultID id = 1;
-  int64 sample_rate_dur = 2;
   string source_path = 3;
+  StorageLocation location = 4;
+}
+
+enum StorageLocation {
+  UNKNOWN = 0;
+
+  SINK_S3 = 1;
+  PROJECT_S3 = 2;
+  GRIDFS = 3;
+  EPHEMERAL = 4;
 }
 
 message MetricsSeriesEnd {

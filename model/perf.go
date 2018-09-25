@@ -20,8 +20,10 @@ import (
 const perfResultCollection = "perf_results"
 
 type PerformanceResult struct {
-	ID   string              `bson:"_id"`
-	Info PerformanceResultID `bson:"info"`
+	ID          string              `bson:"_id"`
+	Info        PerformanceResultID `bson:"info"`
+	CreatedAt   time.Time           `bson:"created_ts"`
+	CompletedAt time.Time           `bson:"completed_at"`
 
 	// The source timeseries data is stored in a remote location,
 	// we'll probably need to store an identifier so we know which
@@ -35,29 +37,24 @@ type PerformanceResult struct {
 
 	DataSummary *PerformanceMetricSummary `bson:"summary,omitempty"`
 
-	// Samples must be collected at a fixed interval in order for
-	// the math that we do on the aggregate values to make sense.
-	SampleFrequency time.Duration `bson:"sample_frequencey"`
-
 	env       sink.Environment
 	populated bool
 }
 
 var (
-	perfIDKey              = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
-	perfInfoKey            = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfSourcePathKey      = bsonutil.MustHaveTag(PerformanceResult{}, "SourcePath")
-	perfDataSummaryKey     = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
-	perfSampleFrequencyKey = bsonutil.MustHaveTag(PerformanceResult{}, "SampleFrequency")
+	perfIDKey          = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey        = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfSourcePathKey  = bsonutil.MustHaveTag(PerformanceResult{}, "SourcePath")
+	perfSourceTypeKey  = bsonutil.MustHaveTag(PerformanceResult{}, "SourceType")
+	perfDataSummaryKey = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
 )
 
-func CreatePerformanceResult(info PerformanceResultID, path string, frequency time.Duration) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultID, path string) *PerformanceResult {
 	return &PerformanceResult{
-		ID:              info.ID(),
-		SourcePath:      path,
-		SampleFrequency: frequency,
-		Info:            info,
-		populated:       true,
+		ID:         info.ID(),
+		SourcePath: path,
+		Info:       info,
+		populated:  true,
 	}
 }
 

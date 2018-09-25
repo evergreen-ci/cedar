@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"time"
-
 	"github.com/evergreen-ci/sink/model"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
@@ -20,7 +18,7 @@ func (m *ResultID) Export() *model.PerformanceResultID {
 }
 
 func (m *MetricsSeriesStart) Export() *model.PerformanceResult {
-	return model.CreatePerformanceResult(*m.Id.Export(), m.SourcePath, time.Duration(m.SampleRateDur))
+	return model.CreatePerformanceResult(*m.Id.Export(), m.SourcePath)
 }
 
 func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
