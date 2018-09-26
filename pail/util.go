@@ -57,7 +57,11 @@ func walkLocalTree(ctx context.Context, prefix string) ([]string, error) {
 			return nil
 		}
 
-		out = append(out, path[len(prefix)+1:])
+		rel, err := filepath.Rel(prefix, path)
+		if err != nil {
+			return errors.Wrap(err, "problem getting relative path")
+		}
+		out = append(out, rel)
 		return nil
 	})
 
