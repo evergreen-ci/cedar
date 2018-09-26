@@ -78,5 +78,17 @@ func (srv *perfService) SendMetrics(stream SinkPerformanceMetrics_SendMetricsSer
 }
 
 func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd) (*MetricsResponse, error) {
+	record := &model.PerformanceResult{}
+	record.Setup(srv.env)
+	record.ID = end.GetId()
+	if err := record.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding record for %s", record.ID)
+	}
+
+	record.CompletedAt = time.Now()
+	if err := record.Save(); err != nil {
+		return nil, errors.Wrapf(err, "problem saving record %s", record.ID)
+	}
+
 	return nil, nil
 }
