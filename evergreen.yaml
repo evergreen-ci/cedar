@@ -1,4 +1,6 @@
 stepback: false
+ignore:
+    - "*.rst"
 
 #######################################
 #         YAML Templates              #
