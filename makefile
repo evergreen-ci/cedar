@@ -132,6 +132,18 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/curator/cmd/
 	rm -rf vendor/github.com/mongodb/curator/main/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/stretchr/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/data/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/golang.org/x/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/gopkg.in/yaml.v2/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/montanaflynn
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/davecgh/go-spew/
+	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/stretchr/testify
+	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/mongodb/mongo-go-driver/
+	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/pkg/errors/
+	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/satori/go.uuid/gss
+	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/mongodb/grip/
+
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 phony += vendor-clean
 # end vendoring tooling configuration
