@@ -213,15 +213,20 @@ func (ts PerformanceTimeSeries) Total() PerformanceTimeSeriesTotal {
 	for idx, item := range ts {
 		if idx == 0 {
 			lastPoint = item.Timestamp
+		} else if item.Timestamp.Before(lastPoint) {
+			panic("data is not valid")
 		} else {
 			out.Span += item.Timestamp.Sub(lastPoint)
 			lastPoint = item.Timestamp
 		}
 
+		if item.Duration > 0 {
+			out.Duration += item.Duration
+		}
+
 		out.Size += item.Size
 		out.Count += item.Count
 		out.Workers += item.Workers
-		out.Duration += item.Duration
 	}
 
 	return out
@@ -241,7 +246,10 @@ func (ts PerformanceTimeSeries) Statistics(dur time.Duration) PerformanceStatist
 		out.count[idx] = float64(point.Count)
 		out.workers[idx] = float64(point.Workers)
 		out.totalCount += point.Count
-		out.totalDuration += point.Duration
+
+		if point.Duration > 0 {
+			out.totalDuration += point.Duration
+		}
 	}
 
 	return out
