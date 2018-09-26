@@ -48,33 +48,61 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, start *MetricsSe
 }
 
 func (srv *perfService) SendMetrics(stream SinkPerformanceMetrics_SendMetricsServer) error {
-	// TODO:
-	//   - get the ID on the first event. If subsequent events have
-	//     different IDs then we probably have an error.
-	//
-	//   - instantiate a collector and a pail instance to upload
-	//     the bytes of the collector for the chunk
-	//
-	//   - get all the events, add them to the collector
-	//     when everything's done upload the thing to the pail and
-	//     return the result.
-
 	// NOTE:
 	//   - will probably require leaving this connection open for
 	//     longer than we often do, which may lead to load
 	//     balancer shenanigans
-	var ()
-	for {
-		point, err := stream.Recv()
-		if err == io.EOF {
-			return stream.SendAndClose(&SendResponse{})
-		}
-		if err != nil {
-			return errors.WithStack(err)
-		}
 
-		grip.Info(point)
-	}
+	ctx := stream.Context()
+	catcher := grip.NewBasicCatcher()
+	pipe := make(chan model.PerformancePoint)
+	record := &model.PerformanceResult{}
+	record.Setup(srv.env)
+
+	go func() {
+		defer close(pipe)
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+
+			point, err := stream.Recv()
+			if err == io.EOF {
+				catcher.Add(stream.SendAndClose(&SendResponse{}))
+				return
+			}
+			if err != nil {
+				catcher.Add(errors.WithStack(err))
+				return
+			}
+
+			if record.IsNil() {
+				record.ID = point.Id
+				if err = record.Find(); err != nil {
+					catcher.Add(err)
+					return
+				}
+			} else if point.Id != record.ID {
+				catcher.Add(errors.New("metric point in stream does not match reference, aborting"))
+				return
+			}
+
+			for _, event := range point.Event {
+				pp, err := event.Export()
+				if err != nil {
+					catcher.Add(err)
+					continue
+				}
+				pipe <- pp
+			}
+		}
+	}()
+
+	// TODO: this won't actually work: we need to get/create a
+	// writer here, we'll do this
+	catcher.Add(model.DumpPerformanceSeries(ctx, pipe, record, nil))
+
+	return catcher.Resolve()
 }
 
 func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd) (*MetricsResponse, error) {
