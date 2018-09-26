@@ -107,12 +107,14 @@ type BucketIterator interface {
 type BucketItem interface {
 	Bucket() string
 	Name() string
+	Hash() string
 	Get(context.Context) (io.ReadCloser, error)
 }
 
 type bucketItemImpl struct {
 	bucket string
 	key    string
+	hash   string
 
 	// TODO add other info?
 
@@ -123,6 +125,7 @@ type bucketItemImpl struct {
 }
 
 func (bi *bucketItemImpl) Name() string   { return bi.key }
+func (bi *bucketItemImpl) Hash() string   { return bi.hash }
 func (bi *bucketItemImpl) Bucket() string { return bi.bucket }
 func (bi *bucketItemImpl) Get(ctx context.Context) (io.ReadCloser, error) {
 	return bi.b.Get(ctx, bi.key)
