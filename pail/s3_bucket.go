@@ -2,9 +2,11 @@ package pail
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -45,8 +47,132 @@ func (s *s3Bucket) Check(ctx context.Context) error {
 	return nil
 }
 
-func (*s3Bucket) Writer(ctx context.Context, key string) (io.WriteCloser, error) {
-	return nil, nil
+type s3WriteCloser struct {
+	buffer         []byte
+	maxSize        int
+	isCreated      bool
+	isClosed       bool
+	name           string
+	svc            *s3.S3
+	ctx            context.Context
+	key            string
+	partNumber     int64
+	uploadId       string
+	completedParts []*s3.CompletedPart
+}
+
+func (w *s3WriteCloser) create() error {
+	input := &s3.CreateMultipartUploadInput{
+		Bucket: aws.String(w.name),
+		Key:    aws.String(w.key),
+	}
+
+	result, err := w.svc.CreateMultipartUploadWithContext(w.ctx, input)
+	if err != nil {
+		return errors.Wrap(err, "problem creating a multipart upload")
+	}
+	w.isCreated = true
+	w.uploadId = *result.UploadId
+	w.partNumber++
+	return nil
+}
+
+func (w *s3WriteCloser) complete() error {
+	input := &s3.CompleteMultipartUploadInput{
+		Bucket: aws.String(w.name),
+		Key:    aws.String(w.key),
+		MultipartUpload: &s3.CompletedMultipartUpload{
+			Parts: w.completedParts,
+		},
+		UploadId: aws.String(w.uploadId),
+	}
+
+	_, err := w.svc.CompleteMultipartUploadWithContext(w.ctx, input)
+	if err != nil {
+		w.abort()
+		return errors.Wrap(err, "problem completing multipart upload")
+	}
+	return nil
+}
+
+func (w *s3WriteCloser) abort() {
+	input := &s3.AbortMultipartUploadInput{
+		Bucket:   aws.String(w.name),
+		Key:      aws.String(w.key),
+		UploadId: aws.String(w.uploadId),
+	}
+
+	w.svc.AbortMultipartUploadWithContext(w.ctx, input)
+}
+
+func (w *s3WriteCloser) flush() error {
+	if !w.isCreated {
+		err := w.create()
+		if err != nil {
+			return err
+		}
+	}
+	input := &s3.UploadPartInput{
+		Body:       aws.ReadSeekCloser(strings.NewReader(string(w.buffer))),
+		Bucket:     aws.String(w.name),
+		Key:        aws.String(w.key),
+		PartNumber: aws.Int64(w.partNumber),
+		UploadId:   aws.String(w.uploadId),
+	}
+	result, err := w.svc.UploadPartWithContext(w.ctx, input)
+	if err != nil {
+		w.abort()
+		return errors.Wrap(err, "problem uploading part")
+	}
+	fmt.Println(w.partNumber)
+	w.completedParts = append(w.completedParts, &s3.CompletedPart{
+		ETag:       result.ETag,
+		PartNumber: aws.Int64(w.partNumber),
+	})
+	w.partNumber++
+	return nil
+}
+
+func (w *s3WriteCloser) Write(p []byte) (int, error) {
+	if w.isClosed {
+		errors.New("writer already closed!")
+	}
+	if len(w.buffer)+len(p) > w.maxSize {
+		err := w.flush()
+		if err != nil {
+			return 0, err
+		}
+	}
+	w.buffer = append(w.buffer, p...)
+	return len(p), nil
+}
+
+func (w *s3WriteCloser) Close() error {
+	if w.isClosed {
+		return errors.New("writer already closed!")
+	}
+	if len(w.buffer) > 0 {
+		err := w.flush()
+		if err != nil {
+			return err
+		}
+	}
+	err := w.complete()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *s3Bucket) Writer(ctx context.Context, key string) (io.WriteCloser, error) {
+	// 5MB is the minimum size for a multipart upload, so buffer needs to be at least that big.
+	return &s3WriteCloser{
+		maxSize: 5000000,
+		name:    s.name,
+		svc:     s.svc,
+		ctx:     ctx,
+		key:     key,
+	}, nil
 }
 
 func (s *s3Bucket) Reader(ctx context.Context, key string) (io.ReadCloser, error) {
