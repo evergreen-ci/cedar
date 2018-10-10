@@ -1,9 +1,9 @@
 package model
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"sort"
 	"time"
 
@@ -131,15 +131,16 @@ var (
 )
 
 func (id *PerformanceResultID) ID() string {
-	buf := &bytes.Buffer{}
-	buf.WriteString(id.TaskName)
-	buf.WriteString(fmt.Sprint(id.Execution))
-	buf.WriteString(id.TestName)
-	buf.WriteString(id.Parent)
+	hash := sha256.New()
+
+	io.WriteString(hash, id.TaskName)
+	io.WriteString(hash, fmt.Sprint(id.Execution))
+	io.WriteString(hash, id.TestName)
+	io.WriteString(hash, id.Parent)
 
 	sort.Strings(id.Tags)
 	for _, str := range id.Tags {
-		buf.WriteString(str)
+		io.WriteString(hash, str)
 	}
 
 	if len(id.Arguments) > 0 {
@@ -150,13 +151,11 @@ func (id *PerformanceResultID) ID() string {
 
 		sort.Strings(args)
 		for _, str := range args {
-			buf.WriteString(str)
+			io.WriteString(hash, str)
 		}
 	}
 
-	hash := sha256.New()
-
-	return string(hash.Sum(buf.Bytes()))
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 type PerformancePoint struct {
