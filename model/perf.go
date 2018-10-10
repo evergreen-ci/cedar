@@ -158,96 +158,175 @@ func (id *PerformanceResultID) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
+////////////////////////////////////////////////////////////////////////
+//
+// Performance Data Roll up Processing
+
+// PerformancePoint represents the "required" data that we read out of
+// the stream of events from the tests. The values in these streams
+// are combined in roll ups, though the raw data streams may have more
+// data.
+//
+// If you want to add a new data point to one of these structures, you
+// should add the fields to the appropraite sub-structure, to all of
+// the subsequent rollup tools (e.g. the rest of the methods in this
+// file), as well as to the protocol buffer in the top level of this
+// repository.
 type PerformancePoint struct {
-	Size      int64         `bson:"size" json:"size" yaml:"size"`
-	Count     int64         `bson:"count" json:"count" yaml:"count"`
-	Workers   int64         `bson:"workers" json:"workers" yaml:"workers"`
-	Duration  time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-	Timestamp time.Time     `bson:"ts" json:"ts" yaml:"ts"`
+	// Each point must report the timestamp of its collection.
+	Timestamp time.Time `bson:"ts" json:"ts" yaml:"ts"`
+
+	// Counters refer to the number of operations/events or total
+	// of things since the last collection point. These values are
+	// used in computing various kinds of throughput measurements.
+	Counters struct {
+		Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
+		Size       int64 `bson:"size" json:"size" yaml:"size"`
+		Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
+	} `bson:"counters" json:"counters" yaml:"counters"`
+
+	// Timers refers to all of the timing data for this event. In
+	// general Duration+Waiting should equal the time since the
+	// last data point.
+	Timers struct {
+		Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
+		Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
+	} `bson:"timers" json:"timers" yaml:"timers"`
+
+	// The State document holds simple counters that aren't
+	// expected to change between points, but are useful as
+	// annotations of the experiment or descriptions of events in
+	// the system configuration.
+	State struct {
+		Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
+		Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
+	} `bson:"state" json:"state" yaml:"state"`
 }
 
+// PerformanceStatistics is an intermediate form used to calculate
+// statistics from a sequence of reports. It is never persisted to the
+// database, but provides access to application level aggregations.
 type PerformanceStatistics struct {
-	size          stats.Float64Data
-	count         stats.Float64Data
-	workers       stats.Float64Data
-	totalDuration time.Duration
-	totalCount    int64
+	counters struct {
+		operations stats.Float64Data
+		size       stats.Float64Data
+		errors     stats.Float64Data
+	}
+
+	totalCount struct {
+		operations int64
+		size       int64
+		errors     int64
+	}
+
+	timers struct {
+		duration stats.Float64Data
+		waiting  stats.Float64Data
+	}
+
+	totalTime struct {
+		duration time.Duration
+		waiting  time.Duration
+	}
+
+	state struct {
+		workers stats.Float64Data
+		failed  bool
+	}
 
 	samples int
-	window  time.Duration
+	span    time.Duration
 }
 
+// PerforamcneMetricSummary reflects a specific kind of summation,
+// (e.g. means/percentiles, etc.) and may be saved to the database as
+// a kind of rollup value.
 type PerformanceMetricSummary struct {
-	Size          float64       `bson:"size"`
-	Count         float64       `bson:"count"`
-	Workers       float64       `bson:"workers"`
-	TotalDuration time.Duration `bson:"total_duration"`
-	TotalCount    int64         `bson:"total_count"`
+	Counters struct {
+		Operations float64 `bson:"ops" json:"ops" yaml:"ops"`
+		Size       float64 `bson:"size" json:"size" yaml:"size"`
+		Errors     float64 `bson:"errors" json:"errors" yaml:"errors"`
+	} `bson:"counters" json:"counters" yaml:"counters"`
 
-	samples int
-	window  time.Duration
+	TotalCount struct {
+		Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
+		Size       int64 `bson:"size" json:"size" yaml:"size"`
+		Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
+	} `bson:"total_count" json:"total_count" yaml:"total_count"`
+
+	Timers struct {
+		Duration float64 `bson:"dur" json:"dur" yaml:"dur"`
+		Waiting  float64 `bson:"wait" json:"wait" yaml:"wait"`
+	} `bson:"timers" json:"timers" yaml:"timers"`
+
+	TotalTime struct {
+		Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
+		Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
+	} `bson:"timers" json:"timers" yaml:"timers"`
+
+	State struct {
+		Workers float64 `bson:"workers" json:"workers" yaml:"workers"`
+		Failed  bool    `bson:"failed" json:"failed" yaml:"failed"`
+	} `bson:"state" json:"state" yaml:"state"`
+
+	Span    time.Duration `bson:"span" json:"span" yaml:"span"`
+	Samples int           `bson:"samples" json:"samples" yaml:"samples"`
 }
 
-type PerformanceTimeSeriesTotal struct {
-	Size     int64         `bson:"size" json:"size" yaml:"size"`
-	Count    int64         `bson:"count" json:"count" yaml:"count"`
-	Workers  int64         `bson:"workers" json:"workers" yaml:"workers"`
-	Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-	Span     time.Duration `bson:"span" json:"span" yaml:"span"`
-}
-
-var (
-	perfMetricsSummarySizeKey          = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Size")
-	perfMetricsSummaryCountKey         = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Count")
-	perfMetricsSummaryWorkersKey       = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "Workers")
-	perfMetricsSummaryTotalDurationKey = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "TotalDuration")
-	perfMetricsSummaryTotalCountKey    = bsonutil.MustHaveTag(PerformanceMetricSummary{}, "TotalCount")
-)
-
+// PerformanceTimeSeries provides an expanded, in-memory value
+// reflecting the results of a single value. These series reflect,
+// generally the data stored in the FTDC chunks that are persisted in
+// off-line storage. While the FTDC data often requires additional data
+// than a sequence of points, these series are the basis of the
+// reporting that this application does across test values.
 type PerformanceTimeSeries []PerformancePoint
 
-func (ts PerformanceTimeSeries) Total() PerformanceTimeSeriesTotal {
-	out := PerformanceTimeSeriesTotal{}
-	var lastPoint time.Time
-	for idx, item := range ts {
-		if idx == 0 {
-			lastPoint = item.Timestamp
-		} else if item.Timestamp.Before(lastPoint) {
-			panic("data is not valid")
-		} else {
-			out.Span += item.Timestamp.Sub(lastPoint)
-			lastPoint = item.Timestamp
-		}
-
-		if item.Duration > 0 {
-			out.Duration += item.Duration
-		}
-
-		out.Size += item.Size
-		out.Count += item.Count
-		out.Workers += item.Workers
-	}
-
-	return out
-}
-
-func (ts PerformanceTimeSeries) Statistics(dur time.Duration) PerformanceStatistics {
+// Statistics converts a a series into an intermediate format that we
+// can use to calculate means/totals/etc.
+func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 	out := PerformanceStatistics{
-		size:    make(stats.Float64Data, len(ts)),
-		count:   make(stats.Float64Data, len(ts)),
-		workers: make(stats.Float64Data, len(ts)),
 		samples: len(ts),
-		window:  dur,
 	}
+
+	out.counters.operations = make(stats.Float64Data, len(ts))
+	out.counters.size = make(stats.Float64Data, len(ts))
+	out.counters.errors = make(stats.Float64Data, len(ts))
+	out.state.workers = make(stats.Float64Data, len(ts))
+
+	var lastPoint time.Time
 
 	for idx, point := range ts {
-		out.size[idx] = float64(point.Size)
-		out.count[idx] = float64(point.Count)
-		out.workers[idx] = float64(point.Workers)
-		out.totalCount += point.Count
+		if idx == 0 {
+			lastPoint = point.Timestamp
+		} else if point.Timestamp.Before(lastPoint) {
+			panic("data is not valid")
+		} else {
+			out.span += point.Timestamp.Sub(lastPoint)
+			lastPoint = point.Timestamp
+		}
 
-		if point.Duration > 0 {
-			out.totalDuration += point.Duration
+		out.counters.operations[idx] = float64(point.Counters.Operations)
+		out.counters.size[idx] = float64(point.Counters.Size)
+		out.counters.errors[idx] = float64(point.Counters.Errors)
+		out.state.workers[idx] = float64(point.State.Workers)
+
+		out.totalCount.errors += point.Counters.Errors
+		out.totalCount.operations += point.Counters.Operations
+		out.totalCount.size += point.Counters.Size
+
+		if point.State.Failed {
+			out.state.failed = true
+		}
+
+		// handle time differently. negative duration values
+		// should always be ignored.
+		if point.Timers.Duration > 0 {
+			out.timers.duration[idx] = float64(point.Timers.Duration)
+			out.totalTime.duration += point.Timers.Duration
+		}
+		if point.Timers.Waiting > 0 {
+			out.timers.waiting[idx] = float64(point.Timers.Waiting)
+			out.totalTime.waiting += point.Timers.Duration
 		}
 	}
 
@@ -258,40 +337,95 @@ func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
 	var err error
 	catcher := grip.NewBasicCatcher()
 	out := PerformanceMetricSummary{
-		samples: perf.samples,
-		window:  perf.window,
+		Samples: perf.samples,
+		Span:    perf.span,
 	}
-	out.Size, err = stats.Mean(perf.size)
+
+	out.TotalTime.Duration = perf.totalTime.duration
+	out.TotalTime.Waiting = perf.totalTime.waiting
+	out.TotalCount.Errors = perf.totalCount.errors
+	out.TotalCount.Size = perf.totalCount.size
+	out.TotalCount.Operations = perf.totalCount.operations
+
+	out.State.Failed = perf.state.failed
+
+	out.Counters.Size, err = perf.counters.size.Mean()
 	catcher.Add(err)
 
-	out.Count, err = stats.Mean(perf.count)
+	out.Counters.Operations, err = perf.counters.operations.Mean()
 	catcher.Add(err)
 
-	out.Workers, err = stats.Mean(perf.workers)
+	out.Counters.Errors, err = perf.counters.errors.Mean()
+	catcher.Add(err)
+
+	out.State.Workers, err = perf.state.workers.Mean()
+	catcher.Add(err)
+
+	out.Timers.Duration, err = perf.timers.duration.Mean()
+	catcher.Add(err)
+
+	out.Timers.Waiting, err = perf.timers.waiting.Mean()
+	catcher.Add(err)
+
+	return out, catcher.Resolve()
+}
+
+func (perf *PerformanceStatistics) P90() (PerformanceMetricSummary, error) {
+	return perf.percentile(90.0)
+}
+
+func (perf *PerformanceStatistics) P50() (PerformanceMetricSummary, error) {
+	return perf.percentile(50.0)
+}
+
+func (perf *PerformanceStatistics) percentile(pval float64) (PerformanceMetricSummary, error) {
+	var err error
+	catcher := grip.NewBasicCatcher()
+	out := PerformanceMetricSummary{
+		Samples: perf.samples,
+		Span:    perf.span,
+	}
+
+	out.State.Failed = perf.state.failed
+	out.TotalTime.Duration = perf.totalTime.duration
+	out.TotalTime.Waiting = perf.totalTime.waiting
+	out.TotalCount.Errors = perf.totalCount.errors
+	out.TotalCount.Size = perf.totalCount.size
+	out.TotalCount.Operations = perf.totalCount.operations
+
+	out.Counters.Size, err = perf.counters.size.Percentile(pval)
+	catcher.Add(err)
+
+	out.Counters.Operations, err = perf.counters.operations.Percentile(pval)
+	catcher.Add(err)
+
+	out.Counters.Errors, err = perf.counters.errors.Percentile(pval)
+	catcher.Add(err)
+
+	out.State.Workers, err = perf.state.workers.Percentile(pval)
+	catcher.Add(err)
+
+	out.Timers.Duration, err = perf.timers.duration.Percentile(pval)
+	catcher.Add(err)
+
+	out.Timers.Waiting, err = perf.timers.waiting.Percentile(pval)
 	catcher.Add(err)
 
 	return out, catcher.Resolve()
 }
 
 func (perf *PerformanceMetricSummary) ThroughputOps() float64 {
-	return perf.Count / float64(perf.window)
+	return perf.Counters.Operations / float64(perf.Span)
 }
+
 func (perf *PerformanceMetricSummary) ThroughputData() float64 {
-	return perf.Size / float64(perf.window)
+	return perf.Counters.Size / float64(perf.Span)
+}
+
+func (perf *PerformanceMetricSummary) ErrorRate() float64 {
+	return perf.Counters.Errors / float64(perf.Span)
 }
 
 func (perf *PerformanceMetricSummary) Latency() time.Duration {
-	return perf.TotalDuration / time.Duration(perf.TotalCount)
-}
-
-func (perf *PerformanceMetricSummary) AdjustedParallelLatency() time.Duration {
-	return (perf.TotalDuration / time.Duration(perf.TotalCount)) / time.Duration(perf.Workers)
-}
-
-func (perf *PerformanceMetricSummary) AdjustedParallelThroughputOps() float64 {
-	return (perf.Count / perf.Workers) / float64(perf.window)
-}
-
-func (perf *PerformanceMetricSummary) AdjustedParallelThroughputData() float64 {
-	return (perf.Size / perf.Workers) / float64(perf.window)
+	return perf.TotalTime.Duration / time.Duration(perf.TotalCount.Operations)
 }
