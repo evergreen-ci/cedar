@@ -47,10 +47,12 @@ func (r *CostReports) Iterator(start, end time.Time) (db.Iterator, error) {
 }
 
 func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, s, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
+
+	session := db.WrapSession(s)
 
 	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(db.Document{
 		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, "start"): db.Document{"$gte": start},
@@ -112,11 +114,12 @@ func (r *CostReportSummaries) Iterator(start, end time.Time) (db.Iterator, error
 }
 
 func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, s, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
 
+	session := db.WrapSession(s)
 	query := session.DB(conf.DatabaseName).C(costReportSummaryCollection).Find(map[string]interface{}{
 		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, "start"): start,
 		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, "end"):   end,

@@ -95,10 +95,11 @@ func (i *SystemInformationRecords) runQuery(query db.Query) error {
 }
 
 func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, s, err := sink.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	session := db.WrapSession(s)
 	defer session.Close()
 
 	query := session.DB(conf.DatabaseName).C(sysInfoCollection).Find(map[string]interface{}{
@@ -113,10 +114,11 @@ func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
 }
 
 func (i *SystemInformationRecords) FindHostnameBetween(host string, before, after time.Time, limit int) error {
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, s, err := sink.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	session := db.WrapSession(s)
 	defer session.Close()
 
 	query := session.DB(conf.DatabaseName).C(sysInfoCollection).Find(map[string]interface{}{
@@ -135,10 +137,11 @@ func (i *SystemInformationRecords) FindHostnameBetween(host string, before, afte
 }
 
 func (i *SystemInformationRecords) FindBetween(before, after time.Time, limit int) error {
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, s, err := sink.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	session := db.WrapSession(s)
 	defer session.Close()
 
 	query := session.DB(conf.DatabaseName).C(sysInfoCollection).Find(map[string]interface{}{

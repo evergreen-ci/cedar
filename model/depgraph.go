@@ -168,19 +168,23 @@ func (g *GraphMetadata) edgeQuery(conf *sink.Configuration, session db.Session) 
 }
 
 func (g *GraphMetadata) GetEdges() (db.Iterator, error) {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+
+	session := db.WrapSession(s)
 
 	return db.NewCombinedIterator(session, g.edgeQuery(conf, session).Iter()), nil
 }
 
 func (g *GraphMetadata) AllEdges() ([]GraphEdge, error) {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	session := db.WrapSession(s)
+
 	defer session.Close()
 	out := []GraphEdge{}
 
@@ -198,19 +202,21 @@ func (g *GraphMetadata) nodeQuery(conf *sink.Configuration, session db.Session) 
 }
 
 func (g *GraphMetadata) GetNodes() (db.Iterator, error) {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	session := db.WrapSession(s)
 
 	return db.NewCombinedIterator(session, g.nodeQuery(conf, session).Iter()), nil
 }
 
 func (g *GraphMetadata) AllNodes() ([]GraphNode, error) {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := sink.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	session := db.WrapSession(s)
 	defer session.Close()
 
 	out := []GraphNode{}

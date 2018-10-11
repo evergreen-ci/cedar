@@ -5,7 +5,6 @@ import (
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -32,10 +31,10 @@ type Environment interface {
 	GetConf() (*Configuration, error)
 	// SetQueue configures the global application cache's shared queue.
 	SetQueue(amboy.Queue) error
-	GetSession() (db.Session, error)
+	GetSession() (*mgo.Session, error)
 }
 
-func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
+func GetSessionWithConfig(env Environment) (*Configuration, *mgo.Session, error) {
 	if env == nil {
 		return nil, nil, errors.New("env is nil")
 	}
@@ -55,7 +54,7 @@ func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 type envState struct {
 	name    string
 	queue   amboy.Queue
-	session db.Session
+	session *mgo.Session
 	conf    *Configuration
 	mutex   sync.RWMutex
 }
@@ -70,12 +69,10 @@ func (c *envState) Configure(conf *Configuration) error {
 	c.conf = conf
 
 	// create and cache a db session for use in tasks
-	session, err := mgo.DialWithTimeout(conf.MongoDBURI, conf.MongoDBDialTimeout)
+	c.session, err = mgo.DialWithTimeout(conf.MongoDBURI, conf.MongoDBDialTimeout)
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to db %s", conf.MongoDBURI)
 	}
-
-	c.session = db.WrapSession(session)
 
 	if conf.UseLocalQueue {
 		c.queue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
@@ -133,7 +130,7 @@ func (c *envState) GetQueue() (amboy.Queue, error) {
 	return c.queue, nil
 }
 
-func (c *envState) GetSession() (db.Session, error) {
+func (c *envState) GetSession() (*mgo.Session, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

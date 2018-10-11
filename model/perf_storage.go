@@ -4,6 +4,7 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/pail"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/pkg/errors"
 )
 
 type PailType string
@@ -13,16 +14,48 @@ const (
 	PailLegacyGridFS          = "gridfs-legacy"
 )
 
-func (t PailType) Create(env sink.Environment) pail.Bucket { return nil }
+func (t PailType) Create(env sink.Environment) (pail.Bucket, error) {
+	switch t {
+	case PailS3:
+		return nil, errors.New("not implemented")
+	case PailLegacyGridFS:
+		conf, session, err := sink.GetSessionWithConfig(env)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		opts := pail.GridFSOptions{
+			Database: conf.DatabaseName,
+		}
+
+		b, err := pail.NewLegacyGridFSBucketWithSession(session, opts)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		return b, nil
+	default:
+		return nil, errors.New("not implemented")
+	}
+}
 
 type FileDataFormat string
 
 const (
-	FileFTDC PerformanceDataFormat = "ftdc"
-	FileBSON                       = "bson"
-	FileJSON                       = "json"
-	FileCSV                        = "csv"
+	FileFTDC FileDataFormat = "ftdc"
+	FileBSON                = "bson"
+	FileJSON                = "json"
+	FileCSV                 = "csv"
 )
+
+func (ff FileDataFormat) Validate() error {
+	switch ff {
+	case FileFTDC, FileBSON, FileJSON, FileCSV:
+		return nil
+	default:
+		return errors.New("invalid data format")
+	}
+}
 
 type FileCompression string
 
@@ -33,6 +66,16 @@ const (
 	FileGz                           = "gz"
 	FileXz                           = "xz"
 )
+
+func (fc FileCompression) Validate() error {
+	switch fc {
+	case FileUncompressed, FileTarGz, FileZip, FileGz, FileXz:
+		return nil
+	default:
+		return errors.New("invalid compression format")
+	}
+
+}
 
 type PerformanceSourceInfo struct {
 	Type        PailType        `bson:"type"`

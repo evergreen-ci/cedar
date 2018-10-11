@@ -48,12 +48,12 @@ var (
 	perfDataSummaryKey = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
 )
 
-func CreatePerformanceResult(info PerformanceResultID, path string) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultID, source PerformanceSourceInfo) *PerformanceResult {
 	return &PerformanceResult{
-		ID:         info.ID(),
-		SourcePath: path,
-		Info:       info,
-		populated:  true,
+		ID:        info.ID(),
+		Source:    []PerformanceSourceInfo{source},
+		Info:      info,
+		populated: true,
 	}
 }
 
@@ -87,7 +87,6 @@ func (result *PerformanceResult) Save() error {
 		result.ID = result.Info.ID()
 		if result.ID == "" {
 			return errors.New("cannot ")
-
 		}
 	}
 
@@ -239,7 +238,8 @@ type PerformanceStatistics struct {
 
 // PerforamcneMetricSummary reflects a specific kind of summation,
 // (e.g. means/percentiles, etc.) and may be saved to the database as
-// a kind of rollup value.
+// a kind of rollup value. This type also provides methods for
+// caclulating
 type PerformanceMetricSummary struct {
 	Counters struct {
 		Operations float64 `bson:"ops" json:"ops" yaml:"ops"`

@@ -18,7 +18,7 @@ func (m *ResultID) Export() *model.PerformanceResultID {
 }
 
 func (m *MetricsSeriesStart) Export() *model.PerformanceResult {
-	return model.CreatePerformanceResult(*m.Id.Export(), m.SourcePath)
+	panic("not implemented")
 }
 
 func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
@@ -30,11 +30,15 @@ func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
 	if err != nil {
 		return model.PerformancePoint{}, errors.Wrap(err, "problem converting duration value")
 	}
-	return model.PerformancePoint{
-		Size:      m.Size,
-		Count:     m.Count,
-		Workers:   m.Workers,
-		Duration:  dur,
+
+	point := model.PerformancePoint{
 		Timestamp: ts,
-	}, nil
+	}
+
+	point.Counters.Size = m.Size
+	point.Counters.Operations = m.Count
+	point.State.Workers = m.Workers
+	point.Timers.Duration = dur
+
+	return point, nil
 }
