@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,8 +28,69 @@ func newUUID() string {
 	return hex.EncodeToString(b)
 }
 
+func createS3Client(region string) (*s3.S3, error) {
+	sess, err := session.NewSession(&aws.Config{Region: aws.String(region)})
+	if err != nil {
+		return nil, errors.Wrap(err, "problem connecting to AWS")
+	}
+	svc := s3.New(sess)
+	return svc, nil
+}
+
+func createS3Bucket(name, region string) error {
+	svc, err := createS3Client(region)
+	if err != nil {
+		return errors.Wrap(err, "failed to create S3 bucket.")
+	}
+	input := &s3.CreateBucketInput{
+		Bucket: aws.String(name),
+	}
+	_, err = svc.CreateBucket(input)
+	if err != nil {
+		return errors.Wrap(err, "failed to create S3 bucket")
+	}
+	return nil
+}
+
+func deleteS3Bucket(name, region string) error {
+	svc, err := createS3Client(region)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete S3 bucket.")
+	}
+	for {
+		listInput := &s3.ListObjectsInput{
+			Bucket: aws.String(name),
+		}
+		result, err := svc.ListObjects(listInput)
+		if err != nil {
+			return errors.Wrap(err, "failed to delete S3 bucket.")
+		}
+		for _, object := range result.Contents {
+			deleteObjectInput := &s3.DeleteObjectInput{
+				Bucket: aws.String(name),
+				Key:    aws.String(*object.Key),
+			}
+			_, err := svc.DeleteObject(deleteObjectInput)
+			if err != nil {
+				return errors.Wrap(err, "failed to delete S3 bucket")
+			}
+		}
+		if !*result.IsTruncated {
+			break
+		}
+	}
+	deleteBucketInput := &s3.DeleteBucketInput{
+		Bucket: aws.String(name),
+	}
+	_, err = svc.DeleteBucket(deleteBucketInput)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete S3 bucket")
+	}
+	return nil
+}
+
 func TestBucket(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -42,6 +106,9 @@ func TestBucket(t *testing.T) {
 	defer ses.Close()
 	defer func() { ses.DB(uuid).DropDatabase() }()
 
+	s3BucketName := "pail-bucket-test"
+	s3Region := "us-east-1"
+
 	type bucketTestCase struct {
 		id   string
 		test func(*testing.T, Bucket)
@@ -51,6 +118,7 @@ func TestBucket(t *testing.T) {
 		name        string
 		constructor func(*testing.T) Bucket
 		tests       []bucketTestCase
+		s3          bool
 	}{
 		{
 			name: "Local",
@@ -193,6 +261,62 @@ func TestBucket(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "S3Small",
+			constructor: func(t *testing.T) Bucket {
+				s3BucketName = "pail-bucket-test-" + newUUID()
+				err = createS3Bucket(s3BucketName, s3Region)
+				require.NoError(t, err)
+				bucketInfo := BucketInfo{
+					Auth:   "",
+					Region: s3Region,
+					Name:   s3BucketName,
+				}
+				b, err := NewS3BucketSmall(bucketInfo)
+				require.NoError(t, err)
+				return b
+			},
+			tests: []bucketTestCase{
+				{
+					id: "VerifyBucketType",
+					test: func(t *testing.T, b Bucket) {
+						bucket, ok := b.(*s3BucketSmall)
+						require.True(t, ok)
+						assert.NotNil(t, bucket)
+						assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+					},
+				},
+			},
+			s3: true,
+		},
+		{
+			name: "S3Large",
+			constructor: func(t *testing.T) Bucket {
+				s3BucketName = "pail-bucket-test-" + newUUID()
+				err = createS3Bucket(s3BucketName, s3Region)
+				require.NoError(t, err)
+				bucketInfo := BucketInfo{
+					Auth:   "",
+					Region: s3Region,
+					Name:   s3BucketName,
+				}
+				b, err := NewS3BucketSmall(bucketInfo)
+				require.NoError(t, err)
+				return b
+			},
+			tests: []bucketTestCase{
+				{
+					id: "VerifyBucketType",
+					test: func(t *testing.T, b Bucket) {
+						bucket, ok := b.(*s3BucketSmall)
+						require.True(t, ok)
+						assert.NotNil(t, bucket)
+						assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+					},
+				},
+			},
+			s3: true,
+		},
 	} {
 		t.Run(impl.name, func(t *testing.T) {
 			for _, test := range impl.tests {
@@ -203,9 +327,16 @@ func TestBucket(t *testing.T) {
 			}
 			t.Run("ValidateFixture", func(t *testing.T) {
 				assert.NotNil(t, impl.constructor(t))
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("CheckIsValid", func(t *testing.T) {
-				assert.NoError(t, impl.constructor(t).Check(ctx))
+				bucket := impl.constructor(t)
+				assert.NoError(t, bucket.Check(ctx))
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("ListIsEmpty", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -214,6 +345,9 @@ func TestBucket(t *testing.T) {
 				assert.False(t, iter.Next(ctx))
 				assert.Nil(t, iter.Item())
 				assert.NoError(t, iter.Err())
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("ListErrorsWithCancledContext", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -222,6 +356,9 @@ func TestBucket(t *testing.T) {
 				iter, err := bucket.List(tctx, "")
 				assert.Error(t, err)
 				assert.Nil(t, iter)
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("WriteOneFile", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -234,6 +371,9 @@ func TestBucket(t *testing.T) {
 				assert.True(t, iter.Next(ctx))
 				assert.False(t, iter.Next(ctx))
 				assert.NoError(t, iter.Err())
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 
 			t.Run("RemoveOneFile", func(t *testing.T) {
@@ -254,6 +394,9 @@ func TestBucket(t *testing.T) {
 				assert.False(t, iter.Next(ctx))
 				assert.Nil(t, iter.Item())
 				assert.NoError(t, iter.Err())
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("ReadWriteRoundTripSimple", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -264,6 +407,9 @@ func TestBucket(t *testing.T) {
 				data, err := readDataFromFile(ctx, bucket, key)
 				assert.NoError(t, err)
 				assert.Equal(t, data, payload)
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("GetRetrivesData", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -275,6 +421,9 @@ func TestBucket(t *testing.T) {
 				data, err := ioutil.ReadAll(reader)
 				assert.NoError(t, err)
 				assert.Equal(t, "hello world!", string(data))
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("PutSavesFiles", func(t *testing.T) {
 				const contents = "check data"
@@ -288,6 +437,9 @@ func TestBucket(t *testing.T) {
 				data, err := ioutil.ReadAll(reader)
 				assert.NoError(t, err)
 				assert.Equal(t, contents, string(data))
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("CopyDuplicatesData", func(t *testing.T) {
 				const contents = "this one"
@@ -299,6 +451,9 @@ func TestBucket(t *testing.T) {
 				data, err := readDataFromFile(ctx, bucket, keyTwo)
 				assert.NoError(t, err)
 				assert.Equal(t, contents, data)
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("DownloadWritesFileToDisk", func(t *testing.T) {
 				const contents = "in the file"
@@ -317,6 +472,9 @@ func TestBucket(t *testing.T) {
 				data, err := ioutil.ReadFile(path)
 				assert.NoError(t, err)
 				assert.Equal(t, contents, string(data))
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("ListRespectsPrefixes", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -339,6 +497,9 @@ func TestBucket(t *testing.T) {
 				assert.False(t, iter.Next(ctx))
 				assert.Nil(t, iter.Item())
 				assert.NoError(t, iter.Err())
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("RoundTripManyFiles", func(t *testing.T) {
 				data := map[string]string{}
@@ -374,6 +535,9 @@ func TestBucket(t *testing.T) {
 				}
 				assert.Equal(t, 300, count)
 				assert.NoError(t, iter.Err())
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("PullFromBucket", func(t *testing.T) {
 				data := map[string]string{}
@@ -400,6 +564,9 @@ func TestBucket(t *testing.T) {
 							assert.True(t, ok)
 						}
 					}
+				}
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
 				}
 
 			})
@@ -429,17 +596,26 @@ func TestBucket(t *testing.T) {
 					assert.NoError(t, iter.Err())
 					assert.Equal(t, 600, counter)
 				})
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("UploadWithBadFileName", func(t *testing.T) {
 				bucket := impl.constructor(t)
 				err := bucket.Upload(ctx, "key", "foo\x00bar")
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "problem opening file")
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("DownloadWithBadFileName", func(t *testing.T) {
 				bucket := impl.constructor(t)
 				err := bucket.Download(ctx, "fileIWant\x00", "loc")
 				assert.Error(t, err)
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("DownloadBadDirectory", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -450,6 +626,9 @@ func TestBucket(t *testing.T) {
 				err = bucket.Download(ctx, "key", "location-\x00/key-name")
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "problem creating enclosing directory")
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 			})
 			t.Run("DownloadToBadFileName", func(t *testing.T) {
 				bucket := impl.constructor(t)
@@ -460,6 +639,9 @@ func TestBucket(t *testing.T) {
 				err = bucket.Download(ctx, "key", "location-\x00-key-name")
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "problem creating file")
+				if impl.s3 {
+					assert.NoError(t, deleteS3Bucket(s3BucketName, s3Region))
+				}
 
 			})
 		})
