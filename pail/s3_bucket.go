@@ -29,7 +29,9 @@ type s3Bucket struct {
 }
 
 func newS3Bucket(s3BucketInfo BucketInfo) (*s3Bucket, error) {
-	sess, err := session.NewSession(&aws.Config{Region: aws.String(s3BucketInfo.Region)})
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(s3BucketInfo.Region),
+	})
 	if err != nil {
 		return &s3Bucket{}, errors.Wrap(err, "problem connecting to AWS")
 	}
@@ -121,10 +123,9 @@ func (w *largeWriteCloser) complete() error {
 
 	_, err := w.svc.CompleteMultipartUploadWithContext(w.ctx, input)
 	if err != nil {
-		w.abort()
 		abortErr := w.abort()
 		if abortErr != nil {
-			abortErr = errors.Wrap(abortErr, "problem aborting multipart upload")
+			return errors.Wrap(abortErr, "problem aborting multipart upload")
 		}
 		return errors.Wrap(err, "problem completing multipart upload")
 	}
@@ -160,7 +161,7 @@ func (w *largeWriteCloser) flush() error {
 	if err != nil {
 		abortErr := w.abort()
 		if abortErr != nil {
-			abortErr = errors.Wrap(abortErr, "problem aborting multipart upload")
+			return errors.Wrap(abortErr, "problem aborting multipart upload")
 		}
 		return errors.Wrap(err, "problem uploading part")
 	}
