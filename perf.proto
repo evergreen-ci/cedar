@@ -16,10 +16,9 @@ message ResultID {
   map<string, int32> arguments = 6;
 }
 
-message MetricsSeriesStart {
+message ResultData {
   ResultID id = 1;
-  string source_path = 2;
-  repeated ArtifactInfo artifacts = 3;
+  repeated ArtifactInfo artifacts = 2;
 }
 
 message ArtifactInfo {
@@ -99,7 +98,9 @@ message MetricsEvent {
 }
 
 service SinkPerformanceMetrics {
-  rpc CreateMetricSeries(MetricsSeriesStart) returns (MetricsResponse);
+  rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
+  rpc AttachResultData(ResultData) returns (MetricsResponse);
+  rpc AttachAuxilaryData(ResultData) returns (MetricsResponse);
   rpc SendMetrics(stream MetricsEvent) returns (SendResponse);
   rpc CloseMetrics(MetricsSeriesEnd) returns (MetricsResponse);
 }

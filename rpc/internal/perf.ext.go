@@ -73,14 +73,14 @@ func (a *ArtifactInfo) Export() *model.ArtifactInfo {
 	}
 }
 
-func (m *MetricsSeriesStart) Export() *model.PerformanceResult {
+func (r *ResultData) Export() *model.PerformanceResult {
 	artifacts := []model.ArtifactInfo{}
 
-	for _, a := range m.Artifacts {
+	for _, a := range r.Artifacts {
 		artifacts = append(artifacts, *a.Export())
 	}
 
-	return model.CreatePerformanceResult(*m.Id.Export(), artifacts)
+	return model.CreatePerformanceResult(*r.Id.Export(), artifacts)
 }
 
 func (m *MetricsPoint) Export() (model.PerformancePoint, error) {

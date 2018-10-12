@@ -26,12 +26,12 @@ func AttachService(env sink.Environment, s *grpc.Server) {
 	return
 }
 
-func (srv *perfService) CreateMetricSeries(ctx context.Context, start *MetricsSeriesStart) (*MetricsResponse, error) {
-	if start.Id == nil {
+func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
+	if result.Id == nil {
 		return nil, errors.New("invalid data")
 	}
 
-	record := start.Export()
+	record := result.Export()
 	record.Setup(srv.env)
 	record.CreatedAt = time.Now()
 
@@ -43,6 +43,64 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, start *MetricsSe
 	}
 	resp.Success = true
 
+	return resp, nil
+}
+
+func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
+	if result.Id == nil {
+		return nil, errors.New("invalid data")
+	}
+
+	record := &model.PerformanceResult{}
+	record.Setup(srv.env)
+	record.Info = *result.Id.Export()
+	record.ID = record.Info.ID()
+
+	if err := record.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", result.Id)
+	}
+
+	resp := &MetricsResponse{}
+	resp.Id = record.ID
+
+	for _, i := range result.Artifacts {
+		record.Source = append(record.Source, *i.Export())
+	}
+
+	if err := record.Save(); err != nil {
+		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
+	}
+
+	resp.Success = true
+
+	return resp, nil
+}
+func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
+	if result.Id == nil {
+		return nil, errors.New("invalid data")
+	}
+
+	record := &model.PerformanceResult{}
+	record.Setup(srv.env)
+	record.Info = *result.Id.Export()
+	record.ID = record.Info.ID()
+
+	if err := record.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", result.Id)
+	}
+
+	resp := &MetricsResponse{}
+	resp.Id = record.ID
+
+	for _, i := range result.Artifacts {
+		record.AuxilaryData = append(record.AuxilaryData, *i.Export())
+	}
+
+	if err := record.Save(); err != nil {
+		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
+	}
+
+	resp.Success = true
 	return resp, nil
 }
 
