@@ -47,6 +47,7 @@ const (
 	FileBSON                = "bson"
 	FileJSON                = "json"
 	FileCSV                 = "csv"
+	FileText                = "text"
 )
 
 func (ff FileDataFormat) Validate() error {

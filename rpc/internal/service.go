@@ -31,8 +31,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, start *MetricsSe
 		return nil, errors.New("invalid data")
 	}
 
-	id := start.Id.Export()
-	record := model.CreatePerformanceResult(*id, model.PerformanceSourceInfo{}) // start.SourcePath
+	record := start.Export()
 	record.Setup(srv.env)
 	record.CreatedAt = time.Now()
 

@@ -18,19 +18,42 @@ message ResultID {
 
 message MetricsSeriesStart {
   ResultID id = 1;
-  string source_path = 3;
-  StorageLocation location = 4;
+  string source_path = 2;
+  repeated ArtifactInfo artifacts = 3;
+}
+
+message ArtifactInfo {
+  StorageLocation location = 1;
+  string bucket = 2;
+  string path = 3;
+  DataFormat format = 4;
+  CompressionType compression = 5;
+  repeated string tags = 6;
 }
 
 enum StorageLocation {
   UNKNOWN = 0;
-
   SINK_S3 = 1;
   PROJECT_S3 = 2;
   GRIDFS = 3;
   EPHEMERAL = 4;
 }
 
+enum DataFormat {
+  TEXT = 0;
+  FTDC = 1;
+  BSON = 2;
+  JSON = 3;
+  CSV = 4;
+}
+
+enum CompressionType {
+  NONE = 0;
+  TARGZ = 1;
+  ZIP = 2;
+  GZ = 3;
+  XZ = 4;
+}
 message MetricsSeriesEnd {
   string id = 1;
   bool is_complete = 2;
@@ -48,11 +71,26 @@ message SendResponse {
 }
 
 message MetricsPoint {
-  int64 size = 1;
-  int64 count = 2;
-  int64 workers = 3;
-  google.protobuf.Duration duration = 4;
-  google.protobuf.Timestamp ts = 5;
+  google.protobuf.Timestamp Time = 1;
+  MetricsCounters counters = 2;
+  MetricsTimers timers = 3;
+  MetricsState state = 4;
+}
+
+message MetricsCounters {
+  int64 ops = 1;
+  int64 size = 2;
+  int64 errors = 3;
+}
+
+message MetricsTimers {
+  google.protobuf.Duration duration = 1;
+  google.protobuf.Duration waiting = 2;
+}
+
+message MetricsState {
+  bool failed = 1;
+  int64 workers = 2;
 }
 
 message MetricsEvent {

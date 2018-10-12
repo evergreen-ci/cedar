@@ -53,10 +53,10 @@ var (
 	perfDataSummaryKey = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
 )
 
-func CreatePerformanceResult(info PerformanceResultID, source PerformanceSourceInfo) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultID, source []ArtifactInfo) *PerformanceResult {
 	return &PerformanceResult{
 		ID:        info.ID(),
-		Source:    []PerformanceSourceInfo{source},
+		Source:    source,
 		Info:      info,
 		populated: true,
 	}
