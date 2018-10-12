@@ -122,19 +122,24 @@ func (w *largeWriteCloser) complete() error {
 	_, err := w.svc.CompleteMultipartUploadWithContext(w.ctx, input)
 	if err != nil {
 		w.abort()
+		abortErr := w.abort()
+		if abortErr != nil {
+			abortErr = errors.Wrap(abortErr, "problem aborting multipart upload")
+		}
 		return errors.Wrap(err, "problem completing multipart upload")
 	}
 	return nil
 }
 
-func (w *largeWriteCloser) abort() {
+func (w *largeWriteCloser) abort() error {
 	input := &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String(w.name),
 		Key:      aws.String(w.key),
 		UploadId: aws.String(w.uploadId),
 	}
 
-	w.svc.AbortMultipartUploadWithContext(w.ctx, input)
+	_, err := w.svc.AbortMultipartUploadWithContext(w.ctx, input)
+	return err
 }
 
 func (w *largeWriteCloser) flush() error {
@@ -153,7 +158,10 @@ func (w *largeWriteCloser) flush() error {
 	}
 	result, err := w.svc.UploadPartWithContext(w.ctx, input)
 	if err != nil {
-		w.abort()
+		abortErr := w.abort()
+		if abortErr != nil {
+			abortErr = errors.Wrap(abortErr, "problem aborting multipart upload")
+		}
 		return errors.Wrap(err, "problem uploading part")
 	}
 	w.completedParts = append(w.completedParts, &s3.CompletedPart{
@@ -212,10 +220,7 @@ func (w *largeWriteCloser) Close() error {
 		}
 	}
 	err := w.complete()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *s3BucketSmall) Writer(ctx context.Context, key string) (io.WriteCloser, error) {
