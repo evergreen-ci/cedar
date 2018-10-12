@@ -14,7 +14,7 @@ const (
 	PailLegacyGridFS          = "gridfs-legacy"
 )
 
-func (t PailType) Create(env sink.Environment) (pail.Bucket, error) {
+func (t PailType) Create(env sink.Environment, bucket string) (pail.Bucket, error) {
 	switch t {
 	case PailS3:
 		return nil, errors.New("not implemented")
@@ -26,6 +26,7 @@ func (t PailType) Create(env sink.Environment) (pail.Bucket, error) {
 
 		opts := pail.GridFSOptions{
 			Database: conf.DatabaseName,
+			Prefix:   bucket,
 		}
 
 		b, err := pail.NewLegacyGridFSBucketWithSession(session, opts)
@@ -77,16 +78,22 @@ func (fc FileCompression) Validate() error {
 
 }
 
-type PerformanceSourceInfo struct {
+// ArtifactInfo is a type that describes an object in some kind of
+// offline storage, and is the bridge between pail-backed
+// offline-storage and the sink-based metadata storage.
+type ArtifactInfo struct {
 	Type        PailType        `bson:"type"`
+	Bucket      string          `bson:"bucket"`
 	Path        string          `bson:"path"`
 	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`
+	Tags        []string        `bson:"tags,omitempty"`
 }
 
 var (
-	perfSourceInfoTypeKey        = bsonutil.MustHaveTag(PerformanceSourceInfo{}, "Type")
-	perfSourceInfoPathKey        = bsonutil.MustHaveTag(PerformanceSourceInfo{}, "Path")
-	perfSourceInfoFormatKey      = bsonutil.MustHaveTag(PerformanceSourceInfo{}, "Format")
-	perfSourceInfoCompressionKey = bsonutil.MustHaveTag(PerformanceSourceInfo{}, "Compression")
+	artifactInfoTypeKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Type")
+	artifactInfoPathKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Path")
+	artifactInfoFormatKey      = bsonutil.MustHaveTag(ArtifactInfo{}, "Format")
+	artifactInfoCompressionKey = bsonutil.MustHaveTag(ArtifactInfo{}, "Compression")
+	artifactInfoTagsKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Tags")
 )

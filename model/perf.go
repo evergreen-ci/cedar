@@ -29,12 +29,16 @@ type PerformanceResult struct {
 	// we'll probably need to store an identifier so we know which
 	// service to use to access that data. We'd then summarize
 	// that data and store it in the document.
-	Source []PerformanceSourceInfo `bson:"source_info,omitempty"`
+	Source []ArtifactInfo `bson:"source_info,omitempty"`
 
-	// These should be keyed on implementations of the pail/Bucket
-	// interface.
-	SourceType string `bson:"source_type"`
+	// Tests may collect and upload other data (e.g. ftdc data
+	// from servers, and we want to be able to track it here,
+	// particularly for use in auxiliary reporting and post-hoc
+	// analysis, but worth tracking seperatly from the primary results)
+	AuxilaryData []ArtifactInfo `bson:"aux_data,omitempty"`
 
+	// TODO: we should track means/p90s/etc separately
+	// here. perhaps as a map or a struct with omitempty keys.
 	DataSummary *PerformanceMetricSummary `bson:"summary,omitempty"`
 
 	env       sink.Environment
@@ -44,7 +48,8 @@ type PerformanceResult struct {
 var (
 	perfIDKey          = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
 	perfInfoKey        = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfSourcePathKey  = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
+	perfSourceKey      = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
+	perfAuxDataKey     = bsonutil.MustHaveTag(PerformanceResult{}, "AuxilaryData")
 	perfDataSummaryKey = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
 )
 
