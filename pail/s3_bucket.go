@@ -31,6 +31,7 @@ type s3Bucket struct {
 }
 
 type S3Options struct {
+	// If do not provide credentials, fall back to AWS default provider chain.
 	Credentials *credentials.Credentials
 	Region      string
 	Name        string
@@ -41,9 +42,10 @@ func newS3Bucket(s3Options S3Options) (*s3Bucket, error) {
 	config := &aws.Config{Region: aws.String(s3Options.Region)}
 	if s3Options.Credentials != nil {
 		_, err := s3Options.Credentials.Get()
-		if err == nil {
-			config.Credentials = s3Options.Credentials
+		if err != nil {
+			return &s3Bucket{}, errors.Wrap(err, "invalid credentials!")
 		}
+		config.Credentials = s3Options.Credentials
 	}
 	sess, err := session.NewSession(config)
 	if err != nil {
