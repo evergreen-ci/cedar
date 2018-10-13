@@ -35,7 +35,29 @@ type S3Options struct {
 	Credentials *credentials.Credentials
 	Region      string
 	Name        string
+	Prefix      string
 	Access      string // for puts only, presumably.
+}
+
+func (s *s3Bucket) normalizeKey(key string) string {
+	if key == "" {
+		return s.prefix
+	}
+	if s.prefix != "" {
+		return filepath.Join(s.prefix, key)
+	}
+	return key
+}
+
+func (s *s3Bucket) denormalizeKey(key string) string {
+	if s.prefix != "" {
+		denormalizedKey, err := filepath.Rel(s.prefix, key)
+		if err != nil {
+			return key
+		}
+		return denormalizedKey
+	}
+	return key
 }
 
 func newS3Bucket(s3Options S3Options) (*s3Bucket, error) {
@@ -52,7 +74,7 @@ func newS3Bucket(s3Options S3Options) (*s3Bucket, error) {
 		return &s3Bucket{}, errors.Wrap(err, "problem connecting to AWS")
 	}
 	svc := s3.New(sess)
-	return &s3Bucket{name: s3Options.Name, sess: sess, svc: svc}, nil
+	return &s3Bucket{name: s3Options.Name, prefix: s3Options.Prefix, sess: sess, svc: svc}, nil
 }
 
 func NewS3BucketSmall(s3Options S3Options) (Bucket, error) {
@@ -245,7 +267,7 @@ func (s *s3BucketSmall) Writer(ctx context.Context, key string) (io.WriteCloser,
 		name: s.name,
 		svc:  s.svc,
 		ctx:  ctx,
-		key:  key,
+		key:  s.normalizeKey(key),
 	}, nil
 }
 func (s *s3BucketLarge) Writer(ctx context.Context, key string) (io.WriteCloser, error) {
@@ -255,14 +277,14 @@ func (s *s3BucketLarge) Writer(ctx context.Context, key string) (io.WriteCloser,
 		name:    s.name,
 		svc:     s.svc,
 		ctx:     ctx,
-		key:     key,
+		key:     s.normalizeKey(key),
 	}, nil
 }
 
 func (s *s3Bucket) Reader(ctx context.Context, key string) (io.ReadCloser, error) {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(s.name),
-		Key:    aws.String(key),
+		Key:    aws.String(s.normalizeKey(key)),
 	}
 
 	result, err := s.svc.GetObjectWithContext(ctx, input)
@@ -372,11 +394,11 @@ func (s *s3Bucket) pushHelper(b Bucket, ctx context.Context, local, remote strin
 }
 
 func (s *s3BucketSmall) Push(ctx context.Context, local, remote string) error {
-	return s.pushHelper(s, ctx, local, remote)
+	return s.pushHelper(s, ctx, local, s.normalizeKey(remote))
 }
 
 func (s *s3BucketLarge) Push(ctx context.Context, local, remote string) error {
-	return s.pushHelper(s, ctx, local, remote)
+	return s.pushHelper(s, ctx, local, s.normalizeKey(remote))
 }
 
 func pullHelper(b Bucket, ctx context.Context, local, remote string) error {
@@ -422,8 +444,8 @@ func (s *s3BucketLarge) Pull(ctx context.Context, local, remote string) error {
 func (s *s3Bucket) Copy(ctx context.Context, src, dest string) error {
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(s.name),
-		CopySource: aws.String(filepath.Join(s.name, src)),
-		Key:        aws.String(dest),
+		CopySource: aws.String(filepath.Join(s.name, s.normalizeKey(src))),
+		Key:        aws.String(s.normalizeKey(dest)),
 	}
 
 	_, err := s.svc.CopyObjectWithContext(ctx, input)
@@ -437,7 +459,7 @@ func (s *s3Bucket) Copy(ctx context.Context, src, dest string) error {
 func (s *s3Bucket) Remove(ctx context.Context, key string) error {
 	input := &s3.DeleteObjectInput{
 		Bucket: aws.String(s.name),
-		Key:    aws.String(key),
+		Key:    aws.String(s.normalizeKey(key)),
 	}
 
 	_, err := s.svc.DeleteObjectWithContext(ctx, input)
@@ -462,11 +484,11 @@ func (s *s3Bucket) listHelper(b Bucket, ctx context.Context, prefix string) (Buc
 }
 
 func (s *s3BucketSmall) List(ctx context.Context, prefix string) (BucketIterator, error) {
-	return s.listHelper(s, ctx, prefix)
+	return s.listHelper(s, ctx, s.normalizeKey(prefix))
 }
 
 func (s *s3BucketLarge) List(ctx context.Context, prefix string) (BucketIterator, error) {
-	return s.listHelper(s, ctx, prefix)
+	return s.listHelper(s, ctx, s.normalizeKey(prefix))
 }
 
 func getObjectsWrapper(s *s3Bucket, ctx context.Context, prefix string) ([]*s3.Object, bool, error) {
@@ -516,7 +538,7 @@ func (iter *s3BucketIterator) Next(ctx context.Context) bool {
 
 	iter.item = &bucketItemImpl{
 		bucket: iter.s.name,
-		key:    *iter.contents[iter.idx].Key,
+		key:    iter.s.denormalizeKey(*iter.contents[iter.idx].Key),
 		hash:   *iter.contents[iter.idx].ETag,
 		b:      iter.b,
 	}
