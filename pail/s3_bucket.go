@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
@@ -23,32 +24,45 @@ type s3BucketLarge struct {
 }
 
 type s3Bucket struct {
-	name string
-	sess *session.Session
-	svc  *s3.S3
+	name   string
+	prefix string
+	sess   *session.Session
+	svc    *s3.S3
 }
 
-func newS3Bucket(s3BucketInfo BucketInfo) (*s3Bucket, error) {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(s3BucketInfo.Region),
-	})
+type S3Options struct {
+	Credentials *credentials.Credentials
+	Region      string
+	Name        string
+	Access      string // for puts only, presumably.
+}
+
+func newS3Bucket(s3Options S3Options) (*s3Bucket, error) {
+	config := &aws.Config{Region: aws.String(s3Options.Region)}
+	if s3Options.Credentials != nil {
+		_, err := s3Options.Credentials.Get()
+		if err == nil {
+			config.Credentials = s3Options.Credentials
+		}
+	}
+	sess, err := session.NewSession(config)
 	if err != nil {
 		return &s3Bucket{}, errors.Wrap(err, "problem connecting to AWS")
 	}
 	svc := s3.New(sess)
-	return &s3Bucket{name: s3BucketInfo.Name, sess: sess, svc: svc}, nil
+	return &s3Bucket{name: s3Options.Name, sess: sess, svc: svc}, nil
 }
 
-func NewS3BucketSmall(s3BucketInfo BucketInfo) (Bucket, error) {
-	bucket, err := newS3Bucket(s3BucketInfo)
+func NewS3BucketSmall(s3Options S3Options) (Bucket, error) {
+	bucket, err := newS3Bucket(s3Options)
 	if err != nil {
 		return &s3BucketSmall{}, err
 	}
 	return &s3BucketSmall{s3Bucket: *bucket}, nil
 }
 
-func NewS3BucketLarge(s3BucketInfo BucketInfo) (Bucket, error) {
-	bucket, err := newS3Bucket(s3BucketInfo)
+func NewS3BucketLarge(s3Options S3Options) (Bucket, error) {
+	bucket, err := newS3Bucket(s3Options)
 	if err != nil {
 		return &s3BucketLarge{}, err
 	}

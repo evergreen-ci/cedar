@@ -77,17 +77,6 @@ type Bucket interface {
 	List(context.Context, string) (BucketIterator, error)
 }
 
-type BucketInfo struct {
-	// TODO: this will probably need better types and a bunch of
-	// validation. Probably also need to make this implementation
-	// specific and passed to the constructor.
-
-	Auth   string
-	Region string
-	Name   string
-	Access string // for puts only, presumably.
-}
-
 ////////////////////////////////////////////////////////////////////////
 //
 // Iterator
