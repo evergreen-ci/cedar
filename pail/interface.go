@@ -67,7 +67,7 @@ type Bucket interface {
 
 	// Copy does a special copy operation that does not require
 	// downloading a file.
-	Copy(context.Context, string, string) error
+	Copy(context.Context, CopyOptions) error
 
 	// Remove the specified object from the bucket.
 	Remove(context.Context, string) error
@@ -75,6 +75,13 @@ type Bucket interface {
 	// List provides a way to iterator over the contents of a
 	// bucket (for a given prefix.)
 	List(context.Context, string) (BucketIterator, error)
+}
+
+type CopyOptions struct {
+	SrcKey     string
+	DestKey    string
+	DestBucket Bucket
+	Dest       bool
 }
 
 ////////////////////////////////////////////////////////////////////////

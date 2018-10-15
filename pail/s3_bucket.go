@@ -441,18 +441,23 @@ func (s *s3BucketLarge) Pull(ctx context.Context, local, remote string) error {
 	return pullHelper(s, ctx, local, remote)
 }
 
-func (s *s3Bucket) Copy(ctx context.Context, src, dest string) error {
+func (s *s3Bucket) Copy(ctx context.Context, options CopyOptions) error {
+	if !options.Dest {
+		options.Dest = true
+		options.SrcKey = filepath.Join(s.name, s.normalizeKey(options.SrcKey))
+		return options.DestBucket.Copy(ctx, options)
+	}
+
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(s.name),
-		CopySource: aws.String(filepath.Join(s.name, s.normalizeKey(src))),
-		Key:        aws.String(s.normalizeKey(dest)),
+		CopySource: aws.String(options.SrcKey),
+		Key:        aws.String(s.normalizeKey(options.DestKey)),
 	}
 
 	_, err := s.svc.CopyObjectWithContext(ctx, input)
 	if err != nil {
 		return errors.Wrap(err, "problem copying data")
 	}
-
 	return nil
 }
 
