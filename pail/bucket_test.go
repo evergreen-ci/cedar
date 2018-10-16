@@ -91,7 +91,7 @@ func deleteS3Bucket(name, region string) error {
 }
 
 func TestBucket(t *testing.T) {
-	//t.Parallel()
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -309,14 +309,6 @@ func TestBucket(t *testing.T) {
 						badBucket, err := NewS3BucketSmall(badOptions)
 						assert.Nil(t, err)
 						assert.Error(t, badBucket.Check(ctx))
-						goodOptions := S3Options{
-							Credentials: credentials.NewStaticCredentials("AKIAIS5UQLRIFIWEGEJQ", "HRmkOawzGUWXyD4wTEPRlTy2LoLFZRSTBAgSUGf4", ""),
-							Region:      s3Region,
-							Name:        s3BucketName,
-						}
-						goodBucket, err := NewS3BucketSmall(goodOptions)
-						assert.Nil(t, err)
-						assert.NoError(t, goodBucket.Check(ctx))
 					},
 				},
 			},
