@@ -21,10 +21,7 @@ func init() {
 }
 
 func TestReadPathIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping real integration test for runtime")
-	}
-	t.Parallel()
+	// t.Parallel()
 
 	grip.Warning("the integration test validates the decoder operations not the decoded values")
 
@@ -97,10 +94,8 @@ func TestReadPathIntegration(t *testing.T) {
 						assert.Equal(t, doc.Len(), expectedNum)
 					}
 				}
-				assert.Equal(t, numSamples, expectedMetrics)
-
+				assert.Equal(t, expectedMetrics, numSamples)
 			}
-
 		}
 
 		assert.NoError(t, iter.Err())
@@ -116,29 +111,53 @@ func TestReadPathIntegration(t *testing.T) {
 		})
 	})
 	t.Run("Combined", func(t *testing.T) {
-		iter := ReadMetrics(ctx, bytes.NewBuffer(data))
-		startAt := time.Now()
-		counter := 0
-		for iter.Next(ctx) {
-			doc := iter.Document()
-			assert.NotNil(t, doc)
-			counter++
-			if sometimes.Percent(2) {
-				secondChance := sometimes.Percent(1)
-				grip.DebugWhen(secondChance, message.Fields{
-					"seen":     counter,
-					"elapsed":  time.Since(startAt),
-					"metadata": iter.Metadata(),
-				})
-				if secondChance {
+		if testing.Short() {
+			t.Skip("skipping real integration test for runtime")
+		}
+
+		t.Run("Flattened", func(t *testing.T) {
+			iter := ReadMetrics(ctx, bytes.NewBuffer(data))
+			startAt := time.Now()
+			counter := 0
+			for iter.Next(ctx) {
+				doc := iter.Document()
+				assert.NotNil(t, doc)
+				counter++
+				if counter%10000 == 0 {
+					grip.Debug(message.Fields{
+						"seen":     counter,
+						"elapsed":  time.Since(startAt),
+						"metadata": iter.Metadata(),
+					})
 					startAt = time.Now()
 				}
+
+				assert.Equal(t, expectedNum, doc.Len())
 			}
+			assert.NoError(t, iter.Err())
+			assert.Equal(t, expectedSamples, counter)
+		})
+		t.Run("Structured", func(t *testing.T) {
+			iter := ReadStructuredMetrics(ctx, bytes.NewBuffer(data))
+			startAt := time.Now()
+			counter := 0
+			for iter.Next(ctx) {
+				doc := iter.Document()
+				assert.NotNil(t, doc)
+				counter++
+				if counter%10000 == 0 {
+					grip.Debug(message.Fields{
+						"seen":     counter,
+						"elapsed":  time.Since(startAt),
+						"metadata": iter.Metadata(),
+					})
+					startAt = time.Now()
+				}
 
-			assert.Equal(t, expectedNum, doc.Len())
-		}
-		assert.NoError(t, iter.Err())
-		assert.Equal(t, expectedSamples, counter)
+				assert.Equal(t, 6, doc.Len())
+			}
+			assert.NoError(t, iter.Err())
+			assert.Equal(t, expectedSamples, counter)
+		})
 	})
-
 }

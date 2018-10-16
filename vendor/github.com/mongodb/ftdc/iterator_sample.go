@@ -15,12 +15,12 @@ type sampleIterator struct {
 	metadata *bson.Document
 }
 
-func (c *Chunk) streamDocuments(ctx context.Context) <-chan *bson.Document {
+func (c *Chunk) streamFlattenedDocuments(ctx context.Context) <-chan *bson.Document {
 	out := make(chan *bson.Document)
 
 	go func() {
 		defer close(out)
-		for i := 0; i < c.nPoints+1; i++ {
+		for i := 0; i < c.nPoints; i++ {
 			doc := bson.NewDocument()
 
 			for _, m := range c.metrics {
@@ -35,6 +35,26 @@ func (c *Chunk) streamDocuments(ctx context.Context) <-chan *bson.Document {
 			}
 		}
 
+	}()
+
+	return out
+}
+
+func (c *Chunk) streamDocuments(ctx context.Context) <-chan *bson.Document {
+	out := make(chan *bson.Document)
+
+	go func() {
+		defer close(out)
+
+		for i := 0; i < c.nPoints; i++ {
+			doc, _ := rehydrateDocument(c.reference, i, c.metrics, 0)
+			select {
+			case <-ctx.Done():
+				return
+			case out <- doc:
+				continue
+			}
+		}
 	}()
 
 	return out

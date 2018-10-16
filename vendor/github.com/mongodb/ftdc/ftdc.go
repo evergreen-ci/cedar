@@ -9,9 +9,10 @@ import (
 
 // Chunk represents a 'metric chunk' of data in the FTDC.
 type Chunk struct {
-	metrics  []Metric
-	nPoints  int
-	metadata *bson.Document
+	metrics   []Metric
+	nPoints   int
+	metadata  *bson.Document
+	reference *bson.Document
 }
 
 func (c *Chunk) GetMetadata() *bson.Document {
@@ -38,7 +39,7 @@ func (c *Chunk) Expand() []map[string]int64 {
 	deltas := []map[string]int64{}
 
 	// Expand deltas
-	for i := 0; i < c.nPoints+1; i++ {
+	for i := 0; i < c.nPoints; i++ {
 		d := make(map[string]int64)
 
 		for _, m := range c.metrics {
@@ -58,6 +59,15 @@ func (c *Chunk) Expand() []map[string]int64 {
 //
 // The documents are constructed from the metrics data lazily.
 func (c *Chunk) Iterator(ctx context.Context) Iterator {
+	sctx, cancel := context.WithCancel(ctx)
+	return &sampleIterator{
+		closer:   cancel,
+		stream:   c.streamFlattenedDocuments(sctx),
+		metadata: c.GetMetadata(),
+	}
+}
+
+func (c *Chunk) StructuredIterator(ctx context.Context) Iterator {
 	sctx, cancel := context.WithCancel(ctx)
 	return &sampleIterator{
 		closer:   cancel,
@@ -89,6 +99,8 @@ type Metric struct {
 	// Used during decoding to expand the delta encoded values. In
 	// a properly decoded value, it should always report
 	startingValue int64
+
+	originalType bson.Type
 }
 
 func (m *Metric) Key() string {

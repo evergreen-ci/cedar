@@ -9,14 +9,8 @@ import (
 func undelta(value int64, deltas []int64) []int64 {
 	out := make([]int64, len(deltas))
 	for idx, delta := range deltas {
-		value += delta
-		out[idx] = value
-
-		if delta == 0 {
-			continue
-		}
-
-		value = delta
+		out[idx] = value + delta
+		value = out[idx]
 	}
 	return out
 }
@@ -27,6 +21,12 @@ func encodeSizeValue(val uint32) []byte {
 	binary.LittleEndian.PutUint32(tmp, val)
 
 	return tmp
+}
+
+func encodeValue(val int64) []byte {
+	tmp := make([]byte, binary.MaxVarintLen64)
+	num := binary.PutVarint(tmp, val)
+	return tmp[:num]
 }
 
 func compressBuffer(input []byte) ([]byte, error) {

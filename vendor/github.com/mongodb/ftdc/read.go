@@ -8,6 +8,8 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
 )
@@ -71,7 +73,7 @@ func readChunks(ctx context.Context, ch <-chan *bson.Document, o chan<- Chunk) e
 		// sample. This has the field and we use use it to
 		// create a slice of Metrics for each series. The
 		// deltas are not populated.
-		metrics, err := readBufMetrics(buf)
+		refDoc, metrics, err := readBufMetrics(buf)
 		if err != nil {
 			return errors.Wrap(err, "problem reading metrics")
 		}
@@ -95,25 +97,51 @@ func readChunks(ctx context.Context, ch <-chan *bson.Document, o chan<- Chunk) e
 			return errors.Errorf("metrics mismatch, file likely corrupt Expected %d, got %d", nmetrics, len(metrics))
 		}
 
-		decoder := NewDecoder(ndeltas, buf)
 		// now go back and populate the delta numbers
+		var nzeroes int64
 		for i, v := range metrics {
 			metrics[i].startingValue = v.startingValue
-			metrics[i].Values, err = decoder.Decode()
-			if err != nil {
-				return err
-			}
+			metrics[i].Values = make([]int64, ndeltas)
 
-			metrics[i].Values = append([]int64{v.startingValue}, undelta(v.startingValue, metrics[i].Values)...)
-			if len(metrics[i].Values)-1 != ndeltas {
-				return errors.New("decoding error or data corruption")
+			for j := 0; j < ndeltas; j++ {
+				var delta int64
+				if nzeroes != 0 {
+					delta = 0
+					nzeroes--
+				} else {
+					delta, err = binary.ReadVarint(buf)
+					if err != nil {
+						err = errors.Wrap(err, "reached unexpected end of encoded integer")
+						grip.Debug(message.WrapError(err,
+							message.Fields{
+								"key":        metrics[i].Key(),
+								"type":       metrics[i].originalType.String(),
+								"metric":     i,
+								"metric_num": len(metrics),
+								"sample":     j,
+								"sample_num": ndeltas,
+								"zero_count": nzeroes,
+								"action":     "fix parsing error and propogate this error",
+							}))
+						return err
+					}
+					if delta == 0 {
+						nzeroes, err = binary.ReadVarint(buf)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				metrics[i].Values[j] = delta
 			}
+			metrics[i].Values = append([]int64{v.startingValue}, undelta(v.startingValue, metrics[i].Values)...)
 		}
 		select {
 		case o <- Chunk{
-			metrics:  metrics,
-			nPoints:  ndeltas,
-			metadata: metadata,
+			metrics:   metrics,
+			nPoints:   ndeltas + 1,
+			metadata:  metadata,
+			reference: refDoc,
 		}:
 		case <-ctx.Done():
 			return nil
@@ -122,39 +150,21 @@ func readChunks(ctx context.Context, ch <-chan *bson.Document, o chan<- Chunk) e
 	return nil
 }
 
-func readBufDoc(buf *bufio.Reader, d interface{}) (err error) {
-	var bl []byte
-	bl, err = buf.Peek(4)
-	if err != nil {
-		return
-	}
-	l := int(binary.LittleEndian.Uint32(bl))
-
-	b := make([]byte, l)
-	_, err = io.ReadAtLeast(buf, b, l)
-	if err != nil {
-		return
-	}
-	err = bson.Unmarshal(b, d)
-	return
-}
-
 func readBufBSON(buf *bufio.Reader) (*bson.Document, error) {
 	doc := &bson.Document{}
 
-	if err := readBufDoc(buf, doc); err != nil {
+	if _, err := doc.ReadFrom(buf); err != nil {
 		return nil, err
 	}
 
 	return doc, nil
 }
 
-func readBufMetrics(buf *bufio.Reader) (metrics []Metric, err error) {
-	doc := &bson.Document{}
-	err = readBufDoc(buf, doc)
+func readBufMetrics(buf *bufio.Reader) (*bson.Document, []Metric, error) {
+	doc, err := readBufBSON(buf)
 	if err != nil {
-		return
+		return nil, nil, errors.Wrap(err, "problem reading reference doc")
 	}
-	metrics = flattenDocument([]string{}, doc)
-	return
+
+	return doc, flattenDocument([]string{}, doc), nil
 }

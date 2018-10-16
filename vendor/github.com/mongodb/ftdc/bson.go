@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mongodb/grip"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
 )
@@ -19,10 +20,8 @@ func flattenDocument(path []string, d *bson.Document) []Metric {
 
 	for iter.Next() {
 		e := iter.Element()
-		val := e.Value()
-		key := e.Key()
 
-		o = append(o, metricForType(key, path, val)...)
+		o = append(o, metricForType(e.Key(), path, e.Value())...)
 	}
 
 	return o
@@ -37,8 +36,7 @@ func flattenArray(key string, path []string, a *bson.Array) []Metric {
 	o := []Metric{}
 	idx := 0
 	for iter.Next() {
-		val := iter.Value()
-		o = append(o, metricForType(fmt.Sprintf("%s.%d", key, idx), path, val)...)
+		o = append(o, metricForType(fmt.Sprintf("%s.%d", key, idx), path, iter.Value())...)
 		idx++
 	}
 
@@ -64,6 +62,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       ne.KeyName,
 				startingValue: ne.startingValue,
+				originalType:  ne.originalType,
 			})
 		}
 		return o
@@ -74,6 +73,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 					ParentPath:    path,
 					KeyName:       key,
 					startingValue: 1,
+					originalType:  val.Type(),
 				},
 			}
 		}
@@ -82,6 +82,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       key,
 				startingValue: 0,
+				originalType:  val.Type(),
 			},
 		}
 	case bson.TypeDouble:
@@ -90,6 +91,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       key,
 				startingValue: int64(val.Double()),
+				originalType:  val.Type(),
 			},
 		}
 	case bson.TypeInt32:
@@ -98,6 +100,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       key,
 				startingValue: int64(val.Int32()),
+				originalType:  val.Type(),
 			},
 		}
 	case bson.TypeInt64:
@@ -106,6 +109,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       key,
 				startingValue: val.Int64(),
+				originalType:  val.Type(),
 			},
 		}
 	case bson.TypeDateTime:
@@ -114,6 +118,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       key,
 				startingValue: val.Time().Unix() * 1000,
+				originalType:  val.Type(),
 			},
 		}
 	case bson.TypeTimestamp:
@@ -123,11 +128,13 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 				ParentPath:    path,
 				KeyName:       key,
 				startingValue: int64(t) * 1000,
+				originalType:  val.Type(),
 			},
 			{
 				ParentPath:    path,
 				KeyName:       key + ".inc",
 				startingValue: int64(i),
+				originalType:  val.Type(),
 			},
 		}
 	default:
@@ -137,103 +144,174 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 
 ////////////////////////////////////////////////////////////////////////
 //
+// Processores use to return rich (i.e. non-flat) structures from
+// metrics slices
+
+func rehydrateDocument(ref *bson.Document, sample int, metrics []Metric, idx int) (*bson.Document, int) {
+	if ref == nil {
+		return nil, 0
+	}
+	iter := ref.Iterator()
+	doc := &bson.Document{}
+
+	for iter.Next() {
+		refElem := iter.Element()
+
+		var elem *bson.Element
+		elem, idx = rehydrateElement(refElem, sample, metrics, idx)
+		if elem == nil {
+			continue
+		}
+		doc.Append(elem)
+	}
+
+	return doc, idx
+}
+
+func rehydrateElement(ref *bson.Element, sample int, metrics []Metric, idx int) (*bson.Element, int) {
+	switch ref.Value().Type() {
+	case bson.TypeObjectID:
+		return nil, idx
+	case bson.TypeString:
+		return nil, idx
+	case bson.TypeDecimal128:
+		return nil, idx
+	case bson.TypeArray:
+		iter, _ := ref.Value().MutableArray().Iterator()
+		elems := []*bson.Element{}
+
+		for iter.Next() {
+			var item *bson.Element
+			// TODO avoid Interface
+			item, idx = rehydrateElement(bson.EC.Interface("", iter.Value()), sample, metrics, idx)
+			if item == nil {
+				continue
+			}
+
+			elems = append(elems, item)
+		}
+
+		if iter.Err() != nil {
+			return nil, 0
+		}
+
+		out := make([]*bson.Value, len(elems))
+
+		for idx := range elems {
+			out[idx] = elems[idx].Value()
+		}
+
+		return bson.EC.ArrayFromElements(ref.Key(), out...), idx
+	case bson.TypeEmbeddedDocument:
+		var doc *bson.Document
+
+		doc, idx = rehydrateDocument(ref.Value().MutableDocument(), sample, metrics, idx)
+		return bson.EC.SubDocument(ref.Key(), doc), idx
+	case bson.TypeBoolean:
+		value := metrics[idx].Values[sample]
+		if value == 0 {
+			return bson.EC.Boolean(ref.Key(), false), idx + 1
+		}
+		return bson.EC.Boolean(ref.Key(), true), idx + 1
+
+	case bson.TypeDouble:
+		return bson.EC.Double(ref.Key(), float64(metrics[idx].Values[sample])), idx + 1
+	case bson.TypeInt32:
+		return bson.EC.Int32(ref.Key(), int32(metrics[idx].Values[sample])), idx + 1
+	case bson.TypeInt64:
+		return bson.EC.Int64(ref.Key(), metrics[idx].Values[sample]), idx + 1
+	case bson.TypeDateTime:
+		return bson.EC.DateTime(ref.Key(), metrics[idx].Values[sample]), idx + 1
+	case bson.TypeTimestamp:
+		return bson.EC.Timestamp(ref.Key(), uint32(metrics[idx].Values[sample]), uint32(metrics[idx+1].Values[sample])), idx + 2
+	default:
+		return nil, idx
+	}
+}
+
+////////////////////////////////////////////////////////////////////////
+//
 // Helpers for encoding values from bson documents
 
-func extractMetricsFromDocument(encoder Encoder, doc *bson.Document) (int, error) {
-	var (
-		err   error
-		num   int
-		total int
-	)
-	if doc == nil {
-		return 0, errors.New("cannot make nil Document")
-	}
-
+func extractMetricsFromDocument(doc *bson.Document) ([]int64, error) {
 	iter := doc.Iterator()
 
+	var (
+		err     error
+		data    []int64
+		metrics []int64
+	)
+
+	catcher := grip.NewBasicCatcher()
+
 	for iter.Next() {
-		num, err = extractMetricsFromValue(encoder, iter.Element().Value())
-		if err != nil {
-			return 0, errors.Wrap(err, "problem extracting metrics from value")
-		}
-		total += num
+		data, err = extractMetricsFromValue(iter.Element().Value())
+		catcher.Add(err)
+		metrics = append(metrics, data...)
 	}
 
-	if err := iter.Err(); err != nil {
-		return 0, errors.Wrap(err, "problem parsing sample")
-	}
+	catcher.Add(iter.Err())
 
-	return total, nil
+	return metrics, catcher.Resolve()
 }
 
-func extractMetricsFromArray(encoder Encoder, array *bson.Array) (int, error) {
-	if array == nil {
-		return 0, errors.New("cannot pass an empty array")
-	}
-
+func extractMetricsFromArray(array *bson.Array) ([]int64, error) {
 	iter, err := bson.NewArrayIterator(array)
 	if err != nil {
-		return 0, errors.WithStack(err)
+		return nil, errors.WithStack(err)
 	}
 
 	var (
-		num   int
-		total int
+		data    []int64
+		metrics []int64
 	)
 
+	catcher := grip.NewBasicCatcher()
+
 	for iter.Next() {
-		num, err = extractMetricsFromValue(encoder, iter.Value())
-		if err != nil {
-			return 0, errors.WithStack(err)
-		}
-
-		total += num
+		data, err = extractMetricsFromValue(iter.Value())
+		catcher.Add(err)
+		metrics = append(metrics, data...)
 	}
 
-	if err := iter.Err(); err != nil {
-		return 0, errors.WithStack(err)
-	}
+	catcher.Add(iter.Err())
 
-	return total, nil
+	return metrics, catcher.Resolve()
 }
 
-func extractMetricsFromValue(encoder Encoder, val *bson.Value) (int, error) {
+func extractMetricsFromValue(val *bson.Value) ([]int64, error) {
 	switch val.Type() {
 	case bson.TypeObjectID:
-		return 0, nil
+		return nil, nil
 	case bson.TypeString:
-		return 0, nil
+		return nil, nil
 	case bson.TypeDecimal128:
-		return 0, nil
+		return nil, nil
 	case bson.TypeArray:
-		num, err := extractMetricsFromArray(encoder, val.MutableArray())
-		return num, errors.WithStack(err)
+		metrics, err := extractMetricsFromArray(val.MutableArray())
+		return metrics, errors.WithStack(err)
 	case bson.TypeEmbeddedDocument:
-		num, err := extractMetricsFromDocument(encoder, val.MutableDocument())
-		return num, errors.WithStack(err)
+		metrics, err := extractMetricsFromDocument(val.MutableDocument())
+		return metrics, errors.WithStack(err)
 	case bson.TypeBoolean:
 		if val.Boolean() {
-			return 1, errors.WithStack(encoder.Add(1))
+			return []int64{1}, nil
 		}
-		return 1, encoder.Add(0)
+		return []int64{0}, nil
+	case bson.TypeDouble:
+		return []int64{int64(val.Double())}, nil
 	case bson.TypeInt32:
-		return 1, errors.WithStack(encoder.Add(int64(val.Int32())))
+		return []int64{int64(val.Int32())}, nil
 	case bson.TypeInt64:
-		return 1, errors.WithStack(encoder.Add(val.Int64()))
+		return []int64{val.Int64()}, nil
 	case bson.TypeDateTime:
-		return 1, errors.WithStack(encoder.Add(val.Time().Unix()))
+		return []int64{val.Time().Unix()}, nil
 	case bson.TypeTimestamp:
 		t, i := val.Timestamp()
 
-		for _, v := range []uint32{t, i} {
-			if err := encoder.Add(int64(v)); err != nil {
-				return 0, errors.WithStack(err)
-			}
-		}
-
-		return 1, nil
+		return []int64{int64(t), int64(i)}, nil
 	default:
-		return 0, nil
+		return nil, nil
 	}
 }
 
@@ -294,6 +372,8 @@ func isMetricsValue(key string, val *bson.Value) ([]string, int) {
 	case bson.TypeEmbeddedDocument:
 		return isMetricsDocument(key, val.MutableDocument())
 	case bson.TypeBoolean:
+		return []string{key}, 1
+	case bson.TypeDouble:
 		return []string{key}, 1
 	case bson.TypeInt32:
 		return []string{key}, 1
