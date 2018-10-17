@@ -60,33 +60,33 @@ func (s *s3Bucket) denormalizeKey(key string) string {
 	return key
 }
 
-func newS3Bucket(s3Options S3Options) (*s3Bucket, error) {
-	config := &aws.Config{Region: aws.String(s3Options.Region)}
-	if s3Options.Credentials != nil {
-		_, err := s3Options.Credentials.Get()
+func newS3BucketBase(options S3Options) (*s3Bucket, error) {
+	config := &aws.Config{Region: aws.String(options.Region)}
+	if options.Credentials != nil {
+		_, err := options.Credentials.Get()
 		if err != nil {
 			return &s3Bucket{}, errors.Wrap(err, "invalid credentials!")
 		}
-		config.Credentials = s3Options.Credentials
+		config.Credentials = options.Credentials
 	}
 	sess, err := session.NewSession(config)
 	if err != nil {
 		return &s3Bucket{}, errors.Wrap(err, "problem connecting to AWS")
 	}
 	svc := s3.New(sess)
-	return &s3Bucket{name: s3Options.Name, prefix: s3Options.Prefix, sess: sess, svc: svc}, nil
+	return &s3Bucket{name: options.Name, prefix: options.Prefix, sess: sess, svc: svc}, nil
 }
 
-func NewS3Bucket(s3Options S3Options) (Bucket, error) {
-	bucket, err := newS3Bucket(s3Options)
+func NewS3Bucket(options S3Options) (Bucket, error) {
+	bucket, err := newS3BucketBase(options)
 	if err != nil {
 		return &s3BucketSmall{}, err
 	}
 	return &s3BucketSmall{s3Bucket: *bucket}, nil
 }
 
-func NewS3MultiPartBucket(s3Options S3Options) (Bucket, error) {
-	bucket, err := newS3Bucket(s3Options)
+func NewS3MultiPartBucket(options S3Options) (Bucket, error) {
+	bucket, err := newS3BucketBase(options)
 	if err != nil {
 		return &s3BucketLarge{}, err
 	}
