@@ -77,7 +77,7 @@ func newS3Bucket(s3Options S3Options) (*s3Bucket, error) {
 	return &s3Bucket{name: s3Options.Name, prefix: s3Options.Prefix, sess: sess, svc: svc}, nil
 }
 
-func NewS3BucketSmall(s3Options S3Options) (Bucket, error) {
+func NewS3Bucket(s3Options S3Options) (Bucket, error) {
 	bucket, err := newS3Bucket(s3Options)
 	if err != nil {
 		return &s3BucketSmall{}, err
@@ -85,7 +85,7 @@ func NewS3BucketSmall(s3Options S3Options) (Bucket, error) {
 	return &s3BucketSmall{s3Bucket: *bucket}, nil
 }
 
-func NewS3BucketLarge(s3Options S3Options) (Bucket, error) {
+func NewS3MultiPartBucket(s3Options S3Options) (Bucket, error) {
 	bucket, err := newS3Bucket(s3Options)
 	if err != nil {
 		return &s3BucketLarge{}, err

@@ -284,7 +284,7 @@ func TestBucket(t *testing.T) {
 					Name:   s3BucketName,
 					Prefix: newUUID(),
 				}
-				b, err := NewS3BucketSmall(s3Options)
+				b, err := NewS3Bucket(s3Options)
 				require.NoError(t, err)
 				return b
 			},
@@ -306,7 +306,7 @@ func TestBucket(t *testing.T) {
 							Region:      s3Region,
 							Name:        s3BucketName,
 						}
-						badBucket, err := NewS3BucketSmall(badOptions)
+						badBucket, err := NewS3Bucket(badOptions)
 						assert.Nil(t, err)
 						assert.Error(t, badBucket.Check(ctx))
 					},
@@ -322,7 +322,7 @@ func TestBucket(t *testing.T) {
 					Name:   s3BucketName,
 					Prefix: newUUID(),
 				}
-				b, err := NewS3BucketLarge(s3Options)
+				b, err := NewS3MultiPartBucket(s3Options)
 				require.NoError(t, err)
 				return b
 			},
