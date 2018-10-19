@@ -396,9 +396,9 @@ func TestBucket(t *testing.T) {
 				reader, err := bucket.Get(ctx, key)
 				fmt.Println(err)
 				fmt.Println(reader)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				data, err := ioutil.ReadAll(reader)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, "hello world!", string(data))
 			})
 			t.Run("PutSavesFiles", func(t *testing.T) {
