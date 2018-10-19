@@ -293,7 +293,7 @@ func TestBucket(t *testing.T) {
 			},
 		},
 		{
-			name: "S3BucketMultiPart",
+			name: "S3MultiPartBucket",
 			constructor: func(t *testing.T) Bucket {
 				s3Options := S3Options{
 					Region: s3Region,
@@ -393,6 +393,8 @@ func TestBucket(t *testing.T) {
 				assert.NoError(t, writeDataToFile(ctx, bucket, key, "hello world!"))
 
 				reader, err := bucket.Get(ctx, key)
+				fmt.Println(err)
+				fmt.Println(reader)
 				assert.NoError(t, err)
 				data, err := ioutil.ReadAll(reader)
 				assert.NoError(t, err)
