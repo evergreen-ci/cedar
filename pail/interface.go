@@ -66,7 +66,8 @@ type Bucket interface {
 	Pull(context.Context, string, string) error
 
 	// Copy does a special copy operation that does not require
-	// downloading a file.
+	// downloading a file. Note that CopyOptions.DestinationBucket must
+	// have the same type as the calling bucket object.
 	Copy(context.Context, CopyOptions) error
 
 	// Remove the specified object from the bucket.
