@@ -38,6 +38,7 @@ variables:
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
       - func: set-up-mongodb
+      - func: setup-credentials
       - func: run-make
         vars: { target: "${task_name}" }
 
