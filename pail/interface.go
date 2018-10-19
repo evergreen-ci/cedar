@@ -78,10 +78,10 @@ type Bucket interface {
 }
 
 type CopyOptions struct {
-	SrcKey     string
-	DestKey    string
-	DestBucket Bucket
-	Dest       bool
+	SourceKey         string
+	DestinationKey    string
+	DestinationBucket Bucket
+	IsDestination     bool
 }
 
 ////////////////////////////////////////////////////////////////////////

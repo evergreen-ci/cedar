@@ -168,9 +168,9 @@ func TestBucket(t *testing.T) {
 					id: "CopyErrorFileNameFrom",
 					test: func(t *testing.T, b Bucket) {
 						options := CopyOptions{
-							SrcKey:     "\x00",
-							DestKey:    "foo",
-							DestBucket: b,
+							SourceKey:         "\x00",
+							DestinationKey:    "foo",
+							DestinationBucket: b,
 						}
 						err := b.Copy(ctx, options)
 						require.Error(t, err)
@@ -186,9 +186,9 @@ func TestBucket(t *testing.T) {
 						require.NoError(t, err)
 
 						options := CopyOptions{
-							SrcKey:     "foo",
-							DestKey:    "\x00",
-							DestBucket: b,
+							SourceKey:         "foo",
+							DestinationKey:    "\x00",
+							DestinationBucket: b,
 						}
 						err = b.Copy(ctx, options)
 						require.Error(t, err)
@@ -442,9 +442,9 @@ func TestBucket(t *testing.T) {
 				keyTwo := newUUID()
 				assert.NoError(t, writeDataToFile(ctx, bucket, keyOne, contents))
 				options := CopyOptions{
-					SrcKey:     keyOne,
-					DestKey:    keyTwo,
-					DestBucket: bucket,
+					SourceKey:         keyOne,
+					DestinationKey:    keyTwo,
+					DestinationBucket: bucket,
 				}
 				assert.NoError(t, bucket.Copy(ctx, options))
 				data, err := readDataFromFile(ctx, bucket, keyTwo)
@@ -459,9 +459,9 @@ func TestBucket(t *testing.T) {
 				keyTwo := newUUID()
 				assert.NoError(t, writeDataToFile(ctx, srcBucket, keyOne, contents))
 				options := CopyOptions{
-					SrcKey:     keyOne,
-					DestKey:    keyTwo,
-					DestBucket: destBucket,
+					SourceKey:         keyOne,
+					DestinationKey:    keyTwo,
+					DestinationBucket: destBucket,
 				}
 				assert.NoError(t, srcBucket.Copy(ctx, options))
 				data, err := readDataFromFile(ctx, destBucket, keyTwo)

@@ -21,6 +21,7 @@ type s3BucketSmall struct {
 
 type s3BucketLarge struct {
 	s3Bucket
+	minPartSize int
 }
 
 type s3Bucket struct {
@@ -30,13 +31,12 @@ type s3Bucket struct {
 	svc    *s3.S3
 }
 
+// S3Options support the use and creation of S3 backed buckets.
 type S3Options struct {
-	// If do not provide credentials, fall back to AWS default provider chain.
 	Credentials *credentials.Credentials
 	Region      string
 	Name        string
 	Prefix      string
-	Access      string // for puts only, presumably.
 }
 
 func (s *s3Bucket) normalizeKey(key string) string {
@@ -77,6 +77,10 @@ func newS3BucketBase(options S3Options) (*s3Bucket, error) {
 	return &s3Bucket{name: options.Name, prefix: options.Prefix, sess: sess, svc: svc}, nil
 }
 
+// NewS3Bucket returns a Bucket implementation backed by S3. This
+// implementation does not support multipart uploads, if you would
+// like to add objects larger than 5 gigabytes see
+// `NewS3MultiPartBucket`.
 func NewS3Bucket(options S3Options) (Bucket, error) {
 	bucket, err := newS3BucketBase(options)
 	if err != nil {
@@ -85,12 +89,15 @@ func NewS3Bucket(options S3Options) (Bucket, error) {
 	return &s3BucketSmall{s3Bucket: *bucket}, nil
 }
 
+// NewS3MultiPartBucket returns a Bucket implementation backed by S3
+// that supports multipart uploads for large objects.
 func NewS3MultiPartBucket(options S3Options) (Bucket, error) {
 	bucket, err := newS3BucketBase(options)
 	if err != nil {
 		return &s3BucketLarge{}, err
 	}
-	return &s3BucketLarge{s3Bucket: *bucket}, nil
+	// 5MB is the minimum size for a multipart upload, so buffer needs to be at least that big.
+	return &s3BucketLarge{s3Bucket: *bucket, minPartSize: 5000000}, nil
 }
 
 func (s *s3Bucket) String() string { return s.name }
@@ -271,9 +278,8 @@ func (s *s3BucketSmall) Writer(ctx context.Context, key string) (io.WriteCloser,
 	}, nil
 }
 func (s *s3BucketLarge) Writer(ctx context.Context, key string) (io.WriteCloser, error) {
-	// 5MB is the minimum size for a multipart upload, so buffer needs to be at least that big.
 	return &largeWriteCloser{
-		maxSize: 5000000,
+		maxSize: s.minPartSize,
 		name:    s.name,
 		svc:     s.svc,
 		ctx:     ctx,
@@ -442,16 +448,16 @@ func (s *s3BucketLarge) Pull(ctx context.Context, local, remote string) error {
 }
 
 func (s *s3Bucket) Copy(ctx context.Context, options CopyOptions) error {
-	if !options.Dest {
-		options.Dest = true
-		options.SrcKey = filepath.Join(s.name, s.normalizeKey(options.SrcKey))
-		return options.DestBucket.Copy(ctx, options)
+	if !options.IsDestination {
+		options.IsDestination = true
+		options.SourceKey = filepath.Join(s.name, s.normalizeKey(options.SourceKey))
+		return options.DestinationBucket.Copy(ctx, options)
 	}
 
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(s.name),
-		CopySource: aws.String(options.SrcKey),
-		Key:        aws.String(s.normalizeKey(options.DestKey)),
+		CopySource: aws.String(options.SourceKey),
+		Key:        aws.String(s.normalizeKey(options.DestinationKey)),
 	}
 
 	_, err := s.svc.CopyObjectWithContext(ctx, input)

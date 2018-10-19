@@ -123,12 +123,12 @@ func (b *localFileSystem) Download(ctx context.Context, name, path string) error
 }
 
 func (b *localFileSystem) Copy(ctx context.Context, options CopyOptions) error {
-	from, err := b.Reader(ctx, options.SrcKey)
+	from, err := b.Reader(ctx, options.SourceKey)
 	if err != nil {
 		return errors.Wrap(err, "problem getting reader for source")
 	}
 
-	to, err := options.DestBucket.Writer(ctx, options.DestKey)
+	to, err := options.DestinationBucket.Writer(ctx, options.DestinationKey)
 	if err != nil {
 		return errors.Wrap(err, "problem getting writer for dst")
 	}
