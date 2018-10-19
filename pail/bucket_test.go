@@ -256,7 +256,7 @@ func TestBucket(t *testing.T) {
 			},
 		},
 		{
-			name: "S3Small",
+			name: "S3Bucket",
 			constructor: func(t *testing.T) Bucket {
 				s3Options := S3Options{
 					Region: s3Region,
@@ -293,7 +293,7 @@ func TestBucket(t *testing.T) {
 			},
 		},
 		{
-			name: "S3Large",
+			name: "S3BucketMultiPart",
 			constructor: func(t *testing.T) Bucket {
 				s3Options := S3Options{
 					Region: s3Region,
@@ -327,8 +327,7 @@ func TestBucket(t *testing.T) {
 				assert.NotNil(t, impl.constructor(t))
 			})
 			t.Run("CheckIsValid", func(t *testing.T) {
-				bucket := impl.constructor(t)
-				assert.NoError(t, bucket.Check(ctx))
+				assert.NoError(t, impl.constructor(t).Check(ctx))
 			})
 			t.Run("ListIsEmpty", func(t *testing.T) {
 				bucket := impl.constructor(t)
