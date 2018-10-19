@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -394,8 +393,6 @@ func TestBucket(t *testing.T) {
 				assert.NoError(t, writeDataToFile(ctx, bucket, key, "hello world!"))
 
 				reader, err := bucket.Get(ctx, key)
-				fmt.Println(err)
-				fmt.Println(reader)
 				require.NoError(t, err)
 				data, err := ioutil.ReadAll(reader)
 				require.NoError(t, err)
