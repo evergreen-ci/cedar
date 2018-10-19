@@ -61,7 +61,7 @@ func (s *s3Bucket) denormalizeKey(key string) string {
 }
 
 func newS3BucketBase(options S3Options) (*s3Bucket, error) {
-	config := &aws.Config{Region: aws.String(options.Region), CredentialsChainVerboseErrors: aws.Bool(true)}
+	config := &aws.Config{Region: aws.String(options.Region)}
 	if options.Credentials != nil {
 		_, err := options.Credentials.Get()
 		if err != nil {
