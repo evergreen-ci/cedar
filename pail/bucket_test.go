@@ -38,25 +38,10 @@ func createS3Client(region string) (*s3.S3, error) {
 	return svc, nil
 }
 
-func createS3Bucket(name, region string) error {
+func cleanUpS3Bucket(name, prefix, region string) error {
 	svc, err := createS3Client(region)
 	if err != nil {
-		return errors.Wrap(err, "failed to create S3 bucket.")
-	}
-	input := &s3.CreateBucketInput{
-		Bucket: aws.String(name),
-	}
-	_, err = svc.CreateBucket(input)
-	if err != nil {
-		return errors.Wrap(err, "failed to create S3 bucket")
-	}
-	return nil
-}
-
-func deleteS3Bucket(name, region string) error {
-	svc, err := createS3Client(region)
-	if err != nil {
-		return errors.Wrap(err, "failed to delete S3 bucket.")
+		return errors.Wrap(err, "clean up failed")
 	}
 	for {
 		listInput := &s3.ListObjectsInput{
@@ -64,9 +49,12 @@ func deleteS3Bucket(name, region string) error {
 		}
 		result, err := svc.ListObjects(listInput)
 		if err != nil {
-			return errors.Wrap(err, "failed to delete S3 bucket.")
+			return errors.Wrap(err, "clean up failed")
 		}
 		for _, object := range result.Contents {
+			if !strings.HasPrefix(*object.Key, prefix) {
+				continue
+			}
 			deleteObjectInput := &s3.DeleteObjectInput{
 				Bucket: aws.String(name),
 				Key:    aws.String(*object.Key),
@@ -79,13 +67,6 @@ func deleteS3Bucket(name, region string) error {
 		if !*result.IsTruncated {
 			break
 		}
-	}
-	deleteBucketInput := &s3.DeleteBucketInput{
-		Bucket: aws.String(name),
-	}
-	_, err = svc.DeleteBucket(deleteBucketInput)
-	if err != nil {
-		return errors.Wrap(err, "failed to delete S3 bucket")
 	}
 	return nil
 }
@@ -107,11 +88,10 @@ func TestBucket(t *testing.T) {
 	defer ses.Close()
 	defer func() { ses.DB(uuid).DropDatabase() }()
 
-	s3BucketName := "pail-bucket-test"
+	s3BucketName := "build-test-curator"
+	s3Prefix := "pail-test-"
 	s3Region := "us-east-1"
-	require.NoError(t, createS3Bucket(s3BucketName, s3Region))
-	// TODO: Ask why need to add func() here for this to defer properly.
-	defer func() { require.NoError(t, deleteS3Bucket(s3BucketName, s3Region)) }()
+	defer func() { require.NoError(t, cleanUpS3Bucket(s3BucketName, s3Prefix, s3Region)) }()
 
 	type bucketTestCase struct {
 		id   string
@@ -122,7 +102,6 @@ func TestBucket(t *testing.T) {
 		name        string
 		constructor func(*testing.T) Bucket
 		tests       []bucketTestCase
-		s3          bool
 	}{
 		{
 			name: "Local",
@@ -282,7 +261,7 @@ func TestBucket(t *testing.T) {
 				s3Options := S3Options{
 					Region: s3Region,
 					Name:   s3BucketName,
-					Prefix: newUUID(),
+					Prefix: s3Prefix + newUUID(),
 				}
 				b, err := NewS3Bucket(s3Options)
 				require.NoError(t, err)
@@ -298,7 +277,7 @@ func TestBucket(t *testing.T) {
 					},
 				},
 				{
-					id: "TestCredentials",
+					id: "TestCredentialsOverrideDefaults",
 					test: func(t *testing.T, b Bucket) {
 						assert.NoError(t, b.Check(ctx))
 						badOptions := S3Options{
@@ -312,7 +291,6 @@ func TestBucket(t *testing.T) {
 					},
 				},
 			},
-			s3: true,
 		},
 		{
 			name: "S3Large",
@@ -320,7 +298,7 @@ func TestBucket(t *testing.T) {
 				s3Options := S3Options{
 					Region: s3Region,
 					Name:   s3BucketName,
-					Prefix: newUUID(),
+					Prefix: s3Prefix + newUUID(),
 				}
 				b, err := NewS3MultiPartBucket(s3Options)
 				require.NoError(t, err)
@@ -336,7 +314,6 @@ func TestBucket(t *testing.T) {
 					},
 				},
 			},
-			s3: true,
 		},
 	} {
 		t.Run(impl.name, func(t *testing.T) {
