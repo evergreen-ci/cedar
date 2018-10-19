@@ -117,8 +117,10 @@ func (result *PerformanceResult) Save() error {
 
 type PerformanceResultID struct {
 	TaskName  string           `bson:"task_name"`
+	TaskID    string           `bson:"task_id"`
 	Execution int              `bson:"execution"`
 	TestName  string           `bson:"test_name"`
+	Trial     int              `bson:"trial"`
 	Parent    string           `bson:"parent"`
 	Tags      []string         `bson:"tags"`
 	Arguments map[string]int32 `bson:"args"`
@@ -126,8 +128,9 @@ type PerformanceResultID struct {
 
 var (
 	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TaskName")
-	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TestName")
 	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Execution")
+	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TestName")
+	perfResultInfoTrialKey     = bsonutil.MustHaveTag(PerformanceResultID{}, "Trial")
 	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultID{}, "Parent")
 	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultID{}, "Tags")
 	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Arguments")
@@ -137,8 +140,10 @@ func (id *PerformanceResultID) ID() string {
 	hash := sha256.New()
 
 	io.WriteString(hash, id.TaskName)
+	io.WriteString(hash, id.TaskID)
 	io.WriteString(hash, fmt.Sprint(id.Execution))
 	io.WriteString(hash, id.TestName)
+	io.WriteString(hash, fmt.Sprint(id.Trial))
 	io.WriteString(hash, id.Parent)
 
 	sort.Strings(id.Tags)
