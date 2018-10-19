@@ -409,9 +409,9 @@ func TestBucket(t *testing.T) {
 				assert.NoError(t, bucket.Put(ctx, key, bytes.NewBuffer([]byte(contents))))
 
 				reader, err := bucket.Get(ctx, key)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				data, err := ioutil.ReadAll(reader)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, contents, string(data))
 			})
 			t.Run("CopyDuplicatesData", func(t *testing.T) {
@@ -427,7 +427,7 @@ func TestBucket(t *testing.T) {
 				}
 				assert.NoError(t, bucket.Copy(ctx, options))
 				data, err := readDataFromFile(ctx, bucket, keyTwo)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, contents, data)
 			})
 			t.Run("CopyDuplicatesToDifferentBucket", func(t *testing.T) {
@@ -444,7 +444,7 @@ func TestBucket(t *testing.T) {
 				}
 				assert.NoError(t, srcBucket.Copy(ctx, options))
 				data, err := readDataFromFile(ctx, destBucket, keyTwo)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, contents, data)
 			})
 			t.Run("DownloadWritesFileToDisk", func(t *testing.T) {
@@ -462,7 +462,7 @@ func TestBucket(t *testing.T) {
 				assert.False(t, os.IsNotExist(err))
 
 				data, err := ioutil.ReadFile(path)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, contents, string(data))
 			})
 			t.Run("ListRespectsPrefixes", func(t *testing.T) {
@@ -482,7 +482,7 @@ func TestBucket(t *testing.T) {
 				// there's nothing in the iterator
 				// with a prefix
 				iter, err = bucket.List(ctx, "bar")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.False(t, iter.Next(ctx))
 				assert.Nil(t, iter.Item())
 				assert.NoError(t, iter.Err())
@@ -538,7 +538,7 @@ func TestBucket(t *testing.T) {
 				for i := 0; i < 3; i++ {
 					assert.NoError(t, bucket.Pull(ctx, mirror, ""))
 					files, err := walkLocalTree(ctx, mirror)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					assert.Len(t, files, 300)
 
 					if impl.name != "LegacyGridFS" {
