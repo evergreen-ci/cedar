@@ -159,7 +159,6 @@ func TestBucket(t *testing.T) {
 				{
 					id: "CopyErrorFileNameTo",
 					test: func(t *testing.T, b Bucket) {
-
 						fn := filepath.Base(file)
 						err := b.Upload(ctx, "foo", fn)
 						require.NoError(t, err)
