@@ -138,6 +138,11 @@ post:
         - "gopath/src/github.com/evergreen-ci/sink/build/output.*"
         - "gopath/src/github.com/evergreen-ci/sink/build/test.*.out"
         - "gopath/src/github.com/evergreen-ci/sink/build/race.*.out"
+  - command: shell.exec
+    type: setup
+    params:
+      script:
+        rm -rf ~/.aws
   - command: s3.put
     type: system
     params:
