@@ -72,7 +72,7 @@ func cleanUpS3Bucket(name, prefix, region string) error {
 }
 
 func TestBucket(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
