@@ -142,7 +142,7 @@ post:
     type: setup
     params:
       script:
-        rm -rf ~/.aws
+        rm -rf 
   - command: s3.put
     type: system
     params:
