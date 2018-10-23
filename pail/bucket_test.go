@@ -548,7 +548,7 @@ func TestBucket(t *testing.T) {
 			})
 			t.Run("PushToBucket", func(t *testing.T) {
 				prefix := filepath.Join(tempdir, newUUID())
-				for i := 0; i < 300; i++ {
+				for i := 0; i < 100; i++ {
 					require.NoError(t, writeDataToDisk(prefix,
 						newUUID(), strings.Join([]string{newUUID(), newUUID(), newUUID()}, "\n")))
 				}
@@ -570,7 +570,7 @@ func TestBucket(t *testing.T) {
 						counter++
 					}
 					assert.NoError(t, iter.Err())
-					assert.Equal(t, 600, counter)
+					assert.Equal(t, 200, counter)
 				})
 			})
 			t.Run("UploadWithBadFileName", func(t *testing.T) {
