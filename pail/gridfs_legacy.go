@@ -251,13 +251,13 @@ func (b *gridfsLegacyBucket) Pull(ctx context.Context, local, remote string) err
 	return nil
 }
 
-func (b *gridfsLegacyBucket) Copy(ctx context.Context, src, dst string) error {
-	from, err := b.Reader(ctx, src)
+func (b *gridfsLegacyBucket) Copy(ctx context.Context, options CopyOptions) error {
+	from, err := b.Reader(ctx, options.SourceKey)
 	if err != nil {
 		return errors.Wrap(err, "problem getting reader for source")
 	}
 
-	to, err := b.Writer(ctx, dst)
+	to, err := options.DestinationBucket.Writer(ctx, options.DestinationKey)
 	if err != nil {
 		return errors.Wrap(err, "problem getting writer for dst")
 	}

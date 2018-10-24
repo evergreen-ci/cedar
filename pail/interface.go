@@ -66,8 +66,9 @@ type Bucket interface {
 	Pull(context.Context, string, string) error
 
 	// Copy does a special copy operation that does not require
-	// downloading a file.
-	Copy(context.Context, string, string) error
+	// downloading a file. Note that CopyOptions.DestinationBucket must
+	// have the same type as the calling bucket object.
+	Copy(context.Context, CopyOptions) error
 
 	// Remove the specified object from the bucket.
 	Remove(context.Context, string) error
@@ -77,15 +78,11 @@ type Bucket interface {
 	List(context.Context, string) (BucketIterator, error)
 }
 
-type BucketInfo struct {
-	// TODO: this will probably need better types and a bunch of
-	// validation. Probably also need to make this implementation
-	// specific and passed to the constructor.
-
-	Auth   string
-	Region string
-	Name   string
-	Access string // for puts only, presumably.
+type CopyOptions struct {
+	SourceKey         string
+	DestinationKey    string
+	DestinationBucket Bucket
+	IsDestination     bool
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -107,12 +104,14 @@ type BucketIterator interface {
 type BucketItem interface {
 	Bucket() string
 	Name() string
+	Hash() string
 	Get(context.Context) (io.ReadCloser, error)
 }
 
 type bucketItemImpl struct {
 	bucket string
 	key    string
+	hash   string
 
 	// TODO add other info?
 
@@ -123,6 +122,7 @@ type bucketItemImpl struct {
 }
 
 func (bi *bucketItemImpl) Name() string   { return bi.key }
+func (bi *bucketItemImpl) Hash() string   { return bi.hash }
 func (bi *bucketItemImpl) Bucket() string { return bi.bucket }
 func (bi *bucketItemImpl) Get(ctx context.Context) (io.ReadCloser, error) {
 	return bi.b.Get(ctx, bi.key)

@@ -40,6 +40,7 @@ variables:
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
       - func: set-up-mongodb
+      - func: setup-credentials
       - func: run-make
         vars: { target: "${task_name}" }
 
@@ -48,6 +49,22 @@ variables:
 #              Functions              #
 #######################################
 functions:
+  setup-credentials:
+    command: shell.exec
+    type: setup
+    params:
+       silent: true
+       script: |
+         mkdir ~/.aws
+         cat <<EOF > ~/.aws/config
+         [default]
+         region = us-east-1
+         EOF
+         cat <<EOF > ~/.aws/credentials
+         [default]
+         aws_access_key_id = ${aws_key}
+         aws_secret_access_key = ${aws_secret}
+         EOF
   run-make:
     command: shell.exec
     type: test
@@ -123,6 +140,11 @@ post:
         - "gopath/src/github.com/evergreen-ci/sink/build/output.*"
         - "gopath/src/github.com/evergreen-ci/sink/build/test.*.out"
         - "gopath/src/github.com/evergreen-ci/sink/build/race.*.out"
+  - command: shell.exec
+    type: setup
+    params:
+      script:
+        rm -rf ~/.aws
   - command: s3.put
     type: system
     params:
@@ -167,6 +189,7 @@ tasks:
         params:
           directory: gopath/src/github.com/evergreen-ci/sink
       - func: set-up-mongodb
+      - func: setup-credentials
       - func: run-make
         vars:
           target: "coverage-html"
