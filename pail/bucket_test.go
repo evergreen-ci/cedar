@@ -72,7 +72,7 @@ func cleanUpS3Bucket(name, prefix, region string) error {
 }
 
 func TestBucket(t *testing.T) {
-	//t.Parallel()
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -520,7 +520,7 @@ func TestBucket(t *testing.T) {
 			})
 			t.Run("PullFromBucket", func(t *testing.T) {
 				data := map[string]string{}
-				for i := 0; i < 300; i++ {
+				for i := 0; i < 100; i++ {
 					data[newUUID()] = strings.Join([]string{newUUID(), newUUID(), newUUID()}, "\n")
 				}
 
@@ -535,7 +535,7 @@ func TestBucket(t *testing.T) {
 					assert.NoError(t, bucket.Pull(ctx, mirror, ""))
 					files, err := walkLocalTree(ctx, mirror)
 					require.NoError(t, err)
-					assert.Len(t, files, 300)
+					assert.Len(t, files, 100)
 
 					if impl.name != "LegacyGridFS" {
 						for _, fn := range files {
