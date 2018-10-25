@@ -1,7 +1,7 @@
 package model
 
 import (
-	"crypto/sha256"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"sort"
@@ -116,6 +116,8 @@ func (result *PerformanceResult) Save() error {
 // Component Types
 
 type PerformanceResultID struct {
+	Project   string           `bson:"project"`
+	Version   string           `bson:"version"`
 	TaskName  string           `bson:"task_name"`
 	TaskID    string           `bson:"task_id"`
 	Execution int              `bson:"execution"`
@@ -127,7 +129,10 @@ type PerformanceResultID struct {
 }
 
 var (
+	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultID{}, "Project")
+	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultID{}, "Version")
 	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TaskName")
+	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultID{}, "TaskID")
 	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Execution")
 	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TestName")
 	perfResultInfoTrialKey     = bsonutil.MustHaveTag(PerformanceResultID{}, "Trial")
@@ -137,8 +142,10 @@ var (
 )
 
 func (id *PerformanceResultID) ID() string {
-	hash := sha256.New()
+	hash := sha1.New()
 
+	io.WriteString(hash, id.Project)
+	io.WriteString(hash, id.Version)
 	io.WriteString(hash, id.TaskName)
 	io.WriteString(hash, id.TaskID)
 	io.WriteString(hash, fmt.Sprint(id.Execution))
