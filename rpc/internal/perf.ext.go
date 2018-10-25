@@ -53,6 +53,8 @@ func (c CompressionType) Export() model.FileCompression {
 
 func (m *ResultID) Export() *model.PerformanceResultID {
 	return &model.PerformanceResultID{
+		Project:   m.Project,
+		Version:   m.Version,
 		TaskID:    m.TaskId,
 		TaskName:  m.TaskName,
 		Execution: int(m.Execution),
@@ -61,6 +63,7 @@ func (m *ResultID) Export() *model.PerformanceResultID {
 		Trial:     int(m.Trial),
 		Tags:      m.Tags,
 		Arguments: m.Arguments,
+		Schema:    m.Schema,
 	}
 }
 

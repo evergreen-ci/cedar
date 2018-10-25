@@ -3,6 +3,7 @@ package model
 import (
 	"crypto/sha1"
 	"fmt"
+	"hash"
 	"io"
 	"sort"
 	"time"
@@ -126,6 +127,7 @@ type PerformanceResultID struct {
 	Parent    string           `bson:"parent"`
 	Tags      []string         `bson:"tags"`
 	Arguments map[string]int32 `bson:"args"`
+	Schema    int              `bson:"schema"`
 }
 
 var (
@@ -142,32 +144,37 @@ var (
 )
 
 func (id *PerformanceResultID) ID() string {
-	hash := sha1.New()
+	var hash hash.Hash
 
-	io.WriteString(hash, id.Project)
-	io.WriteString(hash, id.Version)
-	io.WriteString(hash, id.TaskName)
-	io.WriteString(hash, id.TaskID)
-	io.WriteString(hash, fmt.Sprint(id.Execution))
-	io.WriteString(hash, id.TestName)
-	io.WriteString(hash, fmt.Sprint(id.Trial))
-	io.WriteString(hash, id.Parent)
+	if id.Schema == 0 {
+		hash = sha1.New()
+		io.WriteString(hash, id.Project)
+		io.WriteString(hash, id.Version)
+		io.WriteString(hash, id.TaskName)
+		io.WriteString(hash, id.TaskID)
+		io.WriteString(hash, fmt.Sprint(id.Execution))
+		io.WriteString(hash, id.TestName)
+		io.WriteString(hash, fmt.Sprint(id.Trial))
+		io.WriteString(hash, id.Parent)
 
-	sort.Strings(id.Tags)
-	for _, str := range id.Tags {
-		io.WriteString(hash, str)
-	}
-
-	if len(id.Arguments) > 0 {
-		args := []string{}
-		for k, v := range id.Arguments {
-			args = append(args, fmt.Sprintf("%s=%d", k, v))
-		}
-
-		sort.Strings(args)
-		for _, str := range args {
+		sort.Strings(id.Tags)
+		for _, str := range id.Tags {
 			io.WriteString(hash, str)
 		}
+
+		if len(id.Arguments) > 0 {
+			args := []string{}
+			for k, v := range id.Arguments {
+				args = append(args, fmt.Sprintf("%s=%d", k, v))
+			}
+
+			sort.Strings(args)
+			for _, str := range args {
+				io.WriteString(hash, str)
+			}
+		}
+	} else {
+		panic("unsupported schema")
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil))

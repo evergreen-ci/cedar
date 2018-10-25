@@ -22,14 +22,20 @@ func DumpPerformanceSeries(ctx context.Context, stream <-chan PerformancePoint, 
 	collector := ftdc.NewBatchCollector(defaultPointsPerChunk)
 
 	var (
-		doc *bson.Document
-		err error
+		data []byte
+		doc  *bson.Document
+		err  error
 	)
 
 	if metadata != nil {
-		doc, err = bson.MarshalDocument(metadata)
+		data, err = bson.Marshal(metadata)
 		if err != nil {
-			return errors.Wrap(err, "problem wrapping metadata")
+			return errors.Wrap(err, "problem reading metadata")
+		}
+
+		doc, err = bson.ReadDocument(data)
+		if err != nil {
+			return errors.Wrap(err, "problem building metadata document")
 		}
 
 		collector.SetMetadata(doc)
@@ -45,7 +51,12 @@ conversion:
 				break conversion
 			}
 
-			doc, err = bson.MarshalDocument(point)
+			data, err = bson.Marshal(point)
+			if err != nil {
+				return errors.Wrap(err, "problem document")
+			}
+
+			doc, err = bson.ReadDocument(data)
 			if err != nil {
 				return errors.Wrap(err, "problem converting document")
 			}
