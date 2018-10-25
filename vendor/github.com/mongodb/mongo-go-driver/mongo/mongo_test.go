@@ -7,8 +7,7 @@
 package mongo
 
 import (
-	"fmt"
-	"reflect"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,12 +28,6 @@ func TestTransformDocument(t *testing.T) {
 			nil,
 		},
 		{
-			"bson.DocumentMarshaler",
-			dMarsh{bson.NewDocument(bson.EC.String("foo", "bar"))},
-			bson.NewDocument(bson.EC.String("foo", "bar")),
-			nil,
-		},
-		{
 			"reflection",
 			reflectStruct{Foo: "bar"},
 			bson.NewDocument(bson.EC.String("foo", "bar")),
@@ -50,13 +43,13 @@ func TestTransformDocument(t *testing.T) {
 			"unsupported type",
 			[]string{"foo", "bar"},
 			nil,
-			fmt.Errorf("cannot transform type %s to a *bson.Document", reflect.TypeOf([]string{})),
+			MarshalError{Value: []string{"foo", "bar"}, Err: errors.New("invalid state transition: TopLevel -> ArrayMode")},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := TransformDocument(tc.document)
+			got, err := transformDocument(bson.NewRegistryBuilder().Build(), tc.document)
 			if !cmp.Equal(err, tc.err, cmp.Comparer(compareErrors)) {
 				t.Errorf("Error does not match expected error. got %v; want %v", err, tc.err)
 			}
@@ -92,16 +85,6 @@ type bMarsh struct {
 
 func (b bMarsh) MarshalBSON() ([]byte, error) {
 	return b.Document.MarshalBSON()
-}
-
-var _ bson.DocumentMarshaler = dMarsh{}
-
-type dMarsh struct {
-	d *bson.Document
-}
-
-func (d dMarsh) MarshalBSONDocument() (*bson.Document, error) {
-	return d.d, nil
 }
 
 type reflectStruct struct {

@@ -1,15 +1,14 @@
 package bson
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"reflect"
+
+	"github.com/mongodb/mongo-go-driver/bson/bsoncodec"
 )
 
 type unmarshalingTestCase struct {
 	name  string
-	reg   *Registry
+	reg   *bsoncodec.Registry
 	sType reflect.Type
 	want  interface{}
 	data  []byte
@@ -25,7 +24,7 @@ var unmarshalingTestCases = []unmarshalingTestCase{
 		&struct {
 			Foo bool
 		}{Foo: true},
-		bytesFromDoc(NewDocument(EC.Boolean("foo", true))),
+		docToBytes(NewDocument(EC.Boolean("foo", true))),
 	},
 	{
 		"nested document",
@@ -44,7 +43,7 @@ var unmarshalingTestCases = []unmarshalingTestCase{
 				Bar bool
 			}{Bar: true},
 		},
-		bytesFromDoc(NewDocument(EC.SubDocumentFromElements("foo", EC.Boolean("bar", true)))),
+		docToBytes(NewDocument(EC.SubDocumentFromElements("foo", EC.Boolean("bar", true)))),
 	},
 	{
 		"simple array",
@@ -57,14 +56,6 @@ var unmarshalingTestCases = []unmarshalingTestCase{
 		}{
 			Foo: []bool{true},
 		},
-		bytesFromDoc(NewDocument(EC.ArrayFromElements("foo", VC.Boolean(true)))),
+		docToBytes(NewDocument(EC.ArrayFromElements("foo", VC.Boolean(true)))),
 	},
-}
-
-func ioReaderFromDoc(doc *Document) io.Reader {
-	b, err := doc.MarshalBSON()
-	if err != nil {
-		panic(fmt.Errorf("Couldn't marshal BSON document: %v", err))
-	}
-	return bytes.NewReader(b)
 }

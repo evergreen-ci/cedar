@@ -31,9 +31,9 @@ imports:
 - name: github.com/mongodb/curator
   version: 37d930ea2eeb27acb3782f1aa4d69da1e9dac223
 - name: github.com/mongodb/ftdc
-  version: 2af5b3afb834c42490ad7891879bc2dfcec8b5cc
+  version: 45be06c2d03f76aa9f7c5990661b463597c42bcf
 - name: github.com/mongodb/mongo-go-driver
-  version: 6ea632f62162482c4d5fcdea91128e13336832a4
+  version: 44d349d1886bcc181046312daee15bb2533a2d10
 
 - name: gonum.org/v1/gonum
   version: c75679ee1eff8582bca7583704825721ea1ff701

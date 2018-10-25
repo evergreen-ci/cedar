@@ -7,7 +7,6 @@
 package mongo
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -212,8 +211,7 @@ func runDocumentTest(t *testing.T, testName string, testCase *documentTest) {
 			rcBytes := rcDoc.Value().ReaderDocument()
 
 			actual := make(map[string]interface{})
-			decoder := bson.NewDecoder(bytes.NewBuffer(rcBytes))
-			err = decoder.Decode(actual)
+			err = bson.Unmarshal(rcBytes, &actual)
 
 			requireMapEqual(t, testCase.ReadConcernDocument, actual)
 		}
@@ -237,8 +235,7 @@ func runDocumentTest(t *testing.T, testName string, testCase *documentTest) {
 			wcBytes := wcDoc.Value().ReaderDocument()
 
 			actual := make(map[string]interface{})
-			decoder := bson.NewDecoder(bytes.NewBuffer(wcBytes))
-			err = decoder.Decode(actual)
+			err = bson.Unmarshal(wcBytes, &actual)
 			require.NoError(t, err)
 
 			requireMapEqual(t, testCase.WriteConcernDocument, actual)

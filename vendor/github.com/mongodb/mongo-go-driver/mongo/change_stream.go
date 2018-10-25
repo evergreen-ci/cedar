@@ -7,7 +7,6 @@
 package mongo
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -41,15 +40,17 @@ const errorCodeCursorNotFound int32 = 43
 func newChangeStream(ctx context.Context, coll *Collection, pipeline interface{},
 	opts ...changestreamopt.ChangeStream) (*changeStream, error) {
 
-	pipelineArr, err := transformAggregatePipeline(pipeline)
+	pipelineArr, err := transformAggregatePipeline(coll.registry, pipeline)
 	if err != nil {
 		return nil, err
 	}
 
-	csOpts, sess, err := changestreamopt.BundleChangeStream(opts...).Unbundle(true)
+	csOpts, _, err := changestreamopt.BundleChangeStream(opts...).Unbundle(true)
 	if err != nil {
 		return nil, err
 	}
+
+	sess := sessionFromContext(ctx)
 
 	err = coll.client.ValidSession(sess)
 	if err != nil {
@@ -193,7 +194,7 @@ func (cs *changeStream) Decode(out interface{}) error {
 		return err
 	}
 
-	return bson.NewDecoder(bytes.NewReader(br)).Decode(out)
+	return bson.UnmarshalWithRegistry(cs.coll.registry, br, out)
 }
 
 func (cs *changeStream) DecodeBytes() (bson.Reader, error) {

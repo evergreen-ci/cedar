@@ -1,6 +1,8 @@
 package bson
 
-import "testing"
+import (
+	"testing"
+)
 
 type encodetest struct {
 	Field1String  string
@@ -113,54 +115,14 @@ var nestedInstance = nestedtest1{
 	},
 }
 
-func BenchmarkEncodingv1(b *testing.B) {
+func BenchmarkEncoding(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = Marshal(encodetestInstance)
 	}
 }
 
-func BenchmarkEncodingv2(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_, _ = Marshalv2(encodetestInstance)
-	}
-}
-
-func BenchmarkEncodingv2ToDocument(b *testing.B) {
-	var buf []byte
-	for i := 0; i < b.N; i++ {
-		buf, _ = Marshalv2(encodetestInstance)
-		_, _ = ReadDocument(buf)
-	}
-}
-
-func BenchmarkEncodingDocument(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_, _ = MarshalDocument(encodetestInstance)
-	}
-}
-
-func BenchmarkEncodingv1Nested(b *testing.B) {
+func BenchmarkEncodingNested(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = Marshal(nestedInstance)
-	}
-}
-
-func BenchmarkEncodingv2Nested(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_, _ = Marshalv2(nestedInstance)
-	}
-}
-
-func BenchmarkEncodingv2ToDocumentNested(b *testing.B) {
-	var buf []byte
-	for i := 0; i < b.N; i++ {
-		buf, _ = Marshalv2(nestedInstance)
-		_, _ = ReadDocument(buf)
-	}
-}
-
-func BenchmarkEncodingDocumentNested(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_, _ = MarshalDocument(nestedInstance)
 	}
 }

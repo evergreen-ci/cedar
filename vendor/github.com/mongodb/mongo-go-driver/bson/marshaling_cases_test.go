@@ -1,8 +1,12 @@
 package bson
 
+import (
+	"github.com/mongodb/mongo-go-driver/bson/bsoncodec"
+)
+
 type marshalingTestCase struct {
 	name string
-	reg  *Registry
+	reg  *bsoncodec.Registry
 	val  interface{}
 	want []byte
 }
@@ -14,6 +18,6 @@ var marshalingTestCases = []marshalingTestCase{
 		struct {
 			Foo bool
 		}{Foo: true},
-		bytesFromDoc(NewDocument(EC.Boolean("foo", true))),
+		docToBytes(NewDocument(EC.Boolean("foo", true))),
 	},
 }
