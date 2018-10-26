@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,36 +44,47 @@ func cleanUpS3Bucket(name, prefix, region string) error {
 	if err != nil {
 		return errors.Wrap(err, "clean up failed")
 	}
+	doi := &s3.DeleteObjectsInput{
+		Bucket: aws.String(name),
+		Delete: &s3.Delete{},
+	}
+	catcher := grip.NewCatcher()
 	for {
 		listInput := &s3.ListObjectsInput{
 			Bucket: aws.String(name),
 		}
 		result, err := svc.ListObjects(listInput)
 		if err != nil {
-			return errors.Wrap(err, "clean up failed")
+			catcher.Add(errors.Wrap(err, "clean up failed"))
+			continue
 		}
 		for _, object := range result.Contents {
 			if !strings.HasPrefix(*object.Key, prefix) {
 				continue
 			}
-			deleteObjectInput := &s3.DeleteObjectInput{
-				Bucket: aws.String(name),
-				Key:    aws.String(*object.Key),
-			}
-			_, err := svc.DeleteObject(deleteObjectInput)
-			if err != nil {
-				return errors.Wrap(err, "failed to delete S3 bucket")
-			}
+			doi.Delete.Objects = append(doi.Delete.Objects, &s3.ObjectIdentifier{
+				Key: object.Key,
+			})
+
 		}
 		if !*result.IsTruncated {
 			break
 		}
 	}
+
+	if catcher.HasErrors() {
+		return catcher.Resolve()
+	}
+
+	_, err = svc.DeleteObjects(doi)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete S3 bucket")
+	}
+
 	return nil
 }
 
 func TestBucket(t *testing.T) {
-	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -316,6 +328,7 @@ func TestBucket(t *testing.T) {
 		},
 	} {
 		t.Run(impl.name, func(t *testing.T) {
+			t.Parallel()
 			for _, test := range impl.tests {
 				t.Run(test.id, func(t *testing.T) {
 					bucket := impl.constructor(t)
