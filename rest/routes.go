@@ -2,6 +2,7 @@ package rest
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,9 +10,9 @@ import (
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/pail"
 	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/curator/sthree"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
@@ -261,20 +262,30 @@ func (s *Service) simpleLogGetText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var bucket *sthree.Bucket
+	buckets := make(map[string]pail.Bucket)
+	var err error
 	for _, l := range allLogs.Slice() {
-		if bucket.String() != l.Bucket {
-			bucket = sthree.GetBucket(l.Bucket)
+		bucket, ok := buckets[l.Bucket]
+		if !ok {
+			bucket, err = pail.NewS3Bucket(pail.S3Options{Name: l.Bucket})
+			if err != nil {
+				gimlet.WriteTextError(w, err.Error())
+				return
+			}
+			buckets[l.Bucket] = bucket
 		}
 
-		data, err := bucket.Read(l.KeyName)
-		if err != nil {
-			grip.Warning(err)
-			gimlet.WriteTextInternalError(w, err.Error())
-			return
-		}
+		func() {
+			reader, err := bucket.Reader(r.Context(), l.KeyName)
+			if err != nil {
+				gimlet.WriteTextInternalError(w, err.Error())
+				return
+			}
+			defer reader.Close()
+			data, err := ioutil.ReadAll(reader)
 
-		gimlet.WriteText(w, data)
+			gimlet.WriteText(w, data)
+		}()
 	}
 }
 

@@ -112,25 +112,6 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/davecgh/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pmezard/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/mongodb/grip/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/mongodb/grip/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/tychoish/gimlet/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/mongodb/amboy/
-	rm -rf vendor/github.com/mongodb/curator/vendor/golang.org/x/net/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/pkg/errors/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/tychoish/bond/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/papertrail
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/stretchr/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/davecgh/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/pmezard/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/urfave/cli/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/evergreen-ci/
-	rm -rf vendor/github.com/mongodb/curator/vendor/github.com/ghodss/
-	rm -rf vendor/github.com/mongodb/curator/vendor/golang.org/
-	rm -rf vendor/github.com/mongodb/curator/greenbay/
-	rm -rf vendor/github.com/mongodb/curator/repobuilder/
-	rm -rf vendor/github.com/mongodb/curator/operations/
-	rm -rf vendor/github.com/mongodb/curator/cmd/
-	rm -rf vendor/github.com/mongodb/curator/main/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/data/
