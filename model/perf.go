@@ -51,11 +51,13 @@ type PerformanceResult struct {
 }
 
 var (
-	perfIDKey          = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
-	perfInfoKey        = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfSourceKey      = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
-	perfAuxDataKey     = bsonutil.MustHaveTag(PerformanceResult{}, "AuxilaryData")
-	perfDataSummaryKey = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
+	perfIDKey       = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfSourceKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
+	perfAuxDataKey  = bsonutil.MustHaveTag(PerformanceResult{}, "AuxilaryData")
+	perfRollupsKey  = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfTotalKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
+	perfVersionlKey = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
 func CreatePerformanceResult(info PerformanceResultID, source []ArtifactInfo) *PerformanceResult {
@@ -84,6 +86,10 @@ func (result *PerformanceResult) Find() error {
 		return errors.Wrap(err, "problem finding result config")
 	}
 	result.populated = true
+	if result.Rollups != nil {
+		result.Rollups.id = result.ID
+		result.Rollups.Setup(result.env)
+	}
 
 	return nil
 }
