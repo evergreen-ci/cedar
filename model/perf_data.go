@@ -6,6 +6,8 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/grip"
 	"github.com/montanaflynn/stats"
+	"github.com/pkg/errors"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type PerfRollupValue struct {
@@ -36,18 +38,163 @@ type PerfRollups struct {
 
 	dirty     bool
 	populated bool
+	id        string
 	env       sink.Environment
 }
 
-func (r *PerfRollups) Setup(env sink.Environment)                            { r.env = env }
-func (r *PerfRollups) Add(name string, version int, value interface{}) error {}
-func (r *PerfRollups) GetInt(name string) (int, error)                       {}
-func (r *PerfRollups) GetInt32(name string) (int32, error)                   {}
-func (r *PerfRollups) GetInt64(name string) (int64, error)                   {}
-func (r *PerfRollups) GetFloat(name string) (float64, error)                 {}
-func (r *PerfRollups) Validate() error                                       {}
-func (r *PerfRollups) Map() map[string]int64                                 {}
-func (r *PerfRollups) MapFloat() map[string]float64                          {}
+type record struct {
+	Rollups []PerfRollupValue `bson:"rollups"`
+}
+
+func (v *PerfRollupValue) getIntLong() (int64, error) {
+	if val, ok := v.Value.(int64); ok {
+		return val, nil
+	} else if val, ok := v.Value.(int32); ok {
+		return int64(val), nil
+	} else if val, ok := v.Value.(int); ok {
+		return int64(val), nil
+	}
+	return 0, errors.Errorf("mismatched type for name %s", v.Name)
+}
+
+func (v *PerfRollupValue) getFloat() (float64, error) {
+	if val, ok := v.Value.(float64); ok {
+		return val, nil
+	}
+	return 0, errors.Errorf("mismatched type for name %s", v.Name)
+}
+
+func (r *PerfRollups) Setup(env sink.Environment) {
+	r.env = env
+}
+
+func (r *PerfRollups) Add(name string, version int, value interface{}) error {
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.Wrap(err, "error connecting")
+	}
+	defer session.Close()
+	// 1) If in database, check version and make sure passed in version isn't older (if so, done)
+	c := session.DB(conf.DatabaseName).C(perfResultCollection)
+	search := bson.M{
+		"_id":          r.id,
+		"rollups.name": name,
+	}
+
+	out := record{}
+	rollup := PerfRollupValue{
+		Name:    name,
+		Version: version,
+		Value:   value,
+	}
+	err = c.Find(search).Select(bson.M{"rollups.version": 1, "rollups.name": 1}).One(&out)
+	if err == nil { // update existing entry
+		for _, entry := range out.Rollups {
+			if entry.Name == name {
+				if entry.Version > version {
+					return errors.New("outdated version")
+				}
+				break
+			}
+		}
+		update := bson.M{
+			"rollups.$.val":     value,
+			"rollups.$.version": version,
+		}
+		err2 := c.Update(search, bson.M{"$set": update})
+		if err2 != nil {
+			return errors.Wrap(err2, "error updating an existing entry")
+		}
+		// update local entry
+		for i := range r.DefaultStats {
+			if r.DefaultStats[i].Name == name {
+				r.DefaultStats[i].Version = version
+				r.DefaultStats[i].Value = value
+				return nil
+			}
+		}
+		r.DefaultStats = append(r.DefaultStats, rollup)
+		r.Count++
+		return nil
+	}
+	// entry DNE, add entry
+	insert := bson.M{"rollups": rollup}
+	search = bson.M{"_id": r.id}
+	err = c.Update(search, bson.M{"$push": insert})
+	if err != nil {
+		return errors.Wrap(err, "error pushing new entry")
+	}
+	r.DefaultStats = append(r.DefaultStats, rollup)
+	r.Count++
+	return nil
+}
+
+func (r *PerfRollups) GetInt(name string) (int, error) {
+	for _, rollup := range r.DefaultStats {
+		if rollup.Name == name {
+			if val, ok := rollup.Value.(int); ok {
+				return val, nil
+			} else if val, ok := rollup.Value.(int32); ok {
+				return int(val), nil
+			} else {
+				return 0, errors.Errorf("mismatched type for name %s", name)
+			}
+		}
+	}
+	return 0, errors.Errorf("name %s does not exist", name)
+}
+
+func (r *PerfRollups) GetInt32(name string) (int32, error) {
+	val, err := r.GetInt(name)
+	return int32(val), err
+}
+
+func (r *PerfRollups) GetInt64(name string) (int64, error) {
+	for _, rollup := range r.DefaultStats {
+		if rollup.Name == name {
+			return rollup.getIntLong()
+		}
+	}
+	return 0, errors.Errorf("name %s does not exist", name)
+}
+
+func (r *PerfRollups) GetFloat(name string) (float64, error) {
+	for _, rollup := range r.DefaultStats {
+		if rollup.Name == name {
+			return rollup.getFloat()
+		}
+	}
+	return 0, errors.Errorf("name %s does not exist", name)
+}
+
+func (r *PerfRollups) Validate() error {
+	if len(r.DefaultStats) != r.Count {
+		return errors.New("number of stats and count of stats not equal")
+	}
+	return nil
+}
+
+func (r *PerfRollups) Map() map[string]int64 {
+	result := make(map[string]int64)
+	for _, rollup := range r.DefaultStats {
+		val, err := rollup.getIntLong()
+		if err == nil {
+			result[rollup.Name] = val
+		}
+	}
+	return result
+}
+
+func (r *PerfRollups) MapFloat() map[string]float64 {
+	result := make(map[string]float64)
+	for _, rollup := range r.DefaultStats {
+		val, err := rollup.getFloat()
+		if err == nil {
+			result[rollup.Name] = val
+		}
+	}
+	return result
+}
 
 ////////////////////////////////////////////////////////////////////////
 //
