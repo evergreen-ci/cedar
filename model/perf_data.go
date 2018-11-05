@@ -81,7 +81,11 @@ func (r *PerfRollups) Setup(env sink.Environment) {
 }
 
 func (r *PerfRollups) Add(name string, version int, value interface{}) error {
+<<<<<<< HEAD
 	if r.populated == false {
+=======
+	if !r.populated {
+>>>>>>> MAKE-499 edit new rollup model
 		return errors.New("rollups have not been populated")
 	}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
@@ -131,9 +135,15 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error {
 		newRollupVal: value,
 		newRollupVer: version,
 	}
+<<<<<<< HEAD
 	err2 := c.Update(search, bson.M{setExistingRollup: update})
 	if err2 != nil {
 		return errors.Wrap(err2, "error updating an existing entry")
+=======
+	err = c.Update(search, bson.M{setExistingRollup: update})
+	if err != nil {
+		return errors.Wrap(err, "error updating an existing entry")
+>>>>>>> MAKE-499 edit new rollup model
 	}
 	// update local entry
 	for i := range r.DefaultStats {

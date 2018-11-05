@@ -29,10 +29,10 @@ func (s *perfRollupSuite) SetupTest() {
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
 
-	s.r.Add("float", 1, 12.4)
-	s.r.Add("int", 2, 12)
-	s.r.Add("int32", 3, int32(32))
-	s.r.Add("long", 4, int64(20216))
+	s.NoError(s.r.Add("float", 1, 12.4))
+	s.NoError(s.r.Add("int", 2, 12))
+	s.NoError(s.r.Add("int32", 3, int32(32)))
+	s.NoError(s.r.Add("long", 4, int64(20216)))
 }
 
 func (s *perfRollupSuite) TestSetupTestIsValid() {
