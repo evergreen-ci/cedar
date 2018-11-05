@@ -20,6 +20,7 @@ func TestPerfRollupSuite(t *testing.T) {
 func (s *perfRollupSuite) SetupTest() {
 	s.r = new(PerfRollups)
 	s.r.Setup(sink.GetEnvironment())
+	s.r.populated = true
 	s.r.id = "123"
 	conf, session, err := sink.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
@@ -46,7 +47,7 @@ func (s *perfRollupSuite) TestSetupTestIsValid() {
 	}
 	filter := bson.M{"rollups.version": 1, "rollups.name": 1, "_id": 0}
 
-	out := record{}
+	out := perfRollupEntries{}
 	err = c.Find(search).Select(filter).One(&out)
 	s.Require().NoError(err)
 	s.Len(out.Rollups, 4)
@@ -120,6 +121,7 @@ func (s *perfRollupSuite) TestLong() {
 }
 
 func (s *perfRollupSuite) TestAddPerfRollupValue() {
+	s.Len(s.r.DefaultStats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
 	err = s.r.Add("mean", 1, 12.24)
@@ -127,6 +129,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(12.24, val)
+	s.Len(s.r.DefaultStats, 5)
 }
 
 func (s *perfRollupSuite) TestMaps() {
@@ -134,11 +137,13 @@ func (s *perfRollupSuite) TestMaps() {
 	s.NoError(err)
 
 	allFloats := s.r.MapFloat()
-	s.Len(allFloats, 2)
+	s.Len(allFloats, 5)
 	s.NotZero(allFloats["mean"])
 	s.NotZero(allFloats["float"])
+	s.NotZero(allFloats["int32"])
 	s.Zero(allFloats["avg"])
 	s.Equal(allFloats["mean"], 12.24)
+	s.Equal(allFloats["int"], 12.0)
 
 	allInts := s.r.Map()
 	s.Len(allInts, 3)
@@ -165,7 +170,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		"rollups.name": "mean",
 	}
 	filter := bson.M{"rollups": 1, "_id": 0}
-	out := record{}
+	out := perfRollupEntries{}
 	err = c.Find(search).Select(filter).One(&out)
 	s.Require().NoError(err)
 	s.Require().Len(out.Rollups, 1)
@@ -180,7 +185,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(24.12, val)
-	out = record{}
+	out = perfRollupEntries{}
 	err = c.Find(search).Select(filter).One(&out)
 	s.Require().NoError(err)
 	s.Require().Len(out.Rollups, 1)

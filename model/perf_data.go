@@ -7,7 +7,19 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+const (
+	idField           = "_id"
+	rollupsField      = "rollups"
+	rollupNameField   = "rollups.name"
+	rollupVerField    = "rollups.version"
+	newRollupVal      = "rollups.$.val"
+	newRollupVer      = "rollups.$.version"
+	pushNewRollup     = "$push"
+	setExistingRollup = "$set"
 )
 
 type PerfRollupValue struct {
@@ -42,7 +54,7 @@ type PerfRollups struct {
 	env       sink.Environment
 }
 
-type record struct {
+type perfRollupEntries struct {
 	Rollups []PerfRollupValue `bson:"rollups"`
 }
 
@@ -69,6 +81,9 @@ func (r *PerfRollups) Setup(env sink.Environment) {
 }
 
 func (r *PerfRollups) Add(name string, version int, value interface{}) error {
+	if r.populated == false {
+		return errors.New("rollups have not been populated")
+	}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.Wrap(err, "error connecting")
@@ -77,52 +92,56 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error {
 	// 1) If in database, check version and make sure passed in version isn't older (if so, done)
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	search := bson.M{
-		"_id":          r.id,
-		"rollups.name": name,
+		idField:         r.id,
+		rollupNameField: name,
 	}
 
-	out := record{}
+	out := perfRollupEntries{}
 	rollup := PerfRollupValue{
 		Name:    name,
 		Version: version,
 		Value:   value,
 	}
-	err = c.Find(search).Select(bson.M{"rollups.version": 1, "rollups.name": 1}).One(&out)
-	if err == nil { // update existing entry
-		for _, entry := range out.Rollups {
-			if entry.Name == name {
-				if entry.Version > version {
-					return errors.New("outdated version")
-				}
-				break
-			}
+	err = c.Find(search).Select(bson.M{rollupVerField: 1, rollupNameField: 1}).One(&out)
+	if err != nil {
+		if err != mgo.ErrNotFound {
+			return errors.Wrap(err, "error finding entry")
 		}
-		update := bson.M{
-			"rollups.$.val":     value,
-			"rollups.$.version": version,
-		}
-		err2 := c.Update(search, bson.M{"$set": update})
-		if err2 != nil {
-			return errors.Wrap(err2, "error updating an existing entry")
-		}
-		// update local entry
-		for i := range r.DefaultStats {
-			if r.DefaultStats[i].Name == name {
-				r.DefaultStats[i].Version = version
-				r.DefaultStats[i].Value = value
-				return nil
-			}
+		// entry DNE, add entry
+		insert := bson.M{rollupsField: rollup}
+		search = bson.M{idField: r.id}
+		err = c.Update(search, bson.M{pushNewRollup: insert})
+		if err != nil {
+			return errors.Wrap(err, "error pushing new entry")
 		}
 		r.DefaultStats = append(r.DefaultStats, rollup)
 		r.Count++
 		return nil
 	}
-	// entry DNE, add entry
-	insert := bson.M{"rollups": rollup}
-	search = bson.M{"_id": r.id}
-	err = c.Update(search, bson.M{"$push": insert})
-	if err != nil {
-		return errors.Wrap(err, "error pushing new entry")
+	// update existing entry
+	for _, entry := range out.Rollups {
+		if entry.Name == name {
+			if entry.Version > version {
+				return errors.New("outdated version")
+			}
+			break
+		}
+	}
+	update := bson.M{
+		newRollupVal: value,
+		newRollupVer: version,
+	}
+	err2 := c.Update(search, bson.M{setExistingRollup: update})
+	if err2 != nil {
+		return errors.Wrap(err2, "error updating an existing entry")
+	}
+	// update local entry
+	for i := range r.DefaultStats {
+		if r.DefaultStats[i].Name == name {
+			r.DefaultStats[i].Version = version
+			r.DefaultStats[i].Value = value
+			return nil
+		}
 	}
 	r.DefaultStats = append(r.DefaultStats, rollup)
 	r.Count++
@@ -188,9 +207,10 @@ func (r *PerfRollups) Map() map[string]int64 {
 func (r *PerfRollups) MapFloat() map[string]float64 {
 	result := make(map[string]float64)
 	for _, rollup := range r.DefaultStats {
-		val, err := rollup.getFloat()
-		if err == nil {
+		if val, err := rollup.getFloat(); err == nil {
 			result[rollup.Name] = val
+		} else if val, err := rollup.getIntLong(); err == nil {
+			result[rollup.Name] = float64(val)
 		}
 	}
 	return result
