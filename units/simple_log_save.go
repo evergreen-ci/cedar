@@ -8,11 +8,11 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/mongodb/curator/sthree"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -73,16 +73,30 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 		grip.Warning(err)
 		j.AddError(err)
 		return
-
 	}
-	bucket := sthree.GetBucket(conf.BucketName)
-	grip.Infoln("got s3 bucket object for:", bucket)
+
+	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
+	if err != nil {
+		j.AddError(errors.WithStack(err))
+		return
+	}
+	grip.Infoln("got s3 bucket object for:", conf.BucketName)
 
 	s3Key := fmt.Sprintf("simple-log/%s.%d", j.LogID, j.Increment)
-	err = bucket.Write([]byte(strings.Join(j.Content, "\n")), s3Key, "")
+
+	writer, err := bucket.Writer(ctx, s3Key)
+	if err != nil {
+		j.AddError(errors.Wrap(err, "problem constructing bucket object"))
+		return
+	}
+
+	_, err = writer.Write([]byte(strings.Join(j.Content, "\n")))
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem writing to s3"))
 		return
+	}
+	if err = writer.Close(); err != nil {
+		j.AddError(errors.Wrap(err, "problem flushing data to s3"))
 	}
 
 	// if we get here the data is safe in s3 so we can clear this.
@@ -93,7 +107,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 		LogID:   j.LogID,
 		Segment: j.Increment,
 		URL:     fmt.Sprintf("http://s3.amazonaws.com/%s/%s", bucket, s3Key),
-		Bucket:  bucket.String(),
+		Bucket:  conf.BucketName,
 		KeyName: s3Key,
 		Metrics: model.LogMetrics{
 			NumberLines:       -1,

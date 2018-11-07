@@ -44,7 +44,7 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error { r
 func (r *PerfRollups) GetInt(name string) (int, error)                       { return 0, nil }
 func (r *PerfRollups) GetInt32(name string) (int32, error)                   { return 0, nil }
 func (r *PerfRollups) GetInt64(name string) (int64, error)                   { return 0, nil }
-func (r *PerfRollups) GetFloat(name string) (float64, error)                 { return 0, nil }
+func (r *PerfRollups) GetFloat(name string) (float64, error)                 { return 0.0, nil }
 func (r *PerfRollups) Validate() error                                       { return nil }
 func (r *PerfRollups) Map() map[string]int64                                 { return nil }
 func (r *PerfRollups) MapFloat() map[string]float64                          { return nil }
