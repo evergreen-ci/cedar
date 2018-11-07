@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -20,11 +21,11 @@ import (
 const perfResultCollection = "perf_results"
 
 type PerformanceResult struct {
-	ID          string              `bson:"_id"`
-	Info        PerformanceResultID `bson:"info"`
-	CreatedAt   time.Time           `bson:"created_ts"`
-	CompletedAt time.Time           `bson:"completed_at"`
-	Version     int                 `bson:"version"`
+	ID          string                `bson:"_id"`
+	Info        PerformanceResultInfo `bson:"info"`
+	CreatedAt   time.Time             `bson:"created_ts"`
+	CompletedAt time.Time             `bson:"completed_at"`
+	Version     int                   `bson:"version"`
 
 	// The source timeseries data is stored in a remote location,
 	// we'll probably need to store an identifier so we know which
@@ -51,14 +52,16 @@ type PerformanceResult struct {
 }
 
 var (
-	perfIDKey          = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
-	perfInfoKey        = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfSourceKey      = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
-	perfAuxDataKey     = bsonutil.MustHaveTag(PerformanceResult{}, "AuxilaryData")
-	perfDataSummaryKey = bsonutil.MustHaveTag(PerformanceResult{}, "DataSummary")
+	perfIDKey       = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfSourceKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
+	perfAuxDataKey  = bsonutil.MustHaveTag(PerformanceResult{}, "AuxilaryData")
+	perfRollupsKey  = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfTotalKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
+	perfVersionlKey = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
-func CreatePerformanceResult(info PerformanceResultID, source []ArtifactInfo) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) *PerformanceResult {
 	return &PerformanceResult{
 		ID:        info.ID(),
 		Source:    source,
@@ -120,7 +123,7 @@ func (result *PerformanceResult) Save() error {
 //
 // Component Types
 
-type PerformanceResultID struct {
+type PerformanceResultInfo struct {
 	Project   string           `bson:"project"`
 	Version   string           `bson:"version"`
 	TaskName  string           `bson:"task_name"`
@@ -135,19 +138,19 @@ type PerformanceResultID struct {
 }
 
 var (
-	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultID{}, "Project")
-	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultID{}, "Version")
-	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TaskName")
-	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultID{}, "TaskID")
-	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Execution")
-	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultID{}, "TestName")
-	perfResultInfoTrialKey     = bsonutil.MustHaveTag(PerformanceResultID{}, "Trial")
-	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultID{}, "Parent")
-	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultID{}, "Tags")
-	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultID{}, "Arguments")
+	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
+	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
+	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
+	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
+	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Execution")
+	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TestName")
+	perfResultInfoTrialKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Trial")
+	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Parent")
+	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Tags")
+	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Arguments")
 )
 
-func (id *PerformanceResultID) ID() string {
+func (id *PerformanceResultInfo) ID() string {
 	var hash hash.Hash
 
 	if id.Schema == 0 {
@@ -182,6 +185,104 @@ func (id *PerformanceResultID) ID() string {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+type PerformanceResults struct {
+	Results   []PerformanceResult `bson:"results"`
+	env       sink.Environment
+	populated bool
+}
+
+type PerfFindOptions struct {
+	Interval util.TimeRange
+	Info     PerformanceResultInfo
+}
+
+func (r *PerformanceResults) Setup(e sink.Environment) { r.env = e }
+
+// Returns the PerformanceResults that are started/completed within the given range (if completed).
+func (r *PerformanceResults) Find(options PerfFindOptions) error {
+	if options.Interval.IsZero() || !options.Interval.IsValid() {
+		return errors.New("invalid time range given")
+	}
+
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+	search := r.createFindQuery(options)
+	if options.Info.Parent != "" { // this is the root node
+		search["_id"] = options.Info.Parent
+	}
+
+	r.populated = false
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
+	if options.Info.Parent != "" && len(r.Results) > 0 { // i.e. the parent fits the search criteria
+		err = r.findAllChildren(options.Info.Parent)
+	}
+	if err != nil && !db.ResultsNotFound(err) {
+		return errors.WithStack(err)
+	}
+	r.populated = true
+	return nil
+}
+
+func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string]interface{} {
+	search := db.Document{
+		"created_ts":   db.Document{"$gte": options.Interval.StartAt},
+		"completed_at": db.Document{"$lte": options.Interval.EndAt},
+	}
+	if options.Info.Project != "" {
+		search[bsonutil.GetDottedKeyName("info", "project")] = options.Info.Project
+	}
+	if options.Info.Version != "" {
+		search[bsonutil.GetDottedKeyName("info", "version")] = options.Info.Version
+	}
+	if options.Info.TaskName != "" {
+		search[bsonutil.GetDottedKeyName("info", "task_name")] = options.Info.TaskName
+	}
+	if options.Info.TaskID != "" {
+		search[bsonutil.GetDottedKeyName("info", "task_id")] = options.Info.TaskID
+	}
+	if options.Info.TestName != "" {
+		search[bsonutil.GetDottedKeyName("info", "test_name")] = options.Info.TestName
+	}
+	if options.Info.Execution != 0 {
+		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
+	}
+	if options.Info.Trial != 0 {
+		search[bsonutil.GetDottedKeyName("info", "trial")] = options.Info.Trial
+	}
+	if options.Info.Schema != 0 {
+		search[bsonutil.GetDottedKeyName("info", "schema")] = options.Info.Schema
+	}
+	if len(options.Info.Tags) > 0 {
+		search[bsonutil.GetDottedKeyName("info", "tags")] =
+			db.Document{"$in": options.Info.Tags}
+	}
+	for key, val := range options.Info.Arguments {
+		search[bsonutil.GetDottedKeyName("info", "args", key)] = val
+	}
+	return search
+}
+
+// All children of parent are recursively added to r.Results
+func (r *PerformanceResults) findAllChildren(parent string) error {
+	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+	temp := []PerformanceResult{}
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
+	r.Results = append(r.Results, temp...)
+	for _, result := range temp {
+		// look into that parent
+		err = r.findAllChildren(result.ID)
+	}
+	return err
 }
 
 ////////////////////////////////////////////////////////////////////////
