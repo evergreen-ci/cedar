@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/mongodb/curator/sthree"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
@@ -99,29 +101,39 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 	}
 	conf, err := j.env.GetConf()
 	if err != nil {
-		grip.Warning(err)
-		j.AddError(err)
+		j.AddError(errors.WithStack(err))
 		return
 	}
 
-	bucket := sthree.GetBucket(conf.BucketName)
+	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
+	if err != nil {
+		j.AddError(errors.WithStack(err))
+		return
+	}
 
 	buffer := bytes.NewBuffer([]byte{})
 	segments := logs.Slice()
+
 	var seg []byte
+	var reader io.ReadCloser
+
 	for _, log := range segments {
-		seg, err = bucket.Read(log.KeyName)
+		reader, err = bucket.Reader(ctx, log.KeyName)
 		if err != nil {
-			err = errors.Wrapf(err, "problem reading segment %s from bucket %s",
-				log.KeyName, bucket)
-			grip.Critical(err)
-			j.AddError(err)
-			return
+			j.AddError(errors.WithStack(err))
+			continue
+		}
+		defer reader.Close()
+
+		seg, err = ioutil.ReadAll(reader)
+		if err != nil {
+			j.AddError(errors.Wrapf(err, "problem reading segment %s from bucket %s",
+				log.KeyName, bucket))
+			continue
 		}
 		_, err = buffer.Write(seg)
 		if err != nil {
-			err = errors.Wrap(err, "problem writing data to buffer")
-			j.AddError(err)
+			j.AddError(errors.Wrap(err, "problem writing data to buffer"))
 			return
 		}
 
@@ -130,31 +142,19 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		}
 	}
 
-	err = errors.Wrap(bucket.Write(buffer.Bytes(), record.KeyName, ""),
-		"problem writing merged data to s3")
-	if err != nil {
-		grip.Error(err)
+	if err = errors.Wrap(bucket.Put(ctx, record.KeyName, buffer), "problem writing merged data to s3"); err != nil {
 		j.AddError(err)
 		return
 	}
 
-	catcher := grip.NewCatcher()
 	for _, log := range segments {
-		err = errors.Wrap(bucket.Delete(log.KeyName), "problem deleting segment from logs")
-		if err != nil {
-			catcher.Add(err)
+		if err = errors.Wrap(bucket.Remove(ctx, log.KeyName), "problem deleting segment from logs"); err != nil {
 			j.AddError(err)
 			continue
 		}
 
-		catcher.Add(log.Remove())
+		j.AddError(log.Remove())
 	}
-	grip.Info(catcher.Resolve())
 
-	err = errors.Wrapf(record.Save(), "problem saving master log record for %s", j.LogID)
-	if err != nil {
-		grip.Critical(err)
-		j.AddError(err)
-		return
-	}
+	j.AddError(errors.Wrapf(record.Save(), "problem saving master log record for %s", j.LogID))
 }
