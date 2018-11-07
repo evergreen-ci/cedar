@@ -116,6 +116,7 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	options.Info.Arguments = make(map[string]int32)
 	options.Info.Arguments["timeout"] = 12
 	options.Info.Arguments["something"] = 24
+
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].Info.Version, "1")
