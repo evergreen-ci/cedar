@@ -21,11 +21,11 @@ import (
 const perfResultCollection = "perf_results"
 
 type PerformanceResult struct {
-	ID          string                `bson:"_id"`
-	Info        PerformanceResultInfo `bson:"info"`
+	ID          string                `bson:"_id,omitempty"`
+	Info        PerformanceResultInfo `bson:"info,omitempty"`
 	CreatedAt   time.Time             `bson:"created_ts"`
 	CompletedAt time.Time             `bson:"completed_at"`
-	Version     int                   `bson:"version"`
+	Version     int                   `bson:"version,omitempty"`
 
 	// The source timeseries data is stored in a remote location,
 	// we'll probably need to store an identifier so we know which
@@ -124,17 +124,17 @@ func (result *PerformanceResult) Save() error {
 // Component Types
 
 type PerformanceResultInfo struct {
-	Project   string           `bson:"project"`
-	Version   string           `bson:"version"`
-	TaskName  string           `bson:"task_name"`
-	TaskID    string           `bson:"task_id"`
-	Execution int              `bson:"execution"`
-	TestName  string           `bson:"test_name"`
-	Trial     int              `bson:"trial"`
-	Parent    string           `bson:"parent"`
-	Tags      []string         `bson:"tags"`
-	Arguments map[string]int32 `bson:"args"`
-	Schema    int              `bson:"schema"`
+	Project   string           `bson:"project,omitempty"`
+	Version   string           `bson:"version,omitempty"`
+	TaskName  string           `bson:"task_name,omitempty"`
+	TaskID    string           `bson:"task_id,omitempty"`
+	Execution int              `bson:"execution,omitempty"`
+	TestName  string           `bson:"test_name,omitempty"`
+	Trial     int              `bson:"trial,omitempty"`
+	Parent    string           `bson:"parent,omitempty"`
+	Tags      []string         `bson:"tags,omitempty"`
+	Arguments map[string]int32 `bson:"args,omitempty"`
+	Schema    int              `bson:"schema,omitempty"`
 }
 
 var (
@@ -261,8 +261,12 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 		search[bsonutil.GetDottedKeyName("info", "tags")] =
 			db.Document{"$in": options.Info.Tags}
 	}
-	for key, val := range options.Info.Arguments {
-		search[bsonutil.GetDottedKeyName("info", "args", key)] = val
+	if len(options.Info.Arguments) > 0 {
+		var args []db.Document
+		for key, val := range options.Info.Arguments {
+			args = append(args, db.Document{key: val})
+		}
+		search[bsonutil.GetDottedKeyName("info", "args")] = db.Document{"$in": args}
 	}
 	return search
 }

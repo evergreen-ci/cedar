@@ -112,10 +112,10 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	options.Info = PerformanceResultInfo{}
 	options.Info.Trial = 10
 	s.Len(s.r.Results, 1)
-
 	options.Info = PerformanceResultInfo{}
 	options.Info.Arguments = make(map[string]int32)
 	options.Info.Arguments["timeout"] = 12
+	options.Info.Arguments["something"] = 24
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].Info.Version, "1")
@@ -157,7 +157,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
-	s.Len(s.r.Results, 4)
+	s.Require().Len(s.r.Results, 4)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
