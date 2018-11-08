@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/evergreen-ci/sink"
@@ -47,7 +48,9 @@ func (s *perfRollupSuite) TestSetupTestIsValid() {
 	}
 	filter := bson.M{"rollups.version": 1, "rollups.name": 1, "_id": 0}
 
-	out := perfRollupEntries{}
+	out := struct {
+		Rollups perfRollupEntries `bson:"rollups"`
+	}{}
 	err = c.Find(search).Select(filter).One(&out)
 	s.Require().NoError(err)
 	s.Len(out.Rollups, 4)
@@ -170,13 +173,16 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		"rollups.name": "mean",
 	}
 	filter := bson.M{"rollups": 1, "_id": 0}
-	out := perfRollupEntries{}
+	out := struct {
+		Rollups perfRollupEntries `bson:"rollups"`
+	}{}
 	err = c.Find(search).Select(filter).One(&out)
 	s.Require().NoError(err)
 	s.Require().Len(out.Rollups, 1)
 	s.Equal(out.Rollups[0].Version, 4)
 	s.Equal(out.Rollups[0].Value, 12.24)
 
+	fmt.Println("Problem test")
 	err = s.r.Add("mean", 3, 24.12) // should fail with older version
 	s.Error(err)
 
@@ -185,7 +191,6 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(24.12, val)
-	out = perfRollupEntries{}
 	err = c.Find(search).Select(filter).One(&out)
 	s.Require().NoError(err)
 	s.Require().Len(out.Rollups, 1)

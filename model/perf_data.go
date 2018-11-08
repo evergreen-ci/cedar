@@ -1,9 +1,11 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
@@ -12,14 +14,11 @@ import (
 )
 
 const (
-	idField           = "_id"
-	rollupsField      = "rollups"
-	rollupNameField   = "rollups.name"
-	rollupVerField    = "rollups.version"
-	newRollupVal      = "rollups.$.val"
-	newRollupVer      = "rollups.$.version"
-	pushNewRollup     = "$push"
-	setExistingRollup = "$set"
+	idField      = "_id"
+	rollupsField = "rollups"
+	nameField    = "name"
+	verField     = "version"
+	valField     = "val"
 )
 
 type PerfRollupValue struct {
@@ -54,9 +53,7 @@ type PerfRollups struct {
 	env       sink.Environment
 }
 
-type perfRollupEntries struct {
-	Rollups []PerfRollupValue `bson:"rollups"`
-}
+type perfRollupEntries []PerfRollupValue
 
 func (v *PerfRollupValue) getIntLong() (int64, error) {
 	if val, ok := v.Value.(int64); ok {
@@ -81,15 +78,7 @@ func (r *PerfRollups) Setup(env sink.Environment) {
 }
 
 func (r *PerfRollups) Add(name string, version int, value interface{}) error {
-<<<<<<< HEAD
 	if !r.populated {
-=======
-<<<<<<< HEAD
-	if r.populated == false {
-=======
-	if !r.populated {
->>>>>>> MAKE-499 edit new rollup model
->>>>>>> MAKE-499 edit new rollup model
 		return errors.New("rollups have not been populated")
 	}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
@@ -100,33 +89,32 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error {
 	// 1) If in database, check version and make sure passed in version isn't older (if so, done)
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	search := bson.M{
-		idField:         r.id,
-		rollupNameField: name,
+		idField: r.id,
+		bsonutil.GetDottedKeyName(rollupsField, nameField): name,
 	}
-
-	out := perfRollupEntries{}
 	rollup := PerfRollupValue{
 		Name:    name,
 		Version: version,
 		Value:   value,
 	}
-	err = c.Find(search).Select(bson.M{rollupVerField: 1, rollupNameField: 1}).One(&out)
+	selection := bson.M{
+		bsonutil.GetDottedKeyName(rollupsField, verField):  1,
+		bsonutil.GetDottedKeyName(rollupsField, nameField): 1,
+	}
+
+	out := struct {
+		Rollups perfRollupEntries `bson:"rollups"`
+	}{}
+	err = c.Find(search).Select(selection).One(&out)
 	if err != nil {
 		if err != mgo.ErrNotFound {
 			return errors.Wrap(err, "error finding entry")
 		}
 		// entry DNE, add entry
-		insert := bson.M{rollupsField: rollup}
-		search = bson.M{idField: r.id}
-		err = c.Update(search, bson.M{pushNewRollup: insert})
-		if err != nil {
-			return errors.Wrap(err, "error pushing new entry")
-		}
-		r.DefaultStats = append(r.DefaultStats, rollup)
-		r.Count++
-		return nil
+		return r.insertNewEntry(search, rollup)
 	}
 	// update existing entry
+	fmt.Println("Update existing entry")
 	for _, entry := range out.Rollups {
 		if entry.Name == name {
 			if entry.Version > version {
@@ -135,31 +123,46 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error {
 			break
 		}
 	}
+	return r.updateExistingEntry(search, rollup)
+}
+
+func (r *PerfRollups) insertNewEntry(search map[string]interface{}, rollup PerfRollupValue) error {
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.Wrap(err, "error connecting")
+	}
+	defer session.Close()
+
+	insert := bson.M{rollupsField: rollup}
+	search = bson.M{idField: r.id}
+	c := session.DB(conf.DatabaseName).C(perfResultCollection)
+	err = c.Update(search, bson.M{"$push": insert})
+	if err != nil {
+		return errors.Wrap(err, "error pushing new entry")
+	}
+	r.DefaultStats = append(r.DefaultStats, rollup)
+	r.Count++
+	return nil
+}
+func (r *PerfRollups) updateExistingEntry(search map[string]interface{}, rollup PerfRollupValue) error {
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.Wrap(err, "error connecting")
+	}
+	defer session.Close()
 	update := bson.M{
-		newRollupVal: value,
-		newRollupVer: version,
+		bsonutil.GetDottedKeyName(rollupsField, "$", valField): rollup.Value,
+		bsonutil.GetDottedKeyName(rollupsField, "$", verField): rollup.Version,
 	}
-<<<<<<< HEAD
-	err = c.Update(search, bson.M{setExistingRollup: update})
+	c := session.DB(conf.DatabaseName).C(perfResultCollection)
+	err = c.Update(search, bson.M{"$set": update})
 	if err != nil {
 		return errors.Wrap(err, "error updating an existing entry")
-=======
-<<<<<<< HEAD
-	err2 := c.Update(search, bson.M{setExistingRollup: update})
-	if err2 != nil {
-		return errors.Wrap(err2, "error updating an existing entry")
-=======
-	err = c.Update(search, bson.M{setExistingRollup: update})
-	if err != nil {
-		return errors.Wrap(err, "error updating an existing entry")
->>>>>>> MAKE-499 edit new rollup model
->>>>>>> MAKE-499 edit new rollup model
 	}
-	// update local entry
 	for i := range r.DefaultStats {
-		if r.DefaultStats[i].Name == name {
-			r.DefaultStats[i].Version = version
-			r.DefaultStats[i].Value = value
+		if r.DefaultStats[i].Name == rollup.Name {
+			r.DefaultStats[i].Version = rollup.Version
+			r.DefaultStats[i].Value = rollup.Value
 			return nil
 		}
 	}
