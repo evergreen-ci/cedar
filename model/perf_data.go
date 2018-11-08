@@ -114,7 +114,6 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error {
 		return r.insertNewEntry(search, rollup)
 	}
 	// update existing entry
-	fmt.Println("Update existing entry")
 	for _, entry := range out.Rollups {
 		if entry.Name == name {
 			if entry.Version > version {
