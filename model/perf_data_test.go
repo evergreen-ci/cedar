@@ -181,8 +181,6 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Require().Len(out.Rollups, 1)
 	s.Equal(out.Rollups[0].Version, 4)
 	s.Equal(out.Rollups[0].Value, 12.24)
-
-	fmt.Println("Problem test")
 	err = s.r.Add("mean", 3, 24.12) // should fail with older version
 	s.Error(err)
 
