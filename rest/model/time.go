@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/evergreen/util"
 	"github.com/pkg/errors"
 )
 
@@ -28,7 +27,7 @@ type APITime time.Time
 // Represents duration in milliseconds
 type APIDuration uint64
 
-var APIZeroTime APITime = APITime(util.ZeroTime.UTC())
+var APIZeroTime APITime = APITime(time.Unix(0, 0).UTC())
 
 // NewTime creates a new APITime from an existing time.Time. It handles changing
 // converting from the times time zone to UTC.
@@ -57,7 +56,7 @@ func (at *APITime) UnmarshalJSON(b []byte) error {
 // be correctly written out in an API response.
 func (at APITime) MarshalJSON() ([]byte, error) {
 	t := time.Time(at)
-	if util.IsZeroTime(t) {
+	if t.Equal(time.Unix(0, 0)) || t.IsZero() {
 		return []byte("null"), nil
 	}
 	return []byte(t.Format(APITimeFormat)), nil

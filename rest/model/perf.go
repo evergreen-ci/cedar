@@ -24,48 +24,34 @@ func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 		apiResult.CreatedAt = NewTime(r.CreatedAt)
 		apiResult.CompletedAt = NewTime(r.CompletedAt)
 		apiResult.Version = r.Version
+		apiResult.Info = getPerformanceResultID(r.Info)
 
-		apiInfo, err := getPerformanceResultID(r.Info)
-		if err != nil {
-			return errors.Wrap(err, "problem getting info")
-		}
-		apiResult.Info = apiInfo
+		total := getPerformancePoint(r.Total)
+		apiResult.Total = &total
+		rollups := getPerfRollups(r.Rollups)
+		apiResult.Rollups = &rollups
 
 		var apiSource []APIArtifactInfo
 		for _, artifactInfo := range r.Source {
-			apiArtifactInfo, err := getArtifactInfo(artifactInfo)
-			if err != nil {
-				return errors.Wrap(err, "problem getting source data")
-			}
+			apiArtifactInfo := getArtifactInfo(artifactInfo)
 			apiSource = append(apiSource, apiArtifactInfo)
 		}
 		apiResult.Source = apiSource
 
 		var apiAuxilaryData []APIArtifactInfo
 		for _, artifactInfo := range r.AuxilaryData {
-			apiArtifactInfo, err := getArtifactInfo(artifactInfo)
-			if err != nil {
-				return errors.Wrap(err, "problem getting auxilary data")
-			}
+			apiArtifactInfo := getArtifactInfo(artifactInfo)
 			apiAuxilaryData = append(apiAuxilaryData, apiArtifactInfo)
 		}
 		apiResult.AuxilaryData = apiAuxilaryData
-
-		total, err := getPerformancePoint(r.Total)
-		if err != nil {
-			return errors.Wrap(err, "problem getting total")
-		}
-		apiResult.Total = &total
-
-		rollups, err := getPerfRollups(r.Rollups)
-		if err != nil {
-			return errors.Wrap(err, "problems getting rollups")
-		}
-		apiResult.Rollups = &rollups
 	default:
 		return errors.New("incorrect type when fetching converting PerformanceResult type")
 	}
 	return nil
+}
+
+func (apiResult *APIPerformanceResult) Export(i interface{}) (interface{}, error) {
+	return nil, errors.Errorf("Export is not implemented for APIPerformanceResult")
 }
 
 type APIPerformanceResultID struct {
@@ -82,24 +68,19 @@ type APIPerformanceResultID struct {
 	Schema    int              `json:"schema"`
 }
 
-func getPerformanceResultID(i interface{}) (APIPerformanceResultID, error) {
-	switch r := i.(type) {
-	case dbmodel.PerformanceResultID:
-		return APIPerformanceResultID{
-			Project:   ToAPIString(r.Project),
-			Version:   ToAPIString(r.Version),
-			TaskName:  ToAPIString(r.TaskName),
-			TaskID:    ToAPIString(r.TaskID),
-			Execution: r.Execution,
-			TestName:  ToAPIString(r.TestName),
-			Trial:     r.Trial,
-			Parent:    ToAPIString(r.Parent),
-			Tags:      r.Tags,
-			Arguments: r.Arguments,
-			Schema:    r.Schema,
-		}, nil
-	default:
-		return APIPerformanceResultID{}, errors.New("incorrect type when fetching converting PerformanceResultID type")
+func getPerformanceResultID(r dbmodel.PerformanceResultID) APIPerformanceResultID {
+	return APIPerformanceResultID{
+		Project:   ToAPIString(r.Project),
+		Version:   ToAPIString(r.Version),
+		TaskName:  ToAPIString(r.TaskName),
+		TaskID:    ToAPIString(r.TaskID),
+		Execution: r.Execution,
+		TestName:  ToAPIString(r.TestName),
+		Trial:     r.Trial,
+		Parent:    ToAPIString(r.Parent),
+		Tags:      r.Tags,
+		Arguments: r.Arguments,
+		Schema:    r.Schema,
 	}
 }
 
@@ -112,19 +93,14 @@ type APIArtifactInfo struct {
 	Tags        []string  `json:"tags"`
 }
 
-func getArtifactInfo(i interface{}) (APIArtifactInfo, error) {
-	switch r := i.(type) {
-	case dbmodel.ArtifactInfo:
-		return APIArtifactInfo{
-			Type:        ToAPIString(string(r.Type)),
-			Bucket:      ToAPIString(r.Bucket),
-			Path:        ToAPIString(r.Path),
-			Format:      ToAPIString(string(r.Format)),
-			Compression: ToAPIString(string(r.Compression)),
-			Tags:        r.Tags,
-		}, nil
-	default:
-		return APIArtifactInfo{}, errors.New("incorrect type when fetching ArtifactInfo type")
+func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
+	return APIArtifactInfo{
+		Type:        ToAPIString(string(r.Type)),
+		Bucket:      ToAPIString(r.Bucket),
+		Path:        ToAPIString(r.Path),
+		Format:      ToAPIString(string(r.Format)),
+		Compression: ToAPIString(string(r.Compression)),
+		Tags:        r.Tags,
 	}
 }
 
@@ -148,37 +124,32 @@ type APIPerformancePoint struct {
 	} `json:"state"`
 }
 
-func getPerformancePoint(i interface{}) (APIPerformancePoint, error) {
-	switch r := i.(type) {
-	case *dbmodel.PerformancePoint:
-		return APIPerformancePoint{
-			Timestamp: NewTime(r.Timestamp),
-			Counters: struct {
-				Operations int64 `json:"ops"`
-				Size       int64 `json:"size"`
-				Errors     int64 `json:"errors"`
-			}{
-				Operations: r.Counters.Operations,
-				Size:       r.Counters.Size,
-				Errors:     r.Counters.Errors,
-			},
-			Timers: struct {
-				Duration APIDuration `json:"dur"`
-				Waiting  APIDuration `json:"wait"`
-			}{
-				Duration: NewAPIDuration(r.Timers.Duration),
-				Waiting:  NewAPIDuration(r.Timers.Waiting),
-			},
-			State: struct {
-				Workers int64 `json:"workers"`
-				Failed  bool  `json:"failed"`
-			}{
-				Workers: r.State.Workers,
-				Failed:  r.State.Failed,
-			},
-		}, nil
-	default:
-		return APIPerformancePoint{}, errors.New("incorrect type when fetching PerformancePoint type")
+func getPerformancePoint(r *dbmodel.PerformancePoint) APIPerformancePoint {
+	return APIPerformancePoint{
+		Timestamp: NewTime(r.Timestamp),
+		Counters: struct {
+			Operations int64 `json:"ops"`
+			Size       int64 `json:"size"`
+			Errors     int64 `json:"errors"`
+		}{
+			Operations: r.Counters.Operations,
+			Size:       r.Counters.Size,
+			Errors:     r.Counters.Errors,
+		},
+		Timers: struct {
+			Duration APIDuration `json:"dur"`
+			Waiting  APIDuration `json:"wait"`
+		}{
+			Duration: NewAPIDuration(r.Timers.Duration),
+			Waiting:  NewAPIDuration(r.Timers.Waiting),
+		},
+		State: struct {
+			Workers int64 `json:"workers"`
+			Failed  bool  `json:"failed"`
+		}{
+			Workers: r.State.Workers,
+			Failed:  r.State.Failed,
+		},
 	}
 }
 
@@ -196,50 +167,34 @@ type APIPerfRollupValue struct {
 	Version int         `json:"version"`
 }
 
-func getPerfRollups(i interface{}) (APIPerfRollups, error) {
-	switch r := i.(type) {
-	case dbmodel.PerfRollups:
-		rollups := APIPerfRollups{
-			ProcessedAt: NewTime(r.ProcessedAt),
-			Count:       r.Count,
-			Valid:       r.Valid,
-		}
-
-		var apiDefaultStats []APIPerfRollupValue
-		for _, defaultStat := range r.DefaultStats {
-			apiDefaultStat, err := getPerfRollupValue(defaultStat)
-			if err != nil {
-				return APIPerfRollups{}, errors.Wrap(err, "problem getting PerfRollups type")
-			}
-			apiDefaultStats = append(apiDefaultStats, apiDefaultStat)
-		}
-		rollups.DefaultStats = apiDefaultStats
-
-		var apiUserStats []APIPerfRollupValue
-		for _, userStat := range r.UserStats {
-			apiUserStat, err := getPerfRollupValue(userStat)
-			if err != nil {
-				return APIPerfRollups{}, errors.Wrap(err, "problem getting PerfRollups type")
-			}
-			apiUserStats = append(apiUserStats, apiUserStat)
-		}
-		rollups.UserStats = apiUserStats
-
-		return rollups, nil
-	default:
-		return APIPerfRollups{}, errors.New("incorrect type when fetching PerfRollups type")
+func getPerfRollups(r *dbmodel.PerfRollups) APIPerfRollups {
+	rollups := APIPerfRollups{
+		ProcessedAt: NewTime(r.ProcessedAt),
+		Count:       r.Count,
+		Valid:       r.Valid,
 	}
+
+	var apiDefaultStats []APIPerfRollupValue
+	for _, defaultStat := range r.DefaultStats {
+		apiDefaultStat := getPerfRollupValue(defaultStat)
+		apiDefaultStats = append(apiDefaultStats, apiDefaultStat)
+	}
+	rollups.DefaultStats = apiDefaultStats
+
+	var apiUserStats []APIPerfRollupValue
+	for _, userStat := range r.UserStats {
+		apiUserStat := getPerfRollupValue(userStat)
+		apiUserStats = append(apiUserStats, apiUserStat)
+	}
+	rollups.UserStats = apiUserStats
+
+	return rollups
 }
 
-func getPerfRollupValue(i interface{}) (APIPerfRollupValue, error) {
-	switch r := i.(type) {
-	case dbmodel.PerfRollupValue:
-		return APIPerfRollupValue{
-			Name:    ToAPIString(r.Name),
-			Value:   r.Value,
-			Version: r.Version,
-		}, nil
-	default:
-		return APIPerfRollupValue{}, errors.New("incorrect type when fetching PerfRollupValue type")
+func getPerfRollupValue(r dbmodel.PerfRollupValue) APIPerfRollupValue {
+	return APIPerfRollupValue{
+		Name:    ToAPIString(r.Name),
+		Value:   r.Value,
+		Version: r.Version,
 	}
 }
