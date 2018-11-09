@@ -6,11 +6,13 @@ import (
 	"encoding/binary"
 )
 
+func getOffset(count, sample, metric int) int { return metric*count + sample }
+
 func undelta(value int64, deltas []int64) []int64 {
-	out := make([]int64, len(deltas))
+	out := make([]int64, len(deltas)+1)
+	out[0] = value
 	for idx, delta := range deltas {
-		out[idx] = value + delta
-		value = out[idx]
+		out[idx+1] = out[idx] + delta
 	}
 	return out
 }
