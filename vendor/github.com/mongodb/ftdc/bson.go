@@ -280,7 +280,8 @@ func extractMetricsFromArray(array *bson.Array) ([]int64, error) {
 }
 
 func extractMetricsFromValue(val *bson.Value) ([]int64, error) {
-	switch val.Type() {
+	btype := val.Type()
+	switch btype {
 	case bson.TypeObjectID:
 		return nil, nil
 	case bson.TypeString:
@@ -308,7 +309,6 @@ func extractMetricsFromValue(val *bson.Value) ([]int64, error) {
 		return []int64{val.Time().Unix()}, nil
 	case bson.TypeTimestamp:
 		t, i := val.Timestamp()
-
 		return []int64{int64(t), int64(i)}, nil
 	default:
 		return nil, nil
