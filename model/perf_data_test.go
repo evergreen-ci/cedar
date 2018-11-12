@@ -165,7 +165,8 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	s.r.Add("mean", 4, 12.24)
+	err = s.r.Add("mean", 4, 12.24)
+	s.NoError(err)
 
 	search := bson.M{
 		"_id":          s.r.id,
