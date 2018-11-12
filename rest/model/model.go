@@ -4,5 +4,5 @@ package model
 // interface.
 type Model interface {
 	Import(interface{}) error
-	Export(interface{}) (interface{}, error)
+	Export() (interface{}, error)
 }
