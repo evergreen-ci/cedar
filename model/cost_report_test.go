@@ -296,14 +296,14 @@ func TestCostDataStructures(t *testing.T) {
 			item.FixedPrice = 5
 			item.Launched = 3
 			item.Terminated = 0
-			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(-time.Hour + time.Second)}
+			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour + time.Second)}
 			assert.InDelta(t, 15.0, item.GetCost(tr), 0.1)
 		},
 		"UnspecifiedAverageUptimeAveragePrices": func(t *testing.T, item *ServiceItem) {
 			item.AvgPrice = 8
 			item.Launched = 2
 			item.Terminated = 0
-			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(-time.Hour + time.Second)}
+			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour + time.Second)}
 			assert.InDelta(t, 16.0, item.GetCost(tr), 0.1)
 		},
 		"UnspecifiedButNoReportDuration": func(t *testing.T, item *ServiceItem) {
@@ -316,9 +316,8 @@ func TestCostDataStructures(t *testing.T) {
 			item.AvgPrice = 10
 			item.Launched = 0
 			item.Terminated = -1
-
 			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour)}
-			assert.Equal(t, 0.0, item.GetCost(tr))
+			assert.InDelta(t, 10.0, item.GetCost(tr), .01)
 		},
 		"TotalHousSpecifiedButNoPrice": func(t *testing.T, item *ServiceItem) {
 			item.TotalHours = 4
