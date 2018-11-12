@@ -34,8 +34,8 @@ type PerfRollups struct {
 	Count       int       `bson:"count"`
 	Valid       bool      `bson:"valid"`
 
-	dirty     bool
-	populated bool
+	dirty     bool // nolint
+	populated bool // nolint
 	env       sink.Environment
 }
 
