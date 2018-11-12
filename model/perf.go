@@ -123,6 +123,53 @@ func (result *PerformanceResult) Save() error {
 	return errors.Wrap(err, "problem saving perf result to collection")
 }
 
+func (result *PerformanceResult) FindAllSubtests(maxDepth int) ([]*PerformanceResult, error) {
+	if !result.populated {
+		if err := result.Find(); err != nil {
+			return nil, errors.Wrap(err, "problem finding subtests")
+		}
+	}
+
+	conf, session, err := sink.GetSessionWithConfig(result.env)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer session.Close()
+
+	subtests := make([]*PerformanceResult)
+	seen := make(map[string]int)
+	queue := make([]*PerformanceResult)
+
+	queue = append(queue, result)
+	seen[result.ID] = 0
+	childResult := PerformanceResult{}
+
+	for len(queue) != 0 {
+		nextResult = queue[0]
+		queue = queue[1:]
+		currentDepth := seen[nextResult.ID] + 1
+		if currentDepth == maxDepth {
+			continue
+		}
+		// TODO: Check this filter.
+		filter := map[string]string{"Info.Parent": nextResult.ID}
+		iter, err := session.DB(conf.DatabaseName).C(perfResultCollection).Find(filter).Iter()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem finding subtests")
+		}
+		for iter.Next(childResult) {
+			subtests = append(subtests, &childResult)
+			queue = append(subtests, &childResult)
+			seen[childResult.ID] = currentDepth
+			childResult = PerformanceResult{}
+		}
+		if iter.Err() != nil {
+			return nil, errors.Wrap(err, "problem finding subtests")
+		}
+	}
+	return subtests, nil
+}
+
 ////////////////////////////////////////////////////////////////////////
 //
 // Component Types
