@@ -158,18 +158,18 @@ func (id *PerformanceResultID) ID() string {
 
 	if id.Schema == 0 {
 		hash = sha1.New()
-		io.WriteString(hash, id.Project)
-		io.WriteString(hash, id.Version)
-		io.WriteString(hash, id.TaskName)
-		io.WriteString(hash, id.TaskID)
-		io.WriteString(hash, fmt.Sprint(id.Execution))
-		io.WriteString(hash, id.TestName)
-		io.WriteString(hash, fmt.Sprint(id.Trial))
-		io.WriteString(hash, id.Parent)
+		_, _ = io.WriteString(hash, id.Project)
+		_, _ = io.WriteString(hash, id.Version)
+		_, _ = io.WriteString(hash, id.TaskName)
+		_, _ = io.WriteString(hash, id.TaskID)
+		_, _ = io.WriteString(hash, fmt.Sprint(id.Execution))
+		_, _ = io.WriteString(hash, id.TestName)
+		_, _ = io.WriteString(hash, fmt.Sprint(id.Trial))
+		_, _ = io.WriteString(hash, id.Parent)
 
 		sort.Strings(id.Tags)
 		for _, str := range id.Tags {
-			io.WriteString(hash, str)
+			_, _ = io.WriteString(hash, str)
 		}
 
 		if len(id.Arguments) > 0 {
@@ -180,7 +180,7 @@ func (id *PerformanceResultID) ID() string {
 
 			sort.Strings(args)
 			for _, str := range args {
-				io.WriteString(hash, str)
+				_, _ = io.WriteString(hash, str)
 			}
 		}
 	} else {

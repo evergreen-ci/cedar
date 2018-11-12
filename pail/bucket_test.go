@@ -49,11 +49,12 @@ func cleanUpS3Bucket(name, prefix, region string) error {
 		Delete: &s3.Delete{},
 	}
 	catcher := grip.NewCatcher()
+	var result *s3.ListObjectsOutput
 	for {
 		listInput := &s3.ListObjectsInput{
 			Bucket: aws.String(name),
 		}
-		result, err := svc.ListObjects(listInput)
+		result, err = svc.ListObjects(listInput)
 		if err != nil {
 			catcher.Add(errors.Wrap(err, "clean up failed"))
 			continue
