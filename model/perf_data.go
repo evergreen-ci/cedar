@@ -113,7 +113,7 @@ type PerformanceMetricSummary struct {
 	TotalTime struct {
 		Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
 		Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
-	} `bson:"timers" json:"timers" yaml:"timers"`
+	} `bson:"total_time" json:"total_time" yaml:"total_time"`
 
 	State struct {
 		Workers float64 `bson:"workers" json:"workers" yaml:"workers"`
