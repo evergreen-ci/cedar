@@ -246,7 +246,7 @@ func (r *PerfRollups) MapFloat() map[string]float64 {
 // PerformanceStatistics is an intermediate form used to calculate
 // statistics from a sequence of reports. It is never persisted to the
 // database, but provides access to application level aggregations.
-type PerformanceStatistics struct {
+type performanceStatistics struct {
 	counters struct {
 		operations stats.Float64Data
 		size       stats.Float64Data
@@ -311,8 +311,8 @@ type PerformanceTimeSeries []PerformancePoint
 
 // statistics converts a a series into an intermediate format that we
 // can use to calculate means/totals/etc to create default rollups
-func (ts PerformanceTimeSeries) statistics() (PerformanceStatistics, error) {
-	out := PerformanceStatistics{
+func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
+	out := performanceStatistics{
 		samples: len(ts),
 	}
 
@@ -352,7 +352,7 @@ func (ts PerformanceTimeSeries) statistics() (PerformanceStatistics, error) {
 	return out, nil
 }
 
-func (perf *PerformanceStatistics) mean() (performanceMetricSummary, error) {
+func (perf *performanceStatistics) mean() (performanceMetricSummary, error) {
 	var err error
 	catcher := grip.NewBasicCatcher()
 	out := performanceMetricSummary{
@@ -378,15 +378,15 @@ func (perf *PerformanceStatistics) mean() (performanceMetricSummary, error) {
 	return out, catcher.Resolve()
 }
 
-func (perf *PerformanceStatistics) p90() (performanceMetricSummary, error) {
+func (perf *performanceStatistics) p90() (performanceMetricSummary, error) {
 	return perf.percentile(90.0)
 }
 
-func (perf *PerformanceStatistics) p50() (performanceMetricSummary, error) {
+func (perf *performanceStatistics) p50() (performanceMetricSummary, error) {
 	return perf.percentile(50.0)
 }
 
-func (perf *PerformanceStatistics) percentile(pval float64) (performanceMetricSummary, error) {
+func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSummary, error) {
 	var err error
 	catcher := grip.NewBasicCatcher()
 	out := performanceMetricSummary{
