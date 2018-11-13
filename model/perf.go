@@ -16,6 +16,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const perfResultCollection = "perf_results"
@@ -123,53 +124,6 @@ func (result *PerformanceResult) Save() error {
 	return errors.Wrap(err, "problem saving perf result to collection")
 }
 
-func (result *PerformanceResult) FindAllSubtests(maxDepth int) ([]*PerformanceResult, error) {
-	if !result.populated {
-		if err := result.Find(); err != nil {
-			return nil, errors.Wrap(err, "problem finding subtests")
-		}
-	}
-
-	conf, session, err := sink.GetSessionWithConfig(result.env)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	defer session.Close()
-
-	subtests := make([]*PerformanceResult)
-	seen := make(map[string]int)
-	queue := make([]*PerformanceResult)
-
-	queue = append(queue, result)
-	seen[result.ID] = 0
-	childResult := PerformanceResult{}
-
-	for len(queue) != 0 {
-		nextResult = queue[0]
-		queue = queue[1:]
-		currentDepth := seen[nextResult.ID] + 1
-		if currentDepth == maxDepth {
-			continue
-		}
-		// TODO: Check this filter.
-		filter := map[string]string{"Info.Parent": nextResult.ID}
-		iter, err := session.DB(conf.DatabaseName).C(perfResultCollection).Find(filter).Iter()
-		if err != nil {
-			return nil, errors.Wrap(err, "problem finding subtests")
-		}
-		for iter.Next(childResult) {
-			subtests = append(subtests, &childResult)
-			queue = append(subtests, &childResult)
-			seen[childResult.ID] = currentDepth
-			childResult = PerformanceResult{}
-		}
-		if iter.Err() != nil {
-			return nil, errors.Wrap(err, "problem finding subtests")
-		}
-	}
-	return subtests, nil
-}
-
 ////////////////////////////////////////////////////////////////////////
 //
 // Component Types
@@ -247,6 +201,7 @@ type PerformanceResults struct {
 type PerfFindOptions struct {
 	Interval util.TimeRange
 	Info     PerformanceResultInfo
+	MaxDepth int
 }
 
 func (r *PerformanceResults) Setup(e sink.Environment) { r.env = e }
@@ -270,7 +225,7 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	r.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
 	if options.Info.Parent != "" && len(r.Results) > 0 { // i.e. the parent fits the search criteria
-		err = r.findAllChildren(options.Info.Parent)
+		err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
 	}
 	if err != nil && !db.ResultsNotFound(err) {
 		return errors.WithStack(err)
@@ -323,21 +278,50 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 }
 
 // All children of parent are recursively added to r.Results
-func (r *PerformanceResults) findAllChildren(parent string) error {
-	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
+func (r *PerformanceResults) findAllChildren(parent string, maxDepth int) error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
-	temp := []PerformanceResult{}
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
-	r.Results = append(r.Results, temp...)
-	for _, result := range temp {
-		// look into that parent
-		err = r.findAllChildren(result.ID)
+
+	match := bson.M{"$match": bson.M{"_id": parent}}
+	graphLookup := bson.M{
+		"$graphLookup": bson.M{
+			"from":             perfResultCollection,
+			"startWith":        "$" + bsonutil.GetDottedKeyName("info", "parent"),
+			"connectFromField": bsonutil.GetDottedKeyName("info", "parent"),
+			"connectToField":   "_id",
+			"maxDepth":         maxDepth,
+			"as":               "children",
+		},
 	}
-	return err
+	//project := bson.M{"$project": bson.M{"_id": 0, "children": 1}}
+	//unwind := bson.M{"$unwind": "$children"}
+	pipeline := []bson.M{
+		match,
+		graphLookup,
+	}
+	pipe := session.DB(conf.DatabaseName).C(perfResultCollection).Pipe(pipeline)
+	iter := pipe.Iter()
+	defer iter.Close()
+
+	type iterDoc struct {
+		children []PerformanceResult
+
+		PerformanceResult
+	}
+
+	doc := iterDoc{}
+	for iter.Next(&doc) {
+		//r.Results = append(r.Results, doc.Child)
+		fmt.Println(doc.children)
+		doc = iterDoc{}
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Wrap(err, "problem getting children")
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////

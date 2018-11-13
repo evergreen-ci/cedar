@@ -71,6 +71,7 @@ func (s *perfResultSuite) TestFindResultsByTimeInterval() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*48),
+		MaxDepth: 5,
 	}
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
@@ -95,6 +96,7 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*72),
+		MaxDepth: 5,
 	}
 	options.Info.Version = "1"
 	s.NoError(s.r.Find(options))
@@ -155,6 +157,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*72),
+		MaxDepth: 5,
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
