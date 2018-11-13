@@ -315,6 +315,7 @@ type PerformancePoint struct {
 	// of things since the last collection point. These values are
 	// used in computing various kinds of throughput measurements.
 	Counters struct {
+		Number     int64 `bson:"n" json:"n" yaml:"n"`
 		Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
 		Size       int64 `bson:"size" json:"size" yaml:"size"`
 		Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
@@ -325,15 +326,16 @@ type PerformancePoint struct {
 	// last data point.
 	Timers struct {
 		Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-		Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
+		Total    time.Duration `bson:"total" json:"total" yaml:"total"`
 	} `bson:"timers" json:"timers" yaml:"timers"`
 
 	// The State document holds simple counters that aren't
 	// expected to change between points, but are useful as
 	// annotations of the experiment or descriptions of events in
 	// the system configuration.
-	State struct {
+	Guages struct {
+		State   int64 `bson:"state" json:"state" yaml:"state"`
 		Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
 		Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
-	} `bson:"state" json:"state" yaml:"state"`
+	} `bson:"guages" json:"guages" yaml:"guages"`
 }

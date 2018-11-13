@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -14,7 +15,7 @@ import (
 //
 // Helpers for parsing the timeseries data from a metrics payload
 
-func flattenDocument(path []string, d *bson.Document) []Metric {
+func metricForDocument(path []string, d *bson.Document) []Metric {
 	iter := d.Iterator()
 	o := []Metric{}
 
@@ -27,7 +28,7 @@ func flattenDocument(path []string, d *bson.Document) []Metric {
 	return o
 }
 
-func flattenArray(key string, path []string, a *bson.Array) []Metric {
+func metricForArray(key string, path []string, a *bson.Array) []Metric {
 	if a == nil {
 		return []Metric{}
 	}
@@ -52,12 +53,12 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 	case bson.TypeDecimal128:
 		return []Metric{}
 	case bson.TypeArray:
-		return flattenArray(key, path, val.MutableArray())
+		return metricForArray(key, path, val.MutableArray())
 	case bson.TypeEmbeddedDocument:
 		path = append(path, key)
 
 		o := []Metric{}
-		for _, ne := range flattenDocument(path, val.MutableDocument()) {
+		for _, ne := range metricForDocument(path, val.MutableDocument()) {
 			o = append(o, Metric{
 				ParentPath:    path,
 				KeyName:       ne.KeyName,
@@ -117,7 +118,7 @@ func metricForType(key string, path []string, val *bson.Value) []Metric {
 			{
 				ParentPath:    path,
 				KeyName:       key,
-				startingValue: val.Time().Unix() * 1000,
+				startingValue: epochMs(val.Time()),
 				originalType:  val.Type(),
 			},
 		}
@@ -221,7 +222,7 @@ func rehydrateElement(ref *bson.Element, sample int, metrics []Metric, idx int) 
 	case bson.TypeInt64:
 		return bson.EC.Int64(ref.Key(), metrics[idx].Values[sample]), idx + 1
 	case bson.TypeDateTime:
-		return bson.EC.DateTime(ref.Key(), metrics[idx].Values[sample]), idx + 1
+		return bson.EC.Time(ref.Key(), timeEpocMs(metrics[idx].Values[sample])), idx + 1
 	case bson.TypeTimestamp:
 		return bson.EC.Timestamp(ref.Key(), uint32(metrics[idx].Values[sample]), uint32(metrics[idx+1].Values[sample])), idx + 2
 	default:
@@ -306,7 +307,7 @@ func extractMetricsFromValue(val *bson.Value) ([]int64, error) {
 	case bson.TypeInt64:
 		return []int64{val.Int64()}, nil
 	case bson.TypeDateTime:
-		return []int64{val.Time().Unix()}, nil
+		return []int64{epochMs(val.Time())}, nil
 	case bson.TypeTimestamp:
 		t, i := val.Timestamp()
 		return []int64{int64(t), int64(i)}, nil
@@ -407,4 +408,12 @@ func isNum(num int, val *bson.Value) bool {
 	default:
 		return false
 	}
+}
+
+func epochMs(t time.Time) int64 {
+	return t.UnixNano() / 1000000
+}
+
+func timeEpocMs(in int64) time.Time {
+	return time.Unix(int64(in)/1000, int64(in)%1000*1000000)
 }

@@ -259,7 +259,7 @@ type PerformanceStatistics struct {
 
 	timers struct {
 		duration stats.Float64Data
-		waiting  stats.Float64Data
+		total    stats.Float64Data
 	}
 
 	totalTime struct {
@@ -295,7 +295,7 @@ type PerformanceMetricSummary struct {
 
 	Timers struct {
 		Duration float64 `bson:"dur" json:"dur" yaml:"dur"`
-		Waiting  float64 `bson:"wait" json:"wait" yaml:"wait"`
+		Total    float64 `bson:"wait" json:"wait" yaml:"wait"`
 	} `bson:"timers" json:"timers" yaml:"timers"`
 
 	TotalTime struct {
@@ -303,7 +303,7 @@ type PerformanceMetricSummary struct {
 		Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
 	} `bson:"total_time" json:"total_time" yaml:"total_time"`
 
-	State struct {
+	Guages struct {
 		Workers float64 `bson:"workers" json:"workers" yaml:"workers"`
 		Failed  bool    `bson:"failed" json:"failed" yaml:"failed"`
 	} `bson:"state" json:"state" yaml:"state"`
@@ -347,13 +347,13 @@ func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 		out.counters.operations[idx] = float64(point.Counters.Operations)
 		out.counters.size[idx] = float64(point.Counters.Size)
 		out.counters.errors[idx] = float64(point.Counters.Errors)
-		out.state.workers[idx] = float64(point.State.Workers)
+		out.state.workers[idx] = float64(point.Guages.Workers)
 
 		out.totalCount.errors += point.Counters.Errors
 		out.totalCount.operations += point.Counters.Operations
 		out.totalCount.size += point.Counters.Size
 
-		if point.State.Failed {
+		if point.Guages.Failed {
 			out.state.failed = true
 		}
 
@@ -361,11 +361,11 @@ func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 		// should always be ignored.
 		if point.Timers.Duration > 0 {
 			out.timers.duration[idx] = float64(point.Timers.Duration)
-			out.totalTime.duration += point.Timers.Duration
-		}
-		if point.Timers.Waiting > 0 {
-			out.timers.waiting[idx] = float64(point.Timers.Waiting)
 			out.totalTime.waiting += point.Timers.Duration
+		}
+		if point.Timers.Total > 0 {
+			out.timers.total[idx] = float64(point.Timers.Total)
+			out.totalTime.duration += point.Timers.Total
 		}
 	}
 
@@ -386,7 +386,7 @@ func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
 	out.TotalCount.Size = perf.totalCount.size
 	out.TotalCount.Operations = perf.totalCount.operations
 
-	out.State.Failed = perf.state.failed
+	out.Guages.Failed = perf.state.failed
 
 	out.Counters.Size, err = perf.counters.size.Mean()
 	catcher.Add(err)
@@ -397,13 +397,13 @@ func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
 	out.Counters.Errors, err = perf.counters.errors.Mean()
 	catcher.Add(err)
 
-	out.State.Workers, err = perf.state.workers.Mean()
+	out.Guages.Workers, err = perf.state.workers.Mean()
 	catcher.Add(err)
 
 	out.Timers.Duration, err = perf.timers.duration.Mean()
 	catcher.Add(err)
 
-	out.Timers.Waiting, err = perf.timers.waiting.Mean()
+	out.Timers.Total, err = perf.timers.total.Mean()
 	catcher.Add(err)
 
 	return out, catcher.Resolve()
@@ -425,7 +425,7 @@ func (perf *PerformanceStatistics) percentile(pval float64) (PerformanceMetricSu
 		Span:    perf.span,
 	}
 
-	out.State.Failed = perf.state.failed
+	out.Guages.Failed = perf.state.failed
 	out.TotalTime.Duration = perf.totalTime.duration
 	out.TotalTime.Waiting = perf.totalTime.waiting
 	out.TotalCount.Errors = perf.totalCount.errors
@@ -441,13 +441,13 @@ func (perf *PerformanceStatistics) percentile(pval float64) (PerformanceMetricSu
 	out.Counters.Errors, err = perf.counters.errors.Percentile(pval)
 	catcher.Add(err)
 
-	out.State.Workers, err = perf.state.workers.Percentile(pval)
+	out.Guages.Workers, err = perf.state.workers.Percentile(pval)
 	catcher.Add(err)
 
 	out.Timers.Duration, err = perf.timers.duration.Percentile(pval)
 	catcher.Add(err)
 
-	out.Timers.Waiting, err = perf.timers.waiting.Percentile(pval)
+	out.Timers.Total, err = perf.timers.total.Percentile(pval)
 	catcher.Add(err)
 
 	return out, catcher.Resolve()
