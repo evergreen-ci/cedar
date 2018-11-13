@@ -2,6 +2,7 @@ package model
 
 import (
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/sink"
 	"github.com/stretchr/testify/suite"
@@ -214,4 +215,61 @@ func (s *perfRollupSuite) TestValidate() {
 	s.r.Count++
 	err = s.r.Validate()
 	s.Error(err)
+}
+
+func initializeTS() PerformanceTimeSeries {
+	point1 := PerformancePoint{Timestamp: time.Date(2018, 10, 15, 8, 0, 0, 0, time.Local)}
+	point2 := PerformancePoint{Timestamp: point1.Timestamp.Add(time.Minute)}
+	point3 := PerformancePoint{Timestamp: point2.Timestamp.Add(time.Minute)}
+	point1.Timers.Duration = time.Hour
+	point2.Timers.Duration = time.Hour
+	point3.Timers.Duration = time.Hour
+	point1.Counters.Operations = 200
+	point2.Counters.Operations = 400
+	point3.Counters.Operations = 600
+	point1.Counters.Size = 1000
+	point2.Counters.Size = 2000
+	point3.Counters.Size = 3000
+	point1.Counters.Errors = 400
+	point2.Counters.Errors = 300
+	point3.Counters.Errors = 200
+
+	return []PerformancePoint{point1, point2, point3}
+}
+
+func (s *perfRollupSuite) TestUpdateDefaultRollups() {
+	r := new(PerfRollups)
+	r.Setup(sink.GetEnvironment())
+	r.populated = true
+	r.id = "345"
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	s.Require().NoError(err)
+	defer session.Close()
+
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(bson.M{"_id": r.id})
+	s.Require().NoError(err)
+
+	ts := initializeTS()
+	result := PerformanceResult{
+		Rollups: r,
+	}
+	s.NoError(result.UpdateDefaultRollups(ts))
+
+	rollups := r.MapFloat()
+	span := (2 * time.Minute).Seconds()
+	s.Require().Len(rollups, 12)
+	s.Equal((3 * time.Hour).Seconds(), rollups["totalTime"])
+	s.Equal(3.0, rollups["totalSamples"])
+	s.Equal(300.0/span, rollups["errorRate_mean"])
+
+	// test update of previous rollup
+	ts[0].Counters.Size = 10000
+	s.NoError(result.UpdateDefaultRollups(ts))
+	rollups2 := r.MapFloat()
+	s.Len(rollups2, 12)
+	s.Equal(rollups["errorRate_mean"], rollups2["errorRate_mean"])
+	s.NotEqual(rollups["throughputSize_mean"], rollups2["throughputSize_mean"])
+
+	ts[0].Timestamp = ts[2].Timestamp
+	s.Error(result.UpdateDefaultRollups(ts))
 }

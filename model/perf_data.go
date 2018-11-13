@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/evergreen-ci/sink"
@@ -18,6 +19,7 @@ const (
 	nameField    = "name"
 	verField     = "version"
 	valField     = "val"
+	defaultVer   = 1
 )
 
 type PerfRollupValue struct {
@@ -276,40 +278,27 @@ type PerformanceStatistics struct {
 	span    time.Duration
 }
 
-// PerforamcneMetricSummary reflects a specific kind of summation,
-// (e.g. means/percentiles, etc.) and may be saved to the database as
-// a kind of rollup value. This type also provides methods for
-// caclulating
-type PerformanceMetricSummary struct {
-	Counters struct {
-		Operations float64 `bson:"ops" json:"ops" yaml:"ops"`
-		Size       float64 `bson:"size" json:"size" yaml:"size"`
-		Errors     float64 `bson:"errors" json:"errors" yaml:"errors"`
+type performanceMetricSummary struct {
+	counters struct {
+		operations float64 `bson:"ops" json:"ops" yaml:"ops"`
+		size       float64 `bson:"size" json:"size" yaml:"size"`
+		errors     float64 `bson:"errors" json:"errors" yaml:"errors"`
 	} `bson:"counters" json:"counters" yaml:"counters"`
 
-	TotalCount struct {
-		Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
-		Size       int64 `bson:"size" json:"size" yaml:"size"`
-		Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
+	totalCount struct {
+		operations int64 `bson:"ops" json:"ops" yaml:"ops"`
+		size       int64 `bson:"size" json:"size" yaml:"size"`
+		errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
 	} `bson:"total_count" json:"total_count" yaml:"total_count"`
 
-	Timers struct {
-		Duration float64 `bson:"dur" json:"dur" yaml:"dur"`
-		Waiting  float64 `bson:"wait" json:"wait" yaml:"wait"`
-	} `bson:"timers" json:"timers" yaml:"timers"`
-
-	TotalTime struct {
-		Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-		Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
+	totalTime struct {
+		duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
+		waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
 	} `bson:"total_time" json:"total_time" yaml:"total_time"`
 
-	State struct {
-		Workers float64 `bson:"workers" json:"workers" yaml:"workers"`
-		Failed  bool    `bson:"failed" json:"failed" yaml:"failed"`
-	} `bson:"state" json:"state" yaml:"state"`
-
-	Span    time.Duration `bson:"span" json:"span" yaml:"span"`
-	Samples int           `bson:"samples" json:"samples" yaml:"samples"`
+	span       time.Duration `bson:"span" json:"span" yaml:"span"`
+	samples    int           `bson:"samples" json:"samples" yaml:"samples"`
+	metricType string        `bson:"metric_type" json:"metric_type" yaml:"metric_type"`
 }
 
 // PerformanceTimeSeries provides an expanded, in-memory value
@@ -320,9 +309,9 @@ type PerformanceMetricSummary struct {
 // reporting that this application does across test values.
 type PerformanceTimeSeries []PerformancePoint
 
-// Statistics converts a a series into an intermediate format that we
-// can use to calculate means/totals/etc.
-func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
+// statistics converts a a series into an intermediate format that we
+// can use to calculate means/totals/etc to create default rollups
+func (ts PerformanceTimeSeries) statistics() (PerformanceStatistics, error) {
 	out := PerformanceStatistics{
 		samples: len(ts),
 	}
@@ -330,7 +319,6 @@ func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 	out.counters.operations = make(stats.Float64Data, len(ts))
 	out.counters.size = make(stats.Float64Data, len(ts))
 	out.counters.errors = make(stats.Float64Data, len(ts))
-	out.state.workers = make(stats.Float64Data, len(ts))
 
 	var lastPoint time.Time
 
@@ -338,7 +326,7 @@ func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 		if idx == 0 {
 			lastPoint = point.Timestamp
 		} else if point.Timestamp.Before(lastPoint) {
-			panic("data is not valid")
+			return out, errors.New("data is not valid")
 		} else {
 			out.span += point.Timestamp.Sub(lastPoint)
 			lastPoint = point.Timestamp
@@ -347,124 +335,189 @@ func (ts PerformanceTimeSeries) Statistics() PerformanceStatistics {
 		out.counters.operations[idx] = float64(point.Counters.Operations)
 		out.counters.size[idx] = float64(point.Counters.Size)
 		out.counters.errors[idx] = float64(point.Counters.Errors)
-		out.state.workers[idx] = float64(point.State.Workers)
 
 		out.totalCount.errors += point.Counters.Errors
 		out.totalCount.operations += point.Counters.Operations
 		out.totalCount.size += point.Counters.Size
 
-		if point.State.Failed {
-			out.state.failed = true
-		}
-
-		// handle time differently. negative duration values
-		// should always be ignored.
+		// Handle time differently: Negative duration values should be ignored
 		if point.Timers.Duration > 0 {
-			out.timers.duration[idx] = float64(point.Timers.Duration)
 			out.totalTime.duration += point.Timers.Duration
 		}
 		if point.Timers.Waiting > 0 {
-			out.timers.waiting[idx] = float64(point.Timers.Waiting)
 			out.totalTime.waiting += point.Timers.Duration
 		}
 	}
 
-	return out
+	return out, nil
 }
 
-func (perf *PerformanceStatistics) Mean() (PerformanceMetricSummary, error) {
+func (perf *PerformanceStatistics) mean() (performanceMetricSummary, error) {
 	var err error
 	catcher := grip.NewBasicCatcher()
-	out := PerformanceMetricSummary{
-		Samples: perf.samples,
-		Span:    perf.span,
+	out := performanceMetricSummary{
+		samples:    perf.samples,
+		span:       perf.span,
+		metricType: "mean",
 	}
+	out.totalTime.duration = perf.totalTime.duration
+	out.totalTime.waiting = perf.totalTime.waiting
+	out.totalCount.errors = perf.totalCount.errors
+	out.totalCount.size = perf.totalCount.size
+	out.totalCount.operations = perf.totalCount.operations
 
-	out.TotalTime.Duration = perf.totalTime.duration
-	out.TotalTime.Waiting = perf.totalTime.waiting
-	out.TotalCount.Errors = perf.totalCount.errors
-	out.TotalCount.Size = perf.totalCount.size
-	out.TotalCount.Operations = perf.totalCount.operations
-
-	out.State.Failed = perf.state.failed
-
-	out.Counters.Size, err = perf.counters.size.Mean()
+	out.counters.size, err = perf.counters.size.Mean()
 	catcher.Add(err)
 
-	out.Counters.Operations, err = perf.counters.operations.Mean()
+	out.counters.operations, err = perf.counters.operations.Mean()
 	catcher.Add(err)
 
-	out.Counters.Errors, err = perf.counters.errors.Mean()
-	catcher.Add(err)
-
-	out.State.Workers, err = perf.state.workers.Mean()
-	catcher.Add(err)
-
-	out.Timers.Duration, err = perf.timers.duration.Mean()
-	catcher.Add(err)
-
-	out.Timers.Waiting, err = perf.timers.waiting.Mean()
+	out.counters.errors, err = perf.counters.errors.Mean()
 	catcher.Add(err)
 
 	return out, catcher.Resolve()
 }
 
-func (perf *PerformanceStatistics) P90() (PerformanceMetricSummary, error) {
+func (perf *PerformanceStatistics) p90() (performanceMetricSummary, error) {
 	return perf.percentile(90.0)
 }
 
-func (perf *PerformanceStatistics) P50() (PerformanceMetricSummary, error) {
+func (perf *PerformanceStatistics) p50() (performanceMetricSummary, error) {
 	return perf.percentile(50.0)
 }
 
-func (perf *PerformanceStatistics) percentile(pval float64) (PerformanceMetricSummary, error) {
+func (perf *PerformanceStatistics) percentile(pval float64) (performanceMetricSummary, error) {
 	var err error
 	catcher := grip.NewBasicCatcher()
-	out := PerformanceMetricSummary{
-		Samples: perf.samples,
-		Span:    perf.span,
+	out := performanceMetricSummary{
+		samples:    perf.samples,
+		span:       perf.span,
+		metricType: fmt.Sprintf("percentile_%d", int(pval)),
 	}
 
-	out.State.Failed = perf.state.failed
-	out.TotalTime.Duration = perf.totalTime.duration
-	out.TotalTime.Waiting = perf.totalTime.waiting
-	out.TotalCount.Errors = perf.totalCount.errors
-	out.TotalCount.Size = perf.totalCount.size
-	out.TotalCount.Operations = perf.totalCount.operations
+	out.totalTime.duration = perf.totalTime.duration
+	out.totalTime.waiting = perf.totalTime.waiting
+	out.totalCount.errors = perf.totalCount.errors
+	out.totalCount.size = perf.totalCount.size
+	out.totalCount.operations = perf.totalCount.operations
 
-	out.Counters.Size, err = perf.counters.size.Percentile(pval)
+	out.counters.size, err = perf.counters.size.Percentile(pval)
 	catcher.Add(err)
 
-	out.Counters.Operations, err = perf.counters.operations.Percentile(pval)
+	out.counters.operations, err = perf.counters.operations.Percentile(pval)
 	catcher.Add(err)
 
-	out.Counters.Errors, err = perf.counters.errors.Percentile(pval)
-	catcher.Add(err)
-
-	out.State.Workers, err = perf.state.workers.Percentile(pval)
-	catcher.Add(err)
-
-	out.Timers.Duration, err = perf.timers.duration.Percentile(pval)
-	catcher.Add(err)
-
-	out.Timers.Waiting, err = perf.timers.waiting.Percentile(pval)
+	out.counters.errors, err = perf.counters.errors.Percentile(pval)
 	catcher.Add(err)
 
 	return out, catcher.Resolve()
 }
 
-func (perf *PerformanceMetricSummary) ThroughputOps() float64 {
-	return perf.Counters.Operations / float64(perf.Span)
+func (r *PerformanceResult) UpdateThroughputOps(perf performanceMetricSummary) error {
+	if float64(perf.span) == 0 {
+		return errors.New("cannot divide by zero")
+	}
+	name := fmt.Sprintf("throughputOps_%s", perf.metricType)
+	val := perf.counters.operations / perf.span.Seconds()
+	// save to database
+	err := r.Rollups.Add(name, defaultVer, val)
+	if err != nil {
+		return errors.Wrapf(err, "error calculating %s", name)
+	}
+	return nil
 }
 
-func (perf *PerformanceMetricSummary) ThroughputData() float64 {
-	return perf.Counters.Size / float64(perf.Span)
+func (r *PerformanceResult) UpdateThroughputSize(perf performanceMetricSummary) error {
+	if float64(perf.span) == 0 {
+		return errors.New("cannot divide by zero")
+	}
+	name := fmt.Sprintf("throughputSize_%s", perf.metricType)
+	val := perf.counters.size / perf.span.Seconds()
+	err := r.Rollups.Add(name, defaultVer, val)
+	if err != nil {
+		return errors.Wrapf(err, "error calculating %s", name)
+	}
+	return nil
 }
 
-func (perf *PerformanceMetricSummary) ErrorRate() float64 {
-	return perf.Counters.Errors / float64(perf.Span)
+func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error {
+	if float64(perf.span) == 0 {
+		return errors.New("cannot divide by zero")
+	}
+	name := fmt.Sprintf("errorRate_%s", perf.metricType)
+	val := perf.counters.errors / perf.span.Seconds()
+	err := r.Rollups.Add(name, defaultVer, val)
+	if err != nil {
+		return errors.Wrapf(err, "error calculating %s", name)
+	}
+	return nil
 }
 
-func (perf *PerformanceMetricSummary) Latency() time.Duration {
-	return perf.TotalTime.Duration / time.Duration(perf.TotalCount.Operations)
+// TotalTime stored in seconds
+func (r *PerformanceResult) UpdateTotalTime(perf performanceMetricSummary) error {
+	val := perf.totalTime.duration
+	err := r.Rollups.Add("totalTime", defaultVer, val.Seconds())
+	if err != nil {
+		return errors.Wrap(err, "error calculating totalTime")
+	}
+	return nil
+}
+
+// Latency stored in seconds
+func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
+	if time.Duration(perf.totalCount.operations) == 0 {
+		return errors.New("cannot divide by zero duration")
+	}
+	val := perf.totalTime.duration / time.Duration(perf.totalCount.operations)
+	err := r.Rollups.Add("latency", defaultVer, val.Seconds())
+	if err != nil {
+		return errors.Wrap(err, "error calculating latency")
+	}
+	return nil
+}
+
+func (r *PerformanceResult) UpdateTotalSamples(perf performanceMetricSummary) error {
+	val := int(perf.samples)
+	err := r.Rollups.Add("totalSamples", defaultVer, val)
+	if err != nil {
+		return errors.Wrap(err, "error calculating totalSamples")
+	}
+	return nil
+}
+
+// UpdateDefaultRollups adds throughput and error rate means and 50th/90th percentiles.
+// Additionally computes latency, total time, and total number of samples.
+// These are either added or updated within r.Rollups.
+func (r *PerformanceResult) UpdateDefaultRollups(ts PerformanceTimeSeries) error {
+	perfStats, err := ts.statistics()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	catcher := grip.NewBasicCatcher()
+	means, err := perfStats.mean()
+	catcher.Add(err)
+	percentile50, err := perfStats.p50()
+	catcher.Add(err)
+	percentile90, err := perfStats.p90()
+	catcher.Add(err)
+	if catcher.HasErrors() {
+		return catcher.Resolve()
+	}
+
+	for _, perf := range []performanceMetricSummary{means, percentile50, percentile90} {
+		err = r.UpdateErrorRate(perf)
+		catcher.Add(err)
+		err = r.UpdateThroughputOps(perf)
+		catcher.Add(err)
+		err = r.UpdateThroughputSize(perf)
+		catcher.Add(err)
+	}
+
+	err = r.UpdateTotalSamples(means)
+	catcher.Add(err)
+	err = r.UpdateTotalTime(means)
+	catcher.Add(err)
+	err = r.UpdateLatency(means)
+	catcher.Add(err)
+	return catcher.Resolve()
 }
