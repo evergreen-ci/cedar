@@ -87,6 +87,10 @@ func (result *PerformanceResult) Find() error {
 		return errors.Wrap(err, "problem finding result config")
 	}
 	result.populated = true
+	if result.Rollups != nil {
+		result.Rollups.id = result.ID
+		result.Rollups.Setup(result.env)
+	}
 
 	return nil
 }
