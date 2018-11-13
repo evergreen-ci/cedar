@@ -199,9 +199,10 @@ type PerformanceResults struct {
 }
 
 type PerfFindOptions struct {
-	Interval util.TimeRange
-	Info     PerformanceResultInfo
-	MaxDepth int
+	Interval    util.TimeRange
+	Info        PerformanceResultInfo
+	MaxDepth    int
+	GraphLookup bool
 }
 
 func (r *PerformanceResults) Setup(e sink.Environment) { r.env = e }
@@ -225,7 +226,11 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	r.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
 	if options.Info.Parent != "" && len(r.Results) > 0 { // i.e. the parent fits the search criteria
-		err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
+		if options.GraphLookup {
+			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth)
+		} else {
+			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
+		}
 	}
 	if err != nil && !db.ResultsNotFound(err) {
 		return errors.WithStack(err)
@@ -278,7 +283,29 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 }
 
 // All children of parent are recursively added to r.Results
-func (r *PerformanceResults) findAllChildren(parent string, maxDepth int) error {
+func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
+	if depth < 0 {
+		return nil
+	}
+
+	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
+	conf, session, err := sink.GetSessionWithConfig(r.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+	temp := []PerformanceResult{}
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
+	r.Results = append(r.Results, temp...)
+	for _, result := range temp {
+		// look into that parent
+		err = r.findAllChildren(result.ID, depth-1)
+	}
+	return err
+}
+
+// All children of parent are recursively added to r.Results using $graphLookup
+func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int) error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -289,34 +316,29 @@ func (r *PerformanceResults) findAllChildren(parent string, maxDepth int) error 
 	graphLookup := bson.M{
 		"$graphLookup": bson.M{
 			"from":             perfResultCollection,
-			"startWith":        "$" + bsonutil.GetDottedKeyName("info", "parent"),
-			"connectFromField": bsonutil.GetDottedKeyName("info", "parent"),
-			"connectToField":   "_id",
+			"startWith":        "$" + "_id",
+			"connectFromField": "_id",
+			"connectToField":   bsonutil.GetDottedKeyName("info", "parent"),
 			"maxDepth":         maxDepth,
 			"as":               "children",
 		},
 	}
-	//project := bson.M{"$project": bson.M{"_id": 0, "children": 1}}
-	//unwind := bson.M{"$unwind": "$children"}
+	project := bson.M{"$project": bson.M{"_id": 0, "children": 1}}
 	pipeline := []bson.M{
 		match,
 		graphLookup,
+		project,
 	}
 	pipe := session.DB(conf.DatabaseName).C(perfResultCollection).Pipe(pipeline)
 	iter := pipe.Iter()
 	defer iter.Close()
 
 	type iterDoc struct {
-		children []PerformanceResult
-
-		PerformanceResult
+		Children []PerformanceResult `bson:"children,omitempty"`
 	}
-
 	doc := iterDoc{}
 	for iter.Next(&doc) {
-		//r.Results = append(r.Results, doc.Child)
-		fmt.Println(doc.children)
-		doc = iterDoc{}
+		r.Results = append(r.Results, doc.Children...)
 	}
 	if err = iter.Err(); err != nil {
 		return errors.Wrap(err, "problem getting children")
