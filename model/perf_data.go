@@ -296,10 +296,19 @@ type performanceMetricSummary struct {
 		waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
 	} `bson:"total_time" json:"total_time" yaml:"total_time"`
 
+	timers struct {
+		duration float64 `bson:"dur" json:"dur" yaml:"dur"`
+		total    float64 `bson:"wait" json:"wait" yaml:"wait"`
+	} `bson:"timers" json:"timers" yaml:"timers"`
+
+	guages struct {
+		workers float64 `bson:"workers" json:"workers" yaml:"workers"`
+		failed  bool    `bson:"failed" json:"failed" yaml:"failed"`
+	} `bson:"state" json:"state" yaml:"state"`
+
 	span       time.Duration `bson:"span" json:"span" yaml:"span"`
 	samples    int           `bson:"samples" json:"samples" yaml:"samples"`
 	metricType string        `bson:"metric_type" json:"metric_type" yaml:"metric_type"`
-
 }
 
 // PerformanceTimeSeries provides an expanded, in-memory value
@@ -341,6 +350,10 @@ func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
 		out.totalCount.operations += point.Counters.Operations
 		out.totalCount.size += point.Counters.Size
 
+		if point.Guages.Failed {
+			out.state.failed = true
+		}
+
 		// Handle time differently: Negative duration values should be ignored
 		if point.Timers.Duration > 0 {
 			out.totalTime.duration += point.Timers.Duration
@@ -366,6 +379,7 @@ func (perf *performanceStatistics) mean() (performanceMetricSummary, error) {
 	out.totalCount.errors = perf.totalCount.errors
 	out.totalCount.size = perf.totalCount.size
 	out.totalCount.operations = perf.totalCount.operations
+	out.guages.failed = perf.state.failed
 
 	out.counters.size, err = perf.counters.size.Mean()
 	catcher.Add(err)
@@ -374,6 +388,15 @@ func (perf *performanceStatistics) mean() (performanceMetricSummary, error) {
 	catcher.Add(err)
 
 	out.counters.errors, err = perf.counters.errors.Mean()
+	catcher.Add(err)
+
+	out.guages.workers, err = perf.state.workers.Mean()
+	catcher.Add(err)
+
+	out.timers.duration, err = perf.timers.duration.Mean()
+	catcher.Add(err)
+
+	out.timers.total, err = perf.timers.total.Mean()
 	catcher.Add(err)
 
 	return out, catcher.Resolve()
@@ -396,6 +419,7 @@ func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSu
 		metricType: fmt.Sprintf("percentile_%d", int(pval)),
 	}
 
+	out.guages.failed = perf.state.failed
 	out.totalTime.duration = perf.totalTime.duration
 	out.totalTime.waiting = perf.totalTime.waiting
 	out.totalCount.errors = perf.totalCount.errors
@@ -409,6 +433,15 @@ func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSu
 	catcher.Add(err)
 
 	out.counters.errors, err = perf.counters.errors.Percentile(pval)
+	catcher.Add(err)
+
+	out.guages.workers, err = perf.state.workers.Percentile(pval)
+	catcher.Add(err)
+
+	out.timers.duration, err = perf.timers.duration.Percentile(pval)
+	catcher.Add(err)
+
+	out.timers.total, err = perf.timers.total.Percentile(pval)
 	catcher.Add(err)
 
 	return out, catcher.Resolve()

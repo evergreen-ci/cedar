@@ -266,7 +266,7 @@ func (s *perfRollupSuite) TestUpdateDefaultRollups() {
 	ts[0].Counters.Size = 10000
 	s.NoError(result.UpdateDefaultRollups(ts))
 	rollups2 := r.MapFloat()
-	s.Len(rollups2, 12)
+	s.Require().Len(rollups2, 12)
 	s.Equal(rollups["errorRate_mean"], rollups2["errorRate_mean"])
 	s.NotEqual(rollups["throughputSize_mean"], rollups2["throughputSize_mean"])
 
