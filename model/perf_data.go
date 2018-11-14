@@ -278,37 +278,37 @@ type performanceStatistics struct {
 	span    time.Duration
 }
 
-type performanceMetricSummary struct { // nolint
+type performanceMetricSummary struct { 
 	counters struct {
-		operations float64 `bson:"ops" json:"ops" yaml:"ops"`
-		size       float64 `bson:"size" json:"size" yaml:"size"`
-		errors     float64 `bson:"errors" json:"errors" yaml:"errors"`
-	} `bson:"counters" json:"counters" yaml:"counters"`
+		operations float64 `bson:"ops" json:"ops" yaml:"ops"`  // nolint
+		size       float64 `bson:"size" json:"size" yaml:"size"`  // nolint
+		errors     float64 `bson:"errors" json:"errors" yaml:"errors"`  // nolint
+	} `bson:"counters" json:"counters" yaml:"counters"`  // nolint
 
 	totalCount struct {
-		operations int64 `bson:"ops" json:"ops" yaml:"ops"`
-		size       int64 `bson:"size" json:"size" yaml:"size"`
-		errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
-	} `bson:"total_count" json:"total_count" yaml:"total_count"`
+		operations int64 `bson:"ops" json:"ops" yaml:"ops"`  // nolint
+		size       int64 `bson:"size" json:"size" yaml:"size"`  // nolint
+		errors     int64 `bson:"errors" json:"errors" yaml:"errors"`  // nolint
+	} `bson:"total_count" json:"total_count" yaml:"total_count"`  // nolint
 
 	totalTime struct {
-		duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-		waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
-	} `bson:"total_time" json:"total_time" yaml:"total_time"`
+		duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`  // nolint
+		waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`  // nolint
+	} `bson:"total_time" json:"total_time" yaml:"total_time"`  // nolint
 
 	timers struct {
-		duration float64 `bson:"dur" json:"dur" yaml:"dur"`
-		total    float64 `bson:"wait" json:"wait" yaml:"wait"`
-	} `bson:"timers" json:"timers" yaml:"timers"`
+		duration float64 `bson:"dur" json:"dur" yaml:"dur"`  // nolint
+		total    float64 `bson:"wait" json:"wait" yaml:"wait"`  // nolint
+	} `bson:"timers" json:"timers" yaml:"timers"`  // nolint
 
 	guages struct {
-		workers float64 `bson:"workers" json:"workers" yaml:"workers"`
-		failed  bool    `bson:"failed" json:"failed" yaml:"failed"`
-	} `bson:"state" json:"state" yaml:"state"`
+		workers float64 `bson:"workers" json:"workers" yaml:"workers"` // nolint
+		failed  bool    `bson:"failed" json:"failed" yaml:"failed"` // nolint
+	} `bson:"state" json:"state" yaml:"state"` // nolint
 
-	span       time.Duration `bson:"span" json:"span" yaml:"span"`
-	samples    int           `bson:"samples" json:"samples" yaml:"samples"`
-	metricType string        `bson:"metric_type" json:"metric_type" yaml:"metric_type"`
+	span       time.Duration `bson:"span" json:"span" yaml:"span"` // nolint
+	samples    int           `bson:"samples" json:"samples" yaml:"samples"` // nolint
+	metricType string        `bson:"metric_type" json:"metric_type" yaml:"metric_type"` // nolint
 }
 
 // PerformanceTimeSeries provides an expanded, in-memory value
