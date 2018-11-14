@@ -333,10 +333,9 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 	iter := pipe.Iter()
 	defer iter.Close()
 
-	type iterDoc struct {
+	doc := struct {
 		Children []PerformanceResult `bson:"children,omitempty"`
-	}
-	doc := iterDoc{}
+	}{}
 	for iter.Next(&doc) {
 		r.Results = append(r.Results, doc.Children...)
 	}
