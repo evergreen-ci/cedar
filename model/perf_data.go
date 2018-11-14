@@ -261,7 +261,7 @@ type performanceStatistics struct {
 
 	timers struct {
 		duration stats.Float64Data
-		waiting  stats.Float64Data
+		total    stats.Float64Data
 	}
 
 	totalTime struct {
@@ -299,6 +299,7 @@ type performanceMetricSummary struct {
 	span       time.Duration `bson:"span" json:"span" yaml:"span"`
 	samples    int           `bson:"samples" json:"samples" yaml:"samples"`
 	metricType string        `bson:"metric_type" json:"metric_type" yaml:"metric_type"`
+
 }
 
 // PerformanceTimeSeries provides an expanded, in-memory value

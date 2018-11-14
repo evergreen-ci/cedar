@@ -5,13 +5,17 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"time"
 
+	"github.com/mongodb/grip"
 	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/pkg/errors"
 )
 
 type customCollector struct {
-	name    string
-	factory func() Collector
+	name      string
+	factory   func() Collector
+	skipBench bool
 }
 
 type customTest struct {
@@ -19,6 +23,7 @@ type customTest struct {
 	docs      []*bson.Document
 	numStats  int
 	randStats bool
+	skipBench bool
 }
 
 func createEventRecord(count, duration, size, workers int64) *bson.Document {
@@ -43,6 +48,45 @@ func randFlatDocument(numKeys int) *bson.Document {
 	}
 
 	return doc
+}
+
+func newChunk(num int64) []byte {
+	collector := NewBaseCollector(int(num) * 2)
+	for i := int64(0); i < num; i++ {
+		doc := createEventRecord(i, i+rand.Int63n(num-1), i+i*rand.Int63n(num-1), 1)
+		doc.Append(bson.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)))
+		err := collector.Add(doc)
+		grip.EmergencyPanic(err)
+	}
+
+	out, err := collector.Resolve()
+	grip.EmergencyPanic(err)
+
+	return out
+}
+
+func newMixedChunk(num int64) []byte {
+	collector := NewDynamicCollector(int(num) * 2)
+	for i := int64(0); i < num; i++ {
+		doc := createEventRecord(i, i+rand.Int63n(num-1), i+i*rand.Int63n(num-1), 1)
+		doc.Append(bson.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)))
+		err := collector.Add(doc)
+		grip.EmergencyPanic(err)
+	}
+	for i := int64(0); i < num; i++ {
+		doc := createEventRecord(i, i+rand.Int63n(num-1), i+i*rand.Int63n(num-1), 1)
+		doc.Append(
+			bson.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)),
+			bson.EC.Int64("addition", i+i))
+		err := collector.Add(doc)
+		grip.EmergencyPanic(err)
+	}
+
+	out, err := collector.Resolve()
+	grip.EmergencyPanic(err)
+
+	return out
+
 }
 
 func randFlatDocumentWithFloats(numKeys int) *bson.Document {
@@ -87,24 +131,29 @@ func createCollectors() []*customCollector {
 			factory: func() Collector { return NewBaseCollector(1000) },
 		},
 		{
-			name:    "SmallBatch",
-			factory: func() Collector { return NewBatchCollector(10) },
+			name:      "SmallBatch",
+			factory:   func() Collector { return NewBatchCollector(10) },
+			skipBench: true,
 		},
 		{
-			name:    "MediumBatch",
-			factory: func() Collector { return NewBatchCollector(100) },
+			name:      "MediumBatch",
+			factory:   func() Collector { return NewBatchCollector(100) },
+			skipBench: true,
 		},
 		{
-			name:    "LargeBatch",
-			factory: func() Collector { return NewBatchCollector(1000) },
+			name:      "LargeBatch",
+			factory:   func() Collector { return NewBatchCollector(1000) },
+			skipBench: true,
 		},
 		{
-			name:    "XtraLargeBatch",
-			factory: func() Collector { return NewBatchCollector(10000) },
+			name:      "XtraLargeBatch",
+			factory:   func() Collector { return NewBatchCollector(10000) },
+			skipBench: true,
 		},
 		{
-			name:    "SmallDynamic",
-			factory: func() Collector { return NewDynamicCollector(10) },
+			name:      "SmallDynamic",
+			factory:   func() Collector { return NewDynamicCollector(10) },
+			skipBench: true,
 		},
 		{
 			name:    "MediumDynamic",
@@ -119,12 +168,14 @@ func createCollectors() []*customCollector {
 			factory: func() Collector { return NewDynamicCollector(10000) },
 		},
 		{
-			name:    "SampleBasic",
-			factory: func() Collector { return NewSamplingCollector(0, &betterCollector{maxDeltas: 100}) },
+			name:      "SampleBasic",
+			factory:   func() Collector { return NewSamplingCollector(0, &betterCollector{maxDeltas: 100}) },
+			skipBench: true,
 		},
 		{
-			name:    "SmallStreaming",
-			factory: func() Collector { return NewStreamingCollector(10, &bytes.Buffer{}) },
+			name:      "SmallStreaming",
+			factory:   func() Collector { return NewStreamingCollector(10, &bytes.Buffer{}) },
+			skipBench: true,
 		},
 		{
 			name:    "MediumStreaming",
@@ -135,8 +186,9 @@ func createCollectors() []*customCollector {
 			factory: func() Collector { return NewStreamingCollector(10000, &bytes.Buffer{}) },
 		},
 		{
-			name:    "SmallStreamingDynamic",
-			factory: func() Collector { return NewStreamingDynamicCollector(10, &bytes.Buffer{}) },
+			name:      "SmallStreamingDynamic",
+			factory:   func() Collector { return NewStreamingDynamicCollector(10, &bytes.Buffer{}) },
+			skipBench: true,
 		},
 		{
 			name:    "MediumStreamingDynamic",
@@ -157,34 +209,39 @@ func createTests() []*customTest {
 			docs: []*bson.Document{
 				bson.NewDocument(bson.EC.String("foo", "bar")),
 			},
+			skipBench: true,
 		},
 		{
 			name: "OneDocumentOneStat",
 			docs: []*bson.Document{
 				bson.NewDocument(bson.EC.Int32("foo", 42)),
 			},
-			numStats: 1,
+			skipBench: true,
+			numStats:  1,
 		},
 		{
 			name: "OneSmallFlat",
 			docs: []*bson.Document{
 				randFlatDocument(12),
 			},
-			numStats: 12,
+			numStats:  12,
+			skipBench: true,
 		},
 		{
 			name: "OneLargeFlat",
 			docs: []*bson.Document{
 				randFlatDocument(360),
 			},
-			numStats: 360,
+			numStats:  360,
+			skipBench: true,
 		},
 		{
 			name: "OneHugeFlat",
 			docs: []*bson.Document{
 				randFlatDocument(36000),
 			},
-			numStats: 36000,
+			numStats:  36000,
+			skipBench: true,
 		},
 		{
 			name: "SeveralDocNoStats",
@@ -194,6 +251,7 @@ func createTests() []*customTest {
 				bson.NewDocument(bson.EC.String("foo", "bar")),
 				bson.NewDocument(bson.EC.String("foo", "bar")),
 			},
+			skipBench: true,
 		},
 		{
 			name: "SeveralDocumentOneStat",
@@ -246,6 +304,7 @@ func createTests() []*customTest {
 			},
 			randStats: true,
 			numStats:  11,
+			skipBench: true,
 		},
 		{
 			name: "OneLargeRandomComplexDocument",
@@ -253,6 +312,7 @@ func createTests() []*customTest {
 				randComplexDocument(100, 100),
 			},
 			randStats: true,
+			skipBench: true,
 			numStats:  101,
 		},
 		{
@@ -272,6 +332,7 @@ func createTests() []*customTest {
 			},
 			randStats: true,
 			numStats:  1000,
+			skipBench: true,
 		},
 		{
 			name: "SeveralHugeRandomComplexDocument",
@@ -447,3 +508,17 @@ func createEncodingTests() []encodingTests {
 		},
 	}
 }
+
+type noopWriter struct {
+	bytes.Buffer
+}
+
+func (n *noopWriter) Write(in []byte) (int, error) { return n.Buffer.Write(in) }
+func (n *noopWriter) Close() error                 { return nil }
+
+type errWriter struct {
+	bytes.Buffer
+}
+
+func (n *errWriter) Write(in []byte) (int, error) { return 0, errors.New("foo") }
+func (n *errWriter) Close() error                 { return errors.New("close") }

@@ -63,7 +63,11 @@ $(buildDir)/.lintSetup:$(lintDeps)
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	 go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+	go build -ldflags "-X github.com/evergreen-ci/sink.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+$(buildDir)/generate-points:cmd/generate-points/generate-points.go
+	go build -o $@ $<
+generate-points:$(buildDir)/generate-points
+	./$<
 # end dependency installation tools
 
 

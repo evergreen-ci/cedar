@@ -29,7 +29,7 @@ imports:
 - name: github.com/evergreen-ci/gimlet
   version: 713b8d22b5e93a0c25a9f71ca944c86d7ecefe84
 - name: github.com/mongodb/ftdc
-  version: cb8d4f967a12ac77e53060d279b3fc44ef811b93
+  version: ee30ef0ce54af9c7644fb672b58e0c3b5aa86ea5
 - name: github.com/papertrail/go-tail
   version: 973c153b04319fc4604d847b09861a5730cbbde2
 - name: github.com/mongodb/mongo-go-driver
