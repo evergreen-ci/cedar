@@ -422,7 +422,7 @@ func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSu
 	out := performanceMetricSummary{
 		samples:    perf.samples,
 		span:       perf.span,
-		metricType: fmt.Sprintf("percentile_%d", int(pval)),
+		metricType: fmt.Sprintf("percentile_%.2f", pval),
 	}
 
 	out.guages.failed = perf.state.failed
