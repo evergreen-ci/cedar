@@ -278,7 +278,7 @@ type performanceStatistics struct {
 	span    time.Duration
 }
 
-type performanceMetricSummary struct {
+type performanceMetricSummary struct { // nolint
 	counters struct {
 		operations float64 `bson:"ops" json:"ops" yaml:"ops"`
 		size       float64 `bson:"size" json:"size" yaml:"size"`
@@ -517,8 +517,7 @@ func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
 }
 
 func (r *PerformanceResult) UpdateTotalSamples(perf performanceMetricSummary) error {
-	val := int(perf.samples)
-	err := r.Rollups.Add("totalSamples", defaultVer, val)
+	err := r.Rollups.Add("totalSamples", defaultVer, perf.samples)
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalSamples")
 	}
