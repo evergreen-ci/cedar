@@ -224,6 +224,9 @@ func initializeTS() PerformanceTimeSeries {
 	point1.Timers.Duration = time.Hour
 	point2.Timers.Duration = time.Hour
 	point3.Timers.Duration = time.Hour
+	point1.Timers.Total = time.Hour
+	point2.Timers.Total = time.Hour
+	point3.Timers.Total = time.Hour
 	point1.Counters.Operations = 200
 	point2.Counters.Operations = 400
 	point3.Counters.Operations = 600

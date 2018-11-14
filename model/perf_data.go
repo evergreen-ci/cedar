@@ -329,6 +329,9 @@ func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
 	out.counters.operations = make(stats.Float64Data, len(ts))
 	out.counters.size = make(stats.Float64Data, len(ts))
 	out.counters.errors = make(stats.Float64Data, len(ts))
+	out.state.workers = make(stats.Float64Data, len(ts))
+	out.timers.duration = make(stats.Float64Data, len(ts))
+	out.timers.total = make(stats.Float64Data, len(ts))
 
 	var lastPoint time.Time
 
@@ -345,6 +348,7 @@ func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
 		out.counters.operations[idx] = float64(point.Counters.Operations)
 		out.counters.size[idx] = float64(point.Counters.Size)
 		out.counters.errors[idx] = float64(point.Counters.Errors)
+		out.state.workers[idx] = float64(point.Guages.Workers)
 
 		out.totalCount.errors += point.Counters.Errors
 		out.totalCount.operations += point.Counters.Operations
@@ -356,10 +360,12 @@ func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
 
 		// Handle time differently: Negative duration values should be ignored
 		if point.Timers.Duration > 0 {
-			out.totalTime.duration += point.Timers.Duration
-		}
-		if point.Timers.Waiting > 0 {
+			out.timers.duration[idx] = float64(point.Timers.Duration)
 			out.totalTime.waiting += point.Timers.Duration
+		}
+		if point.Timers.Total > 0 {
+			out.timers.total[idx] = float64(point.Timers.Total)
+			out.totalTime.duration += point.Timers.Total
 		}
 	}
 
