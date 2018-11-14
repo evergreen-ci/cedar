@@ -278,37 +278,37 @@ type performanceStatistics struct {
 	span    time.Duration
 }
 
-type performanceMetricSummary struct { 
-	counters struct { 
-		operations float64 
-		size       float64 
-		errors     float64 
-	} 
+type performanceMetricSummary struct {
+	counters struct {
+		operations float64
+		size       float64
+		errors     float64
+	}
 
 	totalCount struct {
-		operations int64 
-		size       int64 
-		errors     int64 
-	} 
+		operations int64
+		size       int64
+		errors     int64
+	}
 
 	totalTime struct {
 		duration time.Duration
-		waiting  time.Duration 
+		waiting  time.Duration
 	}
 
 	timers struct {
-		duration float64 
-		total    float64 
-	} 
+		duration float64
+		total    float64
+	}
 
 	guages struct {
 		workers float64
-		failed  bool    
+		failed  bool
 	}
 
-	span       time.Duration 
-	samples    int    
-	metricType string   
+	span       time.Duration
+	samples    int
+	metricType string
 }
 
 // PerformanceTimeSeries provides an expanded, in-memory value
@@ -321,8 +321,8 @@ type PerformanceTimeSeries []PerformancePoint
 
 // statistics converts a a series into an intermediate format that we
 // can use to calculate means/totals/etc to create default rollups
-func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
-	out := performanceStatistics{
+func (ts PerformanceTimeSeries) statistics() (*performanceStatistics, error) {
+	out := &performanceStatistics{
 		samples: len(ts),
 	}
 
@@ -339,7 +339,7 @@ func (ts PerformanceTimeSeries) statistics() (performanceStatistics, error) {
 		if idx == 0 {
 			lastPoint = point.Timestamp
 		} else if point.Timestamp.Before(lastPoint) {
-			return out, errors.New("data is not valid")
+			return nil, errors.New("data is not valid")
 		} else {
 			out.span += point.Timestamp.Sub(lastPoint)
 			lastPoint = point.Timestamp
