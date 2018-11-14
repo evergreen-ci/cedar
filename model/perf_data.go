@@ -279,36 +279,36 @@ type performanceStatistics struct {
 }
 
 type performanceMetricSummary struct { 
-	counters struct {
-		operations float64 `bson:"ops" json:"ops" yaml:"ops"`  // nolint
-		size       float64 `bson:"size" json:"size" yaml:"size"`  // nolint
-		errors     float64 `bson:"errors" json:"errors" yaml:"errors"`  // nolint
-	} `bson:"counters" json:"counters" yaml:"counters"`  // nolint
+	counters struct { 
+		operations float64 
+		size       float64 
+		errors     float64 
+	} 
 
 	totalCount struct {
-		operations int64 `bson:"ops" json:"ops" yaml:"ops"`  // nolint
-		size       int64 `bson:"size" json:"size" yaml:"size"`  // nolint
-		errors     int64 `bson:"errors" json:"errors" yaml:"errors"`  // nolint
-	} `bson:"total_count" json:"total_count" yaml:"total_count"`  // nolint
+		operations int64 
+		size       int64 
+		errors     int64 
+	} 
 
 	totalTime struct {
-		duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`  // nolint
-		waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`  // nolint
-	} `bson:"total_time" json:"total_time" yaml:"total_time"`  // nolint
+		duration time.Duration
+		waiting  time.Duration 
+	}
 
 	timers struct {
-		duration float64 `bson:"dur" json:"dur" yaml:"dur"`  // nolint
-		total    float64 `bson:"wait" json:"wait" yaml:"wait"`  // nolint
-	} `bson:"timers" json:"timers" yaml:"timers"`  // nolint
+		duration float64 
+		total    float64 
+	} 
 
 	guages struct {
-		workers float64 `bson:"workers" json:"workers" yaml:"workers"` // nolint
-		failed  bool    `bson:"failed" json:"failed" yaml:"failed"` // nolint
-	} `bson:"state" json:"state" yaml:"state"` // nolint
+		workers float64
+		failed  bool    
+	}
 
-	span       time.Duration `bson:"span" json:"span" yaml:"span"` // nolint
-	samples    int           `bson:"samples" json:"samples" yaml:"samples"` // nolint
-	metricType string        `bson:"metric_type" json:"metric_type" yaml:"metric_type"` // nolint
+	span       time.Duration 
+	samples    int    
+	metricType string   
 }
 
 // PerformanceTimeSeries provides an expanded, in-memory value
