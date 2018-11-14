@@ -117,3 +117,15 @@ func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
 
 	return point, nil
 }
+
+/*
+  string name = 1;
+  google.protobuf.Any value = 2;
+  int64 version = 3;
+*/
+func (r *RollupValue) Export() (model.PerfRollupValue, error) {
+	rollupValue := model.PerfRollupValue{
+		name:    r.name,
+		version: r.version,
+	}
+}
