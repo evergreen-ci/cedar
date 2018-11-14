@@ -71,6 +71,7 @@ func (s *perfResultSuite) TestFindResultsByTimeInterval() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*48),
+		MaxDepth: 5,
 	}
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
@@ -95,6 +96,7 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*72),
+		MaxDepth: 5,
 	}
 	options.Info.Version = "1"
 	s.NoError(s.r.Find(options))
@@ -152,9 +154,11 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	nodeD.CreatedAt = getTimeForTestingByDate(17)
 	s.NoError(nodeD.Save())
 
+	// Without $graphLookup
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*72),
+		MaxDepth: 5,
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
@@ -163,6 +167,48 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[3].ID, nodeD.ID)
+
+	// Test max depth without $graphLookup
+	start = getTimeForTestingByDate(15)
+	options = PerfFindOptions{
+		Interval: util.GetTimeRange(start, time.Hour*72),
+		MaxDepth: 0,
+	}
+	options.Info.Parent = nodeA.ID
+	s.NoError(s.r.Find(options))
+	s.Require().Len(s.r.Results, 3)
+	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
+
+	// With $graphLookup
+	start = getTimeForTestingByDate(15)
+	options = PerfFindOptions{
+		Interval:    util.GetTimeRange(start, time.Hour*72),
+		MaxDepth:    5,
+		GraphLookup: true,
+	}
+	options.Info.Parent = nodeA.ID
+	s.NoError(s.r.Find(options))
+	s.Require().Len(s.r.Results, 4)
+	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].ID, nodeD.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
+
+	// Test max depth with $graphLookup
+	start = getTimeForTestingByDate(15)
+	options = PerfFindOptions{
+		Interval:    util.GetTimeRange(start, time.Hour*72),
+		MaxDepth:    0,
+		GraphLookup: true,
+	}
+	options.Info.Parent = nodeA.ID
+	s.NoError(s.r.Find(options))
+	s.Require().Len(s.r.Results, 3)
+	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 }
 
 func (s *perfResultSuite) TearDownTest() {
