@@ -14,7 +14,7 @@ Documentation
 -------------
 
 The core API documentation is in the `godoc
-<https://godoc.org/github.com/evergreen-ci/sink/pail/>`_.
+<https://godoc.org/github.com/evergreen-ci/pail/>`_.
 
 Contribute
 ----------

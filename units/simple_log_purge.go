@@ -10,7 +10,7 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/pail"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"

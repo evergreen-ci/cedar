@@ -86,7 +86,6 @@ func cleanUpS3Bucket(name, prefix, region string) error {
 }
 
 func TestBucket(t *testing.T) {
-	t.Skip("timeout")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -330,7 +329,6 @@ func TestBucket(t *testing.T) {
 		},
 	} {
 		t.Run(impl.name, func(t *testing.T) {
-			t.Parallel()
 			for _, test := range impl.tests {
 				t.Run(test.id, func(t *testing.T) {
 					bucket := impl.constructor(t)
