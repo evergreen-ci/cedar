@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/mongodb/ftdc"
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
 )
 
@@ -21,24 +20,10 @@ const defaultPointsPerChunk = 10 * 1000 // ten thousand
 func DumpPerformanceSeries(ctx context.Context, stream <-chan PerformancePoint, metadata interface{}, output io.Writer) error {
 	collector := ftdc.NewBatchCollector(defaultPointsPerChunk)
 
-	var (
-		data []byte
-		doc  *bson.Document
-		err  error
-	)
-
 	if metadata != nil {
-		data, err = bson.Marshal(metadata)
-		if err != nil {
-			return errors.Wrap(err, "problem reading metadata")
+		if err := collector.SetMetadata(metadata); err != nil {
+			return errors.WithStack(err)
 		}
-
-		doc, err = bson.ReadDocument(data)
-		if err != nil {
-			return errors.Wrap(err, "problem building metadata document")
-		}
-
-		collector.SetMetadata(doc)
 	}
 
 conversion:
@@ -51,24 +36,13 @@ conversion:
 				break conversion
 			}
 
-			data, err = bson.Marshal(point)
-			if err != nil {
-				return errors.Wrap(err, "problem document")
-			}
-
-			doc, err = bson.ReadDocument(data)
-			if err != nil {
-				return errors.Wrap(err, "problem converting document")
-			}
-
-			if err = collector.Add(doc); err != nil {
+			if err := collector.Add(point); err != nil {
 				return errors.Wrap(err, "problem adding document to ftdc")
 			}
 		}
 	}
 
-	var payload []byte
-	payload, err = collector.Resolve()
+	payload, err := collector.Resolve()
 	if err != nil {
 		return errors.Wrap(err, "problem dumping ftdc data")
 	}
