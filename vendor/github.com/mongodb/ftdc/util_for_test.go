@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/mongodb/ftdc/bsonx"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/pkg/errors"
 )
 
@@ -20,18 +20,18 @@ type customCollector struct {
 
 type customTest struct {
 	name      string
-	docs      []*bson.Document
+	docs      []*bsonx.Document
 	numStats  int
 	randStats bool
 	skipBench bool
 }
 
-func createEventRecord(count, duration, size, workers int64) *bson.Document {
-	return bson.NewDocument(
-		bson.EC.Int64("count", count),
-		bson.EC.Int64("duration", duration),
-		bson.EC.Int64("size", size),
-		bson.EC.Int64("workers", workers),
+func createEventRecord(count, duration, size, workers int64) *bsonx.Document {
+	return bsonx.NewDocument(
+		bsonx.EC.Int64("count", count),
+		bsonx.EC.Int64("duration", duration),
+		bsonx.EC.Int64("size", size),
+		bsonx.EC.Int64("workers", workers),
 	)
 }
 
@@ -41,10 +41,10 @@ func randStr() string {
 	return hex.EncodeToString(b)
 }
 
-func randFlatDocument(numKeys int) *bson.Document {
-	doc := bson.NewDocument()
+func randFlatDocument(numKeys int) *bsonx.Document {
+	doc := bsonx.NewDocument()
 	for i := 0; i < numKeys; i++ {
-		doc.Append(bson.EC.Int64(fmt.Sprint(i), rand.Int63n(int64(numKeys)*1)))
+		doc.Append(bsonx.EC.Int64(fmt.Sprint(i), rand.Int63n(int64(numKeys)*1)))
 	}
 
 	return doc
@@ -54,7 +54,7 @@ func newChunk(num int64) []byte {
 	collector := NewBaseCollector(int(num) * 2)
 	for i := int64(0); i < num; i++ {
 		doc := createEventRecord(i, i+rand.Int63n(num-1), i+i*rand.Int63n(num-1), 1)
-		doc.Append(bson.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)))
+		doc.Append(bsonx.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)))
 		err := collector.Add(doc)
 		grip.EmergencyPanic(err)
 	}
@@ -69,15 +69,15 @@ func newMixedChunk(num int64) []byte {
 	collector := NewDynamicCollector(int(num) * 2)
 	for i := int64(0); i < num; i++ {
 		doc := createEventRecord(i, i+rand.Int63n(num-1), i+i*rand.Int63n(num-1), 1)
-		doc.Append(bson.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)))
+		doc.Append(bsonx.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)))
 		err := collector.Add(doc)
 		grip.EmergencyPanic(err)
 	}
 	for i := int64(0); i < num; i++ {
 		doc := createEventRecord(i, i+rand.Int63n(num-1), i+i*rand.Int63n(num-1), 1)
 		doc.Append(
-			bson.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)),
-			bson.EC.Int64("addition", i+i))
+			bsonx.EC.Time("time", time.Now().Add(time.Duration(i)*time.Hour)),
+			bsonx.EC.Int64("addition", i+i))
 		err := collector.Add(doc)
 		grip.EmergencyPanic(err)
 	}
@@ -89,35 +89,35 @@ func newMixedChunk(num int64) []byte {
 
 }
 
-func randFlatDocumentWithFloats(numKeys int) *bson.Document {
-	doc := bson.NewDocument()
+func randFlatDocumentWithFloats(numKeys int) *bsonx.Document {
+	doc := bsonx.NewDocument()
 	for i := 0; i < numKeys; i++ {
-		doc.Append(bson.EC.Double(fmt.Sprintf("%d_float", i), rand.Float64()))
-		doc.Append(bson.EC.Int64(fmt.Sprintf("%d_long", i), rand.Int63()))
+		doc.Append(bsonx.EC.Double(fmt.Sprintf("%d_float", i), rand.Float64()))
+		doc.Append(bsonx.EC.Int64(fmt.Sprintf("%d_long", i), rand.Int63()))
 	}
 	return doc
 }
 
-func randComplexDocument(numKeys, otherNum int) *bson.Document {
-	doc := bson.NewDocument()
+func randComplexDocument(numKeys, otherNum int) *bsonx.Document {
+	doc := bsonx.NewDocument()
 
 	for i := 0; i < numKeys; i++ {
-		doc.Append(bson.EC.Int64(fmt.Sprintln(numKeys, otherNum), rand.Int63n(int64(numKeys)*1)))
+		doc.Append(bsonx.EC.Int64(fmt.Sprintln(numKeys, otherNum), rand.Int63n(int64(numKeys)*1)))
 
 		if otherNum%5 == 0 {
-			ar := bson.NewArray()
+			ar := bsonx.NewArray()
 			for ii := int64(0); i < otherNum; i++ {
-				ar.Append(bson.VC.Int64(rand.Int63n(1 + ii*int64(numKeys))))
+				ar.Append(bsonx.VC.Int64(rand.Int63n(1 + ii*int64(numKeys))))
 			}
-			doc.Append(bson.EC.Array(fmt.Sprintln("first", numKeys, otherNum), ar))
+			doc.Append(bsonx.EC.Array(fmt.Sprintln("first", numKeys, otherNum), ar))
 		}
 
 		if otherNum%3 == 0 {
-			doc.Append(bson.EC.SubDocument(fmt.Sprintln("second", numKeys, otherNum), randFlatDocument(otherNum)))
+			doc.Append(bsonx.EC.SubDocument(fmt.Sprintln("second", numKeys, otherNum), randFlatDocument(otherNum)))
 		}
 
 		if otherNum%12 == 0 {
-			doc.Append(bson.EC.SubDocument(fmt.Sprintln("third", numKeys, otherNum), randComplexDocument(otherNum, 10)))
+			doc.Append(bsonx.EC.SubDocument(fmt.Sprintln("third", numKeys, otherNum), randComplexDocument(otherNum, 10)))
 		}
 	}
 
@@ -164,8 +164,9 @@ func createCollectors() []*customCollector {
 			factory: func() Collector { return NewDynamicCollector(1000) },
 		},
 		{
-			name:    "XtraLargeDynamic",
-			factory: func() Collector { return NewDynamicCollector(10000) },
+			name:      "XtraLargeDynamic",
+			factory:   func() Collector { return NewDynamicCollector(10000) },
+			skipBench: true,
 		},
 		{
 			name:      "SampleBasic",
@@ -202,26 +203,26 @@ func createCollectors() []*customCollector {
 	return collectors
 }
 
-func createTests() []*customTest {
-	tests := []*customTest{
+func createTests() []customTest {
+	return []customTest{
 		{
 			name: "OneDocNoStats",
-			docs: []*bson.Document{
-				bson.NewDocument(bson.EC.String("foo", "bar")),
+			docs: []*bsonx.Document{
+				bsonx.NewDocument(bsonx.EC.String("foo", "bar")),
 			},
 			skipBench: true,
 		},
 		{
 			name: "OneDocumentOneStat",
-			docs: []*bson.Document{
-				bson.NewDocument(bson.EC.Int32("foo", 42)),
+			docs: []*bsonx.Document{
+				bsonx.NewDocument(bsonx.EC.Int32("foo", 42)),
 			},
 			skipBench: true,
 			numStats:  1,
 		},
 		{
 			name: "OneSmallFlat",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
 				randFlatDocument(12),
 			},
 			numStats:  12,
@@ -229,7 +230,7 @@ func createTests() []*customTest {
 		},
 		{
 			name: "OneLargeFlat",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
 				randFlatDocument(360),
 			},
 			numStats:  360,
@@ -237,7 +238,7 @@ func createTests() []*customTest {
 		},
 		{
 			name: "OneHugeFlat",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
 				randFlatDocument(36000),
 			},
 			numStats:  36000,
@@ -245,39 +246,52 @@ func createTests() []*customTest {
 		},
 		{
 			name: "SeveralDocNoStats",
-			docs: []*bson.Document{
-				bson.NewDocument(bson.EC.String("foo", "bar")),
-				bson.NewDocument(bson.EC.String("foo", "bar")),
-				bson.NewDocument(bson.EC.String("foo", "bar")),
-				bson.NewDocument(bson.EC.String("foo", "bar")),
+			docs: []*bsonx.Document{
+				bsonx.NewDocument(bsonx.EC.String("foo", "bar")),
+				bsonx.NewDocument(bsonx.EC.String("foo", "bar")),
+				bsonx.NewDocument(bsonx.EC.String("foo", "bar")),
+				bsonx.NewDocument(bsonx.EC.String("foo", "bar")),
 			},
 			skipBench: true,
 		},
 		{
 			name: "SeveralDocumentOneStat",
-			docs: []*bson.Document{
-				bson.NewDocument(bson.EC.Int32("foo", 42)),
-				bson.NewDocument(bson.EC.Int32("foo", 42)),
-				bson.NewDocument(bson.EC.Int32("foo", 42)),
-				bson.NewDocument(bson.EC.Int32("foo", 42)),
-				bson.NewDocument(bson.EC.Int32("foo", 42)),
+			docs: []*bsonx.Document{
+				bsonx.NewDocument(bsonx.EC.Int32("foo", 42)),
+				bsonx.NewDocument(bsonx.EC.Int32("foo", 42)),
+				bsonx.NewDocument(bsonx.EC.Int32("foo", 42)),
+				bsonx.NewDocument(bsonx.EC.Int32("foo", 42)),
+				bsonx.NewDocument(bsonx.EC.Int32("foo", 42)),
 			},
-			numStats: 1,
+			numStats:  1,
+			skipBench: true,
 		},
 		{
 			name: "SeveralSmallFlat",
-			docs: []*bson.Document{
-				randFlatDocument(12),
-				randFlatDocument(12),
-				randFlatDocument(12),
-				randFlatDocument(12),
+			docs: []*bsonx.Document{
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
+				randFlatDocument(10),
 			},
 			randStats: true,
 			numStats:  12,
 		},
 		{
 			name: "SeveralLargeFlat",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
+				randFlatDocument(200),
+				randFlatDocument(200),
+				randFlatDocument(200),
+				randFlatDocument(200),
+				randFlatDocument(200),
+				randFlatDocument(200),
 				randFlatDocument(200),
 				randFlatDocument(200),
 				randFlatDocument(200),
@@ -288,18 +302,19 @@ func createTests() []*customTest {
 		},
 		{
 			name: "SeveralHugeFlat",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
 				randFlatDocument(2000),
 				randFlatDocument(2000),
 				randFlatDocument(2000),
 				randFlatDocument(2000),
 			},
 			randStats: true,
+			skipBench: true,
 			numStats:  2000,
 		},
 		{
-			name: "OneSmallRandomComplexDocument",
-			docs: []*bson.Document{
+			name: "OneSmallComplex",
+			docs: []*bsonx.Document{
 				randComplexDocument(4, 10),
 			},
 			randStats: true,
@@ -307,8 +322,8 @@ func createTests() []*customTest {
 			skipBench: true,
 		},
 		{
-			name: "OneLargeRandomComplexDocument",
-			docs: []*bson.Document{
+			name: "OneLargeComplex",
+			docs: []*bsonx.Document{
 				randComplexDocument(100, 100),
 			},
 			randStats: true,
@@ -316,8 +331,15 @@ func createTests() []*customTest {
 			numStats:  101,
 		},
 		{
-			name: "SeveralSmallRandomComplexDocument",
-			docs: []*bson.Document{
+			name: "SeveralSmallComplex",
+			docs: []*bsonx.Document{
+				randComplexDocument(4, 100),
+				randComplexDocument(4, 100),
+				randComplexDocument(4, 100),
+				randComplexDocument(4, 100),
+				randComplexDocument(4, 100),
+				randComplexDocument(4, 100),
+				randComplexDocument(4, 100),
 				randComplexDocument(4, 100),
 				randComplexDocument(4, 100),
 				randComplexDocument(4, 100),
@@ -326,8 +348,8 @@ func createTests() []*customTest {
 			randStats: true,
 		},
 		{
-			name: "OneHugeRandomComplexDocument",
-			docs: []*bson.Document{
+			name: "OneHugeComplex",
+			docs: []*bsonx.Document{
 				randComplexDocument(10000, 10000),
 			},
 			randStats: true,
@@ -335,8 +357,8 @@ func createTests() []*customTest {
 			skipBench: true,
 		},
 		{
-			name: "SeveralHugeRandomComplexDocument",
-			docs: []*bson.Document{
+			name: "SeveralHugeComplex",
+			docs: []*bsonx.Document{
 				randComplexDocument(10000, 10000),
 				randComplexDocument(10000, 10000),
 				randComplexDocument(10000, 10000),
@@ -344,28 +366,30 @@ func createTests() []*customTest {
 				randComplexDocument(10000, 10000),
 			},
 			randStats: true,
+			skipBench: true,
 			numStats:  1000,
 		},
 		{
 			name: "SingleFloats",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
 				randFlatDocumentWithFloats(1),
 				randFlatDocumentWithFloats(1),
 			},
+			skipBench: true,
 			randStats: true,
 			numStats:  2,
 		},
 		{
 			name: "MultiFloats",
-			docs: []*bson.Document{
+			docs: []*bsonx.Document{
 				randFlatDocumentWithFloats(50),
 				randFlatDocumentWithFloats(50),
 			},
 			randStats: true,
+			skipBench: true,
 			numStats:  100,
 		},
 	}
-	return tests
 }
 
 type encodingTests struct {
@@ -522,3 +546,14 @@ type errWriter struct {
 
 func (n *errWriter) Write(in []byte) (int, error) { return 0, errors.New("foo") }
 func (n *errWriter) Close() error                 { return errors.New("close") }
+
+type marshaler struct {
+	doc *bsonx.Document
+}
+
+func (m *marshaler) MarshalBSON() ([]byte, error) {
+	if m.doc == nil {
+		return nil, errors.New("empty")
+	}
+	return m.doc.MarshalBSON()
+}
