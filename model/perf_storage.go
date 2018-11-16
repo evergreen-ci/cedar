@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 )
@@ -88,6 +88,7 @@ type ArtifactInfo struct {
 	Path        string          `bson:"path"`
 	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`
+	Schema      string          `bson:"schema"`
 	Tags        []string        `bson:"tags,omitempty"`
 }
 
