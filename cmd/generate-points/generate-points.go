@@ -9,7 +9,6 @@ import (
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/mongo-go-driver/bson"
 )
 
 const (
@@ -20,8 +19,8 @@ const (
 	million         = ten * hundredThousand
 
 	// things that really should be command line args
-	totalOps   = million
 	outputFn   = "perf_metrics.ftdc"
+	totalOps   = million
 	bucketSize = hundredThousand
 )
 
@@ -30,8 +29,6 @@ func main() {
 	startAt := time.Now()
 	file, err := os.Create(outputFn)
 	grip.EmergencyFatal(err)
-
-	var rawSize int64
 
 	collector := ftdc.NewStreamingCollector(bucketSize, file)
 	defer func() {
@@ -42,7 +39,6 @@ func main() {
 			"dur_secs":    time.Since(startAt).Seconds(),
 			"bucket_size": bucketSize,
 			"t":           totalOps,
-			"raw_bytes":   rawSize,
 			"size_bytes":  stat.Size(),
 		})
 	}()
@@ -59,8 +55,8 @@ func main() {
 
 	ts := time.Now()
 	for i := int64(1); i <= totalOps; i++ {
-		point.Timestamp = ts.Add(time.Second)
-		ts = point.Timestamp
+		ts = ts.Add(100 * time.Millisecond)
+		point.Timestamp = ts
 
 		point.Counters.Number = i
 		point.Counters.Operations += i + rand.Int63n(10)
@@ -85,14 +81,7 @@ func main() {
 				"info.samples": collector.Info().SampleCount,
 			})
 
-		payload, err := bson.Marshal(point)
-		grip.EmergencyFatal(err)
-
-		doc, err := bson.ReadDocument(payload)
-		rawSize += int64(len(payload))
-		grip.EmergencyFatal(err)
-
-		err = collector.Add(doc)
+		err = collector.Add(point)
 		grip.EmergencyFatal(err)
 	}
 }
