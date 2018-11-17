@@ -29,7 +29,7 @@ imports:
 - name: github.com/evergreen-ci/gimlet
   version: 713b8d22b5e93a0c25a9f71ca944c86d7ecefe84
 - name: github.com/mongodb/ftdc
-  version: fb9e4a66f0eb3167d5d5874aada27b4f00ad8226
+  version: 7c2f88c5fefc1b4e40d42dd6624ee77927f1c0ce
 - name: github.com/evergreen-ci/pail
   version: 1df85beb6afca4560131e9a65fccfaac91af944a
 
