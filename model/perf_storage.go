@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
@@ -79,23 +81,49 @@ func (fc FileCompression) Validate() error {
 
 }
 
+type FileSchema string
+
+const (
+	SchemaRawEvents       FileSchema = "raw-events"
+	SchemaCollapsedEvents            = "collapsed-events"
+	SchemaIntervalSummary            = "interval-summarization"
+	SchemaHistogram                  = "histogram"
+)
+
+func (fs FileSchema) Validate() error {
+	switch fs {
+	case SchemaRawEvents, SchemaIntervalSummary, SchemaCollapsedEvents, SchemaHistogram:
+		return nil
+	default:
+		return errors.New("invalid schema specified")
+	}
+
+}
+
 // ArtifactInfo is a type that describes an object in some kind of
 // offline storage, and is the bridge between pail-backed
 // offline-storage and the sink-based metadata storage.
+//
+// The schema field describes the format of the data (raw, collapsed,
+// interval summarizations, etc.) while the format field describes the
+// encoding of the file.
 type ArtifactInfo struct {
 	Type        PailType        `bson:"type"`
 	Bucket      string          `bson:"bucket"`
 	Path        string          `bson:"path"`
 	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`
-	Schema      string          `bson:"schema"`
+	Schema      FileSchema      `bson:"schema"`
 	Tags        []string        `bson:"tags,omitempty"`
+	CreatedAt   time.Time       `bson:"created_at"`
 }
 
 var (
 	artifactInfoTypeKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Type")
 	artifactInfoPathKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Path")
+	artifactInfoSchmeaKey      = bsonutil.MustHaveTag(ArtifactInfo{}, "Schema")
 	artifactInfoFormatKey      = bsonutil.MustHaveTag(ArtifactInfo{}, "Format")
 	artifactInfoCompressionKey = bsonutil.MustHaveTag(ArtifactInfo{}, "Compression")
 	artifactInfoTagsKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Tags")
+	artifactInfoCreatedAtKey   = bsonutil.MustHaveTag(ArtifactInfo{}, "CreatedAt")
 )

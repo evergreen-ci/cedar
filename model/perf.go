@@ -32,13 +32,12 @@ type PerformanceResult struct {
 	// we'll probably need to store an identifier so we know which
 	// service to use to access that data. We'd then summarize
 	// that data and store it in the document.
-	Source []ArtifactInfo `bson:"source_info,omitempty"`
-
-	// Tests may collect and upload other data (e.g. ftdc data
-	// from servers, and we want to be able to track it here,
-	// particularly for use in auxiliary reporting and post-hoc
-	// analysis, but worth tracking seperatly from the primary results)
-	AuxilaryData []ArtifactInfo `bson:"aux_data,omitempty"`
+	//
+	// The structure has a both a schema to describe the layout
+	// the data (e.g. raw, results,) format (e.g. bson/ftdc/json),
+	// and tags to describe the source (e.g. user submitted,
+	// generated.)
+	Artifacts []ArtifactInfo `bson:"artifacs,omitempty"`
 
 	// Total represents the sum of all events, and used for tests
 	// that report a single summarized event rather than a
@@ -53,19 +52,24 @@ type PerformanceResult struct {
 }
 
 var (
-	perfIDKey       = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
-	perfInfoKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfSourceKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Source")
-	perfAuxDataKey  = bsonutil.MustHaveTag(PerformanceResult{}, "AuxilaryData")
-	perfRollupsKey  = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
-	perfTotalKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
-	perfVersionlKey = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
+	perfIDKey        = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey      = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfArtifactsKey = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
+	perfRollupsKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfTotalKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
+	perfVersionlKey  = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
 func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) *PerformanceResult {
+	createdAt := time.Now()
+
+	for idx := range source {
+		source[idx].CreatedAt = createdAt
+	}
+
 	return &PerformanceResult{
 		ID:        info.ID(),
-		Source:    source,
+		Artifacts: source,
 		Info:      info,
 		populated: true,
 	}
