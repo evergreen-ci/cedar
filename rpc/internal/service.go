@@ -75,6 +75,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 
 	return resp, nil
 }
+
 func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
 	if result.Id == nil {
 		return nil, errors.New("invalid data")
@@ -98,6 +99,36 @@ func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultDa
 
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
+	}
+
+	resp.Success = true
+	return resp, nil
+}
+
+func (srv *perfService) AttachRollups(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
+	if result.Id == nil {
+		return nil, errors.New("invalid data")
+	}
+	record := &model.PerformanceResult{}
+	record.Setup(srv.env)
+	record.Info = *result.Id.Export()
+	record.ID = record.Info.ID()
+
+	if err := record.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", record.ID)
+	}
+
+	resp := &MetricsResponse{}
+	resp.Id = record.ID
+
+	rollups, err := result.Rollups.Export()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem getting rollups")
+	}
+	record.Rollups = &rollups
+
+	if err := record.Save(); err != nil {
+		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
 
 	resp.Success = true

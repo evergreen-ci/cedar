@@ -51,8 +51,8 @@ func (c CompressionType) Export() model.FileCompression {
 	}
 }
 
-func (m *ResultID) Export() *model.PerformanceResultID {
-	return &model.PerformanceResultID{
+func (m *ResultID) Export() *model.PerformanceResultInfo {
+	return &model.PerformanceResultInfo{
 		Project:   m.Project,
 		Version:   m.Version,
 		TaskID:    m.TaskId,
@@ -93,7 +93,7 @@ func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
 	if err != nil {
 		return model.PerformancePoint{}, errors.Wrap(err, "problem converting duration value")
 	}
-	wait, err := ptypes.Duration(m.Timers.Waiting)
+	total, err := ptypes.Duration(m.Timers.Total)
 	if err != nil {
 		return model.PerformancePoint{}, errors.Wrap(err, "problem converting duration value")
 	}
@@ -110,22 +110,43 @@ func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
 	point.Counters.Size = m.Counters.Size
 	point.Counters.Errors = m.Counters.Errors
 	point.Counters.Operations = m.Counters.Ops
-	point.State.Failed = m.State.Failed
-	point.State.Workers = m.State.Workers
+	point.Guages.State = m.Guages.State
+	point.Guages.Workers = m.Guages.Workers
+	point.Guages.Failed = m.Guages.Failed
 	point.Timers.Duration = dur
-	point.Timers.Waiting = wait
+	point.Timers.Total = total
 
 	return point, nil
 }
 
-/*
-  string name = 1;
-  google.protobuf.Any value = 2;
-  int64 version = 3;
-*/
-func (r *RollupValue) Export() (model.PerfRollupValue, error) {
-	rollupValue := model.PerfRollupValue{
-		name:    r.name,
-		version: r.version,
+func (r *RollupValue) Export() model.PerfRollupValue {
+	return model.PerfRollupValue{
+		Name:    r.Name,
+		Version: int(r.Version),
+		Value:   r.Value,
 	}
+}
+
+func (r *Rollups) Export() (model.PerfRollups, error) {
+	defaultStats := []model.PerfRollupValue{}
+	userStats := []model.PerfRollupValue{}
+
+	for _, d := range r.DefaultStats {
+		defaultStats = append(defaultStats, d.Export())
+	}
+	for _, u := range r.UserStats {
+		userStats = append(userStats, u.Export())
+	}
+	processedAt, err := ptypes.Timestamp(r.ProcessedAt)
+	if err != nil {
+		return model.PerfRollups{}, errors.Wrap(err, "problem coverting timestamp value")
+	}
+
+	return model.PerfRollups{
+		DefaultStats: defaultStats,
+		UserStats:    userStats,
+		ProcessedAt:  processedAt,
+		Count:        int(r.Count),
+		Valid:        r.Valid,
+	}, nil
 }

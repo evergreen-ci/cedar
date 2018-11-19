@@ -4,7 +4,6 @@ package sink;
 
 option go_package = "internal";
 
-import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -25,6 +24,7 @@ message ResultID {
 message ResultData {
   ResultID id = 1;
   repeated ArtifactInfo artifacts = 2;
+  Rollups rollups = 3;
 }
 
 message ArtifactInfo {
@@ -79,7 +79,7 @@ message MetricsPoint {
   google.protobuf.Timestamp Time = 1;
   MetricsCounters counters = 2;
   MetricsTimers timers = 3;
-  MetricsState state = 4;
+  MetricsGuages guages = 4;
 }
 
 message MetricsCounters {
@@ -90,12 +90,13 @@ message MetricsCounters {
 
 message MetricsTimers {
   google.protobuf.Duration duration = 1;
-  google.protobuf.Duration waiting = 2;
+  google.protobuf.Duration total = 2;
 }
 
-message MetricsState {
-  bool failed = 1;
+message MetricsGuages {
+  int64 state = 1;
   int64 workers = 2;
+  bool failed = 3;
 }
 
 message MetricsEvent {
@@ -105,14 +106,17 @@ message MetricsEvent {
 
 message RollupValue {
   string name = 1;
-  google.protobuf.Any value = 2;
-  int64 version = 3;
+  oneof value {
+    int64 int = 2;
+    float fl = 3;
+  }
+  int64 version = 4;
 }
 
 message Rollups {
-  repeated PerfRollupValue default_stats = 1;
-  repeated PerfRollupValue user_stats = 2;
-  google.protobuf.Timestamp time = 3;
+  repeated RollupValue default_stats = 1;
+  repeated RollupValue user_stats = 2;
+  google.protobuf.Timestamp processed_at = 3;
   int64 count = 4;
   bool valid = 5;
 }
@@ -121,6 +125,7 @@ service SinkPerformanceMetrics {
   rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
   rpc AttachResultData(ResultData) returns (MetricsResponse);
   rpc AttachAuxilaryData(ResultData) returns (MetricsResponse);
+  rpc AttachRollups(ResultData) returns (MetricsResponse);
   rpc SendMetrics(stream MetricsEvent) returns (SendResponse);
   rpc CloseMetrics(MetricsSeriesEnd) returns (MetricsResponse);
 }
