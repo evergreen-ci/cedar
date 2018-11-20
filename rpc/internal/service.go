@@ -64,19 +64,25 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	resp.Id = record.ID
 
 	for _, i := range result.Artifacts {
-		record.Source = append(record.Source, *i.Export())
+		record.Artifacts = append(record.Artifacts, *i.Export())
+	}
+
+	if result.Rollups != nil {
+		rollups, err := result.Rollups.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem getting rollups")
+		}
+		record.Rollups = &rollups
 	}
 
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
-
 	resp.Success = true
-
 	return resp, nil
 }
 
-func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
+func (srv *perfService) AttachArtifacts(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
 	if result.Id == nil {
 		return nil, errors.New("invalid data")
 	}
@@ -94,13 +100,12 @@ func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultDa
 	resp.Id = record.ID
 
 	for _, i := range result.Artifacts {
-		record.AuxilaryData = append(record.AuxilaryData, *i.Export())
+		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
-
 	resp.Success = true
 	return resp, nil
 }

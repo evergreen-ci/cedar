@@ -124,7 +124,7 @@ message Rollups {
 service SinkPerformanceMetrics {
   rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
   rpc AttachResultData(ResultData) returns (MetricsResponse);
-  rpc AttachAuxilaryData(ResultData) returns (MetricsResponse);
+  rpc AttachArtifacts(ResultData) returns (MetricsResponse);
   rpc AttachRollups(ResultData) returns (MetricsResponse);
   rpc SendMetrics(stream MetricsEvent) returns (SendResponse);
   rpc CloseMetrics(MetricsSeriesEnd) returns (MetricsResponse);

@@ -195,6 +195,24 @@ func TestAttach(t *testing.T) {
 			attachedResultData: &ResultData{
 				Id:        &ResultID{},
 				Artifacts: []*ArtifactInfo{},
+				Rollups: &Rollups{
+					ProcessedAt: ptypes.TimestampNow(),
+				},
+			},
+			expectedResp: &MetricsResponse{
+				Id:      (&model.PerformanceResultInfo{}).ID(),
+				Success: true,
+			},
+		},
+		{
+			name:     "TestAttachResultDataWithEmptyFields",
+			function: SinkPerformanceMetricsClient.AttachResultData,
+			save:     true,
+			resultData: &ResultData{
+				Id: &ResultID{},
+			},
+			attachedResultData: &ResultData{
+				Id: &ResultID{},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
@@ -224,8 +242,8 @@ func TestAttach(t *testing.T) {
 			err: true,
 		},
 		{
-			name:     "TestAttachAuxilaryData",
-			function: SinkPerformanceMetricsClient.AttachAuxilaryData,
+			name:     "TestAttachArtifacts",
+			function: SinkPerformanceMetricsClient.AttachArtifacts,
 			save:     true,
 			resultData: &ResultData{
 				Id: &ResultID{},
@@ -240,22 +258,22 @@ func TestAttach(t *testing.T) {
 			},
 		},
 		{
-			name:               "TestAttachAuxilaryDataInvalidData",
-			function:           SinkPerformanceMetricsClient.AttachAuxilaryData,
+			name:               "TestAttachArtifactsInvalidData",
+			function:           SinkPerformanceMetricsClient.AttachArtifacts,
 			attachedResultData: &ResultData{},
 			err:                true,
 		},
 		{
-			name:     "TestAttachAuxilaryDataDoesNotExist",
-			function: SinkPerformanceMetricsClient.AttachAuxilaryData,
+			name:     "TestAttachArtifactsDoesNotExist",
+			function: SinkPerformanceMetricsClient.AttachArtifacts,
 			attachedResultData: &ResultData{
 				Id: &ResultID{},
 			},
 			err: true,
 		},
 		{
-			name:     "TestAttachAuxilaryDataInvalidEnv",
-			function: SinkPerformanceMetricsClient.AttachAuxilaryData,
+			name:     "TestAttachArtifactsInvalidEnv",
+			function: SinkPerformanceMetricsClient.AttachArtifacts,
 			attachedResultData: &ResultData{
 				Id: &ResultID{},
 			},
