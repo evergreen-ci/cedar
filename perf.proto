@@ -108,7 +108,7 @@ message RollupValue {
   string name = 1;
   oneof value {
     int64 int = 2;
-    float fl = 3;
+    double fl = 3;
   }
   int64 version = 4;
 }
