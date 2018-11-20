@@ -23,30 +23,17 @@ const (
 )
 
 type PerfRollupValue struct {
-	Name    string      `bson:"name"`
-	Value   interface{} `bson:"val"`
-	Version int         `bson:"version"`
+	Name          string      `bson:"name"`
+	Value         interface{} `bson:"val"`
+	Version       int         `bson:"version"`
+	UserSubmitted bool        `bson:"user"`
 }
 
 type PerfRollups struct {
-	// DefaultStats are populated the background processing by
-	// calculating the rollups from the input source data.
-	DefaultStats []PerfRollupValue `bson:"system"`
-
-	// UserStats would be populated directly by test harnesses and
-	// are not calculated by the system at all. We may not need
-	// these at all.
-	UserStats []PerfRollupValue `bson:"user"`
-
-	// TODO:
-	//  - determine if we want user stats
-	//  - determine merge strategy for default and user stats
-	//  - figure out what else we want to store here: version,
-	//    validity, last processed
-
-	ProcessedAt time.Time `bson:"processed_at"`
-	Count       int       `bson:"count"`
-	Valid       bool      `bson:"valid"`
+	Stats       []PerfRollupValue `bson:"stats"`
+	ProcessedAt time.Time         `bson:"processed_at"`
+	Count       int               `bson:"count"`
+	Valid       bool              `bson:"valid"`
 
 	dirty     bool // nolint
 	populated bool
@@ -140,7 +127,7 @@ func (r *PerfRollups) insertNewEntry(search map[string]interface{}, rollup PerfR
 	if err != nil {
 		return errors.Wrap(err, "error pushing new entry")
 	}
-	r.DefaultStats = append(r.DefaultStats, rollup)
+	r.Stats = append(r.Stats, rollup)
 	r.Count++
 	return nil
 }
@@ -159,20 +146,20 @@ func (r *PerfRollups) updateExistingEntry(search map[string]interface{}, rollup 
 	if err != nil {
 		return errors.Wrap(err, "error updating an existing entry")
 	}
-	for i := range r.DefaultStats {
-		if r.DefaultStats[i].Name == rollup.Name {
-			r.DefaultStats[i].Version = rollup.Version
-			r.DefaultStats[i].Value = rollup.Value
+	for i := range r.Stats {
+		if r.Stats[i].Name == rollup.Name {
+			r.Stats[i].Version = rollup.Version
+			r.Stats[i].Value = rollup.Value
 			return nil
 		}
 	}
-	r.DefaultStats = append(r.DefaultStats, rollup)
+	r.Stats = append(r.Stats, rollup)
 	r.Count++
 	return nil
 }
 
 func (r *PerfRollups) GetInt(name string) (int, error) {
-	for _, rollup := range r.DefaultStats {
+	for _, rollup := range r.Stats {
 		if rollup.Name == name {
 			if val, ok := rollup.Value.(int); ok {
 				return val, nil
@@ -192,7 +179,7 @@ func (r *PerfRollups) GetInt32(name string) (int32, error) {
 }
 
 func (r *PerfRollups) GetInt64(name string) (int64, error) {
-	for _, rollup := range r.DefaultStats {
+	for _, rollup := range r.Stats {
 		if rollup.Name == name {
 			return rollup.getIntLong()
 		}
@@ -201,7 +188,7 @@ func (r *PerfRollups) GetInt64(name string) (int64, error) {
 }
 
 func (r *PerfRollups) GetFloat(name string) (float64, error) {
-	for _, rollup := range r.DefaultStats {
+	for _, rollup := range r.Stats {
 		if rollup.Name == name {
 			return rollup.getFloat()
 		}
@@ -210,7 +197,7 @@ func (r *PerfRollups) GetFloat(name string) (float64, error) {
 }
 
 func (r *PerfRollups) Validate() error {
-	if len(r.DefaultStats) != r.Count {
+	if len(r.Stats) != r.Count {
 		return errors.New("number of stats and count of stats not equal")
 	}
 	return nil
@@ -218,7 +205,7 @@ func (r *PerfRollups) Validate() error {
 
 func (r *PerfRollups) Map() map[string]int64 {
 	result := make(map[string]int64)
-	for _, rollup := range r.DefaultStats {
+	for _, rollup := range r.Stats {
 		val, err := rollup.getIntLong()
 		if err == nil {
 			result[rollup.Name] = val
@@ -229,7 +216,7 @@ func (r *PerfRollups) Map() map[string]int64 {
 
 func (r *PerfRollups) MapFloat() map[string]float64 {
 	result := make(map[string]float64)
-	for _, rollup := range r.DefaultStats {
+	for _, rollup := range r.Stats {
 		if val, err := rollup.getFloat(); err == nil {
 			result[rollup.Name] = val
 		} else if val, err := rollup.getIntLong(); err == nil {

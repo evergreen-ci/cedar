@@ -124,7 +124,7 @@ func (s *perfRollupSuite) TestLong() {
 }
 
 func (s *perfRollupSuite) TestAddPerfRollupValue() {
-	s.Len(s.r.DefaultStats, 4)
+	s.Len(s.r.Stats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
 	err = s.r.Add("mean", 1, 12.24)
@@ -132,7 +132,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(12.24, val)
-	s.Len(s.r.DefaultStats, 5)
+	s.Len(s.r.Stats, 5)
 }
 
 func (s *perfRollupSuite) TestMaps() {
