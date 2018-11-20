@@ -75,6 +75,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 		record.Rollups = &rollups
 	}
 
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
@@ -103,6 +104,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, result *ResultData)
 		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
@@ -132,6 +134,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, result *ResultData) (
 	}
 	record.Rollups = &rollups
 
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}

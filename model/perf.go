@@ -78,10 +78,6 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 func (result *PerformanceResult) Setup(e sink.Environment) { result.env = e }
 func (result *PerformanceResult) IsNil() bool              { return !result.populated }
 func (result *PerformanceResult) Find() error {
-	// Need to maintain anything that gets lost after populate result
-	//
-	env := result.env
-
 	conf, session, err := sink.GetSessionWithConfig(result.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -95,7 +91,7 @@ func (result *PerformanceResult) Find() error {
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding result config")
 	}
-	result.Setup(env)
+
 	result.populated = true
 	if result.Rollups != nil {
 		result.Rollups.id = result.ID
