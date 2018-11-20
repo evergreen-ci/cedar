@@ -14,16 +14,16 @@ import (
 type DBPerformanceResultConnector struct{}
 
 type DBPerformanceResultInput struct {
-	Id        string
-	TaskId    string
-	Versison  int
-	Project   string
-	TaskName  string
-	TestName  string
-	Tags      []string
-	MaxDepth  int
-	TimeRange util.TimeRange
-	Env       sink.Environment
+	Id       string
+	TaskId   string
+	Versison int
+	Project  string
+	TaskName string
+	TestName string
+	Tags     []string
+	MaxDepth int
+	Interval util.TimeRange
+	Env      sink.Environment
 }
 
 func (prc *DBPerformanceResultConnector) FindPerformanceResultById(input DBPerformanceResultInput) (*PerformanceResult, error) {
@@ -38,4 +38,13 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultById(input DBPerfo
 		}
 	}
 	return result, nil
+}
+
+func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(input DBPerformanceResultInput) ([]*PerformanceResult, error) {
+	results := model.PerformanceResults
+	results.Setup(input.Env)
+
+	options := model.PerfFindOptions{
+		Interval: input.Interval,
+	}
 }
