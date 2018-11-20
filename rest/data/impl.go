@@ -9,19 +9,19 @@ import (
 // and the API layers, allowing for changes in the service architecture
 // without forcing changes to the API.
 type DBConnector struct {
-	env sink.Evironment
+	env sink.Environment
 
 	DBPerformanceResultConnector
 }
 
-func (ctx *DBConnector) GetEnv() sink.Environment    { return ctx.env }
-func (ctx *DBConnector) SetEnv(env sink.Environment) { ctx.env = env }
+func CreateDBConnector(env sink.Environment) Connector {
+	return &DBConnector{
+		env: env,
 
-type MockDBConnector struct {
-	env Sink.Environment
-
-	MockPerformanceResultConnector
+		DBPerformanceResultConnector: DBPerformanceResultConnector{env: env},
+	}
 }
 
-func (ctx *DBConnector) GetEnv() sink.Environment    { return ctx.env }
-func (ctx *DBConnector) SetEnv(env sink.Environment) { ctx.env = env }
+type MockConnector struct {
+	env sink.Environment
+}

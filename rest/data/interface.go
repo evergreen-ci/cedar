@@ -1,19 +1,14 @@
 package data
 
 import (
-	"fmt"
-
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 )
 
 type Connector interface {
-	// Get and Set Env.
-	GetEnv() sink.Environment
-	SetEnv(sink.Environment)
-
-	// TODO: Perf functions.
-	FindPerformanceResultById(DBPerformanceResultInput) (*PerformanceResult, error)
-	FindPerformancesByTaskId(DBPerformanceResultInput) ([]*PerformanceResult, error)
-	FindPerformanceResultsByVersion(DBPerformanceResultInput) ([]*PerformanceResult, error)
-	FindPerformanceResultChildren(DBPerformanceResultInput) ([]*PerformanceResult, error)
+	// PerformanceResult
+	FindPerformanceResultById(string) (*model.PerformanceResult, error)
+	FindPerformanceResultsByTaskId(string, util.TimeRange, ...string) ([]model.PerformanceResult, error)
+	FindPerformanceResultsByVersion(string, util.TimeRange, ...string) ([]model.PerformanceResult, error)
+	FindPerformanceResultWithChildren(string, util.TimeRange, int, ...string) ([]model.PerformanceResult, error)
 }
