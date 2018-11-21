@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
@@ -304,7 +305,7 @@ type performanceMetricSummary struct {
 // off-line storage. While the FTDC data often requires additional data
 // than a sequence of points, these series are the basis of the
 // reporting that this application does across test values.
-type PerformanceTimeSeries []PerformancePoint
+type PerformanceTimeSeries []*events.Performance
 
 // statistics converts a a series into an intermediate format that we
 // can use to calculate means/totals/etc to create default rollups

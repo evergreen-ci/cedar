@@ -3,6 +3,7 @@ package internal
 import (
 	"github.com/evergreen-ci/sink/model"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/mongodb/ftdc/events"
 	"github.com/pkg/errors"
 )
 
@@ -88,33 +89,32 @@ func (r *ResultData) Export() *model.PerformanceResult {
 	return model.CreatePerformanceResult(*r.Id.Export(), artifacts)
 }
 
-func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
+func (m *MetricsPoint) Export() (*events.Performance, error) {
 	dur, err := ptypes.Duration(m.Timers.Duration)
 	if err != nil {
-		return model.PerformancePoint{}, errors.Wrap(err, "problem converting duration value")
+		return nil, errors.Wrap(err, "problem converting duration value")
 	}
 	total, err := ptypes.Duration(m.Timers.Total)
 	if err != nil {
-		return model.PerformancePoint{}, errors.Wrap(err, "problem converting duration value")
+		return nil, errors.Wrap(err, "problem converting duration value")
 	}
 
 	ts, err := ptypes.Timestamp(m.Time)
 	if err != nil {
-		return model.PerformancePoint{}, errors.Wrap(err, "problem converting duration value")
+		return nil, errors.Wrap(err, "problem converting duration value")
 	}
 
-	point := model.PerformancePoint{
+	point := &events.Performance{
 		Timestamp: ts,
 	}
 
 	point.Counters.Size = m.Counters.Size
 	point.Counters.Errors = m.Counters.Errors
 	point.Counters.Operations = m.Counters.Ops
-	point.Guages.State = m.Guages.State
-	point.Guages.Workers = m.Guages.Workers
-	point.Guages.Failed = m.Guages.Failed
+	point.Guages.Failed = m.State.Failed
+	point.Guages.Workers = m.State.Workers
 	point.Timers.Duration = dur
-	point.Timers.Total = total
+	point.Timers.Total = wait
 
 	return point, nil
 }
