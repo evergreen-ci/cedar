@@ -84,10 +84,6 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 }
 
 func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *ArtifactData) (*MetricsResponse, error) {
-	if artifactData.Id == "" {
-		return nil, errors.New("invalid data")
-	}
-
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = artifactData.Id
@@ -112,9 +108,6 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 }
 
 func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupData) (*MetricsResponse, error) {
-	if rollupData.Id == "" {
-		return nil, errors.New("invalid data")
-	}
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = rollupData.Id

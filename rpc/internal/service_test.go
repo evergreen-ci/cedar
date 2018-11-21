@@ -240,11 +240,6 @@ func TestAttachResultData(t *testing.T) {
 			},
 		},
 		{
-			name:         "TestAttachArtifactsInvalidData",
-			attachedData: &ArtifactData{},
-			err:          true,
-		},
-		{
 			name: "TestAttachArtifactsDoesNotExist",
 			attachedData: &ArtifactData{
 				Id: (&model.PerformanceResultInfo{}).ID(),
@@ -270,11 +265,6 @@ func TestAttachResultData(t *testing.T) {
 				Id:      (&model.PerformanceResultInfo{}).ID(),
 				Success: true,
 			},
-		},
-		{
-			name:         "TestAttachRollupsInvalidData",
-			attachedData: &RollupData{},
-			err:          true,
 		},
 		{
 			name: "TestAttachRollupsDoesNotExist",
