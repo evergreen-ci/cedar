@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/sink"
+	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -218,9 +219,9 @@ func (s *perfRollupSuite) TestValidate() {
 }
 
 func initializeTS() PerformanceTimeSeries {
-	point1 := PerformancePoint{Timestamp: time.Date(2018, 10, 15, 8, 0, 0, 0, time.Local)}
-	point2 := PerformancePoint{Timestamp: point1.Timestamp.Add(time.Minute)}
-	point3 := PerformancePoint{Timestamp: point2.Timestamp.Add(time.Minute)}
+	point1 := &events.Performance{Timestamp: time.Date(2018, 10, 15, 8, 0, 0, 0, time.Local)}
+	point2 := &events.Performance{Timestamp: point1.Timestamp.Add(time.Minute)}
+	point3 := &events.Performance{Timestamp: point2.Timestamp.Add(time.Minute)}
 	point1.Timers.Duration = time.Hour
 	point2.Timers.Duration = time.Hour
 	point3.Timers.Duration = time.Hour
@@ -237,7 +238,7 @@ func initializeTS() PerformanceTimeSeries {
 	point2.Counters.Errors = 300
 	point3.Counters.Errors = 200
 
-	return []PerformancePoint{point1, point2, point3}
+	return PerformanceTimeSeries{point1, point2, point3}
 }
 
 func (s *perfRollupSuite) TestUpdateDefaultRollups() {

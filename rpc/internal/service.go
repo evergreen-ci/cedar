@@ -7,6 +7,7 @@ import (
 
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
+	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	grpc "google.golang.org/grpc"
@@ -64,7 +65,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	resp.Id = record.ID
 
 	for _, i := range result.Artifacts {
-		record.Source = append(record.Source, *i.Export())
+		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
 	if err := record.Save(); err != nil {
@@ -93,7 +94,7 @@ func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultDa
 	resp.Id = record.ID
 
 	for _, i := range result.Artifacts {
-		record.AuxilaryData = append(record.AuxilaryData, *i.Export())
+		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
 	if err := record.Save(); err != nil {
@@ -112,7 +113,7 @@ func (srv *perfService) SendMetrics(stream SinkPerformanceMetrics_SendMetricsSer
 
 	ctx := stream.Context()
 	catcher := grip.NewBasicCatcher()
-	pipe := make(chan model.PerformancePoint)
+	pipe := make(chan events.Performance)
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 
@@ -150,7 +151,7 @@ func (srv *perfService) SendMetrics(stream SinkPerformanceMetrics_SendMetricsSer
 					catcher.Add(err)
 					continue
 				}
-				pipe <- pp
+				pipe <- *pp
 			}
 		}
 	}()

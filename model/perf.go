@@ -13,6 +13,7 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
+	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -43,7 +44,7 @@ type PerformanceResult struct {
 	// that report a single summarized event rather than a
 	// sequence of timeseries points. Is omitted except when
 	// provided by the test.
-	Total *PerformancePoint `bson:"total,omitempty"`
+	Total *events.Performance `bson:"total,omitempty"`
 
 	Rollups *PerfRollups `bson:"rollups,omitempty"`
 
@@ -347,51 +348,4 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 		return errors.Wrap(err, "problem getting children")
 	}
 	return nil
-}
-
-////////////////////////////////////////////////////////////////////////
-//
-// Performance Data Roll up Processing
-
-// PerformancePoint represents the "required" data that we read out of
-// the stream of events from the tests. The values in these streams
-// are combined in roll ups, though the raw data streams may have more
-// data.
-//
-// If you want to add a new data point to one of these structures, you
-// should add the fields to the appropraite sub-structure, to all of
-// the subsequent rollup tools (e.g. the rest of the methods in this
-// file), as well as to the protocol buffer in the top level of this
-// repository.
-type PerformancePoint struct {
-	// Each point must report the timestamp of its collection.
-	Timestamp time.Time `bson:"ts" json:"ts" yaml:"ts"`
-
-	// Counters refer to the number of operations/events or total
-	// of things since the last collection point. These values are
-	// used in computing various kinds of throughput measurements.
-	Counters struct {
-		Number     int64 `bson:"n" json:"n" yaml:"n"`
-		Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
-		Size       int64 `bson:"size" json:"size" yaml:"size"`
-		Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
-	} `bson:"counters" json:"counters" yaml:"counters"`
-
-	// Timers refers to all of the timing data for this event. In
-	// general Duration+Waiting should equal the time since the
-	// last data point.
-	Timers struct {
-		Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-		Total    time.Duration `bson:"total" json:"total" yaml:"total"`
-	} `bson:"timers" json:"timers" yaml:"timers"`
-
-	// The State document holds simple counters that aren't
-	// expected to change between points, but are useful as
-	// annotations of the experiment or descriptions of events in
-	// the system configuration.
-	Guages struct {
-		State   int64 `bson:"state" json:"state" yaml:"state"`
-		Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
-		Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
-	} `bson:"guages" json:"guages" yaml:"guages"`
 }

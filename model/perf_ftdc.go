@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/mongodb/ftdc"
+	"github.com/mongodb/ftdc/events"
 	"github.com/pkg/errors"
 )
 
@@ -17,7 +18,7 @@ const defaultPointsPerChunk = 10 * 1000 // ten thousand
 // channel to the writer, and indeed, this implementation will not
 // start writing to the output stream until the input stream is
 // exhausted, but future work should allow us to avoid that detail.
-func DumpPerformanceSeries(ctx context.Context, stream <-chan PerformancePoint, metadata interface{}, output io.Writer) error {
+func DumpPerformanceSeries(ctx context.Context, stream <-chan events.Performance, metadata interface{}, output io.Writer) error {
 	collector := ftdc.NewBatchCollector(defaultPointsPerChunk)
 
 	if metadata != nil {
