@@ -111,14 +111,14 @@ message RollupValue {
     double fl = 3;
   }
   int64 version = 4;
+  bool user_submitted = 5;
 }
 
 message Rollups {
-  repeated RollupValue default_stats = 1;
-  repeated RollupValue user_stats = 2;
-  google.protobuf.Timestamp processed_at = 3;
-  int64 count = 4;
-  bool valid = 5;
+  repeated RollupValue stats = 1;
+  google.protobuf.Timestamp processed_at = 2;
+  int64 count = 3;
+  bool valid = 4;
 }
 
 service SinkPerformanceMetrics {

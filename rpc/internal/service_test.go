@@ -290,6 +290,9 @@ func TestAttach(t *testing.T) {
 				Id: &ResultID{},
 				Rollups: &Rollups{
 					ProcessedAt: ptypes.TimestampNow(),
+					Stats: []*RollupValue{
+						&RollupValue{},
+					},
 				},
 			},
 			expectedResp: &MetricsResponse{

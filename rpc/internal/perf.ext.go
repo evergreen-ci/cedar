@@ -121,21 +121,18 @@ func (m *MetricsPoint) Export() (model.PerformancePoint, error) {
 
 func (r *RollupValue) Export() model.PerfRollupValue {
 	return model.PerfRollupValue{
-		Name:    r.Name,
-		Version: int(r.Version),
-		Value:   r.Value,
+		Name:          r.Name,
+		Version:       int(r.Version),
+		Value:         r.Value,
+		UserSubmitted: r.UserSubmitted,
 	}
 }
 
 func (r *Rollups) Export() (model.PerfRollups, error) {
-	defaultStats := []model.PerfRollupValue{}
-	userStats := []model.PerfRollupValue{}
+	stats := []model.PerfRollupValue{}
 
-	for _, d := range r.DefaultStats {
-		defaultStats = append(defaultStats, d.Export())
-	}
-	for _, u := range r.UserStats {
-		userStats = append(userStats, u.Export())
+	for _, s := range r.Stats {
+		stats = append(stats, s.Export())
 	}
 	processedAt, err := ptypes.Timestamp(r.ProcessedAt)
 	if err != nil {
@@ -143,10 +140,9 @@ func (r *Rollups) Export() (model.PerfRollups, error) {
 	}
 
 	return model.PerfRollups{
-		DefaultStats: defaultStats,
-		UserStats:    userStats,
-		ProcessedAt:  processedAt,
-		Count:        int(r.Count),
-		Valid:        r.Valid,
+		Stats:       stats,
+		ProcessedAt: processedAt,
+		Count:       int(r.Count),
+		Valid:       r.Valid,
 	}, nil
 }
