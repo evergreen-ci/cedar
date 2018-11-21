@@ -83,24 +83,23 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	return resp, nil
 }
 
-func (srv *perfService) AttachArtifacts(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
-	if result.Id == nil {
+func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *ArtifactData) (*MetricsResponse, error) {
+	if artifactData.Id == "" {
 		return nil, errors.New("invalid data")
 	}
 
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
-	record.Info = *result.Id.Export()
-	record.ID = record.Info.ID()
+	record.ID = artifactData.Id
 
 	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for '%v'", result.Id)
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", artifactData.Id)
 	}
 
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	for _, i := range result.Artifacts {
+	for _, i := range artifactData.Artifacts {
 		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
@@ -112,23 +111,22 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, result *ResultData)
 	return resp, nil
 }
 
-func (srv *perfService) AttachRollups(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
-	if result.Id == nil {
+func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupData) (*MetricsResponse, error) {
+	if rollupData.Id == "" {
 		return nil, errors.New("invalid data")
 	}
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
-	record.Info = *result.Id.Export()
-	record.ID = record.Info.ID()
+	record.ID = rollupData.Id
 
 	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for '%v'", record.ID)
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", rollupData.Id)
 	}
 
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	rollups, err := result.Rollups.Export()
+	rollups, err := rollupData.Rollups.Export()
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting rollups")
 	}

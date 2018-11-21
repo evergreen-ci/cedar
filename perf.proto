@@ -121,11 +121,21 @@ message Rollups {
   bool valid = 4;
 }
 
+message ArtifactData {
+  string id = 1;
+  repeated ArtifactInfo artifacts = 2;
+}
+
+message RollupData {
+  string id = 1;
+  Rollups rollups = 2;
+}
+
 service SinkPerformanceMetrics {
   rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
   rpc AttachResultData(ResultData) returns (MetricsResponse);
-  rpc AttachArtifacts(ResultData) returns (MetricsResponse);
-  rpc AttachRollups(ResultData) returns (MetricsResponse);
+  rpc AttachArtifacts(ArtifactData) returns (MetricsResponse);
+  rpc AttachRollups(RollupData) returns (MetricsResponse);
   rpc SendMetrics(stream MetricsEvent) returns (SendResponse);
   rpc CloseMetrics(MetricsSeriesEnd) returns (MetricsResponse);
 }

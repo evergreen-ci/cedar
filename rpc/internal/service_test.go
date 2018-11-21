@@ -107,18 +107,16 @@ func tearDownEnv(env sink.Environment, mock bool) error {
 	return errors.WithStack(session.DB(conf.DatabaseName).DropDatabase())
 }
 
-func TestCreate(t *testing.T) {
+func TestCreateMetricSeries(t *testing.T) {
 	for _, test := range []struct {
 		name         string
 		mockEnv      bool
-		function     func(SinkPerformanceMetricsClient, context.Context, *ResultData, ...grpc.CallOption) (*MetricsResponse, error)
 		data         *ResultData
 		expectedResp *MetricsResponse
 		err          bool
 	}{
 		{
-			name:     "TestCreateMetricSeries",
-			function: SinkPerformanceMetricsClient.CreateMetricSeries,
+			name: "TestValidData",
 			data: &ResultData{
 				Id: &ResultID{
 					Project: "testProject",
@@ -134,15 +132,13 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name:     "TestCreateMetricSeriesWithInvalidData",
-			function: SinkPerformanceMetricsClient.CreateMetricSeries,
-			data:     &ResultData{},
-			err:      true,
+			name: "TestInvalidData",
+			data: &ResultData{},
+			err:  true,
 		},
 		{
-			name:     "TestCreateMetricSeriesWithInvalidEnv",
-			mockEnv:  true,
-			function: SinkPerformanceMetricsClient.CreateMetricSeries,
+			name:    "TestInvalidEnv",
+			mockEnv: true,
 			data: &ResultData{
 				Id: &ResultID{},
 			},
@@ -164,7 +160,7 @@ func TestCreate(t *testing.T) {
 			client, err := getClient(ctx)
 			require.NoError(t, err)
 
-			resp, err := test.function(client, ctx, test.data)
+			resp, err := client.CreateMetricSeries(ctx, test.data)
 			assert.Equal(t, test.expectedResp, resp)
 			if test.err {
 				assert.Error(t, err)
@@ -175,24 +171,22 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-func TestAttach(t *testing.T) {
+func TestAttachResultData(t *testing.T) {
 	for _, test := range []struct {
-		name               string
-		function           func(SinkPerformanceMetricsClient, context.Context, *ResultData, ...grpc.CallOption) (*MetricsResponse, error)
-		save               bool
-		resultData         *ResultData
-		attachedResultData *ResultData
-		expectedResp       *MetricsResponse
-		err                bool
+		name         string
+		save         bool
+		resultData   *ResultData
+		attachedData interface{}
+		expectedResp *MetricsResponse
+		err          bool
 	}{
 		{
-			name:     "TestAttachResultData",
-			function: SinkPerformanceMetricsClient.AttachResultData,
-			save:     true,
+			name: "TestAttachResultData",
+			save: true,
 			resultData: &ResultData{
 				Id: &ResultID{},
 			},
-			attachedResultData: &ResultData{
+			attachedData: &ResultData{
 				Id:        &ResultID{},
 				Artifacts: []*ArtifactInfo{},
 				Rollups: &Rollups{
@@ -205,13 +199,12 @@ func TestAttach(t *testing.T) {
 			},
 		},
 		{
-			name:     "TestAttachResultDataWithEmptyFields",
-			function: SinkPerformanceMetricsClient.AttachResultData,
-			save:     true,
+			name: "TestAttachResultDataWithEmptyFields",
+			save: true,
 			resultData: &ResultData{
 				Id: &ResultID{},
 			},
-			attachedResultData: &ResultData{
+			attachedData: &ResultData{
 				Id: &ResultID{},
 			},
 			expectedResp: &MetricsResponse{
@@ -220,36 +213,25 @@ func TestAttach(t *testing.T) {
 			},
 		},
 		{
-			name:               "TestAttachResultDataInvalidData",
-			function:           SinkPerformanceMetricsClient.AttachResultData,
-			attachedResultData: &ResultData{},
-			err:                true,
+			name:         "TestAttachResultDataInvalidData",
+			attachedData: &ResultData{},
+			err:          true,
 		},
 		{
-			name:     "TestAttachResultDataDoesNotExist",
-			function: SinkPerformanceMetricsClient.AttachResultData,
-			attachedResultData: &ResultData{
+			name: "TestAttachResultDataDoesNotExist",
+			attachedData: &ResultData{
 				Id: &ResultID{},
 			},
 			err: true,
 		},
 		{
-			name:     "TestAttachResultDataInvalidEnv",
-			function: SinkPerformanceMetricsClient.AttachResultData,
-			attachedResultData: &ResultData{
-				Id: &ResultID{},
-			},
-			err: true,
-		},
-		{
-			name:     "TestAttachArtifacts",
-			function: SinkPerformanceMetricsClient.AttachArtifacts,
-			save:     true,
+			name: "TestAttachArtifacts",
+			save: true,
 			resultData: &ResultData{
 				Id: &ResultID{},
 			},
-			attachedResultData: &ResultData{
-				Id:        &ResultID{},
+			attachedData: &ArtifactData{
+				Id:        (&model.PerformanceResultInfo{}).ID(),
 				Artifacts: []*ArtifactInfo{},
 			},
 			expectedResp: &MetricsResponse{
@@ -258,36 +240,25 @@ func TestAttach(t *testing.T) {
 			},
 		},
 		{
-			name:               "TestAttachArtifactsInvalidData",
-			function:           SinkPerformanceMetricsClient.AttachArtifacts,
-			attachedResultData: &ResultData{},
-			err:                true,
+			name:         "TestAttachArtifactsInvalidData",
+			attachedData: &ArtifactData{},
+			err:          true,
 		},
 		{
-			name:     "TestAttachArtifactsDoesNotExist",
-			function: SinkPerformanceMetricsClient.AttachArtifacts,
-			attachedResultData: &ResultData{
-				Id: &ResultID{},
+			name: "TestAttachArtifactsDoesNotExist",
+			attachedData: &ArtifactData{
+				Id: (&model.PerformanceResultInfo{}).ID(),
 			},
 			err: true,
 		},
 		{
-			name:     "TestAttachArtifactsInvalidEnv",
-			function: SinkPerformanceMetricsClient.AttachArtifacts,
-			attachedResultData: &ResultData{
-				Id: &ResultID{},
-			},
-			err: true,
-		},
-		{
-			name:     "TestAttachRollups",
-			function: SinkPerformanceMetricsClient.AttachRollups,
-			save:     true,
+			name: "TestAttachRollups",
+			save: true,
 			resultData: &ResultData{
 				Id: &ResultID{},
 			},
-			attachedResultData: &ResultData{
-				Id: &ResultID{},
+			attachedData: &RollupData{
+				Id: (&model.PerformanceResultInfo{}).ID(),
 				Rollups: &Rollups{
 					ProcessedAt: ptypes.TimestampNow(),
 					Stats: []*RollupValue{
@@ -301,36 +272,25 @@ func TestAttach(t *testing.T) {
 			},
 		},
 		{
-			name:               "TestAttachRollupsInvalidData",
-			function:           SinkPerformanceMetricsClient.AttachRollups,
-			attachedResultData: &ResultData{},
-			err:                true,
+			name:         "TestAttachRollupsInvalidData",
+			attachedData: &RollupData{},
+			err:          true,
 		},
 		{
-			name:     "TestAttachRollupsDoesNotExist",
-			function: SinkPerformanceMetricsClient.AttachRollups,
-			attachedResultData: &ResultData{
-				Id: &ResultID{},
+			name: "TestAttachRollupsDoesNotExist",
+			attachedData: &RollupData{
+				Id: (&model.PerformanceResultInfo{}).ID(),
 			},
 			err: true,
 		},
 		{
-			name:     "TestAttachRollupsInvalidEnv",
-			function: SinkPerformanceMetricsClient.AttachRollups,
-			attachedResultData: &ResultData{
-				Id: &ResultID{},
-			},
-			err: true,
-		},
-		{
-			name:     "TestAttachRollupsInvalidRollup",
-			function: SinkPerformanceMetricsClient.AttachRollups,
-			save:     true,
+			name: "TestAttachRollupsInvalidRollup",
+			save: true,
 			resultData: &ResultData{
 				Id: &ResultID{},
 			},
-			attachedResultData: &ResultData{
-				Id:      &ResultID{},
+			attachedData: &RollupData{
+				Id:      (&model.PerformanceResultInfo{}).ID(),
 				Rollups: &Rollups{},
 			},
 			err: true,
@@ -355,7 +315,18 @@ func TestAttach(t *testing.T) {
 				_, err := client.CreateMetricSeries(ctx, test.resultData)
 				require.NoError(t, err)
 			}
-			resp, err := test.function(client, ctx, test.attachedResultData)
+
+			var resp *MetricsResponse
+			switch d := test.attachedData.(type) {
+			case *ResultData:
+				resp, err = client.AttachResultData(ctx, d)
+			case *ArtifactData:
+				resp, err = client.AttachArtifacts(ctx, d)
+			case *RollupData:
+				resp, err = client.AttachRollups(ctx, d)
+			default:
+				t.Error("unknown attached data type")
+			}
 			assert.Equal(t, test.expectedResp, resp)
 			if test.err {
 				assert.Error(t, err)
