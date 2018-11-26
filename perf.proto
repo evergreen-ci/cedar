@@ -24,6 +24,7 @@ message ResultID {
 message ResultData {
   ResultID id = 1;
   repeated ArtifactInfo artifacts = 2;
+  Rollups rollups = 3;
 }
 
 message ArtifactInfo {
@@ -78,7 +79,7 @@ message MetricsPoint {
   google.protobuf.Timestamp Time = 1;
   MetricsCounters counters = 2;
   MetricsTimers timers = 3;
-  MetricsState state = 4;
+  MetricsGuages guages = 4;
 }
 
 message MetricsCounters {
@@ -89,12 +90,13 @@ message MetricsCounters {
 
 message MetricsTimers {
   google.protobuf.Duration duration = 1;
-  google.protobuf.Duration waiting = 2;
+  google.protobuf.Duration total = 2;
 }
 
-message MetricsState {
-  bool failed = 1;
+message MetricsGuages {
+  int64 state = 1;
   int64 workers = 2;
+  bool failed = 3;
 }
 
 message MetricsEvent {
@@ -102,10 +104,38 @@ message MetricsEvent {
   repeated MetricsPoint Event = 3;
 }
 
+message RollupValue {
+  string name = 1;
+  oneof value {
+    int64 int = 2;
+    double fl = 3;
+  }
+  int64 version = 4;
+  bool user_submitted = 5;
+}
+
+message Rollups {
+  repeated RollupValue stats = 1;
+  google.protobuf.Timestamp processed_at = 2;
+  int64 count = 3;
+  bool valid = 4;
+}
+
+message ArtifactData {
+  string id = 1;
+  repeated ArtifactInfo artifacts = 2;
+}
+
+message RollupData {
+  string id = 1;
+  Rollups rollups = 2;
+}
+
 service SinkPerformanceMetrics {
   rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
   rpc AttachResultData(ResultData) returns (MetricsResponse);
-  rpc AttachAuxilaryData(ResultData) returns (MetricsResponse);
+  rpc AttachArtifacts(ArtifactData) returns (MetricsResponse);
+  rpc AttachRollups(RollupData) returns (MetricsResponse);
   rpc SendMetrics(stream MetricsEvent) returns (SendResponse);
   rpc CloseMetrics(MetricsSeriesEnd) returns (MetricsResponse);
 }

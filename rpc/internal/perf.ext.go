@@ -94,7 +94,7 @@ func (m *MetricsPoint) Export() (*events.Performance, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "problem converting duration value")
 	}
-	wait, err := ptypes.Duration(m.Timers.Waiting)
+	total, err := ptypes.Duration(m.Timers.Total)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem converting duration value")
 	}
@@ -111,10 +111,38 @@ func (m *MetricsPoint) Export() (*events.Performance, error) {
 	point.Counters.Size = m.Counters.Size
 	point.Counters.Errors = m.Counters.Errors
 	point.Counters.Operations = m.Counters.Ops
-	point.Guages.Failed = m.State.Failed
-	point.Guages.Workers = m.State.Workers
+	point.Guages.Failed = m.Guages.Failed
+	point.Guages.Workers = m.Guages.Workers
 	point.Timers.Duration = dur
-	point.Timers.Total = wait
+	point.Timers.Total = total
 
 	return point, nil
+}
+
+func (r *RollupValue) Export() model.PerfRollupValue {
+	return model.PerfRollupValue{
+		Name:          r.Name,
+		Version:       int(r.Version),
+		Value:         r.Value,
+		UserSubmitted: r.UserSubmitted,
+	}
+}
+
+func (r *Rollups) Export() (model.PerfRollups, error) {
+	stats := []model.PerfRollupValue{}
+
+	for _, s := range r.Stats {
+		stats = append(stats, s.Export())
+	}
+	processedAt, err := ptypes.Timestamp(r.ProcessedAt)
+	if err != nil {
+		return model.PerfRollups{}, errors.Wrap(err, "problem coverting timestamp value")
+	}
+
+	return model.PerfRollups{
+		Stats:       stats,
+		ProcessedAt: processedAt,
+		Count:       int(r.Count),
+		Valid:       r.Valid,
+	}, nil
 }

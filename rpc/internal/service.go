@@ -68,37 +68,66 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
+	if result.Rollups != nil {
+		rollups, err := result.Rollups.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem getting rollups")
+		}
+		addRollups(record, &rollups)
+	}
+
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
-
 	resp.Success = true
-
 	return resp, nil
 }
-func (srv *perfService) AttachAuxilaryData(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
-	if result.Id == nil {
-		return nil, errors.New("invalid data")
-	}
 
+func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *ArtifactData) (*MetricsResponse, error) {
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
-	record.Info = *result.Id.Export()
-	record.ID = record.Info.ID()
+	record.ID = artifactData.Id
 
 	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for '%v'", result.Id)
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", artifactData.Id)
 	}
 
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	for _, i := range result.Artifacts {
+	for _, i := range artifactData.Artifacts {
 		record.Artifacts = append(record.Artifacts, *i.Export())
 	}
 
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
+	}
+	resp.Success = true
+	return resp, nil
+}
+
+func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupData) (*MetricsResponse, error) {
+	record := &model.PerformanceResult{}
+	record.Setup(srv.env)
+	record.ID = rollupData.Id
+
+	if err := record.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding record for '%v'", rollupData.Id)
+	}
+
+	resp := &MetricsResponse{}
+	resp.Id = record.ID
+
+	rollups, err := rollupData.Rollups.Export()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem getting rollups")
+	}
+	addRollups(record, &rollups)
+	record.Setup(srv.env)
+	if err := record.Save(); err != nil {
+		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
 
 	resp.Success = true
@@ -177,4 +206,17 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	}
 
 	return nil, nil
+}
+
+func addRollups(record *model.PerformanceResult, rollups *model.PerfRollups) {
+	if record.Rollups == nil {
+		record.Rollups = rollups
+	} else {
+		for _, r := range rollups.Stats {
+			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.Value)
+		}
+		record.Rollups.ProcessedAt = rollups.ProcessedAt
+		record.Rollups.Count = rollups.Count
+		record.Rollups.Valid = rollups.Valid
+	}
 }
