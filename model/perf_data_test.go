@@ -31,10 +31,10 @@ func (s *perfRollupSuite) SetupTest() {
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
 
-	s.NoError(s.r.Add("float", 1, 12.4))
-	s.NoError(s.r.Add("int", 2, 12))
-	s.NoError(s.r.Add("int32", 3, int32(32)))
-	s.NoError(s.r.Add("long", 4, int64(20216)))
+	s.NoError(s.r.Add("float", 1, true, 12.4))
+	s.NoError(s.r.Add("int", 2, true, 12))
+	s.NoError(s.r.Add("int32", 3, false, int32(32)))
+	s.NoError(s.r.Add("long", 4, false, int64(20216)))
 }
 
 func (s *perfRollupSuite) TestSetupTestIsValid() {
@@ -128,7 +128,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	s.Len(s.r.Stats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
-	err = s.r.Add("mean", 1, 12.24)
+	err = s.r.Add("mean", 1, false, 12.24)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
@@ -137,7 +137,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 }
 
 func (s *perfRollupSuite) TestMaps() {
-	err := s.r.Add("mean", 1, 12.24)
+	err := s.r.Add("mean", 1, true, 12.24)
 	s.NoError(err)
 
 	allFloats := s.r.MapFloat()
@@ -155,7 +155,6 @@ func (s *perfRollupSuite) TestMaps() {
 	s.NotZero(allInts["int32"])
 	s.NotZero(allInts["long"])
 	s.Equal(allInts["int"], int64(12))
-
 }
 
 func (s *perfRollupSuite) TestUpdateExistingEntry() {
@@ -167,7 +166,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	err = s.r.Add("mean", 4, 12.24)
+	err = s.r.Add("mean", 4, true, 12.24)
 	s.NoError(err)
 
 	search := bson.M{
@@ -183,10 +182,11 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Require().Len(out.Rollups, 1)
 	s.Equal(out.Rollups[0].Version, 4)
 	s.Equal(out.Rollups[0].Value, 12.24)
-	err = s.r.Add("mean", 3, 24.12) // should fail with older version
+	s.Equal(out.Rollups[0].UserSubmitted, true)
+	err = s.r.Add("mean", 3, true, 24.12) // should fail with older version
 	s.Error(err)
 
-	err = s.r.Add("mean", 5, 24.12)
+	err = s.r.Add("mean", 5, false, 24.12)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
@@ -196,6 +196,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Require().Len(out.Rollups, 1)
 	s.Equal(5, out.Rollups[0].Version)
 	s.Equal(24.12, out.Rollups[0].Value)
+	s.Equal(false, out.Rollups[0].UserSubmitted)
 }
 
 func (s *perfRollupSuite) TearDownTest() {

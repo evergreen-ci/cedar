@@ -20,6 +20,7 @@ const (
 	nameField    = "name"
 	verField     = "version"
 	valField     = "val"
+	userField    = "user"
 	defaultVer   = 1
 )
 
@@ -140,8 +141,9 @@ func (r *PerfRollups) updateExistingEntry(search map[string]interface{}, rollup 
 	}
 	defer session.Close()
 	update := bson.M{
-		bsonutil.GetDottedKeyName(rollupsField, "$", valField): rollup.Value,
-		bsonutil.GetDottedKeyName(rollupsField, "$", verField): rollup.Version,
+		bsonutil.GetDottedKeyName(rollupsField, "$", valField):  rollup.Value,
+		bsonutil.GetDottedKeyName(rollupsField, "$", verField):  rollup.Version,
+		bsonutil.GetDottedKeyName(rollupsField, "$", userField): rollup.UserSubmitted,
 	}
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Update(search, bson.M{"$set": update})
@@ -152,6 +154,7 @@ func (r *PerfRollups) updateExistingEntry(search map[string]interface{}, rollup 
 		if r.Stats[i].Name == rollup.Name {
 			r.Stats[i].Version = rollup.Version
 			r.Stats[i].Value = rollup.Value
+			r.Stats[i].UserSubmitted = rollup.UserSubmitted
 			return nil
 		}
 	}
