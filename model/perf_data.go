@@ -66,7 +66,7 @@ func (r *PerfRollups) Setup(env sink.Environment) {
 	r.env = env
 }
 
-func (r *PerfRollups) Add(name string, version int, value interface{}) error {
+func (r *PerfRollups) Add(name string, version int, userSubmitted bool, value interface{}) error {
 	if !r.populated {
 		return errors.New("rollups have not been populated")
 	}
@@ -82,9 +82,10 @@ func (r *PerfRollups) Add(name string, version int, value interface{}) error {
 		bsonutil.GetDottedKeyName(rollupsField, nameField): name,
 	}
 	rollup := PerfRollupValue{
-		Name:    name,
-		Version: version,
-		Value:   value,
+		Name:          name,
+		Version:       version,
+		Value:         value,
+		UserSubmitted: userSubmitted,
 	}
 	selection := bson.M{
 		bsonutil.GetDottedKeyName(rollupsField, verField):  1,
@@ -448,7 +449,7 @@ func (r *PerformanceResult) UpdateThroughputOps(perf performanceMetricSummary) e
 	name := fmt.Sprintf("throughputOps_%s", perf.metricType)
 	val := perf.counters.operations / perf.span.Seconds()
 	// save to database
-	err := r.Rollups.Add(name, defaultVer, val)
+	err := r.Rollups.Add(name, defaultVer, false, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -461,7 +462,7 @@ func (r *PerformanceResult) UpdateThroughputSize(perf performanceMetricSummary) 
 	}
 	name := fmt.Sprintf("throughputSize_%s", perf.metricType)
 	val := perf.counters.size / perf.span.Seconds()
-	err := r.Rollups.Add(name, defaultVer, val)
+	err := r.Rollups.Add(name, defaultVer, false, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -474,7 +475,7 @@ func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error
 	}
 	name := fmt.Sprintf("errorRate_%s", perf.metricType)
 	val := perf.counters.errors / perf.span.Seconds()
-	err := r.Rollups.Add(name, defaultVer, val)
+	err := r.Rollups.Add(name, defaultVer, false, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -484,7 +485,7 @@ func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error
 // TotalTime stored in seconds
 func (r *PerformanceResult) UpdateTotalTime(perf performanceMetricSummary) error {
 	val := perf.totalTime.duration
-	err := r.Rollups.Add("totalTime", defaultVer, val.Seconds())
+	err := r.Rollups.Add("totalTime", defaultVer, false, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalTime")
 	}
@@ -497,7 +498,7 @@ func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
 		return errors.New("cannot divide by zero duration")
 	}
 	val := perf.totalTime.duration / time.Duration(perf.totalCount.operations)
-	err := r.Rollups.Add("latency", defaultVer, val.Seconds())
+	err := r.Rollups.Add("latency", defaultVer, false, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating latency")
 	}
@@ -505,7 +506,7 @@ func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
 }
 
 func (r *PerformanceResult) UpdateTotalSamples(perf performanceMetricSummary) error {
-	err := r.Rollups.Add("totalSamples", defaultVer, perf.samples)
+	err := r.Rollups.Add("totalSamples", defaultVer, false, perf.samples)
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalSamples")
 	}

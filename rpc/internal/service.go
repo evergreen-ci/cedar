@@ -73,7 +73,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 		if err != nil {
 			return nil, errors.Wrap(err, "problem getting rollups")
 		}
-		record.Rollups = &rollups
+		addRollups(record, &rollups)
 	}
 
 	record.Setup(srv.env)
@@ -124,8 +124,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting rollups")
 	}
-	record.Rollups = &rollups
-
+	addRollups(record, &rollups)
 	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
@@ -207,4 +206,17 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	}
 
 	return nil, nil
+}
+
+func addRollups(record *model.PerformanceResult, rollups *model.PerfRollups) {
+	if record.Rollups == nil {
+		record.Rollups = rollups
+	} else {
+		for _, r := range rollups.Stats {
+			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.Value)
+		}
+		record.Rollups.ProcessedAt = rollups.ProcessedAt
+		record.Rollups.Count = rollups.Count
+		record.Rollups.Valid = rollups.Valid
+	}
 }

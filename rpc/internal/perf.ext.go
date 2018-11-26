@@ -111,10 +111,10 @@ func (m *MetricsPoint) Export() (*events.Performance, error) {
 	point.Counters.Size = m.Counters.Size
 	point.Counters.Errors = m.Counters.Errors
 	point.Counters.Operations = m.Counters.Ops
-	point.Guages.Failed = m.State.Failed
-	point.Guages.Workers = m.State.Workers
+	point.Guages.Failed = m.Guages.Failed
+	point.Guages.Workers = m.Guages.Workers
 	point.Timers.Duration = dur
-	point.Timers.Total = wait
+	point.Timers.Total = total
 
 	return point, nil
 }
