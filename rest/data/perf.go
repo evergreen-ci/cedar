@@ -16,6 +16,8 @@ type DBPerformanceResultConnector struct {
 	env *sink.Environment
 }
 
+// FindPerformanceResultById queries the database to find a given performance
+// result.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*model.PerformanceResult, error) {
 	result := &model.PerformanceResult{}
 	result.Setup(*prc.env)
@@ -30,6 +32,8 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*
 	return result, nil
 }
 
+// FindPerformanceResultsByTaskId queries the database to find all performance
+// results with the given TaskID, time inteval, and optional tags.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(*prc.env)
@@ -58,6 +62,8 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId s
 	return results.Results, nil
 }
 
+// FindPerformanceResultsByTaskId queries the database to find all performance
+// results with the given version, time inteval, and optional tags.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(*prc.env)
@@ -86,12 +92,14 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version
 	return results.Results, nil
 }
 
-func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, interval util.TimeRange, maxDepth int, tags ...string) ([]model.PerformanceResult, error) {
+// FindPerformanceResultsByTaskId queries the database to find a performance
+// result, based on its id, and its children up to maxDepth and filtered by the
+// optional tags.
+func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(*prc.env)
 
 	options := model.PerfFindOptions{
-		Interval: interval,
 		Info: model.PerformanceResultInfo{
 			Parent: id,
 			Tags:   tags,

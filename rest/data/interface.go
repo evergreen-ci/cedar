@@ -10,5 +10,5 @@ type Connector interface {
 	FindPerformanceResultById(string) (*model.PerformanceResult, error)
 	FindPerformanceResultsByTaskId(string, util.TimeRange, ...string) ([]model.PerformanceResult, error)
 	FindPerformanceResultsByVersion(string, util.TimeRange, ...string) ([]model.PerformanceResult, error)
-	FindPerformanceResultWithChildren(string, util.TimeRange, int, ...string) ([]model.PerformanceResult, error)
+	FindPerformanceResultWithChildren(string, int, ...string) ([]model.PerformanceResult, error)
 }

@@ -292,12 +292,8 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
 }
 
 func (s *PerfTestSuite) TestFindPerformanceResultWithChildren() {
-	dur, err := time.ParseDuration("100h")
-	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
-
 	expectedLineage := s.getLineage(s.results[0].info.ID())
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), tr, 5)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5)
 	var actualLineage []string
 	for _, result := range actualResult {
 		actualLineage = append(actualLineage, result.Info.ID())
@@ -306,16 +302,16 @@ func (s *PerfTestSuite) TestFindPerformanceResultWithChildren() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), tr, 5, "tag1")
+	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5, "tag3")
 	var filteredLineage []string
 	for _, result := range actualResult {
 		filteredLineage = append(filteredLineage, result.Info.ID())
 	}
-	s.Equal([]string{expectedLineage[0], expectedLineage[2]}, filteredLineage)
-	for _, result := range actualResult {
+	s.Equal([]string{expectedLineage[0], expectedLineage[3]}, filteredLineage)
+	for _, result := range actualResult[1:] {
 		foundTag := false
 		for _, tag := range result.Info.Tags {
-			if tag == "tag1" {
+			if tag == "tag3" {
 				foundTag = true
 				break
 			}
@@ -326,33 +322,14 @@ func (s *PerfTestSuite) TestFindPerformanceResultWithChildren() {
 }
 
 func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenDoesNotExist() {
-	dur, err := time.ParseDuration("100h")
-	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
-
 	var expectedResult []model.PerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultWithChildren("doesNotExist", tr, 5)
-	s.Equal(expectedResult, actualResult)
-	s.Error(err)
-}
-
-func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenNarrowInterval() {
-	dur, err := time.ParseDuration("1ns")
-	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
-
-	var expectedResult []model.PerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), tr, 5)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren("doesNotExist", 5)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
 func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenNoDepth() {
-	dur, err := time.ParseDuration("100h")
-	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
-
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), tr, -1)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), -1)
 	s.Equal(1, len(actualResult))
 	s.Equal(s.results[0].info.ID(), actualResult[0].Info.ID())
 	s.NoError(err)
