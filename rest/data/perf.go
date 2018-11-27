@@ -13,12 +13,12 @@ import (
 // DBPerformanceResultConnector is a struct that implements the Perf
 // related from the Connector through interactions with the backing database.
 type DBPerformanceResultConnector struct {
-	env sink.Environment
+	env *sink.Environment
 }
 
 func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*model.PerformanceResult, error) {
 	result := &model.PerformanceResult{}
-	result.Setup(prc.env)
+	result.Setup(*prc.env)
 	result.ID = id
 
 	if err := result.Find(); err != nil {
@@ -32,7 +32,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*
 
 func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
-	results.Setup(prc.env)
+	results.Setup(*prc.env)
 
 	options := model.PerfFindOptions{
 		Interval: interval,
@@ -45,6 +45,12 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId s
 
 	if err := results.Find(options); err != nil {
 		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+	if results.IsNil() {
+		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("performance results with task_id '%s' not found", taskId),
 		}
@@ -54,7 +60,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId s
 
 func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
-	results.Setup(prc.env)
+	results.Setup(*prc.env)
 
 	options := model.PerfFindOptions{
 		Interval: interval,
@@ -67,6 +73,12 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version
 
 	if err := results.Find(options); err != nil {
 		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+	if results.IsNil() {
+		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("performance results with version '%s' not found", version),
 		}
@@ -76,7 +88,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version
 
 func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, interval util.TimeRange, maxDepth int, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
-	results.Setup(prc.env)
+	results.Setup(*prc.env)
 
 	options := model.PerfFindOptions{
 		Interval: interval,
@@ -88,6 +100,12 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id st
 	}
 
 	if err := results.Find(options); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+	if results.IsNil() {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("performance result with id '%s' not found", id),

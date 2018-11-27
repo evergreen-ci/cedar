@@ -9,16 +9,16 @@ import (
 // and the API layers, allowing for changes in the service architecture
 // without forcing changes to the API.
 type DBConnector struct {
-	env sink.Environment
+	env *sink.Environment
 
 	DBPerformanceResultConnector
 }
 
 func CreateDBConnector(env sink.Environment) Connector {
 	return &DBConnector{
-		env: env,
+		env: &env,
 
-		DBPerformanceResultConnector: DBPerformanceResultConnector{env: env},
+		DBPerformanceResultConnector: DBPerformanceResultConnector{env: &env},
 	}
 }
 
