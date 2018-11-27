@@ -212,6 +212,7 @@ type PerfFindOptions struct {
 }
 
 func (r *PerformanceResults) Setup(e sink.Environment) { r.env = e }
+func (r *PerformanceResults) IsNil() bool              { return r.Results == nil }
 
 // Returns the PerformanceResults that are started/completed within the given range (if completed).
 func (r *PerformanceResults) Find(options PerfFindOptions) error {
