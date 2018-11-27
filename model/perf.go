@@ -236,7 +236,7 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 		if options.GraphLookup {
 			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth)
 		} else {
-			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
+			err = r.findAllChildren(options.Info.Parent, options.Info.Tags, options.MaxDepth)
 		}
 	}
 	if err != nil && !db.ResultsNotFound(err) {
@@ -276,8 +276,7 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 		search[bsonutil.GetDottedKeyName("info", "schema")] = options.Info.Schema
 	}
 	if len(options.Info.Tags) > 0 {
-		search[bsonutil.GetDottedKeyName("info", "tags")] =
-			db.Document{"$in": options.Info.Tags}
+		search[bsonutil.GetDottedKeyName("info", "tags")] = db.Document{"$in": options.Info.Tags}
 	}
 	if len(options.Info.Arguments) > 0 {
 		var args []db.Document
@@ -290,12 +289,15 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 }
 
 // All children of parent are recursively added to r.Results
-func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
+func (r *PerformanceResults) findAllChildren(parent string, tags []string, depth int) error {
 	if depth < 0 {
 		return nil
 	}
 
 	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
+	if len(tags) > 0 {
+		search[bsonutil.GetDottedKeyName("info", "tags")] = db.Document{"$in": tags}
+	}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -306,7 +308,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 	r.Results = append(r.Results, temp...)
 	for _, result := range temp {
 		// look into that parent
-		err = r.findAllChildren(result.ID, depth-1)
+		err = r.findAllChildren(result.ID, tags, depth-1)
 	}
 	return err
 }
