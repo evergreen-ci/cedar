@@ -11,7 +11,8 @@ import (
 )
 
 // DBPerformanceResultConnector is a struct that implements the Perf
-// related from the Connector through interactions with the backing database.
+// related functions from the Connector through interactions with the backing
+// database.
 type DBPerformanceResultConnector struct {
 	env *sink.Environment
 }
