@@ -216,18 +216,20 @@ func (r *PerformanceResults) IsNil() bool              { return r.Results == nil
 
 // Returns the PerformanceResults that are started/completed within the given range (if completed).
 func (r *PerformanceResults) Find(options PerfFindOptions) error {
-	if options.Interval.IsZero() || !options.Interval.IsValid() {
-		return errors.New("invalid time range given")
-	}
-
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
-	search := r.createFindQuery(options)
+
+	search := make(map[string]interface{})
 	if options.Info.Parent != "" { // this is the root node
 		search["_id"] = options.Info.Parent
+	} else {
+		if options.Interval.IsZero() || !options.Interval.IsValid() {
+			return errors.New("invalid time range given")
+		}
+		search = r.createFindQuery(options)
 	}
 
 	r.populated = false
@@ -295,18 +297,22 @@ func (r *PerformanceResults) findAllChildren(parent string, tags []string, depth
 	}
 
 	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
-	if len(tags) > 0 {
-		search[bsonutil.GetDottedKeyName("info", "tags")] = db.Document{"$in": tags}
-	}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
-	temp := []PerformanceResult{}
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
-	r.Results = append(r.Results, temp...)
-	for _, result := range temp {
+	allChildren := []PerformanceResult{}
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&allChildren)
+	if len(tags) > 0 {
+		search[bsonutil.GetDottedKeyName("info", "tags")] = db.Document{"$in": tags}
+		filteredChildren := []PerformanceResult{}
+		err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&filteredChildren)
+		r.Results = append(r.Results, filteredChildren...)
+	} else {
+		r.Results = append(r.Results, allChildren...)
+	}
+	for _, result := range allChildren {
 		// look into that parent
 		err = r.findAllChildren(result.ID, tags, depth-1)
 	}
