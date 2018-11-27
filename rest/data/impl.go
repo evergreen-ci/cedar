@@ -21,7 +21,3 @@ func CreateDBConnector(env sink.Environment) Connector {
 		DBPerformanceResultConnector: DBPerformanceResultConnector{env: &env},
 	}
 }
-
-type MockConnector struct {
-	env sink.Environment
-}
