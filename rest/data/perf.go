@@ -7,6 +7,7 @@ import (
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
+	dataModel "github.com/evergreen-ci/sink/rest/model"
 	"github.com/evergreen-ci/sink/util"
 )
 
@@ -19,8 +20,8 @@ type DBPerformanceResultConnector struct {
 
 // FindPerformanceResultById queries the database to find a given performance
 // result.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*model.PerformanceResult, error) {
-	result := &model.PerformanceResult{}
+func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
+	result := model.PerformanceResult{}
 	result.Setup(prc.env)
 	result.ID = id
 
@@ -30,12 +31,21 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*
 			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
 		}
 	}
-	return result, nil
+
+	apiResult := dataModel.APIPerformanceResult{}
+	err := apiResult.Import(result)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("corrupt data"),
+		}
+	}
+	return &apiResult, nil
 }
 
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given TaskID, time inteval, and optional tags.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
+func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(prc.env)
 
@@ -60,12 +70,23 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId s
 			Message:    fmt.Sprintf("performance results with task_id '%s' not found", taskId),
 		}
 	}
-	return results.Results, nil
+
+	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
+	for i, result := range results.Results {
+		err := apiResults[i].Import(result)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("corrupt data"),
+			}
+		}
+	}
+	return apiResults, nil
 }
 
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given version, time inteval, and optional tags.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
+func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(prc.env)
 
@@ -90,13 +111,24 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version
 			Message:    fmt.Sprintf("performance results with version '%s' not found", version),
 		}
 	}
-	return results.Results, nil
+
+	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
+	for i, result := range results.Results {
+		err := apiResults[i].Import(result)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("corrupt data"),
+			}
+		}
+	}
+	return apiResults, nil
 }
 
 // FindPerformanceResultsByTaskId queries the database to find a performance
 // result, based on its id, and its children up to maxDepth and filtered by the
 // optional tags.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]model.PerformanceResult, error) {
+func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(prc.env)
 
@@ -121,5 +153,16 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id st
 			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
 		}
 	}
-	return results.Results, nil
+
+	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
+	for i, result := range results.Results {
+		err := apiResults[i].Import(result)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("corrupt data"),
+			}
+		}
+	}
+	return apiResults, nil
 }
