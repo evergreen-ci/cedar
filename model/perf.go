@@ -234,11 +234,11 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 
 	r.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
-	if options.Info.Parent != "" && len(r.Results) > 0 { // i.e. the parent fits the search criteria
+	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth > -1 { // i.e. the parent fits the search criteria
 		if options.GraphLookup {
-			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth)
+			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth, options.Info.Tags)
 		} else {
-			err = r.findAllChildren(options.Info.Parent, options.Info.Tags, options.MaxDepth)
+			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
 		}
 	}
 	if err != nil && !db.ResultsNotFound(err) {
@@ -291,7 +291,7 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 }
 
 // All children of parent are recursively added to r.Results
-func (r *PerformanceResults) findAllChildren(parent string, tags []string, depth int) error {
+func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 	if depth < 0 {
 		return nil
 	}
@@ -302,25 +302,18 @@ func (r *PerformanceResults) findAllChildren(parent string, tags []string, depth
 		return errors.WithStack(err)
 	}
 	defer session.Close()
-	allChildren := []PerformanceResult{}
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&allChildren)
-	if len(tags) > 0 {
-		search[bsonutil.GetDottedKeyName("info", "tags")] = db.Document{"$in": tags}
-		filteredChildren := []PerformanceResult{}
-		err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&filteredChildren)
-		r.Results = append(r.Results, filteredChildren...)
-	} else {
-		r.Results = append(r.Results, allChildren...)
-	}
-	for _, result := range allChildren {
+	temp := []PerformanceResult{}
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
+	r.Results = append(r.Results, temp...)
+	for _, result := range temp {
 		// look into that parent
-		err = r.findAllChildren(result.ID, tags, depth-1)
+		err = r.findAllChildren(result.ID, depth-1)
 	}
 	return err
 }
 
 // All children of parent are recursively added to r.Results using $graphLookup
-func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int) error {
+func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int, tags []string) error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -338,7 +331,28 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 			"as":               "children",
 		},
 	}
-	project := bson.M{"$project": bson.M{"_id": 0, "children": 1}}
+	var project bson.M
+	if len(tags) > 0 {
+		project = bson.M{
+			"$project": bson.M{
+				"_id": 0,
+				"children": bson.M{
+					"$filter": bson.M{
+						"input": "$" + "children",
+						"as":    "child",
+						"cond": bson.M{
+							"$eq": []interface{}{
+								tags,
+								"$$" + bsonutil.GetDottedKeyName("child", "info", "tags"),
+							},
+						},
+					},
+				},
+			},
+		}
+	} else {
+		project = bson.M{"$project": bson.M{"_id": 0, "children": 1}}
+	}
 	pipeline := []bson.M{
 		match,
 		graphLookup,
