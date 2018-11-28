@@ -117,8 +117,9 @@ func (s *PerfTestSuite) createParentMap() {
 	s.parentMap = parentMap
 }
 
-func (s *PerfTestSuite) getLineage(id string) []string {
-	lineage := []string{id}
+func (s *PerfTestSuite) getLineage(id string) map[string]bool {
+	lineage := make(map[string]bool)
+	lineage[id] = true
 	queue := []string{id}
 
 	for len(queue) > 0 {
@@ -127,7 +128,9 @@ func (s *PerfTestSuite) getLineage(id string) []string {
 		children, ok := s.parentMap[next]
 		if ok {
 			queue = append(queue, children...)
-			lineage = append(lineage, children...)
+			for _, child := range children {
+				lineage[child] = true
+			}
 		}
 	}
 	return lineage
@@ -294,20 +297,19 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
 func (s *PerfTestSuite) TestFindPerformanceResultWithChildren() {
 	expectedLineage := s.getLineage(s.results[0].info.ID())
 	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5)
-	var actualLineage []string
 	for _, result := range actualResult {
-		actualLineage = append(actualLineage, result.Info.ID())
+		_, ok := expectedLineage[result.Info.ID()]
+		s.True(ok)
 	}
-	s.Equal(actualLineage, expectedLineage)
 	s.NoError(err)
 
 	// Now with tags
 	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5, "tag3")
-	var filteredLineage []string
 	for _, result := range actualResult {
-		filteredLineage = append(filteredLineage, result.Info.ID())
+		_, ok := expectedLineage[result.Info.ID()]
+		s.True(ok)
 	}
-	s.Equal([]string{expectedLineage[0], expectedLineage[3]}, filteredLineage)
+	s.Require().True(len(actualResult) > 1)
 	for _, result := range actualResult[1:] {
 		foundTag := false
 		for _, tag := range result.Info.Tags {
@@ -330,7 +332,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenDoesNotExist() {
 
 func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenNoDepth() {
 	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), -1)
-	s.Equal(1, len(actualResult))
-	s.Equal(s.results[0].info.ID(), actualResult[0].Info.ID())
 	s.NoError(err)
+	s.Require().Equal(1, len(actualResult))
+	s.Equal(s.results[0].info.ID(), actualResult[0].Info.ID())
 }

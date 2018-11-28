@@ -105,7 +105,8 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id st
 			Parent: id,
 			Tags:   tags,
 		},
-		MaxDepth: maxDepth,
+		MaxDepth:    maxDepth,
+		GraphLookup: true,
 	}
 
 	if err := results.Find(options); err != nil {
