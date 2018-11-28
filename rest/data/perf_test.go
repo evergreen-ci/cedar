@@ -105,7 +105,7 @@ func createPerformanceResults(env sink.Environment) (testResults, error) {
 	return results, nil
 }
 
-func (s *PerfTestSuite) createParentMap() {
+func (s *PerfConnectorSuite) createParentMap() {
 	parentMap := make(map[string][]string)
 	for _, result := range s.results {
 		if result.parent < 0 {
@@ -117,7 +117,7 @@ func (s *PerfTestSuite) createParentMap() {
 	s.parentMap = parentMap
 }
 
-func (s *PerfTestSuite) getLineage(id string) map[string]bool {
+func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 	lineage := make(map[string]bool)
 	lineage[id] = true
 	queue := []string{id}
@@ -136,7 +136,7 @@ func (s *PerfTestSuite) getLineage(id string) map[string]bool {
 	return lineage
 }
 
-type PerfTestSuite struct {
+type PerfConnectorSuite struct {
 	sc        Connector
 	env       sink.Environment
 	results   testResults
@@ -145,7 +145,7 @@ type PerfTestSuite struct {
 	suite.Suite
 }
 
-func (s *PerfTestSuite) SetupTest() {
+func (s *PerfConnectorSuite) SetupTest() {
 	env, err := createEnv()
 	s.Require().NoError(err)
 	s.results, err = createPerformanceResults(env)
@@ -155,30 +155,30 @@ func (s *PerfTestSuite) SetupTest() {
 	s.env = env
 }
 
-func (s *PerfTestSuite) TearDownSuite() {
+func (s *PerfConnectorSuite) TearDownSuite() {
 	err := tearDownEnv(s.env)
 	s.Require().NoError(err)
 }
 
-func TestPerfTestSuite(t *testing.T) {
-	suite.Run(t, new(PerfTestSuite))
+func TestPerfConnectorSuite(t *testing.T) {
+	suite.Run(t, new(PerfConnectorSuite))
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultById() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultById() {
 	expectedID := s.results[0].info.ID()
 	actualResult, err := s.sc.FindPerformanceResultById(expectedID)
 	s.Equal(expectedID, actualResult.ID)
 	s.NoError(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultByIdDoesNotExist() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
 	var expectedResult *model.PerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultById("doesNotExist")
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultsByTaskId() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	expectedTaskID := s.results[0].info.TaskID
 	expectedCount := 0
 	for _, result := range s.results {
@@ -214,7 +214,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByTaskId() {
 	s.NoError(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
@@ -225,7 +225,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 	s.Error(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultByTaskIdNarrowInterval() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultByTaskIdNarrowInterval() {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
@@ -236,7 +236,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultByTaskIdNarrowInterval() {
 	s.Error(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultsByVersion() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
 	for _, result := range s.results {
@@ -272,7 +272,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByVersion() {
 	s.NoError(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
@@ -283,7 +283,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
 	s.Error(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
@@ -294,7 +294,7 @@ func (s *PerfTestSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
 	s.Error(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultWithChildren() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
 	expectedLineage := s.getLineage(s.results[0].info.ID())
 	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5)
 	for _, result := range actualResult {
@@ -323,14 +323,14 @@ func (s *PerfTestSuite) TestFindPerformanceResultWithChildren() {
 	s.NoError(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenDoesNotExist() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDoesNotExist() {
 	var expectedResult []model.PerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultWithChildren("doesNotExist", 5)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfTestSuite) TestFindPerformanceResultWithChildrenNoDepth() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenNoDepth() {
 	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), -1)
 	s.NoError(err)
 	s.Require().Equal(1, len(actualResult))
