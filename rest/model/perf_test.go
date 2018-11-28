@@ -16,8 +16,8 @@ func TestImportHelperFunctions(t *testing.T) {
 		expectedOutput interface{}
 	}{
 		{
-			name: "TestgetPerformanceResultID",
-			input: dbmodel.PerformanceResultID{
+			name: "TestgetPerformanceResultInfo",
+			input: dbmodel.PerformanceResultInfo{
 				Project:   "project",
 				Version:   "version",
 				TaskName:  "taskname",
@@ -34,7 +34,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				},
 				Schema: 1,
 			},
-			expectedOutput: APIPerformanceResultID{
+			expectedOutput: APIPerformanceResultInfo{
 				Project:   ToAPIString("project"),
 				Version:   ToAPIString("version"),
 				TaskName:  ToAPIString("taskname"),
@@ -60,7 +60,9 @@ func TestImportHelperFunctions(t *testing.T) {
 				Path:        "path",
 				Format:      dbmodel.FileFTDC,
 				Compression: dbmodel.FileZip,
+				Schema:      dbmodel.SchemaCollapsedEvents,
 				Tags:        []string{"tag0", "tag1", "tag2"},
+				CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 			},
 			expectedOutput: APIArtifactInfo{
 				Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -68,7 +70,9 @@ func TestImportHelperFunctions(t *testing.T) {
 				Path:        ToAPIString("path"),
 				Format:      ToAPIString(string(dbmodel.FileFTDC)),
 				Compression: ToAPIString(string(dbmodel.FileZip)),
+				Schema:      ToAPIString(string(dbmodel.SchemaCollapsedEvents)),
 				Tags:        []string{"tag0", "tag1", "tag2"},
+				CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 			},
 		},
 		{
@@ -76,22 +80,25 @@ func TestImportHelperFunctions(t *testing.T) {
 			input: &dbmodel.PerformancePoint{
 				Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 				Counters: struct {
+					Number     int64 `bson:"n" json:"n" yaml:"n"`
 					Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
 					Size       int64 `bson:"size" json:"size" yaml:"size"`
 					Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
 				}{
+					Number:     1,
 					Operations: 1,
 					Size:       1,
 					Errors:     1,
 				},
 				Timers: struct {
 					Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-					Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
+					Total    time.Duration `bson:"total" json:"total" yaml:"total"`
 				}{
 					Duration: time.Duration(1000),
-					Waiting:  time.Duration(5000),
+					Total:    time.Duration(5000),
 				},
-				State: struct {
+				Guages: struct {
+					State   int64 `bson:"state" json:"state" yaml:"state"`
 					Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
 					Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
 				}{
@@ -101,22 +108,25 @@ func TestImportHelperFunctions(t *testing.T) {
 			expectedOutput: APIPerformancePoint{
 				Timestamp: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				Counters: struct {
+					Number     int64 `json:"n"`
 					Operations int64 `json:"ops"`
 					Size       int64 `json:"size"`
 					Errors     int64 `json:"errors"`
 				}{
+					Number:     1,
 					Operations: 1,
 					Size:       1,
 					Errors:     1,
 				},
 				Timers: struct {
 					Duration APIDuration `json:"dur"`
-					Waiting  APIDuration `json:"wait"`
+					Total    APIDuration `json:"total"`
 				}{
 					Duration: NewAPIDuration(time.Duration(1000)),
-					Waiting:  NewAPIDuration(time.Duration(5000)),
+					Total:    NewAPIDuration(time.Duration(5000)),
 				},
-				State: struct {
+				Gauges: struct {
+					State   int64 `json:"state"`
 					Workers int64 `json:"workers"`
 					Failed  bool  `json:"failed"`
 				}{
@@ -212,8 +222,8 @@ func TestImportHelperFunctions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output interface{}
 			switch i := test.input.(type) {
-			case dbmodel.PerformanceResultID:
-				output = getPerformanceResultID(i)
+			case dbmodel.PerformanceResultInfo:
+				output = getPerformanceResultInfo(i)
 			case dbmodel.ArtifactInfo:
 				output = getArtifactInfo(i)
 			case *dbmodel.PerformancePoint:
@@ -241,7 +251,7 @@ func TestImport(t *testing.T) {
 			name: "TestImport",
 			input: dbmodel.PerformanceResult{
 				ID: "ID",
-				Info: dbmodel.PerformanceResultID{
+				Info: dbmodel.PerformanceResultInfo{
 					Project:   "project",
 					Version:   "version",
 					TaskName:  "taskname",
@@ -261,14 +271,16 @@ func TestImport(t *testing.T) {
 				CreatedAt:   time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 				Version:     1,
-				Source: []dbmodel.ArtifactInfo{
+				Artifacts: []dbmodel.ArtifactInfo{
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket0",
 						Path:        "path0",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
+						Schema:      dbmodel.SchemaRawEvents,
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
@@ -276,7 +288,9 @@ func TestImport(t *testing.T) {
 						Path:        "path1",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
+						Schema:      dbmodel.SchemaRawEvents,
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
@@ -284,46 +298,33 @@ func TestImport(t *testing.T) {
 						Path:        "path2",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
+						Schema:      dbmodel.SchemaRawEvents,
 						Tags:        []string{"tag0", "tag1", "tag2"},
-					},
-				},
-				AuxilaryData: []dbmodel.ArtifactInfo{
-					dbmodel.ArtifactInfo{
-						Type:        dbmodel.PailLegacyGridFS,
-						Bucket:      "bucket0",
-						Path:        "path0",
-						Format:      dbmodel.FileFTDC,
-						Compression: dbmodel.FileZip,
-						Tags:        []string{"tag0", "tag1"},
-					},
-					dbmodel.ArtifactInfo{
-						Type:        dbmodel.PailLegacyGridFS,
-						Bucket:      "bucket0",
-						Path:        "path0",
-						Format:      dbmodel.FileFTDC,
-						Compression: dbmodel.FileZip,
-						Tags:        []string{"tag0", "tag1"},
+						CreatedAt:   time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 				},
 				Total: &dbmodel.PerformancePoint{
 					Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 					Counters: struct {
+						Number     int64 `bson:"n" json:"n" yaml:"n"`
 						Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
 						Size       int64 `bson:"size" json:"size" yaml:"size"`
 						Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
 					}{
+						Number:     1,
 						Operations: 1,
 						Size:       1,
 						Errors:     1,
 					},
 					Timers: struct {
 						Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-						Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
+						Total    time.Duration `bson:"total" json:"total" yaml:"total"`
 					}{
 						Duration: time.Duration(1000),
-						Waiting:  time.Duration(5000),
+						Total:    time.Duration(5000),
 					},
-					State: struct {
+					Guages: struct {
+						State   int64 `bson:"state" json:"state" yaml:"state"`
 						Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
 						Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
 					}{
@@ -367,7 +368,7 @@ func TestImport(t *testing.T) {
 			},
 			expected: APIPerformanceResult{
 				Name: ToAPIString("ID"),
-				Info: APIPerformanceResultID{
+				Info: APIPerformanceResultInfo{
 					Project:   ToAPIString("project"),
 					Version:   ToAPIString("version"),
 					TaskName:  ToAPIString("taskname"),
@@ -387,14 +388,16 @@ func TestImport(t *testing.T) {
 				CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				CompletedAt: NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				Version:     1,
-				Source: []APIArtifactInfo{
+				Artifacts: []APIArtifactInfo{
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
 						Bucket:      ToAPIString("bucket0"),
 						Path:        ToAPIString("path0"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
+						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -402,7 +405,9 @@ func TestImport(t *testing.T) {
 						Path:        ToAPIString("path1"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
+						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -410,46 +415,33 @@ func TestImport(t *testing.T) {
 						Path:        ToAPIString("path2"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
+						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
-					},
-				},
-				AuxilaryData: []APIArtifactInfo{
-					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailLegacyGridFS)),
-						Bucket:      ToAPIString("bucket0"),
-						Path:        ToAPIString("path0"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Tags:        []string{"tag0", "tag1"},
-					},
-					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailLegacyGridFS)),
-						Bucket:      ToAPIString("bucket0"),
-						Path:        ToAPIString("path0"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Tags:        []string{"tag0", "tag1"},
+						CreatedAt:   NewTime(time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 				},
 				Total: &APIPerformancePoint{
 					Timestamp: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					Counters: struct {
+						Number     int64 `json:"n"`
 						Operations int64 `json:"ops"`
 						Size       int64 `json:"size"`
 						Errors     int64 `json:"errors"`
 					}{
+						Number:     1,
 						Operations: 1,
 						Size:       1,
 						Errors:     1,
 					},
 					Timers: struct {
 						Duration APIDuration `json:"dur"`
-						Waiting  APIDuration `json:"wait"`
+						Total    APIDuration `json:"total"`
 					}{
 						Duration: NewAPIDuration(time.Duration(1000)),
-						Waiting:  NewAPIDuration(time.Duration(5000)),
+						Total:    NewAPIDuration(time.Duration(5000)),
 					},
-					State: struct {
+					Gauges: struct {
+						State   int64 `json:"state"`
 						Workers int64 `json:"workers"`
 						Failed  bool  `json:"failed"`
 					}{

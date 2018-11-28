@@ -6,15 +6,14 @@ import (
 )
 
 type APIPerformanceResult struct {
-	Name         APIString              `json:"name"`
-	Info         APIPerformanceResultID `json:"info"`
-	CreatedAt    APITime                `json:"create_at"`
-	CompletedAt  APITime                `json:"completed_at"`
-	Version      int                    `json:"version"`
-	Source       []APIArtifactInfo      `json:"source_info"`
-	AuxilaryData []APIArtifactInfo      `json:aux_data"`
-	Total        *APIPerformancePoint   `json:"total"`
-	Rollups      *APIPerfRollups        `json:"rollups"`
+	Name        APIString                `json:"name"`
+	Info        APIPerformanceResultInfo `json:"info"`
+	CreatedAt   APITime                  `json:"create_at"`
+	CompletedAt APITime                  `json:"completed_at"`
+	Version     int                      `json:"version"`
+	Artifacts   []APIArtifactInfo        `json:"artifacts"`
+	Total       *APIPerformancePoint     `json:"total"`
+	Rollups     *APIPerfRollups          `json:"rollups"`
 }
 
 func (apiResult *APIPerformanceResult) Import(i interface{}) error {
@@ -24,26 +23,22 @@ func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 		apiResult.CreatedAt = NewTime(r.CreatedAt)
 		apiResult.CompletedAt = NewTime(r.CompletedAt)
 		apiResult.Version = r.Version
-		apiResult.Info = getPerformanceResultID(r.Info)
+		apiResult.Info = getPerformanceResultInfo(r.Info)
 
-		total := getPerformancePoint(r.Total)
-		apiResult.Total = &total
-		rollups := getPerfRollups(r.Rollups)
-		apiResult.Rollups = &rollups
-
-		var apiSource []APIArtifactInfo
-		for _, artifactInfo := range r.Source {
-			apiArtifactInfo := getArtifactInfo(artifactInfo)
-			apiSource = append(apiSource, apiArtifactInfo)
+		if r.Total != nil {
+			total := getPerformancePoint(r.Total)
+			apiResult.Total = &total
 		}
-		apiResult.Source = apiSource
-
-		var apiAuxilaryData []APIArtifactInfo
-		for _, artifactInfo := range r.AuxilaryData {
-			apiArtifactInfo := getArtifactInfo(artifactInfo)
-			apiAuxilaryData = append(apiAuxilaryData, apiArtifactInfo)
+		if r.Rollups != nil {
+			rollups := getPerfRollups(r.Rollups)
+			apiResult.Rollups = &rollups
 		}
-		apiResult.AuxilaryData = apiAuxilaryData
+
+		var apiArtifacts []APIArtifactInfo
+		for _, artifactInfo := range r.Artifacts {
+			apiArtifacts = append(apiArtifacts, getArtifactInfo(artifactInfo))
+		}
+		apiResult.Artifacts = apiArtifacts
 	default:
 		return errors.New("incorrect type when fetching converting PerformanceResult type")
 	}
@@ -54,7 +49,7 @@ func (apiResult *APIPerformanceResult) Export(i interface{}) (interface{}, error
 	return nil, errors.Errorf("Export is not implemented for APIPerformanceResult")
 }
 
-type APIPerformanceResultID struct {
+type APIPerformanceResultInfo struct {
 	Project   APIString        `json:"project"`
 	Version   APIString        `json:"version"`
 	TaskName  APIString        `json:"task_name"`
@@ -68,8 +63,8 @@ type APIPerformanceResultID struct {
 	Schema    int              `json:"schema"`
 }
 
-func getPerformanceResultID(r dbmodel.PerformanceResultID) APIPerformanceResultID {
-	return APIPerformanceResultID{
+func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceResultInfo {
+	return APIPerformanceResultInfo{
 		Project:   ToAPIString(r.Project),
 		Version:   ToAPIString(r.Version),
 		TaskName:  ToAPIString(r.TaskName),
@@ -90,7 +85,9 @@ type APIArtifactInfo struct {
 	Path        APIString `json:"path"`
 	Format      APIString `json:"format"`
 	Compression APIString `json:"compression"`
+	Schema      APIString `bson:"schema"`
 	Tags        []string  `json:"tags"`
+	CreatedAt   APITime   `bson:"created_at"`
 }
 
 func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
@@ -100,7 +97,9 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 		Path:        ToAPIString(r.Path),
 		Format:      ToAPIString(string(r.Format)),
 		Compression: ToAPIString(string(r.Compression)),
+		Schema:      ToAPIString(string(r.Schema)),
 		Tags:        r.Tags,
+		CreatedAt:   NewTime(r.CreatedAt),
 	}
 }
 
@@ -108,6 +107,7 @@ type APIPerformancePoint struct {
 	Timestamp APITime `json:"ts"`
 
 	Counters struct {
+		Number     int64 `json:"n"`
 		Operations int64 `json:"ops"`
 		Size       int64 `json:"size"`
 		Errors     int64 `json:"errors"`
@@ -115,40 +115,45 @@ type APIPerformancePoint struct {
 
 	Timers struct {
 		Duration APIDuration `json:"dur"`
-		Waiting  APIDuration `json:"wait"`
+		Total    APIDuration `json:"total"`
 	} `json:"timers"`
 
-	State struct {
+	Gauges struct {
+		State   int64 `json:"state"`
 		Workers int64 `json:"workers"`
 		Failed  bool  `json:"failed"`
-	} `json:"state"`
+	} `json:"gauges"`
 }
 
 func getPerformancePoint(r *dbmodel.PerformancePoint) APIPerformancePoint {
 	return APIPerformancePoint{
 		Timestamp: NewTime(r.Timestamp),
 		Counters: struct {
+			Number     int64 `json:"n"`
 			Operations int64 `json:"ops"`
 			Size       int64 `json:"size"`
 			Errors     int64 `json:"errors"`
 		}{
+			Number:     r.Counters.Number,
 			Operations: r.Counters.Operations,
 			Size:       r.Counters.Size,
 			Errors:     r.Counters.Errors,
 		},
 		Timers: struct {
 			Duration APIDuration `json:"dur"`
-			Waiting  APIDuration `json:"wait"`
+			Total    APIDuration `json:"total"`
 		}{
 			Duration: NewAPIDuration(r.Timers.Duration),
-			Waiting:  NewAPIDuration(r.Timers.Waiting),
+			Total:    NewAPIDuration(r.Timers.Total),
 		},
-		State: struct {
+		Gauges: struct {
+			State   int64 `json:"state"`
 			Workers int64 `json:"workers"`
 			Failed  bool  `json:"failed"`
 		}{
-			Workers: r.State.Workers,
-			Failed:  r.State.Failed,
+			State:   r.Guages.State,
+			Workers: r.Guages.Workers,
+			Failed:  r.Guages.Failed,
 		},
 	}
 }
