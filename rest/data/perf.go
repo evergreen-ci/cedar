@@ -14,14 +14,14 @@ import (
 // related functions from the Connector through interactions with the backing
 // database.
 type DBPerformanceResultConnector struct {
-	env *sink.Environment
+	env sink.Environment
 }
 
 // FindPerformanceResultById queries the database to find a given performance
 // result.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*model.PerformanceResult, error) {
 	result := &model.PerformanceResult{}
-	result.Setup(*prc.env)
+	result.Setup(prc.env)
 	result.ID = id
 
 	if err := result.Find(); err != nil {
@@ -37,7 +37,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*
 // results with the given TaskID, time inteval, and optional tags.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
-	results.Setup(*prc.env)
+	results.Setup(prc.env)
 
 	options := model.PerfFindOptions{
 		Interval: interval,
@@ -67,7 +67,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId s
 // results with the given version, time inteval, and optional tags.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
-	results.Setup(*prc.env)
+	results.Setup(prc.env)
 
 	options := model.PerfFindOptions{
 		Interval: interval,
@@ -98,7 +98,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version
 // optional tags.
 func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]model.PerformanceResult, error) {
 	results := model.PerformanceResults{}
-	results.Setup(*prc.env)
+	results.Setup(prc.env)
 
 	options := model.PerfFindOptions{
 		Info: model.PerformanceResultInfo{
