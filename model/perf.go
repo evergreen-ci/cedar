@@ -249,9 +249,9 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 }
 
 func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string]interface{} {
-	search := db.Document{
-		"created_ts":   db.Document{"$gte": options.Interval.StartAt},
-		"completed_at": db.Document{"$lte": options.Interval.EndAt},
+	search := bson.M{
+		"created_ts":   bson.M{"$gte": options.Interval.StartAt},
+		"completed_at": bson.M{"$lte": options.Interval.EndAt},
 	}
 	if options.Info.Project != "" {
 		search[bsonutil.GetDottedKeyName("info", "project")] = options.Info.Project
@@ -278,14 +278,14 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 		search[bsonutil.GetDottedKeyName("info", "schema")] = options.Info.Schema
 	}
 	if len(options.Info.Tags) > 0 {
-		search[bsonutil.GetDottedKeyName("info", "tags")] = db.Document{"$in": options.Info.Tags}
+		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": options.Info.Tags}
 	}
 	if len(options.Info.Arguments) > 0 {
-		var args []db.Document
+		var args []bson.M
 		for key, val := range options.Info.Arguments {
-			args = append(args, db.Document{key: val})
+			args = append(args, bson.M{key: val})
 		}
-		search[bsonutil.GetDottedKeyName("info", "args")] = db.Document{"$in": args}
+		search[bsonutil.GetDottedKeyName("info", "args")] = bson.M{"$in": args}
 	}
 	return search
 }
@@ -296,7 +296,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 		return nil
 	}
 
-	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
+	search := bson.M{bsonutil.GetDottedKeyName("info", "parent"): parent}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
