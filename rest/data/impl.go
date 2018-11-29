@@ -10,14 +10,10 @@ import (
 // without forcing changes to the API.
 type DBConnector struct {
 	env sink.Environment
-
-	DBPerformanceResultConnector
 }
 
 func CreateDBConnector(env sink.Environment) Connector {
 	return &DBConnector{
 		env: env,
-
-		DBPerformanceResultConnector: DBPerformanceResultConnector{env: env},
 	}
 }

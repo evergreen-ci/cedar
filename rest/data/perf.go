@@ -5,22 +5,14 @@ import (
 	"net/http"
 
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/sink"
 	"github.com/evergreen-ci/sink/model"
 	dataModel "github.com/evergreen-ci/sink/rest/model"
 	"github.com/evergreen-ci/sink/util"
 )
 
-// DBPerformanceResultConnector is a struct that implements the Perf
-// related functions from the Connector through interactions with the backing
-// database.
-type DBPerformanceResultConnector struct {
-	env sink.Environment
-}
-
 // FindPerformanceResultById queries the database to find a given performance
 // result.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
+func (prc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
 	result := model.PerformanceResult{}
 	result.Setup(prc.env)
 	result.ID = id
@@ -45,7 +37,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultById(id string) (*
 
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given TaskID, time inteval, and optional tags.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (prc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(prc.env)
 
@@ -86,7 +78,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByTaskId(taskId s
 
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given version, time inteval, and optional tags.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (prc *DBConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(prc.env)
 
@@ -128,7 +120,7 @@ func (prc *DBPerformanceResultConnector) FindPerformanceResultsByVersion(version
 // FindPerformanceResultsByTaskId queries the database to find a performance
 // result, based on its id, and its children up to maxDepth and filtered by the
 // optional tags.
-func (prc *DBPerformanceResultConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (prc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(prc.env)
 
