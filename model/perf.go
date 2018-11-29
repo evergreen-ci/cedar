@@ -137,6 +137,7 @@ func (result *PerformanceResult) Save() error {
 type PerformanceResultInfo struct {
 	Project   string           `bson:"project,omitempty"`
 	Version   string           `bson:"version,omitempty"`
+	Variant   string           `bson:"variant,omitempty"`
 	TaskName  string           `bson:"task_name,omitempty"`
 	TaskID    string           `bson:"task_id,omitempty"`
 	Execution int              `bson:"execution,omitempty"`
@@ -151,6 +152,7 @@ type PerformanceResultInfo struct {
 var (
 	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
 	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
+	perfResultInfoVariantKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Variant")
 	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
 	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
 	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Execution")
@@ -168,6 +170,7 @@ func (id *PerformanceResultInfo) ID() string {
 		hash = sha1.New()
 		_, _ = io.WriteString(hash, id.Project)
 		_, _ = io.WriteString(hash, id.Version)
+		_, _ = io.WriteString(hash, id.Variant)
 		_, _ = io.WriteString(hash, id.TaskName)
 		_, _ = io.WriteString(hash, id.TaskID)
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Execution))
