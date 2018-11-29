@@ -212,28 +212,31 @@ type PerfFindOptions struct {
 }
 
 func (r *PerformanceResults) Setup(e sink.Environment) { r.env = e }
+func (r *PerformanceResults) IsNil() bool              { return r.Results == nil }
 
 // Returns the PerformanceResults that are started/completed within the given range (if completed).
 func (r *PerformanceResults) Find(options PerfFindOptions) error {
-	if options.Interval.IsZero() || !options.Interval.IsValid() {
-		return errors.New("invalid time range given")
-	}
-
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
-	search := r.createFindQuery(options)
+
+	search := make(map[string]interface{})
 	if options.Info.Parent != "" { // this is the root node
 		search["_id"] = options.Info.Parent
+	} else {
+		if options.Interval.IsZero() || !options.Interval.IsValid() {
+			return errors.New("invalid time range given")
+		}
+		search = r.createFindQuery(options)
 	}
 
 	r.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
-	if options.Info.Parent != "" && len(r.Results) > 0 { // i.e. the parent fits the search criteria
+	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth > -1 { // i.e. the parent fits the search criteria
 		if options.GraphLookup {
-			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth)
+			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth, options.Info.Tags)
 		} else {
 			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
 		}
@@ -246,9 +249,9 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 }
 
 func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string]interface{} {
-	search := db.Document{
-		"created_ts":   db.Document{"$gte": options.Interval.StartAt},
-		"completed_at": db.Document{"$lte": options.Interval.EndAt},
+	search := bson.M{
+		"created_ts":   bson.M{"$gte": options.Interval.StartAt},
+		"completed_at": bson.M{"$lte": options.Interval.EndAt},
 	}
 	if options.Info.Project != "" {
 		search[bsonutil.GetDottedKeyName("info", "project")] = options.Info.Project
@@ -275,15 +278,14 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 		search[bsonutil.GetDottedKeyName("info", "schema")] = options.Info.Schema
 	}
 	if len(options.Info.Tags) > 0 {
-		search[bsonutil.GetDottedKeyName("info", "tags")] =
-			db.Document{"$in": options.Info.Tags}
+		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": options.Info.Tags}
 	}
 	if len(options.Info.Arguments) > 0 {
-		var args []db.Document
+		var args []bson.M
 		for key, val := range options.Info.Arguments {
-			args = append(args, db.Document{key: val})
+			args = append(args, bson.M{key: val})
 		}
-		search[bsonutil.GetDottedKeyName("info", "args")] = db.Document{"$in": args}
+		search[bsonutil.GetDottedKeyName("info", "args")] = bson.M{"$in": args}
 	}
 	return search
 }
@@ -294,7 +296,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 		return nil
 	}
 
-	search := db.Document{bsonutil.GetDottedKeyName("info", "parent"): parent}
+	search := bson.M{bsonutil.GetDottedKeyName("info", "parent"): parent}
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -311,7 +313,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 }
 
 // All children of parent are recursively added to r.Results using $graphLookup
-func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int) error {
+func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int, tags []string) error {
 	conf, session, err := sink.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -329,7 +331,28 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 			"as":               "children",
 		},
 	}
-	project := bson.M{"$project": bson.M{"_id": 0, "children": 1}}
+	var project bson.M
+	if len(tags) > 0 {
+		project = bson.M{
+			"$project": bson.M{
+				"_id": 0,
+				"children": bson.M{
+					"$filter": bson.M{
+						"input": "$" + "children",
+						"as":    "child",
+						"cond": bson.M{
+							"$eq": []interface{}{
+								tags,
+								"$$" + bsonutil.GetDottedKeyName("child", "info", "tags"),
+							},
+						},
+					},
+				},
+			},
+		}
+	} else {
+		project = bson.M{"$project": bson.M{"_id": 0, "children": 1}}
+	}
 	pipeline := []bson.M{
 		match,
 		graphLookup,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/sink/model"
+	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,8 +17,8 @@ func TestImportHelperFunctions(t *testing.T) {
 		expectedOutput interface{}
 	}{
 		{
-			name: "TestgetPerformanceResultID",
-			input: dbmodel.PerformanceResultID{
+			name: "TestgetPerformanceResultInfo",
+			input: dbmodel.PerformanceResultInfo{
 				Project:   "project",
 				Version:   "version",
 				TaskName:  "taskname",
@@ -34,7 +35,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				},
 				Schema: 1,
 			},
-			expectedOutput: APIPerformanceResultID{
+			expectedOutput: APIPerformanceResultInfo{
 				Project:   ToAPIString("project"),
 				Version:   ToAPIString("version"),
 				TaskName:  ToAPIString("taskname"),
@@ -60,7 +61,9 @@ func TestImportHelperFunctions(t *testing.T) {
 				Path:        "path",
 				Format:      dbmodel.FileFTDC,
 				Compression: dbmodel.FileZip,
+				Schema:      dbmodel.SchemaCollapsedEvents,
 				Tags:        []string{"tag0", "tag1", "tag2"},
+				CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 			},
 			expectedOutput: APIArtifactInfo{
 				Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -68,59 +71,47 @@ func TestImportHelperFunctions(t *testing.T) {
 				Path:        ToAPIString("path"),
 				Format:      ToAPIString(string(dbmodel.FileFTDC)),
 				Compression: ToAPIString(string(dbmodel.FileZip)),
+				Schema:      ToAPIString(string(dbmodel.SchemaCollapsedEvents)),
 				Tags:        []string{"tag0", "tag1", "tag2"},
+				CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 			},
 		},
 		{
-			name: "TestgetPerformancePoint",
-			input: &dbmodel.PerformancePoint{
+			name: "TestgetPerformanceEvent",
+			input: &events.Performance{
 				Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-				Counters: struct {
-					Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
-					Size       int64 `bson:"size" json:"size" yaml:"size"`
-					Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
-				}{
+				Counters: events.PerformanceCounters{
+					Number:     1,
 					Operations: 1,
 					Size:       1,
 					Errors:     1,
 				},
-				Timers: struct {
-					Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-					Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
-				}{
+				Timers: events.PerformanceTimers{
 					Duration: time.Duration(1000),
-					Waiting:  time.Duration(5000),
+					Total:    time.Duration(5000),
 				},
-				State: struct {
-					Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
-					Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
-				}{
+				Guages: events.PerformanceGuages{
+					State:   1,
 					Workers: 100,
+					Failed:  true,
 				},
 			},
-			expectedOutput: APIPerformancePoint{
+			expectedOutput: APIPerformanceEvent{
 				Timestamp: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-				Counters: struct {
-					Operations int64 `json:"ops"`
-					Size       int64 `json:"size"`
-					Errors     int64 `json:"errors"`
-				}{
+				Counters: APIPerformanceCounters{
+					Number:     1,
 					Operations: 1,
 					Size:       1,
 					Errors:     1,
 				},
-				Timers: struct {
-					Duration APIDuration `json:"dur"`
-					Waiting  APIDuration `json:"wait"`
-				}{
+				Timers: APIPerformanceTimers{
 					Duration: NewAPIDuration(time.Duration(1000)),
-					Waiting:  NewAPIDuration(time.Duration(5000)),
+					Total:    NewAPIDuration(time.Duration(5000)),
 				},
-				State: struct {
-					Workers int64 `json:"workers"`
-					Failed  bool  `json:"failed"`
-				}{
+				Gauges: APIPerformanceGauges{
+					State:   1,
 					Workers: 100,
+					Failed:  true,
 				},
 			},
 		},
@@ -140,16 +131,17 @@ func TestImportHelperFunctions(t *testing.T) {
 		{
 			name: "TestgetPerfRollups",
 			input: &dbmodel.PerfRollups{
-				DefaultStats: []dbmodel.PerfRollupValue{
+				Stats: []dbmodel.PerfRollupValue{
 					dbmodel.PerfRollupValue{
 						Name:    "stat0",
 						Value:   "value0",
 						Version: 1,
 					},
 					dbmodel.PerfRollupValue{
-						Name:    "stat1",
-						Value:   "value1",
-						Version: 2,
+						Name:          "stat1",
+						Value:         "value1",
+						Version:       2,
+						UserSubmitted: true,
 					},
 					dbmodel.PerfRollupValue{
 						Name:    "stat2",
@@ -157,33 +149,22 @@ func TestImportHelperFunctions(t *testing.T) {
 						Version: 3,
 					},
 				},
-				UserStats: []dbmodel.PerfRollupValue{
-					dbmodel.PerfRollupValue{
-						Name:    "user0",
-						Value:   1,
-						Version: 1,
-					},
-					dbmodel.PerfRollupValue{
-						Name:    "user1",
-						Value:   2,
-						Version: 2,
-					},
-				},
 				ProcessedAt: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-				Count:       5,
+				Count:       3,
 				Valid:       true,
 			},
 			expectedOutput: APIPerfRollups{
-				DefaultStats: []APIPerfRollupValue{
+				Stats: []APIPerfRollupValue{
 					APIPerfRollupValue{
 						Name:    ToAPIString("stat0"),
 						Value:   "value0",
 						Version: 1,
 					},
 					APIPerfRollupValue{
-						Name:    ToAPIString("stat1"),
-						Value:   "value1",
-						Version: 2,
+						Name:          ToAPIString("stat1"),
+						Value:         "value1",
+						Version:       2,
+						UserSubmitted: true,
 					},
 					APIPerfRollupValue{
 						Name:    ToAPIString("stat2"),
@@ -191,20 +172,8 @@ func TestImportHelperFunctions(t *testing.T) {
 						Version: 3,
 					},
 				},
-				UserStats: []APIPerfRollupValue{
-					APIPerfRollupValue{
-						Name:    ToAPIString("user0"),
-						Value:   1,
-						Version: 1,
-					},
-					APIPerfRollupValue{
-						Name:    ToAPIString("user1"),
-						Value:   2,
-						Version: 2,
-					},
-				},
 				ProcessedAt: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-				Count:       5,
+				Count:       3,
 				Valid:       true,
 			},
 		},
@@ -212,12 +181,12 @@ func TestImportHelperFunctions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output interface{}
 			switch i := test.input.(type) {
-			case dbmodel.PerformanceResultID:
-				output = getPerformanceResultID(i)
+			case dbmodel.PerformanceResultInfo:
+				output = getPerformanceResultInfo(i)
 			case dbmodel.ArtifactInfo:
 				output = getArtifactInfo(i)
-			case *dbmodel.PerformancePoint:
-				output = getPerformancePoint(i)
+			case *events.Performance:
+				output = getPerformanceEvent(i)
 			case dbmodel.PerfRollupValue:
 				output = getPerfRollupValue(i)
 			case *dbmodel.PerfRollups:
@@ -241,7 +210,7 @@ func TestImport(t *testing.T) {
 			name: "TestImport",
 			input: dbmodel.PerformanceResult{
 				ID: "ID",
-				Info: dbmodel.PerformanceResultID{
+				Info: dbmodel.PerformanceResultInfo{
 					Project:   "project",
 					Version:   "version",
 					TaskName:  "taskname",
@@ -261,14 +230,16 @@ func TestImport(t *testing.T) {
 				CreatedAt:   time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 				Version:     1,
-				Source: []dbmodel.ArtifactInfo{
+				Artifacts: []dbmodel.ArtifactInfo{
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket0",
 						Path:        "path0",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
+						Schema:      dbmodel.SchemaRawEvents,
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
@@ -276,7 +247,9 @@ func TestImport(t *testing.T) {
 						Path:        "path1",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
+						Schema:      dbmodel.SchemaRawEvents,
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
@@ -284,54 +257,29 @@ func TestImport(t *testing.T) {
 						Path:        "path2",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
+						Schema:      dbmodel.SchemaRawEvents,
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 				},
-				AuxilaryData: []dbmodel.ArtifactInfo{
-					dbmodel.ArtifactInfo{
-						Type:        dbmodel.PailLegacyGridFS,
-						Bucket:      "bucket0",
-						Path:        "path0",
-						Format:      dbmodel.FileFTDC,
-						Compression: dbmodel.FileZip,
-						Tags:        []string{"tag0", "tag1"},
-					},
-					dbmodel.ArtifactInfo{
-						Type:        dbmodel.PailLegacyGridFS,
-						Bucket:      "bucket0",
-						Path:        "path0",
-						Format:      dbmodel.FileFTDC,
-						Compression: dbmodel.FileZip,
-						Tags:        []string{"tag0", "tag1"},
-					},
-				},
-				Total: &dbmodel.PerformancePoint{
+				Total: &events.Performance{
 					Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-					Counters: struct {
-						Operations int64 `bson:"ops" json:"ops" yaml:"ops"`
-						Size       int64 `bson:"size" json:"size" yaml:"size"`
-						Errors     int64 `bson:"errors" json:"errors" yaml:"errors"`
-					}{
+					Counters: events.PerformanceCounters{
+						Number:     1,
 						Operations: 1,
 						Size:       1,
 						Errors:     1,
 					},
-					Timers: struct {
-						Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
-						Waiting  time.Duration `bson:"wait" json:"wait" yaml:"wait"`
-					}{
+					Timers: events.PerformanceTimers{
 						Duration: time.Duration(1000),
-						Waiting:  time.Duration(5000),
+						Total:    time.Duration(5000),
 					},
-					State: struct {
-						Workers int64 `bson:"workers" json:"workers" yaml:"workers"`
-						Failed  bool  `bson:"failed" json:"failed" yaml:"failed"`
-					}{
+					Guages: events.PerformanceGuages{
 						Workers: 100,
 					},
 				},
 				Rollups: &dbmodel.PerfRollups{
-					DefaultStats: []dbmodel.PerfRollupValue{
+					Stats: []dbmodel.PerfRollupValue{
 						dbmodel.PerfRollupValue{
 							Name:    "stat0",
 							Value:   "value0",
@@ -348,26 +296,14 @@ func TestImport(t *testing.T) {
 							Version: 3,
 						},
 					},
-					UserStats: []dbmodel.PerfRollupValue{
-						dbmodel.PerfRollupValue{
-							Name:    "user0",
-							Value:   1,
-							Version: 1,
-						},
-						dbmodel.PerfRollupValue{
-							Name:    "user1",
-							Value:   2,
-							Version: 2,
-						},
-					},
 					ProcessedAt: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-					Count:       5,
+					Count:       3,
 					Valid:       true,
 				},
 			},
 			expected: APIPerformanceResult{
 				Name: ToAPIString("ID"),
-				Info: APIPerformanceResultID{
+				Info: APIPerformanceResultInfo{
 					Project:   ToAPIString("project"),
 					Version:   ToAPIString("version"),
 					TaskName:  ToAPIString("taskname"),
@@ -387,14 +323,16 @@ func TestImport(t *testing.T) {
 				CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				CompletedAt: NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				Version:     1,
-				Source: []APIArtifactInfo{
+				Artifacts: []APIArtifactInfo{
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
 						Bucket:      ToAPIString("bucket0"),
 						Path:        ToAPIString("path0"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
+						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -402,7 +340,9 @@ func TestImport(t *testing.T) {
 						Path:        ToAPIString("path1"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
+						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -410,54 +350,29 @@ func TestImport(t *testing.T) {
 						Path:        ToAPIString("path2"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
+						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
+						CreatedAt:   NewTime(time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 				},
-				AuxilaryData: []APIArtifactInfo{
-					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailLegacyGridFS)),
-						Bucket:      ToAPIString("bucket0"),
-						Path:        ToAPIString("path0"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Tags:        []string{"tag0", "tag1"},
-					},
-					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailLegacyGridFS)),
-						Bucket:      ToAPIString("bucket0"),
-						Path:        ToAPIString("path0"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Tags:        []string{"tag0", "tag1"},
-					},
-				},
-				Total: &APIPerformancePoint{
+				Total: &APIPerformanceEvent{
 					Timestamp: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-					Counters: struct {
-						Operations int64 `json:"ops"`
-						Size       int64 `json:"size"`
-						Errors     int64 `json:"errors"`
-					}{
+					Counters: APIPerformanceCounters{
+						Number:     1,
 						Operations: 1,
 						Size:       1,
 						Errors:     1,
 					},
-					Timers: struct {
-						Duration APIDuration `json:"dur"`
-						Waiting  APIDuration `json:"wait"`
-					}{
+					Timers: APIPerformanceTimers{
 						Duration: NewAPIDuration(time.Duration(1000)),
-						Waiting:  NewAPIDuration(time.Duration(5000)),
+						Total:    NewAPIDuration(time.Duration(5000)),
 					},
-					State: struct {
-						Workers int64 `json:"workers"`
-						Failed  bool  `json:"failed"`
-					}{
+					Gauges: APIPerformanceGauges{
 						Workers: 100,
 					},
 				},
 				Rollups: &APIPerfRollups{
-					DefaultStats: []APIPerfRollupValue{
+					Stats: []APIPerfRollupValue{
 						APIPerfRollupValue{
 							Name:    ToAPIString("stat0"),
 							Value:   "value0",
@@ -474,27 +389,15 @@ func TestImport(t *testing.T) {
 							Version: 3,
 						},
 					},
-					UserStats: []APIPerfRollupValue{
-						APIPerfRollupValue{
-							Name:    ToAPIString("user0"),
-							Value:   1,
-							Version: 1,
-						},
-						APIPerfRollupValue{
-							Name:    ToAPIString("user1"),
-							Value:   2,
-							Version: 2,
-						},
-					},
 					ProcessedAt: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-					Count:       5,
+					Count:       3,
 					Valid:       true,
 				},
 			},
 		},
 		{
 			name:     "TestImportInvalidType",
-			input:    APIPerformancePoint{},
+			input:    APIPerformanceEvent{},
 			expected: APIPerformanceResult{},
 			err:      true,
 		},
