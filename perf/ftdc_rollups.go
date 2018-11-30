@@ -1,11 +1,11 @@
 package perf
 
 import (
-	"fmt"
 	"math"
 	"time"
 
 	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/sink/util"
 	"github.com/mongodb/ftdc"
 	"github.com/pkg/errors"
 )
@@ -67,17 +67,17 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 			case "Counters.Errors":
 				perfStats.counters.errors = metric.Values[len(metric.Values)-1]
 			case "Timers.Duration":
-				perfStats.timers.durationTotal += time.Duration(sum(metric.Values))
+				perfStats.timers.durationTotal += time.Duration(util.SumInt64(metric.Values))
 			case "Timers.Total":
 				perfStats.timers.total = time.Duration(metric.Values[len(metric.Values)-1])
 			case "Gauges.State":
-				perfStats.gauges.stateTotal += sum(metric.Values)
+				perfStats.gauges.stateTotal += util.SumInt64(metric.Values)
 			case "Gauges.Workers":
-				perfStats.gauges.workersTotal += sum(metric.Values)
+				perfStats.gauges.workersTotal += util.SumInt64(metric.Values)
 			case "Gauges.Failed":
-				perfStats.gauges.failedTotal += sum(metric.Values)
+				perfStats.gauges.failedTotal += util.SumInt64(metric.Values)
 			default:
-				return performanceStatistics{}, errors.New(fmt.Sprintf("unknown field name %s", name))
+				return performanceStatistics{}, errors.Errorf("unknown field name %s", name)
 			}
 		}
 	}
@@ -88,26 +88,28 @@ func (s *performanceStatistics) perfMeans() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
 	if s.numSamples > 0 {
-		rollups = append(rollups, model.PerfRollupValue{
-			Name:          "avgDuration",
-			Value:         float64(s.timers.durationTotal) / float64(s.numSamples),
-			Version:       defaultVer,
-			UserSubmitted: false,
-		})
-		rollups = append(rollups, model.PerfRollupValue{
-			Name:          "avgState",
-			Value:         float64(s.gauges.stateTotal) / float64(s.numSamples),
-			Version:       defaultVer,
-			UserSubmitted: false,
-		})
-		rollups = append(rollups, model.PerfRollupValue{
-			Name:          "avgWorkers",
-			Value:         float64(s.gauges.workersTotal) / float64(s.numSamples),
-			Version:       defaultVer,
-			UserSubmitted: false,
-		})
+		return append(
+			rollups,
+			model.PerfRollupValue{
+				Name:          "avgDuration",
+				Value:         float64(s.timers.durationTotal) / float64(s.numSamples),
+				Version:       defaultVer,
+				UserSubmitted: false,
+			},
+			model.PerfRollupValue{
+				Name:          "avgState",
+				Value:         float64(s.gauges.stateTotal) / float64(s.numSamples),
+				Version:       defaultVer,
+				UserSubmitted: false,
+			},
+			model.PerfRollupValue{
+				Name:          "avgWorkers",
+				Value:         float64(s.gauges.workersTotal) / float64(s.numSamples),
+				Version:       defaultVer,
+				UserSubmitted: false,
+			},
+		)
 	}
-
 	return rollups
 }
 
@@ -115,27 +117,29 @@ func (s *performanceStatistics) perfThroughputs() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
 	if s.timers.durationTotal > 0 {
-		rollups = append(rollups, model.PerfRollupValue{
-			Name:          "throughputOps",
-			Value:         float64(s.counters.operations) / float64(s.timers.durationTotal.Seconds()),
-			Version:       defaultVer,
-			UserSubmitted: false,
-		})
-		rollups = append(rollups, model.PerfRollupValue{
-			Name:          "throughputSize",
-			Value:         float64(s.counters.size) / float64(s.timers.durationTotal.Seconds()),
-			Version:       defaultVer,
-			UserSubmitted: false,
-		})
-		rollups = append(rollups, model.PerfRollupValue{
-			Name:          "errorRate",
-			Value:         float64(s.counters.errors) / float64(s.timers.durationTotal.Seconds()),
-			Version:       defaultVer,
-			UserSubmitted: false,
-		})
+		return append(
+			rollups,
+			model.PerfRollupValue{
+				Name:          "throughputOps",
+				Value:         float64(s.counters.operations) / float64(s.timers.durationTotal.Seconds()),
+				Version:       defaultVer,
+				UserSubmitted: false,
+			},
+			model.PerfRollupValue{
+				Name:          "throughputSize",
+				Value:         float64(s.counters.size) / float64(s.timers.durationTotal.Seconds()),
+				Version:       defaultVer,
+				UserSubmitted: false,
+			},
+			model.PerfRollupValue{
+				Name:          "errorRate",
+				Value:         float64(s.counters.errors) / float64(s.timers.durationTotal.Seconds()),
+				Version:       defaultVer,
+				UserSubmitted: false,
+			},
+		)
 	}
 	return rollups
-
 }
 
 func (s *performanceStatistics) perfLatencies() []model.PerfRollupValue {
@@ -147,61 +151,54 @@ func (s *performanceStatistics) perfLatencies() []model.PerfRollupValue {
 	} else {
 		value = float64(s.timers.durationTotal) / float64(s.counters.operations)
 	}
-	rollups = append(rollups, model.PerfRollupValue{
+	return append(rollups, model.PerfRollupValue{
 		Name:          "latency",
 		Value:         value,
 		Version:       defaultVer,
 		UserSubmitted: false,
 	})
-	return rollups
 }
 
 func (s *performanceStatistics) perfTotals() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
-	rollups = append(rollups, model.PerfRollupValue{
-		Name:          "totalTime",
-		Value:         s.timers.durationTotal,
-		Version:       defaultVer,
-		UserSubmitted: false,
-	})
-	rollups = append(rollups, model.PerfRollupValue{
-		Name:          "totalFailures",
-		Value:         s.gauges.failedTotal,
-		Version:       defaultVer,
-		UserSubmitted: false,
-	})
-	rollups = append(rollups, model.PerfRollupValue{
-		Name:          "totalErrors",
-		Value:         s.counters.errors,
-		Version:       defaultVer,
-		UserSubmitted: false,
-	})
-	rollups = append(rollups, model.PerfRollupValue{
-		Name:          "totalOperations",
-		Value:         s.counters.operations,
-		Version:       defaultVer,
-		UserSubmitted: false,
-	})
-	rollups = append(rollups, model.PerfRollupValue{
-		Name:          "totalSize",
-		Value:         s.counters.size,
-		Version:       defaultVer,
-		UserSubmitted: false,
-	})
-	rollups = append(rollups, model.PerfRollupValue{
-		Name:          "totalSamples",
-		Value:         s.numSamples,
-		Version:       defaultVer,
-		UserSubmitted: false,
-	})
-	return rollups
-}
-
-func sum(nums []int64) int64 {
-	sum := int64(0)
-	for _, num := range nums {
-		sum += num
-	}
-	return sum
+	return append(
+		rollups,
+		model.PerfRollupValue{
+			Name:          "totalTime",
+			Value:         s.timers.durationTotal,
+			Version:       defaultVer,
+			UserSubmitted: false,
+		},
+		model.PerfRollupValue{
+			Name:          "totalFailures",
+			Value:         s.gauges.failedTotal,
+			Version:       defaultVer,
+			UserSubmitted: false,
+		},
+		model.PerfRollupValue{
+			Name:          "totalErrors",
+			Value:         s.counters.errors,
+			Version:       defaultVer,
+			UserSubmitted: false,
+		},
+		model.PerfRollupValue{
+			Name:          "totalOperations",
+			Value:         s.counters.operations,
+			Version:       defaultVer,
+			UserSubmitted: false,
+		},
+		model.PerfRollupValue{
+			Name:          "totalSize",
+			Value:         s.counters.size,
+			Version:       defaultVer,
+			UserSubmitted: false,
+		},
+		model.PerfRollupValue{
+			Name:          "totalSamples",
+			Value:         s.numSamples,
+			Version:       defaultVer,
+			UserSubmitted: false,
+		},
+	)
 }
