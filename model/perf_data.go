@@ -378,13 +378,13 @@ func (ts PerformanceTimeSeries) statistics() (*performanceStatistics, error) {
 		out.counters.operations[idx] = float64(point.Counters.Operations)
 		out.counters.size[idx] = float64(point.Counters.Size)
 		out.counters.errors[idx] = float64(point.Counters.Errors)
-		out.state.workers[idx] = float64(point.Guages.Workers)
+		out.state.workers[idx] = float64(point.Gauges.Workers)
 
 		out.totalCount.errors += point.Counters.Errors
 		out.totalCount.operations += point.Counters.Operations
 		out.totalCount.size += point.Counters.Size
 
-		if point.Guages.Failed {
+		if point.Gauges.Failed {
 			out.state.failed = true
 		}
 

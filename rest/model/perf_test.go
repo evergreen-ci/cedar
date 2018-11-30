@@ -90,7 +90,7 @@ func TestImportHelperFunctions(t *testing.T) {
 					Duration: time.Duration(1000),
 					Total:    time.Duration(5000),
 				},
-				Guages: events.PerformanceGuages{
+				Gauges: events.PerformanceGauges{
 					State:   1,
 					Workers: 100,
 					Failed:  true,
@@ -274,7 +274,7 @@ func TestImport(t *testing.T) {
 						Duration: time.Duration(1000),
 						Total:    time.Duration(5000),
 					},
-					Guages: events.PerformanceGuages{
+					Gauges: events.PerformanceGauges{
 						Workers: 100,
 					},
 				},
