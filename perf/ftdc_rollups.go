@@ -35,7 +35,7 @@ type performanceStatistics struct {
 	numSamples int
 }
 
-func CalculateRollups(dx *ftdc.ChunkIterator) ([]model.PerfRollupValue, error) {
+func CalculateDefaultRollups(dx *ftdc.ChunkIterator) ([]model.PerfRollupValue, error) {
 	rollups := []model.PerfRollupValue{}
 
 	perfStats, err := createPerformanceStats(dx)
