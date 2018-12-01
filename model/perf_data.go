@@ -14,22 +14,52 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+const defaultVer = 1
+
+type MetricType string
+
 const (
-	idField      = "_id"
-	rollupsField = "rollups"
-	nameField    = "name"
-	verField     = "version"
-	valField     = "val"
-	userField    = "user"
-	defaultVer   = 1
+	MetricTypeMean         MetricType = "mean"
+	MetricTypeMedian                  = "median"
+	MetricTypeMax                     = "max"
+	MetricTypeMin                     = "min"
+	MetricTypeSum                     = "sum"
+	MetricTypeStdDev                  = "standard-deviation"
+	MetricTypePercentile99            = "percentile-99th"
+	MetricTypePercentile90            = "percentile-90th"
+	MetricTypePercentile95            = "percentile-95th"
+	MetricTypePercentile80            = "percentile-80th"
+	MetricTypePercentile50            = "percentile-50th"
+	MetricTypeThroughput              = "throughput"
+	MetricTypeLatency                 = "latency"
 )
+
+func (t MetricType) Validate() error {
+	switch t {
+	case MetricTypeMax, MetricTypeMean, MetricTypeMedian, MetricTypeMin, MetricTypeStdDev:
+		return nil
+	case MetricTypePercentile50, MetricTypePercentile80, MetricTypePercentile95, MetricTypePercentile99:
+		return nil
+	default:
+		return errors.Errorf("'%s' is not a valid metric type", t)
+	}
+}
 
 type PerfRollupValue struct {
 	Name          string      `bson:"name"`
 	Value         interface{} `bson:"val"`
 	Version       int         `bson:"version"`
+	MetricType    MetricType  `bson:"type"`
 	UserSubmitted bool        `bson:"user"`
 }
+
+var (
+	perfRollupValueNameKey          = bsonutil.MustHaveTag(PerfRollupValue{}, "Name")
+	perfRollupValueValueKey         = bsonutil.MustHaveTag(PerfRollupValue{}, "Value")
+	perfRollupValueVersionKey       = bsonutil.MustHaveTag(PerfRollupValue{}, "Version")
+	perfRollupValueMetricTypeKey    = bsonutil.MustHaveTag(PerfRollupValue{}, "MetricType")
+	perfRollupValueUserSubmittedKey = bsonutil.MustHaveTag(PerfRollupValue{}, "UserSubmitted")
+)
 
 type PerfRollups struct {
 	Stats       []PerfRollupValue `bson:"stats"`
@@ -42,6 +72,13 @@ type PerfRollups struct {
 	id        string
 	env       sink.Environment
 }
+
+var (
+	perRollupsStatsKey       = bsonutil.MustHaveTag(PerfRollups{}, "Stats")
+	perRollupsProcessedAtKey = bsonutil.MustHaveTag(PerfRollups{}, "ProcessedAt")
+	perRollupsCountKey       = bsonutil.MustHaveTag(PerfRollups{}, "Count")
+	perRollupsValidKey       = bsonutil.MustHaveTag(PerfRollups{}, "Valid")
+)
 
 type perfRollupEntries []PerfRollupValue
 
@@ -67,7 +104,7 @@ func (r *PerfRollups) Setup(env sink.Environment) {
 	r.env = env
 }
 
-func (r *PerfRollups) Add(name string, version int, userSubmitted bool, value interface{}) error {
+func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t MetricType, value interface{}) error {
 	if !r.populated {
 		return errors.New("rollups have not been populated")
 	}
@@ -79,18 +116,19 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, value in
 	// 1) If in database, check version and make sure passed in version isn't older (if so, done)
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	search := bson.M{
-		idField: r.id,
-		bsonutil.GetDottedKeyName(rollupsField, nameField): name,
+		perfIDKey: r.id,
+		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupValueNameKey): name,
 	}
 	rollup := PerfRollupValue{
 		Name:          name,
 		Version:       version,
 		Value:         value,
 		UserSubmitted: userSubmitted,
+		MetricType:    t,
 	}
 	selection := bson.M{
-		bsonutil.GetDottedKeyName(rollupsField, verField):  1,
-		bsonutil.GetDottedKeyName(rollupsField, nameField): 1,
+		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupValueVersionKey): 1,
+		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupValueNameKey):    1,
 	}
 
 	out := struct {
@@ -123,10 +161,10 @@ func (r *PerfRollups) insertNewEntry(search map[string]interface{}, rollup PerfR
 	}
 	defer session.Close()
 
-	insert := bson.M{rollupsField: rollup}
-	search = bson.M{idField: r.id}
+	search = bson.M{perfIDKey: r.id} // why does this overwrite
+	// the insert
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.Update(search, bson.M{"$push": insert})
+	err = c.Update(search, bson.M{"$push": bson.M{perfRollupsKey: rollup}})
 	if err != nil {
 		return errors.Wrap(err, "error pushing new entry")
 	}
@@ -141,9 +179,9 @@ func (r *PerfRollups) updateExistingEntry(search map[string]interface{}, rollup 
 	}
 	defer session.Close()
 	update := bson.M{
-		bsonutil.GetDottedKeyName(rollupsField, "$", valField):  rollup.Value,
-		bsonutil.GetDottedKeyName(rollupsField, "$", verField):  rollup.Version,
-		bsonutil.GetDottedKeyName(rollupsField, "$", userField): rollup.UserSubmitted,
+		bsonutil.GetDottedKeyName(perfRollupsKey, "$", perfRollupValueValueKey):         rollup.Value,
+		bsonutil.GetDottedKeyName(perfRollupsKey, "$", perfRollupValueVersionKey):       rollup.Version,
+		bsonutil.GetDottedKeyName(perfRollupsKey, "$", perfRollupValueUserSubmittedKey): rollup.UserSubmitted,
 	}
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Update(search, bson.M{"$set": update})
@@ -452,7 +490,7 @@ func (r *PerformanceResult) UpdateThroughputOps(perf performanceMetricSummary) e
 	name := fmt.Sprintf("throughputOps_%s", perf.metricType)
 	val := perf.counters.operations / perf.span.Seconds()
 	// save to database
-	err := r.Rollups.Add(name, defaultVer, false, val)
+	err := r.Rollups.Add(name, defaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -465,7 +503,7 @@ func (r *PerformanceResult) UpdateThroughputSize(perf performanceMetricSummary) 
 	}
 	name := fmt.Sprintf("throughputSize_%s", perf.metricType)
 	val := perf.counters.size / perf.span.Seconds()
-	err := r.Rollups.Add(name, defaultVer, false, val)
+	err := r.Rollups.Add(name, defaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -478,7 +516,7 @@ func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error
 	}
 	name := fmt.Sprintf("errorRate_%s", perf.metricType)
 	val := perf.counters.errors / perf.span.Seconds()
-	err := r.Rollups.Add(name, defaultVer, false, val)
+	err := r.Rollups.Add(name, defaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -488,7 +526,7 @@ func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error
 // TotalTime stored in seconds
 func (r *PerformanceResult) UpdateTotalTime(perf performanceMetricSummary) error {
 	val := perf.totalTime.duration
-	err := r.Rollups.Add("totalTime", defaultVer, false, val.Seconds())
+	err := r.Rollups.Add("totalTime", defaultVer, false, MetricTypeSum, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalTime")
 	}
@@ -501,7 +539,7 @@ func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
 		return errors.New("cannot divide by zero duration")
 	}
 	val := perf.totalTime.duration / time.Duration(perf.totalCount.operations)
-	err := r.Rollups.Add("latency", defaultVer, false, val.Seconds())
+	err := r.Rollups.Add("latency", defaultVer, false, MetricTypeLatency, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating latency")
 	}
@@ -509,7 +547,7 @@ func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
 }
 
 func (r *PerformanceResult) UpdateTotalSamples(perf performanceMetricSummary) error {
-	err := r.Rollups.Add("totalSamples", defaultVer, false, perf.samples)
+	err := r.Rollups.Add("totalSamples", defaultVer, false, MetricTypeSum, perf.samples)
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalSamples")
 	}
