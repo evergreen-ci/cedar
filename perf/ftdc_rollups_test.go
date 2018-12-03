@@ -167,7 +167,7 @@ func TestCalcFunctions(t *testing.T) {
 	}
 }
 
-func createFTDC(valid bool, samples int) ([]bytes, error) {
+func createFTDC(valid bool, samples int) ([]byte, error) {
 	collector := ftdc.NewDynamicCollector(5)
 	if valid {
 		recorder := events.NewRawRecorder(collector)
@@ -178,14 +178,14 @@ func createFTDC(valid bool, samples int) ([]bytes, error) {
 			recorder.End(time.Duration(1000000))
 		}
 		if err := recorder.Flush(); err != nil {
-			return []bytes{}, errors.WithStack(err)
+			return []byte{}, errors.WithStack(err)
 		}
 
 	} else {
 		for i := 0; i < samples; i++ {
 			err := collector.Add(bsonx.NewDocument(bsonx.EC.Int64("one", rand.Int63()), bsonx.EC.Int64("two", rand.Int63())))
 			if err != nil {
-				return []bytes{}, errors.WithStack(err)
+				return []byte{}, errors.WithStack(err)
 			}
 		}
 	}
