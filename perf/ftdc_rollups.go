@@ -1,6 +1,7 @@
 package perf
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -58,6 +59,7 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 		chunk := dx.Chunk()
 		perfStats.numSamples += chunk.Size()
 
+		fmt.Println(chunk.Metrics)
 		for _, metric := range chunk.Metrics {
 			switch name := metric.Key(); name {
 			case "Counters.Operations":
@@ -76,6 +78,8 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 				perfStats.gauges.workersTotal += util.SumInt64(metric.Values)
 			case "Gauges.Failed":
 				perfStats.gauges.failedTotal += util.SumInt64(metric.Values)
+			case "Timestamp":
+				continue
 			default:
 				return performanceStatistics{}, errors.Errorf("unknown field name %s", name)
 			}
