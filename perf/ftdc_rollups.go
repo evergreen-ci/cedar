@@ -1,7 +1,6 @@
 package perf
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -59,33 +58,32 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 		chunk := dx.Chunk()
 		perfStats.numSamples += chunk.Size()
 
-		fmt.Println(chunk.Metrics)
 		for _, metric := range chunk.Metrics {
 			switch name := metric.Key(); name {
-			case "Counters.Operations":
+			case "counters.ops":
 				perfStats.counters.operations = metric.Values[len(metric.Values)-1]
-			case "Counters.Size":
+			case "counters.size":
 				perfStats.counters.size = metric.Values[len(metric.Values)-1]
-			case "Counters.Errors":
+			case "counters.errors":
 				perfStats.counters.errors = metric.Values[len(metric.Values)-1]
-			case "Timers.Duration":
+			case "timers.dur":
 				perfStats.timers.durationTotal += time.Duration(util.SumInt64(metric.Values))
-			case "Timers.Total":
+			case "timers.total":
 				perfStats.timers.total = time.Duration(metric.Values[len(metric.Values)-1])
-			case "Gauges.State":
+			case "gauges.state":
 				perfStats.gauges.stateTotal += util.SumInt64(metric.Values)
-			case "Gauges.Workers":
+			case "gauges.workers":
 				perfStats.gauges.workersTotal += util.SumInt64(metric.Values)
-			case "Gauges.Failed":
+			case "gauges.failed":
 				perfStats.gauges.failedTotal += util.SumInt64(metric.Values)
-			case "Timestamp":
+			case "ts", "counters.n":
 				continue
 			default:
 				return performanceStatistics{}, errors.Errorf("unknown field name %s", name)
 			}
 		}
 	}
-	return perfStats, nil
+	return perfStats, errors.WithStack(dx.Err())
 }
 
 func (s *performanceStatistics) perfMeans() []model.PerfRollupValue {
