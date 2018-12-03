@@ -80,10 +80,11 @@ func TestCalcFunctions(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		name      string
-		function  func(*performanceStatistics) []model.PerfRollupValue
-		expected  []interface{}
-		zeroValue func()
+		name       string
+		function   func(*performanceStatistics) []model.PerfRollupValue
+		expected   []interface{}
+		metricType model.MetricType
+		zeroValue  func()
 	}{
 		{
 			name:     "TestMeans",
@@ -93,6 +94,7 @@ func TestCalcFunctions(t *testing.T) {
 				float64(s.gauges.stateTotal) / float64(s.numSamples),
 				float64(s.gauges.workersTotal) / float64(s.numSamples),
 			},
+			metricType: model.MetricTypeMean,
 			zeroValue: func() {
 				original := s.numSamples
 				s.numSamples = 0
@@ -109,6 +111,7 @@ func TestCalcFunctions(t *testing.T) {
 				float64(s.counters.size) / float64(s.timers.durationTotal.Seconds()),
 				float64(s.counters.errors) / float64(s.timers.durationTotal.Seconds()),
 			},
+			metricType: model.MetricTypeThroughput,
 			zeroValue: func() {
 				original := s.timers.durationTotal
 				s.timers.durationTotal = time.Duration(0)
@@ -123,6 +126,7 @@ func TestCalcFunctions(t *testing.T) {
 			expected: []interface{}{
 				float64(s.timers.durationTotal) / float64(s.counters.operations),
 			},
+			metricType: model.MetricTypeLatency,
 			zeroValue: func() {
 				original := s.counters.operations
 				s.counters.operations = 0
@@ -143,6 +147,7 @@ func TestCalcFunctions(t *testing.T) {
 				s.counters.size,
 				s.numSamples,
 			},
+			metricType: model.MetricTypeSum,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -150,6 +155,7 @@ func TestCalcFunctions(t *testing.T) {
 			require.Equal(t, len(test.expected), len(actual))
 			for i, rollup := range actual {
 				assert.Equal(t, test.expected[i], rollup.Value)
+				assert.Equal(t, test.metricType, rollup.MetricType)
 			}
 			if test.zeroValue != nil {
 				test.zeroValue()
