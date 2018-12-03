@@ -213,7 +213,7 @@ func addRollups(record *model.PerformanceResult, rollups *model.PerfRollups) {
 		record.Rollups = rollups
 	} else {
 		for _, r := range rollups.Stats {
-			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.Value)
+			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.MetricType, r.Value)
 		}
 		record.Rollups.ProcessedAt = rollups.ProcessedAt
 		record.Rollups.Count = rollups.Count

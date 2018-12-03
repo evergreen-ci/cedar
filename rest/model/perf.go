@@ -143,9 +143,9 @@ func getPerformanceEvent(r *events.Performance) APIPerformanceEvent {
 			Total:    NewAPIDuration(r.Timers.Total),
 		},
 		Gauges: APIPerformanceGauges{
-			State:   r.Guages.State,
-			Workers: r.Guages.Workers,
-			Failed:  r.Guages.Failed,
+			State:   r.Gauges.State,
+			Workers: r.Gauges.Workers,
+			Failed:  r.Gauges.Failed,
 		},
 	}
 }

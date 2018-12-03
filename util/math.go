@@ -12,7 +12,7 @@ func RoundUp(input float64, places int) float64 {
 	return newVal
 }
 
-// Average returns the average of the vals
+// Average returns the average of the vals.
 func Average(vals []float64) float64 {
 	total := 0.0
 	for _, v := range vals {
@@ -30,4 +30,13 @@ func StringInSlice(a string, list []string) bool {
 	}
 
 	return false
+}
+
+//SumInt64 returns the sum of the vals.
+func SumInt64(vals []int64) int64 {
+	sum := int64(0)
+	for _, val := range vals {
+		sum += val
+	}
+	return sum
 }
