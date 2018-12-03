@@ -34,8 +34,11 @@ func TestCalculateDefaultRollups(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			ci, err := createFTDC(!test.err, test.samples)
+			data, err := createFTDC(!test.err, test.samples)
 			require.NoError(t, err)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ci := ftdc.ReadChunks(ctx, bytes.NewReader(data))
 
 			actual, err := CalculateDefaultRollups(ci)
 			if test.err {
@@ -164,7 +167,7 @@ func TestCalcFunctions(t *testing.T) {
 	}
 }
 
-func createFTDC(valid bool, samples int) (*ftdc.ChunkIterator, error) {
+func createFTDC(valid bool, samples int) ([]bytes, error) {
 	collector := ftdc.NewDynamicCollector(5)
 	if valid {
 		recorder := events.NewRawRecorder(collector)
@@ -175,12 +178,15 @@ func createFTDC(valid bool, samples int) (*ftdc.ChunkIterator, error) {
 			recorder.End(time.Duration(1000000))
 		}
 		if err := recorder.Flush(); err != nil {
-			return nil, errors.WithStack(err)
+			return []bytes{}, errors.WithStack(err)
 		}
 
 	} else {
 		for i := 0; i < samples; i++ {
-			collector.Add(bsonx.NewDocument(bsonx.EC.Int64("one", rand.Int63()), bsonx.EC.Int64("two", rand.Int63())))
+			err := collector.Add(bsonx.NewDocument(bsonx.EC.Int64("one", rand.Int63()), bsonx.EC.Int64("two", rand.Int63())))
+			if err != nil {
+				return []bytes{}, errors.WithStack(err)
+			}
 		}
 	}
 
@@ -188,9 +194,5 @@ func createFTDC(valid bool, samples int) (*ftdc.ChunkIterator, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	ctx, _ := context.WithCancel(context.Background())
-	ci := ftdc.ReadChunks(ctx, bytes.NewReader(data))
-
-	return ci, nil
+	return data, nil
 }
