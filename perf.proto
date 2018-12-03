@@ -59,6 +59,7 @@ enum CompressionType {
   GZ = 3;
   XZ = 4;
 }
+
 message MetricsSeriesEnd {
   string id = 1;
   bool is_complete = 2;
@@ -104,18 +105,36 @@ message MetricsEvent {
   repeated MetricsPoint Event = 3;
 }
 
+enum RollupType {
+  SUM = 0;
+  MEAN = 1;
+  MEDIAN = 2;
+  MAX = 3;
+  MIN = 4;
+  STANDARD_DEVIATION = 5;
+  THROUGHPUT = 6;
+  LATENCY = 7;
+  PERCENTILE_99TH = 8;
+  PERCENTILE_95TH = 9;
+  PERCENTILE_90TH = 10;
+  PERCENTILE_80TH = 11;
+  PERCENTILE_50TH = 12;
+}
+
 message RollupValue {
   string name = 1;
   oneof value {
     int64 int = 2;
     double fl = 3;
   }
-  int64 version = 4;
-  bool user_submitted = 5;
+  RollupType type = 4;
+  int64 version = 5;
+  bool user_submitted = 6;
 }
 
 message Rollups {
   repeated RollupValue stats = 1;
+
   google.protobuf.Timestamp processed_at = 2;
   int64 count = 3;
   bool valid = 4;

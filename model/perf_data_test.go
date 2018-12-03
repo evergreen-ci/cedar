@@ -31,10 +31,10 @@ func (s *perfRollupSuite) SetupTest() {
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
 
-	s.NoError(s.r.Add("float", 1, true, 12.4))
-	s.NoError(s.r.Add("int", 2, true, 12))
-	s.NoError(s.r.Add("int32", 3, false, int32(32)))
-	s.NoError(s.r.Add("long", 4, false, int64(20216)))
+	s.NoError(s.r.Add("float", 1, true, MetricTypeMax, 12.4))
+	s.NoError(s.r.Add("int", 2, true, MetricTypeMax, 12))
+	s.NoError(s.r.Add("int32", 3, false, MetricTypeMax, int32(32)))
+	s.NoError(s.r.Add("long", 4, false, MetricTypeMax, int64(20216)))
 }
 
 func (s *perfRollupSuite) TestSetupTestIsValid() {
@@ -128,7 +128,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	s.Len(s.r.Stats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
-	err = s.r.Add("mean", 1, false, 12.24)
+	err = s.r.Add("mean", 1, false, MetricTypeMean, 12.24)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
@@ -137,7 +137,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 }
 
 func (s *perfRollupSuite) TestMaps() {
-	err := s.r.Add("mean", 1, true, 12.24)
+	err := s.r.Add("mean", 1, true, MetricTypeMean, 12.24)
 	s.NoError(err)
 
 	allFloats := s.r.MapFloat()
@@ -166,7 +166,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	err = s.r.Add("mean", 4, true, 12.24)
+	err = s.r.Add("mean", 4, true, MetricTypeMax, 12.24)
 	s.NoError(err)
 
 	search := bson.M{
@@ -183,10 +183,10 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Equal(out.Rollups[0].Version, 4)
 	s.Equal(out.Rollups[0].Value, 12.24)
 	s.Equal(out.Rollups[0].UserSubmitted, true)
-	err = s.r.Add("mean", 3, true, 24.12) // should fail with older version
+	err = s.r.Add("mean", 3, true, MetricTypeMax, 24.12) // should fail with older version
 	s.Error(err)
 
-	err = s.r.Add("mean", 5, false, 24.12)
+	err = s.r.Add("mean", 5, false, MetricTypeMax, 24.12)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
