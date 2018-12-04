@@ -139,7 +139,7 @@ func (r *ResultData) Export() (*model.PerformanceResult, error) {
 	for _, a := range r.Artifacts {
 		artifact, err := a.Export()
 		if err != nil {
-			return nil, errors.Wrap(err, "problem exporting ResultData")
+			return nil, errors.Wrap(err, "problem exporting artifacts")
 		}
 		artifacts = append(artifacts, *artifact)
 	}
