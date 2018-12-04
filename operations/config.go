@@ -16,13 +16,13 @@ func Config() cli.Command {
 		Name:  "conf",
 		Usage: "cedar application configuration",
 		Subcommands: []cli.Command{
-			loadSinkConfig(),
-			dumpSinkConfig(),
+			loadCedarConfig(),
+			dumpCedarConfig(),
 		},
 	}
 }
 
-func dumpSinkConfig() cli.Command {
+func dumpCedarConfig() cli.Command {
 	return cli.Command{
 		Name:  "dump-config",
 		Usage: "write current cedar application configuration to a file",
@@ -42,7 +42,7 @@ func dumpSinkConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			conf := &model.SinkConfig{}
+			conf := &model.CedarConfig{}
 			conf.Setup(env)
 
 			if err := conf.Find(); err != nil {
@@ -54,7 +54,7 @@ func dumpSinkConfig() cli.Command {
 	}
 }
 
-func loadSinkConfig() cli.Command {
+func loadCedarConfig() cli.Command {
 	return cli.Command{
 		Name:  "load-config",
 		Usage: "loads cedar application configuration from a file",
@@ -74,7 +74,7 @@ func loadSinkConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			conf, err := model.LoadSinkConfig(fileName)
+			conf, err := model.LoadCedarConfig(fileName)
 			if err != nil {
 				return errors.WithStack(err)
 			}

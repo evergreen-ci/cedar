@@ -41,7 +41,7 @@ func configure(env cedar.Environment, numWorkers int, localQueue bool, mongodbUR
 
 	logLevelInfo := grip.GetSender().Level()
 
-	appConf := &model.SinkConfig{}
+	appConf := &model.CedarConfig{}
 	appConf.Setup(env)
 	grip.Warning(appConf.Find())
 

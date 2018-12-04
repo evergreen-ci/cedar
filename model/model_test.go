@@ -22,7 +22,7 @@ type commonModelFactory func() commonModel
 
 func TestModelInterface(t *testing.T) {
 	models := []commonModelFactory{
-		func() commonModel { return &SinkConfig{} },
+		func() commonModel { return &CedarConfig{} },
 		func() commonModel { return &CostConfig{} },
 		func() commonModel { return &CostReport{} },
 		func() commonModel { return &CostReportSummary{} },
