@@ -32,7 +32,10 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return nil, errors.New("invalid data")
 	}
 
-	record := result.Export()
+	record, err := result.Export()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem exporting result")
+	}
 	record.Setup(srv.env)
 	record.CreatedAt = time.Now()
 
@@ -65,13 +68,17 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	resp.Id = record.ID
 
 	for _, i := range result.Artifacts {
-		record.Artifacts = append(record.Artifacts, *i.Export())
+		artifact, err := i.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem exporting artifacts")
+		}
+		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
 	if result.Rollups != nil {
 		rollups, err := result.Rollups.Export()
 		if err != nil {
-			return nil, errors.Wrap(err, "problem getting rollups")
+			return nil, errors.Wrap(err, "problem exporting rollups")
 		}
 		addRollups(record, &rollups)
 	}
@@ -97,7 +104,11 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	resp.Id = record.ID
 
 	for _, i := range artifactData.Artifacts {
-		record.Artifacts = append(record.Artifacts, *i.Export())
+		artifact, err := i.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem exporting artifacts")
+		}
+		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
 	record.Setup(srv.env)
@@ -213,7 +224,7 @@ func addRollups(record *model.PerformanceResult, rollups *model.PerfRollups) {
 		record.Rollups = rollups
 	} else {
 		for _, r := range rollups.Stats {
-			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.Value)
+			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.MetricType, r.Value)
 		}
 		record.Rollups.ProcessedAt = rollups.ProcessedAt
 		record.Rollups.Count = rollups.Count
