@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 )
 

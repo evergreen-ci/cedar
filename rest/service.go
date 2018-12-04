@@ -3,31 +3,31 @@ package rest
 import (
 	"context"
 
-	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
 type Service struct {
-	Port int
+	Port        int
+	Prefix      string
+	Environment cedar.Environment
 
 	// internal settings
 	queue amboy.Queue
 	app   *gimlet.APIApp
-	env   cedar.Environment
 }
 
 func (s *Service) Validate() error {
 	var err error
 
-	if s.env == nil {
-		s.env = cedar.GetEnvironment()
+	if s.Environment == nil {
+		return errors.New("must specify an environment")
 	}
 
 	if s.queue == nil {
-		s.queue, err = s.env.GetQueue()
+		s.queue, err = s.Environment.GetQueue()
 		if err != nil {
 			return errors.Wrap(err, "problem getting queue")
 		}
@@ -48,6 +48,10 @@ func (s *Service) Validate() error {
 		return errors.WithStack(err)
 	}
 
+	if s.Prefix != "" {
+		s.app.SetPrefix(s.Prefix)
+	}
+
 	return nil
 }
 
@@ -66,14 +70,7 @@ func (s *Service) Start(ctx context.Context) error {
 		return errors.Wrap(err, "problem resolving routes")
 	}
 
-	grip.Noticef("completed cedar service; shutting down")
-
-	return nil
-}
-
-// Run starts the REST service. All errors are logged.
-func (s *Service) Run(ctx context.Context) {
-	grip.CatchAlert(s.app.Run(ctx))
+	return s.app.Run(ctx)
 }
 
 func (s *Service) addRoutes() {
