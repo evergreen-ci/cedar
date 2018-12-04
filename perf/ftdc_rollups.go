@@ -4,8 +4,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/ftdc"
 	"github.com/pkg/errors"
 )

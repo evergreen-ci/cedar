@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/urfave/cli"
 )
 
@@ -56,7 +56,7 @@ func mergeFlags(in ...[]cli.Flag) []cli.Flag {
 func addPathFlag(flags ...cli.Flag) []cli.Flag {
 	return append(flags, cli.StringFlag{
 		Name:  joinFlagNames(pathFlagName, "filename", "file", "f"),
-		Usage: "path to sink input file",
+		Usage: "path to cedar input file",
 	})
 }
 
@@ -90,13 +90,13 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 			Name:   dbURIFlag,
 			Usage:  "specify a mongodb connection string",
 			Value:  "mongodb://localhost:27017",
-			EnvVar: "SINK_MONGODB_URL",
+			EnvVar: "CEDAR_MONGODB_URL",
 		},
 		cli.StringFlag{
 			Name:   dbNameFlag,
 			Usage:  "specify a database name to use",
-			Value:  "sink",
-			EnvVar: "SINK_DATABASE_NAME",
+			Value:  "cedar",
+			EnvVar: "CEDAR_DATABASE_NAME",
 		})
 }
 
@@ -110,7 +110,7 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:   bucketNameFlag,
 			Usage:  "specify a bucket name to use for storing data in s3",
-			EnvVar: "SINK_BUCKET_NAME",
+			EnvVar: "CEDAR_BUCKET_NAME",
 			Value:  "build-test-curator",
 		})
 }
@@ -125,7 +125,7 @@ func costFlags(flags ...cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:  costStartFlag,
 			Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
-			Value: defaultStart.Format(sink.ShortDateFormat),
+			Value: defaultStart.Format(cedar.ShortDateFormat),
 		},
 		cli.BoolFlag{
 			Name:  costContinueOnErrorFlag,

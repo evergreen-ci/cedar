@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
@@ -34,7 +34,7 @@ type saveSimpleLogToDBJob struct {
 	Increment int       `bson:"i" json:"inc" yaml:"increment"`
 	LogID     string    `bson:"logID" json:"logID" yaml:"logID"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 func saveSimpleLogToDBJobFactory() amboy.Job {
@@ -45,14 +45,14 @@ func saveSimpleLogToDBJobFactory() amboy.Job {
 				Version: 1,
 			},
 		},
-		env: sink.GetEnvironment(),
+		env: cedar.GetEnvironment(),
 	}
 	j.SetDependency(dependency.NewAlways())
 
 	return j
 }
 
-func MakeSaveSimpleLogJob(env sink.Environment, logID, content string, ts time.Time, inc int) amboy.Job {
+func MakeSaveSimpleLogJob(env cedar.Environment, logID, content string, ts time.Time, inc int) amboy.Job {
 	j := saveSimpleLogToDBJobFactory().(*saveSimpleLogToDBJob)
 
 	j.SetID(fmt.Sprintf("%s-%s-%d", j.Type().Name, logID, inc))

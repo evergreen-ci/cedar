@@ -6,10 +6,10 @@ import (
 
 	"context"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/cost"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/units"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/cost"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
@@ -23,8 +23,8 @@ const (
 	loggingBufferDuration = 20 * time.Second
 )
 
-func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
-	err := env.Configure(&sink.Configuration{
+func configure(env cedar.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
+	err := env.Configure(&cedar.Configuration{
 		BucketName:    bucket,
 		DatabaseName:  dbName,
 		MongoDBURI:    mongodbURI,
@@ -36,7 +36,7 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 	}
 
 	var fallback send.Sender
-	fallback, err = send.NewErrorLogger("sink.error",
+	fallback, err = send.NewErrorLogger("cedar.error",
 		send.LevelInfo{Default: level.Info, Threshold: level.Debug})
 	if err != nil {
 		return errors.Wrap(err, "problem configuring err fallback logger")
@@ -55,7 +55,7 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 	if !appConf.IsNil() {
 		var sender send.Sender
 		if appConf.Splunk.Populated() {
-			sender, err = send.NewSplunkLogger("sink", appConf.Splunk, logLevelInfo)
+			sender, err = send.NewSplunkLogger("cedar", appConf.Splunk, logLevelInfo)
 			if err != nil {
 				return errors.Wrap(err, "problem building plunk logger")
 			}
@@ -98,7 +98,7 @@ func configure(env sink.Environment, numWorkers int, localQueue bool, mongodbURI
 	return errors.WithStack(grip.SetSender(send.NewConfiguredMultiSender(defaultSenders...)))
 }
 
-func backgroundJobs(ctx context.Context, env sink.Environment) error {
+func backgroundJobs(ctx context.Context, env cedar.Environment) error {
 	// TODO: develop a specification format, either here or in
 	// amboy so that you can specify a list of amboy.QueueOperation
 	// functions + specific intervals

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -27,7 +27,7 @@ type CostConfig struct {
 	Amazon    CostConfigAmazon        `bson:"aws" json:"aws" yaml:"aws"`
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -49,10 +49,10 @@ var (
 	costConfigOptsAllowIncompleteKey = bsonutil.MustHaveTag(CostConfigOptions{}, "AllowIncompleteResults")
 )
 
-func (c *CostConfig) Setup(e sink.Environment) { c.env = e }
+func (c *CostConfig) Setup(e cedar.Environment) { c.env = e }
 func (c *CostConfig) IsNil() bool              { return !c.populated }
 func (c *CostConfig) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(c.env)
+	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -82,7 +82,7 @@ func (c *CostConfig) Save() error {
 
 	c.ID = costReportingID
 
-	conf, session, err := sink.GetSessionWithConfig(c.env)
+	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

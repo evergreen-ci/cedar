@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	grip.SetName("sink.operations.test")
+	grip.SetName("cedar.operations.test")
 }
 
 // CommandsSuite provide a group of tests of the entry points and

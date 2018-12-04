@@ -4,17 +4,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
-	dataModel "github.com/evergreen-ci/sink/rest/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
+	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 )
 
-func createEnv() (sink.Environment, error) {
-	env := sink.GetEnvironment()
-	err := env.Configure(&sink.Configuration{
+func createEnv() (cedar.Environment, error) {
+	env := cedar.GetEnvironment()
+	err := env.Configure(&cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  "grpc_test",
 		NumWorkers:    2,
@@ -23,8 +23,8 @@ func createEnv() (sink.Environment, error) {
 	return env, errors.WithStack(err)
 }
 
-func tearDownEnv(env sink.Environment) error {
-	conf, session, err := sink.GetSessionWithConfig(env)
+func tearDownEnv(env cedar.Environment) error {
+	conf, session, err := cedar.GetSessionWithConfig(env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -37,7 +37,7 @@ type testResults []struct {
 	parent int
 }
 
-func createPerformanceResults(env sink.Environment) (testResults, error) {
+func createPerformanceResults(env cedar.Environment) (testResults, error) {
 	results := testResults{
 		{
 			info: &model.PerformanceResultInfo{
@@ -139,7 +139,7 @@ func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 
 type PerfConnectorSuite struct {
 	sc        Connector
-	env       sink.Environment
+	env       cedar.Environment
 	results   testResults
 	parentMap map[string][]string
 

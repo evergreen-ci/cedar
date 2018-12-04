@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
 	"github.com/mongodb/ftdc"
+	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 )
@@ -25,7 +25,7 @@ const (
 )
 
 func main() {
-	point := model.PerformancePoint{}
+	point := events.Performance{}
 	startAt := time.Now()
 	file, err := os.Create(outputFn)
 	grip.EmergencyFatal(err)
@@ -69,9 +69,9 @@ func main() {
 		point.Timers.Duration += dur - time.Duration(i+rand.Int63n(20))
 		point.Timers.Total += dur
 
-		point.Guages.Workers = 1
+		point.Gauges.Workers = 1
 		if i&hundredThousand == 0 {
-			point.Guages.State++
+			point.Gauges.State++
 		}
 
 		grip.InfoWhen(i%int64(bucketSize) == 0,

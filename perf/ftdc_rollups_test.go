@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/ftdc/bsonx"
 	"github.com/mongodb/ftdc/events"

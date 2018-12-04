@@ -1,6 +1,6 @@
-================================
-``sink`` -- Build Data Warehouse
-================================
+=================================
+``cedar`` -- Build Data Warehouse
+=================================
 
 Overview
 --------
@@ -16,7 +16,7 @@ Build operations generate data, and Evergreen stores most of this data
 directly: the outcome of tasks, the outcomes of specific tests,
 artifacts produced by builds. There's other data, specific to
 particular projects, data that is less naturally structured or less
-specifically linked to specific execution events. Additionally, sink
+specifically linked to specific execution events. Additionally, cedar
 provides a platform to collect and analyze data *about* an evergreen
 deployment in the large.
 
@@ -40,7 +40,7 @@ Data Types
 ~~~~~~~~~~
 
 - a simple log storage system, as a proof of concept. Logs stream from
-  the client to the sink application which stores metadata about the
+  the client to the cedar application which stores metadata about the
   logs and then saves data to S3. Out of band, jobs can process log
   data.
 
@@ -53,35 +53,35 @@ Data Types
 Use
 ---
 
-#. Download and compile sink. I prefer something like: ::
+#. Download and compile cedar. I prefer something like: ::
 
-     go get github.com/evergreen-ci/sink
-     cd $GOPATH/src/github.com/evergreen-ci/sink
+     go get github.com/evergreen-ci/cedar
+     cd $GOPATH/src/github.com/evergreen-ci/cedar
      make build
      pushd /usr/local/bin
-     ln -s $GOPATH/src/github.com/evergreen-ci/sink/build/sink
+     ln -s $GOPATH/src/github.com/evergreen-ci/cedar/build/cedar
      popd
 
-#. Explore the help menus in the ``sink`` binary: ::
+#. Explore the help menus in the ``cedar`` binary: ::
 
-     sink --help
-     sink cost --help
-     sink dagger --help
-     sink service --help
-     sink client --help
-     sink worker --help
+     cedar --help
+     cedar cost --help
+     cedar dagger --help
+     cedar service --help
+     cedar client --help
+     cedar worker --help
 
 #. Enjoy!
 
 Development
 -----------
 
-The sink project uses a ``makefile`` to coordinate testing. Use the
-following command to build the sink binary: ::
+The cedar project uses a ``makefile`` to coordinate testing. Use the
+following command to build the cedar binary: ::
 
   make build
 
-The artifact is at ``build/sink``. The makefile provides the following
+The artifact is at ``build/cedar``. The makefile provides the following
 targets:
 
 ``test``

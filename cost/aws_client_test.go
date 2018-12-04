@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -13,7 +13,7 @@ import (
 const startTag = "start-time"
 
 func init() {
-	grip.SetName("sink.amazon.test")
+	grip.SetName("cedar.amazon.test")
 }
 
 type AWSClientSuite struct {

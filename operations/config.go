@@ -1,9 +1,9 @@
 package operations
 
 import (
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -14,7 +14,7 @@ import (
 func Config() cli.Command {
 	return cli.Command{
 		Name:  "conf",
-		Usage: "sink application configuration",
+		Usage: "cedar application configuration",
 		Subcommands: []cli.Command{
 			loadSinkConfig(),
 			dumpSinkConfig(),
@@ -25,14 +25,14 @@ func Config() cli.Command {
 func dumpSinkConfig() cli.Command {
 	return cli.Command{
 		Name:  "dump-config",
-		Usage: "write current sink application configuration to a file",
+		Usage: "write current cedar application configuration to a file",
 		Flags: dbFlags(
 			cli.StringFlag{
 				Name:  "file",
-				Usage: "specify path to a sink application config file",
+				Usage: "specify path to a cedar application config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
@@ -57,14 +57,14 @@ func dumpSinkConfig() cli.Command {
 func loadSinkConfig() cli.Command {
 	return cli.Command{
 		Name:  "load-config",
-		Usage: "loads sink application configuration from a file",
+		Usage: "loads cedar application configuration from a file",
 		Flags: dbFlags(
 			cli.StringFlag{
 				Name:  "file",
-				Usage: "specify path to a sink application config file",
+				Usage: "specify path to a cedar application config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)

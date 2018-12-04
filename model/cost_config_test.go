@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,17 +22,17 @@ func (c *CostConfig) PopulateMock() {
 func TestCostConfig(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	env := sink.GetEnvironment()
+	env := cedar.GetEnvironment()
 
 	cleanup := func() {
-		require.NoError(t, env.Configure(&sink.Configuration{
+		require.NoError(t, env.Configure(&cedar.Configuration{
 			MongoDBURI:    "mongodb://localhost:27017",
-			DatabaseName:  "sink_test_costconfig",
+			DatabaseName:  "cedar_test_costconfig",
 			NumWorkers:    2,
 			UseLocalQueue: true,
 		}))
 
-		conf, session, err := sink.GetSessionWithConfig(env)
+		conf, session, err := cedar.GetSessionWithConfig(env)
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
 			assert.Contains(t, err.Error(), "not found")
@@ -41,27 +41,27 @@ func TestCostConfig(t *testing.T) {
 
 	defer cleanup()
 
-	for name, test := range map[string]func(context.Context, *testing.T, sink.Environment, *CostConfig){
-		"VerifyFixtures": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+	for name, test := range map[string]func(context.Context, *testing.T, cedar.Environment, *CostConfig){
+		"VerifyFixtures": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			assert.NotNil(t, env)
 			assert.NotNil(t, conf)
 			assert.True(t, conf.IsNil())
 		},
-		"ValidMock": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"ValidMock": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			assert.NoError(t, conf.Validate())
 		},
-		"FindErrorsWithoutConfig": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"FindErrorsWithoutConfig": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			assert.Error(t, conf.Find())
 		},
-		"FindErrorsWithNoResults": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"FindErrorsWithNoResults": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.Setup(env)
 			err := conf.Find()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "could not find")
 		},
-		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
-			require.NoError(t, env.Configure(&sink.Configuration{
+		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
+			require.NoError(t, env.Configure(&cedar.Configuration{
 				MongoDBURI:    "mongodb://localhost:27017",
 				DatabaseName:  "\"", // intentionally invalid
 				NumWorkers:    2,
@@ -73,7 +73,7 @@ func TestCostConfig(t *testing.T) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem finding")
 		},
-		"SimpleRoundTrip": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"SimpleRoundTrip": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			conf.Opts.Directory = "foo"
 			conf.populated = true
@@ -82,9 +82,9 @@ func TestCostConfig(t *testing.T) {
 			err := conf.Find()
 			assert.NoError(t, err)
 		},
-		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
-			require.NoError(t, env.Configure(&sink.Configuration{
+			require.NoError(t, env.Configure(&cedar.Configuration{
 				MongoDBURI:    "mongodb://localhost:27017",
 				DatabaseName:  "\"", // intentionally invalid
 				NumWorkers:    2,
@@ -97,40 +97,40 @@ func TestCostConfig(t *testing.T) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem saving cost reporting configuration")
 		},
-		"SaveErrorsWithNoEnvConfigured": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"SaveErrorsWithNoEnvConfigured": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			conf.populated = true
 			err := conf.Save()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "env is nil")
 		},
-		"SaveErrorIfPopulatedIsNotTrue": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"SaveErrorIfPopulatedIsNotTrue": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			assert.True(t, conf.IsNil())
 			err := conf.Save()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "cannot save non-populated")
 		},
-		"DurationMethodMinimumIsAnHour": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"DurationMethodMinimumIsAnHour": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			for _, dur := range []time.Duration{time.Second, time.Minute - 2, time.Second * 20} {
 				out, err := conf.GetDuration(dur)
 				assert.NoError(t, err)
 				assert.Equal(t, time.Hour, out)
 			}
 		},
-		"ParseDurationFromStringValid": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"ParseDurationFromStringValid": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.Opts.Duration = time.Hour.String()
 			out, err := conf.GetDuration(time.Hour * 24)
 			assert.NoError(t, err)
 			assert.Equal(t, time.Hour, out)
 		},
-		"ParseDurationFromStringInValid": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"ParseDurationFromStringInValid": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.Opts.Duration = time.Hour.String() + "-foo"
 			out, err := conf.GetDuration(time.Hour * 24)
 			assert.Error(t, err)
 			assert.Equal(t, time.Duration(0), out)
 		},
-		"ValidatorForEvergreenConnInfo": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"ValidatorForEvergreenConnInfo": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			var info *EvergreenConnectionInfo
 			assert.False(t, info.IsValid())
 			info = &EvergreenConnectionInfo{}
@@ -140,7 +140,7 @@ func TestCostConfig(t *testing.T) {
 			info = &conf.Evergreen
 			assert.True(t, info.IsValid())
 		},
-		"ValidatorForS3Config": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {
+		"ValidatorForS3Config": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			var amz *CostConfigAmazonS3
 			assert.False(t, amz.IsValid())
 			amz = &CostConfigAmazonS3{}
@@ -150,7 +150,7 @@ func TestCostConfig(t *testing.T) {
 			amz = &conf.Amazon.S3Info
 			assert.True(t, amz.IsValid())
 		},
-		// "": func(ctx context.Context, t *testing.T, env sink.Environment, conf *CostConfig) {},
+		// "": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {},
 	} {
 		t.Run(name, func(t *testing.T) {
 			cleanup()

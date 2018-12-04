@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
@@ -25,7 +25,7 @@ type ClientSuite struct {
 		port int
 	}
 	closer context.CancelFunc
-	env    sink.Environment
+	env    cedar.Environment
 	suite.Suite
 }
 
@@ -39,7 +39,7 @@ func (s *ClientSuite) SetupSuite() {
 	s.service = &Service{}
 	require := s.Require()
 
-	s.env = sink.GetEnvironment()
+	s.env = cedar.GetEnvironment()
 	require.NoError(s.env.SetQueue(queue.NewLocalUnordered(3)))
 	require.NoError(s.service.Validate())
 	require.NoError(s.service.Start(ctx))

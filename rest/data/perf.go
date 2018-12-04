@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/sink/model"
-	dataModel "github.com/evergreen-ci/sink/rest/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/model"
+	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/util"
 )
 
 // FindPerformanceResultById queries the database to find a given performance

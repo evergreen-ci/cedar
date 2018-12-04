@@ -3,14 +3,14 @@ package operations
 import (
 	"context"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/rest"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
-// Service returns the ./sink client sub-command object, which is
+// Service returns the ./cedar client sub-command object, which is
 // responsible for starting the service.
 func Service() cli.Command {
 	const (
@@ -20,7 +20,7 @@ func Service() cli.Command {
 
 	return cli.Command{
 		Name:  "service",
-		Usage: "run the sink api service",
+		Usage: "run the cedar api service",
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
@@ -32,7 +32,7 @@ func Service() cli.Command {
 					Name:   joinFlagNames(servicePortFlag, "p"),
 					Usage:  "specify a port to run the service on",
 					Value:  3000,
-					EnvVar: "SINK_SERVICE_PORT",
+					EnvVar: "CEDAR_SERVICE_PORT",
 				})),
 		Action: func(c *cli.Context) error {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -45,7 +45,7 @@ func Service() cli.Command {
 			dbName := c.String(dbNameFlag)
 			port := c.Int(servicePortFlag)
 
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			if err := configure(env, workers, runLocal, mongodbURI, bucket, dbName); err != nil {
 				return errors.WithStack(err)
@@ -67,7 +67,7 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem starting background jobs")
 			}
 
-			grip.Noticef("starting sink service on :%d", port)
+			grip.Noticef("starting cedar service on :%d", port)
 			service.Run(ctx)
 			grip.Info("completed service, terminating.")
 			return nil

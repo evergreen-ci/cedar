@@ -3,10 +3,10 @@ package operations
 import (
 	"fmt"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/depgraph"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/depgraph"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -73,7 +73,7 @@ func loadGraphToDB() cli.Command {
 			dbName := c.String(dbNameFlag)
 			fn := c.String("path")
 
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
@@ -138,7 +138,7 @@ func cleanDB() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)

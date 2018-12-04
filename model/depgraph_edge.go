@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/depgraph"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/depgraph"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
@@ -25,10 +25,10 @@ type GraphEdge struct {
 	depgraph.Edge `bson:"inline"`
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
-func (e *GraphEdge) Setup(env sink.Environment) { e.env = env }
+func (e *GraphEdge) Setup(env cedar.Environment) { e.env = env }
 func (e *GraphEdge) IsNil() bool                { return !e.populated }
 func (e *GraphEdge) Save() error {
 	if !e.populated {
@@ -39,7 +39,7 @@ func (e *GraphEdge) Save() error {
 		return errors.New("cannot insert document without an ID")
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -49,7 +49,7 @@ func (e *GraphEdge) Save() error {
 }
 
 func (e *GraphEdge) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

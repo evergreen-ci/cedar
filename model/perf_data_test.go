@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/mgo.v2/bson"
@@ -21,10 +21,10 @@ func TestPerfRollupSuite(t *testing.T) {
 
 func (s *perfRollupSuite) SetupTest() {
 	s.r = new(PerfRollups)
-	s.r.Setup(sink.GetEnvironment())
+	s.r.Setup(cedar.GetEnvironment())
 	s.r.populated = true
 	s.r.id = "123"
-	conf, session, err := sink.GetSessionWithConfig(s.r.env)
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 
@@ -38,7 +38,7 @@ func (s *perfRollupSuite) SetupTest() {
 }
 
 func (s *perfRollupSuite) TestSetupTestIsValid() {
-	conf, session, err := sink.GetSessionWithConfig(s.r.env)
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
@@ -159,7 +159,7 @@ func (s *perfRollupSuite) TestMaps() {
 
 func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.r.id = "234"
-	conf, session, err := sink.GetSessionWithConfig(s.r.env)
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 
@@ -200,7 +200,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 }
 
 func (s *perfRollupSuite) TearDownTest() {
-	conf, session, err := sink.GetSessionWithConfig(s.r.env)
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 
@@ -244,10 +244,10 @@ func initializeTS() PerformanceTimeSeries {
 
 func (s *perfRollupSuite) TestUpdateDefaultRollups() {
 	r := new(PerfRollups)
-	r.Setup(sink.GetEnvironment())
+	r.Setup(cedar.GetEnvironment())
 	r.populated = true
 	r.id = "345"
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 

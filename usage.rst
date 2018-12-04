@@ -10,7 +10,7 @@ as well as Amazon EC2, EBS, and S3 data.
 
 The purpose is to produce an aggregated single view into build and test automation spending, across hosting environments. This information can be used to target optimization efforts, provide feedback, and allow for informed planning to make the highest impact changes possible.
 
-An example usage of this tool would be ``sink spend --start 2017-05-23T17:00 --duration 1h --config cost/testdata/spend_test.yml``
+An example usage of this tool would be ``cedar spend --start 2017-05-23T17:00 --duration 1h --config cost/testdata/spend_test.yml``
 
 
 Flags
@@ -23,7 +23,7 @@ Config Flag
 
  The input to this flag is a path to a yaml file. This flag cannot be omitted.
 
-An example config file can be seen at https://github.com/evergreen-ci/sink/blob/master/cost/testdata/spend_test.yml.
+An example config file can be seen at https://github.com/evergreen-ci/cedar/blob/master/cost/testdata/spend_test.yml.
 
 The following fields can be included:
 
@@ -379,8 +379,8 @@ operations
 
 In this file, we verify that a configuration file exists, the EBS Pricing struct exists, S3Info is non-empty (specifically bucket and keyStart), EvergreenInfo is non-empty (specifically that it has a user, key, and rootURL), and that there is at least one account in the Accounts slice. Note that the specific validation functions are in their respective packages (amazon/evergreen).
 
-sink.go
+cedar.go
 --------
- The configuration file information is stored in the appServicesCache in sink.go, as the spendConfig field.
+ The configuration file information is stored in the appServicesCache in cedar.go, as the spendConfig field.
 
 The functions setSpendConfig and getSpendConfig keep the appServicesCache updated with the current configuration file, and retrieves the information from here.

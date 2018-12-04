@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
@@ -16,14 +16,14 @@ type Service struct {
 	// internal settings
 	queue amboy.Queue
 	app   *gimlet.APIApp
-	env   sink.Environment
+	env   cedar.Environment
 }
 
 func (s *Service) Validate() error {
 	var err error
 
 	if s.env == nil {
-		s.env = sink.GetEnvironment()
+		s.env = cedar.GetEnvironment()
 	}
 
 	if s.queue == nil {
@@ -66,7 +66,7 @@ func (s *Service) Start(ctx context.Context) error {
 		return errors.Wrap(err, "problem resolving routes")
 	}
 
-	grip.Noticef("completed sink service; shutting down")
+	grip.Noticef("completed cedar service; shutting down")
 
 	return nil
 }

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
@@ -24,15 +24,15 @@ const (
 type MockEnv struct {
 	queue   amboy.Queue
 	session *mgo.Session
-	conf    *sink.Configuration
+	conf    *cedar.Configuration
 }
 
-func (m *MockEnv) Configure(config *sink.Configuration) error {
+func (m *MockEnv) Configure(config *cedar.Configuration) error {
 	m.conf = config
 	return nil
 }
 
-func (m *MockEnv) GetConf() (*sink.Configuration, error) {
+func (m *MockEnv) GetConf() (*cedar.Configuration, error) {
 	return m.conf, nil
 }
 
@@ -49,7 +49,7 @@ func (m *MockEnv) GetSession() (*mgo.Session, error) {
 	return m.session, errors.New("mock err")
 }
 
-func startPerfService(ctx context.Context, env sink.Environment) error {
+func startPerfService(ctx context.Context, env cedar.Environment) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return errors.WithStack(err)
@@ -67,7 +67,7 @@ func startPerfService(ctx context.Context, env sink.Environment) error {
 	return nil
 }
 
-func getClient(ctx context.Context) (SinkPerformanceMetricsClient, error) {
+func getClient(ctx context.Context) (CedarPerformanceMetricsClient, error) {
 	conn, err := grpc.DialContext(ctx, address, grpc.WithInsecure())
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -78,15 +78,15 @@ func getClient(ctx context.Context) (SinkPerformanceMetricsClient, error) {
 		conn.Close()
 	}()
 
-	return NewSinkPerformanceMetricsClient(conn), nil
+	return NewCedarPerformanceMetricsClient(conn), nil
 }
 
-func createEnv(mock bool) (sink.Environment, error) {
+func createEnv(mock bool) (cedar.Environment, error) {
 	if mock {
 		return &MockEnv{}, nil
 	}
-	env := sink.GetEnvironment()
-	err := env.Configure(&sink.Configuration{
+	env := cedar.GetEnvironment()
+	err := env.Configure(&cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  "grpc_test",
 		NumWorkers:    2,
@@ -95,11 +95,11 @@ func createEnv(mock bool) (sink.Environment, error) {
 	return env, errors.WithStack(err)
 }
 
-func tearDownEnv(env sink.Environment, mock bool) error {
+func tearDownEnv(env cedar.Environment, mock bool) error {
 	if mock {
 		return nil
 	}
-	conf, session, err := sink.GetSessionWithConfig(env)
+	conf, session, err := cedar.GetSessionWithConfig(env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

@@ -3,9 +3,9 @@ package units
 import (
 	"context"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/cost"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/cost"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -36,10 +36,10 @@ func makeBuildCostReport() *buildCostReportJob {
 type buildCostReportJob struct {
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 	Options  cost.EvergreenReportOptions `bson:"evg_opts" json:"evg_opts" yaml:"evg_opts"`
-	env      sink.Environment
+	env      cedar.Environment
 }
 
-func NewBuildCostReport(env sink.Environment, name string, opts *cost.EvergreenReportOptions) amboy.Job {
+func NewBuildCostReport(env cedar.Environment, name string, opts *cost.EvergreenReportOptions) amboy.Job {
 	j := makeBuildCostReport()
 
 	j.env = env
@@ -54,7 +54,7 @@ func (j *buildCostReportJob) Run(ctx context.Context) {
 	grip.Infoln("running build cost reporting job:", j.ID())
 
 	if j.env == nil {
-		j.env = sink.GetEnvironment()
+		j.env = cedar.GetEnvironment()
 	}
 
 	costConf := &model.CostConfig{}

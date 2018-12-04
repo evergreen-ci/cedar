@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
-	"github.com/evergreen-ci/sink/units"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
@@ -30,7 +30,7 @@ type StatusResponse struct {
 
 // statusHandler processes the GET request for
 func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
-	resp := &StatusResponse{Revision: sink.BuildRevision}
+	resp := &StatusResponse{Revision: cedar.BuildRevision}
 
 	if s.queue != nil {
 		resp.QueueRunning = s.queue.Started()

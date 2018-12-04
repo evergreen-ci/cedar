@@ -3,8 +3,8 @@ package model
 import (
 	"fmt"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/depgraph"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/depgraph"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -22,7 +22,7 @@ type GraphMetadata struct {
 	BuildID   string `bson:"_id"`
 	Complete  bool   `bson:"complete"`
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -30,14 +30,14 @@ var (
 	graphMetadataCompleteKey = bsonutil.MustHaveTag(GraphMetadata{}, "Complete")
 )
 
-func (g *GraphMetadata) Setup(e sink.Environment) { g.env = e }
+func (g *GraphMetadata) Setup(e cedar.Environment) { g.env = e }
 func (g *GraphMetadata) IsNil() bool              { return !g.populated }
 
 func (g *GraphMetadata) Save() error {
 	if g.BuildID == "" {
 		return errors.New("cannot save document without id")
 	}
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -47,7 +47,7 @@ func (g *GraphMetadata) Save() error {
 }
 
 func (g *GraphMetadata) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -66,7 +66,7 @@ func (g *GraphMetadata) Find() error {
 }
 
 func (g *GraphMetadata) MarkComplete() error {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -91,7 +91,7 @@ func (g *GraphMetadata) RemoveEdges() error {
 		return errors.New("cannot remove edges for an unpopulated graph")
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -115,7 +115,7 @@ func (g *GraphMetadata) RemoveNodes() error {
 		return errors.New("cannot remove edges for an unpopulated graph")
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -161,14 +161,14 @@ func (g *GraphMetadata) MakeEdge(source *depgraph.Edge) *GraphEdge {
 	}
 }
 
-func (g *GraphMetadata) edgeQuery(conf *sink.Configuration, session db.Session) db.Query {
+func (g *GraphMetadata) edgeQuery(conf *cedar.Configuration, session db.Session) db.Query {
 	return session.DB(conf.DatabaseName).C(depEdgeCollection).Find(map[string]interface{}{
 		graphEdgeGraphKey: g.BuildID,
 	})
 }
 
 func (g *GraphMetadata) GetEdges() (db.Iterator, error) {
-	conf, s, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -179,7 +179,7 @@ func (g *GraphMetadata) GetEdges() (db.Iterator, error) {
 }
 
 func (g *GraphMetadata) AllEdges() ([]GraphEdge, error) {
-	conf, s, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -195,14 +195,14 @@ func (g *GraphMetadata) AllEdges() ([]GraphEdge, error) {
 	return out, nil
 }
 
-func (g *GraphMetadata) nodeQuery(conf *sink.Configuration, session db.Session) db.Query {
+func (g *GraphMetadata) nodeQuery(conf *cedar.Configuration, session db.Session) db.Query {
 	return session.DB(conf.DatabaseName).C(depNodeCollection).Find(map[string]interface{}{
 		graphNodeGraphNameKey: g.BuildID,
 	})
 }
 
 func (g *GraphMetadata) GetNodes() (db.Iterator, error) {
-	conf, s, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -212,7 +212,7 @@ func (g *GraphMetadata) GetNodes() (db.Iterator, error) {
 }
 
 func (g *GraphMetadata) AllNodes() ([]GraphNode, error) {
-	conf, s, err := sink.GetSessionWithConfig(g.env)
+	conf, s, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

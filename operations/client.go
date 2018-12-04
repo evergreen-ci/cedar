@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/sink/rest"
+	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -22,22 +22,22 @@ const (
 	clientPortFlag = "port"
 )
 
-// Client returns the entry point for the ./sink client sub-command,
+// Client returns the entry point for the ./cedar client sub-command,
 // which itself hosts a number of sub-commands. This client relies on
-// an accessible sink service.
+// an accessible cedar service.
 func Client() cli.Command {
 	return cli.Command{
 		Name:  "client",
-		Usage: "run a simple sink client",
+		Usage: "run a simple cedar client",
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  clientHostFlag,
-				Usage: "host for the remote sink instance.",
+				Usage: "host for the remote cedar instance.",
 				Value: "http://localhost",
 			},
 			cli.IntFlag{
 				Name:  clientPortFlag,
-				Usage: "port for the remote sink service.",
+				Usage: "port for the remote cedar service.",
 				Value: 3000,
 			},
 		},

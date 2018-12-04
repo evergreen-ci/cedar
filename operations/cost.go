@@ -6,11 +6,11 @@ import (
 
 	"context"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/cost"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/units"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/cost"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/units"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -20,7 +20,7 @@ import (
 
 const costReportDateFormat = "2006-01-02-15-04"
 
-// Cost returns the entry point for the ./sink spend sub-command,
+// Cost returns the entry point for the ./cedar spend sub-command,
 // which has required flags.
 func Cost() cli.Command {
 	return cli.Command{
@@ -48,7 +48,7 @@ func dumpCostConfig() cli.Command {
 				Usage: "specify path to a build cost reporting config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
@@ -80,7 +80,7 @@ func loadCostConfig() cli.Command {
 				Usage: "specify path to a build cost reporting config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
@@ -116,7 +116,7 @@ func collectLoop() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
@@ -189,7 +189,7 @@ func summarize() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 			if err := configure(env, 1, false, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
 			}
@@ -236,7 +236,7 @@ func write() cli.Command {
 		Usage: "collect and write a build cost report to a file.",
 		Flags: mergeFlags(costFlags(), costEvergreenOptionsFlags()),
 		Action: func(c *cli.Context) error {
-			start, err := time.Parse(sink.ShortDateFormat, c.String(costStartFlag))
+			start, err := time.Parse(cedar.ShortDateFormat, c.String(costStartFlag))
 			if err != nil {
 				return errors.Wrapf(err, "problem parsing time from %s", c.String(costStartFlag))
 			}
@@ -275,7 +275,7 @@ func printScrn() cli.Command {
 		Usage: "print a cost report to the terminal",
 		Flags: mergeFlags(costFlags(), costEvergreenOptionsFlags()),
 		Action: func(c *cli.Context) error {
-			start, err := time.Parse(sink.ShortDateFormat, c.String(costStartFlag))
+			start, err := time.Parse(cedar.ShortDateFormat, c.String(costStartFlag))
 			if err != nil {
 				return errors.Wrapf(err, "problem parsing time from %s", c.String(costStartFlag))
 			}
@@ -303,7 +303,7 @@ func printScrn() cli.Command {
 			if err != nil {
 				return errors.Wrap(err, "Problem generating report")
 			}
-			report.Setup(sink.GetEnvironment())
+			report.Setup(cedar.GetEnvironment())
 			fmt.Println(report.String())
 			return nil
 		},
@@ -320,7 +320,7 @@ func writeCostReport(ctx context.Context, conf *model.CostConfig, opts *cost.Eve
 	if err != nil {
 		return errors.Wrap(err, "Problem generating report")
 	}
-	report.Setup(sink.GetEnvironment())
+	report.Setup(cedar.GetEnvironment())
 
 	filename := getCostReportFn(report.Report.Range.StartAt, duration)
 
@@ -341,7 +341,7 @@ func dump() cli.Command {
 		Usage: "dump all cost reports to files",
 		Flags: dbFlags(),
 		Action: func(c *cli.Context) error {
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 

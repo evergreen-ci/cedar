@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -48,7 +48,7 @@ type PerformanceResult struct {
 
 	Rollups *PerfRollups `bson:"rollups,omitempty"`
 
-	env       sink.Environment
+	env       cedar.Environment
 	populated bool
 }
 
@@ -76,10 +76,10 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 	}
 }
 
-func (result *PerformanceResult) Setup(e sink.Environment) { result.env = e }
+func (result *PerformanceResult) Setup(e cedar.Environment) { result.env = e }
 func (result *PerformanceResult) IsNil() bool              { return !result.populated }
 func (result *PerformanceResult) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(result.env)
+	conf, session, err := cedar.GetSessionWithConfig(result.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -114,7 +114,7 @@ func (result *PerformanceResult) Save() error {
 		}
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(result.env)
+	conf, session, err := cedar.GetSessionWithConfig(result.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -203,7 +203,7 @@ func (id *PerformanceResultInfo) ID() string {
 
 type PerformanceResults struct {
 	Results   []PerformanceResult `bson:"results"`
-	env       sink.Environment
+	env       cedar.Environment
 	populated bool
 }
 
@@ -214,12 +214,12 @@ type PerfFindOptions struct {
 	GraphLookup bool
 }
 
-func (r *PerformanceResults) Setup(e sink.Environment) { r.env = e }
+func (r *PerformanceResults) Setup(e cedar.Environment) { r.env = e }
 func (r *PerformanceResults) IsNil() bool              { return r.Results == nil }
 
 // Returns the PerformanceResults that are started/completed within the given range (if completed).
 func (r *PerformanceResults) Find(options PerfFindOptions) error {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -300,7 +300,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 	}
 
 	search := bson.M{bsonutil.GetDottedKeyName("info", "parent"): parent}
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -317,7 +317,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 
 // All children of parent are recursively added to r.Results using $graphLookup
 func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int, tags []string) error {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

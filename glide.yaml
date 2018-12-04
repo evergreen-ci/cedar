@@ -1,4 +1,4 @@
-package: github.com/evergreen-ci/sink
+package: github.com/evergreen-ci/cedar
 import:
 - package: github.com/awalterschulze/gographviz
 - package: github.com/davecgh/go-spew

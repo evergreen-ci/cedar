@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
 	"github.com/pkg/errors"
@@ -11,7 +11,7 @@ func (l StorageLocation) Export() model.PailType {
 	switch l {
 	case StorageLocation_GRIDFS:
 		return model.PailLegacyGridFS
-	case StorageLocation_SINK_S3, StorageLocation_PROJECT_S3:
+	case StorageLocation_CEDAR_S3, StorageLocation_PROJECT_S3:
 		return model.PailS3
 	default:
 		return ""

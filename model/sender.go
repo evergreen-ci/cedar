@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -33,7 +33,7 @@ type Event struct {
 	Acknowledged bool        `bson:"ack" json:"acknowledged"`
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -58,14 +58,14 @@ func NewEvent(m message.Composer) *Event {
 	}
 }
 
-func (e *Event) Setup(env sink.Environment) { e.env = env }
+func (e *Event) Setup(env cedar.Environment) { e.env = env }
 func (e *Event) IsNil() bool                { return !e.populated }
 func (e *Event) Save() error {
 	if e.ID == "" {
 		return errors.New("cannot save an event without a populated ID")
 	}
 
-	conf, s, err := sink.GetSessionWithConfig(e.env)
+	conf, s, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -76,7 +76,7 @@ func (e *Event) Save() error {
 }
 
 func (e *Event) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -98,7 +98,7 @@ func (e *Event) Find() error {
 func (e *Event) sendLog(coll db.Collection) error { return errors.WithStack(coll.Insert(e)) }
 
 func (e *Event) Acknowledge() error {
-	conf, session, err := sink.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -118,16 +118,16 @@ func (e *Event) Acknowledge() error {
 type Events struct {
 	slice     []*Event
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
-func (e *Events) Setup(env sink.Environment) { e.env = env }
+func (e *Events) Setup(env cedar.Environment) { e.env = env }
 func (e *Events) Slice() []*Event            { return e.slice }
 func (e *Events) Size() int                  { return len(e.slice) }
 func (e *Events) IsNil() bool                { return !e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
-	conf, s, err := sink.GetSessionWithConfig(e.env)
+	conf, s, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -151,13 +151,13 @@ func (e *Events) FindLevel(level string, limit int) error {
 	return nil
 }
 
-func (e *Events) levelQuery(conf *sink.Configuration, session db.Session, level string) db.Query {
+func (e *Events) levelQuery(conf *cedar.Configuration, session db.Session, level string) db.Query {
 	coll := session.DB(conf.DatabaseName).C(eventCollection)
 	return coll.Find(map[string]interface{}{eventLevelKey: level})
 }
 
 func (e *Events) CountLevel(level string) (int, error) {
-	conf, s, err := sink.GetSessionWithConfig(e.env)
+	conf, s, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -167,7 +167,7 @@ func (e *Events) CountLevel(level string) (int, error) {
 }
 
 func (e *Events) Count() (int, error) {
-	conf, session, err := sink.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -182,19 +182,19 @@ func (e *Events) Count() (int, error) {
 
 type mongoDBSender struct {
 	*send.Base
-	env        sink.Environment
+	env        cedar.Environment
 	session    db.Session
 	collection db.Collection
 }
 
-func MakeDBSender(e sink.Environment) (send.Sender, error) { return NewDBSender(e, "") }
+func MakeDBSender(e cedar.Environment) (send.Sender, error) { return NewDBSender(e, "") }
 
-func NewDBSender(e sink.Environment, name string) (send.Sender, error) {
+func NewDBSender(e cedar.Environment, name string) (send.Sender, error) {
 	s := &mongoDBSender{
 		env:  e,
 		Base: send.NewBase(name),
 	}
-	conf, session, err := sink.GetSessionWithConfig(s.env)
+	conf, session, err := cedar.GetSessionWithConfig(s.env)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting")
 	}

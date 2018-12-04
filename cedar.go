@@ -1,15 +1,15 @@
 /*
-Package sink holds a a number of application level constants and
-shared resources for the sink application.
+Package cedar holds a a number of application level constants and
+shared resources for the cedar application.
 
 Environment
 
 The Environment interface provides a collection of application level
 state that holds database sessions, a configuration object, and
 loggers. There is global instance, but using the Environment interface
-allows sink components to be tested without depending on global state.
+allows cedar components to be tested without depending on global state.
 */
-package sink
+package cedar
 
 // Sink defines a number of application level constants used
 // throughout the application.
