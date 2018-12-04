@@ -1,19 +1,12 @@
 package operations
 
 import (
-	"fmt"
 	"time"
 
-	"context"
-
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/cost"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/units"
-	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
-	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 )
@@ -96,56 +89,4 @@ func configure(env cedar.Environment, numWorkers int, localQueue bool, mongodbUR
 	}
 
 	return errors.WithStack(grip.SetSender(send.NewConfiguredMultiSender(defaultSenders...)))
-}
-
-func backgroundJobs(ctx context.Context, env cedar.Environment) error {
-	// TODO: develop a specification format, either here or in
-	// amboy so that you can specify a list of amboy.QueueOperation
-	// functions + specific intervals
-	//
-	// In the mean time, we'll just register intervals here, and
-	// hard code the configuration
-
-	q, err := env.GetQueue()
-	if err != nil {
-		return errors.Wrap(err, "problem fetching queue")
-	}
-
-	// This isn't how we'd do this in the long term, but I want to
-	// have one job running on an interval
-	var count int
-
-	conf := amboy.QueueOperationConfig{
-		ContinueOnError: true,
-	}
-
-	amboy.PeriodicQueueOperation(ctx, q, time.Minute, conf, func(cue amboy.Queue) error {
-		name := "periodic-poc"
-		count++
-		j := units.NewHelloWorldJob(name)
-		err = cue.Put(j)
-		grip.Error(message.NewErrorWrap(err,
-			"problem scheduling job %s (count: %d)", name, count))
-
-		return err
-	})
-
-	amboy.IntervalQueueOperation(ctx, q, 15*time.Minute, time.Now(), conf, func(cue amboy.Queue) error {
-		now := time.Now().Add(-time.Hour)
-
-		opts := &cost.EvergreenReportOptions{
-			StartAt:  time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC),
-			Duration: time.Hour,
-		}
-
-		id := fmt.Sprintf("bcr-%s", opts.StartAt.Format(costReportDateFormat))
-
-		j := units.NewBuildCostReport(env, id, opts)
-		err := cue.Put(j)
-		grip.Warning(err)
-
-		return nil
-	})
-
-	return nil
 }

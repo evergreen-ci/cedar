@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/cedar/units"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
@@ -117,7 +117,7 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	event := &model.Event{
 		ID: id,
 	}
-	event.Setup(s.env)
+	event.Setup(s.Environment)
 	if err := event.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
@@ -147,7 +147,7 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	event := &model.Event{
 		ID: id,
 	}
-	event.Setup(s.env)
+	event.Setup(s.Environment)
 	if err := event.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
@@ -201,7 +201,7 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j := units.MakeSaveSimpleLogJob(s.env, resp.LogID, req.Content, req.Time, req.Increment)
+	j := units.MakeSaveSimpleLogJob(s.Environment, resp.LogID, req.Content, req.Time, req.Increment)
 	resp.JobID = j.ID()
 
 	if err := s.queue.Put(j); err != nil {

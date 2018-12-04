@@ -47,10 +47,6 @@ func Worker() cli.Command {
 				return errors.Wrap(err, "problem starting queue")
 			}
 
-			if err = backgroundJobs(ctx, env); err != nil {
-				return errors.Wrap(err, "problem starting background jobs")
-			}
-
 			time.Sleep(time.Minute)
 			grip.Debug(q.Stats())
 			amboy.WaitCtxInterval(ctx, q, time.Second)
