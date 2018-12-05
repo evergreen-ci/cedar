@@ -161,6 +161,16 @@ type updateOp struct {
 	Upsert     bool        `bson:"upsert,omitempty"`
 }
 
+type updateOpWithArrayFilters struct {
+	Collection   string      `bson:"-"` // "database.collection"
+	Selector     interface{} `bson:"q"`
+	Update       interface{} `bson:"u"`
+	ArrayFilters interface{} `bson:"arrayFilters"`
+	Flags        uint32      `bson:"-"`
+	Multi        bool        `bson:"multi,omitempty"`
+	Upsert       bool        `bson:"upsert,omitempty"`
+}
+
 type deleteOp struct {
 	Collection string      `bson:"-"` // "database.collection"
 	Selector   interface{} `bson:"q"`
@@ -373,7 +383,6 @@ func (socket *mongoSocket) SimpleQuery(op *queryOp) (data []byte, err error) {
 }
 
 func (socket *mongoSocket) Query(ops ...interface{}) (err error) {
-
 	if lops := socket.flushLogout(); len(lops) > 0 {
 		ops = append(lops, ops...)
 	}
@@ -410,6 +419,27 @@ func (socket *mongoSocket) Query(ops ...interface{}) (err error) {
 			}
 			debugf("Socket %p to %s: serializing update document: %#v", socket, socket.addr, op.Update)
 			buf, err = addBSON(buf, op.Update)
+			if err != nil {
+				return err
+			}
+
+		case *updateOpWithArrayFilters:
+			buf = addHeader(buf, 2001)
+			buf = addInt32(buf, 0) // Reserved
+			buf = addCString(buf, op.Collection)
+			buf = addInt32(buf, int32(op.Flags))
+			debugf("Socket %p to %s: serializing selector document: %#v", socket, socket.addr, op.Selector)
+			buf, err = addBSON(buf, op.Selector)
+			if err != nil {
+				return err
+			}
+			debugf("Socket %p to %s: serializing update document: %#v", socket, socket.addr, op.Update)
+			buf, err = addBSON(buf, op.Update)
+			if err != nil {
+				return err
+			}
+
+			buf, err = addBSON(buf, op.ArrayFilters)
 			if err != nil {
 				return err
 			}

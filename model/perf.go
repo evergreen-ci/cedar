@@ -70,8 +70,8 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 
 	return &PerformanceResult{
 		ID:        info.ID(),
-		Artifacts: source,
 		Info:      info,
+		Artifacts: source,
 		populated: true,
 	}
 }

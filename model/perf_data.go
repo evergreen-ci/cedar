@@ -74,13 +74,11 @@ type PerfRollups struct {
 }
 
 var (
-	perRollupsStatsKey       = bsonutil.MustHaveTag(PerfRollups{}, "Stats")
-	perRollupsProcessedAtKey = bsonutil.MustHaveTag(PerfRollups{}, "ProcessedAt")
-	perRollupsCountKey       = bsonutil.MustHaveTag(PerfRollups{}, "Count")
-	perRollupsValidKey       = bsonutil.MustHaveTag(PerfRollups{}, "Valid")
+	perfRollupsStatsKey       = bsonutil.MustHaveTag(PerfRollups{}, "Stats")
+	perfRollupsProcessedAtKey = bsonutil.MustHaveTag(PerfRollups{}, "ProcessedAt")
+	perfRollupsCountKey       = bsonutil.MustHaveTag(PerfRollups{}, "Count")
+	perfRollupsValidKey       = bsonutil.MustHaveTag(PerfRollups{}, "Valid")
 )
-
-type perfRollupEntries []PerfRollupValue
 
 func (v *PerfRollupValue) getIntLong() (int64, error) {
 	if val, ok := v.Value.(int64); ok {
@@ -113,92 +111,74 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 		return errors.Wrap(err, "error connecting")
 	}
 	defer session.Close()
-	// 1) If in database, check version and make sure passed in version isn't older (if so, done)
+
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	search := bson.M{
-		perfIDKey: r.id,
-		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupValueNameKey): name,
-	}
 	rollup := PerfRollupValue{
 		Name:          name,
-		Version:       version,
 		Value:         value,
+		Version:       version,
 		UserSubmitted: userSubmitted,
 		MetricType:    t,
 	}
-	selection := bson.M{
-		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupValueVersionKey): 1,
-		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupValueNameKey):    1,
-	}
 
-	out := struct {
-		Rollups perfRollupEntries `bson:"rollups"`
-	}{}
-	err = c.Find(search).Select(selection).One(&out)
-	if err != nil {
-		if err != mgo.ErrNotFound {
-			return errors.Wrap(err, "error finding entry")
+	err = tryUpdate(r.id, rollup, c)
+	if err == mgo.ErrNotFound {
+		search := bson.M{perfIDKey: r.id}
+		update := bson.M{
+			"$push": bson.M{
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey): rollup,
+			},
 		}
-		// entry DNE, add entry
-		return r.insertNewEntry(search, rollup)
+		err = c.Update(search, update)
 	}
-	// update existing entry
-	for _, entry := range out.Rollups {
-		if entry.Name == name {
-			if entry.Version > version {
-				return errors.New("outdated version")
-			}
-			break
-		}
-	}
-	return r.updateExistingEntry(search, rollup)
-}
 
-func (r *PerfRollups) insertNewEntry(search map[string]interface{}, rollup PerfRollupValue) error {
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
-		return errors.Wrap(err, "error connecting")
+		return errors.Wrap(err, "problem adding rollup")
 	}
-	defer session.Close()
 
-	search = bson.M{perfIDKey: r.id} // why does this overwrite
-	// the insert
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.Update(search, bson.M{"$push": bson.M{perfRollupsKey: rollup}})
-	if err != nil {
-		return errors.Wrap(err, "error pushing new entry")
-	}
-	r.Stats = append(r.Stats, rollup)
-	r.Count++
-	return nil
-}
-func (r *PerfRollups) updateExistingEntry(search map[string]interface{}, rollup PerfRollupValue) error {
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
-	if err != nil {
-		return errors.Wrap(err, "error connecting")
-	}
-	defer session.Close()
-	update := bson.M{
-		bsonutil.GetDottedKeyName(perfRollupsKey, "$", perfRollupValueValueKey):         rollup.Value,
-		bsonutil.GetDottedKeyName(perfRollupsKey, "$", perfRollupValueVersionKey):       rollup.Version,
-		bsonutil.GetDottedKeyName(perfRollupsKey, "$", perfRollupValueUserSubmittedKey): rollup.UserSubmitted,
-	}
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.Update(search, bson.M{"$set": update})
-	if err != nil {
-		return errors.Wrap(err, "error updating an existing entry")
-	}
 	for i := range r.Stats {
-		if r.Stats[i].Name == rollup.Name {
-			r.Stats[i].Version = rollup.Version
-			r.Stats[i].Value = rollup.Value
-			r.Stats[i].UserSubmitted = rollup.UserSubmitted
+		if r.Stats[i].Name == name {
+			r.Stats[i].Version = version
+			r.Stats[i].Value = value
+			r.Stats[i].UserSubmitted = userSubmitted
+			r.Stats[i].MetricType = t
 			return nil
 		}
 	}
-	r.Stats = append(r.Stats, rollup)
+	r.Stats = append(r.Stats, PerfRollupValue{
+		Name:          name,
+		Value:         value,
+		Version:       version,
+		UserSubmitted: userSubmitted,
+		MetricType:    t,
+	})
 	r.Count++
 	return nil
+}
+
+func tryUpdate(id string, r PerfRollupValue, c *mgo.Collection) error {
+	query := bson.M{
+		perfIDKey: id,
+		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey): r.Name,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, "$[elem]"): r,
+		},
+	}
+	arrayFilters := []bson.M{
+		{
+			"$and": []bson.M{
+				{
+					bsonutil.GetDottedKeyName("elem", perfRollupValueNameKey): bson.M{"$eq": r.Name},
+				},
+				{
+					bsonutil.GetDottedKeyName("elem", perfRollupValueVersionKey): bson.M{"$lte": r.Version},
+				},
+			},
+		},
+	}
+	return c.UpdateWithOpts(query, update, arrayFilters)
 }
 
 func (r *PerfRollups) GetInt(name string) (int, error) {
