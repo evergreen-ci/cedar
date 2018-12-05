@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
@@ -22,7 +22,7 @@ type LogRecord struct {
 	Metadata    `bson:"metadata"`
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -33,14 +33,14 @@ var (
 	logRecordMetadataKey     = bsonutil.MustHaveTag(LogRecord{}, "Metadata")
 )
 
-func (l *LogRecord) Setup(e sink.Environment) { l.env = e }
+func (l *LogRecord) Setup(e cedar.Environment) { l.env = e }
 func (l *LogRecord) IsNil() bool              { return !l.populated }
 func (l *LogRecord) Save() error {
 	if !l.populated {
 		return errors.New("cannot insert a log segment that is not poulated")
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -50,7 +50,7 @@ func (l *LogRecord) Save() error {
 }
 
 func (l *LogRecord) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
@@ -26,7 +26,7 @@ type LogSegment struct {
 
 	// internal fields used by methods:
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -51,7 +51,7 @@ var (
 	logMetricsLetterFrequencyKey = bsonutil.MustHaveTag(LogMetrics{}, "LetterFrequencies")
 )
 
-func (l *LogSegment) Setup(e sink.Environment) { l.env = e }
+func (l *LogSegment) Setup(e cedar.Environment) { l.env = e }
 func (l *LogSegment) IsNil() bool              { return l.populated }
 
 func (l *LogSegment) Insert() error {
@@ -59,7 +59,7 @@ func (l *LogSegment) Insert() error {
 		l.ID = string(bson.NewObjectId())
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -69,7 +69,7 @@ func (l *LogSegment) Insert() error {
 }
 
 func (l *LogSegment) Find(logID string, segment int) error {
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -96,7 +96,7 @@ func (l *LogSegment) Find(logID string, segment int) error {
 }
 
 func (l *LogSegment) Remove() error {
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -106,7 +106,7 @@ func (l *LogSegment) Remove() error {
 }
 
 func (l *LogSegment) Save() error {
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -124,16 +124,16 @@ func (l *LogSegment) Save() error {
 type LogSegments struct {
 	logs      []LogSegment
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
-func (l *LogSegments) Setup(e sink.Environment) { l.env = e }
+func (l *LogSegments) Setup(e cedar.Environment) { l.env = e }
 func (l *LogSegments) IsNil() bool              { return !l.populated }
 func (l *LogSegments) Slice() []LogSegment      { return l.logs }
 func (l *LogSegments) Size() int                { return len(l.logs) }
 
 func (l *LogSegments) Find(logID string, sorted bool) error {
-	conf, session, err := sink.GetSessionWithConfig(l.env)
+	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

@@ -1,28 +1,28 @@
 package internal
 
 import (
-	"context"
 	"io"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 )
 
 type perfService struct {
-	env sink.Environment
+	env cedar.Environment
 }
 
-func AttachService(env sink.Environment, s *grpc.Server) {
+func AttachService(env cedar.Environment, s *grpc.Server) {
 	srv := &perfService{
 		env: env,
 	}
 
-	RegisterSinkPerformanceMetricsServer(s, srv)
+	RegisterCedarPerformanceMetricsServer(s, srv)
 
 	return
 }
@@ -32,7 +32,10 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return nil, errors.New("invalid data")
 	}
 
-	record := result.Export()
+	record, err := result.Export()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem exporting result")
+	}
 	record.Setup(srv.env)
 	record.CreatedAt = time.Now()
 
@@ -65,13 +68,17 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	resp.Id = record.ID
 
 	for _, i := range result.Artifacts {
-		record.Artifacts = append(record.Artifacts, *i.Export())
+		artifact, err := i.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem exporting artifacts")
+		}
+		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
 	if result.Rollups != nil {
 		rollups, err := result.Rollups.Export()
 		if err != nil {
-			return nil, errors.Wrap(err, "problem getting rollups")
+			return nil, errors.Wrap(err, "problem exporting rollups")
 		}
 		addRollups(record, &rollups)
 	}
@@ -97,7 +104,11 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	resp.Id = record.ID
 
 	for _, i := range artifactData.Artifacts {
-		record.Artifacts = append(record.Artifacts, *i.Export())
+		artifact, err := i.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem exporting artifacts")
+		}
+		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
 	record.Setup(srv.env)
@@ -134,7 +145,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	return resp, nil
 }
 
-func (srv *perfService) SendMetrics(stream SinkPerformanceMetrics_SendMetricsServer) error {
+func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsServer) error {
 	// NOTE:
 	//   - will probably require leaving this connection open for
 	//     longer than we often do, which may lead to load

@@ -1,4 +1,4 @@
-package sink
+package cedar
 
 import (
 	"errors"

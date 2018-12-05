@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
 	"github.com/evergreen-ci/pail"
-	"github.com/evergreen-ci/sink/units"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
@@ -30,7 +30,7 @@ type StatusResponse struct {
 
 // statusHandler processes the GET request for
 func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
-	resp := &StatusResponse{Revision: sink.BuildRevision}
+	resp := &StatusResponse{Revision: cedar.BuildRevision}
 
 	if s.queue != nil {
 		resp.QueueRunning = s.queue.Started()
@@ -117,7 +117,7 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	event := &model.Event{
 		ID: id,
 	}
-	event.Setup(s.env)
+	event.Setup(s.Environment)
 	if err := event.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
@@ -147,7 +147,7 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	event := &model.Event{
 		ID: id,
 	}
-	event.Setup(s.env)
+	event.Setup(s.Environment)
 	if err := event.Find(); err != nil {
 		resp.Error = err.Error()
 		gimlet.WriteJSONError(w, resp)
@@ -201,7 +201,7 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j := units.MakeSaveSimpleLogJob(s.env, resp.LogID, req.Content, req.Time, req.Increment)
+	j := units.MakeSaveSimpleLogJob(s.Environment, resp.LogID, req.Content, req.Time, req.Increment)
 	resp.JobID = j.ID()
 
 	if err := s.queue.Put(j); err != nil {

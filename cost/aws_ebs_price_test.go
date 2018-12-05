@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/stretchr/testify/suite"
 )
 

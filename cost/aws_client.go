@@ -11,8 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
@@ -47,7 +47,7 @@ func NewAWSClientAuto() (*AWSClient, error) {
 		return newAwsClient(creds)
 	}
 
-	for _, profile := range []string{"sink", "bcr", "xgen", "default"} {
+	for _, profile := range []string{"cedar", "bcr", "xgen", "default"} {
 		creds = credentials.NewSharedCredentials("", profile)
 
 		if _, err := creds.Get(); err == nil {

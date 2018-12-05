@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -22,7 +22,7 @@ type CostReportSummary struct {
 	ProviderSummary   []CloudProviderSummary    `bson:"providers" json:"providers" yaml:"providers"`
 	TotalCost         float64                   `bson:"total_cost" json:"total_cost" yaml:"total_cost"`
 
-	env       sink.Environment
+	env       cedar.Environment
 	populated bool
 }
 
@@ -120,14 +120,14 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 	return &out
 }
 
-func (r *CostReportSummary) Setup(e sink.Environment) { r.env = e }
+func (r *CostReportSummary) Setup(e cedar.Environment) { r.env = e }
 func (r *CostReportSummary) IsNil() bool              { return !r.populated }
 func (r *CostReportSummary) Save() error {
 	if !r.populated {
 		return errors.New("cannot save unpopulated report")
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -145,7 +145,7 @@ func (r *CostReportSummary) Save() error {
 }
 
 func (r *CostReportSummary) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

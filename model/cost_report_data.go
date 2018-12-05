@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 )
 

@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip/message"
@@ -19,7 +19,7 @@ type SystemInformationRecord struct {
 	Data      message.SystemInfo `bson:"sysinfo" json:"sysinfo"`
 	Hostname  string             `bson:"hn" json:"hostname"`
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -29,7 +29,7 @@ var (
 	sysInfoHostKey      = bsonutil.MustHaveTag(SystemInformationRecord{}, "Hostname")
 )
 
-func (i *SystemInformationRecord) Setup(e sink.Environment) { i.env = e }
+func (i *SystemInformationRecord) Setup(e cedar.Environment) { i.env = e }
 func (i *SystemInformationRecord) IsNil() bool              { return !i.populated }
 
 func (i *SystemInformationRecord) Save() error {
@@ -41,7 +41,7 @@ func (i *SystemInformationRecord) Save() error {
 		i.ID = string(bson.NewObjectId())
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -51,7 +51,7 @@ func (i *SystemInformationRecord) Save() error {
 }
 
 func (i *SystemInformationRecord) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -71,10 +71,10 @@ func (i *SystemInformationRecord) Find() error {
 type SystemInformationRecords struct {
 	slice     []*SystemInformationRecord
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
-func (i *SystemInformationRecords) Setup(e sink.Environment)          { i.env = e }
+func (i *SystemInformationRecords) Setup(e cedar.Environment)          { i.env = e }
 func (i *SystemInformationRecords) IsNil() bool                       { return !i.populated }
 func (i *SystemInformationRecords) Slice() []*SystemInformationRecord { return i.slice }
 func (i *SystemInformationRecords) Size() int                         { return len(i.slice) }
@@ -95,7 +95,7 @@ func (i *SystemInformationRecords) runQuery(query db.Query) error {
 }
 
 func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
-	conf, s, err := sink.GetSessionWithConfig(i.env)
+	conf, s, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -114,7 +114,7 @@ func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
 }
 
 func (i *SystemInformationRecords) FindHostnameBetween(host string, before, after time.Time, limit int) error {
-	conf, s, err := sink.GetSessionWithConfig(i.env)
+	conf, s, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -137,7 +137,7 @@ func (i *SystemInformationRecords) FindHostnameBetween(host string, before, afte
 }
 
 func (i *SystemInformationRecords) FindBetween(before, after time.Time, limit int) error {
-	conf, s, err := sink.GetSessionWithConfig(i.env)
+	conf, s, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -159,7 +159,7 @@ func (i *SystemInformationRecords) FindBetween(before, after time.Time, limit in
 }
 
 func (i *SystemInformationRecords) CountBetween(before, after time.Time) (int, error) {
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -177,7 +177,7 @@ func (i *SystemInformationRecords) CountBetween(before, after time.Time) (int, e
 }
 
 func (i *SystemInformationRecords) CountHostname(host string) (int, error) {
-	conf, session, err := sink.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
@@ -70,7 +70,7 @@ type PerfRollups struct {
 	dirty     bool // nolint
 	populated bool
 	id        string
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
@@ -100,7 +100,7 @@ func (v *PerfRollupValue) getFloat() (float64, error) {
 	return 0, errors.Errorf("mismatched type for name %s", v.Name)
 }
 
-func (r *PerfRollups) Setup(env sink.Environment) {
+func (r *PerfRollups) Setup(env cedar.Environment) {
 	r.env = env
 }
 
@@ -108,7 +108,7 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 	if !r.populated {
 		return errors.New("rollups have not been populated")
 	}
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.Wrap(err, "error connecting")
 	}
@@ -133,10 +133,11 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 		}
 		err = c.Update(search, update)
 	}
+
 	if err != nil {
 		return errors.Wrap(err, "problem adding rollup")
 	}
-
+  
 	for i := range r.Stats {
 		if r.Stats[i].Name == name {
 			r.Stats[i].Version = version

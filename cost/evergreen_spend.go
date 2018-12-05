@@ -3,7 +3,7 @@ package cost
 import (
 	"context"
 
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"

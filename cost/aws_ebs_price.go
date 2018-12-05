@@ -4,8 +4,8 @@ import (
 	"math"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 )
 
 func getPriceByVolumeType(pricing model.CostConfigAmazonEBS, vol *ec2.Volume, durationInDays float64) (float64, float64) {

@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type commonModel interface {
-	Setup(e sink.Environment)
+	Setup(e cedar.Environment)
 	IsNil() bool
 	Find() error
 	Save() error
@@ -43,10 +43,10 @@ func TestModelInterface(t *testing.T) {
 	assert.NotNil(t, oddballs)
 	assert.NotNil(t, slices)
 
-	dbName := "sink_test"
+	dbName := "cedar_test"
 
-	env := sink.GetEnvironment()
-	assert.NoError(t, env.Configure(&sink.Configuration{
+	env := cedar.GetEnvironment()
+	assert.NoError(t, env.Configure(&cedar.Configuration{
 		MongoDBURI:   "mongodb://localhost:27017",
 		NumWorkers:   2,
 		DatabaseName: dbName,
@@ -66,7 +66,7 @@ func TestModelInterface(t *testing.T) {
 		},
 		"VerifySetEnv": func(t *testing.T, m commonModel) {
 			assert.NotPanics(t, func() {
-				m.Setup(sink.GetEnvironment())
+				m.Setup(cedar.GetEnvironment())
 			})
 		},
 		"FindErrorsWithoutEnv": func(t *testing.T, m commonModel) {
@@ -75,12 +75,12 @@ func TestModelInterface(t *testing.T) {
 			assert.Contains(t, err.Error(), "env is nil")
 		},
 		"FindErrorsForMissingDocument": func(t *testing.T, m commonModel) {
-			m.Setup(sink.GetEnvironment())
+			m.Setup(cedar.GetEnvironment())
 			err := m.Find()
 			assert.Error(t, err, "%+v", m)
 		},
 		"SaveErrorsForEmpty": func(t *testing.T, m commonModel) {
-			m.Setup(sink.GetEnvironment())
+			m.Setup(cedar.GetEnvironment())
 			assert.Error(t, m.Save())
 		},
 	}
@@ -98,7 +98,7 @@ func TestModelInterface(t *testing.T) {
 }
 
 type commonModelSlice interface {
-	Setup(e sink.Environment)
+	Setup(e cedar.Environment)
 	IsNil() bool
 	Size() int
 }
@@ -107,10 +107,10 @@ type checkSliceType func(commonModelSlice) error
 type commonModelSliceFactory func() commonModelSlice
 
 func TestCommonModelSlice(t *testing.T) {
-	dbName := "sink_test"
+	dbName := "cedar_test"
 
-	env := sink.GetEnvironment()
-	assert.NoError(t, env.Configure(&sink.Configuration{
+	env := cedar.GetEnvironment()
+	assert.NoError(t, env.Configure(&cedar.Configuration{
 		MongoDBURI:   "mongodb://localhost:27017",
 		NumWorkers:   2,
 		DatabaseName: dbName,

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package sink;
+package cedar;
 
 option go_package = "internal";
 
@@ -33,12 +33,14 @@ message ArtifactInfo {
   string path = 3;
   DataFormat format = 4;
   CompressionType compression = 5;
-  repeated string tags = 6;
+  SchemaType schema = 6;
+  repeated string tags = 7;
+  google.protobuf.Timestamp created_at = 8;
 }
 
 enum StorageLocation {
   UNKNOWN = 0;
-  SINK_S3 = 1;
+  CEDAR_S3 = 1;
   PROJECT_S3 = 2;
   GRIDFS = 3;
   EPHEMERAL = 4;
@@ -58,6 +60,13 @@ enum CompressionType {
   ZIP = 2;
   GZ = 3;
   XZ = 4;
+}
+
+enum SchemaType {
+  RAW_EVENTS = 0;
+  COLLAPSED_EVENTS = 1;
+  INTERVAL_SUMMARIZATION = 2;
+  HISTOGRAM = 3;
 }
 
 message MetricsSeriesEnd {
@@ -134,7 +143,6 @@ message RollupValue {
 
 message Rollups {
   repeated RollupValue stats = 1;
-
   google.protobuf.Timestamp processed_at = 2;
   int64 count = 3;
   bool valid = 4;
@@ -150,7 +158,7 @@ message RollupData {
   Rollups rollups = 2;
 }
 
-service SinkPerformanceMetrics {
+service CedarPerformanceMetrics {
   rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
   rpc AttachResultData(ResultData) returns (MetricsResponse);
   rpc AttachArtifacts(ArtifactData) returns (MetricsResponse);

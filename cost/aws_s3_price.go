@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/pkg/errors"
 )
 

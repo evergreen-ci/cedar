@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"

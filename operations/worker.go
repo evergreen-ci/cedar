@@ -5,15 +5,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
-// Worker returns the ./sink worker command, which is responsible for
-// starting a sink service that does *not* host the REST API, and only
+// Worker returns the ./cedar worker command, which is responsible for
+// starting a cedar service that does *not* host the REST API, and only
 // processes jobs from the queue.
 func Worker() cli.Command {
 	return cli.Command{
@@ -32,7 +32,7 @@ func Worker() cli.Command {
 			bucket := c.String(bucketNameFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := sink.GetEnvironment()
+			env := cedar.GetEnvironment()
 
 			if err := configure(env, workers, false, mongodbURI, bucket, dbName); err != nil {
 				return errors.WithStack(err)
@@ -45,10 +45,6 @@ func Worker() cli.Command {
 
 			if err = q.Start(ctx); err != nil {
 				return errors.Wrap(err, "problem starting queue")
-			}
-
-			if err = backgroundJobs(ctx, env); err != nil {
-				return errors.Wrap(err, "problem starting background jobs")
 			}
 
 			time.Sleep(time.Minute)

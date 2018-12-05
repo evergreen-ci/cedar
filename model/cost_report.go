@@ -3,7 +3,7 @@ package model
 import (
 	"encoding/json"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -22,7 +22,7 @@ type CostReport struct {
 	Evergreen EvergreenCost      `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
 	Providers []CloudProvider    `bson:"providers" json:"providers" yaml:"providers"`
 
-	env       sink.Environment
+	env       cedar.Environment
 	populated bool
 	providers map[string]*CloudProvider
 }
@@ -47,10 +47,10 @@ func (r *CostReport) String() string {
 	return string(jsonReport)
 }
 
-func (r *CostReport) Setup(e sink.Environment) { r.env = e; r.refresh() }
+func (r *CostReport) Setup(e cedar.Environment) { r.env = e; r.refresh() }
 func (r *CostReport) IsNil() bool              { return !r.populated }
 func (r *CostReport) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -76,7 +76,7 @@ func (r *CostReport) Save() error {
 	}
 
 	// TOOD call some kind of validation routine to avoid saving junk data
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

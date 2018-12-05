@@ -1,4 +1,4 @@
-package sink
+package cedar
 
 import (
 	"testing"
@@ -17,12 +17,12 @@ func TestServiceCacheSuite(t *testing.T) {
 }
 
 func (s *ServiceCacheSuite) SetupTest() {
-	s.cache = &envState{name: "sink.testing"}
+	s.cache = &envState{name: "cedar.testing"}
 }
 
 func (s *ServiceCacheSuite) TestDefaultCacheValues() {
 	s.Nil(s.cache.queue)
-	s.Equal("sink.testing", s.cache.name)
+	s.Equal("cedar.testing", s.cache.name)
 	s.Nil(s.cache.session)
 }
 

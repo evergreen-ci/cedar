@@ -1,18 +1,18 @@
 package data
 
 import (
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 )
 
 // DBConnector is a struct that implements all of the methods which connect to
-// the service layer of sink. These methods abstract the link between the
+// the service layer of cedar. These methods abstract the link between the
 // and the API layers, allowing for changes in the service architecture
 // without forcing changes to the API.
 type DBConnector struct {
-	env sink.Environment
+	env cedar.Environment
 }
 
-func CreateDBConnector(env sink.Environment) Connector {
+func CreateDBConnector(env cedar.Environment) Connector {
 	return &DBConnector{
 		env: env,
 	}

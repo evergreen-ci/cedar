@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
 
 func init() {
-	grip.SetName("sink.evergreen.distros.test")
+	grip.SetName("cedar.evergreen.distros.test")
 }
 
 type DistrosSuite struct {
@@ -54,7 +54,7 @@ func (s *DistrosSuite) TestGetDistroFunctionFail() {
 
 	// Test the case where the queried distro has tasks in the given time range.
 	// This test will be implemented later when architectures for IntegrationTests
-	// are in place for sink.
+	// are in place for cedar.
 
 	// Test the case where the queried distro has no tasks in the given time range,
 	// by an invalid start time. GetDistro should succeed, but sumTimeTaken,

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	dbmodel "github.com/evergreen-ci/sink/model"
+	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/assert"
 )

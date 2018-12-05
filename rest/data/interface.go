@@ -1,8 +1,8 @@
 package data
 
 import (
-	"github.com/evergreen-ci/sink/rest/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/util"
 )
 
 type Connector interface {

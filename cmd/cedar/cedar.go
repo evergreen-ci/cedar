@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/evergreen-ci/sink/operations"
+	"github.com/evergreen-ci/cedar/operations"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/pkg/errors"
@@ -24,7 +24,7 @@ func main() {
 func buildApp() *cli.App {
 	app := cli.NewApp()
 
-	app.Name = "sink"
+	app.Name = "cedar"
 	app.Usage = "a data processing API"
 	app.Version = "0.0.1-pre"
 

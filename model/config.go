@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const sinkConfigurationID = "sink-system-configuration"
+const cedarConfigurationID = "cedar-system-configuration"
 
 type SinkConfig struct {
 	ID     string                    `bson:"_id" json:"id" yaml:"id"`
@@ -20,13 +20,13 @@ type SinkConfig struct {
 	Slack  SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 var (
-	sinkConfigurationIDKey     = bsonutil.MustHaveTag(SinkConfig{}, "ID")
-	sinkConfigurationSplunkKey = bsonutil.MustHaveTag(SinkConfig{}, "Splunk")
-	sinkConfigurationSlackKey  = bsonutil.MustHaveTag(SinkConfig{}, "Slack")
+	cedarConfigurationIDKey     = bsonutil.MustHaveTag(SinkConfig{}, "ID")
+	cedarConfigurationSplunkKey = bsonutil.MustHaveTag(SinkConfig{}, "Splunk")
+	cedarConfigurationSlackKey  = bsonutil.MustHaveTag(SinkConfig{}, "Slack")
 )
 
 type SlackConfig struct {
@@ -36,22 +36,22 @@ type SlackConfig struct {
 }
 
 var (
-	sinkSlackConfigOptionsKey = bsonutil.MustHaveTag(SlackConfig{}, "Options")
-	sinkSlackConfigTokenKey   = bsonutil.MustHaveTag(SlackConfig{}, "Token")
-	sinkSlackConfigLevelKey   = bsonutil.MustHaveTag(SlackConfig{}, "Level")
+	cedarSlackConfigOptionsKey = bsonutil.MustHaveTag(SlackConfig{}, "Options")
+	cedarSlackConfigTokenKey   = bsonutil.MustHaveTag(SlackConfig{}, "Token")
+	cedarSlackConfigLevelKey   = bsonutil.MustHaveTag(SlackConfig{}, "Level")
 )
 
-func (c *SinkConfig) Setup(e sink.Environment) { c.env = e }
+func (c *SinkConfig) Setup(e cedar.Environment) { c.env = e }
 func (c *SinkConfig) IsNil() bool              { return !c.populated }
 func (c *SinkConfig) Find() error {
-	conf, session, err := sink.GetSessionWithConfig(c.env)
+	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
 
 	c.populated = false
-	err = session.DB(conf.DatabaseName).C(configurationCollection).FindId(sinkConfigurationID).One(c)
+	err = session.DB(conf.DatabaseName).C(configurationCollection).FindId(cedarConfigurationID).One(c)
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find application configuration in the database")
 	} else if err != nil {
@@ -69,18 +69,18 @@ func (c *SinkConfig) Save() error {
 		return errors.New("cannot save a non-populated app configuration")
 	}
 
-	c.ID = sinkConfigurationID
+	c.ID = cedarConfigurationID
 
-	conf, session, err := sink.GetSessionWithConfig(c.env)
+	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
 
-	changeInfo, err := session.DB(conf.DatabaseName).C(configurationCollection).UpsertId(sinkConfigurationID, c)
+	changeInfo, err := session.DB(conf.DatabaseName).C(configurationCollection).UpsertId(cedarConfigurationID, c)
 	grip.Debug(message.Fields{
 		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: configurationCollection},
-		"id":          sinkConfigurationID,
+		"id":          cedarConfigurationID,
 		"operation":   "save build cost reporting configuration",
 		"change_info": changeInfo,
 	})

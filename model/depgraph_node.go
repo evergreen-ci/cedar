@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/depgraph"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/depgraph"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 )
@@ -22,10 +22,10 @@ type GraphNode struct {
 	depgraph.Node `bson:"inline"`
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
-func (n *GraphNode) Setup(e sink.Environment) { n.env = e }
+func (n *GraphNode) Setup(e cedar.Environment) { n.env = e }
 func (n *GraphNode) IsNil() bool              { return n.populated }
 func (n *GraphNode) Insert() error {
 	if !n.populated {
@@ -36,7 +36,7 @@ func (n *GraphNode) Insert() error {
 		return errors.New("cannot insert document without an ID")
 	}
 
-	conf, session, err := sink.GetSessionWithConfig(n.env)
+	conf, session, err := cedar.GetSessionWithConfig(n.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

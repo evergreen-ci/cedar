@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
@@ -32,7 +32,7 @@ func init() {
 type mergeSimpleLogJob struct {
 	LogID     string `bson:"logID" json:"logID" yaml:"logID"`
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env       sink.Environment
+	env       cedar.Environment
 }
 
 func mergeSimpleLogJobFactory() amboy.Job {
@@ -43,14 +43,14 @@ func mergeSimpleLogJobFactory() amboy.Job {
 				Version: 1,
 			},
 		},
-		env: sink.GetEnvironment(),
+		env: cedar.GetEnvironment(),
 	}
 
 	j.SetDependency(dependency.NewAlways())
 	return j
 }
 
-func MakeMergeSimpleLogJob(env sink.Environment, logID string) amboy.Job {
+func MakeMergeSimpleLogJob(env cedar.Environment, logID string) amboy.Job {
 	j := mergeSimpleLogJobFactory().(*mergeSimpleLogJob)
 	j.SetID(fmt.Sprintf("%s-%s-%s", j.Type().Name, logID,
 		time.Now().Format("2006-01-02.15")))

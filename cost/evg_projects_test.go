@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
 
 func init() {
-	grip.SetName("sink.evergreen.projects.test")
+	grip.SetName("cedar.evergreen.projects.test")
 }
 
 type ProjectSuite struct {

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/pail"
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 )
@@ -16,12 +16,12 @@ const (
 	PailLegacyGridFS          = "gridfs-legacy"
 )
 
-func (t PailType) Create(env sink.Environment, bucket string) (pail.Bucket, error) {
+func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
 	switch t {
 	case PailS3:
 		return nil, errors.New("not implemented")
 	case PailLegacyGridFS:
-		conf, session, err := sink.GetSessionWithConfig(env)
+		conf, session, err := cedar.GetSessionWithConfig(env)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -102,7 +102,7 @@ func (fs FileSchema) Validate() error {
 
 // ArtifactInfo is a type that describes an object in some kind of
 // offline storage, and is the bridge between pail-backed
-// offline-storage and the sink-based metadata storage.
+// offline-storage and the cedar-based metadata storage.
 //
 // The schema field describes the format of the data (raw, collapsed,
 // interval summarizations, etc.) while the format field describes the

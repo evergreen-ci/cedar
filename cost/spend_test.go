@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink/model"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
 
 func init() {
-	grip.SetName("sink.cost.test")
+	grip.SetName("cedar.cost.test")
 }
 
 func getDirectoryOfFile() string {

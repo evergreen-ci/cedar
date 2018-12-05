@@ -3,7 +3,7 @@ package model
 import (
 	"github.com/pkg/errors"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/db"
 )
 
@@ -11,15 +11,15 @@ type DependencyGraphs struct {
 	graphs []GraphMetadata
 
 	populated bool
-	env       sink.Environment
+	env       cedar.Environment
 }
 
-func (g *DependencyGraphs) Setup(e sink.Environment) { g.env = e }
+func (g *DependencyGraphs) Setup(e cedar.Environment) { g.env = e }
 func (g *DependencyGraphs) IsNil() bool              { return !g.populated }
 func (g *DependencyGraphs) Size() int                { return len(g.graphs) }
 func (g *DependencyGraphs) Slice() []GraphMetadata   { return g.graphs }
 func (g *DependencyGraphs) FindIncomplete() error {
-	conf, session, err := sink.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}

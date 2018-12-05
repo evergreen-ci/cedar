@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar/util"
 )
 
 type spotPrices []*ec2.SpotPrice

@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -80,7 +80,7 @@ func (sp *parseSimpleLog) Run(ctx context.Context) {
 	defer sp.reset()
 
 	l := &model.LogSegment{}
-	l.Setup(sink.GetEnvironment())
+	l.Setup(cedar.GetEnvironment())
 	if err := l.Find(sp.Key, sp.Segment); err != nil {
 		err = errors.Wrap(err, "problem running query")
 		grip.Warning(err)

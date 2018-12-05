@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"github.com/evergreen-ci/sink/model"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
 	"github.com/pkg/errors"
@@ -11,7 +11,7 @@ func (l StorageLocation) Export() model.PailType {
 	switch l {
 	case StorageLocation_GRIDFS:
 		return model.PailLegacyGridFS
-	case StorageLocation_SINK_S3, StorageLocation_PROJECT_S3:
+	case StorageLocation_CEDAR_S3, StorageLocation_PROJECT_S3:
 		return model.PailS3
 	default:
 		return ""
@@ -83,6 +83,20 @@ func (c CompressionType) Export() model.FileCompression {
 	default:
 		return model.FileUncompressed
 	}
+
+}
+
+func (s SchemaType) Export() model.FileSchema {
+	switch s {
+	case SchemaType_COLLAPSED_EVENTS:
+		return model.SchemaCollapsedEvents
+	case SchemaType_INTERVAL_SUMMARIZATION:
+		return model.SchemaIntervalSummary
+	case SchemaType_HISTOGRAM:
+		return model.SchemaHistogram
+	default:
+		return model.SchemaRawEvents
+	}
 }
 
 func (m *ResultID) Export() *model.PerformanceResultInfo {
@@ -101,7 +115,12 @@ func (m *ResultID) Export() *model.PerformanceResultInfo {
 	}
 }
 
-func (a *ArtifactInfo) Export() *model.ArtifactInfo {
+func (a *ArtifactInfo) Export() (*model.ArtifactInfo, error) {
+	ts, err := ptypes.Timestamp(a.CreatedAt)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem converting timestamp value artifact")
+	}
+
 	return &model.ArtifactInfo{
 		Type:        a.Location.Export(),
 		Bucket:      a.Bucket,
@@ -109,17 +128,23 @@ func (a *ArtifactInfo) Export() *model.ArtifactInfo {
 		Format:      a.Format.Export(),
 		Tags:        a.Tags,
 		Compression: a.Compression.Export(),
-	}
+		Schema:      a.Schema.Export(),
+		CreatedAt:   ts,
+	}, nil
 }
 
-func (r *ResultData) Export() *model.PerformanceResult {
+func (r *ResultData) Export() (*model.PerformanceResult, error) {
 	artifacts := []model.ArtifactInfo{}
 
 	for _, a := range r.Artifacts {
-		artifacts = append(artifacts, *a.Export())
+		artifact, err := a.Export()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem exporting artifacts")
+		}
+		artifacts = append(artifacts, *artifact)
 	}
 
-	return model.CreatePerformanceResult(*r.Id.Export(), artifacts)
+	return model.CreatePerformanceResult(*r.Id.Export(), artifacts), nil
 }
 
 func (m *MetricsPoint) Export() (*events.Performance, error) {
@@ -134,7 +159,7 @@ func (m *MetricsPoint) Export() (*events.Performance, error) {
 
 	ts, err := ptypes.Timestamp(m.Time)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem converting duration value")
+		return nil, errors.Wrap(err, "problem converting timestamp value")
 	}
 
 	point := &events.Performance{

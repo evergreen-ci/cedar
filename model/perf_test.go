@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/sink"
-	"github.com/evergreen-ci/sink/util"
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -24,7 +24,7 @@ func getTimeForTestingByDate(day int) time.Time {
 
 func (s *perfResultSuite) SetupTest() {
 	s.r = new(PerformanceResults)
-	s.r.Setup(sink.GetEnvironment())
+	s.r.Setup(cedar.GetEnvironment())
 	args := make(map[string]int32)
 	args["timeout"] = 12
 	info := PerformanceResultInfo{
@@ -37,7 +37,7 @@ func (s *perfResultSuite) SetupTest() {
 	}
 	source := []ArtifactInfo{}
 	result := CreatePerformanceResult(info, source)
-	result.Setup(sink.GetEnvironment())
+	result.Setup(cedar.GetEnvironment())
 	result.CreatedAt = getTimeForTestingByDate(15)
 	result.Version = 1
 	s.True(result.CompletedAt.IsZero())
@@ -50,7 +50,7 @@ func (s *perfResultSuite) SetupTest() {
 		Tags:    []string{"tag2", "json"},
 	}
 	result2 := CreatePerformanceResult(info, source)
-	result2.Setup(sink.GetEnvironment())
+	result2.Setup(cedar.GetEnvironment())
 	result2.CreatedAt = getTimeForTestingByDate(16)
 	result2.CompletedAt = getTimeForTestingByDate(18)
 	result2.Version = 2
@@ -61,7 +61,7 @@ func (s *perfResultSuite) TestSavePerfResults() {
 	info := PerformanceResultInfo{Parent: "345"}
 	source := []ArtifactInfo{}
 	result := CreatePerformanceResult(info, source)
-	result.Setup(sink.GetEnvironment())
+	result.Setup(cedar.GetEnvironment())
 	result.CreatedAt = getTimeForTestingByDate(12)
 	s.NoError(result.Save())
 	s.NoError(result.Find())
@@ -127,12 +127,12 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 func (s *perfResultSuite) TestSearchResultsWithParent() {
 	// nodeA -> nodeB and nodeC, nodeB -> nodeD
 	s.r = new(PerformanceResults)
-	s.r.Setup(sink.GetEnvironment())
+	s.r.Setup(cedar.GetEnvironment())
 
 	info := PerformanceResultInfo{Parent: "NA"}
 	source := []ArtifactInfo{}
 	nodeA := CreatePerformanceResult(info, source)
-	nodeA.Setup(sink.GetEnvironment())
+	nodeA.Setup(cedar.GetEnvironment())
 	nodeA.CreatedAt = getTimeForTestingByDate(15)
 	s.NoError(nodeA.Save())
 
@@ -141,13 +141,13 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 		Tags:   []string{"tag0"},
 	}
 	nodeB := CreatePerformanceResult(info, []ArtifactInfo{})
-	nodeB.Setup(sink.GetEnvironment())
+	nodeB.Setup(cedar.GetEnvironment())
 	nodeB.CreatedAt = getTimeForTestingByDate(16)
 	s.NoError(nodeB.Save())
 
 	info.Version = "C"
 	nodeC := CreatePerformanceResult(info, []ArtifactInfo{})
-	nodeC.Setup(sink.GetEnvironment())
+	nodeC.Setup(cedar.GetEnvironment())
 	nodeC.CreatedAt = getTimeForTestingByDate(16)
 	s.NoError(nodeC.Save())
 
@@ -156,7 +156,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 		Tags:   []string{"tag1"},
 	}
 	nodeD := CreatePerformanceResult(info, []ArtifactInfo{})
-	nodeD.Setup(sink.GetEnvironment())
+	nodeD.Setup(cedar.GetEnvironment())
 	nodeD.CreatedAt = getTimeForTestingByDate(17)
 	s.NoError(nodeD.Save())
 
@@ -239,7 +239,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 }
 
 func (s *perfResultSuite) TearDownTest() {
-	conf, session, err := sink.GetSessionWithConfig(s.r.env)
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)

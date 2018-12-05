@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/evergreen-ci/sink"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
@@ -11,11 +11,11 @@ import (
 
 type CostReports struct {
 	reports   []CostReport
-	env       sink.Environment
+	env       cedar.Environment
 	populated bool
 }
 
-func (r *CostReports) Setup(e sink.Environment) { r.env = e }
+func (r *CostReports) Setup(e cedar.Environment) { r.env = e }
 func (r *CostReports) IsNil() bool              { return !r.populated }
 func (r *CostReports) Size() int                { return len(r.reports) }
 func (r *CostReports) Slice() []CostReport      { return r.reports }
@@ -47,7 +47,7 @@ func (r *CostReports) Iterator(start, end time.Time) (db.Iterator, error) {
 }
 
 func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
-	conf, s, err := sink.GetSessionWithConfig(r.env)
+	conf, s, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
@@ -63,7 +63,7 @@ func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, er
 }
 
 func (r *CostReports) Count() (int, error) {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return -1, errors.WithStack(err)
 	}
@@ -79,11 +79,11 @@ func (r *CostReports) Count() (int, error) {
 
 type CostReportSummaries struct {
 	reports   []CostReportSummary
-	env       sink.Environment
+	env       cedar.Environment
 	populated bool
 }
 
-func (r *CostReportSummaries) Setup(e sink.Environment)   { r.env = e }
+func (r *CostReportSummaries) Setup(e cedar.Environment)   { r.env = e }
 func (r *CostReportSummaries) IsNil() bool                { return !r.populated }
 func (r *CostReportSummaries) Size() int                  { return len(r.reports) }
 func (r *CostReportSummaries) Slice() []CostReportSummary { return r.reports }
@@ -114,7 +114,7 @@ func (r *CostReportSummaries) Iterator(start, end time.Time) (db.Iterator, error
 }
 
 func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
-	conf, s, err := sink.GetSessionWithConfig(r.env)
+	conf, s, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
@@ -129,7 +129,7 @@ func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Q
 }
 
 func (r *CostReportSummaries) Count() (int, error) {
-	conf, session, err := sink.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return -1, errors.WithStack(err)
 	}
