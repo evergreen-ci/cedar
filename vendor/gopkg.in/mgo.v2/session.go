@@ -2465,6 +2465,24 @@ func (c *Collection) Update(selector interface{}, update interface{}) error {
 	return err
 }
 
+func (c *Collection) UpdateWithOpts(selector, update, arrayFilters interface{}) error {
+	if selector == nil {
+		selector = bson.D{}
+	}
+	op := updateOpWithArrayFilters{
+		Collection:   c.FullName,
+		Selector:     selector,
+		Update:       update,
+		ArrayFilters: arrayFilters,
+	}
+	lerr, err := c.writeOp(&op, true)
+	if err == nil && lerr != nil && !lerr.UpdatedExisting {
+		return ErrNotFound
+	}
+	return err
+
+}
+
 // UpdateId is a convenience helper equivalent to:
 //
 //     err := collection.Update(bson.M{"_id": id}, update)
@@ -4745,7 +4763,7 @@ func (c *Collection) writeOpCommand(socket *mongoSocket, safeOp *queryOp, op int
 			{"writeConcern", writeConcern},
 			{"ordered", op.flags&1 == 0},
 		}
-	case *updateOp:
+	case *updateOp, *updateOpWithArrayFilters:
 		// http://docs.mongodb.org/manual/reference/command/update
 		cmd = bson.D{
 			{"update", c.Name},
