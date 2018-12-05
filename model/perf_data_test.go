@@ -31,7 +31,6 @@ func (s *perfRollupSuite) SetupTest() {
 	defer session.Close()
 	s.c = session.DB(conf.DatabaseName).C(perfResultCollection)
 
-	//err = s.c.Insert(bson.M{"_id": s.r.id})
 	err = s.c.Insert(PerformanceResult{ID: s.r.id})
 	s.Require().NoError(err)
 
