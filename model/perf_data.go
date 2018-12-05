@@ -80,8 +80,6 @@ var (
 	perfRollupsValidKey       = bsonutil.MustHaveTag(PerfRollups{}, "Valid")
 )
 
-type perfRollupEntries []PerfRollupValue
-
 func (v *PerfRollupValue) getIntLong() (int64, error) {
 	if val, ok := v.Value.(int64); ok {
 		return val, nil
@@ -137,7 +135,7 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 	if err != nil {
 		return errors.Wrap(err, "problem adding rollup")
 	}
-  
+
 	for i := range r.Stats {
 		if r.Stats[i].Name == name {
 			r.Stats[i].Version = version
