@@ -7,11 +7,13 @@ import (
 	"github.com/evergreen-ci/sink"
 	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/suite"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 type perfRollupSuite struct {
 	r *PerfRollups
+	c *mgo.Collection
 	suite.Suite
 }
 
@@ -27,8 +29,10 @@ func (s *perfRollupSuite) SetupTest() {
 	conf, session, err := sink.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
+	s.c = session.DB(conf.DatabaseName).C(perfResultCollection)
 
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(bson.M{"_id": s.r.id})
+	//err = s.c.Insert(bson.M{"_id": s.r.id})
+	err = s.c.Insert(PerformanceResult{ID: s.r.id})
 	s.Require().NoError(err)
 
 	s.NoError(s.r.Add("float", 1, true, MetricTypeMax, 12.4))
@@ -44,19 +48,14 @@ func (s *perfRollupSuite) TestSetupTestIsValid() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 
 	search := bson.M{
-		"_id":          s.r.id,
-		"rollups.name": "int",
+		"_id": s.r.id,
 	}
-	filter := bson.M{"rollups.version": 1, "rollups.name": 1, "_id": 0}
-
-	out := struct {
-		Rollups perfRollupEntries `bson:"rollups"`
-	}{}
-	err = c.Find(search).Select(filter).One(&out)
+	out := PerformanceResult{}
+	err = c.Find(search).One(&out)
 	s.Require().NoError(err)
-	s.Len(out.Rollups, 4)
+	s.Len(out.Rollups.Stats, 4)
 	hasFloat, hasInt, hasInt32, hasLong := false, false, false, false
-	for _, entry := range out.Rollups {
+	for _, entry := range out.Rollups.Stats {
 		switch entry.Name {
 		case "float":
 			s.False(hasFloat)
@@ -170,33 +169,36 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.NoError(err)
 
 	search := bson.M{
-		"_id":          s.r.id,
-		"rollups.name": "mean",
+		"_id":                s.r.id,
+		"rollups.stats.name": "mean",
 	}
-	filter := bson.M{"rollups": 1, "_id": 0}
-	out := struct {
-		Rollups perfRollupEntries `bson:"rollups"`
-	}{}
-	err = c.Find(search).Select(filter).One(&out)
+	out := PerformanceResult{}
+	err = c.Find(search).One(&out)
 	s.Require().NoError(err)
-	s.Require().Len(out.Rollups, 1)
-	s.Equal(out.Rollups[0].Version, 4)
-	s.Equal(out.Rollups[0].Value, 12.24)
-	s.Equal(out.Rollups[0].UserSubmitted, true)
+	s.Require().Len(out.Rollups.Stats, 1)
+	s.Equal(out.Rollups.Stats[0].Version, 4)
+	s.Equal(out.Rollups.Stats[0].Value, 12.24)
+	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
+
 	err = s.r.Add("mean", 3, true, MetricTypeMax, 24.12) // should fail with older version
-	s.Error(err)
+	s.Require().NoError(err)
+	err = c.Find(search).One(&out)
+	s.Require().Len(out.Rollups.Stats, 1)
+	s.Equal(out.Rollups.Stats[0].Version, 4)
+	s.Equal(out.Rollups.Stats[0].Value, 12.24)
+	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
 	err = s.r.Add("mean", 5, false, MetricTypeMax, 24.12)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(24.12, val)
-	err = c.Find(search).Select(filter).One(&out)
+	err = c.Find(search).One(&out)
 	s.Require().NoError(err)
-	s.Require().Len(out.Rollups, 1)
-	s.Equal(5, out.Rollups[0].Version)
-	s.Equal(24.12, out.Rollups[0].Value)
-	s.Equal(false, out.Rollups[0].UserSubmitted)
+	s.Require().Len(out.Rollups.Stats, 1)
+	s.Equal(5, out.Rollups.Stats[0].Version)
+	s.Equal(24.12, out.Rollups.Stats[0].Value)
+	s.Equal(false, out.Rollups.Stats[0].UserSubmitted)
 }
 
 func (s *perfRollupSuite) TearDownTest() {
@@ -251,7 +253,7 @@ func (s *perfRollupSuite) TestUpdateDefaultRollups() {
 	s.Require().NoError(err)
 	defer session.Close()
 
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(bson.M{"_id": r.id})
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: r.id})
 	s.Require().NoError(err)
 
 	ts := initializeTS()
