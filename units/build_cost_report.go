@@ -57,6 +57,16 @@ func (j *buildCostReportJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
+	conf := model.NewCedarConfig(j.env)
+	if err := conf.Find(); err != nil {
+		j.AddError(errors.WithStack(err))
+		return
+	}
+
+	if conf.Flags.DisableCostReportingJob {
+		return
+	}
+
 	costConf := &model.CostConfig{}
 	costConf.Setup(j.env)
 	if err := costConf.Find(); err != nil {

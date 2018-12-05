@@ -63,7 +63,6 @@ func Service() cli.Command {
 			),
 		),
 		Action: func(c *cli.Context) error {
-
 			workers := c.Int(numWorkersFlag)
 			mongodbURI := c.String(dbURIFlag)
 			runLocal := c.Bool(localQueueFlag)

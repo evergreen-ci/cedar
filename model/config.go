@@ -14,19 +14,31 @@ import (
 
 const cedarConfigurationID = "cedar-system-configuration"
 
-type SinkConfig struct {
+type CedarConfig struct {
 	ID     string                    `bson:"_id" json:"id" yaml:"id"`
 	Splunk send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
 	Slack  SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
+	Flags  OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 
 	populated bool
 	env       cedar.Environment
 }
 
+func NewCedarConfig(env cedar.Environment) *CedarConfig {
+	return &CedarConfig{
+		ID:  cedarConfigurationID,
+		env: env,
+		Flags: OperationalFlags{
+			env: env,
+		},
+	}
+}
+
 var (
-	cedarConfigurationIDKey     = bsonutil.MustHaveTag(SinkConfig{}, "ID")
-	cedarConfigurationSplunkKey = bsonutil.MustHaveTag(SinkConfig{}, "Splunk")
-	cedarConfigurationSlackKey  = bsonutil.MustHaveTag(SinkConfig{}, "Slack")
+	cedarConfigurationIDKey     = bsonutil.MustHaveTag(CedarConfig{}, "ID")
+	cedarConfigurationSplunkKey = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
+	cedarConfigurationSlackKey  = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
+	cedarConfigurationFlagsKey  = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
 )
 
 type SlackConfig struct {
@@ -41,9 +53,9 @@ var (
 	cedarSlackConfigLevelKey   = bsonutil.MustHaveTag(SlackConfig{}, "Level")
 )
 
-func (c *SinkConfig) Setup(e cedar.Environment) { c.env = e }
-func (c *SinkConfig) IsNil() bool              { return !c.populated }
-func (c *SinkConfig) Find() error {
+func (c *CedarConfig) Setup(e cedar.Environment) { c.env = e }
+func (c *CedarConfig) IsNil() bool               { return !c.populated }
+func (c *CedarConfig) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -59,10 +71,12 @@ func (c *SinkConfig) Find() error {
 	}
 
 	c.populated = true
+	c.Flags.env = c.env
+
 	return nil
 }
 
-func (c *SinkConfig) Save() error {
+func (c *CedarConfig) Save() error {
 	// TODO: validate here when that's possible
 
 	if !c.populated {
@@ -88,8 +102,8 @@ func (c *SinkConfig) Save() error {
 	return errors.Wrap(err, "problem saving application configuration")
 }
 
-func LoadSinkConfig(file string) (*SinkConfig, error) {
-	newConfig := &SinkConfig{}
+func LoadCedarConfig(file string) (*CedarConfig, error) {
+	newConfig := &CedarConfig{}
 
 	if err := util.ReadFileYAML(file, newConfig); err != nil {
 		return nil, errors.WithStack(err)
