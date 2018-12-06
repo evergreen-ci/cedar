@@ -78,7 +78,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	record.Setup(srv.env)
 
 	if err := addRollups(record, result.Rollups); err != nil {
-		return errors.Wrap(err, "problem attaching rollups")
+		return nil, errors.Wrap(err, "problem attaching rollups")
 	}
 
 	if err := record.Save(); err != nil {
