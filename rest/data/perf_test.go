@@ -37,7 +37,8 @@ type testResults []struct {
 	parent int
 }
 
-func createPerformanceResults(env cedar.Environment) (testResults, error) {
+func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) error {
+	s.idMap = map[string]dataModel.APIPerformanceResult{}
 	results := testResults{
 		{
 			info: &model.PerformanceResultInfo{
@@ -100,22 +101,26 @@ func createPerformanceResults(env cedar.Environment) (testResults, error) {
 		performanceResult.Setup(env)
 		err := performanceResult.Save()
 		if err != nil {
-			return nil, errors.WithStack(err)
+			return errors.WithStack(err)
 		}
+		apiResult := dataModel.APIPerformanceResult{}
+		err = apiResult.Import(*performanceResult)
+		s.Require().NoError(err)
+		s.idMap[performanceResult.ID] = apiResult
 	}
-	return results, nil
+	s.results = results
+	return nil
 }
 
-func (s *PerfConnectorSuite) createParentMap() {
-	parentMap := make(map[string][]string)
+func (s *PerfConnectorSuite) createChildMap() {
+	s.childMap = map[string][]string{}
 	for _, result := range s.results {
 		if result.parent < 0 {
 			continue
 		}
 		parentId := s.results[result.parent].info.ID()
-		parentMap[parentId] = append(parentMap[parentId], result.info.ID())
+		s.childMap[parentId] = append(s.childMap[parentId], result.info.ID())
 	}
-	s.parentMap = parentMap
 }
 
 func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
@@ -126,7 +131,7 @@ func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		children, ok := s.parentMap[next]
+		children, ok := s.childMap[next]
 		if ok {
 			queue = append(queue, children...)
 			for _, child := range children {
@@ -138,10 +143,12 @@ func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 }
 
 type PerfConnectorSuite struct {
-	sc        Connector
-	env       cedar.Environment
-	results   testResults
-	parentMap map[string][]string
+	dbc      Connector
+	mc       Connector
+	env      cedar.Environment
+	results  testResults
+	idMap    map[string]dataModel.APIPerformanceResult
+	childMap map[string][]string
 
 	suite.Suite
 }
@@ -149,10 +156,14 @@ type PerfConnectorSuite struct {
 func (s *PerfConnectorSuite) SetupTest() {
 	env, err := createEnv()
 	s.Require().NoError(err)
-	s.results, err = createPerformanceResults(env)
+	err = s.createPerformanceResults(env)
 	s.Require().NoError(err)
-	s.createParentMap()
-	s.sc = CreateDBConnector(env)
+	s.createChildMap()
+	s.dbc = CreateNewDBConnector(env)
+	s.mc = &MockConnector{
+		CachedPerformanceResults: s.idMap,
+		ChildMap:                 s.childMap,
+	}
 	s.env = env
 }
 
@@ -166,20 +177,67 @@ func TestPerfConnectorSuite(t *testing.T) {
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultById() {
+	// DBConnector
+	s.testFindPerformanceResultById(s.dbc)
+	s.testFindPerformanceResultByIdDoesNotExist(s.dbc)
+	// MockConnector
+	s.testFindPerformanceResultById(s.mc)
+	s.testFindPerformanceResultByIdDoesNotExist(s.mc)
+}
+
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
+	// DBConnector
+	s.testFindPerformanceResultsByTaskId(s.dbc)
+	s.testFindPerformanceResultsByTaskIdDoesNotExist(s.dbc)
+	s.testFindPerformanceResultsByTaskIdNarrowInterval(s.dbc)
+	// MockConnector
+	s.testFindPerformanceResultsByTaskId(s.mc)
+	s.testFindPerformanceResultsByTaskIdDoesNotExist(s.mc)
+	s.testFindPerformanceResultsByTaskIdNarrowInterval(s.mc)
+}
+
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
+	// DBConnector
+	s.testFindPerformanceResultsByVersion(s.dbc)
+	s.testFindPerformanceResultsByVersionDoesNotExist(s.dbc)
+	s.testFindPerformanceResultsByVersionNarrowInterval(s.dbc)
+	// MockConnector
+	s.testFindPerformanceResultsByVersion(s.mc)
+	s.testFindPerformanceResultsByVersionDoesNotExist(s.mc)
+	s.testFindPerformanceResultsByVersionNarrowInterval(s.mc)
+}
+
+func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
+	// DBConnector
+	s.testFindPerformanceResultWithChildren(s.dbc)
+	s.testFindPerformanceResultWithChildrenDoesNotExist(s.dbc)
+	s.testFindPerformanceResultWithChildrenNoDepth(s.dbc)
+	// MockConnector
+	s.testFindPerformanceResultWithChildren(s.mc)
+	s.testFindPerformanceResultWithChildrenDoesNotExist(s.mc)
+	s.testFindPerformanceResultWithChildrenNoDepth(s.mc)
+}
+
+func (s *PerfConnectorSuite) testFindPerformanceResultById(sc Connector) {
 	expectedID := s.results[0].info.ID()
-	actualResult, err := s.sc.FindPerformanceResultById(expectedID)
+
+	actualResult, err := sc.FindPerformanceResultById(expectedID)
+	s.Require().NoError(err)
+	s.Equal(expectedID, *actualResult.Name)
+
+	actualResult, err = sc.FindPerformanceResultById(expectedID)
 	s.Require().NoError(err)
 	s.Equal(expectedID, *actualResult.Name)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
+func (s *PerfConnectorSuite) testFindPerformanceResultByIdDoesNotExist(sc Connector) {
 	var expectedResult *dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultById("doesNotExist")
+	actualResult, err := sc.FindPerformanceResultById("doesNotExist")
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByTaskId(sc Connector) {
 	expectedTaskID := s.results[0].info.TaskID
 	expectedCount := 0
 	for _, result := range s.results {
@@ -191,7 +249,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId(expectedTaskID, tr)
+	actualResult, err := sc.FindPerformanceResultsByTaskId(expectedTaskID, tr)
 	s.Equal(expectedCount, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedTaskID, *result.Info.TaskID)
@@ -199,7 +257,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByTaskId(expectedTaskID, tr, "tag1", "tag2")
+	actualResult, err = sc.FindPerformanceResultsByTaskId(expectedTaskID, tr, "tag1", "tag2")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedTaskID, *result.Info.TaskID)
@@ -215,29 +273,29 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	s.NoError(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByTaskIdDoesNotExist(sc Connector) {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId("doesNotExist", tr)
+	actualResult, err := sc.FindPerformanceResultsByTaskId("doesNotExist", tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultByTaskIdNarrowInterval() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByTaskIdNarrowInterval(sc Connector) {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.results[0].info.TaskID, tr)
+	actualResult, err := sc.FindPerformanceResultsByTaskId(s.results[0].info.TaskID, tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByVersion(sc Connector) {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
 	for _, result := range s.results {
@@ -249,7 +307,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByVersion(expectedVersion, tr)
+	actualResult, err := sc.FindPerformanceResultsByVersion(expectedVersion, tr)
 	s.Equal(expectedCount, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedVersion, *result.Info.Version)
@@ -257,7 +315,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByVersion(expectedVersion, tr, "tag1")
+	actualResult, err = sc.FindPerformanceResultsByVersion(expectedVersion, tr, "tag1")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedVersion, *result.Info.Version)
@@ -273,31 +331,31 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	s.NoError(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByVersionDoesNotExist(sc Connector) {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByVersion("doesNotExist", tr)
+	actualResult, err := sc.FindPerformanceResultsByVersion("doesNotExist", tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByVersionNarrowInterval(sc Connector) {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.results[0].info.Version, tr)
+	actualResult, err := sc.FindPerformanceResultsByVersion(s.results[0].info.Version, tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
+func (s *PerfConnectorSuite) testFindPerformanceResultWithChildren(sc Connector) {
 	expectedLineage := s.getLineage(s.results[0].info.ID())
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5)
+	actualResult, err := sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5)
 	for _, result := range actualResult {
 		_, ok := expectedLineage[*result.Name]
 		s.True(ok)
@@ -305,7 +363,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5, "tag3")
+	actualResult, err = sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5, "tag3")
 	for _, result := range actualResult {
 		_, ok := expectedLineage[*result.Name]
 		s.True(ok)
@@ -324,15 +382,15 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
 	s.NoError(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDoesNotExist() {
+func (s *PerfConnectorSuite) testFindPerformanceResultWithChildrenDoesNotExist(sc Connector) {
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultWithChildren("doesNotExist", 5)
+	actualResult, err := sc.FindPerformanceResultWithChildren("doesNotExist", 5)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenNoDepth() {
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), -1)
+func (s *PerfConnectorSuite) testFindPerformanceResultWithChildrenNoDepth(sc Connector) {
+	actualResult, err := sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), -1)
 	s.NoError(err)
 	s.Require().Equal(1, len(actualResult))
 	s.Equal(s.results[0].info.ID(), *actualResult[0].Name)

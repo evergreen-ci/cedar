@@ -2,6 +2,7 @@ package data
 
 import (
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/rest/model"
 )
 
 // DBConnector is a struct that implements all of the methods which connect to
@@ -12,8 +13,13 @@ type DBConnector struct {
 	env cedar.Environment
 }
 
-func CreateDBConnector(env cedar.Environment) Connector {
+func CreateNewDBConnector(env cedar.Environment) Connector {
 	return &DBConnector{
 		env: env,
 	}
+}
+
+type MockConnector struct {
+	CachedPerformanceResults map[string]model.APIPerformanceResult
+	ChildMap                 map[string][]string
 }
