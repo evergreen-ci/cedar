@@ -186,22 +186,3 @@ func (r *RollupValue) Export() model.PerfRollupValue {
 		MetricType:    r.Type.Export(),
 	}
 }
-
-func (r *Rollups) Export() (model.PerfRollups, error) {
-	stats := []model.PerfRollupValue{}
-
-	for _, s := range r.Stats {
-		stats = append(stats, s.Export())
-	}
-	processedAt, err := ptypes.Timestamp(r.ProcessedAt)
-	if err != nil {
-		return model.PerfRollups{}, errors.Wrap(err, "problem coverting timestamp value")
-	}
-
-	return model.PerfRollups{
-		Stats:       stats,
-		ProcessedAt: processedAt,
-		Count:       int(r.Count),
-		Valid:       r.Valid,
-	}, nil
-}

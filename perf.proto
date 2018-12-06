@@ -24,7 +24,7 @@ message ResultID {
 message ResultData {
   ResultID id = 1;
   repeated ArtifactInfo artifacts = 2;
-  Rollups rollups = 3;
+  repeated RollupValue rollups = 3;
 }
 
 message ArtifactInfo {
@@ -141,13 +141,6 @@ message RollupValue {
   bool user_submitted = 6;
 }
 
-message Rollups {
-  repeated RollupValue stats = 1;
-  google.protobuf.Timestamp processed_at = 2;
-  int64 count = 3;
-  bool valid = 4;
-}
-
 message ArtifactData {
   string id = 1;
   repeated ArtifactInfo artifacts = 2;
@@ -155,7 +148,7 @@ message ArtifactData {
 
 message RollupData {
   string id = 1;
-  Rollups rollups = 2;
+  repeated RollupValue rollups = 2;
 }
 
 service CedarPerformanceMetrics {

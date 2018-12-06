@@ -75,15 +75,12 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
-	if result.Rollups != nil {
-		rollups, err := result.Rollups.Export()
-		if err != nil {
-			return nil, errors.Wrap(err, "problem exporting rollups")
-		}
-		addRollups(record, &rollups)
+	record.Setup(srv.env)
+
+	if err := addRollups(record, result.Rollups); err != nil {
+		return errors.Wrap(err, "problem attaching rollups")
 	}
 
-	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
@@ -131,12 +128,12 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	rollups, err := rollupData.Rollups.Export()
-	if err != nil {
-		return nil, errors.Wrap(err, "problem getting rollups")
-	}
-	addRollups(record, &rollups)
 	record.Setup(srv.env)
+
+	if err := addRollups(record, rollupData.Rollups); err != nil {
+		return nil, errors.Wrap(err, "problem attaching rollup data")
+	}
+
 	if err := record.Save(); err != nil {
 		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
@@ -219,15 +216,20 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	return nil, nil
 }
 
-func addRollups(record *model.PerformanceResult, rollups *model.PerfRollups) {
+func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
 	if record.Rollups == nil {
-		record.Rollups = rollups
-	} else {
-		for _, r := range rollups.Stats {
-			record.Rollups.Add(r.Name, r.Version, r.UserSubmitted, r.MetricType, r.Value)
-		}
-		record.Rollups.ProcessedAt = rollups.ProcessedAt
-		record.Rollups.Count = rollups.Count
-		record.Rollups.Valid = rollups.Valid
+		record.Rollups = &model.PerfRollups{}
 	}
+
+	catcher := grip.NewBasicCatcher()
+
+	for _, r := range rollups {
+		catcher.Add(record.Rollups.Add(r.Name, int(r.Version), r.UserSubmitted, r.Type.Export(), r.Value))
+	}
+
+	record.Rollups.ProcessedAt = time.Now()
+	record.Rollups.Count = len(record.Rollups.Stats)
+	record.Rollups.Valid = !catcher.HasErrors()
+
+	return catcher.Resolve()
 }
