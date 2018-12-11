@@ -37,7 +37,8 @@ type testResults []struct {
 	parent int
 }
 
-func createPerformanceResults(env cedar.Environment) (testResults, error) {
+func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) error {
+	s.idMap = map[string]dataModel.APIPerformanceResult{}
 	results := testResults{
 		{
 			info: &model.PerformanceResultInfo{
@@ -100,22 +101,26 @@ func createPerformanceResults(env cedar.Environment) (testResults, error) {
 		performanceResult.Setup(env)
 		err := performanceResult.Save()
 		if err != nil {
-			return nil, errors.WithStack(err)
+			return errors.WithStack(err)
 		}
+		apiResult := dataModel.APIPerformanceResult{}
+		err = apiResult.Import(*performanceResult)
+		s.Require().NoError(err)
+		s.idMap[performanceResult.ID] = apiResult
 	}
-	return results, nil
+	s.results = results
+	return nil
 }
 
-func (s *PerfConnectorSuite) createParentMap() {
-	parentMap := make(map[string][]string)
+func (s *PerfConnectorSuite) createChildMap() {
+	s.childMap = map[string][]string{}
 	for _, result := range s.results {
 		if result.parent < 0 {
 			continue
 		}
 		parentId := s.results[result.parent].info.ID()
-		parentMap[parentId] = append(parentMap[parentId], result.info.ID())
+		s.childMap[parentId] = append(s.childMap[parentId], result.info.ID())
 	}
-	s.parentMap = parentMap
 }
 
 func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
@@ -126,7 +131,7 @@ func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		children, ok := s.parentMap[next]
+		children, ok := s.childMap[next]
 		if ok {
 			queue = append(queue, children...)
 			for _, child := range children {
@@ -138,22 +143,22 @@ func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 }
 
 type PerfConnectorSuite struct {
-	sc        Connector
-	env       cedar.Environment
-	results   testResults
-	parentMap map[string][]string
+	sc       Connector
+	env      cedar.Environment
+	results  testResults
+	idMap    map[string]dataModel.APIPerformanceResult
+	childMap map[string][]string
 
 	suite.Suite
 }
 
-func (s *PerfConnectorSuite) SetupTest() {
+func (s *PerfConnectorSuite) setup() {
 	env, err := createEnv()
 	s.Require().NoError(err)
-	s.results, err = createPerformanceResults(env)
-	s.Require().NoError(err)
-	s.createParentMap()
-	s.sc = CreateDBConnector(env)
 	s.env = env
+	err = s.createPerformanceResults(env)
+	s.Require().NoError(err)
+	s.createChildMap()
 }
 
 func (s *PerfConnectorSuite) TearDownSuite() {
@@ -161,13 +166,31 @@ func (s *PerfConnectorSuite) TearDownSuite() {
 	s.Require().NoError(err)
 }
 
-func TestPerfConnectorSuite(t *testing.T) {
-	suite.Run(t, new(PerfConnectorSuite))
+func TestPerfConnectorSuiteDB(t *testing.T) {
+	s := new(PerfConnectorSuite)
+	s.setup()
+	s.sc = CreateNewDBConnector(s.env)
+	suite.Run(t, s)
+}
+
+func TestPerfConnectorSuiteMock(t *testing.T) {
+	s := new(PerfConnectorSuite)
+	s.setup()
+	s.sc = &MockConnector{
+		CachedPerformanceResults: s.idMap,
+		ChildMap:                 s.childMap,
+	}
+	suite.Run(t, s)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultById() {
 	expectedID := s.results[0].info.ID()
+
 	actualResult, err := s.sc.FindPerformanceResultById(expectedID)
+	s.Require().NoError(err)
+	s.Equal(expectedID, *actualResult.Name)
+
+	actualResult, err = s.sc.FindPerformanceResultById(expectedID)
 	s.Require().NoError(err)
 	s.Equal(expectedID, *actualResult.Name)
 }
@@ -226,7 +249,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultByTaskIdNarrowInterval() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdNarrowInterval() {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
@@ -237,7 +260,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultByTaskIdNarrowInterval() {
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
+func (s *PerfConnectorSuite) testFindPerformanceResultsByVersion() {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
 	for _, result := range s.results {

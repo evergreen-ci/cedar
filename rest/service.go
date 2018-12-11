@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
@@ -17,6 +18,7 @@ type Service struct {
 	// internal settings
 	queue amboy.Queue
 	app   *gimlet.APIApp
+	sc    data.Connector
 }
 
 func (s *Service) Validate() error {
@@ -38,6 +40,10 @@ func (s *Service) Validate() error {
 
 	if s.app == nil {
 		s.app = gimlet.NewApp()
+	}
+
+	if s.sc == nil {
+		s.sc = data.CreateNewDBConnector(s.Environment)
 	}
 
 	if s.Port == 0 {
@@ -90,4 +96,6 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Get().Handler(s.getDepGraphNodes)
 	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Post().Handler(s.addDepGraphEdges)
 	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Get().Handler(s.getDepGraphEdges)
+
+	s.app.AddRoute("/perf/{id}").Version(1).Get().RouteHandler(makeGetPerfById(s.sc))
 }
