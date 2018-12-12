@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -31,6 +32,11 @@ const (
 
 	dbURIFlag  = "dbUri"
 	dbNameFlag = "dbName"
+
+	clientHostFlag = "host"
+	clientPortFlag = "port"
+
+	flagNameflag = "flag"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -84,6 +90,22 @@ func simpleLogIDFlags(flags ...cli.Flag) []cli.Flag {
 
 }
 
+func restServiceFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags,
+		cli.StringFlag{
+			Name:  clientHostFlag,
+			Usage: "host for the remote cedar instance.",
+			Value: "http://localhost",
+		},
+		cli.IntFlag{
+			Name:  clientPortFlag,
+			Usage: "port for the remote cedar service.",
+			Value: 3000,
+		},
+	)
+
+}
+
 func dbFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.StringFlag{
@@ -100,6 +122,28 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 		})
 }
 
+func addModifyFeatureFlagFlags(flags ...cli.Flag) []cli.Flag {
+	return append(flags, cli.StringFlag{
+		Name:  flagNameflag,
+		Usage: "specify the name of the flag to set",
+	})
+}
+
+func setFlagOrFirstPositional(name string) cli.BeforeFunc {
+	return func(c *cli.Context) error {
+		val := c.String(name)
+		if val == "" {
+			if c.NArg() != 1 {
+				return errors.Errorf("must specify exactly one positional argument for '%s'", name)
+			}
+
+			val = c.Args().Get(0)
+		}
+
+		return c.Set(name, val)
+	}
+}
+
 func baseFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.IntFlag{
@@ -108,7 +152,6 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 			Value: 2,
 		},
 		cli.StringFlag{
-			Name:   bucketNameFlag,
 			Usage:  "specify a bucket name to use for storing data in s3",
 			EnvVar: "CEDAR_BUCKET_NAME",
 			Value:  "build-test-curator",
