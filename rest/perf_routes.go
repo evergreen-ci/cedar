@@ -128,7 +128,7 @@ func (h *perfGetByVersionHandler) Parse(ctx context.Context, r *http.Request) er
 	return err
 }
 
-// Run calls the data FindPerformanceResultsByTaskId function returns the
+// Run calls the data FindPerformanceResultsByVersion function returns the
 // PerformanceResult from the provider.
 func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByVersion(h.version, h.interval, h.tags...)
