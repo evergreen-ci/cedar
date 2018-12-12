@@ -9,22 +9,9 @@ import (
 	"github.com/urfave/cli"
 )
 
-// Config is responsible for managing application level configuration
-// (logging, external services, etc.) which is saved in the database.
-func Config() cli.Command {
-	return cli.Command{
-		Name:  "conf",
-		Usage: "cedar application configuration",
-		Subcommands: []cli.Command{
-			loadCedarConfig(),
-			dumpCedarConfig(),
-		},
-	}
-}
-
 func dumpCedarConfig() cli.Command {
 	return cli.Command{
-		Name:  "dump-config",
+		Name:  "dump",
 		Usage: "write current cedar application configuration to a file",
 		Flags: dbFlags(
 			cli.StringFlag{
@@ -56,7 +43,7 @@ func dumpCedarConfig() cli.Command {
 
 func loadCedarConfig() cli.Command {
 	return cli.Command{
-		Name:  "load-config",
+		Name:  "load",
 		Usage: "loads cedar application configuration from a file",
 		Flags: dbFlags(
 			cli.StringFlag{
