@@ -288,7 +288,7 @@ func (c *Client) GetSimpleLogText(ctx context.Context, logID string) ([]string, 
 // System Events/Logging
 
 func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (*SystemEventsResponse, error) {
-	req, err := c.makeRequest(ctx, http.MethodGet, fmt.Sprintf("/v1/status/events/%s?limit=%d", level, limit), nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, fmt.Sprintf("/v1/admin/status/events/%s?limit=%d", level, limit), nil)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -308,7 +308,7 @@ func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (
 }
 
 func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventResponse, error) {
-	req, err := c.makeRequest(ctx, http.MethodGet, "/v1/status/events/"+id, nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, "/v1/admin/status/events/"+id, nil)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -329,7 +329,7 @@ func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventRes
 }
 
 func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*SystemEventResponse, error) {
-	req, err := c.makeRequest(ctx, http.MethodPost, fmt.Sprintf("/v1/status/events/%s/acknowledge", id), nil)
+	req, err := c.makeRequest(ctx, http.MethodPost, fmt.Sprintf("/v1/admin/status/events/%s/acknowledge", id), nil)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -413,4 +413,56 @@ func (c *Client) GetSystemInformation(ctx context.Context, host string, start, e
 
 ///////////////////////////////////
 //
-// Dependency Graph Info
+// Admin
+
+func (c *Client) EnableFeatureFlag(ctx context.Context, name string) (bool, error) {
+	url := c.getURL(fmt.Sprintf("/v1/admin/service/flag/%s/enabled", name))
+
+	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return false, errors.Wrap(err, "problem building request")
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return false, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	out := &serviceFlagResponse{}
+
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return false, errors.Wrap(err, "problem reading feature flag result")
+	}
+
+	if out.Error != "" {
+		return out.State, errors.Errorf("encountered problem server-side: %s", out.Error)
+	}
+	return out.State, nil
+}
+
+func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, error) {
+	url := c.getURL(fmt.Sprintf("/v1/admin/service/flag/%s/disabled", name))
+
+	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return false, errors.Wrap(err, "problem building request")
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return false, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	out := &serviceFlagResponse{}
+
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return false, errors.Wrap(err, "problem reading feature flag result")
+	}
+
+	if out.Error != "" {
+		return out.State, errors.Errorf("encountered problem server-side: %s", out.Error)
+	}
+	return out.State, nil
+}

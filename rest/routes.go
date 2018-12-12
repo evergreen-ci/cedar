@@ -579,3 +579,52 @@ func (s *Service) getDepGraphEdges(w http.ResponseWriter, r *http.Request) {
 	resp.Edges = edges
 	gimlet.WriteJSON(w, resp)
 }
+
+////////////////////////////////////////////////////////////////////////
+//
+// POST /admin/service/flag/{flagName}/enabled
+
+type serviceFlagResponse struct {
+	Name  string `json:"name"`
+	Error string `json:"error,omitempty"`
+	State bool   `json:"state"`
+}
+
+func (s *Service) setServiceFlagEnabled(w http.ResponseWriter, r *http.Request) {
+	flag := gimlet.GetVars(r)["flagName"]
+
+	resp := serviceFlagResponse{
+		Name: flag,
+	}
+
+	conf := model.NewCedarConfig(s.Environment)
+
+	if err := conf.Flags.SetTrue(flag); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteJSONError(w, resp)
+		return
+	}
+
+	resp.State = true
+	gimlet.WriteJSON(w, &resp)
+	return
+}
+
+func (s *Service) setServiceFlagDisabled(w http.ResponseWriter, r *http.Request) {
+	flag := gimlet.GetVars(r)["flagName"]
+
+	resp := serviceFlagResponse{
+		Name: flag,
+	}
+
+	conf := model.NewCedarConfig(s.Environment)
+	if err := conf.Flags.SetFalse(flag); err != nil {
+		resp.Error = err.Error()
+		gimlet.WriteJSONError(w, resp)
+		return
+	}
+
+	resp.State = true
+	gimlet.WriteJSON(w, &resp)
+	return
+}

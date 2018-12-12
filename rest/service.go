@@ -80,10 +80,13 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 func (s *Service) addRoutes() {
-	s.app.AddRoute("/status").Version(1).Get().Handler(s.statusHandler)
-	s.app.AddRoute("/status/event/{id}").Version(1).Get().Handler(s.getSystemEvent)
-	s.app.AddRoute("/status/event/{id}/acknowledge").Version(1).Get().Handler(s.acknowledgeSystemEvent)
-	s.app.AddRoute("/status/events/{level}").Version(1).Get().Handler(s.getSystemEvents)
+	s.app.AddRoute("/admin/status").Version(1).Get().Handler(s.statusHandler)
+	s.app.AddRoute("/admin/status/event/{id}").Version(1).Get().Handler(s.getSystemEvent)
+	s.app.AddRoute("/admin/status/event/{id}/acknowledge").Version(1).Get().Handler(s.acknowledgeSystemEvent)
+	s.app.AddRoute("/admin/status/events/{level}").Version(1).Get().Handler(s.getSystemEvents)
+	s.app.AddRoute("/admin/service/flag/{flagName}/enabled").Version(1).Post().Handler(s.setServiceFlagEnabled)
+	s.app.AddRoute("/admin/service/flag/{flagName}/disabled").Version(1).Post().Handler(s.setServiceFlagDisabled)
+
 	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Handler(s.simpleLogInjestion)
 	s.app.AddRoute("/simple_log/{id}").Version(1).Get().Handler(s.simpleLogRetrieval)
 	s.app.AddRoute("/simple_log/{id}/text").Version(1).Get().Handler(s.simpleLogGetText)

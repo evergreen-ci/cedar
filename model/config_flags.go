@@ -19,6 +19,23 @@ var (
 	opsFlagsDisableCostReporting = bsonutil.MustHaveTag(OperationalFlags{}, "DisableCostReportingJob")
 )
 
+func (f *OperationalFlags) findAndSet(name string, v bool) error {
+	switch name {
+	case "disable_cost_reporting":
+		return f.SetDisableCostReportingJob(v)
+	default:
+		return errors.Errorf("%s is not a known feature flag name", name)
+	}
+}
+
+func (f *OperationalFlags) SetTrue(name string) error {
+	return errors.WithStack(f.findAndSet(name, true))
+}
+
+func (f *OperationalFlags) SetFalse(name string) error {
+	return errors.WithStack(f.findAndSet(name, false))
+}
+
 func (f *OperationalFlags) SetDisableCostReportingJob(v bool) error {
 	if err := f.update(opsFlagsDisableCostReporting, v); err != nil {
 		return errors.WithStack(err)
