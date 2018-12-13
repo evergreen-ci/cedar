@@ -37,48 +37,7 @@ func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerf
 }
 
 // FindPerformanceResultsByTaskId queries the database to find all performance
-// results with the given TaskName, time inteval, and optional tags.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := model.PerformanceResults{}
-	results.Setup(dbc.env)
-
-	options := model.PerfFindOptions{
-		Interval: interval,
-		Info: model.PerformanceResultInfo{
-			TaskName: taskName,
-			Tags:     tags,
-		},
-		MaxDepth: -1,
-	}
-
-	if err := results.Find(options); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
-		}
-	}
-	if results.IsNil() {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance results with task_name '%s' not found", taskName),
-		}
-	}
-
-	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
-	for i, result := range results.Results {
-		err := apiResults[i].Import(result)
-		if err != nil {
-			return nil, gimlet.ErrorResponse{
-				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("corrupt data"),
-			}
-		}
-	}
-	return apiResults, nil
-}
-
-// FindPerformanceResultsByTaskName queries the database to find all performance
-// results with the given TaskName, time inteval, and optional tags.
+// results with the given taskId, time inteval, and optional tags.
 func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
@@ -89,6 +48,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 			TaskID: taskId,
 			Tags:   tags,
 		},
+		// set MaxDepth to -1 to avoid child search
 		MaxDepth: -1,
 	}
 
@@ -118,6 +78,48 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 	return apiResults, nil
 }
 
+// FindPerformanceResultsByTaskName queries the database to find all performance
+// results with the given taskName, time inteval, and optional tags.
+func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+	results := model.PerformanceResults{}
+	results.Setup(dbc.env)
+
+	options := model.PerfFindOptions{
+		Interval: interval,
+		Info: model.PerformanceResultInfo{
+			TaskName: taskName,
+			Tags:     tags,
+		},
+		// set MaxDepth to -1 to avoid child search
+		MaxDepth: -1,
+	}
+
+	if err := results.Find(options); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+	if results.IsNil() {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("performance results with task_name '%s' not found", taskName),
+		}
+	}
+
+	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
+	for i, result := range results.Results {
+		err := apiResults[i].Import(result)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("corrupt data"),
+			}
+		}
+	}
+	return apiResults, nil
+}
+
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given version, time inteval, and optional tags.
 func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
@@ -130,6 +132,7 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval
 			Version: version,
 			Tags:    tags,
 		},
+		// set MaxDepth to -1 to avoid child search
 		MaxDepth: -1,
 	}
 
