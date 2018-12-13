@@ -607,7 +607,6 @@ func (s *Service) setServiceFlagEnabled(w http.ResponseWriter, r *http.Request) 
 
 	resp.State = true
 	gimlet.WriteJSON(w, &resp)
-	return
 }
 
 func (s *Service) setServiceFlagDisabled(w http.ResponseWriter, r *http.Request) {
@@ -626,5 +625,4 @@ func (s *Service) setServiceFlagDisabled(w http.ResponseWriter, r *http.Request)
 
 	resp.State = true
 	gimlet.WriteJSON(w, &resp)
-	return
 }
