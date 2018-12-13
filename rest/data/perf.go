@@ -48,7 +48,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 			TaskID: taskId,
 			Tags:   tags,
 		},
-		// set MaxDepth to -1 to avoid child search
+		// set MaxDepth to -1 to avoid recursive child search
 		MaxDepth: -1,
 	}
 
@@ -90,7 +90,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interv
 			TaskName: taskName,
 			Tags:     tags,
 		},
-		// set MaxDepth to -1 to avoid child search
+		// set MaxDepth to -1 to avoid recursive child search
 		MaxDepth: -1,
 	}
 
@@ -132,7 +132,7 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval
 			Version: version,
 			Tags:    tags,
 		},
-		// set MaxDepth to -1 to avoid child search
+		// set MaxDepth to -1 to avoid recursive child search
 		MaxDepth: -1,
 	}
 
