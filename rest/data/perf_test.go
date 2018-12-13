@@ -84,7 +84,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
 				Version:  "1",
-				TaskName: "task4",
+				TaskName: "task0",
 				TaskID:   "task2",
 				Tags:     []string{"tag3"},
 			},
@@ -260,7 +260,64 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdNarrowInterval() 
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) testFindPerformanceResultsByVersion() {
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
+	expectedTaskName := s.results[0].info.TaskName
+	expectedCount := 0
+	for _, result := range s.results {
+		if result.info.TaskName == expectedTaskName {
+			expectedCount++
+		}
+	}
+	dur, err := time.ParseDuration("100h")
+	s.Require().NoError(err)
+	tr := util.GetTimeRange(time.Time{}, dur)
+
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr)
+	s.Equal(expectedCount, len(actualResult))
+	for _, result := range actualResult {
+		s.Equal(expectedTaskName, *result.Info.TaskName)
+	}
+	s.NoError(err)
+
+	// Now with tags
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, "tag1", "tag2")
+	s.True(len(actualResult) < expectedCount)
+	for _, result := range actualResult {
+		s.Equal(expectedTaskName, *result.Info.TaskName)
+		foundTag := false
+		for _, tag := range result.Info.Tags {
+			if tag == "tag1" || tag == "tag2" {
+				foundTag = true
+				break
+			}
+		}
+		s.True(foundTag)
+	}
+	s.NoError(err)
+}
+
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() {
+	dur, err := time.ParseDuration("100h")
+	s.Require().NoError(err)
+	tr := util.GetTimeRange(time.Time{}, dur)
+
+	var expectedResult []dataModel.APIPerformanceResult
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName("doesNotExist", tr)
+	s.Equal(expectedResult, actualResult)
+	s.Error(err)
+}
+
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameNarrowInterval() {
+	dur, err := time.ParseDuration("1ns")
+	s.Require().NoError(err)
+	tr := util.GetTimeRange(time.Time{}, dur)
+
+	var expectedResult []dataModel.APIPerformanceResult
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.results[0].info.TaskName, tr)
+	s.Equal(expectedResult, actualResult)
+	s.Error(err)
+}
+func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
 	for _, result := range s.results {
