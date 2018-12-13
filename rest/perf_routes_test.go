@@ -27,7 +27,10 @@ func (s *PerfHandlerSuite) setup() {
 			"abc": model.APIPerformanceResult{
 				Name: model.ToAPIString("abc"),
 				Info: model.APIPerformanceResultInfo{
-					TaskID: model.ToAPIString("123"),
+					Version:  model.ToAPIString("1"),
+					TaskID:   model.ToAPIString("123"),
+					TaskName: model.ToAPIString("taskname0"),
+					Tags:     []string{"a", "b"},
 				},
 			},
 			"def": model.APIPerformanceResult{
@@ -35,8 +38,10 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   model.NewTime(time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC)),
 				CompletedAt: model.NewTime(time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC)),
 				Info: model.APIPerformanceResultInfo{
-					TaskID: model.ToAPIString("123"),
-					Tags:   []string{"a"},
+					Version:  model.ToAPIString("1"),
+					TaskID:   model.ToAPIString("123"),
+					TaskName: model.ToAPIString("taskname0"),
+					Tags:     []string{"a"},
 				},
 			},
 			"ghi": model.APIPerformanceResult{
@@ -44,8 +49,10 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   model.NewTime(time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC)),
 				CompletedAt: model.NewTime(time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC)),
 				Info: model.APIPerformanceResultInfo{
-					TaskID: model.ToAPIString("123"),
-					Tags:   []string{"a", "b", "c"},
+					Version:  model.ToAPIString("1"),
+					TaskID:   model.ToAPIString("123"),
+					TaskName: model.ToAPIString("taskname0"),
+					Tags:     []string{"a", "b", "c"},
 				},
 			},
 			"jkl": model.APIPerformanceResult{
@@ -53,15 +60,18 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   model.NewTime(time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC)),
 				CompletedAt: model.NewTime(time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC)),
 				Info: model.APIPerformanceResultInfo{
-					TaskID: model.ToAPIString("456"),
+					Version:  model.ToAPIString("2"),
+					TaskID:   model.ToAPIString("456"),
+					TaskName: model.ToAPIString("taskname1"),
 				},
 			},
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":      makeGetPerfById(&s.sc),
-		"task":    makeGetPerfByTaskId(&s.sc),
-		"version": makeGetPerfByVersion(&s.sc),
+		"id":        makeGetPerfById(&s.sc),
+		"task_id":   makeGetPerfByTaskId(&s.sc),
+		"task_name": makeGetPerfByTaskName(&s.sc),
+		"version":   makeGetPerfByVersion(&s.sc),
 	}
 }
 
@@ -93,7 +103,7 @@ func (s *PerfHandlerSuite) TestPerfGetByIdHandlerNotFound() {
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
-	rh := s.rh["task"]
+	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).taskId = "123"
 	rh.(*perfGetByTaskIdHandler).interval = util.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
@@ -110,9 +120,69 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
-	rh := s.rh["task"]
+	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).taskId = "555"
 	rh.(*perfGetByTaskIdHandler).interval = util.TimeRange{
+		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
+		EndAt:   time.Now(),
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
+	rh := s.rh["task_name"]
+	rh.(*perfGetByTaskNameHandler).taskName = "taskname0"
+	rh.(*perfGetByTaskNameHandler).interval = util.TimeRange{
+		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
+		EndAt:   time.Now(),
+	}
+	rh.(*perfGetByTaskNameHandler).tags = []string{"a", "b"}
+	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["ghi"]}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+}
+
+func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
+	rh := s.rh["task_name"]
+	rh.(*perfGetByTaskNameHandler).taskName = "taskname2"
+	rh.(*perfGetByTaskNameHandler).interval = util.TimeRange{
+		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
+		EndAt:   time.Now(),
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
+	rh := s.rh["version"]
+	rh.(*perfGetByVersionHandler).version = "1"
+	rh.(*perfGetByVersionHandler).interval = util.TimeRange{
+		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
+		EndAt:   time.Now(),
+	}
+	rh.(*perfGetByVersionHandler).tags = []string{"a", "b"}
+	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["ghi"]}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+}
+
+func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
+	rh := s.rh["version"]
+	rh.(*perfGetByVersionHandler).version = "2"
+	rh.(*perfGetByVersionHandler).interval = util.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -128,12 +198,16 @@ func (s *PerfHandlerSuite) TestParse() {
 		handler   string
 	}{
 		{
-			handler:   "task",
-			urlString: "http://example.com/perf/task/task_id",
+			handler:   "task_id",
+			urlString: "http://example.com/perf/task_id/task_id0",
+		},
+		{
+			handler:   "task_name",
+			urlString: "http://example.com/perf/task_name/task_name0",
 		},
 		{
 			handler:   "version",
-			urlString: "http://example.com/perf/version/verison1",
+			urlString: "http://example.com/perf/version/verison0",
 		},
 	} {
 		s.testParseValid(test.handler, test.urlString)
@@ -198,8 +272,10 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string) {
 
 func getInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
 	switch handler {
-	case "task":
+	case "task_id":
 		return rh.(*perfGetByTaskIdHandler).interval
+	case "task_name":
+		return rh.(*perfGetByTaskNameHandler).interval
 	case "version":
 		return rh.(*perfGetByVersionHandler).interval
 	default:
@@ -209,8 +285,10 @@ func getInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
 
 func getTags(rh gimlet.RouteHandler, handler string) []string {
 	switch handler {
-	case "task":
+	case "task_id":
 		return rh.(*perfGetByTaskIdHandler).tags
+	case "task_name":
+		return rh.(*perfGetByTaskNameHandler).tags
 	case "version":
 		return rh.(*perfGetByVersionHandler).tags
 	default:

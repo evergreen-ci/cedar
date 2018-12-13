@@ -101,6 +101,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Get().Handler(s.getDepGraphEdges)
 
 	s.app.AddRoute("/perf/{id}").Version(1).Get().RouteHandler(makeGetPerfById(s.sc))
-	s.app.AddRoute("/perf/task/{task_id}").Version(1).Get().RouteHandler(makeGetPerfByTaskId(s.sc))
+	s.app.AddRoute("/perf/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetPerfByTaskId(s.sc))
+	s.app.AddRoute("/perf/task_name/{task_name}").Version(1).Get().RouteHandler(makeGetPerfByTaskName(s.sc))
 	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
 }
