@@ -52,7 +52,7 @@ func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /perf/task/{task_id}
+// GET /perf/task_id/{task_id}
 
 type perfGetByTaskIdHandler struct {
 	taskId   string
@@ -96,6 +96,50 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// GET /perf/task_name/{task_name}
+
+type perfGetByTaskNameHandler struct {
+	taskName string
+	interval util.TimeRange
+	tags     []string
+	sc       data.Connector
+}
+
+func makeGetPerfByTaskName(sc data.Connector) gimlet.RouteHandler {
+	return &perfGetByTaskNameHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new perfGetByTaskNameHandler.
+func (h *perfGetByTaskNameHandler) Factory() gimlet.RouteHandler {
+	return &perfGetByTaskNameHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the task_name from the http request.
+func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) error {
+	h.taskName = gimlet.GetVars(r)["task_name"]
+	vals := r.URL.Query()
+	h.tags = vals["tags"]
+	var err error
+	h.interval, err = parseInterval(vals)
+	return err
+}
+
+// Run calls the data FindPerformanceResultsByTaskName function returns the
+// PerformanceResult from the provider.
+func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
+	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.interval, h.tags...)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskName))
+	}
+	return gimlet.NewJSONResponse(perfResults)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // GET /perf/version/{version}
 
 type perfGetByVersionHandler struct {
@@ -113,7 +157,7 @@ func makeGetPerfByVersion(sc data.Connector) gimlet.RouteHandler {
 
 // Factory returns a pointer to a new perfGetByVersionHandler.
 func (h *perfGetByVersionHandler) Factory() gimlet.RouteHandler {
-	return &perfGetByTaskIdHandler{
+	return &perfGetByVersionHandler{
 		sc: h.sc,
 	}
 }
