@@ -313,7 +313,7 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) []
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if seen[next] >= maxDepth {
+		if seen[next] > maxDepth {
 			continue
 		}
 		children, _ := mc.ChildMap[next]
