@@ -26,11 +26,15 @@ type StatusResponse struct {
 	Revision     string           `json:"revision"`
 	QueueStats   amboy.QueueStats `json:"queue,omitempty"`
 	QueueRunning bool             `json:"running"`
+	RPCInfo      []string         `json:"rpc_service"`
 }
 
 // statusHandler processes the GET request for
 func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
-	resp := &StatusResponse{Revision: cedar.BuildRevision}
+	resp := &StatusResponse{
+		Revision: cedar.BuildRevision,
+		RPCInfo:  s.RPCServers,
+	}
 
 	if s.queue != nil {
 		resp.QueueRunning = s.queue.Started()

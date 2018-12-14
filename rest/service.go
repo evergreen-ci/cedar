@@ -5,6 +5,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/rest/data"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
@@ -14,6 +15,7 @@ type Service struct {
 	Port        int
 	Prefix      string
 	Environment cedar.Environment
+	RPCServers  []string
 
 	// internal settings
 	queue amboy.Queue
@@ -56,6 +58,15 @@ func (s *Service) Validate() error {
 
 	if s.Prefix != "" {
 		s.app.SetPrefix(s.Prefix)
+	}
+
+	if s.RPCServers == nil {
+		addr, err := util.GetPublicIP()
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		s.RPCServers = []string{addr}
 	}
 
 	return nil
