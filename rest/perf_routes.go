@@ -217,8 +217,8 @@ func (h *perfGetChildrenHandler) Parse(ctx context.Context, r *http.Request) err
 	return errors.Wrap(err, "failed to parse request")
 }
 
-// Run calls the data FindPerformanceResultWithChildren function returns the
-// PerformanceResult from the provider.
+// Run calls the data FindPerformanceResultWithChildren function and returns
+// the PerformanceResults from the provider.
 func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultWithChildren(h.id, h.maxDepth, h.tags...)
 	if err != nil {
