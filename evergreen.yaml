@@ -24,7 +24,7 @@ variables:
           aws_key: ${aws_key}
           aws_secret: ${aws_secret}
           local_file: gopath/src/github.com/evergreen-ci/cedar/build/${task_name}.tar.gz
-          remote_file: cedar/${build_id}-${build_variant}/cedar-${task_name}-${revision}.tar.gz
+          remote_file: sink/${build_id}/cedar-${task_name}-{revision}.tar.gz
           bucket: mciuploads
           content_type: application/x-gzip
           permissions: public-read
@@ -197,8 +197,8 @@ tasks:
   - <<: *run-build
     tags: ["dist"]
     name: dist
-    depends_on:
-      - name: "test"
+    # depends_on:
+    #   - name: "test"
 
   - <<: *run-build-with-mongodb
     tags: ["test"]
