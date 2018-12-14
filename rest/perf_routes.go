@@ -211,9 +211,9 @@ func (h *perfGetChildrenHandler) Factory() gimlet.RouteHandler {
 func (h *perfGetChildrenHandler) Parse(ctx context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
+	h.tags = vals["tags"]
 	var err error
 	h.maxDepth, err = strconv.Atoi(vals.Get("max_depth"))
-	h.tags = vals["tags"]
 	return errors.Wrap(err, "failed to parse request")
 }
 
