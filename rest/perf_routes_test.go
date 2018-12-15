@@ -52,11 +52,23 @@ func (s *PerfHandlerSuite) setup() {
 					Version:  model.ToAPIString("1"),
 					TaskID:   model.ToAPIString("123"),
 					TaskName: model.ToAPIString("taskname0"),
+					Tags:     []string{"b"},
+				},
+			},
+
+			"jkl": model.APIPerformanceResult{
+				Name:        model.ToAPIString("jkl"),
+				CreatedAt:   model.NewTime(time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC)),
+				CompletedAt: model.NewTime(time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC)),
+				Info: model.APIPerformanceResultInfo{
+					Version:  model.ToAPIString("1"),
+					TaskID:   model.ToAPIString("123"),
+					TaskName: model.ToAPIString("taskname0"),
 					Tags:     []string{"a", "b", "c"},
 				},
 			},
-			"jkl": model.APIPerformanceResult{
-				Name:        model.ToAPIString("jkl"),
+			"lmn": model.APIPerformanceResult{
+				Name:        model.ToAPIString("lmn"),
 				CreatedAt:   model.NewTime(time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC)),
 				CompletedAt: model.NewTime(time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC)),
 				Info: model.APIPerformanceResultInfo{
@@ -67,11 +79,16 @@ func (s *PerfHandlerSuite) setup() {
 			},
 		},
 	}
+	s.sc.ChildMap = map[string][]string{
+		"abc": []string{"def"},
+		"def": []string{"jkl"},
+	}
 	s.rh = map[string]gimlet.RouteHandler{
 		"id":        makeGetPerfById(&s.sc),
 		"task_id":   makeGetPerfByTaskId(&s.sc),
 		"task_name": makeGetPerfByTaskName(&s.sc),
 		"version":   makeGetPerfByVersion(&s.sc),
+		"children":  makeGetPerfChildren(&s.sc),
 	}
 }
 
@@ -110,7 +127,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByTaskIdHandler).tags = []string{"a", "b"}
-	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["ghi"]}
+	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -140,7 +157,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByTaskNameHandler).tags = []string{"a", "b"}
-	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["ghi"]}
+	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -170,7 +187,7 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByVersionHandler).tags = []string{"a", "b"}
-	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["ghi"]}
+	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -186,6 +203,33 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfGetChildrenHandlerFound() {
+	rh := s.rh["children"]
+	rh.(*perfGetChildrenHandler).id = "abc"
+	rh.(*perfGetChildrenHandler).maxDepth = 0
+	rh.(*perfGetChildrenHandler).tags = []string{"a"}
+	expected := []model.APIPerformanceResult{
+		s.sc.CachedPerformanceResults["abc"],
+		s.sc.CachedPerformanceResults["def"],
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+}
+
+func (s *PerfHandlerSuite) TestPerfGetChildrenHandlerNotFound() {
+	rh := s.rh["children"]
+	rh.(*perfGetChildrenHandler).id = "DNE"
+	rh.(*perfGetChildrenHandler).maxDepth = 5
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)

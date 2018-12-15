@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/evergreen-ci/cedar/rest/data"
@@ -40,7 +41,7 @@ func (h *perfGetByIdHandler) Parse(ctx context.Context, r *http.Request) error {
 	return nil
 }
 
-// Run calls the data FindPerformanceResultById function returns the
+// Run calls the data FindPerformanceResultById function and returns the
 // PerformanceResult from the provider.
 func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResult, err := h.sc.FindPerformanceResultById(h.id)
@@ -84,8 +85,8 @@ func (h *perfGetByTaskIdHandler) Parse(ctx context.Context, r *http.Request) err
 	return err
 }
 
-// Run calls the data FindPerformanceResultsByTaskId function returns the
-// PerformanceResult from the provider.
+// Run calls the data FindPerformanceResultsByTaskId and function returns the
+// PerformanceResults from the provider.
 func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByTaskId(h.taskId, h.interval, h.tags...)
 	if err != nil {
@@ -128,8 +129,8 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 	return err
 }
 
-// Run calls the data FindPerformanceResultsByTaskName function returns the
-// PerformanceResult from the provider.
+// Run calls the data FindPerformanceResultsByTaskName function and returns the
+// PerformanceResults from the provider.
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.interval, h.tags...)
 	if err != nil {
@@ -182,8 +183,54 @@ func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	return gimlet.NewJSONResponse(perfResults)
 }
 
-// helper functions
+///////////////////////////////////////////////////////////////////////////////
 //
+// GET /perf/children/{id}
+
+type perfGetChildrenHandler struct {
+	id       string
+	maxDepth int
+	tags     []string
+	sc       data.Connector
+}
+
+func makeGetPerfChildren(sc data.Connector) gimlet.RouteHandler {
+	return &perfGetChildrenHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new perfGetChildrenHandler.
+func (h *perfGetChildrenHandler) Factory() gimlet.RouteHandler {
+	return &perfGetChildrenHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the id from the http request.
+func (h *perfGetChildrenHandler) Parse(ctx context.Context, r *http.Request) error {
+	h.id = gimlet.GetVars(r)["id"]
+	vals := r.URL.Query()
+	h.tags = vals["tags"]
+	var err error
+	h.maxDepth, err = strconv.Atoi(vals.Get("max_depth"))
+	return errors.Wrap(err, "failed to parse request")
+}
+
+// Run calls the data FindPerformanceResultWithChildren function and returns
+// the PerformanceResults from the provider.
+func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
+	perfResults, err := h.sc.FindPerformanceResultWithChildren(h.id, h.maxDepth, h.tags...)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance result and children by id '%s'", h.id))
+	}
+	return gimlet.NewJSONResponse(perfResults)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Helper functions
+
 func parseInterval(vals url.Values) (util.TimeRange, error) {
 	interval := util.TimeRange{}
 	startedAfter := vals.Get("started_after")
