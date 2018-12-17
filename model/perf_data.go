@@ -67,10 +67,9 @@ type PerfRollups struct {
 	Count       int               `bson:"count"`
 	Valid       bool              `bson:"valid"`
 
-	dirty     bool // nolint
-	populated bool
-	id        string
-	env       cedar.Environment
+	dirty bool // nolint
+	id    string
+	env   cedar.Environment
 }
 
 var (
@@ -103,8 +102,8 @@ func (r *PerfRollups) Setup(env cedar.Environment) {
 }
 
 func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t MetricType, value interface{}) error {
-	if !r.populated {
-		return errors.New("rollups have not been populated")
+	if r.id == "" {
+		return errors.New("rollups missing id")
 	}
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {

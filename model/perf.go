@@ -73,8 +73,7 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 		Info:      info,
 		Artifacts: source,
 		Rollups: &PerfRollups{
-			id:        info.ID(),
-			populated: true,
+			id: info.ID(),
 		},
 		populated: true,
 	}
@@ -99,7 +98,6 @@ func (result *PerformanceResult) Find() error {
 
 	result.populated = true
 	result.Rollups.id = result.ID
-	result.Rollups.populated = true
 
 	return nil
 }
