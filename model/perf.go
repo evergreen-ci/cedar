@@ -72,12 +72,16 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 		ID:        info.ID(),
 		Info:      info,
 		Artifacts: source,
+		Rollups: &PerfRollups{
+			id:        info.ID(),
+			populated: true,
+		},
 		populated: true,
 	}
 }
 
 func (result *PerformanceResult) Setup(e cedar.Environment) { result.env = e }
-func (result *PerformanceResult) IsNil() bool              { return !result.populated }
+func (result *PerformanceResult) IsNil() bool               { return !result.populated }
 func (result *PerformanceResult) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(result.env)
 	if err != nil {
@@ -94,10 +98,8 @@ func (result *PerformanceResult) Find() error {
 	}
 
 	result.populated = true
-	if result.Rollups != nil {
-		result.Rollups.id = result.ID
-		result.Rollups.Setup(result.env)
-	}
+	result.Rollups.id = result.ID
+	result.Rollups.populated = true
 
 	return nil
 }
@@ -215,7 +217,7 @@ type PerfFindOptions struct {
 }
 
 func (r *PerformanceResults) Setup(e cedar.Environment) { r.env = e }
-func (r *PerformanceResults) IsNil() bool              { return r.Results == nil }
+func (r *PerformanceResults) IsNil() bool               { return r.Results == nil }
 
 // Returns the PerformanceResults that are started/completed within the given range (if completed).
 func (r *PerformanceResults) Find(options PerfFindOptions) error {

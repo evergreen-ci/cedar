@@ -250,8 +250,17 @@ func TestAttachResultData(t *testing.T) {
 				Id: &ResultID{},
 			},
 			attachedData: &RollupData{
-				Id:      (&model.PerformanceResultInfo{}).ID(),
-				Rollups: []*RollupValue{},
+				Id: (&model.PerformanceResultInfo{}).ID(),
+				Rollups: []*RollupValue{
+					{
+						Name:    "rollup1",
+						Version: 1,
+					},
+					{
+						Name:    "rollup2",
+						Version: 1,
+					},
+				},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
