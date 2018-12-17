@@ -311,7 +311,7 @@ type performanceMetricSummary struct {
 		total    float64
 	}
 
-	guages struct {
+	gauges struct {
 		workers float64
 		failed  bool
 	}
@@ -395,7 +395,7 @@ func (perf *performanceStatistics) mean() (performanceMetricSummary, error) {
 	out.totalCount.errors = perf.totalCount.errors
 	out.totalCount.size = perf.totalCount.size
 	out.totalCount.operations = perf.totalCount.operations
-	out.guages.failed = perf.state.failed
+	out.gauges.failed = perf.state.failed
 
 	out.counters.size, err = perf.counters.size.Mean()
 	catcher.Add(err)
@@ -406,7 +406,7 @@ func (perf *performanceStatistics) mean() (performanceMetricSummary, error) {
 	out.counters.errors, err = perf.counters.errors.Mean()
 	catcher.Add(err)
 
-	out.guages.workers, err = perf.state.workers.Mean()
+	out.gauges.workers, err = perf.state.workers.Mean()
 	catcher.Add(err)
 
 	out.timers.duration, err = perf.timers.duration.Mean()
@@ -435,7 +435,7 @@ func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSu
 		metricType: fmt.Sprintf("percentile_%.2f", pval),
 	}
 
-	out.guages.failed = perf.state.failed
+	out.gauges.failed = perf.state.failed
 	out.totalTime.duration = perf.totalTime.duration
 	out.totalTime.waiting = perf.totalTime.waiting
 	out.totalCount.errors = perf.totalCount.errors
@@ -451,7 +451,7 @@ func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSu
 	out.counters.errors, err = perf.counters.errors.Percentile(pval)
 	catcher.Add(err)
 
-	out.guages.workers, err = perf.state.workers.Percentile(pval)
+	out.gauges.workers, err = perf.state.workers.Percentile(pval)
 	catcher.Add(err)
 
 	out.timers.duration, err = perf.timers.duration.Percentile(pval)
