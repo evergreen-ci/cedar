@@ -75,12 +75,12 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
-	record.Setup(srv.env)
-
+	record.Rollups.Setup(srv.env)
 	if err := addRollups(record, result.Rollups); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollups")
 	}
 
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
@@ -128,12 +128,12 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	record.Setup(srv.env)
-
+	record.Rollups.Setup(srv.env)
 	if err := addRollups(record, rollupData.Rollups); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
 	}
@@ -217,10 +217,6 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 }
 
 func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
-	if record.Rollups == nil {
-		record.Rollups = &model.PerfRollups{}
-	}
-
 	catcher := grip.NewBasicCatcher()
 
 	for _, r := range rollups {

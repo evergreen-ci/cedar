@@ -24,7 +24,6 @@ func TestPerfRollupSuite(t *testing.T) {
 func (s *perfRollupSuite) SetupTest() {
 	s.r = new(PerfRollups)
 	s.r.Setup(cedar.GetEnvironment())
-	s.r.populated = true
 	s.r.id = "123"
 	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
@@ -247,7 +246,6 @@ func initializeTS() PerformanceTimeSeries {
 func (s *perfRollupSuite) TestUpdateDefaultRollups() {
 	r := new(PerfRollups)
 	r.Setup(cedar.GetEnvironment())
-	r.populated = true
 	r.id = "345"
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	s.Require().NoError(err)
