@@ -8,7 +8,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -189,9 +188,7 @@ func TestAttachResultData(t *testing.T) {
 			attachedData: &ResultData{
 				Id:        &ResultID{},
 				Artifacts: []*ArtifactInfo{},
-				Rollups: &Rollups{
-					ProcessedAt: ptypes.TimestampNow(),
-				},
+				Rollups:   []*RollupValue{},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
@@ -253,13 +250,8 @@ func TestAttachResultData(t *testing.T) {
 				Id: &ResultID{},
 			},
 			attachedData: &RollupData{
-				Id: (&model.PerformanceResultInfo{}).ID(),
-				Rollups: &Rollups{
-					ProcessedAt: ptypes.TimestampNow(),
-					Stats: []*RollupValue{
-						&RollupValue{},
-					},
-				},
+				Id:      (&model.PerformanceResultInfo{}).ID(),
+				Rollups: []*RollupValue{},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
@@ -270,18 +262,6 @@ func TestAttachResultData(t *testing.T) {
 			name: "TestAttachRollupsDoesNotExist",
 			attachedData: &RollupData{
 				Id: (&model.PerformanceResultInfo{}).ID(),
-			},
-			err: true,
-		},
-		{
-			name: "TestAttachRollupsInvalidRollup",
-			save: true,
-			resultData: &ResultData{
-				Id: &ResultID{},
-			},
-			attachedData: &RollupData{
-				Id:      (&model.PerformanceResultInfo{}).ID(),
-				Rollups: &Rollups{},
 			},
 			err: true,
 		},

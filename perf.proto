@@ -89,7 +89,7 @@ message MetricsPoint {
   google.protobuf.Timestamp Time = 1;
   MetricsCounters counters = 2;
   MetricsTimers timers = 3;
-  MetricsGuages guages = 4;
+  MetricsGauges gauges = 4;
 }
 
 message MetricsCounters {
@@ -103,7 +103,7 @@ message MetricsTimers {
   google.protobuf.Duration total = 2;
 }
 
-message MetricsGuages {
+message MetricsGauges {
   int64 state = 1;
   int64 workers = 2;
   bool failed = 3;
