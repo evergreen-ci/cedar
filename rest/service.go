@@ -8,6 +8,8 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
 
@@ -69,6 +71,10 @@ func (s *Service) Validate() error {
 		s.RPCServers = []string{addr}
 	}
 
+	grip.Info(message.Fields{
+		"message": "detected local rpc services",
+		"service": s.RPCServers,
+	})
 	return nil
 }
 
