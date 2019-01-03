@@ -8,6 +8,8 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
 
@@ -62,13 +64,19 @@ func (s *Service) Validate() error {
 
 	if s.RPCServers == nil {
 		addr, err := util.GetPublicIP()
-		if err != nil {
-			return errors.WithStack(err)
-		}
+
+		grip.Critical(message.WrapError(err, message.Fields{
+			"op":   "finding local config",
+			"addr": addr,
+		}))
 
 		s.RPCServers = []string{addr}
 	}
 
+	grip.Info(message.Fields{
+		"message": "detected local rpc services",
+		"service": s.RPCServers,
+	})
 	return nil
 }
 

@@ -58,7 +58,7 @@ func Service() cli.Command {
 					Name:   grpcHostFlag,
 					Usage:  "hostName for the grpc service",
 					EnvVar: envVarGRPCHost,
-					Value:  "localhost",
+					Value:  "0.0.0.0",
 				},
 			),
 		),

@@ -72,10 +72,19 @@ generate-points:$(buildDir)/generate-points
 
 
 # distribution targets and implementation
-dist:$(buildDir)/dist.tar.gz
+dist:$(buildDir)/dist.tar.gz $(buildDir)/dist.zip
 $(buildDir)/dist.tar.gz:$(buildDir)/$(name)
 	tar -C $(buildDir) -czvf $@ $(name)
-# end main build
+# elastic beanstalk
+push:.elasticbeanstalk/config.yml
+	eb deploy
+eb-dist:.elasticbeanstalk/config.yml
+.elasticbeanstalk/config.yml:$(buildDir)/dist.zip
+	@grep "$<" $@ || echo -e "deploy:\n  artifact: $<" >> $@
+$(buildDir)/dist.zip:$(buildDir)/$(name) Dockerfile
+	zip $@ Dockerfile $<
+	@unzip -l $@
+# end deploy and distribution targets
 
 
 # userfacing targets for basic build and development operations
