@@ -64,9 +64,11 @@ func (s *Service) Validate() error {
 
 	if s.RPCServers == nil {
 		addr, err := util.GetPublicIP()
-		if err != nil {
-			return errors.WithStack(err)
-		}
+
+		grip.Critical(message.WrapError(err, message.Fields{
+			"op":   "finding local config",
+			"addr": addr,
+		}))
 
 		s.RPCServers = []string{addr}
 	}

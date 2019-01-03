@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -17,22 +16,22 @@ func GetPublicIP() (string, error) {
 	defer conn.Close()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	localAddrStr := localAddr.IP.To4().String()
-	if strings.HasPrefix(localAddrStr, "172.17") {
 
+	_, cidr, _ := net.ParseCIDR("172.16.0.0/12")
+	if cidr.Contains(localAddr.IP.To4()) {
 		resp, err := http.DefaultClient.Get("http://169.254.169.254/latest/meta-data/public-ipv4")
 		if err != nil {
-			return localAddrStr, errors.Wrap(err, "problem accessing metadata service")
+			return localAddr.IP.To4().String(), errors.Wrap(err, "problem accessing metadata service")
 		}
 		defer resp.Body.Close()
 
 		data, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return localAddrStr, errors.Wrap(err, "problem reading response body")
+			return localAddr.IP.To4().String(), errors.Wrap(err, "problem reading response body")
 		}
 
-		localAddrStr = string(data)
+		return string(data), nil
 	}
 
-	return localAddrStr, nil
+	return localAddr.IP.To4().String(), nil
 }
