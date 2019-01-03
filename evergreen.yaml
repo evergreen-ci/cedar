@@ -197,8 +197,10 @@ tasks:
   - <<: *run-build
     tags: ["dist"]
     name: dist
-    # depends_on:
-    #   - name: "test"
+
+  - <<: *run-build
+    tags: ["dist"]
+    name: eb-dist
 
   - <<: *run-build-with-mongodb
     tags: ["test"]
