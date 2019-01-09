@@ -237,7 +237,8 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 
 	r.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
-	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth > -1 { // i.e. the parent fits the search criteria
+	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth != 0 {
+		// i.e. the parent fits the search criteria
 		if options.GraphLookup {
 			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth, options.Info.Tags)
 		} else {
@@ -293,9 +294,9 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 	return search
 }
 
-// All children of parent are recursively added to r.Results
+// all children of parent are recursively added to r.Results
 func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
-	if depth < 0 {
+	if depth == 0 {
 		return nil
 	}
 
@@ -315,7 +316,7 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 	return err
 }
 
-// All children of parent are recursively added to r.Results using $graphLookup
+// all children of parent are added to r.Results using $graphLookup
 func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int, tags []string) error {
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
@@ -330,9 +331,12 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 			"startWith":        "$" + "_id",
 			"connectFromField": "_id",
 			"connectToField":   bsonutil.GetDottedKeyName("info", "parent"),
-			"maxDepth":         maxDepth,
 			"as":               "children",
 		},
+	}
+	if maxDepth >= 0 {
+		fields := graphLookup["$graphLookup"].(bson.M)
+		fields["maxDepth"] = maxDepth
 	}
 	var project bson.M
 	if len(tags) > 0 {

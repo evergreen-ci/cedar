@@ -172,24 +172,25 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[3].ID, nodeD.ID)
 
-	// Test max depth without $graphLookup
+	// Test min and max depth without $graphLookup
 	options = PerfFindOptions{
 		MaxDepth: 0,
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
-	s.Require().Len(s.r.Results, 3)
+	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
-	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 
 	options = PerfFindOptions{
 		MaxDepth: -1,
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
-	s.Require().Len(s.r.Results, 1)
+	s.Require().Len(s.r.Results, 4)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[3].ID, nodeD.ID)
 
 	// With $graphLookup
 	options = PerfFindOptions{
@@ -204,17 +205,15 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
 
-	// Test max depth with $graphLookup
+	// Test min and max depth with $graphLookup
 	options = PerfFindOptions{
 		MaxDepth:    0,
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
-	s.Require().Len(s.r.Results, 3)
+	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
-	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 
 	options = PerfFindOptions{
 		MaxDepth:    -1,
@@ -222,8 +221,11 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	}
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
-	s.Require().Len(s.r.Results, 1)
+	s.Require().Len(s.r.Results, 4)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].ID, nodeD.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
 
 	// Test tag filtering with $graphLookup
 	options = PerfFindOptions{
