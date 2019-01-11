@@ -140,9 +140,9 @@ type PerformanceResultInfo struct {
 	Variant   string           `bson:"variant,omitempty"`
 	TaskName  string           `bson:"task_name,omitempty"`
 	TaskID    string           `bson:"task_id,omitempty"`
-	Execution int              `bson:"execution,omitempty"`
+	Execution int              `bson:"execution"`
 	TestName  string           `bson:"test_name,omitempty"`
-	Trial     int              `bson:"trial,omitempty"`
+	Trial     int              `bson:"trial"`
 	Parent    string           `bson:"parent,omitempty"`
 	Tags      []string         `bson:"tags,omitempty"`
 	Arguments map[string]int32 `bson:"args,omitempty"`
