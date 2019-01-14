@@ -152,6 +152,7 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 			Value: 2,
 		},
 		cli.StringFlag{
+			Name:   bucketNameFlag,
 			Usage:  "specify a bucket name to use for storing data in s3",
 			EnvVar: "CEDAR_BUCKET_NAME",
 			Value:  "build-test-curator",
