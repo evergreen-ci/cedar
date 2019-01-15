@@ -32,6 +32,8 @@ imports:
   version: 8923d07346eeb63ed18f01c96fa9ae384e960706
 - name: github.com/evergreen-ci/pail
   version: 1df85beb6afca4560131e9a65fccfaac91af944a
+- name: github.com/evergreen-ci/aviation
+  version: f481c4c6ee063d8dd3b1b5808b87c3373654280b
 
 - name: github.com/papertrail/go-tail
   version: 973c153b04319fc4604d847b09861a5730cbbde2
