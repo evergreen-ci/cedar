@@ -5,7 +5,7 @@ import (
 
 	"github.com/evergreen-ci/gimlet"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/code"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -14,9 +14,9 @@ import (
 
 func MakeAuthenticationRequiredUnaryInterceptor(um gimlet.UserManager, conf gimlet.UserMiddlewareConfiguration) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		meta, ok := metadata.FromContext(ctx)
+		meta, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
-			return nil, grpc.Errorf(code.Unauthenticated, "missing metadata from context")
+			return nil, grpc.Errorf(codes.Unauthenticated, "missing metadata from context")
 		}
 
 		var (
@@ -33,20 +33,20 @@ func MakeAuthenticationRequiredUnaryInterceptor(um gimlet.UserManager, conf giml
 		}
 
 		if len(authDataAPIKey) == 0 {
-			return nil, grpc.Errorf(code.Unauthenticated, "user key not provided")
+			return nil, grpc.Errorf(codes.Unauthenticated, "user key not provided")
 		}
 
 		usr, err := um.GetUserByID(authDataName)
 		if err != nil {
-			return nil, grpc.Errorf(code.Unauthenticated, "problem finding user: %+v", err)
+			return nil, grpc.Errorf(codes.Unauthenticated, "problem finding user: %+v", err)
 		}
 
 		if usr == nil {
-			return nil, grpc.Errorf(code.Unauthenticated, "user not found")
+			return nil, grpc.Errorf(codes.Unauthenticated, "user not found")
 		}
 
 		if usr.GetAPIKey() != authDataAPIKey {
-			return nil, grpc.Errorf(code.Unauthenticated, "incorrect credentials")
+			return nil, grpc.Errorf(codes.Unauthenticated, "incorrect credentials")
 		}
 
 		ctx = SetRequestUser(ctx, usr)
@@ -55,13 +55,13 @@ func MakeAuthenticationRequiredUnaryInterceptor(um gimlet.UserManager, conf giml
 	}
 }
 
-func MakeAuthenticationRequiredStreamingInterceptor(um gimlet.UserManager, conf gimlet.UserMiddlewareConfiguration) grpc.StreamingServerInterceptor {
+func MakeAuthenticationRequiredStreamingInterceptor(um gimlet.UserManager, conf gimlet.UserMiddlewareConfiguration) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		ctx := stream.Context()
 
-		meta, ok := metadata.FromContext(ctx)
+		meta, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
-			return nil, grpc.Errorf(code.Unauthenticated, "missing metadata from context")
+			return grpc.Errorf(codes.Unauthenticated, "missing metadata from context")
 		}
 
 		var (
@@ -78,22 +78,22 @@ func MakeAuthenticationRequiredStreamingInterceptor(um gimlet.UserManager, conf 
 		}
 
 		if len(authDataAPIKey) == 0 {
-			return nil, grpc.Errorf(code.Unauthenticated, "user key not provided")
+			return grpc.Errorf(codes.Unauthenticated, "user key not provided")
 		}
 
 		usr, err := um.GetUserByID(authDataName)
 		if err != nil {
-			return nil, grpc.Errorf(code.Unauthenticated, "problem finding user: %+v", err)
+			return grpc.Errorf(codes.Unauthenticated, "problem finding user: %+v", err)
 		}
 
 		if usr == nil {
-			return nil, grpc.Errorf(code.Unauthenticated, "user not found")
+			return grpc.Errorf(codes.Unauthenticated, "user not found")
 		}
 
 		if usr.GetAPIKey() != authDataAPIKey {
-			return nil, grpc.Errorf(code.Unauthenticated, "incorrect credentials")
+			return grpc.Errorf(codes.Unauthenticated, "incorrect credentials")
 		}
 
-		return handler(ctx, req)
+		return handler(srv, stream)
 	}
 }

@@ -3,6 +3,8 @@ package aviation
 import (
 	"context"
 	"time"
+
+	"github.com/evergreen-ci/gimlet"
 )
 
 type contextKey int
@@ -29,19 +31,19 @@ func GetRequestStartAt(ctx context.Context) time.Time {
 
 // SetRequestUser adds a user to a context. This function is public to
 // support teasing workflows.
-func SetRequestUser(ctx context.Context, u User) context.Context {
+func SetRequestUser(ctx context.Context, u gimlet.User) context.Context {
 	return context.WithValue(ctx, userKey, u)
 }
 
 // GetUser returns the user attached to the request. The User object
 // is nil when
-func GetUser(ctx context.Context) User {
+func GetUser(ctx context.Context) gimlet.User {
 	u := ctx.Value(userKey)
 	if u == nil {
 		return nil
 	}
 
-	usr, ok := u.(User)
+	usr, ok := u.(gimlet.User)
 	if !ok {
 		return nil
 	}
