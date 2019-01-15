@@ -57,23 +57,21 @@ var (
 
 // LDAPConfig contains settings for interacting with an LDAP server.
 type LDAPConfig struct {
-	URL                string `bson:"url" json:"url" yaml:"url"`
-	Port               string `bson:"port" json:"port" yaml:"port"`
-	UserPath           string `bson:"path" json:"path" yaml:"path"`
-	ServicePath        string `bson:"service_path" json:"service_path" yaml:"service_path"`
-	UserGroup          string `bson:"user_group" json:"user_group" yaml:"user_group"`
-	ServiceGroup       string `bson:"service_group" json:"service_group" yaml:"service_group"`
-	ExpireAfterMinutes string `bson:"expire_after_minutes" json:"expire_after_minutes" yaml:"expire_after_minutes"`
+	URL          string `bson:"url" json:"url" yaml:"url"`
+	Port         string `bson:"port" json:"port" yaml:"port"`
+	UserPath     string `bson:"path" json:"path" yaml:"path"`
+	ServicePath  string `bson:"service_path" json:"service_path" yaml:"service_path"`
+	UserGroup    string `bson:"user_group" json:"user_group" yaml:"user_group"`
+	ServiceGroup string `bson:"service_group" json:"service_group" yaml:"service_group"`
 }
 
 var (
-	cedarLDAPConfigURLKey                = bsonutil.MustHaveTag(LDAPConfig{}, "URL")
-	cedarLDAPConfigPortKey               = bsonutil.MustHaveTag(LDAPConfig{}, "Port")
-	cedarLDAPConfigUserPathKey           = bsonutil.MustHaveTag(LDAPConfig{}, "UserPath")
-	cedarLDAPConfigServicePathKey        = bsonutil.MustHaveTag(LDAPConfig{}, "ServicePath")
-	cedarLDAPConfigGroupKey              = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
-	cedarLDAPConfigServiceGroupKey       = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
-	cedarLDAPConfigExpireAfterMinutesKey = bsonutil.MustHaveTag(LDAPConfig{}, "ExpireAfterMinutes")
+	cedarLDAPConfigURLKey          = bsonutil.MustHaveTag(LDAPConfig{}, "URL")
+	cedarLDAPConfigPortKey         = bsonutil.MustHaveTag(LDAPConfig{}, "Port")
+	cedarLDAPConfigUserPathKey     = bsonutil.MustHaveTag(LDAPConfig{}, "UserPath")
+	cedarLDAPConfigServicePathKey  = bsonutil.MustHaveTag(LDAPConfig{}, "ServicePath")
+	cedarLDAPConfigGroupKey        = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
+	cedarLDAPConfigServiceGroupKey = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
 )
 
 func (c *CedarConfig) Setup(e cedar.Environment) { c.env = e }

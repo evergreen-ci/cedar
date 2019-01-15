@@ -22,7 +22,7 @@ type DBUser struct {
 	CreatedAt    time.Time  `bson:"created_at"`
 	APIKey       string     `bson:"apikey"`
 	SystemRoles  []string   `bson:"roles"`
-	LoginCache   LoginCache `bson:"login_cache,omitempty"`
+	LoginCache   LoginCache `bson:"login_cache"`
 }
 
 var (
@@ -118,7 +118,7 @@ func GetLoginCache(token string) (gimlet.User, bool, error) {
 	} else if err != nil {
 		return nil, false, errors.Wrap(err, "problem getting user from cache")
 	}
-	if time.Since(user.LoginCache.TTL) > conf.ExpireAfter {
+	if time.Since(user.LoginCache.TTL) > cedar.TokenExpireAfter {
 		return user, false, nil
 	}
 	return user, true, nil
@@ -193,8 +193,6 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 		u.APIKey = user.GetAPIKey()
 		u.SystemRoles = user.Roles()
 		u.CreatedAt = time.Now()
-		// TODO: figure out if I should do this step here or leave
-		// cache empty
 		u.LoginCache = LoginCache{Token: util.RandomString(), TTL: time.Now()}
 
 		err = session.DB(conf.DatabaseName).C(userCollection).Insert(u)

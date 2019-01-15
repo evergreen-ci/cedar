@@ -4,6 +4,10 @@ shared resources for the cedar application.
 */
 package cedar
 
+import (
+	"time"
+)
+
 const (
 	QueueName       = "queue"
 	ShortDateFormat = "2006-01-02T15:04"
@@ -14,7 +18,8 @@ const (
 var BuildRevision = ""
 
 const (
-	AuthTokenCookie = "cedar-token"
-	APIUserHeader   = "Api-User"
-	APIKeyHeader    = "Api-Key"
+	AuthTokenCookie  = "cedar-token"
+	APIUserHeader    = "Api-User"
+	APIKeyHeader     = "Api-Key"
+	TokenExpireAfter = time.Hour
 )

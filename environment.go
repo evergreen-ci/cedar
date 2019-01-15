@@ -2,9 +2,7 @@ package cedar
 
 import (
 	"sync"
-	"time"
 
-	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
@@ -24,8 +22,6 @@ func resetEnv() { globalEnv = &envState{name: "global", conf: &Configuration{}} 
 // state, in a way that you can isolate and test for in
 type Environment interface {
 	Configure(*Configuration) error
-
-	AddAuth(gimlet.UserManager, time.Duration)
 
 	// GetQueue retrieves the application's shared queue, which is cache
 	// for easy access from within units or inside of requests or command
@@ -104,14 +100,6 @@ func (c *envState) Configure(conf *Configuration) error {
 	}
 
 	return nil
-}
-
-func (c *envState) AddAuth(userManager gimlet.UserManager, expireAfter time.Duration) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.conf.UserManager = userManager
-	c.conf.ExpireAfter = expireAfter
 }
 
 func (c *envState) SetQueue(q amboy.Queue) error {

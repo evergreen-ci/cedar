@@ -17,6 +17,7 @@ type Service struct {
 	Port        int
 	Prefix      string
 	Environment cedar.Environment
+	UserManager gimlet.UserManager
 	RPCServers  []string
 
 	// internal settings

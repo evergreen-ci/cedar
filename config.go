@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 )
 
@@ -16,8 +15,6 @@ type Configuration struct {
 	MongoDBDialTimeout time.Duration
 	UseLocalQueue      bool
 	NumWorkers         int
-	UserManager        gimlet.UserManager
-	ExpireAfter        time.Duration
 }
 
 func (c *Configuration) Validate() error {
@@ -31,9 +28,6 @@ func (c *Configuration) Validate() error {
 	}
 	if c.MongoDBDialTimeout <= 0 {
 		c.MongoDBDialTimeout = 2 * time.Second
-	}
-	if c.ExpireAfter <= 0 {
-		c.ExpireAfter = time.Duration(365*24*60) * time.Minute
 	}
 
 	return catcher.Resolve()
