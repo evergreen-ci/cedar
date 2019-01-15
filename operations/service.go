@@ -111,10 +111,9 @@ func Service() cli.Command {
 			// starting grpc
 			//
 			middlewareConf := gimlet.UserMiddlewareConfiguration{
-				// TODO: figure out correct input for these
-				CookieName:     "cookieToken",
-				HeaderUserName: "username",
-				HeaderKeyName:  "apiKey",
+				CookieName:     cedar.AuthTokenCookie,
+				HeaderUserName: cedar.APIUserHeader,
+				HeaderKeyName:  cedar.APIKeyHeader,
 			}
 			cedarConf, err := env.GetConf()
 			if err != nil {
