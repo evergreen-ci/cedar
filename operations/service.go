@@ -8,9 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
+	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
@@ -108,7 +110,33 @@ func Service() cli.Command {
 			//
 			// starting grpc
 			//
-			rpcSrv := grpc.NewServer()
+			middlewareConf := gimlet.UserMiddlewareConfiguration{
+				// TODO: figure out correct input for these
+				CookieName:     "cookieToken",
+				HeaderUserName: "username",
+				HeaderKeyName:  "apiKey",
+			}
+			cedarConf, err := env.GetConf()
+			if err != nil {
+				return errors.Wrap(err, "problem getting env configuration")
+			}
+			var rpcSrv *grpc.Server
+			if cedarConf.UserManager != nil {
+				unary := aviation.MakeAuthenticationRequiredUnaryInterceptor(
+					cedarConf.UserManager,
+					middlewareConf,
+				)
+				stream := aviation.MakeAuthenticationRequiredStreamingInterceptor(
+					cedarConf.UserManager,
+					middlewareConf,
+				)
+				rpcSrv = grpc.NewServer(
+					grpc.UnaryInterceptor(unary),
+					grpc.StreamInterceptor(stream),
+				)
+			} else {
+				rpcSrv = grpc.NewServer()
+			}
 			rpc.AttachService(env, rpcSrv)
 
 			lis, err := net.Listen("tcp", rpcAddr)
