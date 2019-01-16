@@ -236,7 +236,7 @@ buildvariants:
     display_name: Ubuntu 16.04
     expansions:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
-      build_env: "GOROOT=/opt/go1.8/go PATH=/opt/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
+      build_env: "GOROOT=/opt/go1.10/go PATH=/opt/go1.10/go/bin:$PATH DISABLE_COVERAGE=true"
     run_on:
       - ubuntu1604-test
     tasks:
@@ -247,7 +247,7 @@ buildvariants:
     display_name: macOS 10.12
     expansions:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
-      build_env: "GOROOT=/usr/local/go1.8/go PATH=/usr/local/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
+      build_env: "GOROOT=/usr/local/go1.10/go PATH=/usr/local/go1.10/go/bin:$PATH DISABLE_COVERAGE=true"
     run_on:
       - macos-1012
     tasks:
@@ -260,7 +260,7 @@ buildvariants:
       - windows-64-vs2015-small
     expansions:
       mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
-      build_env: "GOROOT=c:/go1.8/go PATH=/cygdrive/c/go1.8/go/bin:$PATH DISABLE_COVERAGE=true"
+      build_env: "GOROOT=c:/go1.10/go PATH=/cygdrive/c/go1.10/go/bin:$PATH DISABLE_COVERAGE=true"
       extension: ".exe"
       archiveExt: ".zip"
     tasks:
