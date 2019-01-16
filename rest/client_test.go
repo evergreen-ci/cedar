@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"context"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
@@ -24,6 +25,7 @@ type ClientSuite struct {
 		host string
 		port int
 	}
+	ctx    context.Context
 	closer context.CancelFunc
 	env    cedar.Environment
 	suite.Suite
@@ -34,15 +36,14 @@ func TestClientSuite(t *testing.T) {
 }
 
 func (s *ClientSuite) SetupSuite() {
-	ctx, cancel := context.WithCancel(context.Background())
-	s.closer = cancel
+	s.ctx, s.closer = context.WithCancel(context.Background())
 	s.service = &Service{}
 	require := s.Require()
 
 	s.env = cedar.GetEnvironment()
+	s.service.Environment = s.env
 	require.NoError(s.env.SetQueue(queue.NewLocalUnordered(3)))
 	require.NoError(s.service.Validate())
-	require.NoError(s.service.Start(ctx))
 
 	app := s.service.app
 	s.NoError(app.Resolve())
