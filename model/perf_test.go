@@ -172,7 +172,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[3].ID, nodeD.ID)
 
-	// Test min and max depth without $graphLookup
+	// Test min through max depth without $graphLookup
 	options = PerfFindOptions{
 		MaxDepth: 0,
 	}
@@ -180,6 +180,16 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
+
+	options = PerfFindOptions{
+		MaxDepth: 1,
+	}
+	options.Info.Parent = nodeA.ID
+	s.NoError(s.r.Find(options))
+	s.Require().Len(s.r.Results, 3)
+	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 
 	options = PerfFindOptions{
 		MaxDepth: -1,
@@ -205,7 +215,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
 
-	// Test min and max depth with $graphLookup
+	// Test min through max depth with $graphLookup
 	options = PerfFindOptions{
 		MaxDepth:    0,
 		GraphLookup: true,
@@ -214,6 +224,17 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
+
+	options = PerfFindOptions{
+		MaxDepth:    1,
+		GraphLookup: true,
+	}
+	options.Info.Parent = nodeA.ID
+	s.NoError(s.r.Find(options))
+	s.Require().Len(s.r.Results, 3)
+	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
+	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
 
 	options = PerfFindOptions{
 		MaxDepth:    -1,

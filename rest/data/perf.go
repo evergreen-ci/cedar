@@ -303,14 +303,18 @@ func (mc *MockConnector) checkTags(id string, tags []string) bool {
 }
 
 func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) []dataModel.APIPerformanceResult {
+	if maxDepth == 0 {
+		return []dataModel.APIPerformanceResult{}
+	}
+
 	results := []dataModel.APIPerformanceResult{}
-	seen := map[string]int{id: 0}
+	seen := map[string]int{id: 1}
 	queue := []string{id}
 
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if seen[next] > maxDepth {
+		if seen[next] > maxDepth && maxDepth > 0 {
 			continue
 		}
 		children, _ := mc.ChildMap[next]

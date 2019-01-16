@@ -240,7 +240,7 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth != 0 {
 		// i.e. the parent fits the search criteria
 		if options.GraphLookup {
-			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth, options.Info.Tags)
+			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth-1, options.Info.Tags)
 		} else {
 			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
 		}
