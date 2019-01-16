@@ -21,20 +21,25 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // Service returns the ./cedar client sub-command object, which is
 // responsible for starting the service.
 func Service() cli.Command {
 	const (
-		localQueueFlag  = "localQueue"
-		servicePortFlag = "port"
-		envVarGRPCPort  = "CEDAR_GRPC_PORT"
-		envVarGRPCHost  = "CEDAR_GRPC_HOST"
-		envVarRESTPort  = "CEDAR_REST_PORT"
+		localQueueFlag       = "localQueue"
+		servicePortFlag      = "port"
+		envVarRPCPort        = "CEDAR_RPC_PORT"
+		envVarRPCHost        = "CEDAR_RPC_HOST"
+		envVarRPCCertPath    = "CEDAR_RPC_CERT"
+		envVarRPCCertKeyPath = "CEDAR_RPC_KEY"
+		envVarRESTPort       = "CEDAR_REST_PORT"
 
-		grpcHostFlag = "rpcHost"
-		grpcPortFlag = "rpcPort"
+		rpcHostFlag        = "rpcHost"
+		rpcPortFlag        = "rpcPort"
+		rpcCertPathFlag    = "rpcCertPath"
+		rpcCertKeyPathFlag = "rpcKeyPath"
 	)
 
 	return cli.Command{
@@ -43,6 +48,16 @@ func Service() cli.Command {
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
+				cli.StringFlag{
+					Name:   rpcCertPathFlag,
+					Usage:  "path to the rpc service certificate",
+					EnvVar: envVarRPCCertPath,
+				},
+				cli.StringFlag{
+					Name:   rpcCertKeyPathFlag,
+					Usage:  "path to the prc service key",
+					EnvVar: envVarRPCCertKeyPath,
+				},
 				cli.BoolFlag{
 					Name:  localQueueFlag,
 					Usage: "uses a locally-backed queue rather than MongoDB",
@@ -50,19 +65,19 @@ func Service() cli.Command {
 				cli.IntFlag{
 					Name:   joinFlagNames(servicePortFlag, "p"),
 					Usage:  "specify a port to run the REST service on",
-					Value:  8080,
+					Value:  3000,
 					EnvVar: envVarRESTPort,
 				},
 				cli.IntFlag{
-					Name:   grpcPortFlag,
+					Name:   rpcPortFlag,
 					Usage:  "port for the grpc service",
-					EnvVar: envVarGRPCPort,
-					Value:  9090,
+					EnvVar: envVarRPCPort,
+					Value:  2289,
 				},
 				cli.StringFlag{
-					Name:   grpcHostFlag,
+					Name:   rpcHostFlag,
 					Usage:  "hostName for the grpc service",
-					EnvVar: envVarGRPCHost,
+					EnvVar: envVarRPCHost,
 					Value:  "0.0.0.0",
 				},
 			),
@@ -75,9 +90,11 @@ func Service() cli.Command {
 			dbName := c.String(dbNameFlag)
 			port := c.Int(servicePortFlag)
 
-			restHost := c.String(grpcHostFlag)
-			restPort := c.Int(grpcPortFlag)
-			rpcAddr := fmt.Sprintf("%s:%d", restHost, restPort)
+			rpcCertPath := c.String(rpcCertPathFlag)
+			rpcCertKeyPath := c.String(rpcCertKeyPathFlag)
+			rpcHost := c.String(rpcHostFlag)
+			rpcPort := c.Int(rpcPortFlag)
+			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -175,6 +192,16 @@ func Service() cli.Command {
 					grpc.UnaryInterceptor(aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))),
 					grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
 				)
+			}
+
+			hasCerts := rpcCertKeyPath != "" || rpcCertPath != ""
+			grip.WarningWhen(!hasCerts, "certificates not defined, rpc service is starting without tls")
+			if hasCerts {
+				creds, err := credentials.NewServerTLSFromFile(rpcCertPath, rpcCertKeyPath)
+				if err != nil {
+					return errors.Wrap(err, "problem reading certificates")
+				}
+				rpcOpts = append(rpcOpts, grpc.Creds(creds))
 			}
 
 			rpcSrv := grpc.NewServer(rpcOpts...)
