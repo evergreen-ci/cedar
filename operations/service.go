@@ -16,6 +16,7 @@ import (
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -49,14 +50,14 @@ func Service() cli.Command {
 				cli.IntFlag{
 					Name:   joinFlagNames(servicePortFlag, "p"),
 					Usage:  "specify a port to run the REST service on",
-					Value:  3000,
+					Value:  8080,
 					EnvVar: envVarRESTPort,
 				},
 				cli.IntFlag{
 					Name:   grpcPortFlag,
 					Usage:  "port for the grpc service",
 					EnvVar: envVarGRPCPort,
-					Value:  2289,
+					Value:  9090,
 				},
 				cli.StringFlag{
 					Name:   grpcHostFlag,
@@ -146,25 +147,37 @@ func Service() cli.Command {
 				HeaderUserName: cedar.APIUserHeader,
 				HeaderKeyName:  cedar.APIKeyHeader,
 			}
-			var rpcSrv *grpc.Server
+			rpcOpts := []grpc.ServerOption{}
+
 			if ldapConf.URL != "" {
-				rpcSrv = grpc.NewServer(
+				rpcOpts = append(rpcOpts,
 					grpc.UnaryInterceptor(
-						aviation.MakeAuthenticationRequiredUnaryInterceptor(
-							userManager,
-							middlewareConf,
+						aviation.ChainUnaryServer(
+							aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender())),
+							aviation.MakeAuthenticationRequiredUnaryInterceptor(
+								userManager,
+								middlewareConf,
+							),
 						),
 					),
 					grpc.StreamInterceptor(
-						aviation.MakeAuthenticationRequiredStreamingInterceptor(
-							userManager,
-							middlewareConf,
+						aviation.ChainStreamServer(
+							aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender())),
+							aviation.MakeAuthenticationRequiredStreamingInterceptor(
+								userManager,
+								middlewareConf,
+							),
 						),
 					),
 				)
 			} else {
-				rpcSrv = grpc.NewServer()
+				rpcOpts = append(rpcOpts,
+					grpc.UnaryInterceptor(aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))),
+					grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
+				)
 			}
+
+			rpcSrv := grpc.NewServer(rpcOpts...)
 			rpc.AttachService(env, rpcSrv)
 
 			lis, err := net.Listen("tcp", rpcAddr)
@@ -182,7 +195,7 @@ func Service() cli.Command {
 				defer close(rpcWait)
 				defer recovery.LogStackTraceAndContinue("waiting for the rpc service")
 				<-ctx.Done()
-				rpcSrv.Stop()
+				rpcSrv.GracefulStop()
 				grip.Info("jasper rpc service terminated")
 			}()
 
