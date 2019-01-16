@@ -48,8 +48,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 			TaskID: taskId,
 			Tags:   tags,
 		},
-		// set MaxDepth to -1 to avoid recursive child search
-		MaxDepth: -1,
+		MaxDepth: 0,
 	}
 
 	if err := results.Find(options); err != nil {
@@ -90,8 +89,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interv
 			TaskName: taskName,
 			Tags:     tags,
 		},
-		// set MaxDepth to -1 to avoid recursive child search
-		MaxDepth: -1,
+		MaxDepth: 0,
 	}
 
 	if err := results.Find(options); err != nil {
@@ -132,8 +130,7 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval
 			Version: version,
 			Tags:    tags,
 		},
-		// set MaxDepth to -1 to avoid recursive child search
-		MaxDepth: -1,
+		MaxDepth: 0,
 	}
 
 	if err := results.Find(options); err != nil {
@@ -306,14 +303,18 @@ func (mc *MockConnector) checkTags(id string, tags []string) bool {
 }
 
 func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) []dataModel.APIPerformanceResult {
+	if maxDepth == 0 {
+		return []dataModel.APIPerformanceResult{}
+	}
+
 	results := []dataModel.APIPerformanceResult{}
-	seen := map[string]int{id: 0}
+	seen := map[string]int{id: 1}
 	queue := []string{id}
 
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if seen[next] > maxDepth {
+		if seen[next] > maxDepth && maxDepth > 0 {
 			continue
 		}
 		children, _ := mc.ChildMap[next]

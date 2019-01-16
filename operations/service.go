@@ -8,9 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
@@ -83,6 +87,34 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
+			var userManager gimlet.UserManager
+			cedarConf := &model.CedarConfig{}
+			cedarConf.Setup(env)
+			if err := cedarConf.Find(); err != nil {
+				return errors.Wrap(err, "problem getting application configuration")
+			}
+			ldapConf := cedarConf.Auth
+			if ldapConf.URL != "" {
+				opts := ldap.CreationOpts{
+					URL:           ldapConf.URL,
+					Port:          ldapConf.Port,
+					UserPath:      ldapConf.UserPath,
+					ServicePath:   ldapConf.ServicePath,
+					UserGroup:     ldapConf.UserGroup,
+					ServiceGroup:  ldapConf.ServiceGroup,
+					PutCache:      model.PutLoginCache,
+					GetCache:      model.GetLoginCache,
+					ClearCache:    model.ClearLoginCache,
+					GetUser:       model.GetUser,
+					GetCreateUser: model.GetOrAddUser,
+				}
+				var err error
+				userManager, err = ldap.NewUserService(opts)
+				if err != nil {
+					return errors.Wrap(err, "problem setting up user manager")
+				}
+			}
+
 			///////////////////////////////////
 			//
 			// starting rest service
@@ -91,6 +123,7 @@ func Service() cli.Command {
 				Port:        port,
 				Prefix:      "rest",
 				Environment: env,
+				UserManager: userManager,
 			}
 			if err := service.Validate(); err != nil {
 				return errors.Wrap(err, "problem validating service")
@@ -108,7 +141,30 @@ func Service() cli.Command {
 			//
 			// starting grpc
 			//
-			rpcSrv := grpc.NewServer()
+			middlewareConf := gimlet.UserMiddlewareConfiguration{
+				CookieName:     cedar.AuthTokenCookie,
+				HeaderUserName: cedar.APIUserHeader,
+				HeaderKeyName:  cedar.APIKeyHeader,
+			}
+			var rpcSrv *grpc.Server
+			if ldapConf.URL != "" {
+				rpcSrv = grpc.NewServer(
+					grpc.UnaryInterceptor(
+						aviation.MakeAuthenticationRequiredUnaryInterceptor(
+							userManager,
+							middlewareConf,
+						),
+					),
+					grpc.StreamInterceptor(
+						aviation.MakeAuthenticationRequiredStreamingInterceptor(
+							userManager,
+							middlewareConf,
+						),
+					),
+				)
+			} else {
+				rpcSrv = grpc.NewServer()
+			}
 			rpc.AttachService(env, rpcSrv)
 
 			lis, err := net.Listen("tcp", rpcAddr)

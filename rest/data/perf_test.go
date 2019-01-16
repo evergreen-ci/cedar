@@ -413,7 +413,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDoesNotExist()
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 	// No depth
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), -1)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 0)
 	s.NoError(err)
 	s.Require().Equal(1, len(actualResult))
 	s.Equal(s.results[0].info.ID(), *actualResult[0].Name)
@@ -423,7 +423,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 	for i := 0; i < 3; i++ {
 		expectedIds[s.results[i].info.ID()] = true
 	}
-	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 0)
+	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 1)
 	s.NoError(err)
 	s.Require().Equal(3, len(actualResult))
 	for _, result := range actualResult {

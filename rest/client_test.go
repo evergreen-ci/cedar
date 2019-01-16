@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"context"
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"context"
 )
 
 type ClientSuite struct {

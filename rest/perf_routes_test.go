@@ -212,7 +212,7 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
 func (s *PerfHandlerSuite) TestPerfGetChildrenHandlerFound() {
 	rh := s.rh["children"]
 	rh.(*perfGetChildrenHandler).id = "abc"
-	rh.(*perfGetChildrenHandler).maxDepth = 0
+	rh.(*perfGetChildrenHandler).maxDepth = 1
 	rh.(*perfGetChildrenHandler).tags = []string{"a"}
 	expected := []model.APIPerformanceResult{
 		s.sc.CachedPerformanceResults["abc"],
