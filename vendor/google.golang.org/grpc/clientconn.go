@@ -1158,7 +1158,7 @@ func (ac *addrConn) createTransport(addr resolver.Address, copts transport.Conne
 		Authority: ac.cc.authority,
 	}
 
-	prefaceTimer := time.NewTimer(time.Until(connectDeadline))
+	prefaceTimer := time.NewTimer(connectDeadline.Sub(time.Now()))
 
 	onGoAway := func(r transport.GoAwayReason) {
 		ac.mu.Lock()
