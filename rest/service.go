@@ -86,6 +86,7 @@ func (s *Service) Start(ctx context.Context) error {
 		return errors.New("application is not valid")
 	}
 
+	s.addMiddleware()
 	s.addRoutes()
 
 	if err := s.queue.Start(ctx); err != nil {
@@ -99,26 +100,40 @@ func (s *Service) Start(ctx context.Context) error {
 	return s.app.Run(ctx)
 }
 
-func (s *Service) addRoutes() {
-	s.app.AddRoute("/admin/status").Version(1).Get().Handler(s.statusHandler)
-	s.app.AddRoute("/admin/status/event/{id}").Version(1).Get().Handler(s.getSystemEvent)
-	s.app.AddRoute("/admin/status/event/{id}/acknowledge").Version(1).Get().Handler(s.acknowledgeSystemEvent)
-	s.app.AddRoute("/admin/status/events/{level}").Version(1).Get().Handler(s.getSystemEvents)
-	s.app.AddRoute("/admin/service/flag/{flagName}/enabled").Version(1).Post().Handler(s.setServiceFlagEnabled)
-	s.app.AddRoute("/admin/service/flag/{flagName}/disabled").Version(1).Post().Handler(s.setServiceFlagDisabled)
+func (s *Service) addMiddleware() {
+	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
 
-	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Handler(s.simpleLogInjestion)
+	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, gimlet.UserMiddlewareConfiguration{
+		CookieName:     cedar.AuthTokenCookie,
+		HeaderKeyName:  cedar.APIKeyHeader,
+		HeaderUserName: cedar.APIUserHeader,
+	}))
+
+	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
+}
+
+func (s *Service) addRoutes() {
+	checkUser := gimlet.NewRequireAuthHandler()
+
+	s.app.AddRoute("/admin/status").Version(1).Get().Handler(s.statusHandler)
+	s.app.AddRoute("/admin/status/event/{id}").Version(1).Get().Wrap(checkUser).Handler(s.getSystemEvent)
+	s.app.AddRoute("/admin/status/event/{id}/acknowledge").Version(1).Get().Wrap(checkUser).Handler(s.acknowledgeSystemEvent)
+	s.app.AddRoute("/admin/status/events/{level}").Version(1).Get().Wrap(checkUser).Handler(s.getSystemEvents)
+	s.app.AddRoute("/admin/service/flag/{flagName}/enabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagEnabled)
+	s.app.AddRoute("/admin/service/flag/{flagName}/disabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagDisabled)
+
+	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Wrap(checkUser).Handler(s.simpleLogInjestion)
 	s.app.AddRoute("/simple_log/{id}").Version(1).Get().Handler(s.simpleLogRetrieval)
 	s.app.AddRoute("/simple_log/{id}/text").Version(1).Get().Handler(s.simpleLogGetText)
-	s.app.AddRoute("/system_info").Version(1).Post().Handler(s.recieveSystemInfo)
-	s.app.AddRoute("/system_info/host/{host}").Version(1).Post().Handler(s.fetchSystemInfo)
+	s.app.AddRoute("/system_info").Version(1).Post().Wrap(checkUser).Handler(s.recieveSystemInfo)
+	s.app.AddRoute("/system_info/host/{host}").Version(1).Post().Wrap(checkUser).Handler(s.fetchSystemInfo)
 
-	s.app.AddRoute("/depgraph/{id}").Version(1).Post().Handler(s.createDepGraph)
-	s.app.AddRoute("/depgraph/{id}").Version(1).Get().Handler(s.resolveDepGraph)
-	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Post().Handler(s.addDepGraphNodes)
-	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Get().Handler(s.getDepGraphNodes)
-	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Post().Handler(s.addDepGraphEdges)
-	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Get().Handler(s.getDepGraphEdges)
+	s.app.AddRoute("/depgraph/{id}").Version(1).Post().Wrap(checkUser).Handler(s.createDepGraph)
+	s.app.AddRoute("/depgraph/{id}").Version(1).Get().Wrap(checkUser).Handler(s.resolveDepGraph)
+	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Post().Wrap(checkUser).Handler(s.addDepGraphNodes)
+	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Get().Wrap(checkUser).Handler(s.getDepGraphNodes)
+	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Post().Wrap(checkUser).Handler(s.addDepGraphEdges)
+	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Get().Wrap(checkUser).Handler(s.getDepGraphEdges)
 
 	s.app.AddRoute("/perf/{id}").Version(1).Get().RouteHandler(makeGetPerfById(s.sc))
 	s.app.AddRoute("/perf/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetPerfByTaskId(s.sc))
