@@ -57,13 +57,6 @@ func (s *UserTestSuite) SetupTest() {
 				TTL:   time.Now(),
 			},
 		},
-		&DBUser{
-			Id: "Test4",
-			LoginCache: LoginCache{
-				Token: "expired",
-				TTL:   time.Time{},
-			},
-		},
 	}
 
 	for _, user := range s.users {
@@ -186,15 +179,9 @@ func (s *UserTestSuite) TestGetLoginCache() {
 
 	u, valid, err = GetLoginCache("4321")
 	s.NoError(err)
-	s.True(valid)
-	s.Require().NotNil(u)
-	s.Equal("Test2", u.Username())
-
-	u, valid, err = GetLoginCache("expired")
-	s.NoError(err)
 	s.False(valid)
 	s.Require().NotNil(u)
-	s.Equal("Test4", u.Username())
+	s.Equal("Test2", u.Username())
 
 	u, valid, err = GetLoginCache("asdf")
 	s.NoError(err)
