@@ -61,13 +61,14 @@ func loadCedarConfig() cli.Command {
 			if err != nil {
 				return errors.WithStack(err)
 			}
-			conf.Setup(env)
 
-			if err = conf.Save(); err != nil {
+			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
 				return errors.WithStack(err)
 			}
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			conf.Setup(env)
+
+			if err = conf.Save(); err != nil {
 				return errors.WithStack(err)
 			}
 

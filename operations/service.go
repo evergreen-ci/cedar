@@ -93,7 +93,7 @@ func Service() cli.Command {
 			if err := cedarConf.Find(); err != nil {
 				return errors.Wrap(err, "problem getting application configuration")
 			}
-			ldapConf := cedarConf.Auth
+			ldapConf := cedarConf.LDAP
 			if ldapConf.URL != "" {
 				opts := ldap.CreationOpts{
 					URL:           ldapConf.URL,

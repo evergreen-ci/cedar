@@ -12,3 +12,5 @@ cost-reports
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+fabfile.py
+cedar

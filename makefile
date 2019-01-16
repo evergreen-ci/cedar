@@ -46,6 +46,7 @@ lintArgs += --exclude=".*unused variable or constant \w+Key"
 gopath := $(shell go env GOPATH)
 lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "./buildscripts/*" )
+distContents := $(buildDir)/$(name)
 coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
 coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 $(gopath)/src/%:
@@ -68,13 +69,18 @@ $(buildDir)/generate-points:cmd/generate-points/generate-points.go
 	go build -o $@ $<
 generate-points:$(buildDir)/generate-points
 	./$<
+$(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
+	@mkdir -p $(buildDir)
+	@GOOS="" GOARCH="" go build -o $@ $<
+	@echo go build -o $@ $<
 # end dependency installation tools
 
 
 # distribution targets and implementation
 dist:$(buildDir)/dist.tar.gz $(buildDir)/dist.zip
-$(buildDir)/dist.tar.gz:$(buildDir)/$(name)
-	tar -C $(buildDir) -czvf $@ $(name)
+$(buildDir)/dist.tar.gz:$(buildDir)/make-tarball $(distContents)
+	./$< --name $@ --prefix $(name) $(foreach item,$(distContents),--item $(item))
+	tar -tvf $@
 # elastic beanstalk
 push:.elasticbeanstalk/config.yml
 	eb deploy
