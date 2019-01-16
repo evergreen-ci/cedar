@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"context"
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
-	"context"
 )
 
 type ClientSuite struct {
@@ -41,6 +41,7 @@ func (s *ClientSuite) SetupSuite() {
 
 	s.env = cedar.GetEnvironment()
 	require.NoError(s.env.SetQueue(queue.NewLocalUnordered(3)))
+	s.service.Environment = s.env
 	require.NoError(s.service.Validate())
 	require.NoError(s.service.Start(ctx))
 
