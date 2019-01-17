@@ -470,7 +470,13 @@ func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, err
 func (c *Client) GetAuthKey(ctx context.Context, username, password string) (string, error) {
 	url := c.getURL("/v1/admin/users/key")
 
-	req, err := c.makeRequest(ctx, http.MethodGet, url, nil)
+	creds := &userCredentials{Username: username, Password: password}
+	payload, err := json.Marshal(creds)
+	if err != nil {
+		return "", errors.Wrap(err, "problem building payload")
+	}
+
+	req, err := c.makeRequest(ctx, http.MethodGet, url, bytes.NewBuffer(payload))
 	if err != nil {
 		return "", errors.Wrap(err, "problem building request")
 	}

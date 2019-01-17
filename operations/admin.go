@@ -79,7 +79,7 @@ func unsetFeatureFlag() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "")
+			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "rest")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -116,7 +116,7 @@ func getAPIKey() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "")
+			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "rest")
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
