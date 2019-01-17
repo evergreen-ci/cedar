@@ -61,10 +61,12 @@ func (u *DBUser) DisplayName() string {
 
 func (u *DBUser) Setup(env cedar.Environment) { u.env = env }
 
-func (u *DBUser) SetAPIKey(k string) error {
+func (u *DBUser) SetAPIKey() (string, error) {
+	k := util.RandomString()
+
 	conf, session, err := cedar.GetSessionWithConfig(u.env)
 	if err != nil {
-		return errors.WithStack(err)
+		return "", errors.WithStack(err)
 	}
 	defer session.Close()
 
@@ -73,13 +75,13 @@ func (u *DBUser) SetAPIKey(k string) error {
 	})
 
 	if db.ResultsNotFound(err) {
-		return errors.New("could not find user in the database")
+		return "", errors.New("could not find user in the database")
 	} else if err != nil {
-		return errors.Wrap(err, "problem updating user key document")
+		return "", errors.Wrap(err, "problem updating user key document")
 	}
 
 	u.APIKey = k
-	return nil
+	return k, nil
 }
 
 // PutLoginCache generates, saves, and returns a new token; the user's TTL is

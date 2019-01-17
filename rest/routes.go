@@ -10,7 +10,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
@@ -689,14 +688,14 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	k := util.RandomString()
 	dbuser.Setup(s.Environment)
-	if err := dbuser.SetAPIKey(k); err != nil {
+	key, err = dbuser.SetAPIKey()
+	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem generating key")))
 		return
 	}
 
-	resp.Key = k
+	resp.Key = key
 	gimlet.WriteJSON(rw, resp)
 	return
 }
