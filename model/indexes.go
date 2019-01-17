@@ -17,9 +17,8 @@ type SystemIndexes struct {
 	Collection string
 }
 
-// GetPerfResultsCollectionIndexes returns indexes for the "perf_results"
-// collection.
-func GetPerfResultCollectionIndexes() []SystemIndexes {
+// GetRequiredIndexes  returns required indexes for the Cedar database.
+func GetRequiredIndexes() []SystemIndexes {
 	return []SystemIndexes{
 		{
 			Keys:       bson.D{{perfCreatedAtKey, 1}, {perfCompletedAtKey, 1}},
@@ -69,12 +68,6 @@ func GetPerfResultCollectionIndexes() []SystemIndexes {
 			Keys:       bson.D{{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoSchemaKey), 1}},
 			Collection: perfResultCollection,
 		},
-	}
-}
-
-// GetUserCollectionIndex returns indexes for the "users" collection.
-func GetUserCollectionIndex() []SystemIndexes {
-	return []SystemIndexes{
 		{
 			Keys:       bson.D{{bsonutil.GetDottedKeyName(dbUserLoginCacheKey, loginCacheTokenKey), 1}},
 			Options:    bson.D{{"unique": true}},
