@@ -16,17 +16,20 @@ const userCollection = "users"
 
 // Stores user information in database, resulting in a cache for the LDAP user manager.
 type DBUser struct {
-	Id           string     `bson:"_id"`
+	ID           string     `bson:"_id"`
 	Display      string     `bson:"display_name"`
 	EmailAddress string     `bson:"email"`
 	CreatedAt    time.Time  `bson:"created_at"`
 	APIKey       string     `bson:"apikey"`
 	SystemRoles  []string   `bson:"roles"`
 	LoginCache   LoginCache `bson:"login_cache"`
+
+	env       cedar.Environment
+	populated bool
 }
 
 var (
-	dbUserIdKey           = bsonutil.MustHaveTag(DBUser{}, "Id")
+	dbUserIDKey           = bsonutil.MustHaveTag(DBUser{}, "ID")
 	dbUserDisplayNameKey  = bsonutil.MustHaveTag(DBUser{}, "Display")
 	dbUserEmailAddressKey = bsonutil.MustHaveTag(DBUser{}, "EmailAddress")
 	dbUserAPIKeyKey       = bsonutil.MustHaveTag(DBUser{}, "APIKey")
@@ -45,7 +48,7 @@ var (
 )
 
 func (u *DBUser) Email() string     { return u.EmailAddress }
-func (u *DBUser) Username() string  { return u.Id }
+func (u *DBUser) Username() string  { return u.ID }
 func (u *DBUser) GetAPIKey() string { return u.APIKey }
 func (u *DBUser) Roles() []string   { return u.SystemRoles }
 
@@ -53,7 +56,30 @@ func (u *DBUser) DisplayName() string {
 	if u.Display != "" {
 		return u.Display
 	}
-	return u.Id
+	return u.ID
+}
+
+func (u *DBUser) Setup(env cedar.Environment) { u.env = env }
+
+func (u *DBUser) SetAPIKey(k string) error {
+	conf, session, err := cedar.GetSessionWithConfig(u.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	err = session.DB(conf.DatabaseName).C(userCollection).UpdateId(u.ID, bson.M{
+		dbUserAPIKeyKey: k,
+	})
+
+	if db.ResultsNotFound(err) {
+		return errors.New("could not find user in the database")
+	} else if err != nil {
+		return errors.Wrap(err, "problem updating user key document")
+	}
+
+	u.APIKey = k
+	return nil
 }
 
 // PutLoginCache generates, saves, and returns a new token; the user's TTL is
@@ -88,7 +114,7 @@ func PutLoginCache(user gimlet.User) (string, error) {
 			bsonutil.GetDottedKeyName(dbUserLoginCacheKey, loginCacheTTLKey): time.Now(),
 		}}
 	}
-	if err = coll.Update(bson.M{dbUserIdKey: u.Id}, update); err != nil {
+	if err = coll.Update(bson.M{dbUserIDKey: u.ID}, update); err != nil {
 		return "", errors.Wrap(err, "problem updating user cache")
 	}
 
@@ -148,7 +174,7 @@ func ClearLoginCache(user gimlet.User, all bool) error {
 		} else if err != nil {
 			return errors.Wrapf(err, "problem finding user %s by id", user.Username())
 		}
-		query := bson.M{dbUserIdKey: u.Id}
+		query := bson.M{dbUserIDKey: u.ID}
 		if err = session.DB(conf.DatabaseName).C(userCollection).Update(query, update); err != nil {
 			return errors.Wrap(err, "problem updating user cache")
 		}
@@ -187,7 +213,7 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 	u := &DBUser{}
 	err = session.DB(conf.DatabaseName).C(userCollection).FindId(user.Username()).One(u)
 	if db.ResultsNotFound(err) {
-		u.Id = user.Username()
+		u.ID = user.Username()
 		u.Display = user.DisplayName()
 		u.EmailAddress = user.Email()
 		u.APIKey = user.GetAPIKey()

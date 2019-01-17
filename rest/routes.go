@@ -10,12 +10,14 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -629,4 +631,72 @@ func (s *Service) setServiceFlagDisabled(w http.ResponseWriter, r *http.Request)
 
 	resp.State = true
 	gimlet.WriteJSON(w, &resp)
+}
+
+type userCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type userAPIKeyResponse struct {
+	Username string `json:"username"`
+	Key      string `json:"key"`
+}
+
+func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	creds := &userCredentials{}
+	if err := gimlet.GetJSON(r.Body, creds); err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem reading request body")))
+		return
+	}
+
+	if creds.Username == "" {
+		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+			Message:    "no username specified",
+			StatusCode: http.StatusUnauthorized,
+		})
+	}
+
+	resp := &userAPIKeyResponse{Username: creds.Username}
+
+	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
+		return
+	}
+
+	user, err := s.UserManager.GetUserByToken(r.Context(), token)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
+		return
+	}
+
+	key := user.GetAPIKey()
+	if key != "" {
+		resp.Key = key
+		gimlet.WriteJSON(rw, resp)
+		return
+	}
+
+	dbuser, ok := user.(*model.DBUser)
+	if !ok {
+		gimlet.WriteJSONResponse(rw, http.StatusInternalServerError, gimlet.ErrorResponse{
+			Message:    "cannot generate key for user",
+			StatusCode: http.StatusInternalServerError,
+		})
+
+		return
+	}
+
+	k := util.RandomString()
+	dbuser.Setup(s.Environment)
+	if err := dbuser.SetAPIKey(k); err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem generating key")))
+		return
+	}
+
+	resp.Key = k
+	gimlet.WriteJSON(rw, resp)
+	return
 }
