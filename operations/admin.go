@@ -5,6 +5,7 @@ import (
 
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
@@ -28,6 +29,13 @@ func Admin() cli.Command {
 				Subcommands: []cli.Command{
 					setFeatureFlag(),
 					unsetFeatureFlag(),
+				},
+			},
+			{
+				Name:  "key",
+				Usage: "mange user keys",
+				Subcommands: []cli.Command{
+					getAPIKey(),
 				},
 			},
 		},
@@ -81,6 +89,51 @@ func unsetFeatureFlag() cli.Command {
 				return errors.Wrapf(err, "problem encountered setting flag '%s', reported state %t", flag, state)
 			}
 			grip.Infof("successfully set '%s' to '%t", flag, state)
+			return nil
+		},
+	}
+}
+
+func getAPIKey() cli.Command {
+	const (
+		userNameFlag = "username"
+		passwordFlag = "password"
+	)
+
+	return cli.Command{
+		Name:  "fetch",
+		Usage: "get an api key for a given username/password",
+		Flags: restServiceFlags(
+			cli.StringFlag{
+				Name: userNameFlag,
+			},
+			cli.StringFlag{
+				Name: passwordFlag,
+			},
+		),
+		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireStringFlag(passwordFlag)),
+		Action: func(c *cli.Context) error {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			user := c.String(userNameFlag)
+			pass := c.String(passwordFlag)
+
+			key, err := client.GetAuthKey(ctx, user, pass)
+			if err != nil {
+				return errors.Wrap(err, "problem generating token")
+			}
+
+			grip.Notice(message.Fields{
+				"op":   "generated api token",
+				"user": user,
+				"key":  key,
+			})
 			return nil
 		},
 	}
