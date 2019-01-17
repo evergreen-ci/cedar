@@ -33,7 +33,7 @@ func (s *UserTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.sess = session
 	s.c = session.DB(conf.DatabaseName).C(userCollection)
-	s.c.DropCollection()
+	s.Require().NoError(s.c.DropCollection())
 
 	s.users = []*DBUser{
 		&DBUser{
