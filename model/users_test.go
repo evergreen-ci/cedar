@@ -139,7 +139,7 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	s.Equal(s.users[0].ID, u1.ID)
 
 	u2 := &DBUser{}
-	s.Require().NoError(s.c.FindId(s.users[1].ID).One(u1))
+	s.Require().NoError(s.c.FindId(s.users[1].ID).One(u2))
 	s.Equal(s.users[1].ID, u2.ID)
 
 	s.NotEqual(u1.LoginCache.Token, u2.LoginCache.Token)
