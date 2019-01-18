@@ -282,7 +282,7 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
 			err = startPerfService(ctx, env)
