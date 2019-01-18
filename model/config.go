@@ -18,7 +18,7 @@ type CedarConfig struct {
 	ID     string                    `bson:"_id" json:"id" yaml:"id"`
 	Splunk send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
 	Slack  SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP   LDAPConfig                `bson:"ldap" json:"ldap" yaml"ldap"`
+	LDAP   LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
 	Flags  OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 
 	populated bool
