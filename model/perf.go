@@ -25,7 +25,7 @@ const perfResultCollection = "perf_results"
 type PerformanceResult struct {
 	ID          string                `bson:"_id,omitempty"`
 	Info        PerformanceResultInfo `bson:"info,omitempty"`
-	CreatedAt   time.Time             `bson:"created_ts"`
+	CreatedAt   time.Time             `bson:"created_at"`
 	CompletedAt time.Time             `bson:"completed_at"`
 	Version     int                   `bson:"version,omitempty"`
 
@@ -257,7 +257,7 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 
 func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string]interface{} {
 	search := bson.M{
-		"created_ts":   bson.M{"$gte": options.Interval.StartAt},
+		"created_at":   bson.M{"$gte": options.Interval.StartAt},
 		"completed_at": bson.M{"$lte": options.Interval.EndAt},
 	}
 	if options.Info.Project != "" {
