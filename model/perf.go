@@ -53,12 +53,14 @@ type PerformanceResult struct {
 }
 
 var (
-	perfIDKey        = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
-	perfInfoKey      = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfArtifactsKey = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
-	perfRollupsKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
-	perfTotalKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
-	perfVersionlKey  = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
+	perfIDKey          = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey        = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfCreatedAtKey   = bsonutil.MustHaveTag(PerformanceResult{}, "CreatedAt")
+	perfCompletedAtKey = bsonutil.MustHaveTag(PerformanceResult{}, "CompletedAt")
+	perfArtifactsKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
+	perfRollupsKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfTotalKey       = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
+	perfVersionlKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
 func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) *PerformanceResult {
@@ -161,6 +163,7 @@ var (
 	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Parent")
 	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Tags")
 	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Arguments")
+	perfResultInfoSchemaKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
 )
 
 func (id *PerformanceResultInfo) ID() string {

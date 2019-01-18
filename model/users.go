@@ -24,8 +24,7 @@ type DBUser struct {
 	SystemRoles  []string   `bson:"roles"`
 	LoginCache   LoginCache `bson:"login_cache"`
 
-	env       cedar.Environment
-	populated bool
+	env cedar.Environment
 }
 
 var (

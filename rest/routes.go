@@ -697,5 +697,4 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	resp.Key = key
 	gimlet.WriteJSON(rw, resp)
-	return
 }

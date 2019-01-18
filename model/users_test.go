@@ -33,25 +33,25 @@ func (s *UserTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.sess = session
 	s.c = session.DB(conf.DatabaseName).C(userCollection)
-	s.Require().NoError(s.c.DropCollection())
+	_ = s.c.DropCollection()
 
 	s.users = []*DBUser{
 		&DBUser{
-			Id: "Test1",
+			ID: "Test1",
 			LoginCache: LoginCache{
 				Token: "1234",
 				TTL:   time.Now(),
 			},
 		},
 		&DBUser{
-			Id: "Test2",
+			ID: "Test2",
 			LoginCache: LoginCache{
 				Token: "4321",
 				TTL:   time.Now().Add(-time.Hour),
 			},
 		},
 		&DBUser{
-			Id: "Test3",
+			ID: "Test3",
 			LoginCache: LoginCache{
 				Token: "5678",
 				TTL:   time.Now(),
@@ -70,12 +70,12 @@ func (s *UserTestSuite) TearDownTest() {
 }
 
 func (s *UserTestSuite) TestGetUser() {
-	u, err := GetUser(s.users[0].Id)
+	u, err := GetUser(s.users[0].ID)
 	s.NoError(err)
 	s.Require().NotNil(u)
 	s.Equal("Test1", u.Username())
 
-	u, err = GetUser(s.users[1].Id)
+	u, err = GetUser(s.users[1].ID)
 	s.NoError(err)
 	s.Require().NotNil(u)
 	s.Equal("Test2", u.Username())
@@ -97,7 +97,7 @@ func (s *UserTestSuite) TestGetOrAddUser() {
 	s.Equal("Test2", u.Username())
 
 	newUser := &DBUser{
-		Id:           "NewUser",
+		ID:           "NewUser",
 		Display:      "user",
 		EmailAddress: "fake@fake.com",
 		APIKey:       "2345435",
@@ -112,7 +112,7 @@ func (s *UserTestSuite) TestGetOrAddUser() {
 	s.Equal([]string{"admin"}, u.Roles())
 	fromDB := &DBUser{}
 	s.Require().NoError((s.c.FindId("NewUser").One(fromDB)))
-	s.Equal("NewUser", fromDB.Id)
+	s.Equal("NewUser", fromDB.ID)
 	s.Equal("user", fromDB.Display)
 	s.Equal("fake@fake.com", fromDB.EmailAddress)
 	s.Equal("2345435", fromDB.APIKey)
@@ -130,17 +130,17 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	s.NoError(err)
 	s.NotEmpty(token2)
 
-	token3, err := PutLoginCache(&DBUser{Id: "asdf"})
+	token3, err := PutLoginCache(&DBUser{ID: "asdf"})
 	s.Error(err)
 	s.Empty(token3)
 
 	u1 := &DBUser{}
-	s.Require().NoError(s.c.FindId(s.users[0].Id).One(u1))
-	s.Equal(s.users[0].Id, u1.Id)
+	s.Require().NoError(s.c.FindId(s.users[0].ID).One(u1))
+	s.Equal(s.users[0].ID, u1.ID)
 
 	u2 := &DBUser{}
-	s.Require().NoError(s.c.FindId(s.users[1].Id).One(u2))
-	s.Equal(s.users[1].Id, u2.Id)
+	s.Require().NoError(s.c.FindId(s.users[1].ID).One(u2))
+	s.Equal(s.users[1].ID, u2.ID)
 
 	s.NotEqual(u1.LoginCache.Token, u2.LoginCache.Token)
 	s.WithinDuration(time.Now(), u1.LoginCache.TTL, time.Second)
@@ -151,7 +151,7 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	token4, err := PutLoginCache(s.users[0])
 	s.NoError(err)
 	u1Updated := &DBUser{}
-	s.Require().NoError(s.c.FindId(s.users[0].Id).One(u1Updated))
+	s.Require().NoError(s.c.FindId(s.users[0].ID).One(u1Updated))
 	s.Equal(u1.LoginCache.Token, u1Updated.LoginCache.Token)
 	s.NotEqual(u1.LoginCache.TTL, u1Updated.LoginCache.TTL)
 	s.Equal(token1, token4)
@@ -160,7 +160,7 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	token5, err := PutLoginCache(s.users[2])
 	s.NoError(err)
 	u5 := &DBUser{}
-	s.Require().NoError(s.c.FindId(s.users[2].Id).One(u5))
+	s.Require().NoError(s.c.FindId(s.users[2].ID).One(u5))
 	s.Equal(token5, u5.LoginCache.Token)
 	s.NoError(err)
 	s.NotEmpty(token5)
@@ -191,7 +191,7 @@ func (s *UserTestSuite) TestGetLoginCache() {
 
 func (s *UserTestSuite) TestClearLoginCacheSingleUser() {
 	// Error on non-existent user
-	s.Error(ClearLoginCache(&DBUser{Id: "asdf"}, false))
+	s.Error(ClearLoginCache(&DBUser{ID: "asdf"}, false))
 
 	// Two valid users...
 	u1, valid, err := GetLoginCache("1234")
