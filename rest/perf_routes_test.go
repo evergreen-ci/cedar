@@ -301,6 +301,8 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string) {
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	lessThanTime := time.Now()
+	// sleep to combat window's low time resolution
+	time.Sleep(time.Second)
 	rh := s.rh[handler]
 
 	err := rh.Parse(ctx, req)
