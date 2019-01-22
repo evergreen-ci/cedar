@@ -13,6 +13,7 @@ type Configuration struct {
 	DatabaseName       string
 	MongoDBURI         string
 	MongoDBDialTimeout time.Duration
+	SocketTimeout      time.Duration
 	UseLocalQueue      bool
 	NumWorkers         int
 }
@@ -28,6 +29,9 @@ func (c *Configuration) Validate() error {
 	}
 	if c.MongoDBDialTimeout <= 0 {
 		c.MongoDBDialTimeout = 2 * time.Second
+	}
+	if c.SocketTimeout <= 0 {
+		c.SocketTimeout = time.Minute
 	}
 
 	return catcher.Resolve()
