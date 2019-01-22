@@ -17,7 +17,6 @@ lintArgs := --tests --deadline=14m --vendor
 #   gotype produces false positives because it reads .a files which
 #   are rarely up to date.
 lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
-lintArgs += --disable="megacheck" --enable="unused" --enable="gosimple"
 lintArgs += --skip="build"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
