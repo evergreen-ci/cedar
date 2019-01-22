@@ -20,9 +20,10 @@ func TestDBUser(t *testing.T) {
 	s := &UserTestSuite{}
 	env := cedar.GetEnvironment()
 	s.Require().NoError(env.Configure(&cedar.Configuration{
-		MongoDBURI:   "mongodb://localhost:27017",
-		NumWorkers:   2,
-		DatabaseName: "user-test",
+		MongoDBURI:    "mongodb://localhost:27017",
+		SocketTimeout: time.Hour,
+		NumWorkers:    2,
+		DatabaseName:  "user-test",
 	}))
 	suite.Run(t, s)
 
