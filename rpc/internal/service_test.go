@@ -151,7 +151,7 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, test.mockEnv))
 			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
 			err = startPerfService(ctx, env)
@@ -282,7 +282,7 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
 			err = startPerfService(ctx, env)
