@@ -301,6 +301,8 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string) {
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	lessThanTime := time.Now()
+	// sleep to combat window's low time resolution
+	time.Sleep(time.Second)
 	rh := s.rh[handler]
 
 	err := rh.Parse(ctx, req)
@@ -309,6 +311,8 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string) {
 	// ensure default EndAt time is within the time period in which the function
 	// has been called
 	s.True(interval.EndAt.After(lessThanTime))
+	// sleep to combat window's low time resolution
+	time.Sleep(time.Second)
 	s.True(interval.EndAt.Before(time.Now()))
 	s.Nil(getTags(rh, handler))
 	s.NoError(err)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/pkg/errors"
@@ -47,9 +48,10 @@ func TestModelInterface(t *testing.T) {
 
 	env := cedar.GetEnvironment()
 	assert.NoError(t, env.Configure(&cedar.Configuration{
-		MongoDBURI:   "mongodb://localhost:27017",
-		NumWorkers:   2,
-		DatabaseName: dbName,
+		MongoDBURI:    "mongodb://localhost:27017",
+		SocketTimeout: time.Hour,
+		NumWorkers:    2,
+		DatabaseName:  dbName,
 	}))
 
 	session, err := env.GetSession()
@@ -111,9 +113,10 @@ func TestCommonModelSlice(t *testing.T) {
 
 	env := cedar.GetEnvironment()
 	assert.NoError(t, env.Configure(&cedar.Configuration{
-		MongoDBURI:   "mongodb://localhost:27017",
-		NumWorkers:   2,
-		DatabaseName: dbName,
+		MongoDBURI:    "mongodb://localhost:27017",
+		SocketTimeout: time.Hour,
+		NumWorkers:    2,
+		DatabaseName:  dbName,
 	}))
 
 	session, err := env.GetSession()

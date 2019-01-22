@@ -17,6 +17,7 @@ func createEnv() (cedar.Environment, error) {
 	err := env.Configure(&cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  "grpc_test",
+		SocketTimeout: time.Hour,
 		NumWorkers:    2,
 		UseLocalQueue: true,
 	})

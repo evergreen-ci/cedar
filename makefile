@@ -1,7 +1,7 @@
 # start project configuration
 name := cedar
 buildDir := build
-packages := $(name) rest units operations cost model depgraph perf pail
+packages := $(name) rest units operations cost model depgraph perf
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration

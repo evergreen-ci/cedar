@@ -73,6 +73,7 @@ func (c *envState) Configure(conf *Configuration) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to db %s", conf.MongoDBURI)
 	}
+	c.session.SetSocketTimeout(conf.SocketTimeout)
 
 	if conf.UseLocalQueue {
 		c.queue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)

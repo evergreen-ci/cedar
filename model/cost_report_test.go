@@ -124,6 +124,7 @@ func TestCostReport(t *testing.T) {
 		require.NoError(t, env.Configure(&cedar.Configuration{
 			MongoDBURI:    "mongodb://localhost:27017",
 			DatabaseName:  "cedar_test_costreport",
+			SocketTimeout: time.Hour,
 			NumWorkers:    2,
 			UseLocalQueue: true,
 		}))

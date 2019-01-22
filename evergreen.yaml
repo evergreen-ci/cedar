@@ -247,7 +247,7 @@ buildvariants:
     display_name: macOS 10.12
     expansions:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
-      build_env: "GOROOT=/usr/local/golang/go1.11 PATH=/usr/local/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
+      build_env: "GOROOT=/opt/golang/go1.11 PATH=/opt/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
     run_on:
       - macos-1012
     tasks:
