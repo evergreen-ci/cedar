@@ -2,6 +2,7 @@ package cedar
 
 import (
 	"sync"
+	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
@@ -70,6 +71,7 @@ func (c *envState) Configure(conf *Configuration) error {
 
 	// create and cache a db session for use in tasks
 	c.session, err = mgo.DialWithTimeout(conf.MongoDBURI, conf.MongoDBDialTimeout)
+	c.session.SetSocketTimeout(time.Hour)
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to db %s", conf.MongoDBURI)
 	}
