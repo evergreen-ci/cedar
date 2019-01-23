@@ -167,39 +167,9 @@ func Service() cli.Command {
 			//
 			// starting grpc
 			//
-			middlewareConf := gimlet.UserMiddlewareConfiguration{
-				CookieName:     cedar.AuthTokenCookie,
-				HeaderUserName: cedar.APIUserHeader,
-				HeaderKeyName:  cedar.APIKeyHeader,
-			}
-			rpcOpts := []grpc.ServerOption{}
-
-			if ldapConf.URL != "" {
-				rpcOpts = append(rpcOpts,
-					grpc.UnaryInterceptor(
-						aviation.ChainUnaryServer(
-							aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender())),
-							aviation.MakeAuthenticationRequiredUnaryInterceptor(
-								userManager,
-								middlewareConf,
-							),
-						),
-					),
-					grpc.StreamInterceptor(
-						aviation.ChainStreamServer(
-							aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender())),
-							aviation.MakeAuthenticationRequiredStreamingInterceptor(
-								userManager,
-								middlewareConf,
-							),
-						),
-					),
-				)
-			} else {
-				rpcOpts = append(rpcOpts,
-					grpc.UnaryInterceptor(aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))),
-					grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
-				)
+			rpcOpts := []grpc.ServerOption{
+				grpc.UnaryInterceptor(aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))),
+				grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
 			}
 
 			hasCerts := rpcCertKeyPath != "" || rpcCertPath != ""
