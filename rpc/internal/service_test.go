@@ -2,8 +2,8 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -331,10 +331,11 @@ func TestService(t *testing.T) {
 
 	// these tests assumes you have a curator binary in the cwd
 	t.Run("WithoutAuthOrTLS", func(t *testing.T) {
-		dir, err := os.Getwd()
+		cmd := exec.Command("ls")
+		output, err := cmd.Output()
 		require.NoError(t, err)
-		assert.Equal(t, "thing", dir)
-		cmd := exec.Command(
+		fmt.Println(string(output))
+		cmd = exec.Command(
 			"./curator",
 			"poplar",
 			"send",

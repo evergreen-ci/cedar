@@ -278,7 +278,7 @@ buildvariants:
       build_env: "GOROOT=c:/golang/go1.11 PATH=/cygdrive/c/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
       extension: ".exe"
       archiveExt: ".zip"
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-windows-32-latest.tar.gz
+      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-windows-64-latest.tar.gz
     tasks:
       - name: ".test"
       - name: "dist"
