@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -328,24 +329,29 @@ func TestService(t *testing.T) {
 	defer require.NoError(t, tearDownEnv(env, false))
 	assert.NoError(t, startPerfService(ctx, env))
 
-	assert.NoError(t, err)
-	cmd := exec.Command(
-		"./curator",
-		"poplar",
-		"send",
-		"--service",
-		localAddress,
-		"--path",
-		filepath.Join("testdata", "mockTestResults.yaml"),
-		"--insecure",
-	)
-	assert.NoError(t, cmd.Run())
+	// these tests assumes you have a curator binary in the cwd
+	t.Run("WithoutAuthOrTLS", func(t *testing.T) {
+		dir, err := os.Getwd()
+		require.NoError(t, err)
+		assert.Equal(t, "thing", dir)
+		cmd := exec.Command(
+			"./curator",
+			"poplar",
+			"send",
+			"--service",
+			localAddress,
+			"--path",
+			filepath.Join("testdata", "mockTestResults.yaml"),
+			"--insecure",
+		)
+		assert.NoError(t, cmd.Run())
 
-	conf, session, err := cedar.GetSessionWithConfig(env)
-	require.NoError(t, err)
+		conf, session, err := cedar.GetSessionWithConfig(env)
+		require.NoError(t, err)
 
-	perfResult := &model.PerformanceResult{}
-	assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
-	assert.Equal(t, "abcd", perfResult.Info.TaskID)
-	assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
+		perfResult := &model.PerformanceResult{}
+		assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
+		assert.Equal(t, "abcd", perfResult.Info.TaskID)
+		assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
+	})
 }
