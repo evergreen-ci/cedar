@@ -715,6 +715,23 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
+		return
+	}
+
+	user, err := s.UserManager.GetUserByToken(r.Context(), token)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
+		return
+	} else if user == nil {
+		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+			Message:    "user not defined",
+			StatusCode: http.StatusUnauthorized,
+		})
+	}
+
 	// we have a local cert on the system, let's use it.
 	crt, err := depot.GetCertificate(s.CertDepot, creds.Username)
 	if err == nil {
