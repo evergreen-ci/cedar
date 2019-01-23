@@ -136,6 +136,7 @@ functions:
       params:
         script: |
           set -o errexit
+          set -o verbose
 
           cd mongodb
           ./mongo${extension|} --nodb --eval 'assert.soon(function(x){try{var d = new Mongo("localhost:27017"); return true}catch(e){return false}}, "timed out connecting")'
@@ -150,7 +151,6 @@ functions:
 
           mkdir ~/curator
           cd ~/curator
-          curl ${curator_url}
           curl ${curator_url} -o curator${archiveExt|.tgz}
           ${decompress} curator${archiveExt|.tgz}
 
