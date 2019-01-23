@@ -3,11 +3,14 @@ package internal
 import (
 	"context"
 	"net"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +20,8 @@ import (
 )
 
 const (
-	address = "localhost:50051"
+	localAddress  = "localhost:50051"
+	remoteAddress = "https://lb-dev.vpc3.10gen.cc:7070"
 )
 
 type MockEnv struct {
@@ -49,7 +53,7 @@ func (m *MockEnv) GetSession() (*mgo.Session, error) {
 }
 
 func startPerfService(ctx context.Context, env cedar.Environment) error {
-	lis, err := net.Listen("tcp", address)
+	lis, err := net.Listen("tcp", localAddress)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -67,7 +71,7 @@ func startPerfService(ctx context.Context, env cedar.Environment) error {
 }
 
 func getClient(ctx context.Context) (CedarPerformanceMetricsClient, error) {
-	conn, err := grpc.DialContext(ctx, address, grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, localAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -315,4 +319,35 @@ func TestAttachResultData(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createEnv(false)
+	assert.NoError(t, err)
+	defer require.NoError(t, tearDownEnv(env, false))
+	assert.NoError(t, startPerfService(ctx, env))
+
+	homeDir, err := homedir.Dir()
+	assert.NoError(t, err)
+	cmd := exec.Command(
+		filepath.Join(homeDir, "curator", "curator"),
+		"poplar",
+		"send",
+		"--service",
+		localAddress,
+		"--path",
+		filepath.Join("testdata", "mockTestResults.yaml"),
+		"--insecure",
+	)
+	assert.NoError(t, cmd.Run())
+
+	conf, session, err := cedar.GetSessionWithConfig(env)
+	require.NoError(t, err)
+
+	perfResult := &model.PerformanceResult{}
+	assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
+	assert.Equal(t, "abcd", perfResult.Info.TaskID)
+	assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
 }
