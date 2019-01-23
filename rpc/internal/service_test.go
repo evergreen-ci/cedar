@@ -330,7 +330,7 @@ func TestService(t *testing.T) {
 
 	assert.NoError(t, err)
 	cmd := exec.Command(
-		filepath.Join("..", "..", "curator"),
+		filepath.Join("..", "..", "..", "curator"),
 		"poplar",
 		"send",
 		"--service",
