@@ -340,6 +340,10 @@ func TestService(t *testing.T) {
 		for _, file := range files {
 			fmt.Println(file.Name())
 		}
+		err = os.Stat("curator")
+		fmt.Println(err)
+		err = os.Stat("service.go")
+		fmt.Println(err)
 		curatorPath, err := filepath.Abs("curator")
 		require.NoError(t, err)
 		cmd := exec.Command(
