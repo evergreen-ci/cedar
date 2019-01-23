@@ -10,7 +10,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -329,10 +328,9 @@ func TestService(t *testing.T) {
 	defer require.NoError(t, tearDownEnv(env, false))
 	assert.NoError(t, startPerfService(ctx, env))
 
-	homeDir, err := homedir.Dir()
 	assert.NoError(t, err)
 	cmd := exec.Command(
-		filepath.Join(homeDir, "curator", "curator"),
+		filepath.Join("..", "..", "curator"),
 		"poplar",
 		"send",
 		"--service",

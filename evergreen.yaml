@@ -149,10 +149,8 @@ functions:
           set -o errexit
           set -o verbose
 
-          mkdir ~/curator
-          cd ~/curator
-          curl ${curator_url} -o curator${archiveExt|.tgz}
-          ${decompress} curator${archiveExt|.tgz}
+          curl ${curator_url} -o curator$.tgz
+          ${decompress} curator$.tgz
 
 #######################################
 #                Tasks                #
