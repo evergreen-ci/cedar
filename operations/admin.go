@@ -34,7 +34,7 @@ func Admin() cli.Command {
 			},
 			{
 				Name:  "auth",
-				Usage: "mange user authentication",
+				Usage: "manage user authentication",
 				Subcommands: []cli.Command{
 					getAPIKey(),
 					getUserCert(),
