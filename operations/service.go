@@ -6,6 +6,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/evergreen-ci/aviation"
@@ -19,6 +21,7 @@ import (
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -133,6 +136,9 @@ func Service() cli.Command {
 				}
 			}
 
+			certDepot, err := depot.NewFileDepot(filepath.Dir(rpcCertPath))
+			grip.Warning(errors.Wrap(err, "no certificate depot constructed"))
+
 			///////////////////////////////////
 			//
 			// starting rest service
@@ -142,6 +148,8 @@ func Service() cli.Command {
 				Prefix:      "rest",
 				Environment: env,
 				UserManager: userManager,
+				CertDepot:   certDepot,
+				ServiceName: strings.TrimSuffix(filepath.Base(rpcCertPath), filepath.Ext(rpcCertPath)),
 			}
 			if err := service.Validate(); err != nil {
 				return errors.Wrap(err, "problem validating service")

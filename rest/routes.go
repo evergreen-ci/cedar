@@ -17,6 +17,7 @@ import (
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -697,4 +698,45 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	resp.Key = key
 	gimlet.WriteJSON(rw, resp)
+}
+
+func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	creds := &userCredentials{}
+	if err := gimlet.GetJSON(r.Body, creds); err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem reading request body")))
+		return
+	}
+
+	if creds.Username == "" {
+		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+			Message:    "no username specified",
+			StatusCode: http.StatusUnauthorized,
+		})
+	}
+
+	// we have a local cert on the system, let's use it.
+	crt, err := depot.GetCertificate(s.CertDepot, creds.Username)
+	if err == nil {
+		data, err := crt.Export()
+		if err != nil {
+			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
+			return
+		}
+
+		gimlet.WriteBinary(rw, data)
+		return
+	}
+
+	// we need to make a cert:
+	// if this were a shell script using certstrap, we'd:
+	//  - certstrap request-cert --common-name <creds.Username>
+	//  - certstrap sign <creds.Username> --CA <s.ServiceName>
+	// then:
+	//  - return the contents of the cert as above
+
+	gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
+		Message:    "certificate generation not supported.",
+		StatusCode: http.StatusNotImplemented,
+	})
 }
