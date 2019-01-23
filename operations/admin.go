@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/grip"
@@ -32,10 +33,11 @@ func Admin() cli.Command {
 				},
 			},
 			{
-				Name:  "key",
-				Usage: "mange user keys",
+				Name:  "auth",
+				Usage: "manage user authentication",
 				Subcommands: []cli.Command{
 					getAPIKey(),
+					getUserCert(),
 				},
 			},
 		},
@@ -101,7 +103,7 @@ func getAPIKey() cli.Command {
 	)
 
 	return cli.Command{
-		Name:  "fetch",
+		Name:  "key",
 		Usage: "get an api key for a given username/password",
 		Flags: restServiceFlags(
 			cli.StringFlag{
@@ -134,6 +136,53 @@ func getAPIKey() cli.Command {
 				"user": user,
 				"key":  key,
 			})
+			return nil
+		},
+	}
+}
+
+func getUserCert() cli.Command {
+	const (
+		userNameFlag = "username"
+		passwordFlag = "password"
+	)
+
+	return cli.Command{
+		Name:  "cert",
+		Usage: "get a certificate for a user",
+		Flags: restServiceFlags(
+			cli.StringFlag{
+				Name: userNameFlag,
+			},
+			cli.StringFlag{
+				Name: passwordFlag,
+			},
+		),
+		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireStringFlag(passwordFlag)),
+		Action: func(c *cli.Context) error {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "rest")
+			if err != nil {
+				return errors.Wrap(err, "problem creating REST client")
+			}
+
+			user := c.String(userNameFlag)
+			pass := c.String(passwordFlag)
+
+			cert, err := client.GetUserCertificate(ctx, user, pass)
+			if err != nil {
+				return errors.Wrap(err, "problem generating token")
+			}
+
+			grip.Notice(message.Fields{
+				"op":   "generated user cert",
+				"user": user,
+			})
+
+			fmt.Println(cert)
+
 			return nil
 		},
 	}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -506,4 +507,41 @@ func (c *Client) GetAuthKey(ctx context.Context, username, password string) (str
 	}
 
 	return out.Key, nil
+}
+
+func (c *Client) GetUserCertificate(ctx context.Context, username, password string) (string, error) {
+	url := c.getURL("/v1/admin/users/cert")
+
+	creds := &userCredentials{Username: username, Password: password}
+	payload, err := json.Marshal(creds)
+	if err != nil {
+		return "", errors.Wrap(err, "problem building payload")
+	}
+
+	req, err := c.makeRequest(ctx, http.MethodGet, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return "", errors.Wrap(err, "problem building request")
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		srverr := gimlet.ErrorResponse{}
+		if err := gimlet.GetJSON(resp.Body, &srverr); err != nil {
+			return "", errors.Wrap(err, "problem parsing error message")
+		}
+
+		return "", srverr
+	}
+
+	out, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrap(err, "problem reading certificate from response")
+	}
+
+	return string(out), nil
 }
