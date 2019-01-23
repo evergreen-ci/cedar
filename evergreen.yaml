@@ -51,7 +51,7 @@ variables:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: set-up-mongodb
+      - func: setup-mongodb
       - func: setup-credentials
       - func: setup-curator
       - func: run-make
@@ -99,7 +99,7 @@ functions:
          # Run make, called with proper environment variables set,
          # running the target.
          ${build_env|} make -k ${target}
-  set-up-mongodb:
+  setup-mongodb:
     - command: shell.exec
       type: setup
       params:
@@ -141,7 +141,7 @@ functions:
           cd mongodb
           ./mongo${extension|} --nodb --eval 'assert.soon(function(x){try{var d = new Mongo("localhost:27017"); return true}catch(e){return false}}, "timed out connecting")'
           echo "mongod is up."
-  set-up-curator:
+  setup-curator:
     - command: shell.exec
       type: setup
       params:
@@ -214,7 +214,7 @@ tasks:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: set-up-mongodb
+      - func: setup-mongodb
       - func: setup-credentials
       - func: setup-curator
       - func: run-make
