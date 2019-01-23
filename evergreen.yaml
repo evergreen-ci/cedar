@@ -150,7 +150,7 @@ functions:
           set -o verbose
 
           curl ${curator_url} -o curator.tgz
-          ${decompress} curator.tgz
+          tar zxvf curator.tgz
           mv curator gopath/src/github.com/evergreen-ci/cedar/rpc/internal
 
 #######################################
