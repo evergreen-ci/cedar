@@ -149,8 +149,9 @@ functions:
           set -o errexit
           set -o verbose
 
-          curl ${curator_url} -o curator$.tgz
-          ${decompress} curator$.tgz
+          curl ${curator_url} -o curator.tgz
+          ${decompress} curator.tgz
+          mv curator.tgz cedar/rpc/internal/
 
 #######################################
 #                Tasks                #
