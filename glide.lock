@@ -58,6 +58,8 @@ imports:
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/montanaflynn/stats
   version: 1bf9dbcd8cbe1fdb75add3785b1d4a9a646269ab
+- name: github.com/mitchellh/go-homedir
+  version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
 
 # grpc and dependencies
 - name: google.golang.org/grpc

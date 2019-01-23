@@ -22,3 +22,4 @@ import:
 - package: github.com/urfave/cli
 - package: golang.org/x/exp
 - package: gopkg.in/mgo.v2
+- package: github.com/mitchellh/go-homedir
