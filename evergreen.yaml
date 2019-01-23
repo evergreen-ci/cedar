@@ -151,7 +151,7 @@ functions:
 
           curl ${curator_url} -o curator.tgz
           ${decompress} curator.tgz
-          mv curator.tgz gopath/src/github.com/evergreen-ci/cedar/rpc/internal
+          mv curator gopath/src/github.com/evergreen-ci/cedar/rpc/internal
 
 #######################################
 #                Tasks                #
