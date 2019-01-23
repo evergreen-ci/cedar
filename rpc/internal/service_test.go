@@ -2,7 +2,10 @@ package internal
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -330,6 +333,13 @@ func TestService(t *testing.T) {
 
 	// these tests assumes you have a curator binary in the cwd
 	t.Run("WithoutAuthOrTLS", func(t *testing.T) {
+		cwd, err := os.Getwd()
+		require.NoError(t, err)
+		files, err := ioutil.ReadDir(cwd)
+		require.NoError(t, err)
+		for _, file := range files {
+			fmt.Println(file.Name())
+		}
 		curatorPath, err := filepath.Abs("curator")
 		require.NoError(t, err)
 		cmd := exec.Command(
