@@ -326,45 +326,35 @@ func TestAttachResultData(t *testing.T) {
 	}
 }
 
-func TestService(t *testing.T) {
+func TestCuratorSend(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	curatorPath, err := filepath.Abs("curator")
 	require.NoError(t, err)
 	for _, test := range []struct {
-		name    string
-		skip    bool
-		local   bool
-		setUp   func(t *testing.T)
-		cleanUp func(t *testing.T)
-		closer  func(t *testing.T)
-		cmd     *exec.Cmd
+		name   string
+		skip   bool
+		local  bool
+		setUp  func(t *testing.T)
+		closer func(t *testing.T)
+		cmd    *exec.Cmd
 	}{
 		{
 			name:  "WithoutAuthOrTLS",
 			local: true,
-			cmd: exec.Command(
-				curatorPath,
-				"poplar",
-				"send",
-				"--service",
-				localAddress,
-				"--path",
-				filepath.Join("testdata", "mockTestResults.yaml"),
-				"--insecure",
-			),
+			cmd:   createSendCommand(curatorPath, localAddress, true),
 			setUp: func(t *testing.T) {
 				env, err := createEnv(false)
 				assert.NoError(t, err)
 				assert.NoError(t, startPerfService(ctx, env))
 			},
-			cleanUp: func(t *testing.T) {
-				env := cedar.GetEnvironment()
-				require.NoError(t, tearDownEnv(env, false))
-			},
 			closer: func(t *testing.T) {
 				env := cedar.GetEnvironment()
+				defer func() {
+					require.NoError(t, tearDownEnv(env, false))
+				}()
+
 				conf, session, err := cedar.GetSessionWithConfig(env)
 				require.NoError(t, err)
 				perfResult := &model.PerformanceResult{}
@@ -374,35 +364,17 @@ func TestService(t *testing.T) {
 			},
 		},
 		{
-			name: "WithAuthAndTLS",
-			skip: true,
-			cmd: exec.Command(
-				curatorPath,
-				"poplar",
-				"send",
-				"--service",
-				remoteAddress,
-				"--path",
-				filepath.Join("testdata", "mockTestResults.yaml"),
-				"--certFile",
-				filepath.Join("testdata", "clientCertFile.crt"),
-			),
+			name:  "WithAuthAndTLS",
+			skip:  true,
+			cmd:   createSendCommand(curatorPath, remoteAddress, false),
 			setUp: func(t *testing.T) {},
-			cleanUp: func(t *testing.T) {
-				remote := strings.Split(remoteAddress, ":")
-				port, err := strconv.Atoi(remote[1])
-				require.NoError(t, err)
-				_, err = rest.NewClient(remote[0], port, "")
-				require.NoError(t, err)
-
-				// delete inserted perf result once exists
-			},
 			closer: func(t *testing.T) {
 				remote := strings.Split(remoteAddress, ":")
 				port, err := strconv.Atoi(remote[1])
 				require.NoError(t, err)
 				_, err = rest.NewClient(remote[0], port, "")
 				require.NoError(t, err)
+				// defer delete perf result
 
 				// find perf result once client code exists
 			},
@@ -417,9 +389,35 @@ func TestService(t *testing.T) {
 			}
 
 			test.setUp(t)
-			defer test.cleanUp(t)
 			assert.NoError(t, test.cmd.Run())
 			test.closer(t)
 		})
+	}
+}
+
+func createSendCommand(curatorPath, address string, insecure bool) *exec.Cmd {
+	if insecure {
+		return exec.Command(
+			curatorPath,
+			"poplar",
+			"send",
+			"--service",
+			address,
+			"--path",
+			filepath.Join("testdata", "mockTestResults.yaml"),
+			"--insecure",
+		)
+	} else {
+		return exec.Command(
+			curatorPath,
+			"poplar",
+			"send",
+			"--service",
+			address,
+			"--path",
+			filepath.Join("testdata", "mockTestResults.yaml"),
+			"--certFile",
+			filepath.Join("testdata", "clientCertFile.crt"),
+		)
 	}
 }
