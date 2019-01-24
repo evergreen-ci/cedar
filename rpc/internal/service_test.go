@@ -335,19 +335,17 @@ func TestCuratorSend(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		skip   bool
-		local  bool
-		setUp  func(t *testing.T)
+		setUp  func(t *testing.T) *exec.Cmd
 		closer func(t *testing.T)
-		cmd    *exec.Cmd
 	}{
 		{
-			name:  "WithoutAuthOrTLS",
-			local: true,
-			cmd:   createSendCommand(curatorPath, localAddress, true),
-			setUp: func(t *testing.T) {
+			name: "WithoutAuthOrTLS",
+			setUp: func(t *testing.T) *exec.Cmd {
 				env, err := createEnv(false)
 				assert.NoError(t, err)
 				assert.NoError(t, startPerfService(ctx, env))
+
+				return createSendCommand(curatorPath, localAddress, true)
 			},
 			closer: func(t *testing.T) {
 				env := cedar.GetEnvironment()
@@ -364,10 +362,11 @@ func TestCuratorSend(t *testing.T) {
 			},
 		},
 		{
-			name:  "WithAuthAndTLS",
-			skip:  true,
-			cmd:   createSendCommand(curatorPath, remoteAddress, false),
-			setUp: func(t *testing.T) {},
+			name: "WithAuthAndTLS",
+			skip: true,
+			setUp: func(t *testing.T) *exec.Cmd {
+				return createSendCommand(curatorPath, remoteAddress, false)
+			},
 			closer: func(t *testing.T) {
 				remote := strings.Split(remoteAddress, ":")
 				port, err := strconv.Atoi(remote[1])
@@ -388,36 +387,27 @@ func TestCuratorSend(t *testing.T) {
 				t.Skip("windows sucks")
 			}
 
-			test.setUp(t)
-			assert.NoError(t, test.cmd.Run())
+			cmd := test.setUp(t)
+			assert.NoError(t, cmd.Run())
 			test.closer(t)
 		})
 	}
 }
 
 func createSendCommand(curatorPath, address string, insecure bool) *exec.Cmd {
-	if insecure {
-		return exec.Command(
-			curatorPath,
-			"poplar",
-			"send",
-			"--service",
-			address,
-			"--path",
-			filepath.Join("testdata", "mockTestResults.yaml"),
-			"--insecure",
-		)
-	} else {
-		return exec.Command(
-			curatorPath,
-			"poplar",
-			"send",
-			"--service",
-			address,
-			"--path",
-			filepath.Join("testdata", "mockTestResults.yaml"),
-			"--certFile",
-			filepath.Join("testdata", "clientCertFile.crt"),
-		)
+	args := []string{
+		"poplar",
+		"send",
+		"--service",
+		address,
+		"--path",
+		filepath.Join("testdata", "mockTestResults.yaml"),
 	}
+	if insecure {
+		args = append(args, "--insecure")
+	} else {
+		args = append(args, "--certFile", filepath.Join("testdata", "clientCertFile.crt"))
+	}
+
+	return exec.Command(curatorPath, args...)
 }
