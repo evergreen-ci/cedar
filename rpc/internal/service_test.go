@@ -2,17 +2,18 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -326,44 +327,97 @@ func TestAttachResultData(t *testing.T) {
 func TestService(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	env, err := createEnv(false)
-	assert.NoError(t, err)
-	defer require.NoError(t, tearDownEnv(env, false))
-	assert.NoError(t, startPerfService(ctx, env))
 
-	// these tests assumes you have a curator binary in the cwd
-	t.Run("WithoutAuthOrTLS", func(t *testing.T) {
-		cwd, err := os.Getwd()
-		require.NoError(t, err)
-		files, err := ioutil.ReadDir(cwd)
-		require.NoError(t, err)
-		for _, file := range files {
-			fmt.Println(file.Name())
-		}
-		_, err = os.Stat("curator")
-		fmt.Println(err)
-		_, err = os.Stat("service.go")
-		fmt.Println(err)
-		curatorPath, err := filepath.Abs("curator")
-		require.NoError(t, err)
-		cmd := exec.Command(
-			curatorPath,
-			"poplar",
-			"send",
-			"--service",
-			localAddress,
-			"--path",
-			filepath.Join("testdata", "mockTestResults.yaml"),
-			"--insecure",
-		)
-		assert.NoError(t, cmd.Run())
+	curatorPath, err := filepath.Abs("curator")
+	require.NoError(t, err)
+	for _, test := range []struct {
+		name    string
+		skip    bool
+		local   bool
+		setUp   func(t *testing.T)
+		cleanUp func(t *testing.T)
+		closer  func(t *testing.T)
+		cmd     *exec.Cmd
+	}{
+		{
+			name:  "WithoutAuthOrTLS",
+			local: true,
+			cmd: exec.Command(
+				curatorPath,
+				"poplar",
+				"send",
+				"--service",
+				localAddress,
+				"--path",
+				filepath.Join("testdata", "mockTestResults.yaml"),
+				"--insecure",
+			),
+			setUp: func(t *testing.T) {
+				env, err := createEnv(false)
+				assert.NoError(t, err)
+				assert.NoError(t, startPerfService(ctx, env))
+			},
+			cleanUp: func(t *testing.T) {
+				env := cedar.GetEnvironment()
+				require.NoError(t, tearDownEnv(env, false))
+			},
+			closer: func(t *testing.T) {
+				env := cedar.GetEnvironment()
+				conf, session, err := cedar.GetSessionWithConfig(env)
+				require.NoError(t, err)
+				perfResult := &model.PerformanceResult{}
+				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
+				assert.Equal(t, "abcd", perfResult.Info.TaskID)
+				assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
+			},
+		},
+		{
+			name: "WithAuthAndTLS",
+			skip: true,
+			cmd: exec.Command(
+				curatorPath,
+				"poplar",
+				"send",
+				"--service",
+				remoteAddress,
+				"--path",
+				filepath.Join("testdata", "mockTestResults.yaml"),
+				"--certFile",
+				filepath.Join("testdata", "clientCertFile.crt"),
+			),
+			setUp: func(t *testing.T) {},
+			cleanUp: func(t *testing.T) {
+				remote := strings.Split(remoteAddress, ":")
+				port, err := strconv.Atoi(remote[1])
+				require.NoError(t, err)
+				_, err = rest.NewClient(remote[0], port, "")
+				require.NoError(t, err)
 
-		conf, session, err := cedar.GetSessionWithConfig(env)
-		require.NoError(t, err)
+				// delete inserted perf result once exists
+			},
+			closer: func(t *testing.T) {
+				remote := strings.Split(remoteAddress, ":")
+				port, err := strconv.Atoi(remote[1])
+				require.NoError(t, err)
+				_, err = rest.NewClient(remote[0], port, "")
+				require.NoError(t, err)
 
-		perfResult := &model.PerformanceResult{}
-		assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
-		assert.Equal(t, "abcd", perfResult.Info.TaskID)
-		assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
-	})
+				// find perf result once client code exists
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if test.skip {
+				t.Skip("test disabled")
+			}
+			if runtime.GOOS == "windows" {
+				t.Skip("windows sucks")
+			}
+
+			test.setUp(t)
+			defer test.cleanUp(t)
+			assert.NoError(t, test.cmd.Run())
+			test.closer(t)
+		})
+	}
 }
