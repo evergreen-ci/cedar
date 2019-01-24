@@ -13,7 +13,7 @@ type PailType string
 
 const (
 	PailS3           PailType = "s3"
-	PailLegacyGridFS          = "gridfs-legacy"
+	PailLegacyGridFS PailType = "gridfs-legacy"
 )
 
 func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
