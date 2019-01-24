@@ -18,6 +18,7 @@ lintArgs := --tests --deadline=14m --vendor
 #   are rarely up to date.
 lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
 lintArgs += --skip="build"
+lintArgs += --exclude="rpc/internal/perf.pb.go"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
 #   the gotype linter has an imperfect compilation simulator and
