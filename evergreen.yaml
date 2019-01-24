@@ -51,8 +51,9 @@ variables:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: set-up-mongodb
+      - func: setup-mongodb
       - func: setup-credentials
+      - func: setup-curator
       - func: run-make
         vars: { target: "${task_name}" }
 
@@ -98,7 +99,7 @@ functions:
          # Run make, called with proper environment variables set,
          # running the target.
          ${build_env|} make -k ${target}
-  set-up-mongodb:
+  setup-mongodb:
     - command: shell.exec
       type: setup
       params:
@@ -140,6 +141,17 @@ functions:
           cd mongodb
           ./mongo${extension|} --nodb --eval 'assert.soon(function(x){try{var d = new Mongo("localhost:27017"); return true}catch(e){return false}}, "timed out connecting")'
           echo "mongod is up."
+  setup-curator:
+    - command: shell.exec
+      type: setup
+      params:
+        script: |
+          set -o errexit
+          set -o verbose
+
+          curl ${curator_url} -o curator.tgz
+          tar zxvf curator.tgz
+          mv curator gopath/src/github.com/evergreen-ci/cedar/rpc/internal
 
 #######################################
 #                Tasks                #
@@ -200,8 +212,9 @@ tasks:
         type: system
         params:
           directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: set-up-mongodb
+      - func: setup-mongodb
       - func: setup-credentials
+      - func: setup-curator
       - func: run-make
         vars:
           target: "coverage-html"
@@ -237,6 +250,7 @@ buildvariants:
     expansions:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
       build_env: "GOROOT=/opt/golang/go1.11 PATH=/opt/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
+      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
     run_on:
       - ubuntu1604-test
     tasks:
@@ -248,6 +262,7 @@ buildvariants:
     expansions:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
       build_env: "GOROOT=/opt/golang/go1.11 PATH=/opt/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
+      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-macos-latest.tar.gz
     run_on:
       - macos-1012
     tasks:
@@ -263,6 +278,7 @@ buildvariants:
       build_env: "GOROOT=c:/golang/go1.11 PATH=/cygdrive/c/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
       extension: ".exe"
       archiveExt: ".zip"
+      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-windows-64-latest.tar.gz
     tasks:
       - name: ".test"
       - name: "dist"

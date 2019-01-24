@@ -1,7 +1,7 @@
 # start project configuration
 name := cedar
 buildDir := build
-packages := $(name) rest units operations cost model depgraph perf
+packages := $(name) rest rest-data rest-model units operations cost model depgraph perf rpc rpc-internal
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -18,6 +18,7 @@ lintArgs := --tests --deadline=14m --vendor
 #   are rarely up to date.
 lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
 lintArgs += --skip="build"
+lintArgs += --exclude="rpc/internal/perf.pb.go"
 #   enable and configure additional linters
 lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
 #   the gotype linter has an imperfect compilation simulator and

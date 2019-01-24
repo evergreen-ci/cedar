@@ -3,11 +3,17 @@ package internal
 import (
 	"context"
 	"net"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +23,8 @@ import (
 )
 
 const (
-	address = "localhost:50051"
+	localAddress  = "localhost:50051"
+	remoteAddress = "https://lb-dev.vpc3.10gen.cc:7070"
 )
 
 type MockEnv struct {
@@ -49,7 +56,7 @@ func (m *MockEnv) GetSession() (*mgo.Session, error) {
 }
 
 func startPerfService(ctx context.Context, env cedar.Environment) error {
-	lis, err := net.Listen("tcp", address)
+	lis, err := net.Listen("tcp", localAddress)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -57,7 +64,9 @@ func startPerfService(ctx context.Context, env cedar.Environment) error {
 	s := grpc.NewServer()
 	AttachService(env, s)
 
-	go s.Serve(lis)
+	go func() {
+		_ = s.Serve(lis)
+	}()
 	go func() {
 		<-ctx.Done()
 		s.Stop()
@@ -67,14 +76,14 @@ func startPerfService(ctx context.Context, env cedar.Environment) error {
 }
 
 func getClient(ctx context.Context) (CedarPerformanceMetricsClient, error) {
-	conn, err := grpc.DialContext(ctx, address, grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, localAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	go func() {
 		<-ctx.Done()
-		conn.Close()
+		_ = conn.Close()
 	}()
 
 	return NewCedarPerformanceMetricsClient(conn), nil
@@ -292,7 +301,7 @@ func TestAttachResultData(t *testing.T) {
 			require.NoError(t, err)
 
 			if test.save {
-				_, err := client.CreateMetricSeries(ctx, test.resultData)
+				_, err = client.CreateMetricSeries(ctx, test.resultData)
 				require.NoError(t, err)
 			}
 
@@ -315,4 +324,90 @@ func TestAttachResultData(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCuratorSend(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	curatorPath, err := filepath.Abs("curator")
+	require.NoError(t, err)
+	for _, test := range []struct {
+		name   string
+		skip   bool
+		setUp  func(t *testing.T) *exec.Cmd
+		closer func(t *testing.T)
+	}{
+		{
+			name: "WithoutAuthOrTLS",
+			setUp: func(t *testing.T) *exec.Cmd {
+				env, err := createEnv(false)
+				assert.NoError(t, err)
+				assert.NoError(t, startPerfService(ctx, env))
+
+				return createSendCommand(curatorPath, localAddress, true)
+			},
+			closer: func(t *testing.T) {
+				env := cedar.GetEnvironment()
+				defer func() {
+					require.NoError(t, tearDownEnv(env, false))
+				}()
+
+				conf, session, err := cedar.GetSessionWithConfig(env)
+				require.NoError(t, err)
+				perfResult := &model.PerformanceResult{}
+				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
+				assert.Equal(t, "abcd", perfResult.Info.TaskID)
+				assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
+			},
+		},
+		{
+			name: "WithAuthAndTLS",
+			skip: true,
+			setUp: func(t *testing.T) *exec.Cmd {
+				return createSendCommand(curatorPath, remoteAddress, false)
+			},
+			closer: func(t *testing.T) {
+				remote := strings.Split(remoteAddress, ":")
+				port, err := strconv.Atoi(remote[1])
+				require.NoError(t, err)
+				_, err = rest.NewClient(remote[0], port, "")
+				require.NoError(t, err)
+				// defer delete perf result
+
+				// find perf result once client code exists
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if test.skip {
+				t.Skip("test disabled")
+			}
+			if runtime.GOOS == "windows" {
+				t.Skip("windows sucks")
+			}
+
+			cmd := test.setUp(t)
+			assert.NoError(t, cmd.Run())
+			test.closer(t)
+		})
+	}
+}
+
+func createSendCommand(curatorPath, address string, insecure bool) *exec.Cmd {
+	args := []string{
+		"poplar",
+		"send",
+		"--service",
+		address,
+		"--path",
+		filepath.Join("testdata", "mockTestResults.yaml"),
+	}
+	if insecure {
+		args = append(args, "--insecure")
+	} else {
+		args = append(args, "--certFile", filepath.Join("testdata", "clientCertFile.crt"))
+	}
+
+	return exec.Command(curatorPath, args...)
 }

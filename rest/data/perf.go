@@ -279,15 +279,15 @@ func (mc *MockConnector) FindPerformanceResultWithChildren(id string, maxDepth i
 }
 
 func (mc *MockConnector) checkInterval(id string, interval util.TimeRange) bool {
-	result, _ := mc.CachedPerformanceResults[id]
+	result := mc.CachedPerformanceResults[id]
 	createdAt := time.Time(result.CreatedAt)
 	completedAt := time.Time(result.CompletedAt)
-	return (interval.StartAt.Before(createdAt) || interval.StartAt.Equal(time.Time(createdAt))) &&
+	return (interval.StartAt.Before(createdAt) || interval.StartAt.Equal(createdAt)) &&
 		(interval.EndAt.After(completedAt) || interval.EndAt.Equal(completedAt))
 }
 
 func (mc *MockConnector) checkTags(id string, tags []string) bool {
-	result, _ := mc.CachedPerformanceResults[id]
+	result := mc.CachedPerformanceResults[id]
 	tagMap := make(map[string]bool)
 	for _, tag := range result.Info.Tags {
 		tagMap[tag] = true
@@ -317,7 +317,7 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) []
 		if seen[next] > maxDepth && maxDepth > 0 {
 			continue
 		}
-		children, _ := mc.ChildMap[next]
+		children := mc.ChildMap[next]
 		queue = append(queue, children...)
 		for _, child := range children {
 			seen[child] = seen[next] + 1

@@ -20,7 +20,7 @@ import (
 
 const (
 	defaultClientPort int = 3000
-	maxClientPort         = 65535
+	maxClientPort     int = 65535
 )
 
 // Client provides an interface for interacting with a remote amboy

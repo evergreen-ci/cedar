@@ -101,7 +101,9 @@ func TestCedarConfig(t *testing.T) {
 			assert.Error(t, flags.update("foo", false))
 		},
 		"FlagsWithEnvRoundTrip": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
-			conf = NewCedarConfig(env)
+			conf.ID = cedarConfigurationID
+			conf.env = env
+			conf.Flags = OperationalFlags{env: env}
 			conf.populated = true
 			require.NoError(t, conf.Save())
 			assert.NoError(t, conf.Flags.update("foo", true))

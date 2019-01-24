@@ -289,6 +289,10 @@ func (s *Service) simpleLogGetText(w http.ResponseWriter, r *http.Request) {
 			}
 			defer reader.Close()
 			data, err := ioutil.ReadAll(reader)
+			if err != nil {
+				gimlet.WriteTextInternalError(w, err.Error())
+				return
+			}
 
 			gimlet.WriteText(w, data)
 		}()
