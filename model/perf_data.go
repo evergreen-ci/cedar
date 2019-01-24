@@ -20,18 +20,18 @@ type MetricType string
 
 const (
 	MetricTypeMean         MetricType = "mean"
-	MetricTypeMedian                  = "median"
-	MetricTypeMax                     = "max"
-	MetricTypeMin                     = "min"
-	MetricTypeSum                     = "sum"
-	MetricTypeStdDev                  = "standard-deviation"
-	MetricTypePercentile99            = "percentile-99th"
-	MetricTypePercentile90            = "percentile-90th"
-	MetricTypePercentile95            = "percentile-95th"
-	MetricTypePercentile80            = "percentile-80th"
-	MetricTypePercentile50            = "percentile-50th"
-	MetricTypeThroughput              = "throughput"
-	MetricTypeLatency                 = "latency"
+	MetricTypeMedian       MetricType = "median"
+	MetricTypeMax          MetricType = "max"
+	MetricTypeMin          MetricType = "min"
+	MetricTypeSum          MetricType = "sum"
+	MetricTypeStdDev       MetricType = "standard-deviation"
+	MetricTypePercentile99 MetricType = "percentile-99th"
+	MetricTypePercentile90 MetricType = "percentile-90th"
+	MetricTypePercentile95 MetricType = "percentile-95th"
+	MetricTypePercentile80 MetricType = "percentile-80th"
+	MetricTypePercentile50 MetricType = "percentile-50th"
+	MetricTypeThroughput   MetricType = "throughput"
+	MetricTypeLatency      MetricType = "latency"
 )
 
 func (t MetricType) Validate() error {

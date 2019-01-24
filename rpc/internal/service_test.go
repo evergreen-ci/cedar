@@ -64,7 +64,9 @@ func startPerfService(ctx context.Context, env cedar.Environment) error {
 	s := grpc.NewServer()
 	AttachService(env, s)
 
-	go s.Serve(lis)
+	go func() {
+		_ = s.Serve(lis)
+	}()
 	go func() {
 		<-ctx.Done()
 		s.Stop()
@@ -81,7 +83,7 @@ func getClient(ctx context.Context) (CedarPerformanceMetricsClient, error) {
 
 	go func() {
 		<-ctx.Done()
-		conn.Close()
+		_ = conn.Close()
 	}()
 
 	return NewCedarPerformanceMetricsClient(conn), nil
@@ -299,7 +301,7 @@ func TestAttachResultData(t *testing.T) {
 			require.NoError(t, err)
 
 			if test.save {
-				_, err := client.CreateMetricSeries(ctx, test.resultData)
+				_, err = client.CreateMetricSeries(ctx, test.resultData)
 				require.NoError(t, err)
 			}
 

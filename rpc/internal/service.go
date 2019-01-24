@@ -23,8 +23,6 @@ func AttachService(env cedar.Environment, s *grpc.Server) {
 	}
 
 	RegisterCedarPerformanceMetricsServer(s, srv)
-
-	return
 }
 
 func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultData) (*MetricsResponse, error) {

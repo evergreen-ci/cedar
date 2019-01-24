@@ -3,8 +3,8 @@ package model
 import (
 	"time"
 
-	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 )
@@ -46,10 +46,10 @@ type FileDataFormat string
 
 const (
 	FileFTDC FileDataFormat = "ftdc"
-	FileBSON                = "bson"
-	FileJSON                = "json"
-	FileCSV                 = "csv"
-	FileText                = "text"
+	FileBSON FileDataFormat = "bson"
+	FileJSON FileDataFormat = "json"
+	FileCSV  FileDataFormat = "csv"
+	FileText FileDataFormat = "text"
 )
 
 func (ff FileDataFormat) Validate() error {
@@ -65,10 +65,10 @@ type FileCompression string
 
 const (
 	FileUncompressed FileCompression = "none"
-	FileTarGz                        = "targz"
-	FileZip                          = "zip"
-	FileGz                           = "gz"
-	FileXz                           = "xz"
+	FileTarGz        FileCompression = "targz"
+	FileZip          FileCompression = "zip"
+	FileGz           FileCompression = "gz"
+	FileXz           FileCompression = "xz"
 )
 
 func (fc FileCompression) Validate() error {
@@ -85,9 +85,9 @@ type FileSchema string
 
 const (
 	SchemaRawEvents       FileSchema = "raw-events"
-	SchemaCollapsedEvents            = "collapsed-events"
-	SchemaIntervalSummary            = "interval-summarization"
-	SchemaHistogram                  = "histogram"
+	SchemaCollapsedEvents FileSchema = "collapsed-events"
+	SchemaIntervalSummary FileSchema = "interval-summarization"
+	SchemaHistogram       FileSchema = "histogram"
 )
 
 func (fs FileSchema) Validate() error {
