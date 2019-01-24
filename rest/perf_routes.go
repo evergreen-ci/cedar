@@ -53,6 +53,44 @@ func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// GET /perf/remove/{id}
+
+type perfRemoveByIdHandler struct {
+	id string
+	sc data.Connector
+}
+
+func makeRemovePerfById(sc data.Connector) gimlet.RouteHandler {
+	return &perfRemoveByIdHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new perfRemoveByIdHandler.
+func (h *perfRemoveByIdHandler) Factory() gimlet.RouteHandler {
+	return &perfRemoveByIdHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the id from the http request.
+func (h *perfRemoveByIdHandler) Parse(ctx context.Context, r *http.Request) error {
+	h.id = gimlet.GetVars(r)["id"]
+	return nil
+}
+
+// Run calls the data RemovePerformanceResultById function and returns the
+// error.
+func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
+	err := h.sc.RemovePerformanceResultById(h.id)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error removing performance result by id '%s'", h.id))
+	}
+	return gimlet.NewJSONResponse(nil)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // GET /perf/task_id/{task_id}
 
 type perfGetByTaskIdHandler struct {

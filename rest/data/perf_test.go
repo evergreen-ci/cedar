@@ -91,6 +91,12 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			},
 			parent: -1,
 		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project: "removeThisOne",
+			},
+			parent: -1,
+		},
 	}
 
 	for _, result := range results {
@@ -201,6 +207,28 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
 	actualResult, err := s.sc.FindPerformanceResultById("doesNotExist")
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
+}
+
+func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
+	// check that exists
+	expectedID := s.results[len(s.results)-1].info.ID()
+	actualResult, err := s.sc.FindPerformanceResultById(expectedID)
+	s.Require().NoError(err)
+	s.Equal(expectedID, *actualResult.Name)
+
+	// remove
+	err = s.sc.RemovePerformanceResultById(s.results[len(s.results)-1].info.ID())
+	s.NoError(err)
+
+	// check that DNE
+	var expectedResult *dataModel.APIPerformanceResult
+	actualResult, err = s.sc.FindPerformanceResultById(expectedID)
+	s.Equal(expectedResult, actualResult)
+	s.Error(err)
+
+	// removinga again should not return an error
+	err = s.sc.RemovePerformanceResultById(s.results[len(s.results)-1].info.ID())
+	s.NoError(err)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {

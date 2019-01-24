@@ -57,7 +57,7 @@ func (s *perfResultSuite) SetupTest() {
 	s.NoError(result2.Save())
 }
 
-func (s *perfResultSuite) TestSavePerfResults() {
+func (s *perfResultSuite) TestSavePerfResult() {
 	info := PerformanceResultInfo{Parent: "345"}
 	source := []ArtifactInfo{}
 	result := CreatePerformanceResult(info, source)
@@ -65,6 +65,30 @@ func (s *perfResultSuite) TestSavePerfResults() {
 	result.CreatedAt = getTimeForTestingByDate(12)
 	s.NoError(result.Save())
 	s.NoError(result.Find())
+}
+
+func (s *perfResultSuite) TestRemovePerfResult() {
+	// save result
+	info := PerformanceResultInfo{Parent: "345"}
+	source := []ArtifactInfo{}
+	result := CreatePerformanceResult(info, source)
+	result.Setup(cedar.GetEnvironment())
+	result.CreatedAt = getTimeForTestingByDate(12)
+	s.NoError(result.Save())
+	s.NoError(result.Find())
+
+	// remove
+	result.Setup(cedar.GetEnvironment())
+	s.NoError(result.Remove())
+
+	// check if exists
+	s.Error(result.Find())
+
+	// remove again should not return error
+	result = CreatePerformanceResult(info, source)
+	result.Setup(cedar.GetEnvironment())
+	result.CreatedAt = getTimeForTestingByDate(12)
+	s.NoError(result.Remove())
 }
 
 func (s *perfResultSuite) TestFindResultsByTimeInterval() {

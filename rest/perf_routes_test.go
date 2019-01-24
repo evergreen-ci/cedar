@@ -77,6 +77,16 @@ func (s *PerfHandlerSuite) setup() {
 					TaskName: model.ToAPIString("taskname1"),
 				},
 			},
+			"delete": model.APIPerformanceResult{
+				Name:        model.ToAPIString("delete"),
+				CreatedAt:   model.NewTime(time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC)),
+				CompletedAt: model.NewTime(time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC)),
+				Info: model.APIPerformanceResultInfo{
+					Version:  model.ToAPIString("1"),
+					TaskID:   model.ToAPIString("456"),
+					TaskName: model.ToAPIString("taskname1"),
+				},
+			},
 		},
 	}
 	s.sc.ChildMap = map[string][]string{
@@ -85,6 +95,7 @@ func (s *PerfHandlerSuite) setup() {
 	}
 	s.rh = map[string]gimlet.RouteHandler{
 		"id":        makeGetPerfById(&s.sc),
+		"remove":    makeRemovePerfById(&s.sc),
 		"task_id":   makeGetPerfByTaskId(&s.sc),
 		"task_name": makeGetPerfByTaskName(&s.sc),
 		"version":   makeGetPerfByVersion(&s.sc),
@@ -117,6 +128,24 @@ func (s *PerfHandlerSuite) TestPerfGetByIdHandlerNotFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfRemoveByIdHandler() {
+	rh := s.rh["remove"]
+	rh.(*perfRemoveByIdHandler).id = "delete"
+
+	_, ok := s.sc.CachedPerformanceResults["delete"]
+	s.True(ok)
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	_, ok = s.sc.CachedPerformanceResults["delete"]
+	s.False(ok)
+
+	// should not fail on non-existent id
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {

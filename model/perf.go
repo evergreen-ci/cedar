@@ -17,6 +17,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -112,7 +113,7 @@ func (result *PerformanceResult) Save() error {
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 		if result.ID == "" {
-			return errors.New("cannot ")
+			return errors.New("cannot save result data without ID")
 		}
 	}
 
@@ -130,6 +131,27 @@ func (result *PerformanceResult) Save() error {
 		"op":     "save perf result",
 	})
 	return errors.Wrap(err, "problem saving perf result to collection")
+}
+
+func (result *PerformanceResult) Remove() error {
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+		if result.ID == "" {
+			return errors.New("cannot remove result data without ID")
+		}
+	}
+
+	conf, session, err := cedar.GetSessionWithConfig(result.env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).RemoveId(result.ID)
+	if err != nil && err != mgo.ErrNotFound {
+		return errors.Wrap(err, "problem removing perf result")
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////
