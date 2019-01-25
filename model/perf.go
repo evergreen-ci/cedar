@@ -17,7 +17,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -133,25 +132,39 @@ func (result *PerformanceResult) Save() error {
 	return errors.Wrap(err, "problem saving perf result to collection")
 }
 
-func (result *PerformanceResult) Remove() error {
+func (result *PerformanceResult) Remove() (int, error) {
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 		if result.ID == "" {
-			return errors.New("cannot remove result data without ID")
+			return 0, errors.New("cannot remove result data without ID")
 		}
 	}
 
 	conf, session, err := cedar.GetSessionWithConfig(result.env)
 	if err != nil {
-		return errors.WithStack(err)
+		return 0, errors.WithStack(err)
 	}
 	defer session.Close()
 
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).RemoveId(result.ID)
-	if err != nil && err != mgo.ErrNotFound {
-		return errors.Wrap(err, "problem removing perf result")
+	children := PerformanceResults{env: result.env}
+	if err = children.findAllChildrenGraphLookup(result.ID, -1, []string{}); err != nil {
+		return 0, errors.Wrap(err, "problem getting children to remove")
 	}
-	return nil
+
+	ids := []string{result.ID}
+	for _, res := range children.Results {
+		ids = append(ids, res.ID)
+	}
+	query := bson.M{
+		"_id": bson.M{
+			"$in": ids,
+		},
+	}
+	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).RemoveAll(query)
+	if err != nil {
+		return 0, errors.Wrap(err, "problem removing perf results")
+	}
+	return changeInfo.Removed, nil
 }
 
 ////////////////////////////////////////////////////////////////////////

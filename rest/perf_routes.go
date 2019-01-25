@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -53,7 +54,7 @@ func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /perf/remove/{id}
+// DELETE /perf/{id}
 
 type perfRemoveByIdHandler struct {
 	id string
@@ -82,11 +83,11 @@ func (h *perfRemoveByIdHandler) Parse(ctx context.Context, r *http.Request) erro
 // Run calls the data RemovePerformanceResultById function and returns the
 // error.
 func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
-	err := h.sc.RemovePerformanceResultById(h.id)
+	numRemoved, err := h.sc.RemovePerformanceResultById(h.id)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error removing performance result by id '%s'", h.id))
 	}
-	return gimlet.NewJSONResponse(nil)
+	return gimlet.NewJSONResponse(fmt.Sprintf("Delete operation removed %d performance results", numRemoved))
 }
 
 ///////////////////////////////////////////////////////////////////////////////

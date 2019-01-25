@@ -8,7 +8,7 @@ import (
 type Connector interface {
 	// PerformanceResult
 	FindPerformanceResultById(string) (*model.APIPerformanceResult, error)
-	RemovePerformanceResultById(string) error
+	RemovePerformanceResultById(string) (int, error)
 	FindPerformanceResultsByTaskId(string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	FindPerformanceResultsByTaskName(string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	FindPerformanceResultsByVersion(string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
