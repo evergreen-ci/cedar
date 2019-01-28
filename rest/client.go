@@ -531,7 +531,7 @@ func (c *Client) GetUserCertificate(ctx context.Context, username, password stri
 
 	if resp.StatusCode != http.StatusOK {
 		srverr := gimlet.ErrorResponse{}
-		if err := gimlet.GetJSON(resp.Body, &srverr); err != nil {
+		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
 			return "", errors.Wrap(err, "problem parsing error message")
 		}
 

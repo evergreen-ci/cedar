@@ -151,7 +151,7 @@ func Service() cli.Command {
 				CertDepot:   certDepot,
 				ServiceName: strings.TrimSuffix(filepath.Base(rpcCertPath), filepath.Ext(rpcCertPath)),
 			}
-			if err := service.Validate(); err != nil {
+			if err = service.Validate(); err != nil {
 				return errors.Wrap(err, "problem validating service")
 			}
 
@@ -175,7 +175,8 @@ func Service() cli.Command {
 			hasCerts := rpcCertKeyPath != "" || rpcCertPath != ""
 			grip.WarningWhen(!hasCerts, "certificates not defined, rpc service is starting without tls")
 			if hasCerts {
-				creds, err := credentials.NewServerTLSFromFile(rpcCertPath, rpcCertKeyPath)
+				var creds credentials.TransportCredentials
+				creds, err = credentials.NewServerTLSFromFile(rpcCertPath, rpcCertKeyPath)
 				if err != nil {
 					return errors.Wrap(err, "problem reading certificates")
 				}
