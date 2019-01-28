@@ -46,9 +46,9 @@ func (dbc *DBConnector) RemovePerformanceResultById(id string) (int, error) {
 
 	numRemoved, err := result.Remove()
 	if err != nil {
-		return 0, gimlet.ErrorResponse{
+		return numRemoved, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("failed to remove performance result from database"),
+			Message:    "failed to remove performance result from database",
 		}
 	}
 	return numRemoved, nil

@@ -448,6 +448,7 @@ func setupClient(ctx context.Context) (*rest.Client, error) {
 	opts := rest.ClientOptions{
 		Host:     "https://cedar.mongodb.com",
 		Port:     443,
+		Prefix:   "rest",
 		Username: os.Getenv("LDAP_USER"),
 	}
 	client, err := rest.NewClient(opts)
