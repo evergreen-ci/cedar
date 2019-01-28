@@ -233,11 +233,9 @@ func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPer
 }
 
 func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
-	numRemoved := 0
 	_, ok := mc.CachedPerformanceResults[id]
 	if ok {
 		delete(mc.CachedPerformanceResults, id)
-		numRemoved += 1
 	} else {
 		return 0, nil
 	}

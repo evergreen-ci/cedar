@@ -151,7 +151,7 @@ func Service() cli.Command {
 				CertDepot:   certDepot,
 				ServiceName: strings.TrimSuffix(filepath.Base(rpcCertPath), filepath.Ext(rpcCertPath)),
 			}
-			if err := service.Validate(); err != nil {
+			if err = service.Validate(); err != nil {
 				return errors.Wrap(err, "problem validating service")
 			}
 

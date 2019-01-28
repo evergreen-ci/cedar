@@ -392,7 +392,7 @@ func TestCuratorSend(t *testing.T) {
 				require.NoError(t, err)
 				defer func() {
 					assert.NoError(t, os.Remove(certFilePath))
-					_, err := client.RemovePerformanceResultById(ctx, expectedResult.ID)
+					_, err = client.RemovePerformanceResultById(ctx, expectedResult.ID)
 					assert.NoError(t, err)
 				}()
 
