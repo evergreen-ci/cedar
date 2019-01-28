@@ -36,6 +36,24 @@ func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerf
 	return &apiResult, nil
 }
 
+// RemovePerformanceResultById removes the performance result with the given
+// id from the database. Note that this function deletes all children. No
+// error is returned if the id does not exist.
+func (dbc *DBConnector) RemovePerformanceResultById(id string) (int, error) {
+	result := model.PerformanceResult{}
+	result.Setup(dbc.env)
+	result.ID = id
+
+	numRemoved, err := result.Remove()
+	if err != nil {
+		return numRemoved, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "failed to remove performance result from database",
+		}
+	}
+	return numRemoved, nil
+}
+
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given taskId, time inteval, and optional tags.
 func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
@@ -212,6 +230,21 @@ func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPer
 		}
 	}
 	return &result, nil
+}
+
+func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
+	_, ok := mc.CachedPerformanceResults[id]
+	if ok {
+		delete(mc.CachedPerformanceResults, id)
+	} else {
+		return 0, nil
+	}
+
+	children := mc.findChildren(id, -1, []string{})
+	for _, child := range children {
+		delete(mc.CachedPerformanceResults, *child.Name)
+	}
+	return len(children) + 1, nil
 }
 
 func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {

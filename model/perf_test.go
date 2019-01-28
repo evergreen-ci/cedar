@@ -57,7 +57,7 @@ func (s *perfResultSuite) SetupTest() {
 	s.NoError(result2.Save())
 }
 
-func (s *perfResultSuite) TestSavePerfResults() {
+func (s *perfResultSuite) TestSavePerfResult() {
 	info := PerformanceResultInfo{Parent: "345"}
 	source := []ArtifactInfo{}
 	result := CreatePerformanceResult(info, source)
@@ -65,6 +65,34 @@ func (s *perfResultSuite) TestSavePerfResults() {
 	result.CreatedAt = getTimeForTestingByDate(12)
 	s.NoError(result.Save())
 	s.NoError(result.Find())
+}
+
+func (s *perfResultSuite) TestRemovePerfResult() {
+	// save result
+	info := PerformanceResultInfo{Parent: "345"}
+	source := []ArtifactInfo{}
+	result := CreatePerformanceResult(info, source)
+	result.Setup(cedar.GetEnvironment())
+	result.CreatedAt = getTimeForTestingByDate(12)
+	s.NoError(result.Save())
+	s.NoError(result.Find())
+
+	// remove
+	result.Setup(cedar.GetEnvironment())
+	numRemoved, err := result.Remove()
+	s.NoError(err)
+	s.Equal(1, numRemoved)
+
+	// check if exists
+	s.Error(result.Find())
+
+	// remove again should not return error
+	result = CreatePerformanceResult(info, source)
+	result.Setup(cedar.GetEnvironment())
+	result.CreatedAt = getTimeForTestingByDate(12)
+	numRemoved, err = result.Remove()
+	s.NoError(err)
+	s.Equal(0, numRemoved)
 }
 
 func (s *perfResultSuite) TestFindResultsByTimeInterval() {
@@ -259,6 +287,20 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Require().Len(s.r.Results, 2)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].ID, nodeD.ID)
+
+	// Test remove removes all children
+	root := PerformanceResult{ID: nodeA.ID}
+	root.Setup(cedar.GetEnvironment())
+	numRemoved, err := root.Remove()
+	s.NoError(err)
+	s.Equal(4, numRemoved)
+	options = PerfFindOptions{
+		MaxDepth:    -1,
+		GraphLookup: true,
+	}
+	options.Info.Parent = nodeA.ID
+	s.NoError(s.r.Find(options))
+	s.Len(s.r.Results, 0)
 }
 
 func (s *perfResultSuite) TearDownTest() {

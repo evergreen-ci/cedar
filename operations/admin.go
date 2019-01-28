@@ -55,7 +55,11 @@ func setFeatureFlag() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host: c.String(clientHostFlag),
+				Port: c.Int(clientPortFlag),
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -81,7 +85,12 @@ func unsetFeatureFlag() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "rest")
+			opts := rest.ClientOptions{
+				Host:   c.String(clientHostFlag),
+				Port:   c.Int(clientPortFlag),
+				Prefix: "rest",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -118,7 +127,12 @@ func getAPIKey() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "rest")
+			opts := rest.ClientOptions{
+				Host:   c.String(clientHostFlag),
+				Port:   c.Int(clientPortFlag),
+				Prefix: "rest",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -163,7 +177,12 @@ func getUserCert() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			client, err := rest.NewClient(c.String(clientHostFlag), c.Int(clientPortFlag), "rest")
+			opts := rest.ClientOptions{
+				Host:   c.String(clientHostFlag),
+				Port:   c.Int(clientPortFlag),
+				Prefix: "rest",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}

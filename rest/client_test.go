@@ -168,7 +168,12 @@ func (s *ClientSuite) TestSetPrefixRoundTripsThroughGetter() {
 ////////////////////////////////////////////////////////////////////////
 
 func (s *ClientSuite) TestNewClientPropogatesValidValuesToCreatedValues() {
-	nc, err := NewClient("http://example.com", 8080, "amboy")
+	opts := ClientOptions{
+		Host:   "http://example.com",
+		Port:   8080,
+		Prefix: "amboy",
+	}
+	nc, err := NewClient(opts)
 	s.NoError(err)
 
 	s.Equal(8080, nc.Port())
@@ -177,13 +182,22 @@ func (s *ClientSuite) TestNewClientPropogatesValidValuesToCreatedValues() {
 }
 
 func (s *ClientSuite) TestCorrectedNewClientSettings() {
-	nc, err := NewClient("http://example.com", 900000000, "/amboy/")
+	opts := ClientOptions{
+		Host:   "http://example.com",
+		Port:   900000000,
+		Prefix: "/amboy/",
+	}
+	nc, err := NewClient(opts)
 	s.Error(err)
 	s.Nil(nc)
 }
 
 func (s *ClientSuite) TestNewClientConstructorPropogatesErrorStateForHost() {
-	nc, err := NewClient("foo", 3000, "")
+	opts := ClientOptions{
+		Host: "foo",
+		Port: 3000,
+	}
+	nc, err := NewClient(opts)
 
 	s.Nil(nc)
 	s.Error(err)
@@ -192,13 +206,23 @@ func (s *ClientSuite) TestNewClientConstructorPropogatesErrorStateForHost() {
 func (s *ClientSuite) TestNewClientFromExistingUsesExistinHTTPClient() {
 	client := &http.Client{}
 
-	nc, err := NewClientFromExisting(client, "http://example.com", 2048, "amboy")
+	opts := ClientOptions{
+		Host:   "http://example.com",
+		Port:   2048,
+		Prefix: "amboy",
+	}
+	nc, err := NewClientFromExisting(client, opts)
 	s.NoError(err)
 	s.Exactly(client, nc.Client())
 }
 
 func (s *ClientSuite) TestNewClientFromExistingWithNilClientReturnsError() {
-	nc, err := NewClientFromExisting(nil, "http://example.com", 2048, "amboy")
+	opts := ClientOptions{
+		Host:   "http://example.com",
+		Port:   2048,
+		Prefix: "amboy",
+	}
+	nc, err := NewClientFromExisting(nil, opts)
 	s.Error(err)
 	s.Nil(nc)
 }

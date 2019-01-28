@@ -112,7 +112,7 @@ func (result *PerformanceResult) Save() error {
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 		if result.ID == "" {
-			return errors.New("cannot ")
+			return errors.New("cannot save result data without ID")
 		}
 	}
 
@@ -130,6 +130,41 @@ func (result *PerformanceResult) Save() error {
 		"op":     "save perf result",
 	})
 	return errors.Wrap(err, "problem saving perf result to collection")
+}
+
+func (result *PerformanceResult) Remove() (int, error) {
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+		if result.ID == "" {
+			return -1, errors.New("cannot remove result data without ID")
+		}
+	}
+
+	conf, session, err := cedar.GetSessionWithConfig(result.env)
+	if err != nil {
+		return -1, errors.WithStack(err)
+	}
+	defer session.Close()
+
+	children := PerformanceResults{env: result.env}
+	if err = children.findAllChildrenGraphLookup(result.ID, -1, []string{}); err != nil {
+		return -1, errors.Wrap(err, "problem getting children to remove")
+	}
+
+	ids := []string{result.ID}
+	for _, res := range children.Results {
+		ids = append(ids, res.ID)
+	}
+	query := bson.M{
+		"_id": bson.M{
+			"$in": ids,
+		},
+	}
+	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).RemoveAll(query)
+	if err != nil {
+		return -1, errors.Wrap(err, "problem removing perf results")
+	}
+	return changeInfo.Removed, nil
 }
 
 ////////////////////////////////////////////////////////////////////////

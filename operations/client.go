@@ -44,7 +44,12 @@ func printStatus() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -84,7 +89,12 @@ func postSimpleLog() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -143,7 +153,12 @@ func getSimpleLog() cli.Command {
 			ctx := context.Background()
 			logID := c.String(simpleLogIDFlag)
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -183,7 +198,12 @@ func getSystemStatusEvents() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -227,7 +247,12 @@ func systemEvent() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -304,7 +329,12 @@ func systemInfoGet() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -341,7 +371,12 @@ func systemInfoSend() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
@@ -375,7 +410,12 @@ func systemInfoImport() cli.Command {
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
-			client, err := rest.NewClient(c.Parent().String(clientHostFlag), c.Parent().Int(clientPortFlag), "")
+			opts := rest.ClientOptions{
+				Host:   c.Parent().String(clientHostFlag),
+				Port:   c.Parent().Int(clientPortFlag),
+				Prefix: "",
+			}
+			client, err := rest.NewClient(opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}

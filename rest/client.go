@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -26,30 +28,40 @@ const (
 // Client provides an interface for interacting with a remote amboy
 // Service.
 type Client struct {
-	host   string
-	prefix string
-	port   int
-	client *http.Client
+	host     string
+	prefix   string
+	port     int
+	username string
+	apiKey   string
+	client   *http.Client
+}
+
+type ClientOptions struct {
+	Host     string
+	Port     int
+	Prefix   string
+	Username string
+	ApiKey   string
 }
 
 // NewClient takes host, port, and URI prefix information and
 // constructs a new Client.
-func NewClient(host string, port int, prefix string) (*Client, error) {
+func NewClient(opts ClientOptions) (*Client, error) {
 	c := &Client{client: &http.Client{}}
 
-	return c.initClient(host, port, prefix)
+	return c.initClient(opts)
 }
 
 // NewClientFromExisting takes an existing http.Client object and
 // produces a new Client object.
-func NewClientFromExisting(client *http.Client, host string, port int, prefix string) (*Client, error) {
+func NewClientFromExisting(client *http.Client, opts ClientOptions) (*Client, error) {
 	if client == nil {
 		return nil, errors.New("must use a non-nil existing client")
 	}
 
 	c := &Client{client: client}
 
-	return c.initClient(host, port, prefix)
+	return c.initClient(opts)
 }
 
 // Copy takes an existing Client object and returns a new client
@@ -62,18 +74,20 @@ func (c *Client) Copy() *Client {
 	return new
 }
 
-func (c *Client) initClient(host string, port int, prefix string) (*Client, error) {
-	if err := c.SetHost(host); err != nil {
+func (c *Client) initClient(opts ClientOptions) (*Client, error) {
+	if err := c.SetHost(opts.Host); err != nil {
 		return nil, err
 	}
 
-	if err := c.SetPort(port); err != nil {
+	if err := c.SetPort(opts.Port); err != nil {
 		return nil, err
 	}
 
-	if err := c.SetPrefix(prefix); err != nil {
+	if err := c.SetPrefix(opts.Prefix); err != nil {
 		return nil, err
 	}
+
+	c.SetUser(opts.Username, opts.ApiKey)
 
 	return c, nil
 }
@@ -141,6 +155,19 @@ func (c *Client) Prefix() string {
 	return c.prefix
 }
 
+func (c *Client) SetUser(u, k string) {
+	c.username = u
+	c.apiKey = k
+}
+
+func (c *Client) GetUser() string {
+	return c.username
+}
+
+func (c *Client) GetApiKey() string {
+	return c.apiKey
+}
+
 func (c *Client) getURL(endpoint string) string {
 	var url []string
 
@@ -171,6 +198,14 @@ func (c *Client) makeRequest(ctx context.Context, method, url string, body io.Re
 		return nil, errors.Wrap(err, "problem with request")
 	}
 	req = req.WithContext(ctx)
+
+	if c.username != "" {
+		req.Header[cedar.APIUserHeader] = []string{c.username}
+	}
+	if c.apiKey != "" {
+		req.Header[cedar.APIKeyHeader] = []string{c.apiKey}
+	}
+
 	grip.Debug(message.Fields{
 		"method":   method,
 		"url":      url,
@@ -541,6 +576,72 @@ func (c *Client) GetUserCertificate(ctx context.Context, username, password stri
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", errors.Wrap(err, "problem reading certificate from response")
+	}
+
+	return string(out), nil
+}
+
+func (c *Client) FindPerformanceResultById(ctx context.Context, id string) (*model.APIPerformanceResult, error) {
+	url := c.getURL(fmt.Sprintf("/v1/perf/%s", id))
+
+	req, err := c.makeRequest(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem building request")
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		srverr := gimlet.ErrorResponse{}
+		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
+			return nil, errors.Wrap(err, "problem parsing error message")
+		}
+
+		return nil, srverr
+	}
+
+	out, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem reading response")
+	}
+	result := &model.APIPerformanceResult{}
+	if err = json.Unmarshal(out, result); err != nil {
+		return nil, errors.Wrap(err, "problem unmarshaling response data")
+	}
+
+	return result, nil
+}
+
+func (c *Client) RemovePerformanceResultById(ctx context.Context, id string) (string, error) {
+	url := c.getURL(fmt.Sprintf("/v1/perf/%s", id))
+
+	req, err := c.makeRequest(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "problem building request")
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", errors.Wrap(err, "problem with request")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		srverr := gimlet.ErrorResponse{}
+		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
+			return "", errors.Wrap(err, "problem parsing error message")
+		}
+
+		return "", srverr
+	}
+
+	out, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrap(err, "problem reading response")
 	}
 
 	return string(out), nil

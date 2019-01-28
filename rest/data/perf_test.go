@@ -91,6 +91,18 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			},
 			parent: -1,
 		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project: "removeThisOne",
+			},
+			parent: -1,
+		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project: "removeThisOne",
+			},
+			parent: 5,
+		},
 	}
 
 	for _, result := range results {
@@ -201,6 +213,35 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
 	actualResult, err := s.sc.FindPerformanceResultById("doesNotExist")
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
+}
+
+func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
+	// check that exists
+	expectedIDs := []string{s.results[5].info.ID(), s.results[6].info.ID()}
+	for _, id := range expectedIDs {
+		actualResult, err := s.sc.FindPerformanceResultById(id)
+		s.Require().NoError(err)
+		s.Equal(id, *actualResult.Name)
+	}
+
+	// remove
+	numRemoved, err := s.sc.RemovePerformanceResultById(expectedIDs[0])
+	s.NoError(err)
+	s.Equal(2, numRemoved)
+
+	// check that DNE
+	var expectedResult *dataModel.APIPerformanceResult
+	var actualResult *dataModel.APIPerformanceResult
+	for _, id := range expectedIDs {
+		actualResult, err = s.sc.FindPerformanceResultById(id)
+		s.Equal(expectedResult, actualResult)
+		s.Error(err)
+	}
+
+	// removing again should not return an error
+	numRemoved, err = s.sc.RemovePerformanceResultById(expectedIDs[0])
+	s.NoError(err)
+	s.Equal(0, numRemoved)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
@@ -413,20 +454,20 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDoesNotExist()
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
-	// No depth
+	// no depth
 	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 0)
 	s.NoError(err)
-	s.Require().Equal(1, len(actualResult))
+	s.Require().Len(actualResult, 1)
 	s.Equal(s.results[0].info.ID(), *actualResult[0].Name)
 
-	// Direct children
+	// direct children
 	expectedIds := map[string]bool{}
 	for i := 0; i < 3; i++ {
 		expectedIds[s.results[i].info.ID()] = true
 	}
 	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 1)
 	s.NoError(err)
-	s.Require().Equal(3, len(actualResult))
+	s.Require().Len(actualResult, 3)
 	for _, result := range actualResult {
 		_, ok := expectedIds[*result.Name]
 		s.Require().True(ok)
