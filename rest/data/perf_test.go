@@ -231,8 +231,9 @@ func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
 
 	// check that DNE
 	var expectedResult *dataModel.APIPerformanceResult
+	var actualResult *dataModel.APIPerformanceResult
 	for _, id := range expectedIDs {
-		actualResult, err := s.sc.FindPerformanceResultById(id)
+		actualResult, err = s.sc.FindPerformanceResultById(id)
 		s.Equal(expectedResult, actualResult)
 		s.Error(err)
 	}

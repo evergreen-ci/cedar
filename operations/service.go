@@ -175,7 +175,8 @@ func Service() cli.Command {
 			hasCerts := rpcCertKeyPath != "" || rpcCertPath != ""
 			grip.WarningWhen(!hasCerts, "certificates not defined, rpc service is starting without tls")
 			if hasCerts {
-				creds, err := credentials.NewServerTLSFromFile(rpcCertPath, rpcCertKeyPath)
+				var certs credentials.TransportCredentials
+				creds, err = credentials.NewServerTLSFromFile(rpcCertPath, rpcCertKeyPath)
 				if err != nil {
 					return errors.Wrap(err, "problem reading certificates")
 				}
