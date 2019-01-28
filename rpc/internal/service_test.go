@@ -2,12 +2,12 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -330,6 +330,18 @@ func TestCuratorSend(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	certFilePath := filepath.Join("testdata", "certFile.crt")
+	expectedResult := model.CreatePerformanceResult(
+		model.PerformanceResultInfo{
+			Project:   "sys-perf",
+			TaskName:  "smoke_test",
+			TaskID:    "abcd",
+			TestName:  "not_a_real_test_name",
+			Execution: 1,
+			Trial:     1,
+		},
+		[]model.ArtifactInfo{},
+	)
 	curatorPath, err := filepath.Abs("curator")
 	require.NoError(t, err)
 	for _, test := range []struct {
@@ -357,25 +369,37 @@ func TestCuratorSend(t *testing.T) {
 				require.NoError(t, err)
 				perfResult := &model.PerformanceResult{}
 				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
-				assert.Equal(t, "abcd", perfResult.Info.TaskID)
-				assert.Equal(t, "hello_world_foo_true", perfResult.Info.TestName)
+				assert.Equal(t, expectedResult.ID, perfResult.ID)
 			},
 		},
 		{
 			name: "WithAuthAndTLS",
-			skip: true,
 			setUp: func(t *testing.T) *exec.Cmd {
-				return createSendCommand(curatorPath, remoteAddress, false)
+				client, err := setupClient(ctx)
+				require.NoError(t, err)
+				userCert, err := client.GetUserCertificate(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
+				require.NoError(t, err)
+				f, err := os.Create(certFilePath)
+				require.NoError(t, err)
+				defer f.Close()
+				_, err := f.WriteString(userCert)
+				require.NoError(t, err)
+
+				return createSendCommand(curatorPath, remoteAddress, false, certFilePath)
 			},
 			closer: func(t *testing.T) {
-				remote := strings.Split(remoteAddress, ":")
-				port, err := strconv.Atoi(remote[1])
+				client, err := setupClient(ctx)
 				require.NoError(t, err)
-				_, err = rest.NewClient(remote[0], port, "")
-				require.NoError(t, err)
-				// defer delete perf result
+				defer func() {
+					assert.NoError(t, os.Remove(certFilePath))
+					_, err := client.RemovePerformanceResultById(ctx, expectedResult.ID)
+					assert.NoError(t, err)
+				}()
 
-				// find perf result once client code exists
+				perfResult, err := client.FindPerformanceResultById(ctx, expectedResult.ID)
+				assert.NoError(t, err)
+				require.NotNil(t, perfResult)
+				assert.Equal(t, expectedResult.ID, perfResult.Name)
 			},
 		},
 	} {
@@ -394,7 +418,7 @@ func TestCuratorSend(t *testing.T) {
 	}
 }
 
-func createSendCommand(curatorPath, address string, insecure bool) *exec.Cmd {
+func createSendCommand(curatorPath, address string, insecure bool, certFilePath string) *exec.Cmd {
 	args := []string{
 		"poplar",
 		"send",
@@ -406,8 +430,36 @@ func createSendCommand(curatorPath, address string, insecure bool) *exec.Cmd {
 	if insecure {
 		args = append(args, "--insecure")
 	} else {
-		args = append(args, "--certFile", filepath.Join("testdata", "clientCertFile.crt"))
+		args = append(args, "--certFile", certFilePath)
 	}
 
 	return exec.Command(curatorPath, args...)
+}
+
+func setupClient(ctx context.Context) (*rest.Client, error) {
+	/*
+		remote := strings.Split(remoteAddress, ":")
+		port, err := strconv.Atoi(remote[2])
+		if err != nil {
+			return nil, err
+		}
+	*/
+
+	opts := rest.ClientOptions{
+		Host:     "https://cedar.mongodb.com",
+		Port:     443,
+		Username: os.Getenv("LDAP_USER"),
+	}
+	client, err := rest.NewClient(opts)
+	if err != nil {
+		return nil, err
+	}
+	apiKey, err := client.GetAuthKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
+	if err != nil {
+		return nil, err
+	}
+	opts.ApiKey = apiKey
+
+	client, err = rest.NewClientFromExisting(client.Client(), opts)
+	return client, err
 }
