@@ -136,19 +136,19 @@ func (result *PerformanceResult) Remove() (int, error) {
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 		if result.ID == "" {
-			return 0, errors.New("cannot remove result data without ID")
+			return -1, errors.New("cannot remove result data without ID")
 		}
 	}
 
 	conf, session, err := cedar.GetSessionWithConfig(result.env)
 	if err != nil {
-		return 0, errors.WithStack(err)
+		return -1, errors.WithStack(err)
 	}
 	defer session.Close()
 
 	children := PerformanceResults{env: result.env}
 	if err = children.findAllChildrenGraphLookup(result.ID, -1, []string{}); err != nil {
-		return 0, errors.Wrap(err, "problem getting children to remove")
+		return -1, errors.Wrap(err, "problem getting children to remove")
 	}
 
 	ids := []string{result.ID}
@@ -162,7 +162,7 @@ func (result *PerformanceResult) Remove() (int, error) {
 	}
 	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).RemoveAll(query)
 	if err != nil {
-		return 0, errors.Wrap(err, "problem removing perf results")
+		return -1, errors.Wrap(err, "problem removing perf results")
 	}
 	return changeInfo.Removed, nil
 }
