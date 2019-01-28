@@ -242,6 +242,7 @@ buildvariants:
     display_name: Race Detector (Arch Linux)
     expansions:
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
+      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
     run_on:
       - archlinux-test
     tasks:
