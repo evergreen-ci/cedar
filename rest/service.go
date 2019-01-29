@@ -4,12 +4,15 @@ import (
 	"context"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"github.com/square/certstrap/depot"
 )
@@ -18,12 +21,15 @@ type Service struct {
 	Port        int
 	Prefix      string
 	Environment cedar.Environment
-	UserManager gimlet.UserManager
-	CertDepot   depot.Depot
+	Conf        *model.CedarConfig
+
 	RPCServers  []string
 	ServiceName string
+	CertPath    string
 
 	// internal settings
+	depot depot.Depot
+	um    gimlet.UserManager
 	queue amboy.Queue
 	app   *gimlet.APIApp
 	sc    data.Connector
@@ -36,6 +42,10 @@ func (s *Service) Validate() error {
 		return errors.New("must specify an environment")
 	}
 
+	if s.Conf == nil {
+		return errors.New("must specify a non-nil config")
+	}
+
 	if s.queue == nil {
 		s.queue, err = s.Environment.GetQueue()
 		if err != nil {
@@ -45,6 +55,28 @@ func (s *Service) Validate() error {
 			return errors.New("no queue defined")
 		}
 	}
+
+	if s.Conf.LDAP.URL != "" {
+		s.um, err = ldap.NewUserService(ldap.CreationOpts{
+			URL:           s.Conf.LDAP.URL,
+			Port:          s.Conf.LDAP.Port,
+			UserPath:      s.Conf.LDAP.UserPath,
+			ServicePath:   s.Conf.LDAP.ServicePath,
+			UserGroup:     s.Conf.LDAP.UserGroup,
+			ServiceGroup:  s.Conf.LDAP.ServiceGroup,
+			PutCache:      model.PutLoginCache,
+			GetCache:      model.GetLoginCache,
+			ClearCache:    model.ClearLoginCache,
+			GetUser:       model.GetUser,
+			GetCreateUser: model.GetOrAddUser,
+		})
+		if err != nil {
+			return errors.Wrap(err, "problem setting up user manager")
+		}
+	}
+
+	s.depot, err = depot.NewFileDepot(s.CertPath)
+	grip.Warning(errors.Wrap(err, "no certificate depot constructed"))
 
 	if s.app == nil {
 		s.app = gimlet.NewApp()
@@ -84,35 +116,42 @@ func (s *Service) Validate() error {
 	return nil
 }
 
-func (s *Service) Start(ctx context.Context) error {
-	if s.queue == nil || s.app == nil {
-		return errors.New("application is not valid")
+func (s *Service) Start(ctx context.Context) (func(), error) {
+	if err := s.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid application")
 	}
 
 	s.addMiddleware()
 	s.addRoutes()
 
 	if err := s.queue.Start(ctx); err != nil {
-		return errors.Wrap(err, "problem starting queue")
+		return nil, errors.Wrap(err, "problem starting queue")
 	}
 
 	if err := s.app.Resolve(); err != nil {
-		return errors.Wrap(err, "problem resolving routes")
+		return nil, errors.Wrap(err, "problem resolving routes")
 	}
 
-	return s.app.Run(ctx)
+	wait := make(chan struct{})
+	go func() {
+		defer recovery.LogStackTraceAndContinue("running rest service")
+		defer close(wait)
+		grip.Alert(errors.Wrap(s.app.Run(ctx), "problem running rest service"))
+	}()
+
+	return func() { <-wait }, nil
 }
 
 func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
 
-	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, gimlet.UserMiddlewareConfiguration{
+	s.app.AddMiddleware(gimlet.UserMiddleware(s.um, gimlet.UserMiddlewareConfiguration{
 		CookieName:     cedar.AuthTokenCookie,
 		HeaderKeyName:  cedar.APIKeyHeader,
 		HeaderUserName: cedar.APIUserHeader,
 	}))
 
-	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
+	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.um))
 }
 
 func (s *Service) addRoutes() {

@@ -12,6 +12,7 @@ import (
 	"context"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
@@ -37,7 +38,9 @@ func TestClientSuite(t *testing.T) {
 
 func (s *ClientSuite) SetupSuite() {
 	s.ctx, s.closer = context.WithCancel(context.Background())
-	s.service = &Service{}
+	s.service = &Service{
+		Conf: &model.CedarConfig{},
+	}
 	require := s.Require()
 
 	s.env = cedar.GetEnvironment()
