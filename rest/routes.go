@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
 	"strconv"
 	"time"
 
@@ -737,27 +738,56 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	// we have a local cert on the system, let's use it.
-	crt, err := depot.GetCertificate(s.depot, creds.Username)
+	found, err := s.getExistingCert(rw, creds.Username)
+	if err != nil {
+		return
+	} else if found {
+		return
+	}
+	if err = s.createCert(creds.Username); err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating cert")))
+		return
+	}
+	_, _ = s.getExistingCert(rw, creds.Username)
+}
+
+func (s *Service) createCert(username string) error {
+	cmd := exec.Command(
+		"certstrap",
+		"--depot-path",
+		s.CertDepotPath,
+		"request-cert",
+		"--common-name",
+		username,
+	)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	cmd = exec.Command(
+		"certstrap",
+		"--depot-path",
+		s.CertDepotPath,
+		"sign",
+		username,
+		"--common-name",
+		s.ServiceName,
+	)
+	return cmd.Run()
+}
+
+func (s *Service) getExistingCert(rw http.ResponseWriter, username string) (bool, error) {
+	crt, err := depot.GetCertificate(s.CertDepot, username)
 	if err == nil {
 		data, err := crt.Export()
 		if err != nil {
-			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
-			return
+			gimlet.WriteResponse(
+				rw,
+				gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")),
+			)
+			return false, err
 		}
-
 		gimlet.WriteBinary(rw, data)
-		return
+		return true, nil
 	}
-
-	// we need to make a cert:
-	// if this were a shell script using certstrap, we'd:
-	//  - certstrap request-cert --common-name <creds.Username>
-	//  - certstrap sign <creds.Username> --CA <s.ServiceName>
-	// then:
-	//  - return the contents of the cert as above
-
-	gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
-		Message:    "certificate generation not supported.",
-		StatusCode: http.StatusNotImplemented,
-	})
+	return false, nil
 }
