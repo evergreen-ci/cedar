@@ -319,7 +319,7 @@ func (u *userService) getUserFromLDAP(username string) (gimlet.User, error) {
 		result *ldap.SearchResult
 	)
 
-	for idx, path := range []string{u.userPath, u.servicePath} {
+	for _, path := range []string{u.userPath, u.servicePath} {
 		result, err = u.search(
 			ldap.NewSearchRequest(
 				path,
