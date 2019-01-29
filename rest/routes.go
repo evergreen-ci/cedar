@@ -755,7 +755,7 @@ func (s *Service) createCert(username string) error {
 	cmd := exec.Command(
 		"certstrap",
 		"--depot-path",
-		s.CertDepotPath,
+		s.CertPath,
 		"request-cert",
 		"--common-name",
 		username,
@@ -766,7 +766,7 @@ func (s *Service) createCert(username string) error {
 	cmd = exec.Command(
 		"certstrap",
 		"--depot-path",
-		s.CertDepotPath,
+		s.CertPath,
 		"sign",
 		username,
 		"--common-name",
@@ -776,7 +776,7 @@ func (s *Service) createCert(username string) error {
 }
 
 func (s *Service) getExistingCert(rw http.ResponseWriter, username string) (bool, error) {
-	crt, err := depot.GetCertificate(s.CertDepot, username)
+	crt, err := depot.GetCertificate(s.depot, username)
 	if err == nil {
 		data, err := crt.Export()
 		if err != nil {
