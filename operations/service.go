@@ -3,28 +3,20 @@ package operations
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
 
-	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
-	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
-	grpc "google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // Service returns the ./cedar client sub-command object, which is
@@ -108,36 +100,11 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			var userManager gimlet.UserManager
-			cedarConf := &model.CedarConfig{}
-			cedarConf.Setup(env)
-			if err := cedarConf.Find(); err != nil {
+			conf := &model.CedarConfig{}
+			conf.Setup(env)
+			if err := conf.Find(); err != nil {
 				return errors.Wrap(err, "problem getting application configuration")
 			}
-			ldapConf := cedarConf.LDAP
-			if ldapConf.URL != "" {
-				opts := ldap.CreationOpts{
-					URL:           ldapConf.URL,
-					Port:          ldapConf.Port,
-					UserPath:      ldapConf.UserPath,
-					ServicePath:   ldapConf.ServicePath,
-					UserGroup:     ldapConf.UserGroup,
-					ServiceGroup:  ldapConf.ServiceGroup,
-					PutCache:      model.PutLoginCache,
-					GetCache:      model.GetLoginCache,
-					ClearCache:    model.ClearLoginCache,
-					GetUser:       model.GetUser,
-					GetCreateUser: model.GetOrAddUser,
-				}
-				var err error
-				userManager, err = ldap.NewUserService(opts)
-				if err != nil {
-					return errors.Wrap(err, "problem setting up user manager")
-				}
-			}
-
-			certDepot, err := depot.NewFileDepot(filepath.Dir(rpcCertPath))
-			grip.Warning(errors.Wrap(err, "no certificate depot constructed"))
 
 			///////////////////////////////////
 			//
@@ -147,66 +114,33 @@ func Service() cli.Command {
 				Port:        port,
 				Prefix:      "rest",
 				Environment: env,
-				UserManager: userManager,
-				CertDepot:   certDepot,
+				Conf:        conf,
+				CertPath:    filepath.Dir(rpcCertPath),
 				ServiceName: strings.TrimSuffix(filepath.Base(rpcCertPath), filepath.Ext(rpcCertPath)),
 			}
-			if err = service.Validate(); err != nil {
-				return errors.Wrap(err, "problem validating service")
-			}
 
-			restWait := make(chan struct{})
-			go func() {
-				defer close(restWait)
-				defer recovery.LogStackTraceAndContinue("running rest service")
-				grip.Noticef("starting cedar REST service on :%d", port)
-				grip.Alert(errors.Wrap(service.Start(ctx), "problem running rest service"))
-			}()
+			restWait, err := service.Start(ctx)
+			if err != nil {
+				return errors.Wrap(err, "problem starting")
+			}
 
 			///////////////////////////////////
 			//
 			// starting grpc
 			//
-			rpcOpts := []grpc.ServerOption{
-				grpc.UnaryInterceptor(aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))),
-				grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
-			}
 
-			hasCerts := rpcCertKeyPath != "" || rpcCertPath != ""
-			grip.WarningWhen(!hasCerts, "certificates not defined, rpc service is starting without tls")
-			if hasCerts {
-				var creds credentials.TransportCredentials
-				creds, err = credentials.NewServerTLSFromFile(rpcCertPath, rpcCertKeyPath)
-				if err != nil {
-					return errors.Wrap(err, "problem reading certificates")
-				}
-				rpcOpts = append(rpcOpts, grpc.Creds(creds))
-			}
-
-			rpcSrv := grpc.NewServer(rpcOpts...)
-			rpc.AttachService(env, rpcSrv)
-
-			lis, err := net.Listen("tcp", rpcAddr)
+			rpcSrv, err := rpc.GetServer(env, rpcCertKeyPath, rpcCertPath)
 			if err != nil {
 				return errors.WithStack(err)
 			}
 
-			go func() {
-				defer recovery.LogStackTraceAndExit("running rest service")
-				grip.Warning(rpcSrv.Serve(lis))
-			}()
+			rpcWait, err := rpc.RunServer(ctx, rpcSrv, rpcAddr)
+			if err != nil {
+				return errors.WithStack(err)
+			}
 
-			rpcWait := make(chan struct{})
-			go func() {
-				defer close(rpcWait)
-				defer recovery.LogStackTraceAndContinue("waiting for the rpc service")
-				<-ctx.Done()
-				rpcSrv.GracefulStop()
-				grip.Info("jasper rpc service terminated")
-			}()
-
-			<-restWait
-			<-rpcWait
+			restWait()
+			rpcWait()
 
 			return nil
 		},
