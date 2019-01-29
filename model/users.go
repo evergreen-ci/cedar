@@ -23,6 +23,7 @@ type DBUser struct {
 	APIKey       string     `bson:"apikey"`
 	SystemRoles  []string   `bson:"roles"`
 	LoginCache   LoginCache `bson:"login_cache"`
+	Certificate  string     `bson:certificate`
 
 	env cedar.Environment
 }
@@ -231,4 +232,22 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 	}
 
 	return u, nil
+}
+
+func GetUserCert(id string) (string, error) {
+	conf, session, err := cedar.GetSessionWithConfig(cedar.GetEnvironment())
+	if err != nil {
+		return "", errors.WithStack(err)
+	}
+	defer session.Close()
+
+	u := &DBUser{}
+	err = session.DB(conf.DatabaseName).C(userCollection).FindId(id).One(u)
+	if db.ResultsNotFound(err) {
+		return "", errors.Errorf("could not find user %s in the database", id)
+	} else if err != nil {
+		return "", errors.Wrapf(err, "problem finding user %s by id", id)
+	}
+
+	return u.Certificate, nil
 }
