@@ -30,23 +30,23 @@ type buildlogger struct {
 // (e.g. logkeeper.)
 type BuildloggerConfig struct {
 	// CreateTest controls
-	CreateTest bool
-	URL        string
+	CreateTest bool   `json:"create_test"`
+	URL        string `json:"url"`
 
 	// The following values are used by the buildlogger service to
 	// attach metadata to the logs. The GetBuildloggerConfig
 	// method populates Number, Phase, Builder, and Test from
 	// environment variables, though you can set them directly in
 	// your application. You must set the Command value directly.
-	Number  int
-	Phase   string
-	Builder string
-	Test    string
-	Command string
+	Number  int    `json:"number"`
+	Phase   string `json:"phase"`
+	Builder string `json:"builder"`
+	Test    string `json:"test"`
+	Command string `json:"command"`
 
 	// Configure a local sender for "fallback" operations and to
 	// collect the location (URLS) of the buildlogger output
-	Local Sender
+	Local Sender `json:"-"`
 
 	buildID  string
 	testID   string
@@ -161,6 +161,14 @@ func (c *BuildloggerConfig) GetGlobalLogURL() string {
 // use. Must use after constructing the buildlogger instance.
 func (c *BuildloggerConfig) GetTestLogURL() string {
 	return fmt.Sprintf("%s/build/%s/test/%s", c.URL, c.buildID, c.testID)
+}
+
+func (c *BuildloggerConfig) GetBuildID() string {
+	return c.buildID
+}
+
+func (c *BuildloggerConfig) GetTestID() string {
+	return c.testID
 }
 
 // NewBuildlogger constructs a Buildlogger-targeted Sender, with level
@@ -332,7 +340,7 @@ func (b *buildlogger) getURL() string {
 	// if we want to create a test id, (e.g. the CreateTest flag
 	// is set and we don't have a testID), then the following URL
 	// will generate a testID.
-	if b.conf.CreateTest && b.conf.testID == "" {
+	if b.conf.CreateTest && b.conf.testID == "" && b.conf.buildID != "" {
 		// this will create the testID.
 		parts = append(parts, "test")
 	}

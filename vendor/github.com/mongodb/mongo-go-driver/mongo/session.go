@@ -10,14 +10,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/core/command"
-	"github.com/mongodb/mongo-go-driver/core/description"
-	"github.com/mongodb/mongo-go-driver/core/dispatch"
-	"github.com/mongodb/mongo-go-driver/core/session"
-	"github.com/mongodb/mongo-go-driver/core/topology"
-	"github.com/mongodb/mongo-go-driver/options"
-	"github.com/mongodb/mongo-go-driver/x/bsonx"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/session"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/topology"
+	"github.com/mongodb/mongo-go-driver/x/network/command"
+	"github.com/mongodb/mongo-go-driver/x/network/description"
 )
 
 // ErrWrongClient is returned when a user attempts to pass in a session created by a different client than
@@ -48,8 +48,8 @@ type Session interface {
 	StartTransaction(...*options.TransactionOptions) error
 	AbortTransaction(context.Context) error
 	CommitTransaction(context.Context) error
-	ClusterTime() bsonx.Doc
-	AdvanceClusterTime(bsonx.Doc) error
+	ClusterTime() bson.Raw
+	AdvanceClusterTime(bson.Raw) error
 	OperationTime() *primitive.Timestamp
 	AdvanceOperationTime(*primitive.Timestamp) error
 	session()
@@ -102,7 +102,7 @@ func (s *sessionImpl) AbortTransaction(ctx context.Context) error {
 	}
 
 	s.Aborting = true
-	_, err = dispatch.AbortTransaction(ctx, cmd, s.topo, description.WriteSelector())
+	_, err = driver.AbortTransaction(ctx, cmd, s.topo, description.WriteSelector())
 
 	_ = s.Client.AbortTransaction()
 	return err
@@ -136,18 +136,18 @@ func (s *sessionImpl) CommitTransaction(ctx context.Context) error {
 			s.Committing = false
 		}()
 	}
-	_, err = dispatch.CommitTransaction(ctx, cmd, s.topo, description.WriteSelector())
+	_, err = driver.CommitTransaction(ctx, cmd, s.topo, description.WriteSelector())
 	if err == nil {
 		return s.Client.CommitTransaction()
 	}
 	return err
 }
 
-func (s *sessionImpl) ClusterTime() bsonx.Doc {
+func (s *sessionImpl) ClusterTime() bson.Raw {
 	return s.Client.ClusterTime
 }
 
-func (s *sessionImpl) AdvanceClusterTime(d bsonx.Doc) error {
+func (s *sessionImpl) AdvanceClusterTime(d bson.Raw) error {
 	return s.Client.AdvanceClusterTime(d)
 }
 

@@ -14,16 +14,17 @@ import (
 
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/core/connstring"
-	"github.com/mongodb/mongo-go-driver/core/tag"
-	"github.com/mongodb/mongo-go-driver/core/topology"
 	"github.com/mongodb/mongo-go-driver/internal/testutil"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
 	"github.com/mongodb/mongo-go-driver/mongo/readpref"
 	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
-	"github.com/mongodb/mongo-go-driver/options"
+	"github.com/mongodb/mongo-go-driver/tag"
 	"github.com/mongodb/mongo-go-driver/x/bsonx"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/topology"
+	"github.com/mongodb/mongo-go-driver/x/network/connstring"
 	"github.com/stretchr/testify/require"
+	"reflect"
 )
 
 func TestClientOptions_simple(t *testing.T) {
@@ -98,8 +99,8 @@ func TestClientOptions_chainAll(t *testing.T) {
 	}).SetConnectTimeout(500 * time.Millisecond).SetHeartbeatInterval(15 * time.Second).SetHosts([]string{
 		"mongodb://localhost:27018",
 		"mongodb://localhost:27019",
-	}).SetLocalThreshold(time.Second).SetMaxConnIdleTime(30 * time.Second).SetMaxConnsPerHost(150).
-		SetMaxIdleConnsPerHost(20).SetReadConcern(rc).SetReadPreference(rp).SetReplicaSet("foo").
+	}).SetLocalThreshold(time.Second).SetMaxConnIdleTime(30 * time.Second).SetMaxPoolSize(150).
+		SetReadConcern(rc).SetReadPreference(rp).SetReplicaSet("foo").
 		SetRetryWrites(retryWrites).SetServerSelectionTimeout(time.Second).
 		SetSingle(false).SetSocketTimeout(2 * time.Second).SetSSL(&options.SSLOpt{
 		Enabled:                      true,
@@ -130,10 +131,8 @@ func TestClientOptions_chainAll(t *testing.T) {
 			LocalThreshold:                     time.Second,
 			MaxConnIdleTime:                    30 * time.Second,
 			MaxConnIdleTimeSet:                 true,
-			MaxConnsPerHost:                    150,
-			MaxConnsPerHostSet:                 true,
-			MaxIdleConnsPerHost:                20,
-			MaxIdleConnsPerHostSet:             true,
+			MaxPoolSize:                        150,
+			MaxPoolSizeSet:                     true,
 			ReplicaSet:                         "foo",
 			ServerSelectionTimeoutSet:          true,
 			ServerSelectionTimeout:             time.Second,
@@ -146,7 +145,7 @@ func TestClientOptions_chainAll(t *testing.T) {
 			SSLClientCertificateKeyFile:        "client.pem",
 			SSLClientCertificateKeyFileSet:     true,
 			SSLClientCertificateKeyPassword:    nil,
-			SSLClientCertificateKeyPasswordSet: true,
+			SSLClientCertificateKeyPasswordSet: false, // will not be set if it's nil
 			SSLInsecure:                        false,
 			SSLInsecureSet:                     true,
 			SSLCaFile:                          "ca.pem",
@@ -159,6 +158,44 @@ func TestClientOptions_chainAll(t *testing.T) {
 	}
 
 	require.Equal(t, expectedClient, opts)
+}
+
+func TestClientOptions_sslOptions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("TestEmptyOptionsNotSet", func(t *testing.T) {
+		ssl := &options.SSLOpt{}
+		c, err := NewClientWithOptions("mongodb://localhost", options.Client().SetSSL(ssl))
+		require.NoError(t, err)
+
+		require.Equal(t, c.connString.SSLClientCertificateKeyFile, "")
+		require.Equal(t, c.connString.SSLClientCertificateKeyFileSet, false)
+		require.Nil(t, c.connString.SSLClientCertificateKeyPassword)
+		require.Equal(t, c.connString.SSLClientCertificateKeyPasswordSet, false)
+		require.Equal(t, c.connString.SSLCaFile, "")
+		require.Equal(t, c.connString.SSLCaFileSet, false)
+	})
+
+	t.Run("TestNonEmptyOptionsSet", func(t *testing.T) {
+		f := func() string {
+			return "KeyPassword"
+		}
+
+		ssl := &options.SSLOpt{
+			ClientCertificateKeyFile:     "KeyFile",
+			ClientCertificateKeyPassword: f,
+			CaFile:                       "CaFile",
+		}
+		c, err := NewClientWithOptions("mongodb://localhost", options.Client().SetSSL(ssl))
+		require.NoError(t, err)
+
+		require.Equal(t, c.connString.SSLClientCertificateKeyFile, "KeyFile")
+		require.Equal(t, c.connString.SSLClientCertificateKeyFileSet, true)
+		require.Equal(t, reflect.ValueOf(c.connString.SSLClientCertificateKeyPassword).Pointer(), reflect.ValueOf(f).Pointer())
+		require.Equal(t, c.connString.SSLClientCertificateKeyPasswordSet, true)
+		require.Equal(t, c.connString.SSLCaFile, "CaFile")
+		require.Equal(t, c.connString.SSLCaFileSet, true)
+	})
 }
 
 func TestClientOptions_CustomDialer(t *testing.T) {

@@ -36,8 +36,10 @@ func TestSimpleRemoteOrderedSuiteMongoDB(t *testing.T) {
 func (s *SimpleRemoteOrderedSuite) SetupSuite() {
 	name := "test-" + uuid.NewV4().String()
 	uri := "mongodb://localhost"
+	opts := DefaultMongoDBOptions()
+	opts.DB = "amboy_test"
 	s.driverConstructor = func() Driver {
-		return NewMongoDBDriver(name, DefaultMongoDBOptions())
+		return NewMgoDriver(name, opts)
 	}
 
 	s.tearDown = func() error {
@@ -48,7 +50,7 @@ func (s *SimpleRemoteOrderedSuite) SetupSuite() {
 			return err
 		}
 
-		return session.DB("amboy").C(name + ".jobs").DropCollection()
+		return session.DB("amboy_test").C(name + ".jobs").DropCollection()
 	}
 }
 
@@ -67,7 +69,7 @@ func (s *SimpleRemoteOrderedSuite) TearDownTest() {
 	// the context to prevent closing the connection before
 	// running the teardown procedure, given that some connection
 	// resources may be shared in the driver.
-	grip.CatchError(s.tearDown())
+	grip.Error(s.tearDown())
 	s.canceler()
 }
 

@@ -123,10 +123,15 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/golang.org/x/net/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/stretchr/testify
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/davecgh/go-spew
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/gimlet
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/mongo-go-driver
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/aws/aws-sdk-go
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/davecgh/go-spew/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pmezard/go-difflib/
 	rm -rf vendor/github.com/mongodb/grip/vendor/golang.org/x/net/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pkg/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/montanaflynn/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/davecgh/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pmezard/

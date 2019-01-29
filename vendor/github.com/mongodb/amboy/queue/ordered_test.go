@@ -42,10 +42,12 @@ func TestLocalOrderedQueueSuiteThreeWorker(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func TestRemoteMongoDBOrderedQueueSuiteFourWorkers(t *testing.T) {
+func TestRemoteMgoOrderedQueueSuiteFourWorkers(t *testing.T) {
 	s := &OrderedQueueSuite{}
 	name := "test-" + uuid.NewV4().String()
 	uri := "mongodb://localhost"
+	opts := DefaultMongoDBOptions()
+	opts.DB = "amboy_test"
 	ctx, cancel := context.WithCancel(context.Background())
 
 	session, err := mgo.Dial(uri)
@@ -58,7 +60,7 @@ func TestRemoteMongoDBOrderedQueueSuiteFourWorkers(t *testing.T) {
 
 	s.setup = func() {
 		remote := NewSimpleRemoteOrdered(s.size).(*remoteSimpleOrdered)
-		d := NewMongoDBDriver(name, DefaultMongoDBOptions())
+		d := NewMgoDriver(name, opts)
 		s.Require().NoError(d.Open(ctx))
 		s.Require().NoError(remote.SetDriver(d))
 		s.queue = remote
@@ -68,15 +70,15 @@ func TestRemoteMongoDBOrderedQueueSuiteFourWorkers(t *testing.T) {
 	s.tearDown = func() {
 		cancel()
 
-		grip.CatchError(session.DB("amboy").C(name + ".jobs").DropCollection())
-		grip.CatchError(session.DB("amboy").C(name + ".locks").DropCollection())
+		grip.Error(session.DB("amboy_test").C(name + ".jobs").DropCollection())
+		grip.Error(session.DB("amboy_test").C(name + ".locks").DropCollection())
 	}
 
 	s.reset = func() {
-		_, err = session.DB("amboy").C(name + ".jobs").RemoveAll(bson.M{})
-		grip.CatchError(err)
-		_, err = session.DB("amboy").C(name + ".locks").RemoveAll(bson.M{})
-		grip.CatchError(err)
+		_, err = session.DB("amboy_test").C(name + ".jobs").RemoveAll(bson.M{})
+		grip.Error(err)
+		_, err = session.DB("amboy_test").C(name + ".locks").RemoveAll(bson.M{})
+		grip.Error(err)
 	}
 
 	suite.Run(t, s)
@@ -220,9 +222,7 @@ func (s *OrderedQueueSuite) TestResultsChannelProducesPointersToConsistentJobObj
 	defer cancel()
 	s.NoError(s.queue.Start(ctx))
 
-	grip.Critical(s.queue.Stats())
 	amboy.WaitCtxInterval(ctx, s.queue, 250*time.Millisecond)
-	grip.Critical(s.queue.Stats())
 
 	for result := range s.queue.Results(ctx) {
 		s.Equal(j.ID(), result.ID())
@@ -268,9 +268,7 @@ func (s *OrderedQueueSuite) TestPassedIsCompletedButDoesNotRun() {
 
 	s.NoError(s.queue.Start(ctx))
 
-	grip.Critical(s.queue.Stats())
 	amboy.WaitCtxInterval(ctx, s.queue, 250*time.Millisecond)
-	grip.Critical(s.queue.Stats())
 
 	j1Refreshed, ok1 := s.queue.Get(j1.ID())
 	j2Refreshed, ok2 := s.queue.Get(j2.ID())

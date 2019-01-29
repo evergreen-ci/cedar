@@ -18,20 +18,21 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/mongodb/mongo-go-driver/core/command"
-	"github.com/mongodb/mongo-go-driver/core/connection"
-	"github.com/mongodb/mongo-go-driver/core/connstring"
-	"github.com/mongodb/mongo-go-driver/core/description"
-	"github.com/mongodb/mongo-go-driver/core/event"
-	"github.com/mongodb/mongo-go-driver/core/session"
-	"github.com/mongodb/mongo-go-driver/core/topology"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/event"
 	"github.com/mongodb/mongo-go-driver/internal/testutil"
 	"github.com/mongodb/mongo-go-driver/internal/testutil/helpers"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
 	"github.com/mongodb/mongo-go-driver/mongo/readpref"
 	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
-	"github.com/mongodb/mongo-go-driver/options"
 	"github.com/mongodb/mongo-go-driver/x/bsonx"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/session"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/topology"
+	"github.com/mongodb/mongo-go-driver/x/network/command"
+	"github.com/mongodb/mongo-go-driver/x/network/connection"
+	"github.com/mongodb/mongo-go-driver/x/network/connstring"
+	"github.com/mongodb/mongo-go-driver/x/network/description"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,23 +58,24 @@ type CollFunction struct {
 
 var ctx = context.Background()
 var emptyDoc = bsonx.Doc{}
+var emptyArr = bsonx.Arr{}
 var updateDoc = bsonx.Doc{{"$inc", bsonx.Document(bsonx.Doc{{"x", bsonx.Int32(1)}})}}
 var doc = bsonx.Doc{{"x", bsonx.Int32(1)}}
 var doc2 = bsonx.Doc{{"y", bsonx.Int32(1)}}
 
 var fooIndex = IndexModel{
 	Keys:    bsonx.Doc{{"foo", bsonx.Int32(-1)}},
-	Options: NewIndexOptionsBuilder().Name("fooIndex").Build(),
+	Options: options.Index().SetName("fooIndex"),
 }
 
 var barIndex = IndexModel{
 	Keys:    bsonx.Doc{{"bar", bsonx.Int32(-1)}},
-	Options: NewIndexOptionsBuilder().Name("barIndex").Build(),
+	Options: options.Index().SetName("barIndex"),
 }
 
 var bazIndex = IndexModel{
 	Keys:    bsonx.Doc{{"baz", bsonx.Int32(-1)}},
-	Options: NewIndexOptionsBuilder().Name("bazIndex").Build(),
+	Options: options.Index().SetName("bazIndex"),
 }
 
 func createFuncMap(t *testing.T, dbName string, collName string, monitored bool) (*Client, *Database, *Collection, []CollFunction) {
@@ -102,7 +104,7 @@ func createFuncMap(t *testing.T, dbName string, collName string, monitored bool)
 		{"UpdateOne", coll, nil, func(mctx SessionContext) error { _, err := coll.UpdateOne(mctx, emptyDoc, updateDoc); return err }},
 		{"UpdateMany", coll, nil, func(mctx SessionContext) error { _, err := coll.UpdateMany(mctx, emptyDoc, updateDoc); return err }},
 		{"ReplaceOne", coll, nil, func(mctx SessionContext) error { _, err := coll.ReplaceOne(mctx, emptyDoc, emptyDoc); return err }},
-		{"Aggregate", coll, nil, func(mctx SessionContext) error { _, err := coll.Aggregate(mctx, emptyDoc); return err }},
+		{"Aggregate", coll, nil, func(mctx SessionContext) error { _, err := coll.Aggregate(mctx, emptyArr); return err }},
 		{"Count", coll, nil, func(mctx SessionContext) error { _, err := coll.Count(mctx, emptyDoc); return err }},
 		{"Distinct", coll, nil, func(mctx SessionContext) error { _, err := coll.Distinct(mctx, "field", emptyDoc); return err }},
 		{"Find", coll, nil, func(mctx SessionContext) error { _, err := coll.Find(mctx, emptyDoc); return err }},
@@ -228,6 +230,7 @@ func createSessionsMonitoredClient(t *testing.T, monitor *event.CommandMonitor) 
 		readPreference: readpref.Primary(),
 		readConcern:    readconcern.Local(),
 		clock:          clock,
+		registry:       bson.DefaultRegistry,
 	}
 
 	subscription, err := c.topology.Subscribe()
@@ -268,14 +271,14 @@ func getReturnError(returnVals []reflect.Value) error {
 	switch converted := errVal.Interface().(type) {
 	case error:
 		return converted
-	case *DocumentResult:
+	case *SingleResult:
 		return converted.err
 	default:
 		return nil
 	}
 }
 
-func getSessionUUID(t *testing.T, cmd bsonx.Doc) []byte {
+func getSessionUUID(t *testing.T, cmd bson.Raw) []byte {
 	lsid, err := cmd.LookupErr("lsid")
 	testhelpers.RequireNil(t, err, "key lsid not found in command")
 	sessID, err := lsid.Document().LookupErr("id")
@@ -328,6 +331,8 @@ func testCheckedOut(t *testing.T, client *Client, expected int) {
 }
 
 func TestSessions(t *testing.T) {
+	skipIfBelow36(t)
+
 	t.Run("TestPoolLifo", func(t *testing.T) {
 		skipIfBelow36(t) // otherwise no session timeout is given and sessions auto expire
 
@@ -384,7 +389,7 @@ func TestSessions(t *testing.T) {
 		}{
 			{"ServerStatus", reflect.ValueOf(db.RunCommand), []interface{}{ctx, serverStatusDoc}, []interface{}{ctx, serverStatusDoc}},
 			{"InsertOne", reflect.ValueOf(coll.InsertOne), []interface{}{ctx, doc}, []interface{}{ctx, doc2}},
-			{"Aggregate", reflect.ValueOf(coll.Aggregate), []interface{}{ctx, emptyDoc}, []interface{}{ctx, emptyDoc}},
+			{"Aggregate", reflect.ValueOf(coll.Aggregate), []interface{}{ctx, emptyArr}, []interface{}{ctx, emptyArr}},
 			{"Find", reflect.ValueOf(coll.Find), []interface{}{ctx, emptyDoc}, []interface{}{ctx, emptyDoc}},
 		}
 
@@ -420,8 +425,16 @@ func TestSessions(t *testing.T) {
 				nextCtVal, err := sessionStarted.Command.LookupErr("$clusterTime")
 				testhelpers.RequireNil(t, err, "key $clusterTime not found in first command for %s", tc.name)
 
-				epoch1, ord1 := getClusterTime(bsonx.Doc{{"$clusterTime", bsonx.Document(replyCtVal.Document())}})
-				epoch2, ord2 := getClusterTime(bsonx.Doc{{"$clusterTime", bsonx.Document(nextCtVal.Document())}})
+				replyCt, err := bsonx.ReadDoc(replyCtVal.Document())
+				if err != nil {
+					t.Fatalf("could not read document: %v", err)
+				}
+				nextCt, err := bsonx.ReadDoc(nextCtVal.Document())
+				if err != nil {
+					t.Fatalf("could not read document: %v", err)
+				}
+				epoch1, ord1 := getClusterTime(bsonx.Doc{{"$clusterTime", bsonx.Document(replyCt)}})
+				epoch2, ord2 := getClusterTime(bsonx.Doc{{"$clusterTime", bsonx.Document(nextCt)}})
 
 				if epoch1 == 0 {
 					t.Fatal("epoch1 is 0")

@@ -12,10 +12,10 @@ import (
 	"fmt"
 
 	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/core/command"
-	"github.com/mongodb/mongo-go-driver/core/dispatch"
-	"github.com/mongodb/mongo-go-driver/core/result"
-	"github.com/mongodb/mongo-go-driver/core/topology"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/topology"
+	"github.com/mongodb/mongo-go-driver/x/network/command"
+	"github.com/mongodb/mongo-go-driver/x/network/result"
 )
 
 // ErrUnacknowledgedWrite is returned from functions that have an unacknowledged
@@ -25,6 +25,14 @@ var ErrUnacknowledgedWrite = errors.New("unacknowledged write")
 // ErrClientDisconnected is returned when a user attempts to call a method on a
 // disconnected client
 var ErrClientDisconnected = errors.New("client is disconnected")
+
+// ErrNilDocument is returned when a user attempts to pass a nil document or filter
+// to a function where the field is required.
+var ErrNilDocument = errors.New("document is nil")
+
+// ErrEmptySlice is returned when a user attempts to pass an empty slice as input
+// to a function wehere the field is required.
+var ErrEmptySlice = errors.New("must provide at least one element in input slice")
 
 func replaceTopologyErr(err error) error {
 	if err == topology.ErrTopologyClosed {
@@ -78,7 +86,7 @@ type WriteConcernError struct {
 
 func (wce WriteConcernError) Error() string { return wce.Message }
 
-func convertBulkWriteErrors(errors []dispatch.BulkWriteError) []BulkWriteError {
+func convertBulkWriteErrors(errors []driver.BulkWriteError) []BulkWriteError {
 	bwErrors := make([]BulkWriteError, 0, len(errors))
 	for _, err := range errors {
 		bwErrors = append(bwErrors, BulkWriteError{

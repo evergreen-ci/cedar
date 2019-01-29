@@ -7,6 +7,7 @@
 package bsonrw
 
 import (
+	"io"
 	"strings"
 	"testing"
 
@@ -19,6 +20,7 @@ var (
 	typDiff = specificDiff("type")
 	valDiff = specificDiff("value")
 
+	expectErrEOF = expectSpecificError(io.EOF)
 	expectErrEOD = expectSpecificError(ErrEOD)
 	expectErrEOA = expectSpecificError(ErrEOA)
 )
@@ -449,7 +451,7 @@ func TestExtJSONParserAllTypes(t *testing.T) {
 			, "CodeWithScope"		: { "$code": "function() {}", "$scope": { "x": 1 } }
 			, "EmptySubdocument"    : {}
 			, "Subdocument"			: { "foo": "bar", "baz": { "$numberInt": "42" } }
-			, "Array"				: [{"$numberInt": "1"}, {"$numberLong": "2"}, {"$numberDouble": "3"}, 4, 5.0]
+			, "Array"				: [{"$numberInt": "1"}, {"$numberLong": "2"}, {"$numberDouble": "3"}, 4, "string", 5.0]
 			, "Timestamp"			: { "$timestamp": { "t": 42, "i": 1 } }
 			, "RegularExpression"	: { "$regularExpression": { "pattern": "foo*", "options": "ix" } }
 			, "DatetimeEpoch"		: { "$date": { "$numberLong": "0" } }
@@ -570,6 +572,7 @@ func TestExtJSONParserAllTypes(t *testing.T) {
 				{typ: bsontype.Int64, val: &extJSONValue{t: bsontype.String, v: "2"}},
 				{typ: bsontype.Double, val: &extJSONValue{t: bsontype.String, v: "3"}},
 				{typ: bsontype.Int32, val: &extJSONValue{t: bsontype.Int32, v: int32(4)}},
+				{typ: bsontype.String, val: &extJSONValue{t: bsontype.String, v: "string"}},
 				{typ: bsontype.Double, val: &extJSONValue{t: bsontype.Double, v: 5.0}},
 			},
 		},
@@ -694,7 +697,7 @@ func TestExtJSONParserAllTypes(t *testing.T) {
 
 	// expect end of whole document: read EOF
 	k, typ, err = ejp.readKey()
-	readKeyDiff(t, "", k, bsontype.Type(0), typ, err, expectErrEOD, "")
+	readKeyDiff(t, "", k, bsontype.Type(0), typ, err, expectErrEOF, "")
 	if diff := cmp.Diff(jpsDoneState, ejp.s); diff != "" {
 		t.Errorf("expected parser to be in done state but instead is in %v\n", ejp.s)
 		t.FailNow()

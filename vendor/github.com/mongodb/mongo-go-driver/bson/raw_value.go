@@ -9,16 +9,19 @@ package bson
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson/bsoncodec"
 	"github.com/mongodb/mongo-go-driver/bson/bsonrw"
 	"github.com/mongodb/mongo-go-driver/bson/bsontype"
-	"github.com/mongodb/mongo-go-driver/bson/decimal"
-	"github.com/mongodb/mongo-go-driver/bson/objectid"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/x/bsonx/bsoncore"
 )
+
+// ErrNilContext is returned when the provided DecodeContext is nil.
+var ErrNilContext = errors.New("DecodeContext cannot be nil")
 
 // ErrNilRegistry is returned when the provided registry is nil.
 var ErrNilRegistry = errors.New("Registry cannot be nil")
@@ -68,11 +71,36 @@ func (rv RawValue) UnmarshalWithRegistry(r *bsoncodec.Registry, val interface{})
 	}
 
 	vr := bsonrw.NewBSONValueReader(rv.Type, rv.Value)
-	dec, err := r.LookupDecoder(reflect.TypeOf(val))
+	rval := reflect.ValueOf(val)
+	if rval.Kind() != reflect.Ptr {
+		return fmt.Errorf("argument to Unmarshal* must be a pointer to a type, but got %v", rval)
+	}
+	rval = rval.Elem()
+	dec, err := r.LookupDecoder(rval.Type())
 	if err != nil {
 		return err
 	}
-	return dec.DecodeValue(bsoncodec.DecodeContext{Registry: r}, vr, val)
+	return dec.DecodeValue(bsoncodec.DecodeContext{Registry: r}, vr, rval)
+}
+
+// UnmarshalWithContext performs the same unmarshalling as Unmarshal but uses the provided DecodeContext
+// instead of the one attached or the default registry.
+func (rv RawValue) UnmarshalWithContext(dc *bsoncodec.DecodeContext, val interface{}) error {
+	if dc == nil {
+		return ErrNilContext
+	}
+
+	vr := bsonrw.NewBSONValueReader(rv.Type, rv.Value)
+	rval := reflect.ValueOf(val)
+	if rval.Kind() != reflect.Ptr {
+		return fmt.Errorf("argument to Unmarshal* must be a pointer to a type, but got %v", rval)
+	}
+	rval = rval.Elem()
+	dec, err := dc.LookupDecoder(rval.Type())
+	if err != nil {
+		return err
+	}
+	return dec.DecodeValue(*dc, vr, rval)
 }
 
 func convertFromCoreValue(v bsoncore.Value) RawValue { return RawValue{Type: v.Type, Value: v.Data} }
@@ -99,7 +127,7 @@ func (rv RawValue) Double() float64 { return convertToCoreValue(rv).Double() }
 // DoubleOK is the same as Double, but returns a boolean instead of panicking.
 func (rv RawValue) DoubleOK() (float64, bool) { return convertToCoreValue(rv).DoubleOK() }
 
-// StringValue returns the string balue for this element.
+// StringValue returns the string value for this element.
 // It panics if e's BSON type is not bsontype.String.
 //
 // NOTE: This method is called StringValue to avoid a collision with the String method which
@@ -144,11 +172,11 @@ func (rv RawValue) BinaryOK() (subtype byte, data []byte, ok bool) {
 
 // ObjectID returns the BSON objectid value the Value represents. It panics if the value is a BSON
 // type other than objectid.
-func (rv RawValue) ObjectID() objectid.ObjectID { return convertToCoreValue(rv).ObjectID() }
+func (rv RawValue) ObjectID() primitive.ObjectID { return convertToCoreValue(rv).ObjectID() }
 
 // ObjectIDOK is the same as ObjectID, except it returns a boolean instead of
 // panicking.
-func (rv RawValue) ObjectIDOK() (objectid.ObjectID, bool) { return convertToCoreValue(rv).ObjectIDOK() }
+func (rv RawValue) ObjectIDOK() (primitive.ObjectID, bool) { return convertToCoreValue(rv).ObjectIDOK() }
 
 // Boolean returns the boolean value the Value represents. It panics if the
 // value is a BSON type other than boolean.
@@ -186,11 +214,11 @@ func (rv RawValue) RegexOK() (pattern, options string, ok bool) {
 
 // DBPointer returns the BSON dbpointer value the Value represents. It panics if the value is a BSON
 // type other than DBPointer.
-func (rv RawValue) DBPointer() (string, objectid.ObjectID) { return convertToCoreValue(rv).DBPointer() }
+func (rv RawValue) DBPointer() (string, primitive.ObjectID) { return convertToCoreValue(rv).DBPointer() }
 
 // DBPointerOK is the same as DBPoitner, except that it returns a boolean
 // instead of panicking.
-func (rv RawValue) DBPointerOK() (string, objectid.ObjectID, bool) {
+func (rv RawValue) DBPointerOK() (string, primitive.ObjectID, bool) {
 	return convertToCoreValue(rv).DBPointerOK()
 }
 
@@ -250,10 +278,10 @@ func (rv RawValue) Int64OK() (int64, bool) { return convertToCoreValue(rv).Int64
 
 // Decimal128 returns the decimal the Value represents. It panics if the value is a BSON type other than
 // decimal.
-func (rv RawValue) Decimal128() decimal.Decimal128 { return convertToCoreValue(rv).Decimal128() }
+func (rv RawValue) Decimal128() primitive.Decimal128 { return convertToCoreValue(rv).Decimal128() }
 
 // Decimal128OK is the same as Decimal128, except that it returns a boolean
 // instead of panicking.
-func (rv RawValue) Decimal128OK() (decimal.Decimal128, bool) {
+func (rv RawValue) Decimal128OK() (primitive.Decimal128, bool) {
 	return convertToCoreValue(rv).Decimal128OK()
 }
