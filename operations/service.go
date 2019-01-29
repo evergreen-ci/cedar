@@ -29,11 +29,13 @@ func Service() cli.Command {
 		envVarRPCHost        = "CEDAR_RPC_HOST"
 		envVarRPCCertPath    = "CEDAR_RPC_CERT"
 		envVarRPCCertKeyPath = "CEDAR_RPC_KEY"
+		envVarRPCCAPath      = "CEDAR_RPC_CA"
 		envVarRESTPort       = "CEDAR_REST_PORT"
 
 		rpcHostFlag        = "rpcHost"
 		rpcPortFlag        = "rpcPort"
 		rpcCertPathFlag    = "rpcCertPath"
+		rpcCAPathFlag      = "rpcCAPath"
 		rpcCertKeyPathFlag = "rpcKeyPath"
 	)
 
@@ -47,6 +49,11 @@ func Service() cli.Command {
 					Name:   rpcCertPathFlag,
 					Usage:  "path to the rpc service certificate",
 					EnvVar: envVarRPCCertPath,
+				},
+				cli.StringFlag{
+					Name:   rpcCAPathFlag,
+					Usage:  "path to the rpc service ca cert",
+					EnvVar: envVarRPCCAPath,
 				},
 				cli.StringFlag{
 					Name:   rpcCertKeyPathFlag,
@@ -87,6 +94,7 @@ func Service() cli.Command {
 
 			rpcCertPath := c.String(rpcCertPathFlag)
 			rpcCertKeyPath := c.String(rpcCertKeyPathFlag)
+			rpcCAPath := c.String(rpcCAPathFlag)
 			rpcHost := c.String(rpcHostFlag)
 			rpcPort := c.Int(rpcPortFlag)
 			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
@@ -116,7 +124,7 @@ func Service() cli.Command {
 				Environment: env,
 				Conf:        conf,
 				CertPath:    filepath.Dir(rpcCertPath),
-				ServiceName: strings.TrimSuffix(filepath.Base(rpcCertPath), filepath.Ext(rpcCertPath)),
+				RootCAName:  strings.TrimSuffix(filepath.Base(rpcCAPath), filepath.Ext(rpcCAPath)),
 			}
 
 			restWait, err := service.Start(ctx)
@@ -129,7 +137,12 @@ func Service() cli.Command {
 			// starting grpc
 			//
 
-			rpcSrv, err := rpc.GetServer(env, rpcCertKeyPath, rpcCertPath)
+			rpcSrv, err := rpc.GetServer(env, rpc.CertConfig{
+				Cert: rpcCertPath,
+				Key:  rpcCertKeyPath,
+				CA:   rpcCAPath,
+			})
+
 			if err != nil {
 				return errors.WithStack(err)
 			}
