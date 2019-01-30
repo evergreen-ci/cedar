@@ -704,6 +704,22 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	gimlet.WriteJSON(rw, resp)
 }
 
+func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
+	rootcrt, err := depot.GetCertificate(s.depot, s.RootCAName)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
+			"problem exporting root cert '%s'", s.RootCAName)))
+		return
+	}
+	payload, err := rootcrt.Export()
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting root certificate")))
+		return
+	}
+
+	gimlet.WriteBinary(rw, payload)
+}
+
 func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	creds := &userCredentials{}
@@ -736,40 +752,47 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rootcrt, err := depot.GetCertificate(s.depot, s.RootCAName)
-	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
-			"problem exporting root cert '%s'", s.RootCAName)))
-		return
-	}
-	payload, err := rootcrt.Export()
-	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting root certificate")))
-		return
-	}
+	catcher := grip.NewBasicCatcher()
 
 	// we have a local cert on the system, let's use it.
 	crt, err := depot.GetCertificate(s.depot, creds.Username)
-	if err == nil {
-		data, err := crt.Export()
-		if err != nil {
-			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
-			return
-		}
-		payload = append(payload, data...)
-		gimlet.WriteBinary(rw, payload)
-		return
+	catcher.Wrap(err, "problem resolving certificate")
+
+	key, err := depot.GetPrivateKey(s.depot, creds.Username)
+	catcher.Wrap(err, "problem resolving certificate key")
+
+	if catcher.HasErrors() {
+		// if we get here, we need to make a cert:
+		//
+		// if this were a shell script using certstrap, we'd:
+		//  - certstrap request-cert --common-name <creds.Username>
+		//  - certstrap sign <creds.Username> --CA <s.ServiceName>
+		// then:
+		//  - return the contents of the cert as above
+		//
+		// however we should implement this without shelling out.
+
+		gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
+			Message:    errors.Wrap(catcher.Resolve(), "certificate generation not supported").Error(),
+			StatusCode: http.StatusNotImplemented,
+		})
 	}
 
-	// we need to make a cert:
-	// if this were a shell script using certstrap, we'd:
-	//  - certstrap request-cert --common-name <creds.Username>
-	//  - certstrap sign <creds.Username> --CA <s.ServiceName>
-	// then:
-	//  - return the contents of the cert as above
+	var payload []byte
 
-	gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
-		Message:    "certificate generation not supported.",
-		StatusCode: http.StatusNotImplemented,
-	})
+	data, err := crt.Export()
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
+		return
+	}
+	payload = append(payload, data...)
+
+	data, err = key.ExportPrivate()
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate key")))
+		return
+	}
+	payload = append(payload, data...)
+
+	gimlet.WriteBinary(rw, payload)
 }
