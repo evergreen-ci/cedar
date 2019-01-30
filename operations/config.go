@@ -74,7 +74,7 @@ func loadCedarConfig() cli.Command {
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err = sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
