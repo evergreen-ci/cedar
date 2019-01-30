@@ -15,11 +15,12 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID     string                    `bson:"_id" json:"id" yaml:"id"`
-	Splunk send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack  SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP   LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	Flags  OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
+	ID      string                    `bson:"_id" json:"id" yaml:"id"`
+	Splunk  send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack   SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP    LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	Flags   OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
+	Service ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 
 	populated bool
 	env       cedar.Environment
@@ -36,11 +37,12 @@ func NewCedarConfig(env cedar.Environment) *CedarConfig {
 }
 
 var (
-	cedarConfigurationIDKey     = bsonutil.MustHaveTag(CedarConfig{}, "ID")
-	cedarConfigurationSplunkKey = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
-	cedarConfigurationSlackKey  = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
-	cedarConfigurationLDAPKey   = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
-	cedarConfigurationFlagsKey  = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
+	cedarConfigurationIDKey      = bsonutil.MustHaveTag(CedarConfig{}, "ID")
+	cedarConfigurationSplunkKey  = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
+	cedarConfigurationSlackKey   = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
+	cedarConfigurationLDAPKey    = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
+	cedarConfigurationFlagsKey   = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
+	cedarConfigurationServiceKey = bsonutil.MustHaveTag(CedarConfig{}, "Service")
 )
 
 type SlackConfig struct {
@@ -73,6 +75,13 @@ var (
 	cedarLDAPConfigGroupKey        = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
 	cedarLDAPConfigServiceGroupKey = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
 )
+
+type ServiceConfig struct {
+	AppServers []string `bson:"app_servers" json:"app_servers" yaml:"app_servers"`
+
+	// in the future this will include CA certs, and potentially
+	// other information
+}
 
 func (c *CedarConfig) Setup(e cedar.Environment) { c.env = e }
 func (c *CedarConfig) IsNil() bool               { return !c.populated }
