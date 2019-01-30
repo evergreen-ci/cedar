@@ -1,6 +1,8 @@
 package operations
 
 import (
+	"context"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/util"
@@ -19,13 +21,18 @@ func dumpCedarConfig() cli.Command {
 				Usage: "specify path to a cedar application config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := cedar.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -51,7 +58,8 @@ func loadCedarConfig() cli.Command {
 				Usage: "specify path to a cedar application config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := cedar.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
@@ -62,7 +70,11 @@ func loadCedarConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			if err = configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 

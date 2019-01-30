@@ -34,7 +34,8 @@ func Worker() cli.Command {
 
 			env := cedar.GetEnvironment()
 
-			if err := configure(env, workers, false, mongodbURI, bucket, dbName); err != nil {
+			sc := newServiceConf(workers, false, mongodbURI, bucket, dbName)
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
