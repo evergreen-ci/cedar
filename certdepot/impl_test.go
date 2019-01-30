@@ -148,7 +148,7 @@ func (s *MongoDepotTestSuite) TestDelete() {
 	s.Require().NoError(s.collection.Insert(u))
 	s.NoError(s.mongoDepot.Delete(depot.CrtTag(deleteName)))
 	deleteU = &DBUser{}
-	s.Equal(mgo.ErrNotFound, s.collection.FindId(deleteName).One(u))
+	s.Equal(mgo.ErrNotFound, s.collection.FindId(deleteName).One(deleteU))
 	u = &DBUser{}
 	s.Require().NoError(s.collection.FindId(name).One(u))
 	s.Equal(name, u.ID)

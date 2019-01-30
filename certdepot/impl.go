@@ -41,7 +41,7 @@ type MgoCertDepotOptions struct {
 
 // Create a new cert depot in the specified MongoDB.
 func NewMgoCertDepot(opts MgoCertDepotOptions) (depot.Depot, error) {
-	opts.defaults()
+	opts = defaults(opts)
 
 	session, err := mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
 	if err != nil {
@@ -58,21 +58,21 @@ func NewMgoCertDepot(opts MgoCertDepotOptions) (depot.Depot, error) {
 }
 
 // Create a new cert depot in the specified MongoDB, using an existing session.
-func NewMgoCertDepotWithSession(s *mgo.Session, opts MgoCertOpts) (depot.Depot, error) {
+func NewMgoCertDepotWithSession(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
 	if s == nil {
 		return NewMgoCertDepot(opts)
 	}
 
-	opts.defaults()
+	opts = defaults(opts)
 	return &mongoCertDepot{
 		session:        s,
 		databaseName:   opts.DatabaseName,
 		collectionName: opts.CollectionName,
 		expireAfter:    opts.ExpireAfter,
-	}
+	}, nil
 }
 
-func (opts MgoCertDepotOptions) defaults() {
+func defaults(opts MgoCertDepotOptions) MgoCertDepotOptions {
 	if opts.MongoDBURI == "" {
 		opts.MongoDBURI = "mongodb://localhost:27017"
 	}
@@ -91,6 +91,7 @@ func (opts MgoCertDepotOptions) defaults() {
 	if opts.ExpireAfter <= 0 {
 		opts.ExpireAfter = 30 * 24 * time.Hour
 	}
+	return opts
 }
 
 // Put inserts the data into the document specified by the tag.
