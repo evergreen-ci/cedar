@@ -125,6 +125,7 @@ func Service() cli.Command {
 				Conf:        conf,
 				CertPath:    filepath.Dir(rpcCertPath),
 				RootCAName:  strings.TrimSuffix(filepath.Base(rpcCAPath), filepath.Ext(rpcCAPath)),
+				RPCServers:  conf.Service.AppServers,
 			}
 
 			restWait, err := service.Start(ctx)
