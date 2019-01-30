@@ -736,6 +736,18 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	rootcrt, err := depot.GetCertificate(s.depot, s.RootCAName)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
+			"problem exporting root cert '%s'", s.RootCAName)))
+		return
+	}
+	payload, err := rootcrt.Export()
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting root certificate")))
+		return
+	}
+
 	// we have a local cert on the system, let's use it.
 	crt, err := depot.GetCertificate(s.depot, creds.Username)
 	if err == nil {
@@ -744,8 +756,8 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
 			return
 		}
-
-		gimlet.WriteBinary(rw, data)
+		payload = append(payload, data...)
+		gimlet.WriteBinary(rw, payload)
 		return
 	}
 

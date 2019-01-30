@@ -7,6 +7,7 @@
 package gridfs
 
 import (
+	"bytes"
 	"context"
 
 	"io"
@@ -15,12 +16,13 @@ import (
 
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson/objectid"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
 	"github.com/mongodb/mongo-go-driver/mongo/readpref"
 	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
-	"github.com/mongodb/mongo-go-driver/options"
 	"github.com/mongodb/mongo-go-driver/x/bsonx"
 )
 
@@ -110,11 +112,11 @@ func (b *Bucket) SetReadDeadline(t time.Time) error {
 
 // OpenUploadStream creates a file ID new upload stream for a file given the filename.
 func (b *Bucket) OpenUploadStream(filename string, opts ...*options.UploadOptions) (*UploadStream, error) {
-	return b.OpenUploadStreamWithID(objectid.New(), filename, opts...)
+	return b.OpenUploadStreamWithID(primitive.NewObjectID(), filename, opts...)
 }
 
 // OpenUploadStreamWithID creates a new upload stream for a file given the file ID and filename.
-func (b *Bucket) OpenUploadStreamWithID(fileID objectid.ObjectID, filename string, opts ...*options.UploadOptions) (*UploadStream, error) {
+func (b *Bucket) OpenUploadStreamWithID(fileID primitive.ObjectID, filename string, opts ...*options.UploadOptions) (*UploadStream, error) {
 	ctx, cancel := deadlineContext(b.writeDeadline)
 	if cancel != nil {
 		defer cancel()
@@ -133,14 +135,14 @@ func (b *Bucket) OpenUploadStreamWithID(fileID objectid.ObjectID, filename strin
 }
 
 // UploadFromStream creates a fileID and uploads a file given a source stream.
-func (b *Bucket) UploadFromStream(filename string, source io.Reader, opts ...*options.UploadOptions) (objectid.ObjectID, error) {
-	fileID := objectid.New()
+func (b *Bucket) UploadFromStream(filename string, source io.Reader, opts ...*options.UploadOptions) (primitive.ObjectID, error) {
+	fileID := primitive.NewObjectID()
 	err := b.UploadFromStreamWithID(fileID, filename, source, opts...)
 	return fileID, err
 }
 
 // UploadFromStreamWithID uploads a file given a source stream.
-func (b *Bucket) UploadFromStreamWithID(fileID objectid.ObjectID, filename string, source io.Reader, opts ...*options.UploadOptions) error {
+func (b *Bucket) UploadFromStreamWithID(fileID primitive.ObjectID, filename string, source io.Reader, opts ...*options.UploadOptions) error {
 	us, err := b.OpenUploadStreamWithID(fileID, filename, opts...)
 	if err != nil {
 		return err
@@ -175,7 +177,7 @@ func (b *Bucket) UploadFromStreamWithID(fileID objectid.ObjectID, filename strin
 }
 
 // OpenDownloadStream creates a stream from which the contents of the file can be read.
-func (b *Bucket) OpenDownloadStream(fileID objectid.ObjectID) (*DownloadStream, error) {
+func (b *Bucket) OpenDownloadStream(fileID primitive.ObjectID) (*DownloadStream, error) {
 	return b.openDownloadStream(bsonx.Doc{
 		{"_id", bsonx.ObjectID(fileID)},
 	})
@@ -183,7 +185,7 @@ func (b *Bucket) OpenDownloadStream(fileID objectid.ObjectID) (*DownloadStream, 
 
 // DownloadToStream downloads the file with the specified fileID and writes it to the provided io.Writer.
 // Returns the number of bytes written to the steam and an error, or nil if there was no error.
-func (b *Bucket) DownloadToStream(fileID objectid.ObjectID, stream io.Writer) (int64, error) {
+func (b *Bucket) DownloadToStream(fileID primitive.ObjectID, stream io.Writer) (int64, error) {
 	ds, err := b.OpenDownloadStream(fileID)
 	if err != nil {
 		return 0, err
@@ -223,7 +225,7 @@ func (b *Bucket) DownloadToStreamByName(filename string, stream io.Writer, opts 
 }
 
 // Delete deletes all chunks and metadata associated with the file with the given file ID.
-func (b *Bucket) Delete(fileID objectid.ObjectID) error {
+func (b *Bucket) Delete(fileID primitive.ObjectID) error {
 	// delete document in files collection and then chunks to minimize race conditions
 
 	ctx, cancel := deadlineContext(b.writeDeadline)
@@ -275,7 +277,7 @@ func (b *Bucket) Find(filter interface{}, opts ...*options.GridFSFindOptions) (m
 }
 
 // Rename renames the stored file with the specified file ID.
-func (b *Bucket) Rename(fileID objectid.ObjectID, newFilename string) error {
+func (b *Bucket) Rename(fileID primitive.ObjectID, newFilename string) error {
 	ctx, cancel := deadlineContext(b.writeDeadline)
 	if cancel != nil {
 		defer cancel()
@@ -336,7 +338,7 @@ func (b *Bucket) openDownloadStream(filter interface{}, opts ...*options.FindOpt
 		return nil, err
 	}
 
-	fileLen := fileLenElem.Int32()
+	fileLen := fileLenElem.Int64()
 	if fileLen == 0 {
 		return newDownloadStream(nil, b.chunkSize, 0), nil
 	}
@@ -372,7 +374,7 @@ func (b *Bucket) downloadToStream(ds *DownloadStream, stream io.Writer) (int64, 
 	return copied, ds.Close()
 }
 
-func (b *Bucket) deleteChunks(ctx context.Context, fileID objectid.ObjectID) error {
+func (b *Bucket) deleteChunks(ctx context.Context, fileID primitive.ObjectID) error {
 	_, err := b.chunksColl.DeleteMany(ctx, bsonx.Doc{{"files_id", bsonx.ObjectID(fileID)}})
 	return err
 }
@@ -391,7 +393,7 @@ func (b *Bucket) findFile(ctx context.Context, filter interface{}, opts ...*opti
 	return cursor, nil
 }
 
-func (b *Bucket) findChunks(ctx context.Context, fileID objectid.ObjectID) (mongo.Cursor, error) {
+func (b *Bucket) findChunks(ctx context.Context, fileID primitive.ObjectID) (mongo.Cursor, error) {
 	chunksCursor, err := b.chunksColl.Find(ctx,
 		bsonx.Doc{{"files_id", bsonx.ObjectID(fileID)}},
 		options.Find().SetSort(bsonx.Doc{{"n", bsonx.Int32(1)}})) // sort by chunk index
@@ -424,12 +426,13 @@ func createIndexIfNotExists(ctx context.Context, iv mongo.IndexView, model mongo
 			return err
 		}
 
-		keyElemDoc, err := bsonx.ReadDoc(keyElem.Document())
+		keyElemDoc := keyElem.Document()
+		modelKeysDoc, err := bson.Marshal(model.Keys)
 		if err != nil {
 			return err
 		}
 
-		if model.Keys.Equal(keyElemDoc) {
+		if bytes.Equal(modelKeysDoc, keyElemDoc) {
 			found = true
 			break
 		}
@@ -455,31 +458,34 @@ func (b *Bucket) createIndexes(ctx context.Context) error {
 
 	docRes := cloned.FindOne(ctx, bsonx.Doc{}, options.FindOne().SetProjection(bsonx.Doc{{"_id", bsonx.Int32(1)}}))
 
-	err = docRes.Decode(nil)
-	if err == mongo.ErrNoDocuments {
-		filesIv := b.filesColl.Indexes()
-		chunksIv := b.chunksColl.Indexes()
+	_, err = docRes.DecodeBytes()
+	if err != mongo.ErrNoDocuments {
+		// nil, or error that occured during the FindOne operation
+		return err
+	}
 
-		filesModel := mongo.IndexModel{
-			Keys: bsonx.Doc{
-				{"filename", bsonx.Int32(1)},
-				{"uploadDate", bsonx.Int32(1)},
-			},
-		}
+	filesIv := b.filesColl.Indexes()
+	chunksIv := b.chunksColl.Indexes()
 
-		chunksModel := mongo.IndexModel{
-			Keys: bsonx.Doc{
-				{"files_id", bsonx.Int32(1)},
-				{"n", bsonx.Int32(1)},
-			},
-		}
+	filesModel := mongo.IndexModel{
+		Keys: bson.D{
+			{"filename", int32(1)},
+			{"uploadDate", int32(1)},
+		},
+	}
 
-		if err = createIndexIfNotExists(ctx, filesIv, filesModel); err != nil {
-			return err
-		}
-		if err = createIndexIfNotExists(ctx, chunksIv, chunksModel); err != nil {
-			return err
-		}
+	chunksModel := mongo.IndexModel{
+		Keys: bson.D{
+			{"files_id", int32(1)},
+			{"n", int32(1)},
+		},
+	}
+
+	if err = createIndexIfNotExists(ctx, filesIv, filesModel); err != nil {
+		return err
+	}
+	if err = createIndexIfNotExists(ctx, chunksIv, chunksModel); err != nil {
+		return err
 	}
 
 	return nil

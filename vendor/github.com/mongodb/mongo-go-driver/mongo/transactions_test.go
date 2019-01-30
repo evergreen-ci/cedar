@@ -21,17 +21,17 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/bsontype"
-	"github.com/mongodb/mongo-go-driver/core/command"
-	"github.com/mongodb/mongo-go-driver/core/description"
-	"github.com/mongodb/mongo-go-driver/core/event"
-	"github.com/mongodb/mongo-go-driver/core/session"
+	"github.com/mongodb/mongo-go-driver/event"
 	"github.com/mongodb/mongo-go-driver/internal/testutil"
 	"github.com/mongodb/mongo-go-driver/internal/testutil/helpers"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
 	"github.com/mongodb/mongo-go-driver/mongo/readpref"
 	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
-	"github.com/mongodb/mongo-go-driver/options"
 	"github.com/mongodb/mongo-go-driver/x/bsonx"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/session"
+	"github.com/mongodb/mongo-go-driver/x/network/command"
+	"github.com/mongodb/mongo-go-driver/x/network/description"
 	"github.com/stretchr/testify/require"
 )
 
@@ -148,12 +148,12 @@ func runTransactionsTestCase(t *testing.T, test *transTestCase, testfile transTe
 		// configure failpoint if specified
 		if test.FailPoint != nil {
 			doc := createFailPointDoc(t, test.FailPoint)
-			_, err := dbAdmin.RunCommand(ctx, doc)
+			err := dbAdmin.RunCommand(ctx, doc).Err()
 			require.NoError(t, err)
 
 			defer func() {
 				// disable failpoint if specified
-				_, _ = dbAdmin.RunCommand(ctx, bsonx.Doc{
+				_ = dbAdmin.RunCommand(ctx, bsonx.Doc{
 					{"configureFailPoint", bsonx.String(test.FailPoint.ConfigureFailPoint)},
 					{"mode", bsonx.String("off")},
 				})
@@ -170,10 +170,10 @@ func runTransactionsTestCase(t *testing.T, test *transTestCase, testfile transTe
 		err := db.Drop(ctx)
 		require.NoError(t, err)
 
-		_, err = db.RunCommand(
+		err = db.RunCommand(
 			context.Background(),
 			bsonx.Doc{{"create", bsonx.String(collName)}},
-		)
+		).Err()
 		require.NoError(t, err)
 
 		// insert data if present
@@ -419,19 +419,19 @@ func executeCollectionOperation(t *testing.T, op *transOperation, sess *sessionI
 	case "findOneAndDelete":
 		res := executeFindOneAndDelete(sess, coll, op.ArgMap)
 		if !resultHasError(t, op.Result) {
-			verifyDocumentResult(t, res, op.Result)
+			verifySingleResult(t, res, op.Result)
 		}
 		return res.err
 	case "findOneAndUpdate":
 		res := executeFindOneAndUpdate(sess, coll, op.ArgMap)
 		if !resultHasError(t, op.Result) {
-			verifyDocumentResult(t, res, op.Result)
+			verifySingleResult(t, res, op.Result)
 		}
 		return res.err
 	case "findOneAndReplace":
 		res := executeFindOneAndReplace(sess, coll, op.ArgMap)
 		if !resultHasError(t, op.Result) {
-			verifyDocumentResult(t, res, op.Result)
+			verifySingleResult(t, res, op.Result)
 		}
 		return res.err
 	case "deleteOne":
@@ -480,8 +480,13 @@ func executeCollectionOperation(t *testing.T, op *transOperation, sess *sessionI
 func executeDatabaseOperation(t *testing.T, op *transOperation, sess *sessionImpl, db *Database) error {
 	switch op.Name {
 	case "runCommand":
-		res, err := executeRunCommand(sess, db, op.ArgMap, op.Arguments)
+		var result bsonx.Doc
+		err := executeRunCommand(sess, db, op.ArgMap, op.Arguments).Decode(&result)
 		if !resultHasError(t, op.Result) {
+			res, err := result.MarshalBSON()
+			if err != nil {
+				return err
+			}
 			verifyRunCommandResult(t, res, op.Result)
 		}
 		return err
@@ -583,7 +588,7 @@ func checkExpectations(t *testing.T, expectations []*transExpectation, id0 bsonx
 
 			// Keys that may be nil
 			if val.Type() == bson.TypeNull {
-				require.Equal(t, actual.LookupElement(key), bsonx.Elem{}, "Expected %s to be nil", key)
+				require.Equal(t, actual.Lookup(key), bson.RawValue{}, "Expected %s to be nil", key)
 				continue
 			} else if key == "ordered" {
 				// TODO: some tests specify that "ordered" must be a key in the event but ordered isn't a valid option for some of these cases (e.g. insertOne)
@@ -591,13 +596,17 @@ func checkExpectations(t *testing.T, expectations []*transExpectation, id0 bsonx
 			}
 
 			// Keys that should not be nil
-			require.NotEqual(t, actualVal.Type(), bsontype.Null, "Expected %v, got nil for key: %s", elem, key)
+			require.NotEqual(t, actualVal.Type, bsontype.Null, "Expected %v, got nil for key: %s", elem, key)
 			if key == "lsid" {
 				if val.StringValue() == "session0" {
-					require.True(t, id0.Equal(actualVal.Document()), "Session ID mismatch")
+					doc, err := bsonx.ReadDoc(actualVal.Document())
+					require.NoError(t, err)
+					require.True(t, id0.Equal(doc), "Session ID mismatch")
 				}
 				if val.StringValue() == "session1" {
-					require.True(t, id1.Equal(actualVal.Document()), "Session ID mismatch")
+					doc, err := bsonx.ReadDoc(actualVal.Document())
+					require.NoError(t, err)
+					require.True(t, id1.Equal(doc), "Session ID mismatch")
 				}
 			} else if key == "getMore" {
 				require.NotNil(t, actualVal, "Expected %v, got nil for key: %s", elem, key)
@@ -615,10 +624,14 @@ func checkExpectations(t *testing.T, expectations []*transExpectation, id0 bsonx
 					require.NotNil(t, rcActualDoc.Lookup("afterClusterTime"))
 				}
 				if level.Type() != bsontype.Null {
-					compareElements(t, rcExpectDoc.LookupElement("level"), rcActualDoc.LookupElement("level"))
+					doc, err := bsonx.ReadDoc(rcActualDoc)
+					require.NoError(t, err)
+					compareElements(t, rcExpectDoc.LookupElement("level"), doc.LookupElement("level"))
 				}
 			} else {
-				compareElements(t, elem, actual.LookupElement(key))
+				doc, err := bsonx.ReadDoc(actual)
+				require.NoError(t, err)
+				compareElements(t, elem, doc.LookupElement(key))
 			}
 
 		}

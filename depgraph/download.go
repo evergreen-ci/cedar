@@ -91,13 +91,13 @@ func downloadFile(url, fileName string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode >= 300 {
-		grip.CatchWarning(os.Remove(fileName))
+		grip.Warning(os.Remove(fileName))
 		return errors.Errorf("encountered error %d (%s) for %s", response.StatusCode, response.Status, url)
 	}
 
 	n, err := io.Copy(output, response.Body)
 	if err != nil {
-		grip.CatchWarning(os.Remove(fileName))
+		grip.Warning(os.Remove(fileName))
 
 		return errors.Wrapf(err, "problem writing %s to file %s", url, fileName)
 	}

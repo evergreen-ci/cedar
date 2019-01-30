@@ -86,7 +86,7 @@ func (c *envState) Configure(conf *Configuration) error {
 			Priority: true,
 		}
 
-		mongoDriver := queue.NewMongoDBDriver(QueueName, opts)
+		mongoDriver := queue.NewMgoDriver(QueueName, opts)
 		if err = q.SetDriver(mongoDriver); err != nil {
 			return errors.Wrap(err, "problem configuring driver")
 		}

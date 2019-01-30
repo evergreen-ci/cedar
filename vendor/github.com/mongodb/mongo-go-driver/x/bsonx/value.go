@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson/bsontype"
-	"github.com/mongodb/mongo-go-driver/bson/decimal"
-	"github.com/mongodb/mongo-go-driver/bson/objectid"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/x/bsonx/bsoncore"
 )
@@ -162,64 +160,69 @@ func (v Val) Interface() interface{} {
 
 // MarshalBSONValue implements the bsoncodec.ValueMarshaler interface.
 func (v Val) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	return v.MarshalAppendBSONValue(nil)
+}
+
+// MarshalAppendBSONValue is similar to MarshalBSONValue, but allows the caller to specify a slice
+// to add the bytes to.
+func (v Val) MarshalAppendBSONValue(dst []byte) (bsontype.Type, []byte, error) {
 	t := v.Type()
-	var data []byte
 	switch v.Type() {
 	case bsontype.Double:
-		data = bsoncore.AppendDouble(data, v.Double())
+		dst = bsoncore.AppendDouble(dst, v.Double())
 	case bsontype.String:
-		data = bsoncore.AppendString(data, v.String())
+		dst = bsoncore.AppendString(dst, v.String())
 	case bsontype.EmbeddedDocument:
 		switch v.primitive.(type) {
 		case Doc:
-			t, data, _ = v.primitive.(Doc).MarshalBSONValue() // Doc.MarshalBSONValue never returns an error.
+			t, dst, _ = v.primitive.(Doc).MarshalBSONValue() // Doc.MarshalBSONValue never returns an error.
 		case MDoc:
-			t, data, _ = v.primitive.(MDoc).MarshalBSONValue() // MDoc.MarshalBSONValue never returns an error.
+			t, dst, _ = v.primitive.(MDoc).MarshalBSONValue() // MDoc.MarshalBSONValue never returns an error.
 		}
 	case bsontype.Array:
-		t, data, _ = v.Array().MarshalBSONValue() // Arr.MarshalBSON never returns an error.
+		t, dst, _ = v.Array().MarshalBSONValue() // Arr.MarshalBSON never returns an error.
 	case bsontype.Binary:
 		subtype, bindata := v.Binary()
-		data = bsoncore.AppendBinary(data, subtype, bindata)
+		dst = bsoncore.AppendBinary(dst, subtype, bindata)
 	case bsontype.Undefined:
 	case bsontype.ObjectID:
-		data = bsoncore.AppendObjectID(data, v.ObjectID())
+		dst = bsoncore.AppendObjectID(dst, v.ObjectID())
 	case bsontype.Boolean:
-		data = bsoncore.AppendBoolean(data, v.Boolean())
+		dst = bsoncore.AppendBoolean(dst, v.Boolean())
 	case bsontype.DateTime:
-		data = bsoncore.AppendDateTime(data, int64(v.DateTime()))
+		dst = bsoncore.AppendDateTime(dst, int64(v.DateTime()))
 	case bsontype.Null:
 	case bsontype.Regex:
 		pattern, options := v.Regex()
-		data = bsoncore.AppendRegex(data, pattern, options)
+		dst = bsoncore.AppendRegex(dst, pattern, options)
 	case bsontype.DBPointer:
 		ns, ptr := v.DBPointer()
-		data = bsoncore.AppendDBPointer(data, ns, ptr)
+		dst = bsoncore.AppendDBPointer(dst, ns, ptr)
 	case bsontype.JavaScript:
-		data = bsoncore.AppendJavaScript(data, string(v.JavaScript()))
+		dst = bsoncore.AppendJavaScript(dst, string(v.JavaScript()))
 	case bsontype.Symbol:
-		data = bsoncore.AppendSymbol(data, string(v.Symbol()))
+		dst = bsoncore.AppendSymbol(dst, string(v.Symbol()))
 	case bsontype.CodeWithScope:
 		code, doc := v.CodeWithScope()
 		var scope []byte
 		scope, _ = doc.MarshalBSON() // Doc.MarshalBSON never returns an error.
-		data = bsoncore.AppendCodeWithScope(data, code, scope)
+		dst = bsoncore.AppendCodeWithScope(dst, code, scope)
 	case bsontype.Int32:
-		data = bsoncore.AppendInt32(data, v.Int32())
+		dst = bsoncore.AppendInt32(dst, v.Int32())
 	case bsontype.Timestamp:
 		t, i := v.Timestamp()
-		data = bsoncore.AppendTimestamp(data, t, i)
+		dst = bsoncore.AppendTimestamp(dst, t, i)
 	case bsontype.Int64:
-		data = bsoncore.AppendInt64(data, v.Int64())
+		dst = bsoncore.AppendInt64(dst, v.Int64())
 	case bsontype.Decimal128:
-		data = bsoncore.AppendDecimal128(data, v.Decimal128())
+		dst = bsoncore.AppendDecimal128(dst, v.Decimal128())
 	case bsontype.MinKey:
 	case bsontype.MaxKey:
 	default:
 		panic(fmt.Errorf("invalid BSON type %v", t))
 	}
 
-	return t, data, nil
+	return t, dst, nil
 }
 
 // UnmarshalBSONValue implements the bsoncodec.ValueUnmarshaler interface.
@@ -259,7 +262,7 @@ func (v *Val) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	case bsontype.Undefined:
 		*v = Undefined()
 	case bsontype.ObjectID:
-		var oid objectid.ObjectID
+		var oid primitive.ObjectID
 		oid, rem, ok = bsoncore.ReadObjectID(data)
 		*v = ObjectID(oid)
 	case bsontype.Boolean:
@@ -278,7 +281,7 @@ func (v *Val) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 		*v = Regex(pattern, options)
 	case bsontype.DBPointer:
 		var ns string
-		var ptr objectid.ObjectID
+		var ptr primitive.ObjectID
 		ns, ptr, rem, ok = bsoncore.ReadDBPointer(data)
 		*v = DBPointer(ns, ptr)
 	case bsontype.JavaScript:
@@ -309,7 +312,7 @@ func (v *Val) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 		i64, rem, ok = bsoncore.ReadInt64(data)
 		*v = Int64(i64)
 	case bsontype.Decimal128:
-		var d128 decimal.Decimal128
+		var d128 primitive.Decimal128
 		d128, rem, ok = bsoncore.ReadDecimal128(data)
 		*v = Decimal128(d128)
 	case bsontype.MinKey:
@@ -501,22 +504,22 @@ func (v Val) UndefinedOK() bool {
 
 // ObjectID returns the BSON ObjectID the Value represents. It panics if the value is a BSON type
 // other than ObjectID.
-func (v Val) ObjectID() objectid.ObjectID {
+func (v Val) ObjectID() primitive.ObjectID {
 	if v.t != bsontype.ObjectID {
 		panic(ElementTypeError{"bson.Value.ObjectID", v.t})
 	}
-	var oid objectid.ObjectID
+	var oid primitive.ObjectID
 	copy(oid[:], v.bootstrap[:12])
 	return oid
 }
 
 // ObjectIDOK is the same as ObjectID, except it returns a boolean instead of
 // panicking.
-func (v Val) ObjectIDOK() (objectid.ObjectID, bool) {
+func (v Val) ObjectIDOK() (primitive.ObjectID, bool) {
 	if v.t != bsontype.ObjectID {
-		return objectid.ObjectID{}, false
+		return primitive.ObjectID{}, false
 	}
-	var oid objectid.ObjectID
+	var oid primitive.ObjectID
 	copy(oid[:], v.bootstrap[:12])
 	return oid, true
 }
@@ -617,7 +620,7 @@ func (v Val) RegexOK() (pattern, options string, ok bool) {
 
 // DBPointer returns the BSON dbpointer the Value represents. It panics if the value is a BSON type
 // other than dbpointer.
-func (v Val) DBPointer() (string, objectid.ObjectID) {
+func (v Val) DBPointer() (string, primitive.ObjectID) {
 	if v.t != bsontype.DBPointer {
 		panic(ElementTypeError{"bson.Value.DBPointer", v.t})
 	}
@@ -627,9 +630,9 @@ func (v Val) DBPointer() (string, objectid.ObjectID) {
 
 // DBPointerOK is the same as DBPoitner, except that it returns a boolean
 // instead of panicking.
-func (v Val) DBPointerOK() (string, objectid.ObjectID, bool) {
+func (v Val) DBPointerOK() (string, primitive.ObjectID, bool) {
 	if v.t != bsontype.DBPointer {
-		return "", objectid.ObjectID{}, false
+		return "", primitive.ObjectID{}, false
 	}
 	dbptr := v.primitive.(primitive.DBPointer)
 	return dbptr.DB, dbptr.Pointer, true
@@ -757,20 +760,20 @@ func (v Val) Int64OK() (int64, bool) {
 
 // Decimal128 returns the BSON decimal128 value the Value represents. It panics if the value is a
 // BSON type other than decimal128.
-func (v Val) Decimal128() decimal.Decimal128 {
+func (v Val) Decimal128() primitive.Decimal128 {
 	if v.t != bsontype.Decimal128 {
 		panic(ElementTypeError{"bson.Value.Decimal128", v.t})
 	}
-	return v.primitive.(decimal.Decimal128)
+	return v.primitive.(primitive.Decimal128)
 }
 
 // Decimal128OK is the same as Decimal128, except that it returns a boolean
 // instead of panicking.
-func (v Val) Decimal128OK() (decimal.Decimal128, bool) {
+func (v Val) Decimal128OK() (primitive.Decimal128, bool) {
 	if v.t != bsontype.Decimal128 {
-		return decimal.Decimal128{}, false
+		return primitive.Decimal128{}, false
 	}
-	return v.primitive.(decimal.Decimal128), true
+	return v.primitive.(primitive.Decimal128), true
 }
 
 // MinKey returns the BSON minkey the Value represents. It panics if the value is a BSON type

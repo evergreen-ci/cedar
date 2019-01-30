@@ -12,18 +12,18 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/bsoncodec"
-	"github.com/mongodb/mongo-go-driver/core/command"
-	"github.com/mongodb/mongo-go-driver/core/connstring"
-	"github.com/mongodb/mongo-go-driver/core/description"
-	"github.com/mongodb/mongo-go-driver/core/dispatch"
-	"github.com/mongodb/mongo-go-driver/core/session"
-	"github.com/mongodb/mongo-go-driver/core/tag"
-	"github.com/mongodb/mongo-go-driver/core/topology"
-	"github.com/mongodb/mongo-go-driver/core/uuid"
+	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
 	"github.com/mongodb/mongo-go-driver/mongo/readpref"
 	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
-	"github.com/mongodb/mongo-go-driver/options"
+	"github.com/mongodb/mongo-go-driver/tag"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/session"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/topology"
+	"github.com/mongodb/mongo-go-driver/x/mongo/driver/uuid"
+	"github.com/mongodb/mongo-go-driver/x/network/command"
+	"github.com/mongodb/mongo-go-driver/x/network/connstring"
+	"github.com/mongodb/mongo-go-driver/x/network/description"
 )
 
 const defaultLocalThreshold = 15 * time.Millisecond
@@ -77,12 +77,6 @@ func NewClientWithOptions(uri string, opts ...*options.ClientOptions) (*Client, 
 	}
 
 	return newClient(cs, opts...)
-}
-
-// NewClientFromConnString creates a new client to connect to a cluster, with configuration
-// specified by the connection string.
-func NewClientFromConnString(cs connstring.ConnString) (*Client, error) {
-	return newClient(cs)
 }
 
 // Connect initializes the Client by starting background monitoring goroutines.
@@ -173,7 +167,7 @@ func (c *Client) endSessions(ctx context.Context) {
 		SessionIDs: c.topology.SessionPool.IDSlice(),
 	}
 
-	_, _ = dispatch.EndSessions(ctx, cmd, c.topology, description.ReadPrefSelector(readpref.PrimaryPreferred()))
+	_, _ = driver.EndSessions(ctx, cmd, c.topology, description.ReadPrefSelector(readpref.PrimaryPreferred()))
 }
 
 func newClient(cs connstring.ConnString, opts ...*options.ClientOptions) (*Client, error) {
@@ -183,7 +177,17 @@ func newClient(cs connstring.ConnString, opts ...*options.ClientOptions) (*Clien
 		topologyOptions: clientOpt.TopologyOptions,
 		connString:      clientOpt.ConnString,
 		localThreshold:  defaultLocalThreshold,
+		readPreference:  clientOpt.ReadPreference,
+		readConcern:     clientOpt.ReadConcern,
+		writeConcern:    clientOpt.WriteConcern,
 		registry:        clientOpt.Registry,
+	}
+
+	if client.connString.RetryWritesSet {
+		client.retryWrites = client.connString.RetryWrites
+	}
+	if clientOpt.RetryWrites != nil {
+		client.retryWrites = *clientOpt.RetryWrites
 	}
 
 	clientID, err := uuid.New()
@@ -198,6 +202,8 @@ func newClient(cs connstring.ConnString, opts ...*options.ClientOptions) (*Clien
 		topology.WithServerOptions(func(opts ...topology.ServerOption) []topology.ServerOption {
 			return append(opts, topology.WithClock(func(clock *session.ClusterClock) *session.ClusterClock {
 				return client.clock
+			}), topology.WithRegistry(func(registry *bsoncodec.Registry) *bsoncodec.Registry {
+				return client.registry
 			}))
 		}),
 	)
@@ -354,10 +360,14 @@ func (c *Client) ListDatabases(ctx context.Context, filter interface{}, opts ...
 		Clock:   c.clock,
 	}
 
-	res, err := dispatch.ListDatabases(
+	readSelector := description.CompositeSelector([]description.ServerSelector{
+		description.ReadPrefSelector(readpref.Primary()),
+		description.LatencySelector(c.localThreshold),
+	})
+	res, err := driver.ListDatabases(
 		ctx, cmd,
 		c.topology,
-		description.ReadPrefSelector(readpref.Primary()),
+		readSelector,
 		c.id,
 		c.topology.SessionPool,
 		opts...,
@@ -432,4 +442,13 @@ func (c *Client) UseSessionWithOptions(ctx context.Context, opts *options.Sessio
 	}
 
 	return fn(sessCtx)
+}
+
+// Watch returns a change stream cursor used to receive information of changes to the client. This method is preferred
+// to running a raw aggregation with a $changeStream stage because it supports resumability in the case of some errors.
+// The client must have read concern majority or no read concern for a change stream to be created successfully.
+func (c *Client) Watch(ctx context.Context, pipeline interface{},
+	opts ...*options.ChangeStreamOptions) (Cursor, error) {
+
+	return newClientChangeStream(ctx, c, pipeline, opts...)
 }

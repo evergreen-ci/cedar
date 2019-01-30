@@ -24,3 +24,13 @@ func ReadFileYAML(path string, target interface{}) error {
 
 	return nil
 }
+
+func FileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	_, err := os.Stat(path)
+
+	return !os.IsNotExist(err)
+}
