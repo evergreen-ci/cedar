@@ -141,7 +141,8 @@ vendor-clean:
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/data/
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/golang.org/x/
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/golang.org/x/net
+	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/golang.org/x/text
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/gopkg.in/yaml.v2/
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/montanaflynn
 	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/davecgh/go-spew/
