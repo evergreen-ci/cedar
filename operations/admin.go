@@ -186,17 +186,24 @@ func getUserCert() cli.Command {
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
+			ca, err := client.GetRootCertificate(ctx)
+			if err != nil {
+				return errors.Wrap(err, "problem fetching authority certificate")
+			}
+
+			grip.Notice("fetched certificate authority certificate")
+			fmt.Println(ca)
 
 			user := c.String(userNameFlag)
 			pass := c.String(passwordFlag)
 
 			cert, err := client.GetUserCertificate(ctx, user, pass)
 			if err != nil {
-				return errors.Wrap(err, "problem generating token")
+				return errors.Wrap(err, "problem resolving certificate")
 			}
 
 			grip.Notice(message.Fields{
-				"op":   "generated user cert",
+				"op":   "generated user cert and key",
 				"user": user,
 			})
 
