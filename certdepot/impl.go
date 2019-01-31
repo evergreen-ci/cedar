@@ -12,13 +12,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-const (
-	crtSuffix     = ".crt"
-	csrSuffix     = ".csr"
-	privKeySuffix = ".key"
-	crlSuffix     = ".crl"
-)
-
 type User struct {
 	ID            string    `bson:"_id"`
 	Cert          string    `bson:"cert"`

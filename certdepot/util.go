@@ -10,18 +10,21 @@ import (
 
 func getOrCreatePrivateKey(keyPath, passphrase, name string, keyBits int) (*pkix.Key, error) {
 	var key *pkix.Key
-	var err error
 	if keyPath != "" {
 		keyBytes, err := ioutil.ReadFile(keyPath)
-		key, err = pkix.NewKeyFromPrivateKeyPEM(keyBytes)
 		if err != nil {
 			return nil, errors.Wrapf(err, "problem reading key from %s", keyPath)
+		}
+		key, err = pkix.NewKeyFromPrivateKeyPEM(keyBytes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "problem getting key from PEM")
 		}
 		grip.Noticef("read key from %s", keyPath)
 	} else {
 		if keyBits == 0 {
 			keyBits = 2048
 		}
+		var err error
 		key, err = pkix.CreateRSAKey(keyBits)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem creating RSA key")
