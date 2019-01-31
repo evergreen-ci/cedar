@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/evergreen-ci/cedar/rest"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -157,13 +158,14 @@ func getAPIKey() cli.Command {
 
 func getUserCert() cli.Command {
 	const (
-		userNameFlag = "username"
-		passwordFlag = "password"
+		userNameFlag    = "username"
+		passwordFlag    = "password"
+		writeToFileFlag = "dump"
 	)
 
 	return cli.Command{
 		Name:  "cert",
-		Usage: "get a certificate for a user",
+		Usage: "get certificates for a user",
 		Flags: restServiceFlags(
 			cli.StringFlag{
 				Name: userNameFlag,
@@ -171,43 +173,94 @@ func getUserCert() cli.Command {
 			cli.StringFlag{
 				Name: passwordFlag,
 			},
+			cli.BoolFlag{
+				Name:  writeToFileFlag,
+				Usage: "specify to write certificate files to a file",
+			},
 		),
 		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireStringFlag(passwordFlag)),
 		Action: func(c *cli.Context) error {
+			user := c.String(userNameFlag)
+			pass := c.String(passwordFlag)
+			host := c.String(clientHostFlag)
+			port := c.Int(clientPortFlag)
+			writeToFile := c.Bool(writeToFileFlag)
+
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			opts := rest.ClientOptions{
-				Host:   c.String(clientHostFlag),
-				Port:   c.Int(clientPortFlag),
+			client, err := rest.NewClient(rest.ClientOptions{
+				Host:   host,
+				Port:   port,
 				Prefix: "rest",
-			}
-			client, err := rest.NewClient(opts)
+			})
 			if err != nil {
 				return errors.Wrap(err, "problem creating REST client")
 			}
+
 			ca, err := client.GetRootCertificate(ctx)
 			if err != nil {
 				return errors.Wrap(err, "problem fetching authority certificate")
 			}
-
 			grip.Notice("fetched certificate authority certificate")
-			fmt.Println(ca)
 
-			user := c.String(userNameFlag)
-			pass := c.String(passwordFlag)
+			if writeToFile {
+				path := "cedar.ca"
+				if err = util.WriteFile(path, ca); err != nil {
+					return errors.WithStack(err)
+				}
+				grip.Notice(message.Fields{
+					"path":    path,
+					"content": "certificate authority",
+				})
+			} else {
+				fmt.Println(ca)
+			}
 
 			cert, err := client.GetUserCertificate(ctx, user, pass)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate")
 			}
-
 			grip.Notice(message.Fields{
-				"op":   "generated user cert and key",
+				"op":   "retrieved user certificate",
 				"user": user,
 			})
 
-			fmt.Println(cert)
+			if writeToFile {
+				path := user + ".crt"
+				if err = util.WriteFile(path, cert); err != nil {
+					return errors.WithStack(err)
+				}
+				grip.Notice(message.Fields{
+					"path":    path,
+					"content": "user certificate",
+				})
+			} else {
+				fmt.Println(cert)
+			}
+
+			key, err := client.GetUserCertificateKey(ctx, user, pass)
+			if err != nil {
+				return errors.Wrap(err, "problem resolving certificate key")
+			}
+
+			grip.Notice(message.Fields{
+				"op":   "retrieved user certificate key",
+				"user": user,
+			})
+
+			if writeToFile {
+				path := user + ".key"
+				if err = util.WriteFile(path, key); err != nil {
+					return errors.WithStack(err)
+				}
+				grip.Notice(message.Fields{
+					"path":    path,
+					"content": "user certificate",
+				})
+			} else {
+				fmt.Println(key)
+			}
 
 			return nil
 		},
