@@ -11,16 +11,16 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
-type DBUser struct {
+type User struct {
 	ID   string    `bson:"_id"`
 	Cert string    `bson:"cert"`
 	TTL  time.Time `bson:"ttl"`
 }
 
 var (
-	dbUserIDKey   = bsonutil.MustHaveTag(DBUser{}, "ID")
-	dbUserCertKey = bsonutil.MustHaveTag(DBUser{}, "Cert")
-	dbUserTTLKey  = bsonutil.MustHaveTag(DBUser{}, "TTL")
+	userIDKey   = bsonutil.MustHaveTag(User{}, "ID")
+	userCertKey = bsonutil.MustHaveTag(User{}, "Cert")
+	userTTLKey  = bsonutil.MustHaveTag(User{}, "TTL")
 )
 
 type mongoCertDepot struct {
@@ -41,38 +41,15 @@ type MgoCertDepotOptions struct {
 
 // Create a new cert depot in the specified MongoDB.
 func NewMgoCertDepot(opts MgoCertDepotOptions) (depot.Depot, error) {
-	opts = defaults(opts)
-
-	session, err := mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not connect to db %s", opts.MongoDBURI)
-	}
-	session.SetSocketTimeout(opts.MongoDBSocketTimeout)
-
-	return &mongoCertDepot{
-		session:        session,
-		databaseName:   opts.DatabaseName,
-		collectionName: opts.CollectionName,
-		expireAfter:    opts.ExpireAfter,
-	}, nil
+	return newMgoCertDeposit(nil, opts)
 }
 
 // Create a new cert depot in the specified MongoDB, using an existing session.
 func NewMgoCertDepotWithSession(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
-	if s == nil {
-		return NewMgoCertDepot(opts)
-	}
-
-	opts = defaults(opts)
-	return &mongoCertDepot{
-		session:        s,
-		databaseName:   opts.DatabaseName,
-		collectionName: opts.CollectionName,
-		expireAfter:    opts.ExpireAfter,
-	}, nil
+	return newMgoCertDeposit(s, opts)
 }
 
-func defaults(opts MgoCertDepotOptions) MgoCertDepotOptions {
+func validate(opts MgoCertDepotOptions) MgoCertDepotOptions {
 	if opts.MongoDBURI == "" {
 		opts.MongoDBURI = "mongodb://localhost:27017"
 	}
@@ -94,6 +71,25 @@ func defaults(opts MgoCertDepotOptions) MgoCertDepotOptions {
 	return opts
 }
 
+func newMgoCertDeposit(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
+	opts = validate(opts)
+
+	if s == nil {
+		s, err := mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not connect to db %s", opts.MongoDBURI)
+		}
+		s.SetSocketTimeout(opts.MongoDBSocketTimeout)
+	}
+
+	return &mongoCertDepot{
+		session:        s,
+		databaseName:   opts.DatabaseName,
+		collectionName: opts.CollectionName,
+		expireAfter:    opts.ExpireAfter,
+	}, nil
+}
+
 // Put inserts the data into the document specified by the tag.
 func (m *mongoCertDepot) Put(tag *depot.Tag, data []byte) error {
 	if data == nil {
@@ -104,7 +100,7 @@ func (m *mongoCertDepot) Put(tag *depot.Tag, data []byte) error {
 	session := m.session.Clone()
 	defer session.Close()
 
-	u := &DBUser{
+	u := &User{
 		ID:   name,
 		Cert: string(data),
 		TTL:  time.Now(),
@@ -126,7 +122,7 @@ func (m *mongoCertDepot) Check(tag *depot.Tag) bool {
 	session := m.session.Clone()
 	defer session.Close()
 
-	u := &DBUser{}
+	u := &User{}
 	err := session.DB(m.databaseName).C(m.collectionName).FindId(name).One(u)
 	grip.WarningWhen(errNotNotFound(err), message.Fields{
 		"db":   m.databaseName,
@@ -146,7 +142,7 @@ func (m *mongoCertDepot) Get(tag *depot.Tag) ([]byte, error) {
 	session := m.session.Clone()
 	defer session.Close()
 
-	u := &DBUser{}
+	u := &User{}
 	err := session.DB(m.databaseName).C(m.collectionName).FindId(name).One(u)
 	if err == mgo.ErrNotFound {
 		return nil, errors.Errorf("could not find %s in the database", name)

@@ -15,7 +15,7 @@ type MongoDepotTestSuite struct {
 	collection     *mgo.Collection
 	databaseName   string
 	collectionName string
-	mongoDepot     *mongoCertDepot
+	mongoDepot     depot.Depot
 
 	suite.Suite
 }
@@ -61,7 +61,7 @@ func (s *MongoDepotTestSuite) TestPut() {
 	beforeTime := time.Now()
 	time.Sleep(time.Second)
 	s.NoError(s.mongoDepot.Put(depot.CrtTag(name), data))
-	u := &DBUser{}
+	u := &User{}
 	s.Require().NoError(s.collection.FindId(name).One(u))
 	s.Equal(name, u.ID)
 	s.Equal(string(data), u.Cert)
@@ -72,7 +72,7 @@ func (s *MongoDepotTestSuite) TestPut() {
 	time.Sleep(time.Second)
 	newData := []byte("bob's new fake certificate")
 	s.NoError(s.mongoDepot.Put(depot.CrtTag(name), newData))
-	u = &DBUser{}
+	u = &User{}
 	s.Require().NoError(s.collection.FindId(name).One(u))
 	s.Equal(name, u.ID)
 	s.Equal(string(newData), u.Cert)
@@ -82,7 +82,7 @@ func (s *MongoDepotTestSuite) TestPut() {
 func (s *MongoDepotTestSuite) TestCheck() {
 	name := "alice"
 	data := []byte("alice's fake certificate")
-	u := &DBUser{
+	u := &User{
 		ID:   name,
 		Cert: string(data),
 		TTL:  time.Now(),
@@ -99,7 +99,7 @@ func (s *MongoDepotTestSuite) TestCheck() {
 func (s *MongoDepotTestSuite) TestGet() {
 	name := "bob"
 	expectedData := []byte("bob's fake certificate")
-	u := &DBUser{
+	u := &User{
 		ID:   name,
 		Cert: string(expectedData),
 		TTL:  time.Now(),
@@ -117,7 +117,7 @@ func (s *MongoDepotTestSuite) TestGet() {
 	s.Equal(expectedData, actualData)
 
 	// get errors with expired TTL
-	_, err = s.collection.UpsertId(name, bson.M{dbUserTTLKey: time.Time{}})
+	_, err = s.collection.UpsertId(name, bson.M{userTTLKey: time.Time{}})
 	s.Require().NoError(err)
 	actualData, err = s.mongoDepot.Get(depot.CrtTag(name))
 	s.Error(err)
@@ -127,14 +127,14 @@ func (s *MongoDepotTestSuite) TestGet() {
 func (s *MongoDepotTestSuite) TestDelete() {
 	deleteName := "alice"
 	deleteData := []byte("alice's fake certificate")
-	deleteU := &DBUser{
+	deleteU := &User{
 		ID:   deleteName,
 		Cert: string(deleteData),
 		TTL:  time.Now(),
 	}
 	name := "bob"
 	data := []byte("bob's fake certificate")
-	u := &DBUser{
+	u := &User{
 		ID:   name,
 		Cert: string(data),
 		TTL:  time.Now(),
@@ -147,9 +147,9 @@ func (s *MongoDepotTestSuite) TestDelete() {
 	s.Require().NoError(s.collection.Insert(deleteU))
 	s.Require().NoError(s.collection.Insert(u))
 	s.NoError(s.mongoDepot.Delete(depot.CrtTag(deleteName)))
-	deleteU = &DBUser{}
+	deleteU = &User{}
 	s.Equal(mgo.ErrNotFound, s.collection.FindId(deleteName).One(deleteU))
-	u = &DBUser{}
+	u = &User{}
 	s.Require().NoError(s.collection.FindId(name).One(u))
 	s.Equal(name, u.ID)
 }
