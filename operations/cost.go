@@ -48,13 +48,18 @@ func dumpCostConfig() cli.Command {
 				Usage: "specify path to a build cost reporting config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := cedar.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -80,13 +85,18 @@ func loadCostConfig() cli.Command {
 				Usage: "specify path to a build cost reporting config file",
 			}),
 		Action: func(c *cli.Context) error {
-			env := cedar.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			fileName := c.String("file")
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -116,11 +126,14 @@ func collectLoop() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := cedar.GetEnvironment()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if err := configure(env, 1, false, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -189,8 +202,14 @@ func summarize() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			env := cedar.GetEnvironment()
-			if err := configure(env, 1, false, mongodbURI, "", dbName); err != nil {
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -341,11 +360,17 @@ func dump() cli.Command {
 		Usage: "dump all cost reports to files",
 		Flags: dbFlags(),
 		Action: func(c *cli.Context) error {
-			env := cedar.GetEnvironment()
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 

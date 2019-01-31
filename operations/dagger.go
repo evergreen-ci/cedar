@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/evergreen-ci/cedar"
@@ -73,9 +74,14 @@ func loadGraphToDB() cli.Command {
 			dbName := c.String(dbNameFlag)
 			fn := c.String("path")
 
-			env := cedar.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -138,9 +144,14 @@ func cleanDB() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := cedar.GetEnvironment()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-			if err := configure(env, 2, true, mongodbURI, "", dbName); err != nil {
+			env := cedar.GetEnvironment()
+			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc.interactive = true
+
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 

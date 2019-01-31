@@ -103,8 +103,9 @@ func Service() cli.Command {
 			defer cancel()
 			go signalListener(ctx, cancel)
 			env := cedar.GetEnvironment()
+			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName)
 
-			if err := configure(env, workers, runLocal, mongodbURI, bucket, dbName); err != nil {
+			if err := sc.setup(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
