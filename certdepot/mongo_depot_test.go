@@ -21,7 +21,6 @@ type MongoDepotTestSuite struct {
 
 func TestMongoDepot(t *testing.T) {
 	s := &MongoDepotTestSuite{}
-	s.setup()
 	suite.Run(t, s)
 }
 
@@ -32,7 +31,7 @@ func (s *MongoDepotTestSuite) TearDownTest() {
 	}
 }
 
-func (s *MongoDepotTestSuite) setup() {
+func (s *MongoDepotTestSuite) SetupSuite() {
 	var err error
 	s.session, err = mgo.DialWithTimeout("mongodb://localhost:27017", 2*time.Second)
 	s.Require().NoError(err)
