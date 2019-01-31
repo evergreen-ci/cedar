@@ -9,18 +9,32 @@ import (
 	"github.com/pkg/errors"
 	"github.com/square/certstrap/depot"
 	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+)
+
+const (
+	crtSuffix     = ".crt"
+	csrSuffix     = ".csr"
+	privKeySuffix = ".key"
+	crlSuffix     = ".crl"
 )
 
 type User struct {
-	ID   string    `bson:"_id"`
-	Cert string    `bson:"cert"`
-	TTL  time.Time `bson:"ttl"`
+	ID            string    `bson:"_id"`
+	Cert          string    `bson:"cert"`
+	PrivateKey    string    `bson:"private_key"`
+	CertReq       string    `bson:"cert_req"`
+	CertRevocList string    `bson:"cert_revoc_list"`
+	TTL           time.Time `bson:"ttl"`
 }
 
 var (
-	userIDKey   = bsonutil.MustHaveTag(User{}, "ID")
-	userCertKey = bsonutil.MustHaveTag(User{}, "Cert")
-	userTTLKey  = bsonutil.MustHaveTag(User{}, "TTL")
+	userIDKey            = bsonutil.MustHaveTag(User{}, "ID")
+	userCertKey          = bsonutil.MustHaveTag(User{}, "Cert")
+	userPrivateKeyKey    = bsonutil.MustHaveTag(User{}, "PrivateKey")
+	userCertReqKey       = bsonutil.MustHaveTag(User{}, "CertReq")
+	userCertRevocListKey = bsonutil.MustHaveTag(User{}, "CertRevocList")
+	userTTLKey           = bsonutil.MustHaveTag(User{}, "TTL")
 )
 
 type mongoCertDepot struct {
@@ -97,16 +111,15 @@ func (m *mongoCertDepot) Put(tag *depot.Tag, data []byte) error {
 		return errors.New("data is nil")
 	}
 
-	name := depot.GetNameFromCrtTag(tag)
+	name, key := getNameAndKey(tag)
 	session := m.session.Clone()
 	defer session.Close()
 
-	u := &User{
-		ID:   name,
-		Cert: string(data),
-		TTL:  time.Now(),
+	update := bson.M{"$set": bson.M{key: string(data)}}
+	if key == userCertKey {
+		update["$set"].(bson.M)[userTTLKey] = time.Now()
 	}
-	changeInfo, err := session.DB(m.databaseName).C(m.collectionName).UpsertId(name, u)
+	changeInfo, err := session.DB(m.databaseName).C(m.collectionName).UpsertId(name, update)
 	grip.DebugWhen(err == nil, message.Fields{
 		"db":     m.databaseName,
 		"coll":   m.collectionName,
@@ -117,9 +130,9 @@ func (m *mongoCertDepot) Put(tag *depot.Tag, data []byte) error {
 	return errors.Wrap(err, "problem adding data to the database")
 }
 
-// Check returns whether the id/cert pair specified by the tag exists.
+// Check returns whether the user and data specified by the tag exists.
 func (m *mongoCertDepot) Check(tag *depot.Tag) bool {
-	name := depot.GetNameFromCrtTag(tag)
+	name, key := getNameAndKey(tag)
 	session := m.session.Clone()
 	defer session.Close()
 
@@ -133,13 +146,25 @@ func (m *mongoCertDepot) Check(tag *depot.Tag) bool {
 		"op":   "check",
 	})
 
-	return err != mgo.ErrNotFound && u.Cert != ""
+	switch key {
+	case userCertKey:
+		return u.Cert != ""
+	case userPrivateKeyKey:
+		return u.PrivateKey != ""
+	case userCertReqKey:
+		return u.CertReq != ""
+	case userCertRevocListKey:
+		return u.CertRevocList != ""
+	default:
+		return false
+	}
 }
 
-// Get reads the certificate for the id specified by tag. Returns an error if
-// the user does not exist or if the TTL has expired.
+// Get reads the data for the id specified by tag. Returns an error if
+// the user does not exist, if the TTL has expired (for certs), or if the data
+// is empty.
 func (m *mongoCertDepot) Get(tag *depot.Tag) ([]byte, error) {
-	name := depot.GetNameFromCrtTag(tag)
+	name, key := getNameAndKey(tag)
 	session := m.session.Clone()
 	defer session.Close()
 
@@ -151,22 +176,41 @@ func (m *mongoCertDepot) Get(tag *depot.Tag) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "problem looking up %s in the database", name)
 	}
-	if time.Since(u.TTL) > m.expireAfter {
-		return nil, errors.Errorf("certificate for %s has expired!", name)
+
+	var data []byte
+	switch key {
+	case userCertKey:
+		data = []byte(u.Cert)
+		if len(data) > 0 && time.Since(u.TTL) > m.expireAfter {
+			return nil, errors.Errorf("certificate for %s has expired!", name)
+		}
+	case userPrivateKeyKey:
+		data = []byte(u.PrivateKey)
+	case userCertReqKey:
+		data = []byte(u.CertReq)
+	case userCertRevocListKey:
+		data = []byte(u.Cert)
+		if len(data) > 0 && time.Since(u.TTL) > m.expireAfter {
+			return nil, errors.Errorf("certificate revocation list for %s has expired!", name)
+		}
 	}
 
-	return []byte(u.Cert), nil
+	if len(data) == 0 {
+		return nil, errors.New("no data available!")
+	}
+	return data, nil
 }
 
-// Delete removes the id/cert pair specified by the tag.
+// Delete removes the data specified by the tag from a user.
 func (m *mongoCertDepot) Delete(tag *depot.Tag) error {
-	name := depot.GetNameFromCrtTag(tag)
+	name, key := getNameAndKey(tag)
 	session := m.session.Clone()
 	defer session.Close()
 
-	err := m.session.DB(m.databaseName).C(m.collectionName).RemoveId(name)
+	update := bson.M{"$unset": bson.M{key: ""}}
+	err := m.session.DB(m.databaseName).C(m.collectionName).UpdateId(name, update)
 	if errNotNotFound(err) {
-		return errors.Wrapf(err, "problem deleting %s from the database", name)
+		return errors.Wrapf(err, "problem deleting %s.%s from the database", name, key)
 	}
 
 	return nil
@@ -174,4 +218,20 @@ func (m *mongoCertDepot) Delete(tag *depot.Tag) error {
 
 func errNotNotFound(err error) bool {
 	return err != nil && err != mgo.ErrNotFound
+}
+
+func getNameAndKey(tag *depot.Tag) (string, string) {
+	if name := depot.GetNameFromCrtTag(tag); name != "" {
+		return name, userCertKey
+	}
+	if name := depot.GetNameFromPrivKeyTag(tag); name != "" {
+		return name, userPrivateKeyKey
+	}
+	if name := depot.GetNameFromCsrTag(tag); name != "" {
+		return name, userCertReqKey
+	}
+	if name := depot.GetNameFromCrlTag(tag); name != "" {
+		return name, userCertRevocListKey
+	}
+	return "", ""
 }
