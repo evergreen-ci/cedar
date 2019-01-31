@@ -113,14 +113,18 @@ func (m *mongoCertDepot) Put(tag *depot.Tag, data []byte) error {
 		update["$set"].(bson.M)[userTTLKey] = time.Now()
 	}
 	changeInfo, err := session.DB(m.databaseName).C(m.collectionName).UpsertId(name, update)
-	grip.DebugWhen(err == nil, message.Fields{
+	if err != nil {
+		return errors.Wrap(err, "problem adding data to the database")
+	}
+	grip.Debug(message.Fields{
 		"db":     m.databaseName,
 		"coll":   m.collectionName,
 		"id":     name,
 		"change": changeInfo,
 		"op":     "put",
 	})
-	return errors.Wrap(err, "problem adding data to the database")
+
+	return nil
 }
 
 // Check returns whether the user and data specified by the tag exists.
