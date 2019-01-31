@@ -163,9 +163,10 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/admin/status/events/{level}").Version(1).Get().Wrap(checkUser).Handler(s.getSystemEvents)
 	s.app.AddRoute("/admin/service/flag/{flagName}/enabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagEnabled)
 	s.app.AddRoute("/admin/service/flag/{flagName}/disabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagDisabled)
+	s.app.AddRoute("/admin/ca").Version(1).Get().Handler(s.fetchRootCert)
 	s.app.AddRoute("/admin/users/key").Version(1).Get().Handler(s.fetchUserToken)
-	s.app.AddRoute("/admin/users/ca").Version(1).Get().Handler(s.fetchRootCert)
-	s.app.AddRoute("/admin/users/cert").Version(1).Get().Handler(s.fetchUserCert)
+	s.app.AddRoute("/admin/users/certificate").Version(1).Get().Handler(s.fetchUserCert)
+	s.app.AddRoute("/admin/users/certificate/key").Version(1).Get().Handler(s.fetchUserCertKey)
 
 	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Wrap(checkUser).Handler(s.simpleLogInjestion)
 	s.app.AddRoute("/simple_log/{id}").Version(1).Get().Handler(s.simpleLogRetrieval)

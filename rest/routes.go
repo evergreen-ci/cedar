@@ -720,12 +720,11 @@ func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 	gimlet.WriteBinary(rw, payload)
 }
 
-func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (string, bool) {
 	creds := &userCredentials{}
 	if err := gimlet.GetJSON(r.Body, creds); err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem reading request body")))
-		return
+		return "", false
 	}
 
 	if creds.Username == "" {
@@ -733,35 +732,40 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 			Message:    "no username specified",
 			StatusCode: http.StatusUnauthorized,
 		})
+		return "", false
 	}
 
 	token, err := s.um.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
-		return
+		return "", false
 	}
 
 	user, err := s.um.GetUserByToken(r.Context(), token)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
-		return
+		return "", false
 	} else if user == nil {
 		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
 			Message:    "user not defined",
 			StatusCode: http.StatusUnauthorized,
 		})
+		return "", false
 	}
 
-	catcher := grip.NewBasicCatcher()
+	return creds.Username, true
+}
+
+func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
+	usr, authorized := s.checkPayloadCreds(rw, r)
+	if !authorized {
+		return
+	}
 
 	// we have a local cert on the system, let's use it.
-	crt, err := depot.GetCertificate(s.depot, creds.Username)
-	catcher.Wrap(err, "problem resolving certificate")
+	crt, err := depot.GetCertificate(s.depot, usr)
+	if err != nil {
 
-	key, err := depot.GetPrivateKey(s.depot, creds.Username)
-	catcher.Wrap(err, "problem resolving certificate key")
-
-	if catcher.HasErrors() {
 		// if we get here, we need to make a cert:
 		//
 		// if this were a shell script using certstrap, we'd:
@@ -773,26 +777,52 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		// however we should implement this without shelling out.
 
 		gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
-			Message:    errors.Wrap(catcher.Resolve(), "certificate generation not supported").Error(),
+			Message:    errors.Wrap(err, "certificate generation not supported").Error(),
 			StatusCode: http.StatusNotImplemented,
 		})
+		return
 	}
 
-	var payload []byte
-
-	data, err := crt.Export()
+	payload, err := crt.Export()
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
 		return
 	}
-	payload = append(payload, data...)
 
-	data, err = key.ExportPrivate()
+	gimlet.WriteBinary(rw, payload)
+}
+
+func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
+	usr, authorized := s.checkPayloadCreds(rw, r)
+	if !authorized {
+		return
+	}
+
+	key, err := depot.GetPrivateKey(s.depot, usr)
+	if err != nil {
+
+		// if we get here, we need to make a cert:
+		//
+		// if this were a shell script using certstrap, we'd:
+		//  - certstrap request-cert --common-name <creds.Username>
+		//  - certstrap sign <creds.Username> --CA <s.ServiceName>
+		// then:
+		//  - return the contents of the cert as above
+		//
+		// however we should implement this without shelling out.
+
+		gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
+			Message:    errors.Wrap(err, "certificate generation not supported").Error(),
+			StatusCode: http.StatusNotImplemented,
+		})
+		return
+	}
+
+	payload, err := key.ExportPrivate()
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate key")))
 		return
 	}
-	payload = append(payload, data...)
 
 	gimlet.WriteBinary(rw, payload)
 }
