@@ -75,7 +75,8 @@ func newMgoCertDeposit(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, e
 	opts = validate(opts)
 
 	if s == nil {
-		s, err := mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
+		var err error
+		s, err = mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not connect to db %s", opts.MongoDBURI)
 		}
