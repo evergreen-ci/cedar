@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/square/certstrap/depot"
 	"github.com/square/certstrap/pkix"
@@ -91,39 +90,12 @@ func Init(d depot.Depot, opts CertificateOptions) error {
 	if err != nil {
 		return errors.Wrap(err, "problem creating certificate authority")
 	}
-	grip.Noticef("created %s.crt\n", formattedName)
-
-	if err = depot.PutCertificate(d, formattedName, crt); err != nil {
-		return errors.Wrap(err, "problem saving certificate authority")
-	}
-
-	if len(opts.Passphrase) > 0 {
-		if err = depot.PutEncryptedPrivateKey(d, formattedName, key, []byte(opts.Passphrase)); err != nil {
-			return errors.Wrap(err, "problem saving encrypted private key")
-		}
-	} else {
-		if err = depot.PutPrivateKey(d, formattedName, key); err != nil {
-			return errors.Wrap(err, "problem saving private key")
-		}
-	}
-
-	// create an empty CRL, this is useful for Java apps which mandate a CRL
-	crl, err := pkix.CreateCertificateRevocationList(key, crt, expiresTime)
-	if err != nil {
-		return errors.Wrap(err, "problem creating certificate revocation list")
-	}
-	if err = depot.PutCertificateRevocationList(d, formattedName, crl); err != nil {
-		return errors.Wrap(err, "problem saving certificate revocation list")
-	}
-	grip.Noticef("created %s.crl\n", formattedName)
 
 	return nil
 }
 
 // CertRequest creates a new certificate (CSR).
 func CertRequest(d depot.Depot, opts CertificateOptions) error {
-	var err error
-
 	ips, err := pkix.ParseAndValidateIPs(strings.Join(opts.IP, ","))
 	if err != nil {
 		return errors.Wrapf(err, "problem parsing and validating IPs: %s", opts.IP)
@@ -167,7 +139,6 @@ func CertRequest(d depot.Depot, opts CertificateOptions) error {
 	if err != nil {
 		return errors.Wrap(err, "problem creating certificate request")
 	}
-	grip.Noticef("created %s.csr\n", formattedName)
 
 	if err = depot.PutCertificateSigningRequest(d, formattedName, csr); err != nil {
 		return errors.Wrap(err, "problem saving certificate request")
@@ -237,7 +208,6 @@ func Sign(d depot.Depot, opts CertificateOptions) error {
 	expiresTime := time.Now().Add(opts.Expires)
 	var crtOut *pkix.Certificate
 	if opts.Intermediate {
-		grip.Notice("Building intermediate")
 		crtOut, err = pkix.CreateIntermediateCertificateAuthority(crt, key, csr, expiresTime)
 	} else {
 		crtOut, err = pkix.CreateCertificateHost(crt, key, csr, expiresTime)
@@ -249,12 +219,6 @@ func Sign(d depot.Depot, opts CertificateOptions) error {
 	if err = depot.PutCertificate(d, formattedReqName, crtOut); err != nil {
 		return errors.Wrap(err, "problem saving certificate")
 	}
-	grip.Noticef(
-		"created %s.crt from %s.csr signed by %s.key\n",
-		formattedReqName,
-		formattedReqName,
-		formattedCAName,
-	)
 
 	return nil
 }
@@ -281,7 +245,6 @@ func (opts CertificateOptions) getOrCreatePrivateKey(name string) (*pkix.Key, er
 		if err != nil {
 			return nil, errors.Wrapf(err, "problem getting key from PEM")
 		}
-		grip.Noticef("read key from %s", opts.Key)
 	} else {
 		if opts.KeyBits == 0 {
 			opts.KeyBits = 2048
@@ -290,11 +253,6 @@ func (opts CertificateOptions) getOrCreatePrivateKey(name string) (*pkix.Key, er
 		key, err = pkix.CreateRSAKey(opts.KeyBits)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem creating RSA key")
-		}
-		if len(opts.Passphrase) > 0 {
-			grip.Noticef("created %s.key (encrypted by passphrase)\n", name)
-		} else {
-			grip.Noticef("created %s.key\n", name)
 		}
 	}
 	return key, nil
