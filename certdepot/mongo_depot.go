@@ -57,7 +57,7 @@ func NewMgoCertDepotWithSession(s *mgo.Session, opts MgoCertDepotOptions) (depot
 }
 
 func newMgoCertDepot(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
-	opts = validate(opts)
+	opts.validate()
 
 	if s == nil {
 		var err error
@@ -76,7 +76,7 @@ func newMgoCertDepot(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, err
 	}, nil
 }
 
-func validate(opts MgoCertDepotOptions) MgoCertDepotOptions {
+func (opts *MgoCertDepotOptions) validate() {
 	if opts.MongoDBURI == "" {
 		opts.MongoDBURI = "mongodb://localhost:27017"
 	}
@@ -95,7 +95,6 @@ func validate(opts MgoCertDepotOptions) MgoCertDepotOptions {
 	if opts.ExpireAfter <= 0 {
 		opts.ExpireAfter = 30 * 24 * time.Hour
 	}
-	return opts
 }
 
 // Put inserts the data into the document specified by the tag.
