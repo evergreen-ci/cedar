@@ -333,6 +333,7 @@ func TestCuratorSend(t *testing.T) {
 	expectedResult := model.CreatePerformanceResult(
 		model.PerformanceResultInfo{
 			Project:   "sys-perf",
+			Variant:   "linux-standalone",
 			TaskName:  "smoke_test",
 			TaskID:    "abcd",
 			TestName:  "not_a_real_test_name",
