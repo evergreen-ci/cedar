@@ -1,4 +1,5 @@
 project: "sys-perf"
+variant: "linux-standalone"
 task_name: "smoke_test"
 task_id: "abcd"
 execution_number: 1
