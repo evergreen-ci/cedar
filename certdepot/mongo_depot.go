@@ -48,12 +48,32 @@ type MgoCertDepotOptions struct {
 
 // Create a new cert depot in the specified MongoDB.
 func NewMgoCertDepot(opts MgoCertDepotOptions) (depot.Depot, error) {
-	return newMgoCertDeposit(nil, opts)
+	return newMgoCertDepot(nil, opts)
 }
 
 // Create a new cert depot in the specified MongoDB, using an existing session.
 func NewMgoCertDepotWithSession(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
-	return newMgoCertDeposit(s, opts)
+	return newMgoCertDepot(s, opts)
+}
+
+func newMgoCertDepot(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
+	opts = validate(opts)
+
+	if s == nil {
+		var err error
+		s, err = mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not connect to db %s", opts.MongoDBURI)
+		}
+		s.SetSocketTimeout(opts.MongoDBSocketTimeout)
+	}
+
+	return &mongoCertDepot{
+		session:        s,
+		databaseName:   opts.DatabaseName,
+		collectionName: opts.CollectionName,
+		expireAfter:    opts.ExpireAfter,
+	}, nil
 }
 
 func validate(opts MgoCertDepotOptions) MgoCertDepotOptions {
@@ -76,26 +96,6 @@ func validate(opts MgoCertDepotOptions) MgoCertDepotOptions {
 		opts.ExpireAfter = 30 * 24 * time.Hour
 	}
 	return opts
-}
-
-func newMgoCertDeposit(s *mgo.Session, opts MgoCertDepotOptions) (depot.Depot, error) {
-	opts = validate(opts)
-
-	if s == nil {
-		var err error
-		s, err = mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not connect to db %s", opts.MongoDBURI)
-		}
-		s.SetSocketTimeout(opts.MongoDBSocketTimeout)
-	}
-
-	return &mongoCertDepot{
-		session:        s,
-		databaseName:   opts.DatabaseName,
-		collectionName: opts.CollectionName,
-		expireAfter:    opts.ExpireAfter,
-	}, nil
 }
 
 // Put inserts the data into the document specified by the tag.
