@@ -91,6 +91,29 @@ func Init(d depot.Depot, opts CertificateOptions) error {
 		return errors.Wrap(err, "problem creating certificate authority")
 	}
 
+	if err = depot.PutCertificate(d, formattedName, crt); err != nil {
+		return errors.Wrap(err, "problem saving certificate authority")
+	}
+
+	if opts.Passphrase != "" {
+		if err = depot.PutEncryptedPrivateKey(d, formattedName, key, []byte(opts.Passphrase)); err != nil {
+			return errors.Wrap(err, "problem saving encrypted private key")
+		}
+	} else {
+		if err = depot.PutPrivateKey(d, formattedName, key); err != nil {
+			return errors.Wrap(err, "problem saving private key")
+		}
+	}
+
+	// create an empty CRL, this is useful for Java apps which mandate a CRL
+	crl, err := pkix.CreateCertificateRevocationList(key, crt, expiresTime)
+	if err != nil {
+		return errors.Wrap(err, "problem creating certificate revocation list")
+	}
+	if err = depot.PutCertificateRevocationList(d, formattedName, crl); err != nil {
+		return errors.Wrap(err, "problem saving certificate revocation list")
+	}
+
 	return nil
 }
 
