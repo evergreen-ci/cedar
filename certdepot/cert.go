@@ -60,7 +60,7 @@ type CertificateOptions struct {
 }
 
 // Init initializes a new CA.
-func Init(d depot.Depot, opts CertificateOptions) error {
+func (opts *CertificateOptions) Init(d depot.Depot) error {
 	if opts.CommonName == "" {
 		return errors.New("must provide Command Name for CA!")
 	}
@@ -118,7 +118,7 @@ func Init(d depot.Depot, opts CertificateOptions) error {
 }
 
 // CertRequest creates a new certificate (CSR).
-func CertRequest(d depot.Depot, opts CertificateOptions) error {
+func (opts *CertificateOptions) CertRequest(d depot.Depot) error {
 	ips, err := pkix.ParseAndValidateIPs(strings.Join(opts.IP, ","))
 	if err != nil {
 		return errors.Wrapf(err, "problem parsing and validating IPs: %s", opts.IP)
@@ -180,7 +180,7 @@ func CertRequest(d depot.Depot, opts CertificateOptions) error {
 }
 
 // Sign signs a CSR with a given CA for a new certificate.
-func Sign(d depot.Depot, opts CertificateOptions) error {
+func (opts *CertificateOptions) Sign(d depot.Depot) error {
 	if opts.Host == "" {
 		return errors.New("must provide name of host!")
 	}
