@@ -524,6 +524,10 @@ func (c *Client) GetAuthKey(ctx context.Context, username, password string) (str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		bytes, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			fmt.Println(string(bytes))
+		}
 		srverr := gimlet.ErrorResponse{}
 		if err := gimlet.GetJSON(resp.Body, &srverr); err != nil {
 			return "", errors.Wrap(err, "problem parsing error message")
