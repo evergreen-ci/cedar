@@ -82,15 +82,16 @@ functions:
     command: shell.exec
     type: test
     params:
-       env:
-         LDAP_USER: ${ldap_user}
-         LDAP_PASSWORD: ${ldap_password}
        script: |
          set -o errexit
          set -o verbose
 
          # Configure a local go path for this build.
          export GOPATH=`pwd`/gopath
+
+         # Export ldap user and password for testing.
+         export LDAP_USER=${ldap_user}
+         export LDAP_PASSWORD=${ldap_password}
 
          # on windows we need to turn the slashes the other way
          if [ "Windows_NT" == "$OS" ]; then
