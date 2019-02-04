@@ -404,7 +404,7 @@ func TestCuratorSend(t *testing.T) {
 				perfResult, err := client.FindPerformanceResultById(ctx, expectedResult.ID)
 				assert.NoError(t, err)
 				require.NotNil(t, perfResult)
-				assert.Equal(t, expectedResult.ID, perfResult.Name)
+				assert.Equal(t, expectedResult.ID, *perfResult.Name)
 			},
 		},
 	} {
