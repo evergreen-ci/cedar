@@ -23,7 +23,7 @@ import (
 
 const (
 	localAddress  = "localhost:50051"
-	remoteAddress = "https://lb-dev.vpc3.10gen.cc:7070"
+	remoteAddress = "cedar.mongodb.com:7070"
 )
 
 type MockEnv struct {
@@ -329,7 +329,9 @@ func TestCuratorSend(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	certFilePath := filepath.Join("testdata", "certFile.crt")
+	caCert := filepath.Join("testdata", "cedar.ca")
+	userCert := filepath.Join("testdata", "user.crt")
+	userKey := filepath.Join("testdata", "user.key")
 	expectedResult := model.CreatePerformanceResult(
 		model.PerformanceResultInfo{
 			Project:   "sys-perf",
@@ -357,7 +359,7 @@ func TestCuratorSend(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NoError(t, startPerfService(ctx, env))
 
-				return createSendCommand(curatorPath, localAddress, true, "")
+				return createSendCommand(curatorPath, localAddress, "", "", "", true)
 			},
 			closer: func(t *testing.T) {
 				env := cedar.GetEnvironment()
@@ -374,25 +376,27 @@ func TestCuratorSend(t *testing.T) {
 		},
 		{
 			name: "WithAuthAndTLS",
-			skip: true,
 			setUp: func(t *testing.T) *exec.Cmd {
 				client, err := setupClient(ctx)
 				require.NoError(t, err)
-				userCert, err := client.GetUserCertificate(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
-				require.NoError(t, err)
-				f, err := os.Create(certFilePath)
-				require.NoError(t, err)
-				defer f.Close()
-				_, err = f.WriteString(userCert)
-				require.NoError(t, err)
 
-				return createSendCommand(curatorPath, remoteAddress, false, certFilePath)
+				caData, err := client.GetRootCertificate(ctx)
+				require.NoError(t, err)
+				userCertData, err := client.GetUserCertificate(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
+				require.NoError(t, err)
+				userKeyData, err := client.GetUserCertificateKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
+				require.NoError(t, err)
+				require.NoError(t, writeCerts(caData, caCert, userCertData, userCert, userKeyData, userKey))
+
+				return createSendCommand(curatorPath, remoteAddress, caCert, userCert, userKey, false)
 			},
 			closer: func(t *testing.T) {
 				client, err := setupClient(ctx)
 				require.NoError(t, err)
 				defer func() {
-					assert.NoError(t, os.Remove(certFilePath))
+					assert.NoError(t, os.Remove(caCert))
+					assert.NoError(t, os.Remove(userCert))
+					assert.NoError(t, os.Remove(userKey))
 					_, err = client.RemovePerformanceResultById(ctx, expectedResult.ID)
 					assert.NoError(t, err)
 				}()
@@ -400,7 +404,7 @@ func TestCuratorSend(t *testing.T) {
 				perfResult, err := client.FindPerformanceResultById(ctx, expectedResult.ID)
 				assert.NoError(t, err)
 				require.NotNil(t, perfResult)
-				assert.Equal(t, expectedResult.ID, perfResult.Name)
+				assert.Equal(t, expectedResult.ID, *perfResult.Name)
 			},
 		},
 	} {
@@ -419,7 +423,7 @@ func TestCuratorSend(t *testing.T) {
 	}
 }
 
-func createSendCommand(curatorPath, address string, insecure bool, certFilePath string) *exec.Cmd {
+func createSendCommand(curatorPath, address, caPath, userCertPath, userKeyPath string, insecure bool) *exec.Cmd {
 	args := []string{
 		"poplar",
 		"send",
@@ -431,21 +435,21 @@ func createSendCommand(curatorPath, address string, insecure bool, certFilePath 
 	if insecure {
 		args = append(args, "--insecure")
 	} else {
-		args = append(args, "--certFile", certFilePath)
+		args = append(
+			args,
+			"--ca",
+			caPath,
+			"--cert",
+			userCertPath,
+			"--key",
+			userKeyPath,
+		)
 	}
 
 	return exec.Command(curatorPath, args...)
 }
 
 func setupClient(ctx context.Context) (*rest.Client, error) {
-	/*
-		remote := strings.Split(remoteAddress, ":")
-		port, err := strconv.Atoi(remote[2])
-		if err != nil {
-			return nil, err
-		}
-	*/
-
 	opts := rest.ClientOptions{
 		Host:     "https://cedar.mongodb.com",
 		Port:     443,
@@ -464,4 +468,26 @@ func setupClient(ctx context.Context) (*rest.Client, error) {
 
 	client, err = rest.NewClientFromExisting(client.Client(), opts)
 	return client, err
+}
+
+func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string) error {
+	certs := map[string]string{
+		caPath:       ca,
+		userCertPath: userCert,
+		userKeyPath:  userKey,
+	}
+
+	for filename, data := range certs {
+		f, err := os.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.WriteString(data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
