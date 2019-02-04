@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -461,7 +460,6 @@ func setupClient(ctx context.Context) (*rest.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(os.Getenv("LDAP_USER"))
 	apiKey, err := client.GetAuthKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
 	if err != nil {
 		return nil, err
