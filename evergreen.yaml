@@ -83,8 +83,8 @@ functions:
     type: test
     params:
        env:
-           LDAP_USER: ${ldap_user}
-           LDAP_PASSWORD: ${ldap_password}
+         LDAP_USER: ${ldap_user}
+         LDAP_PASSWORD: ${ldap_password}
        script: |
          set -o errexit
          set -o verbose
