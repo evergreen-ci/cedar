@@ -27,7 +27,7 @@ imports:
 - name: github.com/mongodb/anser
   version: 7c8a0ddd4ef846c0e3701ca4a6e5e02f63413338
 - name: github.com/evergreen-ci/gimlet
-  version: 8fb4275f8358e97e5e9b28b8059a9b3b46b655bc
+  version: 3937c5ffc50c04cda5027f3fd11352f3609c7a8f
 - name: github.com/mongodb/ftdc
   version: 8923d07346eeb63ed18f01c96fa9ae384e960706
 - name: github.com/evergreen-ci/pail

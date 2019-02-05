@@ -39,6 +39,7 @@ type APIApp struct {
 	SimpleVersions bool
 	NoVersions     bool
 	isResolved     bool
+	hasMerged      bool
 	prefix         string
 	port           int
 	router         *mux.Router
