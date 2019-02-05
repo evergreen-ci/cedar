@@ -14,7 +14,6 @@ import (
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/reporting"
 	amboyRest "github.com/mongodb/amboy/rest"
 	"github.com/mongodb/grip"
@@ -191,12 +190,7 @@ func getAdminService(env cedar.Environment) (*gimplet.APIApp, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	reporter, err := reporting.MakeDBQueueState(cedar.QueueName, queue.MongoDBOptions{
-		URI:            conf.MongoDBURI,
-		DB:             conf.QueueDatabaseName,
-		Priority:       true,
-		CheckWaitUntil: true,
-	}, session)
+	reporter, err := reporting.MakeDBQueueState(cedar.QueueName, conf.GetQueueOptions(), session)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
