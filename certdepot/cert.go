@@ -70,7 +70,6 @@ func (opts *CertificateOptions) Init(d depot.Depot) error {
 		return errors.New("CA with specified name already exists!")
 	}
 
-	var err error
 	key, err := opts.getOrCreatePrivateKey(formattedName)
 	if err != nil {
 		return errors.WithStack(err)
