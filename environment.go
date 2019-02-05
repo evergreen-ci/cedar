@@ -90,13 +90,7 @@ func (c *envState) Configure(conf *Configuration) error {
 
 	if !conf.DisableRemoteQueue {
 		q := queue.NewRemoteUnordered(conf.NumWorkers)
-		opts := queue.MongoDBOptions{
-			URI:      conf.MongoDBURI,
-			DB:       conf.QueueDatabaseName,
-			Priority: true,
-		}
-
-		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), QueueName, opts, c.session)
+		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), QueueName, conf.GetQueueOptions(), c.session)
 		if err != nil {
 			return errors.Wrap(err, "problem opening db queue")
 		}

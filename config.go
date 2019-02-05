@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 )
 
@@ -40,4 +41,14 @@ func (c *Configuration) Validate() error {
 	}
 
 	return catcher.Resolve()
+}
+
+func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
+	return queue.MongoDBOptions{
+		URI:            c.MongoDBURI,
+		DB:             c.QueueDatabaseName,
+		Priority:       true,
+		CheckWaitUntil: true,
+	}
+
 }

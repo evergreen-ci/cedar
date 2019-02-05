@@ -14,6 +14,9 @@ import (
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/amboy/queue"
+	"github.com/mongodb/amboy/reporting"
+	amboyRest "github.com/mongodb/amboy/rest"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
@@ -132,12 +135,17 @@ func Service() cli.Command {
 
 			restWait, err := service.Start(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem starting")
+				return errors.Wrap(err, "problem starting public rest service")
+			}
+
+			adminService, err := getAdminService(env)
+			if err != nil {
+				return errors.Wrap(err, "problem resolving admin rest interface")
 			}
 
 			adminWait, err := adminService.BackgroundRun(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem starting admin service")
+				return errors.Wrap(err, "problem starting admin rest service")
 			}
 
 			///////////////////////////////////
@@ -172,16 +180,36 @@ func Service() cli.Command {
 	}
 }
 
-func getAdminService(env environment) (*gimplet.APIApp, error) {
-	conf := env.GetConfiguration()
+func getAdminService(env cedar.Environment) (*gimplet.APIApp, error) {
+	session, err := env.GetSession()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-	MakeDBQueueState(cedar.QueueName, 
+	conf, err := env.GetConf()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-	reporter := 
+	reporter, err := reporting.MakeDBQueueState(cedar.QueueName, queue.MongoDBOptions{
+		URI:            conf.MongoDBURI,
+		DB:             conf.QueueDatabaseName,
+		Priority:       true,
+		CheckWaitUntil: true,
+	}, session)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	app := gimlet.NewApp()
+	app.SetPort(2285)
 	app.AddMiddleware(gimlet.MakeRecoveryLogger())
-	app.Merge(gimlet.GetPProfApp())
-	gimlet.MergeApplications(app, adminService)
+	err := app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(reporter).App())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return app, nil
 }
 
 func signalListener(ctx context.Context, trigger context.CancelFunc) {
