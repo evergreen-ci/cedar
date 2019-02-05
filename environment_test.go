@@ -80,16 +80,16 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			assert.NoError(t, conf.Validate())
 		},
 		"ValidConfigUsesLocalConfig": func(t *testing.T, env Environment, conf *Configuration) {
-			conf.UseLocalQueue = true
+			conf.DisableRemoteQueue = true
 			assert.NoError(t, env.Configure(conf))
-			q, err := env.GetQueue()
+			q, err := env.GetLocalQueue()
 			assert.NoError(t, err)
 			assert.NotNil(t, q)
 			assert.False(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
 		"DefaultsToRemoteQueueType": func(t *testing.T, env Environment, conf *Configuration) {
 			assert.NoError(t, env.Configure(conf))
-			q, err := env.GetQueue()
+			q, err := env.GetRemoteQueue()
 			assert.NoError(t, err)
 			assert.NotNil(t, q)
 			assert.True(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))

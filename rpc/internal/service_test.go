@@ -14,6 +14,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/reporting"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,13 +42,25 @@ func (m *MockEnv) GetConf() (*cedar.Configuration, error) {
 	return m.conf, nil
 }
 
-func (m *MockEnv) SetQueue(queue amboy.Queue) error {
+func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error {
+	m.queue = queue
+	return nil
+}
+func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error {
 	m.queue = queue
 	return nil
 }
 
-func (m *MockEnv) GetQueue() (amboy.Queue, error) {
+func (m *MockEnv) GetLocalQueue() (amboy.Queue, error) {
 	return m.queue, nil
+}
+
+func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error) {
+	return m.queue, nil
+}
+
+func (m *MockEnv) GetRemoteReporter() (reporting.Reporter, error) {
+	return nil, errors.New("not supported")
 }
 
 func (m *MockEnv) GetSession() (*mgo.Session, error) {
@@ -94,11 +107,11 @@ func createEnv(mock bool) (cedar.Environment, error) {
 	}
 	env := cedar.GetEnvironment()
 	err := env.Configure(&cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		DatabaseName:  "grpc_test",
-		SocketTimeout: time.Hour,
-		NumWorkers:    2,
-		UseLocalQueue: true,
+		MongoDBURI:         "mongodb://localhost:27017",
+		DatabaseName:       "grpc_test",
+		SocketTimeout:      time.Hour,
+		NumWorkers:         2,
+		DisableRemoteQueue: true,
 	})
 	return env, errors.WithStack(err)
 }

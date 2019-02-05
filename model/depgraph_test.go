@@ -17,11 +17,11 @@ func TestGraphMetadata(t *testing.T) {
 
 	cleanup := func() {
 		require.NoError(t, env.Configure(&cedar.Configuration{
-			MongoDBURI:    "mongodb://localhost:27017",
-			DatabaseName:  "cedar_test_depgraph",
-			SocketTimeout: time.Hour,
-			NumWorkers:    2,
-			UseLocalQueue: true,
+			MongoDBURI:         "mongodb://localhost:27017",
+			DatabaseName:       "cedar_test_depgraph",
+			SocketTimeout:      time.Hour,
+			NumWorkers:         2,
+			DisableRemoteQueue: true,
 		}))
 
 		conf, session, err := cedar.GetSessionWithConfig(env)
@@ -50,10 +50,10 @@ func TestGraphMetadata(t *testing.T) {
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
 			require.NoError(t, env.Configure(&cedar.Configuration{
-				MongoDBURI:    "mongodb://localhost:27017",
-				DatabaseName:  "\"", // intentionally invalid
-				NumWorkers:    2,
-				UseLocalQueue: true,
+				MongoDBURI:         "mongodb://localhost:27017",
+				DatabaseName:       "\"", // intentionally invalid
+				NumWorkers:         2,
+				DisableRemoteQueue: true,
 			}))
 
 			graph.Setup(env)
@@ -71,10 +71,10 @@ func TestGraphMetadata(t *testing.T) {
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
 			require.NoError(t, env.Configure(&cedar.Configuration{
-				MongoDBURI:    "mongodb://localhost:27017",
-				DatabaseName:  "\"", // intentionally invalid
-				NumWorkers:    2,
-				UseLocalQueue: true,
+				MongoDBURI:         "mongodb://localhost:27017",
+				DatabaseName:       "\"", // intentionally invalid
+				NumWorkers:         2,
+				DisableRemoteQueue: true,
 			}))
 
 			graph.BuildID = "bar"
