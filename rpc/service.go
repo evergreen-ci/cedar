@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+type WaitFunc func(context.Context)
+
 type CertConfig struct {
 	CA         string
 	Cert       string
@@ -95,7 +97,7 @@ func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
 	return srv, nil
 }
 
-func RunServer(ctx context.Context, srv *grpc.Server, addr string) (func(), error) {
+func RunServer(ctx context.Context, srv *grpc.Server, addr string) (WaitFunc, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -115,5 +117,10 @@ func RunServer(ctx context.Context, srv *grpc.Server, addr string) (func(), erro
 		grip.Info("rpc service terminated")
 	}()
 
-	return func() { <-rpcWait }, nil
+	return func(wctx context.Context) {
+		select {
+		case <-wctx.Done():
+		case <-rpcWait:
+		}
+	}, nil
 }

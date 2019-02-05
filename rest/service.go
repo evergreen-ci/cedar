@@ -12,7 +12,6 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"github.com/square/certstrap/depot"
 )
@@ -116,7 +115,7 @@ func (s *Service) Validate() error {
 	return nil
 }
 
-func (s *Service) Start(ctx context.Context) (func(), error) {
+func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 	if err := s.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid application")
 	}
@@ -132,14 +131,12 @@ func (s *Service) Start(ctx context.Context) (func(), error) {
 		return nil, errors.Wrap(err, "problem resolving routes")
 	}
 
-	wait := make(chan struct{})
-	go func() {
-		defer recovery.LogStackTraceAndContinue("running rest service")
-		defer close(wait)
-		grip.Alert(errors.Wrap(s.app.Run(ctx), "problem running rest service"))
-	}()
+	wait, err := s.app.BackgroundRun(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem starting service")
+	}
 
-	return func() { <-wait }, nil
+	return wait, nil
 }
 
 func (s *Service) addMiddleware() {

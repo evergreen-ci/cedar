@@ -13,6 +13,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
+	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
@@ -134,6 +135,11 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem starting")
 			}
 
+			adminWait, err := adminService.BackgroundRun(ctx)
+			if err != nil {
+				return errors.Wrap(err, "problem starting admin service")
+			}
+
 			///////////////////////////////////
 			//
 			// starting grpc
@@ -154,12 +160,28 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			restWait()
-			rpcWait()
+			ctx, cancel = context.WithCancel(context.Background())
+			defer cancel()
+
+			adminWait(ctx)
+			restWait(ctx)
+			rpcWait(ctx)
 
 			return nil
 		},
 	}
+}
+
+func getAdminService(env environment) (*gimplet.APIApp, error) {
+	conf := env.GetConfiguration()
+
+	MakeDBQueueState(cedar.QueueName, 
+
+	reporter := 
+	app := gimlet.NewApp()
+	app.AddMiddleware(gimlet.MakeRecoveryLogger())
+	app.Merge(gimlet.GetPProfApp())
+	gimlet.MergeApplications(app, adminService)
 }
 
 func signalListener(ctx context.Context, trigger context.CancelFunc) {
