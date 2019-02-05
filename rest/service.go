@@ -46,7 +46,7 @@ func (s *Service) Validate() error {
 	}
 
 	if s.queue == nil {
-		s.queue, err = s.Environment.GetQueue()
+		s.queue, err = s.Environment.GetRemoteQueue()
 		if err != nil {
 			return errors.Wrap(err, "problem getting queue")
 		}

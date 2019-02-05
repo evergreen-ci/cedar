@@ -60,8 +60,8 @@ func GetSessionWithConfig(env Environment) (*Configuration, *mgo.Session, error)
 type envState struct {
 	name           string
 	remoteQueue    amboy.Queue
-	remoteReporter remporting.Reporter
 	localQueue     amboy.Queue
+	remoteReporter reporting.Reporter
 	session        *mgo.Session
 	conf           *Configuration
 	mutex          sync.RWMutex
@@ -84,13 +84,14 @@ func (c *envState) Configure(conf *Configuration) error {
 	c.session.SetSocketTimeout(conf.SocketTimeout)
 
 	if !conf.DisableLocalQueue {
-		c.LocalQueue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
+		c.localQueue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
 	}
 
 	if !conf.DisableRemoteQueue {
+		opts := conf.GetQueueOptions()
 		q := queue.NewRemoteUnordered(conf.NumWorkers)
-		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), QueueName, conf.GetQueueOptions(), c.session)
+		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), QueueName, opts, c.session)
 		if err != nil {
 			return errors.Wrap(err, "problem opening db queue")
 		}
@@ -144,7 +145,8 @@ func (c *envState) GetRemoteQueue() (amboy.Queue, error) {
 
 	return c.remoteQueue, nil
 }
-func (c *envState) GetRemoteQueue() (amboy.Queue, error) {
+
+func (c *envState) GetRemoteReporter() (reporting.Reporter, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -159,7 +161,7 @@ func (c *envState) SetLocalQueue(q amboy.Queue) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if c.queue != nil {
+	if c.localQueue != nil {
 		return errors.New("local queue exists, cannot overwrite")
 	}
 
@@ -167,7 +169,7 @@ func (c *envState) SetLocalQueue(q amboy.Queue) error {
 		return errors.New("cannot set local queue to nil")
 	}
 
-	c.queue = q
+	c.localQueue = q
 	grip.Noticef("caching a '%T' local queue in the '%s' service cache for use in tasks", q, c.name)
 	return nil
 }
@@ -176,11 +178,11 @@ func (c *envState) GetLocalQueue() (amboy.Queue, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if c.queue == nil {
+	if c.localQueue == nil {
 		return nil, errors.New("no local queue defined in the services cache")
 	}
 
-	return c.queue, nil
+	return c.localQueue, nil
 }
 
 func (c *envState) GetSession() (*mgo.Session, error) {

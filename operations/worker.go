@@ -39,7 +39,7 @@ func Worker() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			q, err := env.GetQueue()
+			q, err := env.GetRemoteQueue()
 			if err != nil {
 				return errors.Wrap(err, "problem getting queue")
 			}

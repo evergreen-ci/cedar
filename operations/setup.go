@@ -30,12 +30,12 @@ type serviceConf struct {
 
 func (c *serviceConf) export() *cedar.Configuration {
 	return &cedar.Configuration{
-		BucketName:        c.bucket,
-		QueueDatabaseName: c.queueName,
-		DatabaseName:      c.dbName,
-		MongoDBURI:        c.mongodbURI,
-		UseLocalQueue:     c.localQueue,
-		NumWorkers:        c.numWorkers,
+		BucketName:         c.bucket,
+		QueueDatabaseName:  c.queueName,
+		DatabaseName:       c.dbName,
+		MongoDBURI:         c.mongodbURI,
+		DisableRemoteQueue: c.localQueue,
+		NumWorkers:         c.numWorkers,
 	}
 }
 

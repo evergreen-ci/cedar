@@ -179,7 +179,7 @@ func Service() cli.Command {
 	}
 }
 
-func getAdminService(env cedar.Environment) (*gimplet.APIApp, error) {
+func getAdminService(env cedar.Environment) (*gimlet.APIApp, error) {
 	session, err := env.GetSession()
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -198,7 +198,7 @@ func getAdminService(env cedar.Environment) (*gimplet.APIApp, error) {
 	app := gimlet.NewApp()
 	app.SetPort(2285)
 	app.AddMiddleware(gimlet.MakeRecoveryLogger())
-	err := app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(reporter).App())
+	err = app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(reporter).App())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
