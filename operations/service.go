@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
 )
 
@@ -32,11 +32,9 @@ func Service() cli.Command {
 		envVarRPCCAPath      = "CEDAR_RPC_CA"
 		envVarRESTPort       = "CEDAR_REST_PORT"
 
-		rpcHostFlag        = "rpcHost"
-		rpcPortFlag        = "rpcPort"
-		rpcCertPathFlag    = "rpcCertPath"
-		rpcCAPathFlag      = "rpcCAPath"
-		rpcCertKeyPathFlag = "rpcKeyPath"
+		rpcHostFlag = "rpcHost"
+		rpcPortFlag = "rpcPort"
+		rpcTLSFlag  = "rpcTLS"
 	)
 
 	return cli.Command{
@@ -45,20 +43,9 @@ func Service() cli.Command {
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
-				cli.StringFlag{
-					Name:   rpcCertPathFlag,
-					Usage:  "path to the rpc service certificate",
-					EnvVar: envVarRPCCertPath,
-				},
-				cli.StringFlag{
-					Name:   rpcCAPathFlag,
-					Usage:  "path to the rpc service ca cert",
-					EnvVar: envVarRPCCAPath,
-				},
-				cli.StringFlag{
-					Name:   rpcCertKeyPathFlag,
-					Usage:  "path to the prc service key",
-					EnvVar: envVarRPCCertKeyPath,
+				cli.BoolFlag{
+					Name:  rpcTLSFlag,
+					Usage: "specify whether to use TLS over rpc",
 				},
 				cli.BoolFlag{
 					Name:  localQueueFlag,
@@ -92,9 +79,7 @@ func Service() cli.Command {
 			dbName := c.String(dbNameFlag)
 			port := c.Int(servicePortFlag)
 
-			rpcCertPath := c.String(rpcCertPathFlag)
-			rpcCertKeyPath := c.String(rpcCertKeyPathFlag)
-			rpcCAPath := c.String(rpcCAPathFlag)
+			rpcTLS := c.Bool(rpcTLSFlag)
 			rpcHost := c.String(rpcHostFlag)
 			rpcPort := c.Int(rpcPortFlag)
 			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
@@ -115,6 +100,15 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem getting application configuration")
 			}
 
+			var d depot.Depot
+			var err error
+			if rpcTLS {
+				d, err = setupDepot(conf.CertDepot)
+				if err != nil {
+					return errors.Wrap(err, "problem setting up the certificate depot")
+				}
+			}
+
 			///////////////////////////////////
 			//
 			// starting rest service
@@ -124,9 +118,12 @@ func Service() cli.Command {
 				Prefix:      "rest",
 				Environment: env,
 				Conf:        conf,
-				CertPath:    filepath.Dir(rpcCertPath),
-				RootCAName:  strings.TrimSuffix(filepath.Base(rpcCAPath), filepath.Ext(rpcCAPath)),
 				RPCServers:  conf.Service.AppServers,
+			}
+			if rpcTLS {
+				service.Depot = d
+				service.CAName = conf.CertDepot.CAName
+				service.ServiceName = conf.CertDepot.ServiceName
 			}
 
 			restWait, err := service.Start(ctx)
@@ -140,9 +137,10 @@ func Service() cli.Command {
 			//
 
 			rpcSrv, err := rpc.GetServer(env, rpc.CertConfig{
-				Cert: rpcCertPath,
-				Key:  rpcCertKeyPath,
-				CA:   rpcCAPath,
+				TLS:         rpcTLS,
+				Depot:       d,
+				CAName:      conf.CertDepot.CAName,
+				ServiceName: conf.CertDepot.ServiceName,
 			})
 
 			if err != nil {
@@ -175,4 +173,83 @@ func signalListener(ctx context.Context, trigger context.CancelFunc) {
 	}
 
 	trigger()
+}
+
+func setupDepot(conf model.CertDepotConfig) (depot.Depot, error) {
+	if conf.CAName == "" {
+		return nil, errors.New("must proivde the name of the CA!")
+	}
+	if conf.ServiceName == "" {
+		return nil, errors.New("must proivde the name of the service!")
+	}
+
+	var d depot.Depot
+	var err error
+	if conf.FileDepot {
+		d, err = depot.NewFileDepot(conf.DepotName)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else {
+		env := cedar.GetEnvironment()
+		envConf, err := env.GetConf()
+		if err != nil {
+			return nil, errors.Wrap(err, "problem getting environemnt config")
+		}
+
+		opts := certdepot.MgoCertDepotOptions{
+			MongoDBURI:           envConf.MongoDBURI,
+			MongoDBDialTimeout:   envConf.MongoDBDialTimeout,
+			MongoDBSocketTimeout: envConf.SocketTimeout,
+			DatabaseName:         conf.DepotName,
+			ExpireAfter:          conf.ExpireAfter,
+		}
+		d, err = certdepot.NewMgoCertDepot(opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !depot.CheckCertificate(d, conf.CAName) {
+		if err = createCA(d, conf); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else if !depot.CheckCertificate(d, conf.ServiceName) {
+		if err = createServerCert(d, conf); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	}
+
+	return d, nil
+}
+
+func createCA(d depot.Depot, conf model.CertDepotConfig) error {
+	opts := certdepot.CertificateOptions{
+		CommonName: conf.CAName,
+	}
+
+	if err := opts.Init(d); err != nil {
+		return err
+	}
+	if err := createServerCert(d, conf); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createServerCert(d depot.Depot, conf model.CertDepotConfig) error {
+	opts := certdepot.CertificateOptions{
+		CommonName: conf.ServiceName,
+		CA:         conf.CAName,
+	}
+
+	if err := opts.CertRequest(d); err != nil {
+		return err
+	}
+	if err := opts.Sign(d); err != nil {
+		return err
+	}
+
+	return nil
 }

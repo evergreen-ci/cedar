@@ -706,10 +706,10 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
-	rootcrt, err := depot.GetCertificate(s.depot, s.RootCAName)
+	rootcrt, err := depot.GetCertificate(s.Depot, s.CAName)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
-			"problem exporting root cert '%s'", s.RootCAName)))
+			"problem getting root cert '%s'", s.CAName)))
 		return
 	}
 	payload, err := rootcrt.Export()
@@ -763,27 +763,18 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// we have a local cert on the system, let's use it.
-	crt, err := depot.GetCertificate(s.depot, usr)
-	if err != nil {
-
-		// if we get here, we need to make a cert:
-		//
-		// if this were a shell script using certstrap, we'd:
-		//  - certstrap request-cert --common-name <creds.Username>
-		//  - certstrap sign <creds.Username> --CA <s.ServiceName>
-		// then:
-		//  - return the contents of the cert as above
-		//
-		// however we should implement this without shelling out.
-
-		gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
-			Message:    errors.Wrap(err, "certificate generation not supported").Error(),
-			StatusCode: http.StatusNotImplemented,
-		})
-		return
+	if !depot.CheckCertificate(s.Depot, usr) {
+		if err := s.createUserCert(usr); err != nil {
+			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "failed to generate certificate")))
+			return
+		}
 	}
 
+	crt, err := depot.GetCertificate(s.Depot, usr)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem getting certificate")))
+		return
+	}
 	payload, err := crt.Export()
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
@@ -799,36 +790,18 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := depot.GetPrivateKey(s.depot, usr)
-	if err != nil {
-
-		// if we get here, we need to make a cert:
-		//
-		// if this were a shell script using certstrap, we'd:
-		//  - certstrap request-cert --common-name <creds.Username>
-		//  - certstrap sign <creds.Username> --CA <s.ServiceName>
-		// then:
-		//  - return the contents of the cert as above
-		//
-		// however we should implement this without shelling out.
-		opts := certdepot.CertificateOptions{
-			CommonName: creds.Username,
-			CA:         s.ServiceName,
+	if !depot.CheckPrivateKey(s.Depot, usr) {
+		if err := s.createUserCert(usr); err != nil {
+			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "failed to generate certificate")))
+			return
 		}
-		if err = opts.CertRequest(s.depot); err != nil {
-			return errors.Wrap(err, "failed to create certificate")
-		}
-		if err = opts.Sign(s.depot); err != nil {
-			return errors.Wrap(err, "failed to create certifcate")
-		}
-
-		gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
-			Message:    errors.Wrap(err, "certificate generation not supported").Error(),
-			StatusCode: http.StatusNotImplemented,
-		})
-		return
 	}
 
+	key, err := depot.GetPrivateKey(s.Depot, usr)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem getting certificate key")))
+		return
+	}
 	payload, err := key.ExportPrivate()
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate key")))
@@ -836,4 +809,20 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	gimlet.WriteBinary(rw, payload)
+}
+
+func (s *Service) createUserCert(usr string) error {
+	opts := certdepot.CertificateOptions{
+		CommonName: usr,
+		CA:         s.CAName,
+	}
+
+	if err := opts.CertRequest(s.Depot); err != nil {
+		return errors.WithStack(err)
+	}
+	if err := opts.Sign(s.Depot); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
 }

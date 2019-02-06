@@ -23,13 +23,12 @@ type Service struct {
 	Environment cedar.Environment
 	Conf        *model.CedarConfig
 
-	RPCServers       []string
-	CertPath         string
-	UseFileCertDepot bool
-	RootCAName       string
+	RPCServers  []string
+	Depot       depot.Depot
+	CAName      string
+	ServiceName string
 
 	// internal settings
-	depot depot.Depot
 	um    gimlet.UserManager
 	queue amboy.Queue
 	app   *gimlet.APIApp
@@ -76,8 +75,9 @@ func (s *Service) Validate() error {
 		}
 	}
 
-	s.depot, err = depot.NewFileDepot(s.CertPath)
-	grip.Warning(errors.Wrap(err, "no certificate depot constructed"))
+	if s.Depot == nil {
+		grip.Warning(errors.Wrap(err, "no certificate depot provided"))
+	}
 
 	if s.app == nil {
 		s.app = gimlet.NewApp()
