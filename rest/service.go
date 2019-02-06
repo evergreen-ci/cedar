@@ -23,9 +23,10 @@ type Service struct {
 	Environment cedar.Environment
 	Conf        *model.CedarConfig
 
-	RPCServers []string
-	CertPath   string
-	RootCAName string
+	RPCServers       []string
+	CertPath         string
+	UseFileCertDepot bool
+	RootCAName       string
 
 	// internal settings
 	depot depot.Depot

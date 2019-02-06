@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/gimlet"
@@ -810,6 +811,16 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		//  - return the contents of the cert as above
 		//
 		// however we should implement this without shelling out.
+		opts := certdepot.CertificateOptions{
+			CommonName: creds.Username,
+			CA:         s.ServiceName,
+		}
+		if err = opts.CertRequest(s.depot); err != nil {
+			return errors.Wrap(err, "failed to create certificate")
+		}
+		if err = opts.Sign(s.depot); err != nil {
+			return errors.Wrap(err, "failed to create certifcate")
+		}
 
 		gimlet.WriteJSONResponse(rw, http.StatusNotImplemented, gimlet.ErrorResponse{
 			Message:    errors.Wrap(err, "certificate generation not supported").Error(),
