@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
@@ -15,12 +17,13 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID      string                    `bson:"_id" json:"id" yaml:"id"`
-	Splunk  send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack   SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP    LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	Flags   OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
-	Service ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ID        string                    `bson:"_id" json:"id" yaml:"id"`
+	Splunk    send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack     SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	CertDepot CertDepotConfig           `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
+	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
+	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 
 	populated bool
 	env       cedar.Environment
@@ -37,12 +40,13 @@ func NewCedarConfig(env cedar.Environment) *CedarConfig {
 }
 
 var (
-	cedarConfigurationIDKey      = bsonutil.MustHaveTag(CedarConfig{}, "ID")
-	cedarConfigurationSplunkKey  = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
-	cedarConfigurationSlackKey   = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
-	cedarConfigurationLDAPKey    = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
-	cedarConfigurationFlagsKey   = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
-	cedarConfigurationServiceKey = bsonutil.MustHaveTag(CedarConfig{}, "Service")
+	cedarConfigurationIDKey        = bsonutil.MustHaveTag(CedarConfig{}, "ID")
+	cedarConfigurationSplunkKey    = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
+	cedarConfigurationSlackKey     = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
+	cedarConfigurationLDAPKey      = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
+	cedarConfigurationCertDepotKey = bsonutil.MustHaveTag(CedarConfig{}, "CertDepot")
+	cedarConfigurationFlagsKey     = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
+	cedarConfigurationServiceKey   = bsonutil.MustHaveTag(CedarConfig{}, "Service")
 )
 
 type SlackConfig struct {
@@ -74,6 +78,26 @@ var (
 	cedarLDAPConfigServicePathKey  = bsonutil.MustHaveTag(LDAPConfig{}, "ServicePath")
 	cedarLDAPConfigGroupKey        = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
 	cedarLDAPConfigServiceGroupKey = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
+)
+
+type CertDepotConfig struct {
+	FileDepot   bool          `bson:"file_depot" json:"file_depot" yaml:"file_depot"`
+	DepotName   string        `bson:"depot_name" json:"depot_name" yaml:"depot_name"`
+	CAName      string        `bson:"ca_name" json:"ca_name" yaml:"ca_name"`
+	ServiceName string        `bson:"service_name" json:"service_name" yaml:"service_name"`
+	Host        string        `bson:"host" json:"host" yaml:"host"`
+	CAPath      string        `bson:"ca_path" json:"ca_path" yaml:"ca_path"`
+	ExpireAfter time.Duration `bson:"expire_after" json:"expire_after" yaml:"expire_after"`
+}
+
+var (
+	cedarCertDepotConfigFileDepotKey   = bsonutil.MustHaveTag(CertDepotConfig{}, "FileDepot")
+	cedarCertDepotConfigDepotNameKey   = bsonutil.MustHaveTag(CertDepotConfig{}, "DepotName")
+	cedarCertDepotConfigCANameKey      = bsonutil.MustHaveTag(CertDepotConfig{}, "CAName")
+	cedarCertDepotConfigServiceNameKey = bsonutil.MustHaveTag(CertDepotConfig{}, "ServiceName")
+	cedarCertDepotConfigHostKey        = bsonutil.MustHaveTag(CertDepotConfig{}, "Host")
+	cedarCertDepotCAPathKey            = bsonutil.MustHaveTag(CertDepotConfig{}, "CAPath")
+	cedarCertDepotExpireAfterKey       = bsonutil.MustHaveTag(CertDepotConfig{}, "ExpireAfter")
 )
 
 type ServiceConfig struct {
