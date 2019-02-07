@@ -58,7 +58,7 @@ func (s *ServiceCacheSuite) TestRemoteQueueNotSettableToNil() {
 	s.Nil(s.cache.remoteReporter)
 }
 
-func (s *ServiceCacheSuite) TestQueueGetterRetrivesQueue() {
+func (s *ServiceCacheSuite) TestQueueGetterRetrievesQueue() {
 	q, err := s.cache.GetLocalQueue()
 	s.Nil(q)
 	s.Error(err)
