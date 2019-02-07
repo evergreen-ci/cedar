@@ -140,7 +140,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 		return
 	}
 
-	q, err := j.env.GetQueue()
+	q, err := j.env.GetLocalQueue()
 	if err != nil {
 		err = errors.Wrap(err, "problem fetching queue")
 		grip.Critical(err)

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 )
 
@@ -11,10 +12,12 @@ import (
 type Configuration struct {
 	BucketName         string
 	DatabaseName       string
+	QueueDatabaseName  string
 	MongoDBURI         string
 	MongoDBDialTimeout time.Duration
 	SocketTimeout      time.Duration
-	UseLocalQueue      bool
+	DisableLocalQueue  bool
+	DisableRemoteQueue bool
 	NumWorkers         int
 }
 
@@ -33,6 +36,19 @@ func (c *Configuration) Validate() error {
 	if c.SocketTimeout <= 0 {
 		c.SocketTimeout = time.Minute
 	}
+	if c.QueueDatabaseName == "" {
+		c.QueueDatabaseName = "amboy"
+	}
 
 	return catcher.Resolve()
+}
+
+func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
+	return queue.MongoDBOptions{
+		URI:            c.MongoDBURI,
+		DB:             c.QueueDatabaseName,
+		Priority:       true,
+		CheckWaitUntil: true,
+	}
+
 }

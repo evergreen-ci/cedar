@@ -26,11 +26,11 @@ func TestCostConfig(t *testing.T) {
 
 	cleanup := func() {
 		require.NoError(t, env.Configure(&cedar.Configuration{
-			MongoDBURI:    "mongodb://localhost:27017",
-			DatabaseName:  "cedar_test_costconfig",
-			SocketTimeout: time.Hour,
-			NumWorkers:    2,
-			UseLocalQueue: true,
+			MongoDBURI:         "mongodb://localhost:27017",
+			DatabaseName:       "cedar_test_costconfig",
+			SocketTimeout:      time.Hour,
+			NumWorkers:         2,
+			DisableRemoteQueue: true,
 		}))
 
 		conf, session, err := cedar.GetSessionWithConfig(env)
@@ -63,10 +63,10 @@ func TestCostConfig(t *testing.T) {
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			require.NoError(t, env.Configure(&cedar.Configuration{
-				MongoDBURI:    "mongodb://localhost:27017",
-				DatabaseName:  "\"", // intentionally invalid
-				NumWorkers:    2,
-				UseLocalQueue: true,
+				MongoDBURI:         "mongodb://localhost:27017",
+				DatabaseName:       "\"", // intentionally invalid
+				NumWorkers:         2,
+				DisableRemoteQueue: true,
 			}))
 
 			conf.Setup(env)
@@ -86,10 +86,10 @@ func TestCostConfig(t *testing.T) {
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			require.NoError(t, env.Configure(&cedar.Configuration{
-				MongoDBURI:    "mongodb://localhost:27017",
-				DatabaseName:  "\"", // intentionally invalid
-				NumWorkers:    2,
-				UseLocalQueue: true,
+				MongoDBURI:         "mongodb://localhost:27017",
+				DatabaseName:       "\"", // intentionally invalid
+				NumWorkers:         2,
+				DisableRemoteQueue: true,
 			}))
 
 			conf.Setup(env)

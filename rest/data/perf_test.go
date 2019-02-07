@@ -15,11 +15,12 @@ import (
 func createEnv() (cedar.Environment, error) {
 	env := cedar.GetEnvironment()
 	err := env.Configure(&cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		DatabaseName:  "grpc_test",
-		SocketTimeout: time.Hour,
-		NumWorkers:    2,
-		UseLocalQueue: true,
+		MongoDBURI:         "mongodb://localhost:27017",
+		DatabaseName:       "grpc_test",
+		SocketTimeout:      time.Hour,
+		NumWorkers:         2,
+		DisableRemoteQueue: true,
+		DisableLocalQueue:  true,
 	})
 	return env, errors.WithStack(err)
 }

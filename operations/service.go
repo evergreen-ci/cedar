@@ -13,6 +13,9 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/amboy/reporting"
+	amboyRest "github.com/mongodb/amboy/rest"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
@@ -131,7 +134,17 @@ func Service() cli.Command {
 
 			restWait, err := service.Start(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem starting")
+				return errors.Wrap(err, "problem starting public rest service")
+			}
+
+			adminService, err := getAdminService(env)
+			if err != nil {
+				return errors.Wrap(err, "problem resolving admin rest interface")
+			}
+
+			adminWait, err := adminService.BackgroundRun(ctx)
+			if err != nil {
+				return errors.Wrap(err, "problem starting admin rest service")
 			}
 
 			///////////////////////////////////
@@ -154,12 +167,46 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			restWait()
-			rpcWait()
+			ctx, cancel = context.WithCancel(context.Background())
+			defer cancel()
+
+			adminWait(ctx)
+			restWait(ctx)
+			rpcWait(ctx)
 
 			return nil
 		},
 	}
+}
+
+func getAdminService(env cedar.Environment) (*gimlet.APIApp, error) {
+	session, err := env.GetSession()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	conf, err := env.GetConf()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	reporter, err := reporting.MakeDBQueueState(cedar.QueueName, conf.GetQueueOptions(), session)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	app := gimlet.NewApp()
+	if err = app.SetPort(2285); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	app.AddMiddleware(gimlet.MakeRecoveryLogger())
+	err = app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(reporter).App())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return app, nil
 }
 
 func signalListener(ctx context.Context, trigger context.CancelFunc) {

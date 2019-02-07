@@ -15,11 +15,11 @@ func TestGraphEdge(t *testing.T) {
 	defer cancel()
 	env := cedar.GetEnvironment()
 	require.NoError(t, env.Configure(&cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		DatabaseName:  "cedar.test.graphedge",
-		SocketTimeout: time.Hour,
-		NumWorkers:    2,
-		UseLocalQueue: true,
+		MongoDBURI:         "mongodb://localhost:27017",
+		DatabaseName:       "cedar.test.graphedge",
+		SocketTimeout:      time.Hour,
+		NumWorkers:         2,
+		DisableRemoteQueue: true,
 	}))
 
 	defer func() {
