@@ -527,15 +527,12 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, session.DB(certDB).DropDatabase())
 	}()
 
-	fmt.Println(filepath.Join("..", ".."))
-	fmt.Println(filepath.Join("..", "..", "build"))
-	lsCmd := exec.Command("ls", filepath.Join("..", "..", "build"))
-	output, err := lsCmd.CombinedOutput()
-	if err == nil {
-		fmt.Println(string(output))
+	cedarExecutable, pathErr := filepath.Abs(filepath.Join("..", "..", "build", "cedar"))
+	if pathErr == nil {
+		fmt.Println(cedarExecutable)
 	}
 	cmd := exec.Command(
-		filepath.Join("..", "..", "build", "cedar"),
+		cedarExecutable,
 		"admin",
 		"conf",
 		"load",
