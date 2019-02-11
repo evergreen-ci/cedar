@@ -21,6 +21,7 @@ type CedarConfig struct {
 	Splunk    send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
 	Slack     SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
 	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	NaiveAuth NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
 	CertDepot CertDepotConfig           `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
 	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
@@ -78,6 +79,16 @@ var (
 	cedarLDAPConfigServicePathKey  = bsonutil.MustHaveTag(LDAPConfig{}, "ServicePath")
 	cedarLDAPConfigGroupKey        = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
 	cedarLDAPConfigServiceGroupKey = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
+)
+
+type NaiveAuthConfig struct {
+	AppAuth bool         `bson:"app_auth" json:"app_auth" yaml:"app_auth"`
+	Users   []*NaiveUser `bson:"users" json:"users" yaml:"users"`
+}
+
+var (
+	cedarNaiveAuthConfigAppAuthKey = bsonutil.MustHaveTag(NaiveAuthConfig{}, "AppAuth")
+	cedarNaiveAuthConfigUsersKey   = bsonutil.MustHaveTag(NaiveAuthConfig{}, "Users")
 )
 
 type CertDepotConfig struct {

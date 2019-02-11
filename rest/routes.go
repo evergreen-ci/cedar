@@ -815,6 +815,8 @@ func (s *Service) createUserCert(usr string) error {
 	opts := certdepot.CertificateOptions{
 		CommonName: usr,
 		CA:         s.CAName,
+		Host:       usr,
+		Expires:    s.SSLExpireAfter,
 	}
 
 	if err := opts.CertRequest(s.Depot); err != nil {

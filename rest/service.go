@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
@@ -23,10 +24,11 @@ type Service struct {
 	Environment cedar.Environment
 	Conf        *model.CedarConfig
 
-	RPCServers  []string
-	Depot       depot.Depot
-	CAName      string
-	ServiceName string
+	RPCServers     []string
+	Depot          depot.Depot
+	CAName         string
+	ServiceName    string
+	SSLExpireAfter time.Duration
 
 	// internal settings
 	um    gimlet.UserManager
@@ -71,12 +73,20 @@ func (s *Service) Validate() error {
 			GetCreateUser: model.GetOrAddUser,
 		})
 		if err != nil {
-			return errors.Wrap(err, "problem setting up user manager")
+			return errors.Wrap(err, "problem setting up ldap user manager")
+		}
+	} else if s.Conf.NaiveAuth.AppAuth {
+		s.um, err = model.NewNaiveUserManager(&s.Conf.NaiveAuth)
+		if err != nil {
+			return errors.Wrap(err, "problem setting up naive user manager")
 		}
 	}
 
 	if s.Depot == nil {
 		grip.Warning(errors.Wrap(err, "no certificate depot provided"))
+		if err != nil {
+			return errors.Wrap(err, "problem setting up naive user manager")
+		}
 	}
 
 	if s.app == nil {
