@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -527,6 +528,10 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, session.DB(certDB).DropDatabase())
 	}()
 
+	wd, err := os.Getwd()
+	if err == nil {
+		fmt.Println(wd)
+	}
 	cmd := exec.Command(
 		"../../build/cedar",
 		"admin",

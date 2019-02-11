@@ -82,6 +82,7 @@ functions:
     command: shell.exec
     type: test
     params:
+       silent: true
        script: |
          set -o errexit
          set -o verbose
