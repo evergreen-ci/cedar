@@ -98,7 +98,7 @@ proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
 lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
-test:$(buildDir)/output.test
+test:build $(buildDir)/output.test
 build:$(buildDir)/$(name)
 coverage:$(coverageOutput)
 coverage-html:$(coverageHtmlOutput)
