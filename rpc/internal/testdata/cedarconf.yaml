@@ -1,0 +1,10 @@
+naive_auth:
+  app_auth: true
+  users:
+    - username: evergreen
+      password: password
+      email: evergreen@evergreen.com
+certdepot:
+  depot_name: depot  
+  ca_name: test-root
+  service_name: localhost
