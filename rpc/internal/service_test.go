@@ -528,9 +528,13 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, session.DB(certDB).DropDatabase())
 	}()
 
-	wd, err := os.Getwd()
+	lsCmd := exec.Command(
+		"ls",
+		"../../",
+	)
+	output, err := lsCmd.CombinedOutput()
 	if err == nil {
-		fmt.Println(wd)
+		fmt.Println(string(output))
 	}
 	cmd := exec.Command(
 		"../../build/cedar",
