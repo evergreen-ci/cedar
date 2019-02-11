@@ -101,7 +101,7 @@ lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 test:build $(buildDir)/output.test
 build:$(buildDir)/$(name)
 coverage:build $(coverageOutput)
-coverage-html:$(coverageHtmlOutput)
+coverage-html:build $(coverageHtmlOutput)
 list-tests:
 	@echo -e "test targets:" $(foreach target,$(packages),\\n\\ttest-$(target))
 phony += lint lint-deps build build-race race test coverage coverage-html list-race list-tests
