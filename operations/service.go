@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/certdepot"
@@ -103,6 +104,9 @@ func Service() cli.Command {
 			var d depot.Depot
 			var err error
 			if rpcTLS {
+				if conf.CertDepot.ExpireAfter == 0 {
+					conf.CertDepot.ExpireAfter = 365 * 24 * time.Hour
+				}
 				d, err = setupDepot(conf.CertDepot)
 				if err != nil {
 					return errors.Wrap(err, "problem setting up the certificate depot")
@@ -124,6 +128,7 @@ func Service() cli.Command {
 				service.Depot = d
 				service.CAName = conf.CertDepot.CAName
 				service.ServiceName = conf.CertDepot.ServiceName
+				service.SSLExpireAfter = conf.CertDepot.ExpireAfter
 			}
 
 			restWait, err := service.Start(ctx)
@@ -226,6 +231,7 @@ func setupDepot(conf model.CertDepotConfig) (depot.Depot, error) {
 func createCA(d depot.Depot, conf model.CertDepotConfig) error {
 	opts := certdepot.CertificateOptions{
 		CommonName: conf.CAName,
+		Expires:    conf.ExpireAfter,
 	}
 
 	if err := opts.Init(d); err != nil {
@@ -241,7 +247,9 @@ func createCA(d depot.Depot, conf model.CertDepotConfig) error {
 func createServerCert(d depot.Depot, conf model.CertDepotConfig) error {
 	opts := certdepot.CertificateOptions{
 		CommonName: conf.ServiceName,
+		Host:       conf.ServiceName,
 		CA:         conf.CAName,
+		Expires:    conf.ExpireAfter,
 	}
 
 	if err := opts.CertRequest(d); err != nil {
