@@ -530,7 +530,7 @@ func TestCertificateGeneration(t *testing.T) {
 
 	lsCmd := exec.Command(
 		"ls",
-		"../../",
+		"../../build",
 	)
 	output, err := lsCmd.CombinedOutput()
 	if err == nil {
