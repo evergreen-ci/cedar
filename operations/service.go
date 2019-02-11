@@ -24,14 +24,11 @@ import (
 // responsible for starting the service.
 func Service() cli.Command {
 	const (
-		localQueueFlag       = "localQueue"
-		servicePortFlag      = "port"
-		envVarRPCPort        = "CEDAR_RPC_PORT"
-		envVarRPCHost        = "CEDAR_RPC_HOST"
-		envVarRPCCertPath    = "CEDAR_RPC_CERT"
-		envVarRPCCertKeyPath = "CEDAR_RPC_KEY"
-		envVarRPCCAPath      = "CEDAR_RPC_CA"
-		envVarRESTPort       = "CEDAR_REST_PORT"
+		localQueueFlag  = "localQueue"
+		servicePortFlag = "port"
+		envVarRPCPort   = "CEDAR_RPC_PORT"
+		envVarRPCHost   = "CEDAR_RPC_HOST"
+		envVarRESTPort  = "CEDAR_REST_PORT"
 
 		rpcHostFlag = "rpcHost"
 		rpcPortFlag = "rpcPort"
@@ -197,7 +194,8 @@ func setupDepot(conf model.CertDepotConfig) (depot.Depot, error) {
 		}
 	} else {
 		env := cedar.GetEnvironment()
-		envConf, err := env.GetConf()
+		var envConf *cedar.Configuration
+		envConf, err = env.GetConf()
 		if err != nil {
 			return nil, errors.Wrap(err, "problem getting environemnt config")
 		}

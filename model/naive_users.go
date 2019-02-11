@@ -43,7 +43,7 @@ func NewNaiveUserManager(naiveAuthConfig *NaiveAuthConfig) (gimlet.UserManager, 
 func (um *NaiveUserManager) GetUserByToken(_ context.Context, token string) (gimlet.User, error) {
 	for i, user := range um.users {
 		//check to see if token exists
-		possibleToken := fmt.Sprintf("%v:%v:%v", i, user.Email, md5.Sum([]byte(user.User+user.Pass)))
+		possibleToken := fmt.Sprintf("%v:%v:%v", i, user.EmailAddress, md5.Sum([]byte(user.User+user.Pass)))
 		if token == possibleToken {
 			return user, nil
 		}
@@ -59,7 +59,7 @@ func (um *NaiveUserManager) CreateUserToken(username, password string) (string, 
 	for i, user := range um.users {
 		if user.User == username && user.Pass == password {
 			// return a token that is a hash of the index, user's email and username and password hashed.
-			return fmt.Sprintf("%v:%v:%v", i, user.Email, md5.Sum([]byte(user.User+user.Pass))), nil
+			return fmt.Sprintf("%v:%v:%v", i, user.EmailAddress, md5.Sum([]byte(user.User+user.Pass))), nil
 		}
 	}
 	return "", errors.New("No valid user for the given username and password")

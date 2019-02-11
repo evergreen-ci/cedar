@@ -20,10 +20,10 @@ import (
 
 type CertConfig struct {
 	TLS         bool
-	Depot       depot.Depot
+	SkipVerify  bool
 	CAName      string
 	ServiceName string
-	SkipVerify  bool
+	Depot       depot.Depot
 }
 
 func (c *CertConfig) Validate() error {
