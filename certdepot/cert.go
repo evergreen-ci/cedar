@@ -247,7 +247,7 @@ func (opts *CertificateOptions) Sign(d depot.Depot) error {
 
 func (opts CertificateOptions) getCertificateRequestName() (string, error) {
 	switch {
-	case opts.CommonName == "":
+	case opts.CommonName != "":
 		return opts.CommonName, nil
 	case len(opts.Domain) != 0:
 		return opts.Domain[0], nil
