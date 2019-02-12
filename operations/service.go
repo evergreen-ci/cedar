@@ -32,7 +32,7 @@ func Service() cli.Command {
 
 		rpcHostFlag = "rpcHost"
 		rpcPortFlag = "rpcPort"
-		rpcTLSFlag  = "rpcTLS"
+		rpcTLSFlag  = "rpcDisableTLS"
 	)
 
 	return cli.Command{
@@ -41,9 +41,9 @@ func Service() cli.Command {
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
-				cli.BoolFlag{
+				cli.BoolTFlag{
 					Name:  rpcTLSFlag,
-					Usage: "specify whether to use TLS over rpc",
+					Usage: "specify whether to disable the use of TLS over rpc",
 				},
 				cli.BoolFlag{
 					Name:  localQueueFlag,
