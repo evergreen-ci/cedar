@@ -528,6 +528,9 @@ func TestCertificateGeneration(t *testing.T) {
 
 	cedarExecutable, pathErr := filepath.Abs(filepath.Join("..", "..", "build", "cedar"))
 	require.NoError(t, pathErr)
+	_, statErr := os.Stat(cedarExecutable)
+	require.NoError(statErr)
+
 	cmd := exec.Command(
 		cedarExecutable,
 		"admin",
