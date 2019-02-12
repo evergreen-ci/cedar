@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -528,9 +527,7 @@ func TestCertificateGeneration(t *testing.T) {
 	}()
 
 	cedarExecutable, pathErr := filepath.Abs(filepath.Join("..", "..", "build", "cedar"))
-	if pathErr == nil {
-		fmt.Println(cedarExecutable)
-	}
+	require.NoError(t, pathErr)
 	cmd := exec.Command(
 		cedarExecutable,
 		"admin",
@@ -543,7 +540,7 @@ func TestCertificateGeneration(t *testing.T) {
 	)
 	require.NoError(t, cmd.Run())
 
-	cmd = exec.Command("../../build/cedar", "service", "--rpcTLS", "--dbName", conf.DatabaseName)
+	cmd = exec.Command(cedarExecutable, "service", "--rpcTLS", "--dbName", conf.DatabaseName)
 	require.NoError(t, cmd.Start())
 	defer func() {
 		require.NoError(t, cmd.Process.Kill())
