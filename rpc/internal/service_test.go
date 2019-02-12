@@ -511,6 +511,10 @@ func TestCuratorSend(t *testing.T) {
 }
 
 func TestCertificateGeneration(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("windows really sucks")
+	}
+
 	user := "evergreen"
 	pass := "password"
 	certDB := "depot"
