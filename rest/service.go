@@ -83,10 +83,7 @@ func (s *Service) Validate() error {
 	}
 
 	if s.Depot == nil {
-		grip.Warning(errors.Wrap(err, "no certificate depot provided"))
-		if err != nil {
-			return errors.Wrap(err, "problem setting up naive user manager")
-		}
+		grip.Warning("no certificate depot provided")
 	}
 
 	if s.app == nil {
