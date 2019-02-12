@@ -547,7 +547,7 @@ func TestCertificateGeneration(t *testing.T) {
 	)
 	require.NoError(t, cmd.Run())
 
-	cmd = exec.Command(cedarExecutable, "service", "--rpcTLS", "--dbName", conf.DatabaseName)
+	cmd = exec.Command(cedarExecutable, "service", "--dbName", conf.DatabaseName)
 	require.NoError(t, cmd.Start())
 	defer func() {
 		require.NoError(t, cmd.Process.Kill())
