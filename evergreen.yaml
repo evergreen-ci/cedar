@@ -29,18 +29,6 @@ variables:
           content_type: application/x-gzip
           permissions: public-read
           display_name: dist.tar.gz (standard)
-      - command: s3.put
-        type: system
-        params:
-          optional: true
-          aws_key: ${aws_key}
-          aws_secret: ${aws_secret}
-          local_file: gopath/src/github.com/evergreen-ci/cedar/build/${task_name}.zip
-          remote_file: sink/${build_id}/cedar-${task_name}-${revision}.zip
-          bucket: mciuploads
-          content_type: application/x-gzip
-          permissions: public-read
-          display_name: dist.zip (eb)
 
   - &run-build-with-mongodb
     # runs a make target above, but only on systems that have a
@@ -167,7 +155,6 @@ post:
       files:
         - "gopath/src/github.com/evergreen-ci/cedar/build/output.*"
         - "gopath/src/github.com/evergreen-ci/cedar/build/test.*.out"
-        - "gopath/src/github.com/evergreen-ci/cedar/build/race.*.out"
   - command: shell.exec
     type: setup
     params:
@@ -210,7 +197,7 @@ tasks:
         vars: { target: "lint" }
 
   - name: coverage
-    tags: [ "report" ]
+    tags: ["report"]
     commands:
       - command: git.get_project
         type: system
@@ -231,10 +218,6 @@ tasks:
     tags: ["test"]
     name: test
 
-  - <<: *run-build-with-mongodb
-    tags: ["race"]
-    name: race
-
 #######################################
 #           Buildvariants             #
 #######################################
@@ -242,12 +225,13 @@ buildvariants:
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     expansions:
+      build_env: "RACE_DETECTOR=true"
       mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
       curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
     run_on:
       - archlinux-test
     tasks:
-      - name: ".race"
+      - name: ".test"
       - name: ".report"
 
   - name: ubuntu1604

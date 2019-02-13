@@ -81,15 +81,6 @@ dist:$(buildDir)/dist.tar.gz
 $(buildDir)/dist.tar.gz:$(buildDir)/make-tarball $(distContents)
 	./$< --name $@ --prefix $(name) $(foreach item,$(distContents),--item $(item))
 	tar -tvf $@
-# elastic beanstalk
-push:.elasticbeanstalk/config.yml
-	eb deploy
-eb-dist:.elasticbeanstalk/config.yml
-.elasticbeanstalk/config.yml:$(buildDir)/dist.zip
-	@grep "$<" $@ || echo -e "deploy:\n  artifact: $<" >> $@
-$(buildDir)/dist.zip:$(buildDir)/$(name) Dockerfile
-	zip $@ Dockerfile $<
-	@unzip -l $@
 # end deploy and distribution targets
 
 
