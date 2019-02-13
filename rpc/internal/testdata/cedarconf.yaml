@@ -5,6 +5,15 @@ naive_auth:
       password: password
       email: evergreen@evergreen.com
 certdepot:
-  depot_name: depot  
+  mgo_depot:
+    coll_name: depot
   ca_name: test-root
   service_name: localhost
+  ca_opts:
+    cn: test-root
+    expires: 3600000000000
+  service_opts:
+    cn: localhost
+    host: localhost
+    ca: test-root
+    expires: 3600000000000

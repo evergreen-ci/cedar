@@ -706,10 +706,10 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
-	rootcrt, err := depot.GetCertificate(s.Depot, s.CAName)
+	rootcrt, err := depot.GetCertificate(s.Depot, s.Conf.CertDepot.CAName)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
-			"problem getting root cert '%s'", s.CAName)))
+			"problem getting root cert '%s'", s.Conf.CertDepot.CAName)))
 		return
 	}
 	payload, err := rootcrt.Export()
@@ -814,9 +814,9 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 func (s *Service) createUserCert(usr string) error {
 	opts := certdepot.CertificateOptions{
 		CommonName: usr,
-		CA:         s.CAName,
+		CA:         s.Conf.CertDepot.CAName,
 		Host:       usr,
-		Expires:    s.SSLExpireAfter,
+		Expires:    s.Conf.SSLExpireAfter,
 	}
 
 	if err := opts.CertRequest(s.Depot); err != nil {

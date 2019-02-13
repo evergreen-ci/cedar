@@ -441,12 +441,12 @@ func TestCuratorSend(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		skip   bool
-		setUp  func(t *testing.T) *exec.Cmd
+		setup  func(t *testing.T) *exec.Cmd
 		closer func(t *testing.T)
 	}{
 		{
 			name: "WithoutAuthOrTLS",
-			setUp: func(t *testing.T) *exec.Cmd {
+			setup: func(t *testing.T) *exec.Cmd {
 				env, err := createEnv(false)
 				assert.NoError(t, err)
 				assert.NoError(t, startPerfService(ctx, env))
@@ -468,7 +468,7 @@ func TestCuratorSend(t *testing.T) {
 		},
 		{
 			name: "WithAuthAndTLS",
-			setUp: func(t *testing.T) *exec.Cmd {
+			setup: func(t *testing.T) *exec.Cmd {
 				caData, err := restClient.GetRootCertificate(ctx)
 				require.NoError(t, err)
 				userCertData, err := restClient.GetUserCertificate(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
@@ -503,7 +503,7 @@ func TestCuratorSend(t *testing.T) {
 				t.Skip("windows sucks")
 			}
 
-			cmd := test.setUp(t)
+			cmd := test.setup(t)
 			assert.NoError(t, cmd.Run())
 			test.closer(t)
 		})
@@ -517,7 +517,8 @@ func TestCertificateGeneration(t *testing.T) {
 
 	user := "evergreen"
 	pass := "password"
-	certDB := "depot"
+	certDB := "certDepot"
+	collName := "depot"
 	env, envErr := createEnv(false)
 	require.NoError(t, envErr)
 	defer func() {
@@ -552,7 +553,7 @@ func TestCertificateGeneration(t *testing.T) {
 	defer func() {
 		require.NoError(t, cmd.Process.Kill())
 	}()
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 5)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -568,13 +569,13 @@ func TestCertificateGeneration(t *testing.T) {
 		rootcrt, err := restClient.GetRootCertificate(ctx)
 		require.NoError(t, err)
 		u := &certdepot.User{}
-		assert.NoError(t, session.DB(certDB).C("certs").FindId("test-root").One(u))
+		assert.NoError(t, session.DB(certDB).C(collName).FindId("test-root").One(u))
 		assert.Equal(t, rootcrt, u.Cert)
 		assert.NotEmpty(t, u.PrivateKey)
 		assert.NotEmpty(t, u.CertRevocList)
 
 		u = &certdepot.User{}
-		assert.NoError(t, session.DB(certDB).C("certs").FindId("localhost").One(u))
+		assert.NoError(t, session.DB(certDB).C(collName).FindId("localhost").One(u))
 		assert.NotEmpty(t, u.Cert)
 		assert.NotEmpty(t, u.PrivateKey)
 		assert.NotEmpty(t, u.CertReq)
@@ -584,7 +585,7 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, crt)
 		u := &certdepot.User{}
-		assert.NoError(t, session.DB(certDB).C("certs").FindId(user).One(u))
+		assert.NoError(t, session.DB(certDB).C(collName).FindId(user).One(u))
 		assert.Equal(t, u.Cert, crt)
 		assert.NotEmpty(t, u.PrivateKey)
 		assert.NotEmpty(t, u.CertReq)
@@ -593,13 +594,13 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, u.PrivateKey, key)
 
-		require.NoError(t, session.DB(certDB).C("certs").RemoveId(user))
+		require.NoError(t, session.DB(certDB).C(collName).RemoveId(user))
 	})
 	t.Run("KeyGeneration", func(t *testing.T) {
 		key, err := restClient.GetUserCertificateKey(ctx, user, pass)
 		assert.NoError(t, err)
 		u := &certdepot.User{}
-		require.NoError(t, session.DB(certDB).C("certs").FindId(user).One(u))
+		require.NoError(t, session.DB(certDB).C(collName).FindId(user).One(u))
 		assert.NotEmpty(t, u.Cert)
 		assert.Equal(t, u.PrivateKey, key)
 		assert.NotEmpty(t, u.CertReq)

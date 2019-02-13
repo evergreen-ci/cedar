@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
@@ -17,14 +18,15 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID        string                    `bson:"_id" json:"id" yaml:"id"`
-	Splunk    send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack     SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	NaiveAuth NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
-	CertDepot CertDepotConfig           `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
-	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
-	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ID             string                         `bson:"_id" json:"id" yaml:"id"`
+	Splunk         send.SplunkConnectionInfo      `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack          SlackConfig                    `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP           LDAPConfig                     `bson:"ldap" json:"ldap" yaml:"ldap"`
+	NaiveAuth      NaiveAuthConfig                `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
+	CertDepot      certdepot.BootstrapDepotConfig `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
+	SSLExpireAfter time.Duration                  `bson:"ssl_expire" json:"ssl_expire" yaml:"ssl_expire"`
+	Flags          OperationalFlags               `bson:"flags" json:"flags" yaml:"flags"`
+	Service        ServiceConfig                  `bson:"service" json:"service" yaml:"service"`
 
 	populated bool
 	env       cedar.Environment
@@ -89,26 +91,6 @@ type NaiveAuthConfig struct {
 var (
 	cedarNaiveAuthConfigAppAuthKey = bsonutil.MustHaveTag(NaiveAuthConfig{}, "AppAuth")
 	cedarNaiveAuthConfigUsersKey   = bsonutil.MustHaveTag(NaiveAuthConfig{}, "Users")
-)
-
-type CertDepotConfig struct {
-	FileDepot   bool          `bson:"file_depot" json:"file_depot" yaml:"file_depot"`
-	DepotName   string        `bson:"depot_name" json:"depot_name" yaml:"depot_name"`
-	CAName      string        `bson:"ca_name" json:"ca_name" yaml:"ca_name"`
-	ServiceName string        `bson:"service_name" json:"service_name" yaml:"service_name"`
-	Host        string        `bson:"host" json:"host" yaml:"host"`
-	CAPath      string        `bson:"ca_path" json:"ca_path" yaml:"ca_path"`
-	ExpireAfter time.Duration `bson:"expire_after" json:"expire_after" yaml:"expire_after"`
-}
-
-var (
-	cedarCertDepotConfigFileDepotKey   = bsonutil.MustHaveTag(CertDepotConfig{}, "FileDepot")
-	cedarCertDepotConfigDepotNameKey   = bsonutil.MustHaveTag(CertDepotConfig{}, "DepotName")
-	cedarCertDepotConfigCANameKey      = bsonutil.MustHaveTag(CertDepotConfig{}, "CAName")
-	cedarCertDepotConfigServiceNameKey = bsonutil.MustHaveTag(CertDepotConfig{}, "ServiceName")
-	cedarCertDepotConfigHostKey        = bsonutil.MustHaveTag(CertDepotConfig{}, "Host")
-	cedarCertDepotCAPathKey            = bsonutil.MustHaveTag(CertDepotConfig{}, "CAPath")
-	cedarCertDepotExpireAfterKey       = bsonutil.MustHaveTag(CertDepotConfig{}, "ExpireAfter")
 )
 
 type ServiceConfig struct {

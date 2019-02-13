@@ -101,10 +101,10 @@ func Service() cli.Command {
 			var d depot.Depot
 			var err error
 			if rpcTLS {
-				if conf.CertDepot.ExpireAfter == 0 {
-					conf.CertDepot.ExpireAfter = 365 * 24 * time.Hour
+				if conf.SSLExpireAfter == 0 {
+					conf.SSLExpireAfter = 365 * 24 * time.Hour
 				}
-				d, err = setupDepot(conf.CertDepot)
+				d, err = certdepot.BootstrapDepot(conf.CertDepot)
 				if err != nil {
 					return errors.Wrap(err, "problem setting up the certificate depot")
 				}
@@ -123,9 +123,6 @@ func Service() cli.Command {
 			}
 			if rpcTLS {
 				service.Depot = d
-				service.CAName = conf.CertDepot.CAName
-				service.ServiceName = conf.CertDepot.ServiceName
-				service.SSLExpireAfter = conf.CertDepot.ExpireAfter
 			}
 
 			restWait, err := service.Start(ctx)
@@ -175,87 +172,4 @@ func signalListener(ctx context.Context, trigger context.CancelFunc) {
 	}
 
 	trigger()
-}
-
-func setupDepot(conf model.CertDepotConfig) (depot.Depot, error) {
-	if conf.CAName == "" {
-		return nil, errors.New("must proivde the name of the CA!")
-	}
-	if conf.ServiceName == "" {
-		return nil, errors.New("must proivde the name of the service!")
-	}
-
-	var d depot.Depot
-	var err error
-	if conf.FileDepot {
-		d, err = depot.NewFileDepot(conf.DepotName)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-	} else {
-		env := cedar.GetEnvironment()
-		var envConf *cedar.Configuration
-		envConf, err = env.GetConf()
-		if err != nil {
-			return nil, errors.Wrap(err, "problem getting environemnt config")
-		}
-
-		opts := certdepot.MgoCertDepotOptions{
-			MongoDBURI:           envConf.MongoDBURI,
-			MongoDBDialTimeout:   envConf.MongoDBDialTimeout,
-			MongoDBSocketTimeout: envConf.SocketTimeout,
-			DatabaseName:         conf.DepotName,
-			ExpireAfter:          conf.ExpireAfter,
-		}
-		d, err = certdepot.NewMgoCertDepot(opts)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if !depot.CheckCertificate(d, conf.CAName) {
-		if err = createCA(d, conf); err != nil {
-			return nil, errors.WithStack(err)
-		}
-	} else if !depot.CheckCertificate(d, conf.ServiceName) {
-		if err = createServerCert(d, conf); err != nil {
-			return nil, errors.WithStack(err)
-		}
-	}
-
-	return d, nil
-}
-
-func createCA(d depot.Depot, conf model.CertDepotConfig) error {
-	opts := certdepot.CertificateOptions{
-		CommonName: conf.CAName,
-		Expires:    conf.ExpireAfter,
-	}
-
-	if err := opts.Init(d); err != nil {
-		return err
-	}
-	if err := createServerCert(d, conf); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func createServerCert(d depot.Depot, conf model.CertDepotConfig) error {
-	opts := certdepot.CertificateOptions{
-		CommonName: conf.ServiceName,
-		Host:       conf.ServiceName,
-		CA:         conf.CAName,
-		Expires:    conf.ExpireAfter,
-	}
-
-	if err := opts.CertRequest(d); err != nil {
-		return err
-	}
-	if err := opts.Sign(d); err != nil {
-		return err
-	}
-
-	return nil
 }

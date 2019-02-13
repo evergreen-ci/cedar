@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
@@ -24,11 +23,8 @@ type Service struct {
 	Environment cedar.Environment
 	Conf        *model.CedarConfig
 
-	RPCServers     []string
-	Depot          depot.Depot
-	CAName         string
-	ServiceName    string
-	SSLExpireAfter time.Duration
+	RPCServers []string
+	Depot      depot.Depot
 
 	// internal settings
 	um    gimlet.UserManager
