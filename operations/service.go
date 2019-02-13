@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
@@ -19,6 +19,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
 )
 
@@ -26,20 +27,15 @@ import (
 // responsible for starting the service.
 func Service() cli.Command {
 	const (
-		localQueueFlag       = "localQueue"
-		servicePortFlag      = "port"
-		envVarRPCPort        = "CEDAR_RPC_PORT"
-		envVarRPCHost        = "CEDAR_RPC_HOST"
-		envVarRPCCertPath    = "CEDAR_RPC_CERT"
-		envVarRPCCertKeyPath = "CEDAR_RPC_KEY"
-		envVarRPCCAPath      = "CEDAR_RPC_CA"
-		envVarRESTPort       = "CEDAR_REST_PORT"
+		localQueueFlag  = "localQueue"
+		servicePortFlag = "port"
+		envVarRPCPort   = "CEDAR_RPC_PORT"
+		envVarRPCHost   = "CEDAR_RPC_HOST"
+		envVarRESTPort  = "CEDAR_REST_PORT"
 
-		rpcHostFlag        = "rpcHost"
-		rpcPortFlag        = "rpcPort"
-		rpcCertPathFlag    = "rpcCertPath"
-		rpcCAPathFlag      = "rpcCAPath"
-		rpcCertKeyPathFlag = "rpcKeyPath"
+		rpcHostFlag = "rpcHost"
+		rpcPortFlag = "rpcPort"
+		rpcTLSFlag  = "rpcDisableTLS"
 	)
 
 	return cli.Command{
@@ -48,20 +44,9 @@ func Service() cli.Command {
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
-				cli.StringFlag{
-					Name:   rpcCertPathFlag,
-					Usage:  "path to the rpc service certificate",
-					EnvVar: envVarRPCCertPath,
-				},
-				cli.StringFlag{
-					Name:   rpcCAPathFlag,
-					Usage:  "path to the rpc service ca cert",
-					EnvVar: envVarRPCCAPath,
-				},
-				cli.StringFlag{
-					Name:   rpcCertKeyPathFlag,
-					Usage:  "path to the prc service key",
-					EnvVar: envVarRPCCertKeyPath,
+				cli.BoolTFlag{
+					Name:  rpcTLSFlag,
+					Usage: "specify whether to disable the use of TLS over rpc",
 				},
 				cli.BoolFlag{
 					Name:  localQueueFlag,
@@ -95,9 +80,7 @@ func Service() cli.Command {
 			dbName := c.String(dbNameFlag)
 			port := c.Int(servicePortFlag)
 
-			rpcCertPath := c.String(rpcCertPathFlag)
-			rpcCertKeyPath := c.String(rpcCertKeyPathFlag)
-			rpcCAPath := c.String(rpcCAPathFlag)
+			rpcTLS := c.BoolT(rpcTLSFlag)
 			rpcHost := c.String(rpcHostFlag)
 			rpcPort := c.Int(rpcPortFlag)
 			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
@@ -118,6 +101,18 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem getting application configuration")
 			}
 
+			var d depot.Depot
+			var err error
+			if rpcTLS {
+				if conf.SSLExpireAfter == 0 {
+					conf.SSLExpireAfter = 365 * 24 * time.Hour
+				}
+				d, err = certdepot.BootstrapDepot(conf.CertDepot)
+				if err != nil {
+					return errors.Wrap(err, "problem setting up the certificate depot")
+				}
+			}
+
 			///////////////////////////////////
 			//
 			// starting rest service
@@ -127,9 +122,10 @@ func Service() cli.Command {
 				Prefix:      "rest",
 				Environment: env,
 				Conf:        conf,
-				CertPath:    filepath.Dir(rpcCertPath),
-				RootCAName:  strings.TrimSuffix(filepath.Base(rpcCAPath), filepath.Ext(rpcCAPath)),
 				RPCServers:  conf.Service.AppServers,
+			}
+			if rpcTLS {
+				service.Depot = d
 			}
 
 			restWait, err := service.Start(ctx)
@@ -153,9 +149,10 @@ func Service() cli.Command {
 			//
 
 			rpcSrv, err := rpc.GetServer(env, rpc.CertConfig{
-				Cert: rpcCertPath,
-				Key:  rpcCertKeyPath,
-				CA:   rpcCAPath,
+				TLS:         rpcTLS,
+				Depot:       d,
+				CAName:      conf.CertDepot.CAName,
+				ServiceName: conf.CertDepot.ServiceName,
 			})
 
 			if err != nil {

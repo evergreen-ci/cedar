@@ -1,7 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
@@ -15,12 +18,15 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID      string                    `bson:"_id" json:"id" yaml:"id"`
-	Splunk  send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack   SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP    LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	Flags   OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
-	Service ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ID             string                         `bson:"_id" json:"id" yaml:"id"`
+	Splunk         send.SplunkConnectionInfo      `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack          SlackConfig                    `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP           LDAPConfig                     `bson:"ldap" json:"ldap" yaml:"ldap"`
+	NaiveAuth      NaiveAuthConfig                `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
+	CertDepot      certdepot.BootstrapDepotConfig `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
+	SSLExpireAfter time.Duration                  `bson:"ssl_expire" json:"ssl_expire" yaml:"ssl_expire"`
+	Flags          OperationalFlags               `bson:"flags" json:"flags" yaml:"flags"`
+	Service        ServiceConfig                  `bson:"service" json:"service" yaml:"service"`
 
 	populated bool
 	env       cedar.Environment
@@ -37,12 +43,13 @@ func NewCedarConfig(env cedar.Environment) *CedarConfig {
 }
 
 var (
-	cedarConfigurationIDKey      = bsonutil.MustHaveTag(CedarConfig{}, "ID")
-	cedarConfigurationSplunkKey  = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
-	cedarConfigurationSlackKey   = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
-	cedarConfigurationLDAPKey    = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
-	cedarConfigurationFlagsKey   = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
-	cedarConfigurationServiceKey = bsonutil.MustHaveTag(CedarConfig{}, "Service")
+	cedarConfigurationIDKey        = bsonutil.MustHaveTag(CedarConfig{}, "ID")
+	cedarConfigurationSplunkKey    = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
+	cedarConfigurationSlackKey     = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
+	cedarConfigurationLDAPKey      = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
+	cedarConfigurationCertDepotKey = bsonutil.MustHaveTag(CedarConfig{}, "CertDepot")
+	cedarConfigurationFlagsKey     = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
+	cedarConfigurationServiceKey   = bsonutil.MustHaveTag(CedarConfig{}, "Service")
 )
 
 type SlackConfig struct {
@@ -74,6 +81,16 @@ var (
 	cedarLDAPConfigServicePathKey  = bsonutil.MustHaveTag(LDAPConfig{}, "ServicePath")
 	cedarLDAPConfigGroupKey        = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
 	cedarLDAPConfigServiceGroupKey = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
+)
+
+type NaiveAuthConfig struct {
+	AppAuth bool         `bson:"app_auth" json:"app_auth" yaml:"app_auth"`
+	Users   []*NaiveUser `bson:"users" json:"users" yaml:"users"`
+}
+
+var (
+	cedarNaiveAuthConfigAppAuthKey = bsonutil.MustHaveTag(NaiveAuthConfig{}, "AppAuth")
+	cedarNaiveAuthConfigUsersKey   = bsonutil.MustHaveTag(NaiveAuthConfig{}, "Users")
 )
 
 type ServiceConfig struct {

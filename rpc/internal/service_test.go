@@ -2,6 +2,8 @@ package internal
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"os"
 	"os/exec"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/amboy"
@@ -19,11 +22,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	mgo "gopkg.in/mgo.v2"
 )
 
 const (
-	localAddress  = "localhost:50051"
+	localAddress  = "localhost:2289"
 	remoteAddress = "cedar.mongodb.com:7070"
 )
 
@@ -87,8 +91,8 @@ func startPerfService(ctx context.Context, env cedar.Environment) error {
 	return nil
 }
 
-func getClient(ctx context.Context) (CedarPerformanceMetricsClient, error) {
-	conn, err := grpc.DialContext(ctx, localAddress, grpc.WithInsecure())
+func getGRPCClient(ctx context.Context, address string, opts []grpc.DialOption) (CedarPerformanceMetricsClient, error) {
+	conn, err := grpc.DialContext(ctx, address, opts...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -99,6 +103,44 @@ func getClient(ctx context.Context) (CedarPerformanceMetricsClient, error) {
 	}()
 
 	return NewCedarPerformanceMetricsClient(conn), nil
+}
+
+func getTLSGRPCClient(ctx context.Context, address string, ca, crt, key []byte) (CedarPerformanceMetricsClient, error) {
+	cp := x509.NewCertPool()
+	if !cp.AppendCertsFromPEM(ca) {
+		return nil, errors.New("credentials: failed to append certificates")
+	}
+	keyPair, err := tls.X509KeyPair(crt, key)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem reading client cert")
+	}
+	tlsConf := &tls.Config{
+		Certificates: []tls.Certificate{keyPair},
+		RootCAs:      cp,
+	}
+
+	return getGRPCClient(ctx, address, []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConf))})
+}
+
+func setupAuthRestClient(ctx context.Context, host string, port int) (*rest.Client, error) {
+	opts := rest.ClientOptions{
+		Host:     host,
+		Port:     port,
+		Prefix:   "rest",
+		Username: os.Getenv("LDAP_USER"),
+	}
+	client, err := rest.NewClient(opts)
+	if err != nil {
+		return nil, err
+	}
+	apiKey, err := client.GetAuthKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
+	if err != nil {
+		return nil, err
+	}
+	opts.ApiKey = apiKey
+
+	client, err = rest.NewClientFromExisting(client.Client(), opts)
+	return client, err
 }
 
 func createEnv(mock bool) (cedar.Environment, error) {
@@ -126,6 +168,54 @@ func tearDownEnv(env cedar.Environment, mock bool) error {
 	}
 	defer session.Close()
 	return errors.WithStack(session.DB(conf.DatabaseName).DropDatabase())
+}
+
+func createSendCommand(curatorPath, address, caPath, userCertPath, userKeyPath string, insecure bool) *exec.Cmd {
+	args := []string{
+		"poplar",
+		"send",
+		"--service",
+		address,
+		"--path",
+		filepath.Join("testdata", "mockTestResults.yaml"),
+	}
+	if insecure {
+		args = append(args, "--insecure")
+	} else {
+		args = append(
+			args,
+			"--ca",
+			caPath,
+			"--cert",
+			userCertPath,
+			"--key",
+			userKeyPath,
+		)
+	}
+
+	return exec.Command(curatorPath, args...)
+}
+
+func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string) error {
+	certs := map[string]string{
+		caPath:       ca,
+		userCertPath: userCert,
+		userKeyPath:  userKey,
+	}
+
+	for filename, data := range certs {
+		f, err := os.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.WriteString(data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func TestCreateMetricSeries(t *testing.T) {
@@ -178,7 +268,7 @@ func TestCreateMetricSeries(t *testing.T) {
 
 			err = startPerfService(ctx, env)
 			require.NoError(t, err)
-			client, err := getClient(ctx)
+			client, err := getGRPCClient(ctx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
@@ -309,7 +399,7 @@ func TestAttachResultData(t *testing.T) {
 
 			err = startPerfService(ctx, env)
 			require.NoError(t, err)
-			client, err := getClient(ctx)
+			client, err := getGRPCClient(ctx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			if test.save {
@@ -359,15 +449,17 @@ func TestCuratorSend(t *testing.T) {
 	)
 	curatorPath, err := filepath.Abs("curator")
 	require.NoError(t, err)
+	restClient, err := setupAuthRestClient(ctx, "https://cedar.mongodb.com", 443)
+	require.NoError(t, err)
 	for _, test := range []struct {
 		name   string
 		skip   bool
-		setUp  func(t *testing.T) *exec.Cmd
+		setup  func(t *testing.T) *exec.Cmd
 		closer func(t *testing.T)
 	}{
 		{
 			name: "WithoutAuthOrTLS",
-			setUp: func(t *testing.T) *exec.Cmd {
+			setup: func(t *testing.T) *exec.Cmd {
 				env, err := createEnv(false)
 				assert.NoError(t, err)
 				assert.NoError(t, startPerfService(ctx, env))
@@ -389,32 +481,27 @@ func TestCuratorSend(t *testing.T) {
 		},
 		{
 			name: "WithAuthAndTLS",
-			setUp: func(t *testing.T) *exec.Cmd {
-				client, err := setupClient(ctx)
+			setup: func(t *testing.T) *exec.Cmd {
+				caData, err := restClient.GetRootCertificate(ctx)
 				require.NoError(t, err)
-
-				caData, err := client.GetRootCertificate(ctx)
+				userCertData, err := restClient.GetUserCertificate(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
 				require.NoError(t, err)
-				userCertData, err := client.GetUserCertificate(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
-				require.NoError(t, err)
-				userKeyData, err := client.GetUserCertificateKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
+				userKeyData, err := restClient.GetUserCertificateKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
 				require.NoError(t, err)
 				require.NoError(t, writeCerts(caData, caCert, userCertData, userCert, userKeyData, userKey))
 
 				return createSendCommand(curatorPath, remoteAddress, caCert, userCert, userKey, false)
 			},
 			closer: func(t *testing.T) {
-				client, err := setupClient(ctx)
-				require.NoError(t, err)
 				defer func() {
 					assert.NoError(t, os.Remove(caCert))
 					assert.NoError(t, os.Remove(userCert))
 					assert.NoError(t, os.Remove(userKey))
-					_, err = client.RemovePerformanceResultById(ctx, expectedResult.ID)
+					_, err := restClient.RemovePerformanceResultById(ctx, expectedResult.ID)
 					assert.NoError(t, err)
 				}()
 
-				perfResult, err := client.FindPerformanceResultById(ctx, expectedResult.ID)
+				perfResult, err := restClient.FindPerformanceResultById(ctx, expectedResult.ID)
 				assert.NoError(t, err)
 				require.NotNil(t, perfResult)
 				assert.Equal(t, expectedResult.ID, *perfResult.Name)
@@ -429,78 +516,130 @@ func TestCuratorSend(t *testing.T) {
 				t.Skip("windows sucks")
 			}
 
-			cmd := test.setUp(t)
+			cmd := test.setup(t)
 			assert.NoError(t, cmd.Run())
 			test.closer(t)
 		})
 	}
 }
 
-func createSendCommand(curatorPath, address, caPath, userCertPath, userKeyPath string, insecure bool) *exec.Cmd {
-	args := []string{
-		"poplar",
-		"send",
-		"--service",
-		address,
-		"--path",
-		filepath.Join("testdata", "mockTestResults.yaml"),
-	}
-	if insecure {
-		args = append(args, "--insecure")
-	} else {
-		args = append(
-			args,
-			"--ca",
-			caPath,
-			"--cert",
-			userCertPath,
-			"--key",
-			userKeyPath,
-		)
+func TestCertificateGeneration(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("windows really sucks")
 	}
 
-	return exec.Command(curatorPath, args...)
-}
+	user := "evergreen"
+	pass := "password"
+	certDB := "certDepot"
+	collName := "depot"
+	env, envErr := createEnv(false)
+	require.NoError(t, envErr)
+	defer func() {
+		assert.NoError(t, tearDownEnv(env, false))
+	}()
 
-func setupClient(ctx context.Context) (*rest.Client, error) {
+	conf, session, envErr := cedar.GetSessionWithConfig(env)
+	require.NoError(t, envErr)
+	defer func() {
+		assert.NoError(t, session.DB(certDB).DropDatabase())
+	}()
+
+	cedarExecutable, pathErr := filepath.Abs(filepath.Join("..", "..", "build", "cedar"))
+	require.NoError(t, pathErr)
+	_, statErr := os.Stat(cedarExecutable)
+	require.NoError(t, statErr)
+
+	cmd := exec.Command(
+		cedarExecutable,
+		"admin",
+		"conf",
+		"load",
+		"--file",
+		filepath.Join("testdata", "cedarconf.yaml"),
+		"--dbName",
+		conf.DatabaseName,
+	)
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command(cedarExecutable, "service", "--dbName", conf.DatabaseName)
+	require.NoError(t, cmd.Start())
+	defer func() {
+		require.NoError(t, cmd.Process.Kill())
+	}()
+	time.Sleep(time.Second * 5)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	opts := rest.ClientOptions{
-		Host:     "https://cedar.mongodb.com",
-		Port:     443,
-		Prefix:   "rest",
-		Username: os.Getenv("LDAP_USER"),
+		Host:   "http://localhost",
+		Port:   3000,
+		Prefix: "rest",
 	}
-	client, err := rest.NewClient(opts)
-	if err != nil {
-		return nil, err
-	}
-	apiKey, err := client.GetAuthKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
-	if err != nil {
-		return nil, err
-	}
-	opts.ApiKey = apiKey
+	restClient, clientErr := rest.NewClient(opts)
+	require.NoError(t, clientErr)
 
-	client, err = rest.NewClientFromExisting(client.Client(), opts)
-	return client, err
-}
+	t.Run("RootAndServerGeneration", func(t *testing.T) {
+		rootcrt, err := restClient.GetRootCertificate(ctx)
+		require.NoError(t, err)
+		u := &certdepot.User{}
+		assert.NoError(t, session.DB(certDB).C(collName).FindId("test-root").One(u))
+		assert.Equal(t, rootcrt, u.Cert)
+		assert.NotEmpty(t, u.PrivateKey)
+		assert.NotEmpty(t, u.CertRevocList)
 
-func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string) error {
-	certs := map[string]string{
-		caPath:       ca,
-		userCertPath: userCert,
-		userKeyPath:  userKey,
-	}
+		u = &certdepot.User{}
+		assert.NoError(t, session.DB(certDB).C(collName).FindId("localhost").One(u))
+		assert.NotEmpty(t, u.Cert)
+		assert.NotEmpty(t, u.PrivateKey)
+		assert.NotEmpty(t, u.CertReq)
+	})
+	t.Run("CertificateGeneration", func(t *testing.T) {
+		crt, err := restClient.GetUserCertificate(ctx, user, pass)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, crt)
+		u := &certdepot.User{}
+		assert.NoError(t, session.DB(certDB).C(collName).FindId(user).One(u))
+		assert.Equal(t, u.Cert, crt)
+		assert.NotEmpty(t, u.PrivateKey)
+		assert.NotEmpty(t, u.CertReq)
 
-	for filename, data := range certs {
-		f, err := os.Create(filename)
-		if err != nil {
-			return err
+		key, err := restClient.GetUserCertificateKey(ctx, user, pass)
+		assert.NoError(t, err)
+		assert.Equal(t, u.PrivateKey, key)
+
+		require.NoError(t, session.DB(certDB).C(collName).RemoveId(user))
+	})
+	t.Run("KeyGeneration", func(t *testing.T) {
+		key, err := restClient.GetUserCertificateKey(ctx, user, pass)
+		assert.NoError(t, err)
+		u := &certdepot.User{}
+		require.NoError(t, session.DB(certDB).C(collName).FindId(user).One(u))
+		assert.NotEmpty(t, u.Cert)
+		assert.Equal(t, u.PrivateKey, key)
+		assert.NotEmpty(t, u.CertReq)
+
+		crt, err := restClient.GetUserCertificate(ctx, user, pass)
+		assert.NoError(t, err)
+		assert.Equal(t, u.Cert, crt)
+	})
+
+	ca, err := restClient.GetRootCertificate(ctx)
+	require.NoError(t, err)
+	crt, err := restClient.GetUserCertificate(ctx, user, pass)
+	require.NoError(t, err)
+	key, err := restClient.GetUserCertificateKey(ctx, user, pass)
+	require.NoError(t, err)
+	grpcClient, err := getTLSGRPCClient(ctx, localAddress, []byte(ca), []byte(crt), []byte(key))
+	require.NoError(t, err)
+	t.Run("CertificateHandshake", func(t *testing.T) {
+		data := &ResultData{
+			Id: &ResultID{
+				Project: "testing",
+			},
 		}
-		defer f.Close()
-		_, err = f.WriteString(data)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+		resp, err := grpcClient.CreateMetricSeries(ctx, data)
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.NotEmpty(t, resp.Id)
+	})
 }

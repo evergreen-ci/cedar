@@ -4,17 +4,16 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
 
 	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/rpc/internal"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -22,46 +21,63 @@ import (
 type WaitFunc func(context.Context)
 
 type CertConfig struct {
-	CA         string
-	Cert       string
-	Key        string
-	SkipVerify bool
+	TLS         bool
+	SkipVerify  bool
+	CAName      string
+	ServiceName string
+	Depot       depot.Depot
 }
 
 func (c *CertConfig) Validate() error {
-	catcher := grip.NewBasicCatcher()
-
-	if !util.FileExists(c.CA) {
-		catcher.New("must specify a valid certificate authority path")
+	if c.Depot == nil {
+		return errors.New("must specify a certificate depot!")
+	}
+	if c.CAName == "" {
+		return errors.New("must specify a CA name!")
+	}
+	if c.ServiceName == "" {
+		return errors.New("must specify a server name!")
 	}
 
-	if !util.FileExists(c.Cert) {
-		catcher.New("must specify a valid server certificate path")
-	}
-
-	if !util.FileExists(c.Key) {
-		catcher.New("must specify a valid server certificate key path")
-	}
-
-	return catcher.Resolve()
+	return nil
 }
 
 func (c *CertConfig) Resolve() (*tls.Config, error) {
-	// Load the certificates from disk
-	certificate, err := tls.LoadX509KeyPair(c.Cert, c.Key)
+	// Load the certificates
+	cert, err := depot.GetCertificate(c.Depot, c.ServiceName)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not load server key pair")
+		return nil, errors.Wrap(err, "problem getting server certificate")
+	}
+	certPayload, err := cert.Export()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem exporting server certificate")
+	}
+	key, err := depot.GetPrivateKey(c.Depot, c.ServiceName)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem getting server certificate key")
+	}
+	keyPayload, err := key.ExportPrivate()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem exporting server certificate key")
+	}
+	certificate, err := tls.X509KeyPair(certPayload, keyPayload)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem loading server key pair")
 	}
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(c.CA)
+	ca, err := depot.GetCertificate(c.Depot, c.CAName)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not read ca certificate")
+		return nil, errors.Wrap(err, "problem getting ca certificate")
+	}
+	caPayload, err := ca.Export()
+	if err != nil {
+		return nil, errors.Wrap(err, "problem exporting ca certificate")
 	}
 
 	// Append the client certificates from the CA
-	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+	if ok := certPool.AppendCertsFromPEM(caPayload); !ok {
 		return nil, errors.New("failed to append client certs")
 	}
 	conf := &tls.Config{
@@ -80,8 +96,8 @@ func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
 		grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
 	}
 
-	if err := conf.Validate(); err != nil {
-		grip.Warning(errors.Wrap(err, "certificates not defined, rpc service is starting without tls"))
+	if err := conf.Validate(); conf.TLS && err != nil {
+		return nil, errors.Wrap(err, "invalid tls config")
 	} else {
 		tlsConf, err := conf.Resolve()
 		if err != nil {

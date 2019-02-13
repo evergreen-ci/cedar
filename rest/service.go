@@ -23,11 +23,9 @@ type Service struct {
 	Conf        *model.CedarConfig
 
 	RPCServers []string
-	CertPath   string
-	RootCAName string
+	Depot      depot.Depot
 
 	// internal settings
-	depot depot.Depot
 	um    gimlet.UserManager
 	queue amboy.Queue
 	app   *gimlet.APIApp
@@ -70,12 +68,18 @@ func (s *Service) Validate() error {
 			GetCreateUser: model.GetOrAddUser,
 		})
 		if err != nil {
-			return errors.Wrap(err, "problem setting up user manager")
+			return errors.Wrap(err, "problem setting up ldap user manager")
+		}
+	} else if s.Conf.NaiveAuth.AppAuth {
+		s.um, err = model.NewNaiveUserManager(&s.Conf.NaiveAuth)
+		if err != nil {
+			return errors.Wrap(err, "problem setting up naive user manager")
 		}
 	}
 
-	s.depot, err = depot.NewFileDepot(s.CertPath)
-	grip.Warning(errors.Wrap(err, "no certificate depot constructed"))
+	if s.Depot == nil {
+		grip.Warning("no certificate depot provided")
+	}
 
 	if s.app == nil {
 		s.app = gimlet.NewApp()

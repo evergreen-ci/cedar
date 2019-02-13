@@ -98,10 +98,10 @@ proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
 lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
-test:$(buildDir)/output.test
+test:build $(buildDir)/output.test
 build:$(buildDir)/$(name)
-coverage:$(coverageOutput)
-coverage-html:$(coverageHtmlOutput)
+coverage:build $(coverageOutput)
+coverage-html:build $(coverageHtmlOutput)
 list-tests:
 	@echo -e "test targets:" $(foreach target,$(packages),\\n\\ttest-$(target))
 phony += lint lint-deps build build-race race test coverage coverage-html list-race list-tests
