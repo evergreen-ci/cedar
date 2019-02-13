@@ -76,7 +76,7 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 				perfStats.gauges.workersTotal += util.SumInt64(metric.Values)
 			case "gauges.failed":
 				perfStats.gauges.failedTotal += util.SumInt64(metric.Values)
-			case "ts", "counters.n":
+			case "ts", "counters.n", "id":
 				continue
 			default:
 				return performanceStatistics{}, errors.Errorf("unknown field name %s", name)
