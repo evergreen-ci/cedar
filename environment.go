@@ -3,12 +3,14 @@ package cedar
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	mgo "gopkg.in/mgo.v2"
 )
@@ -19,6 +21,8 @@ func init()                       { resetEnv() }
 func GetEnvironment() Environment { return globalEnv }
 
 func resetEnv() { globalEnv = &envState{name: "global", conf: &Configuration{}} }
+
+type CloserFunc func(context.Context) error
 
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
@@ -38,6 +42,9 @@ type Environment interface {
 	GetConf() (*Configuration, error)
 	// SetQueue configures the global application cache's shared queue.
 	GetSession() (*mgo.Session, error)
+
+	RegisterCloser(string, CloserFunc)
+	Close(context.Context) error
 }
 
 func GetSessionWithConfig(env Environment) (*Configuration, *mgo.Session, error) {
@@ -57,6 +64,11 @@ func GetSessionWithConfig(env Environment) (*Configuration, *mgo.Session, error)
 	return conf, session, nil
 }
 
+type closerOp struct {
+	name   string
+	closer CloserFunc
+}
+
 type envState struct {
 	name           string
 	remoteQueue    amboy.Queue
@@ -64,6 +76,7 @@ type envState struct {
 	remoteReporter reporting.Reporter
 	session        *mgo.Session
 	conf           *Configuration
+	closers        []closerOp
 	mutex          sync.RWMutex
 }
 
@@ -86,6 +99,19 @@ func (c *envState) Configure(conf *Configuration) error {
 	if !conf.DisableLocalQueue {
 		c.localQueue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
+
+		c.RegisterCloser("local-queue", func(ctx context.Context) error {
+			if !amboy.WaitCtxInterval(ctx, c.localQueue, 10*time.Millisecond) {
+				grip.Critical(message.Fields{
+					"message": "pending jobs failed to finish",
+					"queue":   "system",
+					"status":  c.localQueue.Stats(),
+				})
+				return errors.New("failed to stop with running jobs")
+			}
+			c.localQueue.Runner().Close()
+			return nil
+		})
 	}
 
 	if !conf.DisableRemoteQueue {
@@ -209,4 +235,40 @@ func (c *envState) GetConf() (*Configuration, error) {
 	*out = *c.conf
 
 	return out, nil
+}
+
+func (c *envState) RegisterCloser(name string, op CloserFunc) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.closers = append(c.closers, closerOp{name: name, closer: op})
+}
+
+func (c *envState) Close(ctx context.Context) error {
+	catcher := grip.NewExtendedCatcher()
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	deadline, _ := ctx.Deadline()
+	wg := &sync.WaitGroup{}
+	for _, closer := range c.closers {
+		wg.Add(1)
+		go func(name string, close CloserFunc) {
+			defer wg.Done()
+			defer recovery.LogStackTraceAndContinue("closing registered resources")
+
+			grip.Info(message.Fields{
+				"message":      "calling closer",
+				"closer":       name,
+				"timeout_secs": time.Until(deadline),
+				"deadline":     deadline,
+			})
+			catcher.Add(close(ctx))
+		}(closer.name, closer.closer)
+	}
+
+	wg.Wait()
+
+	return catcher.Resolve()
 }
