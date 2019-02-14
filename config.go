@@ -12,7 +12,7 @@ import (
 type Configuration struct {
 	BucketName         string
 	DatabaseName       string
-	QueueDatabaseName  string
+	QueueName          string
 	MongoDBURI         string
 	MongoDBDialTimeout time.Duration
 	SocketTimeout      time.Duration
@@ -36,8 +36,8 @@ func (c *Configuration) Validate() error {
 	if c.SocketTimeout <= 0 {
 		c.SocketTimeout = time.Minute
 	}
-	if c.QueueDatabaseName == "" {
-		c.QueueDatabaseName = "amboy"
+	if c.QueueName == "" {
+		c.QueueName = "ceder.service"
 	}
 
 	return catcher.Resolve()
@@ -46,7 +46,7 @@ func (c *Configuration) Validate() error {
 func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 	return queue.MongoDBOptions{
 		URI:            c.MongoDBURI,
-		DB:             c.QueueDatabaseName,
+		DB:             c.DatabaseName,
 		Priority:       true,
 		CheckWaitUntil: true,
 	}

@@ -117,7 +117,7 @@ func (c *envState) Configure(conf *Configuration) error {
 	if !conf.DisableRemoteQueue {
 		opts := conf.GetQueueOptions()
 		q := queue.NewRemoteUnordered(conf.NumWorkers)
-		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), QueueName, opts, c.session)
+		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), conf.QueueName, opts, c.session)
 		if err != nil {
 			return errors.Wrap(err, "problem opening db queue")
 		}
@@ -130,11 +130,11 @@ func (c *envState) Configure(conf *Configuration) error {
 
 		grip.Info(message.Fields{
 			"message":  "configured a remote mongodb-backed queue",
-			"db":       conf.QueueDatabaseName,
-			"prefix":   QueueName,
+			"db":       conf.DatabaseName,
+			"prefix":   conf.QueueName,
 			"priority": true})
 
-		c.remoteReporter, err = reporting.MakeDBQueueState(QueueName, opts, c.session)
+		c.remoteReporter, err = reporting.MakeDBQueueState(conf.QueueName, opts, c.session)
 		if err != nil {
 			return errors.Wrap(err, "problem starting wrapper")
 		}

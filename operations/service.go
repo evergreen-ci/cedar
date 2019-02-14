@@ -13,8 +13,8 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/mongodb/amboy/reporting"
 	amboyRest "github.com/mongodb/amboy/rest"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
@@ -92,6 +92,10 @@ func Service() cli.Command {
 			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName)
 
 			if err := sc.setup(ctx, env); err != nil {
+				return errors.WithStack(err)
+			}
+
+			if err := units.StartCrons(ctx, env); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -177,17 +181,7 @@ func Service() cli.Command {
 }
 
 func getAdminService(env cedar.Environment) (*gimlet.APIApp, error) {
-	session, err := env.GetSession()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	conf, err := env.GetConf()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	reporter, err := reporting.MakeDBQueueState(cedar.QueueName, conf.GetQueueOptions(), session)
+	reporter, err := env.GetRemoteReporter()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
