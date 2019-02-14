@@ -684,7 +684,7 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbuser, ok := user.(*model.DBUser)
+	dbuser, ok := user.(*model.User)
 	if !ok {
 		gimlet.WriteJSONResponse(rw, http.StatusInternalServerError, gimlet.ErrorResponse{
 			Message:    "cannot generate key for user",

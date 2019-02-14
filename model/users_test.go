@@ -10,13 +10,13 @@ import (
 )
 
 type UserTestSuite struct {
-	users []*DBUser
+	users []*User
 	sess  *mgo.Session
 	c     *mgo.Collection
 	suite.Suite
 }
 
-func TestDBUser(t *testing.T) {
+func TestUser(t *testing.T) {
 	s := &UserTestSuite{}
 	env := cedar.GetEnvironment()
 	s.Require().NoError(env.Configure(&cedar.Configuration{
@@ -30,28 +30,29 @@ func TestDBUser(t *testing.T) {
 }
 
 func (s *UserTestSuite) SetupTest() {
-	conf, session, err := cedar.GetSessionWithConfig(cedar.GetEnvironment())
+	env := cedar.GetEnvironment()
+	conf, session, err := cedar.GetSessionWithConfig(env)
 	s.Require().NoError(err)
 	s.sess = session
 	s.c = session.DB(conf.DatabaseName).C(userCollection)
 	_ = s.c.DropCollection()
 
-	s.users = []*DBUser{
-		&DBUser{
+	s.users = []*User{
+		&User{
 			ID: "Test1",
 			LoginCache: LoginCache{
 				Token: "1234",
 				TTL:   time.Now(),
 			},
 		},
-		&DBUser{
+		&User{
 			ID: "Test2",
 			LoginCache: LoginCache{
 				Token: "4321",
 				TTL:   time.Now().Add(-time.Hour),
 			},
 		},
-		&DBUser{
+		&User{
 			ID: "Test3",
 			LoginCache: LoginCache{
 				Token: "5678",
@@ -62,6 +63,7 @@ func (s *UserTestSuite) SetupTest() {
 
 	for _, user := range s.users {
 		s.Require().NoError(s.c.Insert(user))
+		user.Setup(env)
 	}
 }
 
@@ -88,7 +90,7 @@ func (s *UserTestSuite) TestGetUser() {
 
 func (s *UserTestSuite) TestGetOrAddUser() {
 	u, err := GetOrAddUser(s.users[0])
-	s.NoError(err)
+	s.Require().NoError(err)
 	s.NotNil(u)
 	s.Equal("Test1", u.Username())
 
@@ -97,7 +99,7 @@ func (s *UserTestSuite) TestGetOrAddUser() {
 	s.NotNil(u)
 	s.Equal("Test2", u.Username())
 
-	newUser := &DBUser{
+	newUser := &User{
 		ID:           "NewUser",
 		Display:      "user",
 		EmailAddress: "fake@fake.com",
@@ -111,7 +113,7 @@ func (s *UserTestSuite) TestGetOrAddUser() {
 	s.Equal("fake@fake.com", u.Email())
 	s.Equal("2345435", u.GetAPIKey())
 	s.Equal([]string{"admin"}, u.Roles())
-	fromDB := &DBUser{}
+	fromDB := &User{}
 	s.Require().NoError((s.c.FindId("NewUser").One(fromDB)))
 	s.Equal("NewUser", fromDB.ID)
 	s.Equal("user", fromDB.Display)
@@ -131,15 +133,15 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	s.NoError(err)
 	s.NotEmpty(token2)
 
-	token3, err := PutLoginCache(&DBUser{ID: "asdf"})
+	token3, err := PutLoginCache(&User{ID: "asdf"})
 	s.Error(err)
 	s.Empty(token3)
 
-	u1 := &DBUser{}
+	u1 := &User{}
 	s.Require().NoError(s.c.FindId(s.users[0].ID).One(u1))
 	s.Equal(s.users[0].ID, u1.ID)
 
-	u2 := &DBUser{}
+	u2 := &User{}
 	s.Require().NoError(s.c.FindId(s.users[1].ID).One(u2))
 	s.Equal(s.users[1].ID, u2.ID)
 
@@ -151,7 +153,7 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	time.Sleep(time.Millisecond) // sleep to check TTL changed
 	token4, err := PutLoginCache(s.users[0])
 	s.NoError(err)
-	u1Updated := &DBUser{}
+	u1Updated := &User{}
 	s.Require().NoError(s.c.FindId(s.users[0].ID).One(u1Updated))
 	s.Equal(u1.LoginCache.Token, u1Updated.LoginCache.Token)
 	s.NotEqual(u1.LoginCache.TTL, u1Updated.LoginCache.TTL)
@@ -160,7 +162,7 @@ func (s *UserTestSuite) TestPutLoginCache() {
 	// Fresh user with no token should generate new token
 	token5, err := PutLoginCache(s.users[2])
 	s.NoError(err)
-	u5 := &DBUser{}
+	u5 := &User{}
 	s.Require().NoError(s.c.FindId(s.users[2].ID).One(u5))
 	s.Equal(token5, u5.LoginCache.Token)
 	s.NoError(err)
@@ -192,7 +194,7 @@ func (s *UserTestSuite) TestGetLoginCache() {
 
 func (s *UserTestSuite) TestClearLoginCacheSingleUser() {
 	// Error on non-existent user
-	s.Error(ClearLoginCache(&DBUser{ID: "asdf"}, false))
+	s.Error(ClearLoginCache(&User{ID: "asdf"}, false))
 
 	// Two valid users...
 	u1, valid, err := GetLoginCache("1234")
