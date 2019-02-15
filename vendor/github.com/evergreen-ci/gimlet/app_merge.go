@@ -102,7 +102,7 @@ func (a *APIApp) Merge(apps ...*APIApp) error {
 			seenPrefixes[app.prefix] = struct{}{}
 
 			for _, route := range app.routes {
-				r := a.PrefixRoute(app.prefix).Route(route.route).Version(route.version)
+				r := a.PrefixRoute(app.prefix).Route(route.route).Version(route.version).Handler(route.handler)
 				for _, m := range route.methods {
 					r = r.Method(m.String())
 				}

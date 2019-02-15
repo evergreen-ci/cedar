@@ -18,6 +18,8 @@ import (
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/reporting"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -542,10 +544,15 @@ func TestCertificateGeneration(t *testing.T) {
 	require.NoError(t, cmd.Run())
 
 	cmd = exec.Command(cedarExecutable, "service", "--dbName", conf.DatabaseName)
+	grip.Noticeln(cedarExecutable, "service", "--dbName", conf.DatabaseName)
+	grip.SetName("curator.rpc.test")
+	writer := send.NewWriterSender(grip.GetSender())
+	defer func() { require.NoError(t, writer.Close()) }()
+	cmd.Stderr = writer
+	cmd.Stdout = writer
 	require.NoError(t, cmd.Start())
-	defer func() {
-		require.NoError(t, cmd.Process.Kill())
-	}()
+	go func() { grip.Warning(cmd.Wait()) }()
+	defer func() { require.NoError(t, cmd.Process.Kill()) }()
 	time.Sleep(time.Second * 5)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
