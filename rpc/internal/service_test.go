@@ -37,38 +37,18 @@ type MockEnv struct {
 	conf    *cedar.Configuration
 }
 
-func (m *MockEnv) Configure(config *cedar.Configuration) error {
-	m.conf = config
-	return nil
-}
-
-func (m *MockEnv) GetConf() (*cedar.Configuration, error) {
-	return m.conf, nil
-}
-
-func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error {
-	m.queue = queue
-	return nil
-}
-func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error {
-	m.queue = queue
-	return nil
-}
-
-func (m *MockEnv) GetLocalQueue() (amboy.Queue, error) {
-	return m.queue, nil
-}
-
-func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error) {
-	return m.queue, nil
-}
+func (m *MockEnv) Configure(config *cedar.Configuration) error { m.conf = config; return nil }
+func (m *MockEnv) GetConf() (*cedar.Configuration, error)      { return m.conf, nil }
+func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error       { m.queue = queue; return nil }
+func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error      { m.queue = queue; return nil }
+func (m *MockEnv) GetLocalQueue() (amboy.Queue, error)         { return m.queue, nil }
+func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error)        { return m.queue, nil }
+func (m *MockEnv) GetSession() (*mgo.Session, error)           { return m.session, errors.New("mock err") }
+func (m *MockEnv) Close(_ context.Context) error               { return nil }
+func (m *MockEnv) RegisterCloser(_ string, _ cedar.CloserFunc) {}
 
 func (m *MockEnv) GetRemoteReporter() (reporting.Reporter, error) {
 	return nil, errors.New("not supported")
-}
-
-func (m *MockEnv) GetSession() (*mgo.Session, error) {
-	return m.session, errors.New("mock err")
 }
 
 func startPerfService(ctx context.Context, env cedar.Environment) error {

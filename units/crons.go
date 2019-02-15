@@ -58,7 +58,7 @@ func StartCrons(ctx context.Context, env cedar.Environment) error {
 
 		ts := util.RoundPartOfMinute(0).Format(tsFormat)
 		catcher := grip.NewBasicCatcher()
-		catcher.Add(queue.Put(NewSysInfoStatsCollector(fmt.Sprintf("sys-info-stats-%d", ts))))
+		catcher.Add(queue.Put(NewSysInfoStatsCollector(fmt.Sprintf("sys-info-stats-%s", ts))))
 		catcher.Add(queue.Put(NewLocalAmboyStatsCollector(env, ts)))
 		return catcher.Resolve()
 	})
