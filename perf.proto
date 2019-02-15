@@ -20,6 +20,7 @@ message ResultID {
   repeated string tags = 10;
   map<string, int32> arguments = 11;
   int32 schema = 12;
+  google.protobuf.Timestamp created_at = 13;
 }
 
 message ResultData {
@@ -73,6 +74,7 @@ enum SchemaType {
 message MetricsSeriesEnd {
   string id = 1;
   bool is_complete = 2;
+  google.protobuf.Timestamp completed_at = 3;
 }
 
 message MetricsResponse {
