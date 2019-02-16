@@ -34,6 +34,7 @@ func (s *perfResultSuite) SetupTest() {
 		Trial:     12,
 		Tags:      []string{"tag1", "bson"},
 		Arguments: args,
+		Mainline:  true,
 	}
 	source := []ArtifactInfo{}
 	result := CreatePerformanceResult(info, source)
@@ -44,10 +45,11 @@ func (s *perfResultSuite) SetupTest() {
 	s.NoError(result.Save())
 
 	info = PerformanceResultInfo{
-		Parent:  "234",
-		Version: "1",
-		Trial:   10,
-		Tags:    []string{"tag2", "json"},
+		Parent:   "234",
+		Version:  "1",
+		Trial:    10,
+		Tags:     []string{"tag2", "json"},
+		Mainline: true,
 	}
 	result2 := CreatePerformanceResult(info, source)
 	result2.Setup(cedar.GetEnvironment())

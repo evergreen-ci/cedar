@@ -114,7 +114,7 @@ func (m *ResultID) Export() model.PerformanceResultInfo {
 		Trial:     int(m.Trial),
 		Tags:      m.Tags,
 		Arguments: m.Arguments,
-		Schema:    int(m.Schema),
+		Mainline:  m.Mainline,
 	}
 }
 

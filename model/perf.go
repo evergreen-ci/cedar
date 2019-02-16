@@ -183,6 +183,7 @@ type PerformanceResultInfo struct {
 	Parent    string           `bson:"parent,omitempty"`
 	Tags      []string         `bson:"tags,omitempty"`
 	Arguments map[string]int32 `bson:"args,omitempty"`
+	Mainline  bool             `bson:"mainline"`
 	Schema    int              `bson:"schema,omitempty"`
 }
 
@@ -295,6 +296,7 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 		"created_at":   bson.M{"$gte": options.Interval.StartAt},
 		"completed_at": bson.M{"$lte": options.Interval.EndAt},
 	}
+
 	if options.Info.Project != "" {
 		search[bsonutil.GetDottedKeyName("info", "project")] = options.Info.Project
 	}
@@ -306,22 +308,22 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 	}
 	if options.Info.TaskID != "" {
 		search[bsonutil.GetDottedKeyName("info", "task_id")] = options.Info.TaskID
+		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
+		search[bsonutil.GetDottedKeyName("info", "mainline")] = options.Info.Mainline
+	} else {
+		search[bsonutil.GetDottedKeyName("info", "mainline")] = true
 	}
+
 	if options.Info.TestName != "" {
 		search[bsonutil.GetDottedKeyName("info", "test_name")] = options.Info.TestName
-	}
-	if options.Info.Execution != 0 {
-		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
 	}
 	if options.Info.Trial != 0 {
 		search[bsonutil.GetDottedKeyName("info", "trial")] = options.Info.Trial
 	}
-	if options.Info.Schema != 0 {
-		search[bsonutil.GetDottedKeyName("info", "schema")] = options.Info.Schema
-	}
 	if len(options.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": options.Info.Tags}
 	}
+
 	if len(options.Info.Arguments) > 0 {
 		var args []bson.M
 		for key, val := range options.Info.Arguments {
