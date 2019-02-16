@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"time"
+
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
@@ -99,8 +101,8 @@ func (s SchemaType) Export() model.FileSchema {
 	}
 }
 
-func (m *ResultID) Export() *model.PerformanceResultInfo {
-	return &model.PerformanceResultInfo{
+func (m *ResultID) Export() model.PerformanceResultInfo {
+	return model.PerformanceResultInfo{
 		Project:   m.Project,
 		Version:   m.Version,
 		Variant:   m.Variant,
@@ -145,7 +147,20 @@ func (r *ResultData) Export() (*model.PerformanceResult, error) {
 		artifacts = append(artifacts, *artifact)
 	}
 
-	return model.CreatePerformanceResult(*r.Id.Export(), artifacts), nil
+	result := model.CreatePerformanceResult(r.Id.Export(), artifacts)
+
+	if r.Id.CreatedAt != nil {
+		ts, err := ptypes.Timestamp(r.Id.CreatedAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem converting timestamp value artifact")
+		}
+
+		result.CreatedAt = ts
+	} else {
+		result.CreatedAt = time.Now()
+	}
+
+	return result, nil
 }
 
 func (m *MetricsPoint) Export() (*events.Performance, error) {

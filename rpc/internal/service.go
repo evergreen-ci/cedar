@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
@@ -35,7 +36,6 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return nil, errors.Wrap(err, "problem exporting result")
 	}
 	record.Setup(srv.env)
-	record.CreatedAt = time.Now()
 
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
@@ -55,7 +55,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
-	record.Info = *result.Id.Export()
+	record.Info = result.Id.Export()
 	record.ID = record.Info.ID()
 
 	if err := record.Find(); err != nil {
@@ -205,8 +205,19 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	if err := record.Find(); err != nil {
 		return nil, errors.Wrapf(err, "problem finding record for %s", record.ID)
 	}
+	record.Setup(srv.env)
 
-	record.CompletedAt = time.Now()
+	if end.CompletedAt == nil {
+		record.CompletedAt = time.Now()
+	} else {
+		ts, err := ptypes.Timestamp(end.CompletedAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem converting timestamp for completed at")
+		}
+		record.CompletedAt = ts
+	}
+
+	record.Setup(srv.env)
 	if err := record.Save(); err != nil {
 		return nil, errors.Wrapf(err, "problem saving record %s", record.ID)
 	}
