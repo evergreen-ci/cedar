@@ -79,7 +79,7 @@ $(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
 # distribution targets and implementation
 dist:$(buildDir)/dist.tar.gz
 $(buildDir)/dist.tar.gz:$(buildDir)/make-tarball $(distContents)
-	./$< --name $@ --prefix $(name) $(foreach item,$(distContents),--item $(item))
+	./$< --name $@ --prefix $(name) $(foreach item,$(distContents),--item $(item)) --trim $(buildDir)
 	tar -tvf $@
 # end deploy and distribution targets
 

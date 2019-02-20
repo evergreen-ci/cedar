@@ -68,7 +68,7 @@ func getContents(paths []string, exclusions []string) <-chan archiveWorkUnit {
 	return output
 }
 
-func addFile(tw *tar.Writer, prefix string, unit archiveWorkUnit) error {
+func addFile(tw *tar.Writer, prefix string, unit archiveWorkUnit, trimPrefix string) error {
 	fn, err := filepath.EvalSymlinks(unit.path)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func addFile(tw *tar.Writer, prefix string, unit archiveWorkUnit) error {
 	defer file.Close()
 	// now lets create the header as needed for this file within the tarball
 	header := new(tar.Header)
-	header.Name = filepath.Join(prefix, unit.path)
+	header.Name = filepath.Join(prefix, strings.TrimPrefix(unit.path, trimPrefix))
 	header.Size = unit.stat.Size()
 	header.Mode = int64(unit.stat.Mode())
 	header.ModTime = unit.stat.ModTime()
@@ -98,7 +98,7 @@ func addFile(tw *tar.Writer, prefix string, unit archiveWorkUnit) error {
 	return nil
 }
 
-func makeTarball(fileName, prefix string, paths []string, exclude []string) error {
+func makeTarball(fileName, prefix string, paths []string, exclude []string, trimPrefix string) error {
 	// set up the output file
 	file, err := os.Create(fileName)
 	if err != nil {
@@ -115,7 +115,7 @@ func makeTarball(fileName, prefix string, paths []string, exclude []string) erro
 	fmt.Println("creating archive:", fileName)
 
 	for unit := range getContents(paths, exclude) {
-		err := addFile(tw, prefix, unit)
+		err := addFile(tw, prefix, unit, trimPrefix)
 		if err != nil {
 			return fmt.Errorf("error adding path: %s [%+v]: %+v",
 				unit.path, unit, err)
@@ -132,19 +132,21 @@ func (i *stringSlice) String() string     { return strings.Join([]string(*i), ",
 
 func main() {
 	var (
-		name     string
-		prefix   string
-		items    stringSlice
-		excludes stringSlice
+		name       string
+		prefix     string
+		trimPrefix string
+		items      stringSlice
+		excludes   stringSlice
 	)
 
 	flag.Var(&items, "item", "specify item to add to the archive")
 	flag.Var(&excludes, "exclude", "regular expressions to exclude files")
 	flag.StringVar(&name, "name", "archive.tar.gz", "full path to the archive")
 	flag.StringVar(&prefix, "prefix", "", "prefix of path within the archive")
+	flag.StringVar(&trimPrefix, "trim", "", "trim prefix from items, if present")
 	flag.Parse()
 
-	if err := makeTarball(name, prefix, items, excludes); err != nil {
+	if err := makeTarball(name, prefix, items, excludes, trimPrefix); err != nil {
 		fmt.Printf("ERROR: %+v\n", err)
 		os.Exit(1)
 	}
