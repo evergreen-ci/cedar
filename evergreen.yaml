@@ -1,4 +1,14 @@
 stepback: false
+loggers:
+  task:
+    - type: splunk
+      splunk_server: https://http-inputs-mongodb.splunkcloud.com
+      splunk_token: ${splunk_token}
+    - type: evergreen
+  agent:
+    - type: evergreen
+  system:
+    - type: evergreen
 ignore:
     - "*.rst"
 
