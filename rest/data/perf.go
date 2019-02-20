@@ -63,8 +63,9 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 	options := model.PerfFindOptions{
 		Interval: interval,
 		Info: model.PerformanceResultInfo{
-			TaskID: taskId,
-			Tags:   tags,
+			TaskID:   taskId,
+			Tags:     tags,
+			Mainline: true,
 		},
 		MaxDepth: 0,
 	}
