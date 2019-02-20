@@ -3,12 +3,15 @@ package operations
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 
+	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
 )
 
@@ -39,6 +42,7 @@ func Admin() cli.Command {
 				Subcommands: []cli.Command{
 					getAPIKey(),
 					getUserCert(),
+					uploadCerts(),
 				},
 			},
 		},
@@ -260,6 +264,66 @@ func getUserCert() cli.Command {
 				})
 			} else {
 				fmt.Println(key)
+			}
+
+			return nil
+		},
+	}
+}
+
+func uploadCerts() cli.Command {
+	return cli.Command{
+		Name:  "upload-cert",
+		Usage: "upload certificate to a database backed depot",
+		Flags: dbFlags(
+			cli.StringFlag{
+				Name:  "name",
+				Usage: "specify name of the certificate and key to upload",
+			},
+			cli.StringFlag{
+				Name:  "depotName",
+				Value: "certdepot",
+				Usage: "specify name of the certificate depot",
+			}),
+		Action: func(c *cli.Context) error {
+			certName := c.String("name")
+			mongodbURI := c.String(dbURIFlag)
+			dbName := c.String(dbNameFlag)
+			collName := c.String("depotName")
+
+			if !util.FileExists(certName+".crt") || !util.FileExists(certName+".key") {
+				return errors.New("certificate of that name does not exist")
+			}
+
+			opts := certdepot.MgoCertDepotOptions{
+				MongoDBURI:     mongodbURI,
+				DatabaseName:   dbName,
+				CollectionName: collName,
+			}
+
+			crt, err := ioutil.ReadFile(certName + ".crt")
+			if err != nil {
+				return errors.Wrap(err, "could not read cert file")
+			}
+
+			key, err := ioutil.ReadFile(certName + ".key")
+			if err != nil {
+				return errors.Wrap(err, "could not read cert key file")
+			}
+
+			mdepot, err := certdepot.NewMgoCertDepot(opts)
+			if err != nil {
+				return errors.Wrap(err, "problem creating depot interface")
+			}
+
+			err = mdepot.Put(depot.CrtTag(certName), crt)
+			if err != nil {
+				return errors.Wrap(err, "could not save cert file")
+			}
+
+			err = mdepot.Put(depot.PrivKeyTag(certName), key)
+			if err != nil {
+				return errors.Wrap(err, "could not save cert key file")
 			}
 
 			return nil

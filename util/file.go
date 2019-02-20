@@ -10,8 +10,8 @@ import (
 )
 
 func ReadFileYAML(path string, target interface{}) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return errors.Errorf("file %s does not exist", path)
+	if !FileExists(path) {
+		return errors.Errorf("file '%s' does not exist", path)
 	}
 
 	yamlData, err := ioutil.ReadFile(path)
