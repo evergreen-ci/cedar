@@ -12,7 +12,6 @@ import (
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/message"
 )
 
@@ -31,7 +30,6 @@ type amboyStatsCollector struct {
 	ExcludeRemote bool `bson:"exclude_remote" json:"exclude_remote" yaml:"exclude_remote"`
 	job.Base      `bson:"job_base" json:"job_base" yaml:"job_base"`
 	env           cedar.Environment
-	logger        grip.Journaler
 }
 
 // NewLocalAmboyStatsCollector reports the status of only the local queue
@@ -56,8 +54,7 @@ func NewRemoteAmboyStatsCollector(env cedar.Environment, id string) amboy.Job {
 
 func makeAmboyStatsCollector() *amboyStatsCollector {
 	j := &amboyStatsCollector{
-		env:    cedar.GetEnvironment(),
-		logger: logging.MakeGrip(grip.GetSender()),
+		env: cedar.GetEnvironment(),
 		Base: job.Base{
 			JobType: amboy.JobType{
 				Name:    amboyStatsCollectorJobName,
@@ -88,14 +85,14 @@ func (j *amboyStatsCollector) Run(ctx context.Context) {
 	}
 
 	if !j.ExcludeLocal && (localQueue != nil && localQueue.Started()) {
-		j.logger.Info(message.Fields{
+		grip.Info(message.Fields{
 			"message": "amboy local queue stats",
 			"stats":   localQueue.Stats(),
 		})
 	}
 
 	if !j.ExcludeRemote && (remoteQueue != nil && remoteQueue.Started()) {
-		j.logger.Info(message.Fields{
+		grip.Info(message.Fields{
 			"message": "amboy remote queue stats",
 			"stats":   remoteQueue.Stats(),
 		})
@@ -138,6 +135,6 @@ func (j *amboyStatsCollector) collectExtendedRemoteStats(ctx context.Context) er
 		r["errors"] = recentErrors
 	}
 
-	j.logger.InfoWhen(len(r) > 1, r)
+	grip.InfoWhen(len(r) > 1, r)
 	return nil
 }
