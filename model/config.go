@@ -142,7 +142,7 @@ func (c *CedarConfig) Save() error {
 	grip.Debug(message.Fields{
 		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: configurationCollection},
 		"id":          cedarConfigurationID,
-		"operation":   "save build cost reporting configuration",
+		"operation":   "save application configuration",
 		"change_info": changeInfo,
 	})
 

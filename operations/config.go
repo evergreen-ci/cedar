@@ -79,7 +79,6 @@ func loadCedarConfig() cli.Command {
 			}
 
 			conf.Setup(env)
-
 			if err = conf.Save(); err != nil {
 				return errors.WithStack(err)
 			}
