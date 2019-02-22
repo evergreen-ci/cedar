@@ -207,6 +207,9 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	}
 	record.Setup(srv.env)
 
+	resp := &MetricsResponse{}
+	resp.Id = record.ID
+
 	if end.CompletedAt == nil {
 		record.CompletedAt = time.Now()
 	} else {
@@ -222,7 +225,9 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		return nil, errors.Wrapf(err, "problem saving record %s", record.ID)
 	}
 
-	return nil, nil
+	resp.Success = true
+
+	return resp, nil
 }
 
 func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
