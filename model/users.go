@@ -255,7 +255,7 @@ func GetUser(id string) (gimlet.User, error) {
 func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 	env := cedar.GetEnvironment()
 
-	u := &User{}
+	u := &User{ID: user.Username()}
 	u.Setup(env)
 	err := u.Find()
 	if db.ResultsNotFound(errors.Cause(err)) {
