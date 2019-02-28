@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
@@ -65,12 +66,8 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	for _, i := range result.Artifacts {
-		artifact, err := i.Export()
-		if err != nil {
-			return nil, errors.Wrap(err, "problem exporting artifacts")
-		}
-		record.Artifacts = append(record.Artifacts, *artifact)
+	if err := srv.addArtifacts(record, result.Artifacts); err != nil {
+		return resp, err
 	}
 
 	record.Rollups.Setup(srv.env)
@@ -98,12 +95,8 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	for _, i := range artifactData.Artifacts {
-		artifact, err := i.Export()
-		if err != nil {
-			return nil, errors.Wrap(err, "problem exporting artifacts")
-		}
-		record.Artifacts = append(record.Artifacts, *artifact)
+	if err := srv.addArtifacts(record, artifactData.Artifacts); err != nil {
+		return resp, err
 	}
 
 	record.Setup(srv.env)
@@ -228,6 +221,39 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	resp.Success = true
 
 	return resp, nil
+}
+
+func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts []*ArtifactInfo) error {
+	ftdc := false
+	for _, a := range artifacts {
+		artifact, err := a.Export()
+		if err != nil {
+			return errors.Wrap(err, "problem exporting artifacts")
+		}
+		record.Artifacts = append(record.Artifacts, *artifact)
+
+		if artifact.Schema == model.SchemaRawEvents {
+			if ftdc {
+				return errors.New("cannot have more than one raw events artifact")
+			}
+			ftdc = true
+
+			job, err := units.NewFTDCRollupsJob(record.ID, artifact)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			q, err := srv.env.GetRemoteQueue()
+			if err != nil {
+				return errors.Wrap(err, "problem getting remote queue when adding FTDC rollups job")
+			}
+			if err = q.Put(job); err != nil {
+				return errors.Wrap(err, "problem putting FTDC rollups job on the remote queue")
+			}
+		}
+	}
+
+	return nil
 }
 
 func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
