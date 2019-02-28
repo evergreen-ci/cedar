@@ -46,6 +46,7 @@ enum StorageLocation {
   PROJECT_S3 = 2;
   GRIDFS = 3;
   EPHEMERAL = 4;
+  LOCAL = 5;
 }
 
 enum DataFormat {
