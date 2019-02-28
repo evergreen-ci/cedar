@@ -205,7 +205,7 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 	q, err := env.GetRemoteQueue()
 	require.NoError(t, err)
 	require.NoError(t, q.Start(ctx))
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 5)
 
 	conf, sess, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
