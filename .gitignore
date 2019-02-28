@@ -6,7 +6,6 @@ sink
 !cmd/sink
 cost-reports
 *.tar.gz
-*.ftdc
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*

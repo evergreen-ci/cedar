@@ -138,7 +138,6 @@ func (c *envState) Configure(conf *Configuration) error {
 		if err != nil {
 			return errors.Wrap(err, "problem starting wrapper")
 		}
-
 	}
 
 	return nil
