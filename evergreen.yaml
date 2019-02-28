@@ -100,7 +100,7 @@ functions:
 
          # Run make, called with proper environment variables set,
          # running the target.
-         ${build_env|} ${xc_env|} make ${target}
+         ${build_env|} make -k ${target}
   setup-mongodb:
     - command: shell.exec
       type: setup
@@ -220,23 +220,6 @@ tasks:
         vars:
           target: "coverage-html"
 
-  - name: push
-    patchable: false
-    stepback: false
-    depends_on:
-    - name: "*"
-    commands:
-      - command: s3Copy.copy
-        type: test
-        params:
-          aws_key: ${aws_key}
-          aws_secret: ${aws_secret}
-          s3_copy_files:
-          - {'source': { 'path': 'cedar/${build_id}-${build_variant}/cedar-dist-${revision}.tar.gz', 'bucket': 'mciuploads' },
-             'destination': { 'path': 'build/cedar/cedar-dist-${build_variant}-${revision}.tar.gz', 'bucket': 'boxes.10gen.com' } }
-          - {'source': { 'path': 'cedar/${build_id}-${build_variant}/cedar-dist-${revision}.tar.gz', 'bucket': 'mciuploads' },
-             'destination': { 'path': 'build/cedar/cedar-dist-${build_variant}-latest.tar.gz', 'bucket': 'boxes.10gen.com' } }
-
   - <<: *run-build
     tags: ["dist"]
     name: dist
@@ -307,89 +290,3 @@ buildvariants:
     tasks:
       - name: ".test"
       - name: "dist"
-
-
-  # the following targets *just* cross compile the binary for different architectures.
-  - name: s390x
-    display_name: "zLinux (cross-compile)"
-    expansions:
-      build_env: "GOROOT=/opt/golang/go1.11/ PATH=/opt/golang/go1.11/bin:$PATH"
-      xc_env: "GOARCH=s390x GOOS=linux"
-    run_on:
-      - ubuntu1604-test
-    tasks:
-      - name: "build"
-        depends_on:
-        - name: ".test"
-          variant: "ubuntu1604"
-      - name: "push"
-
-  - name: power
-    display_name: "Linux POWER (cross-compile)"
-    expansions:
-      build_env: "GOROOT=/opt/golang/go1.11/ PATH=/opt/golang/go1.11/bin:$PATH"
-      xc_env: "GOARCH=ppc64le GOOS=linux"
-    run_on:
-      - ubuntu1604-test
-    tasks:
-      - name: "build"
-        depends_on:
-        - name: ".test"
-          variant: "ubuntu1604"
-      - name: "push"
-
-  - name: arm
-    display_name: "Linux ARM64 (cross-compile)"
-    expansions:
-      build_env: "GOROOT=/opt/golang/go1.11/ PATH=/opt/golang/go1.11/bin:$PATH"
-      xc_env: "GOARCH=arm64 GOOS=linux"
-    run_on:
-      - ubuntu1604-test
-    tasks:
-      - name: "build"
-        depends_on:
-        - name: ".test"
-          variant: "ubuntu1604"
-      - name: "push"
-
-  - name: linux-32
-    display_name: "Linux 32-bit (cross-compile)"
-    expansions:
-      build_env: "GOROOT=/opt/golang/go1.11/ PATH=/opt/golang/go1.11/bin:$PATH"
-      xc_env: "GOARCH=386 GOOS=linux"
-    run_on:
-      - ubuntu1604-test
-    tasks:
-      - name: "build"
-        depends_on:
-        - name: ".test"
-          variant: "ubuntu1604"
-      - name: "push"
-
-  - name: windows-64
-    display_name: "Windows 64-bit (cross-compile)"
-    expansions:
-      build_env: "GOROOT=/opt/golang/go1.11/ PATH=/opt/golang/go1.11/bin:$PATH"
-      xc_env: "GOARCH=amd64 GOOS=windows"
-    run_on:
-      - ubuntu1604-test
-    tasks:
-      - name: "build"
-        depends_on:
-        - name: ".test"
-          variant: "ubuntu1604"
-      - name: "push"
-
-  - name: windows-32
-    display_name: "Windows 32-bit (cross-compile)"
-    expansions:
-      build_env: "GOROOT=/opt/golang/go1.11/ PATH=/opt/golang/go1.11/bin:$PATH"
-      xc_env: "GOARCH=386 GOOS=windows"
-    run_on:
-      - ubuntu1604-test
-    tasks:
-      - name: "build"
-        depends_on:
-        - name: ".test"
-          variant: "ubuntu1604"
-      - name: "push"
