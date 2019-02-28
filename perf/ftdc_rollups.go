@@ -66,7 +66,7 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 				perfStats.counters.size = metric.Values[len(metric.Values)-1]
 			case "counters.errors":
 				perfStats.counters.errors = metric.Values[len(metric.Values)-1]
-			case "timers.dur":
+			case "timers.duration":
 				perfStats.timers.durationTotal += time.Duration(util.SumInt64(metric.Values))
 			case "timers.total":
 				perfStats.timers.total = time.Duration(metric.Values[len(metric.Values)-1])
