@@ -95,7 +95,7 @@ func (result *PerformanceResult) Find() error {
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find result record in the database")
 	} else if err != nil {
-		return errors.Wrap(err, "problem finding result config")
+		return errors.Wrap(err, "problem finding result")
 	}
 
 	result.populated = true
