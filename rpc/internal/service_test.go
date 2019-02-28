@@ -205,7 +205,7 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 	q, err := env.GetRemoteQueue()
 	require.NoError(t, err)
 	require.NoError(t, q.Start(ctx))
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second)
 
 	conf, sess, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
@@ -295,6 +295,7 @@ func TestAttachResultData(t *testing.T) {
 		attachedData interface{}
 		expectedResp *MetricsResponse
 		err          bool
+		checkRollups bool
 	}{
 		{
 			name: "TestAttachResultData",
@@ -303,14 +304,22 @@ func TestAttachResultData(t *testing.T) {
 				Id: &ResultID{},
 			},
 			attachedData: &ResultData{
-				Id:        &ResultID{},
-				Artifacts: []*ArtifactInfo{},
-				Rollups:   []*RollupValue{},
+				Id: &ResultID{},
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamp.Timestamp{},
+					},
+				},
+				Rollups: []*RollupValue{},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
 				Success: true,
 			},
+			checkRollups: true,
 		},
 		{
 			name: "TestAttachResultDataWithEmptyFields",
@@ -359,6 +368,7 @@ func TestAttachResultData(t *testing.T) {
 				Id:      (&model.PerformanceResultInfo{}).ID(),
 				Success: true,
 			},
+			checkRollups: true,
 		},
 		{
 			name: "TestAttachArtifactsDoesNotExist",
@@ -425,19 +435,22 @@ func TestAttachResultData(t *testing.T) {
 				resp, err = client.AttachResultData(ctx, d)
 			case *ArtifactData:
 				resp, err = client.AttachArtifacts(ctx, d)
-				if !test.err && err == nil {
-					checkRollups(t, ctx, env, resp.Id)
-				}
 			case *RollupData:
 				resp, err = client.AttachRollups(ctx, d)
 			default:
 				t.Error("unknown attached data type")
 			}
+
 			assert.Equal(t, test.expectedResp, resp)
+
 			if test.err {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+
+			if test.checkRollups {
+				checkRollups(t, ctx, env, resp.Id)
 			}
 		})
 	}

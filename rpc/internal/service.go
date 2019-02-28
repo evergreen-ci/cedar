@@ -44,6 +44,11 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	if err := record.Save(); err != nil {
 		return resp, errors.Wrap(err, "problem saving record")
 	}
+
+	if err := srv.addFTDCRollupsJob(record.ID, record.Artifacts); err != nil {
+		return resp, errors.Wrap(err, "problem creating ftdc rollups job")
+	}
+
 	resp.Success = true
 
 	return resp, nil
@@ -224,32 +229,41 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 }
 
 func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts []*ArtifactInfo) error {
-	ftdc := false
 	for _, a := range artifacts {
 		artifact, err := a.Export()
 		if err != nil {
 			return errors.Wrap(err, "problem exporting artifacts")
 		}
 		record.Artifacts = append(record.Artifacts, *artifact)
+	}
 
-		if artifact.Schema == model.SchemaRawEvents {
-			if ftdc {
-				return errors.New("cannot have more than one raw events artifact")
-			}
-			ftdc = true
+	return errors.Wrap(srv.addFTDCRollupsJob(record.ID, record.Artifacts), "problem creating ftdc rollups job")
+}
 
-			job, err := units.NewFTDCRollupsJob(record.ID, artifact)
-			if err != nil {
-				return errors.WithStack(err)
-			}
+func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactInfo) error {
+	ftdc := false
 
-			q, err := srv.env.GetRemoteQueue()
-			if err != nil {
-				return errors.Wrap(err, "problem getting remote queue when adding FTDC rollups job")
-			}
-			if err = q.Put(job); err != nil {
-				return errors.Wrap(err, "problem putting FTDC rollups job on the remote queue")
-			}
+	for _, artifact := range artifacts {
+		if artifact.Schema != model.SchemaRawEvents {
+			continue
+		}
+
+		if ftdc {
+			return errors.New("cannot have more than one raw events artifact")
+		}
+		ftdc = true
+
+		job, err := units.NewFTDCRollupsJob(id, &artifact)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		q, err := srv.env.GetRemoteQueue()
+		if err != nil {
+			return errors.Wrap(err, "problem getting remote queue when adding FTDC rollups job")
+		}
+		if err = q.Put(job); err != nil {
+			return errors.Wrap(err, "problem putting FTDC rollups job on the remote queue")
 		}
 	}
 
