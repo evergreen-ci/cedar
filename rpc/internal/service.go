@@ -126,7 +126,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	record.Rollups.Setup(srv.env)
+	record.Setup(srv.env)
 	if err := addRollups(record, rollupData.Rollups); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
