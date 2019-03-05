@@ -579,7 +579,7 @@ func (r *PerformanceResult) MergeRollups(rollups []*PerfRollupValue) error {
 	for _, rollup := range rollups {
 		catcher.Add(r.Rollups.Add(
 			rollup.Name,
-			int(rollup.Version),
+			rollup.Version,
 			rollup.UserSubmitted,
 			rollup.MetricType,
 			rollup.Value,
