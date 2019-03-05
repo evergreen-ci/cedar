@@ -569,3 +569,26 @@ func (r *PerformanceResult) UpdateDefaultRollups(ts PerformanceTimeSeries) error
 	catcher.Add(err)
 	return catcher.Resolve()
 }
+
+func (r *PerformanceResult) MergeRollups(rollups []*PerfRollupValue) error {
+	catcher := grip.NewBasicCatcher()
+
+	r.Rollups.id = r.ID
+	r.Rollups.Setup(r.env)
+
+	for _, rollup := range rollups {
+		catcher.Add(r.Rollups.Add(
+			rollup.Name,
+			int(rollup.Version),
+			rollup.UserSubmitted,
+			rollup.MetricType,
+			rollup.Value,
+		))
+	}
+
+	r.Rollups.ProcessedAt = time.Now()
+	r.Rollups.Count = len(r.Rollups.Stats)
+	r.Rollups.Valid = !catcher.HasErrors()
+
+	return catcher.Resolve()
+}

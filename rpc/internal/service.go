@@ -231,15 +231,11 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 }
 
 func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
-	catcher := grip.NewBasicCatcher()
-
+	exportedRollups := []*model.PerfRollupValue{}
 	for _, r := range rollups {
-		catcher.Add(record.Rollups.Add(r.Name, int(r.Version), r.UserSubmitted, r.Type.Export(), r.Value))
+		exportedRollup := r.Export()
+		exportedRollups = append(exportedRollups, &exportedRollup)
 	}
 
-	record.Rollups.ProcessedAt = time.Now()
-	record.Rollups.Count = len(record.Rollups.Stats)
-	record.Rollups.Valid = !catcher.HasErrors()
-
-	return catcher.Resolve()
+	return record.MergeRollups(exportedRollups)
 }
