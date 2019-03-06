@@ -111,18 +111,15 @@ func (fr *ftdcRollups) Run(ctx context.Context) {
 	err = result.Find()
 	if err != nil {
 		err = errors.Wrap(err, "problem running query")
-		grip.Warning(err)
 		fr.AddError(err)
 		return
 	}
 
-	rollups := result.Rollups
-	rollups.Setup(env)
+	result.Rollups.Setup(env)
 	for _, stat := range stats {
-		err = rollups.Add(stat.Name, stat.Version, stat.UserSubmitted, stat.MetricType, stat.Value)
+		err = result.Rollups.Add(stat.Name, stat.Version, stat.UserSubmitted, stat.MetricType, stat.Value)
 		if err != nil {
 			err = errors.Wrapf(err, "problem adding rollup %s", stat.Name)
-			grip.Warning(err)
 			fr.AddError(err)
 		}
 	}
