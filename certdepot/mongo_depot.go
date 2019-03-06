@@ -197,7 +197,7 @@ func (m *mongoCertDepot) Get(tag *depot.Tag) ([]byte, error) {
 	case userCertReqKey:
 		data = []byte(u.CertReq)
 	case userCertRevocListKey:
-		data = []byte(u.Cert)
+		data = []byte(u.CertRevocList)
 		if len(data) > 0 && time.Since(u.TTL) > m.expireAfter {
 			return nil, errors.Errorf("certificate revocation list for %s has expired!", name)
 		}
