@@ -241,17 +241,17 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 }
 
 func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactInfo) error {
-	ftdc := false
+	var hasEventData bool
 
 	for _, artifact := range artifacts {
 		if artifact.Schema != model.SchemaRawEvents {
 			continue
 		}
 
-		if ftdc {
+		if hasEventData {
 			return errors.New("cannot have more than one raw events artifact")
 		}
-		ftdc = true
+		hasEventData = true
 
 		job, err := units.NewFTDCRollupsJob(id, &artifact)
 		if err != nil {
