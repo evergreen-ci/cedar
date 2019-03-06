@@ -295,17 +295,19 @@ func (s *perfRollupSuite) TestMergeRollups() {
 		},
 	}
 
-	result := &PerformanceResult{}
-	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
-	result.Setup(s.r.env)
-	s.NoError(result.MergeRollups(rollups))
-	result = &PerformanceResult{}
-	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
-	count := 0
-	for _, rollup := range result.Rollups.Stats {
-		if rollup.Name == "ops_per_sec" || rollup.Name == "latency" {
-			count += 1
+	for i := 0; i < 3; i++ {
+		result := &PerformanceResult{}
+		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
+		result.Setup(s.r.env)
+		s.NoError(result.MergeRollups(rollups))
+		result = &PerformanceResult{}
+		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
+		count := 0
+		for _, rollup := range result.Rollups.Stats {
+			if rollup.Name == "ops_per_sec" || rollup.Name == "latency" {
+				count += 1
+			}
 		}
+		s.Equal(2, count)
 	}
-	s.Equal(2, count)
 }
