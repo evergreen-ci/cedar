@@ -62,10 +62,6 @@ func (fr *ftdcRollups) Validate() error {
 	return nil
 }
 
-func (fr *ftdcRollups) reset() {
-	fr.ArtifactInfo = nil
-}
-
 func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo) (amboy.Job, error) {
 	rollupJob := &ftdcRollups{
 		PerfID:       perfId,
@@ -80,7 +76,6 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo) (amboy.J
 
 func (fr *ftdcRollups) Run(ctx context.Context) {
 	defer fr.MarkComplete()
-	defer fr.reset()
 
 	env := cedar.GetEnvironment()
 
