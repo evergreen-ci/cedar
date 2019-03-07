@@ -126,4 +126,10 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
 	})
+	t.Run("PublicFunction", func(t *testing.T) {
+		j, err := NewFTDCRollupsJob(validResult.ID, &validArtifact)
+		require.NoError(t, err)
+		j.Run(context.TODO())
+		assert.True(t, j.Status().Completed)
+	})
 }

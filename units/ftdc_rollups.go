@@ -58,15 +58,14 @@ func (j *ftdcRollupsJob) validate() error {
 }
 
 func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo) (amboy.Job, error) {
-	rollupJob := &ftdcRollupsJob{
-		PerfID:       perfId,
-		ArtifactInfo: artifactInfo,
-	}
+	j := makeFTDCRollupsJob()
+	j.PerfID = perfId
+	j.ArtifactInfo = artifactInfo
 
-	if err := rollupJob.validate(); err != nil {
+	if err := j.validate(); err != nil {
 		return nil, errors.Wrap(err, "failed to create new ftdc rollups job")
 	}
-	return rollupJob, nil
+	return j, nil
 }
 
 func (j *ftdcRollupsJob) Run(ctx context.Context) {
