@@ -17,6 +17,8 @@ func (l StorageLocation) Export() model.PailType {
 		return model.PailLegacyGridFS
 	case StorageLocation_CEDAR_S3, StorageLocation_PROJECT_S3:
 		return model.PailS3
+	case StorageLocation_LOCAL:
+		return model.PailLocal
 	default:
 		return ""
 	}

@@ -105,10 +105,10 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 }
 
 type APIPerformanceEvent struct {
-	Timestamp APITime `json:"ts"`
-	Counters  APIPerformanceCounters
-	Timers    APIPerformanceTimers
-	Gauges    APIPerformanceGauges
+	Timestamp APITime                `json:"ts"`
+	Counters  APIPerformanceCounters `json:"counters"`
+	Timers    APIPerformanceTimers   `json:"timers"`
+	Gauges    APIPerformanceGauges   `json:"gauges"`
 }
 
 type APIPerformanceCounters struct {

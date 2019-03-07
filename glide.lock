@@ -31,7 +31,7 @@ imports:
 - name: github.com/mongodb/ftdc
   version: b73dcba72a67fa6e593e3979885b472f5d8e3370
 - name: github.com/evergreen-ci/pail
-  version: 1df85beb6afca4560131e9a65fccfaac91af944a
+  version: 1d8f19c9a70ae650f7499bd07b6cf47e17fe89c9
 - name: github.com/evergreen-ci/aviation
   version: 0b7fdb85cbd336e56042fcef0531f0e82db38115
 

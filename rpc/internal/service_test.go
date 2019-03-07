@@ -16,6 +16,7 @@ import (
 	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/grip"
@@ -135,7 +136,7 @@ func createEnv(mock bool) (cedar.Environment, error) {
 		DatabaseName:       "grpc_test",
 		SocketTimeout:      time.Hour,
 		NumWorkers:         2,
-		DisableRemoteQueue: true,
+		DisableRemoteQueue: false,
 	})
 	return env, errors.WithStack(err)
 }
@@ -200,6 +201,19 @@ func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string)
 	return nil
 }
 
+func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id string) {
+	q, err := env.GetRemoteQueue()
+	require.NoError(t, err)
+	require.NoError(t, q.Start(ctx))
+	time.Sleep(time.Second)
+
+	conf, sess, err := cedar.GetSessionWithConfig(env)
+	require.NoError(t, err)
+	result := &model.PerformanceResult{}
+	assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(id).One(result))
+	assert.NotEmpty(t, result.Rollups.Stats)
+}
+
 func TestCreateMetricSeries(t *testing.T) {
 	for _, test := range []struct {
 		name         string
@@ -214,6 +228,14 @@ func TestCreateMetricSeries(t *testing.T) {
 				Id: &ResultID{
 					Project: "testProject",
 					Version: "testVersion",
+				},
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamp.Timestamp{},
+					},
 				},
 			},
 			expectedResp: &MetricsResponse{
@@ -259,6 +281,7 @@ func TestCreateMetricSeries(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+				checkRollups(t, ctx, env, resp.Id)
 			}
 		})
 	}
@@ -272,6 +295,7 @@ func TestAttachResultData(t *testing.T) {
 		attachedData interface{}
 		expectedResp *MetricsResponse
 		err          bool
+		checkRollups bool
 	}{
 		{
 			name: "TestAttachResultData",
@@ -280,14 +304,22 @@ func TestAttachResultData(t *testing.T) {
 				Id: &ResultID{},
 			},
 			attachedData: &ResultData{
-				Id:        &ResultID{},
-				Artifacts: []*ArtifactInfo{},
-				Rollups:   []*RollupValue{},
+				Id: &ResultID{},
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamp.Timestamp{},
+					},
+				},
+				Rollups: []*RollupValue{},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
 				Success: true,
 			},
+			checkRollups: true,
 		},
 		{
 			name: "TestAttachResultDataWithEmptyFields",
@@ -322,13 +354,21 @@ func TestAttachResultData(t *testing.T) {
 				Id: &ResultID{},
 			},
 			attachedData: &ArtifactData{
-				Id:        (&model.PerformanceResultInfo{}).ID(),
-				Artifacts: []*ArtifactInfo{},
+				Id: (&model.PerformanceResultInfo{}).ID(),
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamp.Timestamp{},
+					},
+				},
 			},
 			expectedResp: &MetricsResponse{
 				Id:      (&model.PerformanceResultInfo{}).ID(),
 				Success: true,
 			},
+			checkRollups: true,
 		},
 		{
 			name: "TestAttachArtifactsDoesNotExist",
@@ -400,11 +440,17 @@ func TestAttachResultData(t *testing.T) {
 			default:
 				t.Error("unknown attached data type")
 			}
+
 			assert.Equal(t, test.expectedResp, resp)
+
 			if test.err {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+
+			if test.checkRollups {
+				checkRollups(t, ctx, env, resp.Id)
 			}
 		})
 	}
