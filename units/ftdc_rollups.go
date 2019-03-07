@@ -24,6 +24,7 @@ type ftdcRollupsJob struct {
 	ArtifactInfo *model.ArtifactInfo `bson:"artifact" json:"artifact" yaml:"artifact"`
 
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env      cedar.Environment
 }
 
 func init() {
@@ -40,7 +41,6 @@ func makeFTDCRollupsJob() *ftdcRollupsJob {
 		},
 	}
 
-	// TODO: Do I need to set priority ?
 	j.SetDependency(dependency.NewAlways())
 	return j
 }
@@ -71,9 +71,11 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo) (amboy.J
 func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 
-	env := cedar.GetEnvironment()
+	if j.env == nil {
+		j.env = cedar.GetEnvironment()
+	}
 
-	bucket, err := j.ArtifactInfo.Type.Create(env, j.ArtifactInfo.Bucket)
+	bucket, err := j.ArtifactInfo.Type.Create(j.env, j.ArtifactInfo.Bucket)
 	if err != nil {
 		grip.Warning(err)
 		j.AddError(err)
@@ -96,20 +98,18 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	}
 
 	result := &model.PerformanceResult{ID: j.PerfID}
-	result.Setup(env)
+	result.Setup(j.env)
 	err = result.Find()
 	if err != nil {
-		err = errors.Wrap(err, "problem running query")
-		j.AddError(err)
+		j.AddError(errors.Wrap(err, "problem running query"))
 		return
 	}
 
-	result.Rollups.Setup(env)
+	result.Rollups.Setup(j.env)
 	for _, stat := range stats {
 		err = result.Rollups.Add(stat.Name, stat.Version, stat.UserSubmitted, stat.MetricType, stat.Value)
 		if err != nil {
-			err = errors.Wrapf(err, "problem adding rollup %s", stat.Name)
-			j.AddError(err)
+			j.AddError(errors.Wrapf(err, "problem adding rollup %s", stat.Name))
 		}
 	}
 }
