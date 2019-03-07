@@ -229,13 +229,3 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 
 	return resp, nil
 }
-
-func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
-	exportedRollups := []*model.PerfRollupValue{}
-	for _, r := range rollups {
-		exportedRollup := r.Export()
-		exportedRollups = append(exportedRollups, &exportedRollup)
-	}
-
-	return record.MergeRollups(exportedRollups)
-}
