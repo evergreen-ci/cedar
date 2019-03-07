@@ -68,52 +68,52 @@ func TestFTDCRollupsJob(t *testing.T) {
 	invalidResult.Save()
 
 	t.Run("ValidData", func(t *testing.T) {
-		rollupCalculator := &ftdcRollups{
+		j := &ftdcRollupsJob{
 			PerfID:       validResult.ID,
 			ArtifactInfo: &validArtifact,
 		}
-		assert.NoError(t, rollupCalculator.Validate())
-		rollupCalculator.Run(context.TODO())
-		assert.True(t, rollupCalculator.Status().Completed)
-		assert.False(t, rollupCalculator.HasErrors())
+		assert.NoError(t, j.validate())
+		j.Run(context.TODO())
+		assert.True(t, j.Status().Completed)
+		assert.False(t, j.HasErrors())
 		result := &model.PerformanceResult{}
 		assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(validResult.ID).One(result))
 		assert.NotEmpty(t, result.Rollups.Stats)
 	})
 	t.Run("InvalidData", func(t *testing.T) {
-		rollupCalculator := &ftdcRollups{
+		j := &ftdcRollupsJob{
 			PerfID:       invalidResult.ID,
 			ArtifactInfo: &invalidArtifact,
 		}
-		assert.NoError(t, rollupCalculator.Validate())
-		rollupCalculator.Run(context.TODO())
-		assert.True(t, rollupCalculator.Status().Completed)
-		assert.Equal(t, 1, rollupCalculator.ErrorCount())
+		assert.NoError(t, j.validate())
+		j.Run(context.TODO())
+		assert.True(t, j.Status().Completed)
+		assert.Equal(t, 1, j.ErrorCount())
 	})
 	t.Run("InvalidID", func(t *testing.T) {
-		rollupCalculator := &ftdcRollups{
+		j := &ftdcRollupsJob{
 			PerfID:       "DNE",
 			ArtifactInfo: &validArtifact,
 		}
-		assert.NoError(t, rollupCalculator.Validate())
-		rollupCalculator.Run(context.TODO())
-		assert.True(t, rollupCalculator.Status().Completed)
-		assert.Equal(t, 1, rollupCalculator.ErrorCount())
+		assert.NoError(t, j.validate())
+		j.Run(context.TODO())
+		assert.True(t, j.Status().Completed)
+		assert.Equal(t, 1, j.ErrorCount())
 	})
 	t.Run("InvalidSetup", func(t *testing.T) {
-		rollupCalculator := &ftdcRollups{
+		j := &ftdcRollupsJob{
 			PerfID: validResult.ID,
 		}
-		assert.Error(t, rollupCalculator.Validate())
+		assert.Error(t, j.validate())
 
-		rollupCalculator = &ftdcRollups{
+		j = &ftdcRollupsJob{
 			ArtifactInfo: &validArtifact,
 		}
-		assert.Error(t, rollupCalculator.Validate())
-		assert.False(t, rollupCalculator.Status().Completed)
+		assert.Error(t, j.validate())
+		assert.False(t, j.Status().Completed)
 	})
 	t.Run("InvalidBucket", func(t *testing.T) {
-		rollupCalculator := &ftdcRollups{
+		j := &ftdcRollupsJob{
 			PerfID: validResult.ID,
 			ArtifactInfo: &model.ArtifactInfo{
 				Type:   model.PailLocal,
@@ -121,9 +121,9 @@ func TestFTDCRollupsJob(t *testing.T) {
 				Path:   "valid.ftdc",
 			},
 		}
-		assert.NoError(t, rollupCalculator.Validate())
-		rollupCalculator.Run(context.TODO())
-		assert.True(t, rollupCalculator.Status().Completed)
-		assert.Equal(t, 1, rollupCalculator.ErrorCount())
+		assert.NoError(t, j.validate())
+		j.Run(context.TODO())
+		assert.True(t, j.Status().Completed)
+		assert.Equal(t, 1, j.ErrorCount())
 	})
 }

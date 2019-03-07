@@ -19,43 +19,38 @@ const (
 	ftdcRollupsJobName = "ftdc-rollups"
 )
 
-type ftdcRollups struct {
+type ftdcRollupsJob struct {
 	PerfID       string              `bson:"perf_id" json:"perf_id" yaml:"perf_id"`
 	ArtifactInfo *model.ArtifactInfo `bson:"artifact" json:"artifact" yaml:"artifact"`
 
-	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 }
 
 func init() {
-	registry.AddJobType(ftdcRollupsJobName, func() amboy.Job {
-		fr := &ftdcRollups{}
-		fr.setup()
-		fr.SetDependency(dependency.NewAlways())
-
-		return fr
-	})
+	registry.AddJobType(ftdcRollupsJobName, func() amboy.Job { return makeFTDCRollupsJob() })
 }
 
-func (fr *ftdcRollups) setup() {
-	if fr.Base == nil {
-		fr.Base = &job.Base{
+func makeFTDCRollupsJob() *ftdcRollupsJob {
+	j := &ftdcRollupsJob{
+		Base: job.Base{
 			JobType: amboy.JobType{
 				Name:    ftdcRollupsJobName,
 				Version: 1,
 			},
-		}
+		},
 	}
+
+	// TODO: Do I need to set priority ?
+	j.SetDependency(dependency.NewAlways())
+	return j
 }
 
-func (fr *ftdcRollups) Validate() error {
-	fr.setup()
-	fr.SetDependency(dependency.NewAlways())
-
-	if fr.PerfID == "" {
+func (j *ftdcRollupsJob) validate() error {
+	if j.PerfID == "" {
 		return errors.New("no id given")
 	}
 
-	if fr.ArtifactInfo == nil {
+	if j.ArtifactInfo == nil {
 		return errors.New("no artifact info given")
 	}
 
@@ -63,33 +58,33 @@ func (fr *ftdcRollups) Validate() error {
 }
 
 func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo) (amboy.Job, error) {
-	rollupJob := &ftdcRollups{
+	rollupJob := &ftdcRollupsJob{
 		PerfID:       perfId,
 		ArtifactInfo: artifactInfo,
 	}
 
-	if err := rollupJob.Validate(); err != nil {
-		return nil, errors.Wrap(err, "failed to setup new ftdc rollups job")
+	if err := rollupJob.validate(); err != nil {
+		return nil, errors.Wrap(err, "failed to create new ftdc rollups job")
 	}
 	return rollupJob, nil
 }
 
-func (fr *ftdcRollups) Run(ctx context.Context) {
-	defer fr.MarkComplete()
+func (j *ftdcRollupsJob) Run(ctx context.Context) {
+	defer j.MarkComplete()
 
 	env := cedar.GetEnvironment()
 
-	bucket, err := fr.ArtifactInfo.Type.Create(env, fr.ArtifactInfo.Bucket)
+	bucket, err := j.ArtifactInfo.Type.Create(env, j.ArtifactInfo.Bucket)
 	if err != nil {
 		grip.Warning(err)
-		fr.AddError(err)
+		j.AddError(err)
 		return
 	}
 
-	data, err := bucket.Get(ctx, fr.ArtifactInfo.Path)
+	data, err := bucket.Get(ctx, j.ArtifactInfo.Path)
 	if err != nil {
 		grip.Warning(err)
-		fr.AddError(err)
+		j.AddError(err)
 		return
 	}
 	iter := ftdc.ReadChunks(ctx, data)
@@ -97,16 +92,16 @@ func (fr *ftdcRollups) Run(ctx context.Context) {
 	stats, err := perf.CalculateDefaultRollups(iter)
 	if err != nil {
 		grip.Warning(err)
-		fr.AddError(err)
+		j.AddError(err)
 		return
 	}
 
-	result := &model.PerformanceResult{ID: fr.PerfID}
+	result := &model.PerformanceResult{ID: j.PerfID}
 	result.Setup(env)
 	err = result.Find()
 	if err != nil {
 		err = errors.Wrap(err, "problem running query")
-		fr.AddError(err)
+		j.AddError(err)
 		return
 	}
 
@@ -115,7 +110,7 @@ func (fr *ftdcRollups) Run(ctx context.Context) {
 		err = result.Rollups.Add(stat.Name, stat.Version, stat.UserSubmitted, stat.MetricType, stat.Value)
 		if err != nil {
 			err = errors.Wrapf(err, "problem adding rollup %s", stat.Name)
-			fr.AddError(err)
+			j.AddError(err)
 		}
 	}
 }
