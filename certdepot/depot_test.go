@@ -214,7 +214,7 @@ func TestDepot(t *testing.T) {
 					},
 				},
 				{
-					name: "CheckOnExistingUserWithNoData",
+					name: "CheckReturnsFalseOnExistingUserWithNoData",
 					test: func(t *testing.T, d depot.Depot) {
 						const name = "alice"
 						u := &User{
@@ -229,7 +229,7 @@ func TestDepot(t *testing.T) {
 					},
 				},
 				{
-					name: "GetOnExistingUserWithNoData",
+					name: "GetFailsOnExistingUserWithNoData",
 					test: func(t *testing.T, d depot.Depot) {
 						const name = "bob"
 						u := &User{
@@ -497,7 +497,7 @@ func TestDepot(t *testing.T) {
 					impl.check(t, depot.CrtTag(name), data)
 					impl.check(t, depot.PrivKeyTag(name), data)
 					impl.check(t, depot.CsrTag(name), data)
-					impl.check(t, assertdepot.CrlTag(name), data)
+					impl.check(t, depot.CrlTag(name), data)
 				})
 			})
 		})
