@@ -247,6 +247,7 @@ func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactI
 	if err != nil {
 		return errors.Wrap(err, "problem getting remote queue when adding FTDC rollups job")
 	}
+
 	for _, artifact := range artifacts {
 		if artifact.Schema != model.SchemaRawEvents {
 			continue
