@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+type RollupValues []*RollupValue
+
 func (l StorageLocation) Export() model.PailType {
 	switch l {
 	case StorageLocation_GRIDFS:
@@ -201,4 +203,13 @@ func (r *RollupValue) Export() model.PerfRollupValue {
 		UserSubmitted: r.UserSubmitted,
 		MetricType:    r.Type.Export(),
 	}
+}
+
+func ExportRollupValues(r []*RollupValue) []*model.PerfRollupValue {
+	perfRollupValues := []*model.PerfRollupValue{}
+	for _, rollupValue := range r {
+		exportedRollup := rollupValue.Export()
+		perfRollupValues = append(perfRollupValues, &exportedRollup)
+	}
+	return perfRollupValues
 }
