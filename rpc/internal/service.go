@@ -73,9 +73,9 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
-	record.Rollups.Setup(srv.env)
-	if err := addRollups(record, result.Rollups); err != nil {
-		return nil, errors.Wrap(err, "problem attaching rollups")
+	record.Setup(srv.env)
+	if err := record.MergeRollups(ExportRollupValues(result.Rollups)); err != nil {
+		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 
 	record.Setup(srv.env)
@@ -126,8 +126,8 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	record.Rollups.Setup(srv.env)
-	if err := addRollups(record, rollupData.Rollups); err != nil {
+	record.Setup(srv.env)
+	if err := record.MergeRollups(ExportRollupValues(rollupData.Rollups)); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 
@@ -228,18 +228,4 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	resp.Success = true
 
 	return resp, nil
-}
-
-func addRollups(record *model.PerformanceResult, rollups []*RollupValue) error {
-	catcher := grip.NewBasicCatcher()
-
-	for _, r := range rollups {
-		catcher.Add(record.Rollups.Add(r.Name, int(r.Version), r.UserSubmitted, r.Type.Export(), r.Value))
-	}
-
-	record.Rollups.ProcessedAt = time.Now()
-	record.Rollups.Count = len(record.Rollups.Stats)
-	record.Rollups.Valid = !catcher.HasErrors()
-
-	return catcher.Resolve()
 }
