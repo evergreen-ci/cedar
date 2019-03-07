@@ -7,13 +7,11 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/suite"
-	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 type perfRollupSuite struct {
 	r *PerfRollups
-	c *mgo.Collection
 	suite.Suite
 }
 
@@ -28,10 +26,8 @@ func (s *perfRollupSuite) SetupTest() {
 	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
-	s.c = session.DB(conf.DatabaseName).C(perfResultCollection)
 
-	err = s.c.Insert(PerformanceResult{ID: s.r.id})
-	s.Require().NoError(err)
+	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: s.r.id}))
 
 	s.NoError(s.r.Add("float", 1, true, MetricTypeMax, 12.4))
 	s.NoError(s.r.Add("int", 2, true, MetricTypeMax, 12))
@@ -277,4 +273,41 @@ func (s *perfRollupSuite) TestUpdateDefaultRollups() {
 
 	ts[0].Timestamp = ts[2].Timestamp
 	s.Error(result.UpdateDefaultRollups(ts))
+}
+
+func (s *perfRollupSuite) TestMergeRollups() {
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
+	s.Require().NoError(err)
+	defer session.Close()
+
+	// without errors
+	rollups := []*PerfRollupValue{
+		{
+			Name:       "ops_per_sec",
+			Value:      50001.24,
+			Version:    1,
+			MetricType: MetricTypeThroughput,
+		},
+		{
+			Name:       "latency",
+			Value:      5000,
+			MetricType: MetricTypeLatency,
+		},
+	}
+
+	for i := 0; i < 3; i++ {
+		result := &PerformanceResult{}
+		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
+		result.Setup(s.r.env)
+		s.NoError(result.MergeRollups(rollups))
+		result = &PerformanceResult{}
+		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
+		count := 0
+		for _, rollup := range result.Rollups.Stats {
+			if rollup.Name == "ops_per_sec" || rollup.Name == "latency" {
+				count += 1
+			}
+		}
+		s.Equal(2, count)
+	}
 }
