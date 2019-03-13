@@ -172,7 +172,7 @@ func PutLoginCache(user gimlet.User) (string, error) {
 	return token, nil
 }
 
-// GetUserByToken retrieves cached users by token.
+// GetUserLoginCache retrieves cached users by token.
 //
 // It returns an error if and only if there was an error retrieving the user
 // from the cache.
@@ -237,17 +237,18 @@ func ClearLoginCache(user gimlet.User, all bool) error {
 	return nil
 }
 
-// GetUser gets a user by id from persistent storage.
-func GetUser(id string) (gimlet.User, error) {
+// GetUser gets a user by id from persistent storage, and returns whether the
+// returned user's token is valid or not.
+func GetUser(id string) (gimlet.User, bool, error) {
 	env := cedar.GetEnvironment()
 
 	u := &User{ID: id}
 	u.Setup(env)
 	if err := u.Find(); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, false, errors.WithStack(err)
 	}
 
-	return u, nil
+	return u, time.Since(u.LoginCache.TTL) < cedar.TokenExpireAfter, nil
 }
 
 // GetOrAddUser gets a user from persistent storage, or if the user does not

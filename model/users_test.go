@@ -73,18 +73,21 @@ func (s *UserTestSuite) TearDownTest() {
 }
 
 func (s *UserTestSuite) TestGetUser() {
-	u, err := GetUser(s.users[0].ID)
+	u, valid, err := GetUser(s.users[0].ID)
 	s.NoError(err)
+	s.True(valid)
 	s.Require().NotNil(u)
 	s.Equal("Test1", u.Username())
 
-	u, err = GetUser(s.users[1].ID)
+	u, valid, err = GetUser(s.users[1].ID)
 	s.NoError(err)
+	s.False(valid)
 	s.Require().NotNil(u)
 	s.Equal("Test2", u.Username())
 
-	u, err = GetUser("DNE")
+	u, valid, err = GetUser("DNE")
 	s.Error(err)
+	s.False(valid)
 	s.Nil(u)
 }
 
