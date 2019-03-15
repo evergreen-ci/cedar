@@ -276,6 +276,12 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 
 	r.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if db.ResultsNotFound(err) {
+		return nil
+	}
 	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth != 0 {
 		// i.e. the parent fits the search criteria
 		if options.GraphLookup {
@@ -284,8 +290,11 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
 		}
 	}
-	if err != nil && !db.ResultsNotFound(err) {
+	if err != nil {
 		return errors.WithStack(err)
+	}
+	if db.ResultsNotFound(errors.Cause(err)) {
+		return nil
 	}
 	r.populated = true
 	return nil
@@ -309,7 +318,8 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 	if options.Info.TaskID != "" {
 		search[bsonutil.GetDottedKeyName("info", "task_id")] = options.Info.TaskID
 		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
-		search[bsonutil.GetDottedKeyName("info", "mainline")] = options.Info.Mainline
+		delete(search, "created_at")
+		delete(search, "completed_at")
 	} else {
 		search[bsonutil.GetDottedKeyName("info", "mainline")] = true
 	}
