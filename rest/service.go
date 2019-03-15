@@ -51,6 +51,10 @@ func (s *Service) Validate() error {
 		CookiePath:     "/",
 		CookieTTL:      cedar.TokenExpireAfter,
 	}
+	if err = s.umconf.Validate(); err != nil {
+		return errors.New("programmer error; invalid user manager configuration")
+	}
+
 	if s.queue == nil {
 		s.queue, err = s.Environment.GetRemoteQueue()
 		if err != nil {
