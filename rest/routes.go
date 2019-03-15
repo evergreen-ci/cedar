@@ -676,6 +676,7 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
 		return
 	}
+	s.umconf.AttachCookie(token, rw)
 
 	key := user.GetAPIKey()
 	if key != "" {
@@ -753,6 +754,7 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 		})
 		return "", false
 	}
+	s.umconf.AttachCookie(token, rw)
 
 	return creds.Username, true
 }

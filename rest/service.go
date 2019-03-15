@@ -26,10 +26,11 @@ type Service struct {
 	Depot      depot.Depot
 
 	// internal settings
-	um    gimlet.UserManager
-	queue amboy.Queue
-	app   *gimlet.APIApp
-	sc    data.Connector
+	um     gimlet.UserManager
+	umconf gimlet.UserMiddlewareConfiguration
+	queue  amboy.Queue
+	app    *gimlet.APIApp
+	sc     data.Connector
 }
 
 func (s *Service) Validate() error {
@@ -43,6 +44,13 @@ func (s *Service) Validate() error {
 		return errors.New("must specify a non-nil config")
 	}
 
+	s.umconf = gimlet.UserMiddlewareConfiguration{
+		HeaderKeyName:  cedar.APIKeyHeader,
+		HeaderUserName: cedar.APIUserHeader,
+		CookieName:     cedar.AuthTokenCookie,
+		CookiePath:     "/",
+		CookieTTL:      cedar.TokenExpireAfter,
+	}
 	if s.queue == nil {
 		s.queue, err = s.Environment.GetRemoteQueue()
 		if err != nil {
@@ -146,11 +154,7 @@ func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
 
-	s.app.AddMiddleware(gimlet.UserMiddleware(s.um, gimlet.UserMiddlewareConfiguration{
-		CookieName:     cedar.AuthTokenCookie,
-		HeaderKeyName:  cedar.APIKeyHeader,
-		HeaderUserName: cedar.APIUserHeader,
-	}))
+	s.app.AddMiddleware(gimlet.UserMiddleware(s.um, s.umconf))
 
 	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.um))
 }
