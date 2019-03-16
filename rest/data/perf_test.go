@@ -298,6 +298,8 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdNarrowInterval() {
+	s.T().Skip("test disabled as time range and task_id queries might not make sense")
+
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
