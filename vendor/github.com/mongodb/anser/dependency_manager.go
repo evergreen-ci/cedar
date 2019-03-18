@@ -32,8 +32,9 @@ type migrationDependency struct {
 }
 
 func makeMigrationDependencyManager() *migrationDependency {
+	edges := dependency.NewJobEdges()
 	return &migrationDependency{
-		JobEdges: dependency.NewJobEdges(),
+		JobEdges: &edges,
 		T: dependency.TypeInfo{
 			Name:    "anser-migration",
 			Version: 0,
@@ -82,7 +83,7 @@ func processEdges(numEdges int, iter db.Iterator) dependency.State {
 	}
 
 	// if there are more edges defined than observed in the query,
-	// then some tasks haven't reported in or been rejistered, and
+	// then some tasks haven't reported in or been registered, and
 	// we're blocked or stuck
 	if count < numEdges {
 		return dependency.Blocked

@@ -16,9 +16,9 @@ type CostReports struct {
 }
 
 func (r *CostReports) Setup(e cedar.Environment) { r.env = e }
-func (r *CostReports) IsNil() bool              { return !r.populated }
-func (r *CostReports) Size() int                { return len(r.reports) }
-func (r *CostReports) Slice() []CostReport      { return r.reports }
+func (r *CostReports) IsNil() bool               { return !r.populated }
+func (r *CostReports) Size() int                 { return len(r.reports) }
+func (r *CostReports) Slice() []CostReport       { return r.reports }
 
 func (r *CostReports) Find(start, end time.Time) error {
 	session, query, err := r.rangeQuery(start, end)
@@ -47,12 +47,10 @@ func (r *CostReports) Iterator(start, end time.Time) (db.Iterator, error) {
 }
 
 func (r *CostReports) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
-	conf, s, err := cedar.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
-
-	session := db.WrapSession(s)
 
 	query := session.DB(conf.DatabaseName).C(costReportCollection).Find(db.Document{
 		bsonutil.GetDottedKeyName(costReportReportKey, costReportMetadataRangeKey, "start"): db.Document{"$gte": start},
@@ -83,7 +81,7 @@ type CostReportSummaries struct {
 	populated bool
 }
 
-func (r *CostReportSummaries) Setup(e cedar.Environment)   { r.env = e }
+func (r *CostReportSummaries) Setup(e cedar.Environment)  { r.env = e }
 func (r *CostReportSummaries) IsNil() bool                { return !r.populated }
 func (r *CostReportSummaries) Size() int                  { return len(r.reports) }
 func (r *CostReportSummaries) Slice() []CostReportSummary { return r.reports }
@@ -114,12 +112,11 @@ func (r *CostReportSummaries) Iterator(start, end time.Time) (db.Iterator, error
 }
 
 func (r *CostReportSummaries) rangeQuery(start, end time.Time) (db.Session, db.Query, error) {
-	conf, s, err := cedar.GetSessionWithConfig(r.env)
+	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
 
-	session := db.WrapSession(s)
 	query := session.DB(conf.DatabaseName).C(costReportSummaryCollection).Find(map[string]interface{}{
 		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, "start"): start,
 		bsonutil.GetDottedKeyName(costReportSummaryMetadataKey, costReportMetadataRangeKey, "end"):   end,

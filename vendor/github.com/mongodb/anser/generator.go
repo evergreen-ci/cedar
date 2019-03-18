@@ -6,7 +6,7 @@ in an anser Migration. They are supersets of amboy.Job interfaces.
 
 The current limitation is that the generated jobs must be stored
 within the implementation of the generator job, which means they must
-either all fit in memory *or* be serializeable independently (e.g. fit
+either all fit in memory *or* be serializable independently (e.g. fit
 in the 16mb document limit if using a MongoDB backed queue.)
 */
 package anser
@@ -101,7 +101,7 @@ func generator(env Environment, groupID string, input <-chan amboy.Job) (<-chan 
 
 			for _, group := range network.Resolve(groupID) {
 				for _, edge := range network.GetGroup(group) {
-					grip.CatchNotice(dep.AddEdge(edge))
+					grip.Notice(dep.AddEdge(edge))
 				}
 			}
 

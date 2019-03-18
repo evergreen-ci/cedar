@@ -30,6 +30,7 @@ func NewSession() *Session {
 func (s *Session) Clone() db.Session { return s }
 func (s *Session) Copy() db.Session  { return s }
 func (s *Session) Close()            { s.Closed = true }
+func (s *Session) Error() error      { return nil }
 func (s *Session) DB(n string) db.Database {
 	if _, ok := s.DBs[n]; !ok {
 		s.DBs[n] = &Database{
@@ -54,6 +55,10 @@ func (d *Database) C(n string) db.Collection {
 	}
 
 	return d.Collections[n]
+}
+
+func (d *Database) DropDatabase() error {
+	return nil
 }
 
 type Collection struct {
@@ -82,6 +87,9 @@ func (c *Collection) FindId(q interface{}) db.Query {
 	c.Queries = append(c.Queries, qm)
 	return qm
 }
+
+func (c *Collection) DropCollection() error                              { return nil }
+func (c *Collection) Bulk() db.Bulk                                      { return nil }
 func (c *Collection) Count() (int, error)                                { return c.NumDocs, nil }
 func (c *Collection) Update(q, u interface{}) error                      { return nil }
 func (c *Collection) UpdateAll(q, u interface{}) (*db.ChangeInfo, error) { return &db.ChangeInfo{}, nil }

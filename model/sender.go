@@ -59,17 +59,16 @@ func NewEvent(m message.Composer) *Event {
 }
 
 func (e *Event) Setup(env cedar.Environment) { e.env = env }
-func (e *Event) IsNil() bool                { return !e.populated }
+func (e *Event) IsNil() bool                 { return !e.populated }
 func (e *Event) Save() error {
 	if e.ID == "" {
 		return errors.New("cannot save an event without a populated ID")
 	}
 
-	conf, s, err := cedar.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 
 	return errors.WithStack(e.sendLog(session.DB(conf.DatabaseName).C(eventCollection)))
@@ -122,16 +121,15 @@ type Events struct {
 }
 
 func (e *Events) Setup(env cedar.Environment) { e.env = env }
-func (e *Events) Slice() []*Event            { return e.slice }
-func (e *Events) Size() int                  { return len(e.slice) }
-func (e *Events) IsNil() bool                { return !e.populated }
+func (e *Events) Slice() []*Event             { return e.slice }
+func (e *Events) Size() int                   { return len(e.slice) }
+func (e *Events) IsNil() bool                 { return !e.populated }
 
 func (e *Events) FindLevel(level string, limit int) error {
-	conf, s, err := cedar.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 	query := e.levelQuery(conf, session, level)
 	if limit > 0 {
@@ -157,11 +155,10 @@ func (e *Events) levelQuery(conf *cedar.Configuration, session db.Session, level
 }
 
 func (e *Events) CountLevel(level string) (int, error) {
-	conf, s, err := cedar.GetSessionWithConfig(e.env)
+	conf, session, err := cedar.GetSessionWithConfig(e.env)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 	return e.levelQuery(conf, session, level).Count()
 }
@@ -198,7 +195,7 @@ func NewDBSender(e cedar.Environment, name string) (send.Sender, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting")
 	}
-	s.session = db.WrapSession(session)
+	s.session = session
 	s.collection = s.session.DB(conf.DatabaseName).C(eventCollection)
 
 	err = s.SetErrorHandler(send.ErrorHandlerFromSender(grip.GetSender()))

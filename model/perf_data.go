@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/montanaflynn/stats"
@@ -155,7 +156,7 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 	return nil
 }
 
-func tryUpdate(id string, r PerfRollupValue, c *mgo.Collection) error {
+func tryUpdate(id string, r PerfRollupValue, c db.Collection) error {
 	query := bson.M{
 		perfIDKey: id,
 		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey): r.Name,

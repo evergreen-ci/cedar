@@ -8,6 +8,7 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/reporting"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
@@ -41,13 +42,13 @@ type Environment interface {
 
 	GetConf() (*Configuration, error)
 	// SetQueue configures the global application cache's shared queue.
-	GetSession() (*mgo.Session, error)
+	GetSession() (db.Session, error)
 
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
 }
 
-func GetSessionWithConfig(env Environment) (*Configuration, *mgo.Session, error) {
+func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 	if env == nil {
 		return nil, nil, errors.New("env is nil")
 	}
@@ -210,7 +211,7 @@ func (c *envState) GetLocalQueue() (amboy.Queue, error) {
 	return c.localQueue, nil
 }
 
-func (c *envState) GetSession() (*mgo.Session, error) {
+func (c *envState) GetSession() (db.Session, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -218,7 +219,7 @@ func (c *envState) GetSession() (*mgo.Session, error) {
 		return nil, errors.New("no valid session defined")
 	}
 
-	return c.session.Clone(), nil
+	return db.WrapSession(c.session.Clone()), nil
 }
 
 func (c *envState) GetConf() (*Configuration, error) {
