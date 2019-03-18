@@ -13,7 +13,8 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	mgo "gopkg.in/mgo.v2"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var globalEnv *envState
@@ -28,7 +29,9 @@ type CloserFunc func(context.Context) error
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
 type Environment interface {
-	Configure(*Configuration) error
+	Configure(context.Context, *Configuration) error
+	GetConf() (*Configuration, error)
+	Context() (context.Context, context.CancelFunc)
 
 	// GetQueue retrieves the application's shared queue, which is cache
 	// for easy access from within units or inside of requests or command
@@ -36,13 +39,12 @@ type Environment interface {
 	GetRemoteQueue() (amboy.Queue, error)
 	SetRemoteQueue(amboy.Queue) error
 	GetRemoteReporter() (reporting.Reporter, error)
-
 	GetLocalQueue() (amboy.Queue, error)
 	SetLocalQueue(amboy.Queue) error
 
-	GetConf() (*Configuration, error)
-	// SetQueue configures the global application cache's shared queue.
 	GetSession() (db.Session, error)
+	GetClient() (*mongo.Client, error)
+	GetDB() (*mongo.Database, error)
 
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
@@ -75,13 +77,14 @@ type envState struct {
 	remoteQueue    amboy.Queue
 	localQueue     amboy.Queue
 	remoteReporter reporting.Reporter
-	session        *mgo.Session
+	ctx            context.Context
+	client         *mongo.Client
 	conf           *Configuration
 	closers        []closerOp
 	mutex          sync.RWMutex
 }
 
-func (c *envState) Configure(conf *Configuration) error {
+func (c *envState) Configure(ctx context.Context, conf *Configuration) error {
 	var err error
 
 	if err = conf.Validate(); err != nil {
@@ -89,13 +92,16 @@ func (c *envState) Configure(conf *Configuration) error {
 	}
 
 	c.conf = conf
-
-	// create and cache a db session for use in tasks
-	c.session, err = mgo.DialWithTimeout(conf.MongoDBURI, conf.MongoDBDialTimeout)
+	c.client, err = mongo.NewClient(options.Client().ApplyURI(conf.MongoDBURI).SetConnectTimeout(conf.MongoDBDialTimeout).SetSocketTimeout(conf.SocketTimeout))
 	if err != nil {
-		return errors.Wrapf(err, "could not connect to db %s", conf.MongoDBURI)
+		return errors.Wrap(err, "problem constructing mongodb client")
 	}
-	c.session.SetSocketTimeout(conf.SocketTimeout)
+
+	connctx, cancel := context.WithTimeout(ctx, conf.MongoDBDialTimeout)
+	defer cancel()
+	if err := c.client.Connect(connctx); err != nil {
+		return errors.Wrap(err, "problem connecting to database")
+	}
 
 	if !conf.DisableLocalQueue {
 		c.localQueue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
@@ -118,7 +124,8 @@ func (c *envState) Configure(conf *Configuration) error {
 	if !conf.DisableRemoteQueue {
 		opts := conf.GetQueueOptions()
 		q := queue.NewRemoteUnordered(conf.NumWorkers)
-		mongoDriver, err := queue.OpenNewMgoDriver(context.TODO(), conf.QueueName, opts, c.session)
+
+		mongoDriver, err := queue.OpenNewMongoDriver(ctx, conf.QueueName, opts, c.client)
 		if err != nil {
 			return errors.Wrap(err, "problem opening db queue")
 		}
@@ -135,13 +142,27 @@ func (c *envState) Configure(conf *Configuration) error {
 			"prefix":   conf.QueueName,
 			"priority": true})
 
-		c.remoteReporter, err = reporting.MakeDBQueueState(conf.QueueName, opts, c.session)
+		c.remoteReporter, err = reporting.MakeDBQueueState(ctx, conf.QueueName, opts, c.client)
 		if err != nil {
 			return errors.Wrap(err, "problem starting wrapper")
 		}
 	}
 
+	var capturedCtxCancel context.CancelFunc
+	c.ctx, capturedCtxCancel = context.WithCancel(ctx)
+	c.RegisterCloser("env-captured-context-cancel", func(_ context.Context) error {
+		capturedCtxCancel()
+		return nil
+	})
+
 	return nil
+}
+
+func (c *envState) Context() (context.Context, context.CancelFunc) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return context.WithCancel(c.ctx)
 }
 
 func (c *envState) SetRemoteQueue(q amboy.Queue) error {
@@ -215,11 +236,37 @@ func (c *envState) GetSession() (db.Session, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if c.session == nil {
+	if c.client == nil {
 		return nil, errors.New("no valid session defined")
 	}
 
-	return db.WrapSession(c.session.Clone()), nil
+	return db.WrapClient(c.ctx, c.client), nil
+}
+
+func (c *envState) GetClient() (*mongo.Client, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.client == nil {
+		return nil, errors.New("client is not configured")
+	}
+
+	return c.client, nil
+}
+
+func (c *envState) GetDB() (*mongo.Database, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.client == nil {
+		return nil, errors.New("client is not configured")
+	}
+
+	if c.conf.DatabaseName == "" {
+		return nil, errors.New("database is not defined in the configuration")
+	}
+
+	return c.client.Database(c.conf.DatabaseName), nil
 }
 
 func (c *envState) GetConf() (*Configuration, error) {

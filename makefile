@@ -115,6 +115,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/stretchr/testify
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/davecgh/go-spew
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/gimlet
+	rm -rf vendor/github.com/mongodb/amboy/vendor/go.mongodb.org/mongo-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/mongo-go-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/aws/aws-sdk-go
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/
@@ -130,14 +131,15 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pkg/errors/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/gopkg.in/yaml.v2/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/stretchr/
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/data/
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/golang.org/x/net
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/golang.org/x/text
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/gopkg.in/yaml.v2/
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/montanaflynn
-	rm -rf vendor/github.com/mongodb/mongo-go-driver/vendor/github.com/davecgh/go-spew/
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/stretchr/
+	rm -rf vendor/go.mongodb.org/mongo-driver/data/
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/net
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/text
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/gopkg.in/yaml.v2/
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/montanaflynn
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/davecgh/go-spew/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/stretchr/testify
+	rm -rf vendor/github.com/mongodb/ftdc/vendor/go.mongodb.org/mongo-driver/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/mongodb/mongo-go-driver/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/pkg/errors/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/satori/go.uuid/gss

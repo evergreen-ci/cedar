@@ -31,7 +31,7 @@ type Collection interface {
 	Insert(...interface{}) error
 	Upsert(interface{}, interface{}) (*ChangeInfo, error)
 	UpsertId(interface{}, interface{}) (*ChangeInfo, error)
-	Update(interface{}, interface{}, ...interface{}) error
+	Update(interface{}, interface{}) error
 	UpdateId(interface{}, interface{}) error
 	UpdateAll(interface{}, interface{}) (*ChangeInfo, error)
 	Remove(interface{}) error

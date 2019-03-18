@@ -8,7 +8,8 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const sysInfoCollection = "sysinfo.stats"
@@ -38,7 +39,7 @@ func (i *SystemInformationRecord) Save() error {
 	}
 
 	if i.ID == "" {
-		i.ID = string(bson.NewObjectId())
+		i.ID = primitive.NewObjectID().String()
 	}
 
 	conf, session, err := cedar.GetSessionWithConfig(i.env)

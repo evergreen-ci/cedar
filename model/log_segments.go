@@ -5,7 +5,7 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const logSegmentsCollection = "simple.log.segments"
@@ -52,11 +52,11 @@ var (
 )
 
 func (l *LogSegment) Setup(e cedar.Environment) { l.env = e }
-func (l *LogSegment) IsNil() bool              { return l.populated }
+func (l *LogSegment) IsNil() bool               { return l.populated }
 
 func (l *LogSegment) Insert() error {
 	if l.ID == "" {
-		l.ID = string(bson.NewObjectId())
+		l.ID = primitive.NewObjectID().String()
 	}
 
 	conf, session, err := cedar.GetSessionWithConfig(l.env)
@@ -128,9 +128,9 @@ type LogSegments struct {
 }
 
 func (l *LogSegments) Setup(e cedar.Environment) { l.env = e }
-func (l *LogSegments) IsNil() bool              { return !l.populated }
-func (l *LogSegments) Slice() []LogSegment      { return l.logs }
-func (l *LogSegments) Size() int                { return len(l.logs) }
+func (l *LogSegments) IsNil() bool               { return !l.populated }
+func (l *LogSegments) Slice() []LogSegment       { return l.logs }
+func (l *LogSegments) Size() int                 { return len(l.logs) }
 
 func (l *LogSegments) Find(logID string, sorted bool) error {
 	conf, session, err := cedar.GetSessionWithConfig(l.env)

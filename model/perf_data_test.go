@@ -7,7 +7,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/suite"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type perfRollupSuite struct {

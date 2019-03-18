@@ -77,7 +77,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	}
 
 	record.Setup(srv.env)
-	if err := record.MergeRollups(ExportRollupValues(result.Rollups)); err != nil {
+	if err := record.MergeRollups(ctx, ExportRollupValues(result.Rollups)); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 
@@ -126,7 +126,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	resp.Id = record.ID
 
 	record.Setup(srv.env)
-	if err := record.MergeRollups(ExportRollupValues(rollupData.Rollups)); err != nil {
+	if err := record.MergeRollups(ctx, ExportRollupValues(rollupData.Rollups)); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 

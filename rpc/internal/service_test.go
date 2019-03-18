@@ -19,6 +19,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/reporting"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
@@ -46,7 +47,11 @@ func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error       { m.queue = queue
 func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error      { m.queue = queue; return nil }
 func (m *MockEnv) GetLocalQueue() (amboy.Queue, error)         { return m.queue, nil }
 func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error)        { return m.queue, nil }
-func (m *MockEnv) GetSession() (*mgo.Session, error)           { return m.session, errors.New("mock err") }
+
+func (m *MockEnv) GetSession() (db.Session, error) {
+	return db.WrapSession(m.session), errors.New("mock err")
+}
+
 func (m *MockEnv) Close(_ context.Context) error               { return nil }
 func (m *MockEnv) RegisterCloser(_ string, _ cedar.CloserFunc) {}
 

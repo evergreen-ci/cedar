@@ -104,7 +104,7 @@ func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
 }
 
 func (c *serviceConf) setup(ctx context.Context, env cedar.Environment) error {
-	err := env.Configure(c.export())
+	err := env.Configure(ctx, c.export())
 	if err != nil {
 		return errors.Wrap(err, "problem setting up configuration")
 	}

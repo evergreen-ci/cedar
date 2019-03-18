@@ -57,7 +57,7 @@ func TestDepot(t *testing.T) {
 		tests   []testCase
 	}{
 		{
-			name: "file",
+			name: "File",
 			setup: func() depot.Depot {
 				tempDir, err = ioutil.TempDir(".", "file_depot")
 				require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestDepot(t *testing.T) {
 			},
 		},
 		{
-			name: "mgo",
+			name: "LegacyMongoDB",
 			setup: func() depot.Depot {
 				mgoDepot := &mongoCertDepot{
 					session:        session,

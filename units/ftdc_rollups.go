@@ -111,7 +111,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 
 	result.Rollups.Setup(j.env)
 	for _, stat := range stats {
-		err = result.Rollups.Add(stat.Name, stat.Version, stat.UserSubmitted, stat.MetricType, stat.Value)
+		err = result.Rollups.Add(ctx, stat.Name, stat.Version, stat.UserSubmitted, stat.MetricType, stat.Value)
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "problem adding rollup %s", stat.Name))
 		}

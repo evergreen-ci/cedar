@@ -11,7 +11,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // TODO add index on { level: 1, Timestamp: 1 }
@@ -49,7 +49,7 @@ var (
 
 func NewEvent(m message.Composer) *Event {
 	return &Event{
-		ID:          string(bson.NewObjectId()),
+		ID:          primitive.NewObjectID().String(),
 		Message:     m.String(),
 		Payload:     m.Raw(),
 		MessageType: fmt.Sprintf("%T", m),
