@@ -46,7 +46,7 @@ type PerformanceResult struct {
 	// provided by the test.
 	Total *events.Performance `bson:"total,omitempty"`
 
-	Rollups *PerfRollups `bson:"rollups"`
+	Rollups PerfRollups `bson:"rollups"`
 
 	env       cedar.Environment
 	populated bool
@@ -74,7 +74,7 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 		ID:        info.ID(),
 		Info:      info,
 		Artifacts: source,
-		Rollups: &PerfRollups{
+		Rollups: PerfRollups{
 			id:    info.ID(),
 			Stats: []PerfRollupValue{},
 		},
