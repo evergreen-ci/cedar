@@ -19,6 +19,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -110,12 +111,12 @@ func setupAuthRestClient(ctx context.Context, host string, port int) (*rest.Clie
 	}
 	apiKey, err := client.GetAuthKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "problem authenticating from environment")
 	}
 	opts.ApiKey = apiKey
 
 	client, err = rest.NewClientFromExisting(client.Client(), opts)
-	return client, err
+	return client, errors.Wrap(err, "problem getting client")
 }
 
 func tearDownEnv(env cedar.Environment, mock bool) error {
@@ -182,6 +183,19 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 	q, err := env.GetRemoteQueue()
 	require.NoError(t, err)
 	amboy.WaitCtxInterval(ctx, q, 250*time.Millisecond)
+	for j := range q.Results(ctx) {
+		err := j.Error()
+		msg := "job completed without error"
+		if err != nil {
+			msg = err.Error()
+		}
+
+		grip.Info(message.Fields{
+			"job":     j.ID(),
+			"result":  id,
+			"message": msg,
+		})
+	}
 
 	conf, sess, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
@@ -456,6 +470,7 @@ func TestCuratorSend(t *testing.T) {
 	require.NoError(t, err)
 	restClient, err := setupAuthRestClient(ctx, "https://cedar.mongodb.com", 443)
 	require.NoError(t, err)
+
 	for _, test := range []struct {
 		name   string
 		skip   bool
