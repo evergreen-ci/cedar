@@ -162,11 +162,7 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 
 			point, err := stream.Recv()
 			if err == io.EOF {
-				catcher.Add(stream.SendAndClose(&SendResponse{
-					Id:      record.ID,
-					Count:   int64(count),
-					Success: !catcher.HasErrors(),
-				}))
+				catcher.Add(stream.SendAndClose(&SendResponse{}))
 				return
 			}
 			if err != nil {
@@ -246,8 +242,11 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 		if err != nil {
 			return errors.Wrap(err, "problem exporting artifacts")
 		}
-		// TODO: allow clients to override this in some way
-		artifact.Type = model.PailS3
+
+		if artifact.Type == "" {
+			artifact.Type = model.PailS3
+		}
+
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
