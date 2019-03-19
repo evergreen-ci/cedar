@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
@@ -147,10 +148,12 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 	ctx := stream.Context()
 	catcher := grip.NewBasicCatcher()
 	pipe := make(chan events.Performance)
+	count := 0
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 
 	go func() {
+		defer recovery.LogStackTraceAndContinue("processing metrics")
 		defer close(pipe)
 		for {
 			if ctx.Err() != nil {
@@ -159,7 +162,11 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 
 			point, err := stream.Recv()
 			if err == io.EOF {
-				catcher.Add(stream.SendAndClose(&SendResponse{}))
+				catcher.Add(stream.SendAndClose(&SendResponse{
+					Id:      record.ID,
+					Count:   int64(count),
+					Success: !catcher.HasErrors(),
+				}))
 				return
 			}
 			if err != nil {
@@ -184,7 +191,12 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 					catcher.Add(err)
 					continue
 				}
-				pipe <- *pp
+
+				select {
+				case <-ctx.Done():
+				case pipe <- *pp:
+					count++
+				}
 			}
 		}
 	}()
@@ -234,6 +246,8 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 		if err != nil {
 			return errors.Wrap(err, "problem exporting artifacts")
 		}
+		// TODO: allow clients to override this in some way
+		artifact.Type = model.PailS3
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 

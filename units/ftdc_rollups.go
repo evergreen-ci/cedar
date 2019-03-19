@@ -2,6 +2,7 @@ package units
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
@@ -65,6 +66,9 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo) (amboy.J
 	if err := j.validate(); err != nil {
 		return nil, errors.Wrap(err, "failed to create new ftdc rollups job")
 	}
+
+	j.SetID(fmt.Sprintf("%s.%s", perfId, artifactInfo.Path))
+
 	return j, nil
 }
 
