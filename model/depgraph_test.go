@@ -43,7 +43,7 @@ func TestGraphMetadata(t *testing.T) {
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
 			env, err := cedar.NewEnvironment(ctx, testDBName, &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       testDBName,
+				DatabaseName:       "'$",
 				SocketTimeout:      time.Minute,
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
@@ -66,7 +66,7 @@ func TestGraphMetadata(t *testing.T) {
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
 			env, err := cedar.NewEnvironment(ctx, testDBName, &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       testDBName,
+				DatabaseName:       "'$",
 				SocketTimeout:      time.Minute,
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
@@ -78,7 +78,7 @@ func TestGraphMetadata(t *testing.T) {
 			graph.populated = true
 			err = graph.Save()
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "Invalid namespace specified")
+			assert.Contains(t, err.Error(), "cannot do createCollection on namespace with a $ in it")
 		},
 		"SaveErrorsWithNoEnvConfigured": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
 			graph.BuildID = "baz"
