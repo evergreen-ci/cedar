@@ -494,7 +494,7 @@ func TestCuratorSend(t *testing.T) {
 				conf, session, err := cedar.GetSessionWithConfig(env)
 				require.NoError(t, err)
 				perfResult := &model.PerformanceResult{}
-				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
+				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(struct{}{}).One(perfResult))
 				assert.Equal(t, expectedResult.ID, perfResult.ID)
 			},
 		},
