@@ -326,9 +326,9 @@ func (s *perfRollupSuite) TestMergeRollups() {
 		count := 0
 		for _, rollup := range result.Rollups.Stats {
 			if rollup.Name == "ops_per_sec" || rollup.Name == "latency" {
-				count += 1
+				count++
 			}
 		}
-		s.Equal(2, count)
+		s.Equal(2, count, "iter=%d", i)
 	}
 }

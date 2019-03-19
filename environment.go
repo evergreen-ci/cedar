@@ -83,6 +83,10 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			env.localQueue.Runner().Close()
 			return nil
 		})
+
+		if err := env.localQueue.Start(ctx); err != nil {
+			return nil, errors.Wrap(err, "problem starting remote queue")
+		}
 	}
 
 	if !conf.DisableRemoteQueue {
@@ -106,6 +110,9 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			"prefix":   conf.QueueName,
 			"priority": true})
 
+		if err := env.remoteQueue.Start(ctx); err != nil {
+			return nil, errors.Wrap(err, "problem starting remote queue")
+		}
 		env.remoteReporter, err = reporting.MakeDBQueueState(ctx, conf.QueueName, opts, env.client)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem starting wrapper")

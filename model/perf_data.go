@@ -183,7 +183,7 @@ func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r P
 			},
 		}))
 
-	return res.ModifiedCount == 1, errors.WithStack(err)
+	return res.MatchedCount == 1, errors.WithStack(err)
 }
 
 func (r *PerfRollups) GetInt(name string) (int, error) {

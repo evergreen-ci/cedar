@@ -38,7 +38,7 @@ type PerformanceResult struct {
 	// the data (e.g. raw, results,) format (e.g. bson/ftdc/json),
 	// and tags to describe the source (e.g. user submitted,
 	// generated.)
-	Artifacts []ArtifactInfo `bson:"artifacs,omitempty"`
+	Artifacts []ArtifactInfo `bson:"artifacts"`
 
 	// Total represents the sum of all events, and used for tests
 	// that report a single summarized event rather than a
@@ -46,7 +46,7 @@ type PerformanceResult struct {
 	// provided by the test.
 	Total *events.Performance `bson:"total,omitempty"`
 
-	Rollups *PerfRollups `bson:"rollups,omitempty"`
+	Rollups *PerfRollups `bson:"rollups"`
 
 	env       cedar.Environment
 	populated bool
@@ -75,7 +75,8 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 		Info:      info,
 		Artifacts: source,
 		Rollups: &PerfRollups{
-			id: info.ID(),
+			id:    info.ID(),
+			Stats: []PerfRollupValue{},
 		},
 		populated: true,
 	}
@@ -124,10 +125,14 @@ func (result *PerformanceResult) Save() error {
 
 	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).UpsertId(result.ID, result)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":     model.Namespace{DB: conf.DatabaseName, Collection: perfResultCollection},
-		"id":     result.ID,
-		"change": changeInfo,
-		"op":     "save perf result",
+		"ns":            model.Namespace{DB: conf.DatabaseName, Collection: perfResultCollection},
+		"id":            result.ID,
+		"updated":       changeInfo.Updated,
+		"upsertedID":    changeInfo.UpsertedId,
+		"rollups.count": result.Rollups.Count,
+		"rollups.len":   len(result.Rollups.Stats),
+		"artifacts":     len(result.Artifacts),
+		"op":            "save perf result",
 	})
 	return errors.Wrap(err, "problem saving perf result to collection")
 }
@@ -297,6 +302,7 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 		return nil
 	}
 	r.populated = true
+
 	return nil
 }
 
@@ -358,12 +364,19 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 	defer session.Close()
 	temp := []PerformanceResult{}
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
-	r.Results = append(r.Results, temp...)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	catcher := grip.NewCatcher()
 	for _, result := range temp {
 		// look into that parent
-		err = r.findAllChildren(result.ID, depth-1)
+		catcher.Add(r.findAllChildren(result.ID, depth-1))
 	}
-	return err
+
+	r.Results = append(r.Results, temp...)
+
+	return errors.WithStack(catcher.Resolve())
 }
 
 // all children of parent are added to r.Results using $graphLookup

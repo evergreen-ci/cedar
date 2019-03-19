@@ -88,6 +88,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 
 	data, err := bucket.Get(ctx, j.ArtifactInfo.Path)
 	if err != nil {
+		err = errors.Wrap(err, "problem resolving bucket")
 		grip.Warning(err)
 		j.AddError(err)
 		return

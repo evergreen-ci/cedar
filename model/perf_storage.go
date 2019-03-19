@@ -16,13 +16,16 @@ const (
 	PailLegacyGridFS PailType = "gridfs-legacy"
 	PailGridFS       PailType = "gridfs"
 	PailLocal        PailType = "local"
+
+	defaultS3Region = "us-east-1"
 )
 
 func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
 	switch t {
 	case PailS3:
 		opts := pail.S3Options{
-			Name: bucket,
+			Name:   bucket,
+			Region: defaultS3Region,
 		}
 		b, err := pail.NewS3Bucket(opts)
 		if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
@@ -34,16 +35,14 @@ const (
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
-		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       testDBName,
-		SocketTimeout:      time.Minute,
-		NumWorkers:         2,
-		DisableRemoteQueue: true,
+		MongoDBURI:    "mongodb://localhost:27017",
+		DatabaseName:  testDBName,
+		SocketTimeout: time.Minute,
+		NumWorkers:    2,
 	})
 	if err != nil {
 		panic(err)
 	}
-
 	cedar.SetEnvironment(env)
 }
 
@@ -182,14 +181,13 @@ func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string)
 func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id string) {
 	q, err := env.GetRemoteQueue()
 	require.NoError(t, err)
-	require.NoError(t, q.Start(ctx))
-	time.Sleep(time.Second)
+	amboy.WaitCtxInterval(ctx, q, 250*time.Millisecond)
 
 	conf, sess, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
 	result := &model.PerformanceResult{}
 	assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(id).One(result))
-	assert.NotEmpty(t, result.Rollups.Stats)
+	assert.NotEmpty(t, result.Rollups.Stats, "%s", id)
 }
 
 func TestCreateMetricSeries(t *testing.T) {
@@ -256,11 +254,11 @@ func TestCreateMetricSeries(t *testing.T) {
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
-			assert.Equal(t, test.expectedResp, resp)
+			require.Equal(t, test.expectedResp, resp)
 			if test.err {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id)
 			}
 		})
