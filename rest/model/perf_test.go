@@ -17,7 +17,7 @@ func TestImportHelperFunctions(t *testing.T) {
 		expectedOutput interface{}
 	}{
 		{
-			name: "TestgetPerformanceResultInfo",
+			name: "GetPerformanceResultInfo",
 			input: dbmodel.PerformanceResultInfo{
 				Project:   "project",
 				Version:   "version",
@@ -54,7 +54,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			},
 		},
 		{
-			name: "TestgetArtifactInfo",
+			name: "GetArtifactInfo",
 			input: dbmodel.ArtifactInfo{
 				Type:        dbmodel.PailS3,
 				Bucket:      "bucket",
@@ -77,7 +77,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			},
 		},
 		{
-			name: "TestgetPerformanceEvent",
+			name: "GetPerformanceEvent",
 			input: &events.Performance{
 				Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 				Counters: events.PerformanceCounters{
@@ -116,7 +116,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			},
 		},
 		{
-			name: "TestgetPerfRollupValue",
+			name: "GetPerfRollupValue",
 			input: dbmodel.PerfRollupValue{
 				Name:    "name",
 				Value:   "value",
@@ -129,8 +129,8 @@ func TestImportHelperFunctions(t *testing.T) {
 			},
 		},
 		{
-			name: "TestgetPerfRollups",
-			input: &dbmodel.PerfRollups{
+			name: "GetPerfRollups",
+			input: dbmodel.PerfRollups{
 				Stats: []dbmodel.PerfRollupValue{
 					dbmodel.PerfRollupValue{
 						Name:    "stat0",
@@ -189,7 +189,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				output = getPerformanceEvent(i)
 			case dbmodel.PerfRollupValue:
 				output = getPerfRollupValue(i)
-			case *dbmodel.PerfRollups:
+			case dbmodel.PerfRollups:
 				output = getPerfRollups(i)
 			default:
 				fmt.Println("no test, unknown type", i)
@@ -278,7 +278,7 @@ func TestImport(t *testing.T) {
 						Workers: 100,
 					},
 				},
-				Rollups: &dbmodel.PerfRollups{
+				Rollups: dbmodel.PerfRollups{
 					Stats: []dbmodel.PerfRollupValue{
 						dbmodel.PerfRollupValue{
 							Name:    "stat0",
@@ -371,7 +371,7 @@ func TestImport(t *testing.T) {
 						Workers: 100,
 					},
 				},
-				Rollups: &APIPerfRollups{
+				Rollups: APIPerfRollups{
 					Stats: []APIPerfRollupValue{
 						APIPerfRollupValue{
 							Name:    ToAPIString("stat0"),
