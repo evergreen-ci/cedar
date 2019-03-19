@@ -10,28 +10,21 @@ import (
 
 func TestServiceConfiguration(t *testing.T) {
 	configure := func(env cedar.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
-		return newServiceConf(numWorkers, localQueue, mongodbURI, bucket, dbName).setup(context.TODO(), env)
+		return newServiceConf(numWorkers, localQueue, mongodbURI, bucket, dbName).setup(context.TODO())
 	}
 
 	for name, test := range map[string]func(t *testing.T, env cedar.Environment){
 		"VerifyFixtures": func(t *testing.T, env cedar.Environment) {
 			assert.NotNil(t, env)
 		},
-		"PanicsWithNilEnv": func(t *testing.T, env cedar.Environment) {
-			assert.Panics(t, func() {
-				_ = configure(nil, 2, true, "foo", "bar", "baz")
-			})
-		},
 		"ErrorsWithInvalidConfigDatabase": func(t *testing.T, env cedar.Environment) {
 			err := configure(env, 2, true, "", "", "")
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "problem setting up config")
 			assert.Contains(t, err.Error(), "mongodb")
 		},
 		"ErrorsWithInvalidConfigWorkers": func(t *testing.T, env cedar.Environment) {
 			err := configure(env, -1, true, "mongodb://localhost:27017", "", "")
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "problem setting up config")
 			assert.Contains(t, err.Error(), "workers")
 		},
 		"ValidOptions": func(t *testing.T, env cedar.Environment) {

@@ -25,7 +25,6 @@ func (s *ServiceCacheSuite) TestDefaultCacheValues() {
 	s.Nil(s.cache.remoteQueue)
 	s.Nil(s.cache.remoteReporter)
 	s.Equal("cedar.testing", s.cache.name)
-	s.Nil(s.cache.session)
 }
 
 func (s *ServiceCacheSuite) TestLocalQueueNotSettableToNil() {

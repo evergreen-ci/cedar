@@ -25,9 +25,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/mongo"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	mgo "gopkg.in/mgo.v2"
 )
 
 const (
@@ -36,25 +36,28 @@ const (
 )
 
 type MockEnv struct {
-	queue   amboy.Queue
-	session *mgo.Session
-	conf    *cedar.Configuration
+	ctx    context.Context
+	queue  amboy.Queue
+	client *mongo.Client
+	conf   *cedar.Configuration
 }
 
-func (m *MockEnv) Configure(config *cedar.Configuration) error { m.conf = config; return nil }
-func (m *MockEnv) GetConf() (*cedar.Configuration, error)      { return m.conf, nil }
-func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error       { m.queue = queue; return nil }
-func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error      { m.queue = queue; return nil }
-func (m *MockEnv) GetLocalQueue() (amboy.Queue, error)         { return m.queue, nil }
-func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error)        { return m.queue, nil }
-
-func (m *MockEnv) GetSession() (db.Session, error) {
-	return db.WrapSession(m.session), errors.New("mock err")
+func (m *MockEnv) Configure(ctx context.Context, config *cedar.Configuration) error {
+	m.ctx = ctx
+	m.conf = config
+	return nil
 }
-
-func (m *MockEnv) Close(_ context.Context) error               { return nil }
-func (m *MockEnv) RegisterCloser(_ string, _ cedar.CloserFunc) {}
-
+func (m *MockEnv) Context() (context.Context, context.CancelFunc) { return context.WithCancel(m.ctx) }
+func (m *MockEnv) GetConf() (*cedar.Configuration, error)         { return m.conf, nil }
+func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error          { m.queue = queue; return nil }
+func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error         { m.queue = queue; return nil }
+func (m *MockEnv) GetLocalQueue() (amboy.Queue, error)            { return m.queue, nil }
+func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error)           { return m.queue, nil }
+func (m *MockEnv) GetClient() (*mongo.Client, error)              { return m.client, nil }
+func (m *MockEnv) GetDB() (*mongo.Database, error)                { return m.client.Database(m.conf.DatabaseName), nil }
+func (m *MockEnv) GetSession() (db.Session, error)                { return db.WrapClient(m.ctx, m.client), nil }
+func (m *MockEnv) Close(_ context.Context) error                  { return nil }
+func (m *MockEnv) RegisterCloser(_ string, _ cedar.CloserFunc)    {}
 func (m *MockEnv) GetRemoteReporter() (reporting.Reporter, error) {
 	return nil, errors.New("not supported")
 }
@@ -136,7 +139,7 @@ func createEnv(mock bool) (cedar.Environment, error) {
 		return &MockEnv{}, nil
 	}
 	env := cedar.GetEnvironment()
-	err := env.Configure(&cedar.Configuration{
+	err := env.Configure(context.Background(), &cedar.Configuration{
 		MongoDBURI:         "mongodb://localhost:27017",
 		DatabaseName:       "grpc_test",
 		SocketTimeout:      time.Hour,

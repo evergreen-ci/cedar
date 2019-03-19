@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/pkg/errors"
@@ -44,23 +43,11 @@ func TestModelInterface(t *testing.T) {
 	assert.NotNil(t, oddballs)
 	assert.NotNil(t, slices)
 
-	dbName := "cedar_test"
-
 	env := cedar.GetEnvironment()
-	assert.NoError(t, env.Configure(&cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		SocketTimeout: time.Hour,
-		NumWorkers:    2,
-		DatabaseName:  dbName,
-	}))
 
-	session, err := env.GetSession()
+	conf, session, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
-	require.NoError(t, session.DB(dbName).DropDatabase())
-
-	defer func() {
-		require.NoError(t, session.DB(dbName).DropDatabase())
-	}()
+	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 
 	testCases := map[string]func(*testing.T, commonModel){
 		"VerifyNillCheckIsCorrect": func(t *testing.T, m commonModel) {
@@ -97,6 +84,8 @@ func TestModelInterface(t *testing.T) {
 			}
 		})
 	}
+
+	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 }
 
 type commonModelSlice interface {
@@ -109,22 +98,14 @@ type checkSliceType func(commonModelSlice) error
 type commonModelSliceFactory func() commonModelSlice
 
 func TestCommonModelSlice(t *testing.T) {
-	dbName := "cedar_test"
-
 	env := cedar.GetEnvironment()
-	assert.NoError(t, env.Configure(&cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		SocketTimeout: time.Hour,
-		NumWorkers:    2,
-		DatabaseName:  dbName,
-	}))
 
-	session, err := env.GetSession()
+	conf, session, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
-	require.NoError(t, session.DB(dbName).DropDatabase())
+	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 
 	defer func() {
-		require.NoError(t, session.DB(dbName).DropDatabase())
+		require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 	}()
 
 	for _, helpers := range []struct {

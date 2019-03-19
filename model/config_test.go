@@ -10,28 +10,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCedarConfig(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	env := cedar.GetEnvironment()
+const testDBName = "cedar_test_config"
 
-	cleanup := func() {
-		require.NoError(t, env.Configure(&cedar.Configuration{
-			MongoDBURI:         "mongodb://localhost:27017",
-			DatabaseName:       "cedar_test_config",
-			SocketTimeout:      time.Hour,
-			NumWorkers:         2,
-			DisableRemoteQueue: true,
-		}))
-
-		conf, session, err := cedar.GetSessionWithConfig(env)
-		require.NoError(t, err)
-		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
-			assert.Contains(t, err.Error(), "not found")
-		}
+func init() {
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
+		MongoDBURI:         "mongodb://localhost:27017",
+		DatabaseName:       testDBName,
+		SocketTimeout:      time.Minute,
+		NumWorkers:         2,
+		DisableRemoteQueue: true,
+	})
+	if err != nil {
+		panic(err)
 	}
 
-	defer cleanup()
+	cedar.SetEnvironment(env)
+}
+
+func TestCedarConfig(t *testing.T) {
+	env := cedar.GetEnvironment()
+	ctx, cancel := env.Context()
+	defer cancel()
+
+	conf, session, err := cedar.GetSessionWithConfig(env)
+	require.NoError(t, err)
+	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 
 	for name, test := range map[string]func(context.Context, *testing.T, cedar.Environment, *CedarConfig){
 		"VerifyFixtures": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
@@ -49,15 +52,16 @@ func TestCedarConfig(t *testing.T) {
 			assert.Contains(t, err.Error(), "could not find")
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			conf.Setup(env)
-			err := conf.Find()
+			err = conf.Find()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem finding")
 		},
@@ -70,16 +74,17 @@ func TestCedarConfig(t *testing.T) {
 			assert.NoError(t, err)
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			conf.Setup(env)
 			conf.populated = true
-			err := conf.Save()
+			err = conf.Save()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem saving application")
 		},
@@ -91,13 +96,6 @@ func TestCedarConfig(t *testing.T) {
 		},
 		"ConfFlagsErrorsWithNoEnv": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
 			flags := &OperationalFlags{}
-			assert.Error(t, flags.update("foo", false))
-		},
-		"FlagsWithEnvButNoConf": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
-			flags := &OperationalFlags{
-				env: env,
-			}
-
 			assert.Error(t, flags.update("foo", false))
 		},
 		"FlagsWithEnvRoundTrip": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
@@ -119,10 +117,12 @@ func TestCedarConfig(t *testing.T) {
 		// "": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			cleanup()
+			require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 			tctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			test(tctx, t, env, &CedarConfig{})
 		})
 	}
+
+	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 }

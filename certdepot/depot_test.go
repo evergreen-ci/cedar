@@ -116,13 +116,12 @@ func TestDepot(t *testing.T) {
 		{
 			name: "LegacyMongoDB",
 			setup: func() depot.Depot {
-				mgoDepot := &mongoCertDepot{
+				return &mgoCertDepot{
 					session:        session,
 					databaseName:   databaseName,
 					collectionName: collectionName,
 					expireAfter:    30 * 24 * time.Hour,
 				}
-				return mgoDepot
 			},
 			check: func(t *testing.T, tag *depot.Tag, data []byte) {
 				name, key := getNameAndKey(tag)
@@ -286,7 +285,6 @@ func TestDepot(t *testing.T) {
 						assert.Nil(t, data)
 					},
 				},
-
 				{
 					name: "DeleteWhenDNE",
 					test: func(t *testing.T, d depot.Depot) {

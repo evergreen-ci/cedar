@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/stretchr/testify/assert"
@@ -14,13 +13,6 @@ func TestEvent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	env := cedar.GetEnvironment()
-	require.NoError(t, env.Configure(&cedar.Configuration{
-		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       "cedar.test.event",
-		SocketTimeout:      time.Hour,
-		NumWorkers:         2,
-		DisableRemoteQueue: true,
-	}))
 
 	defer func() {
 		conf, session, err := cedar.GetSessionWithConfig(env)

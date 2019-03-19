@@ -11,19 +11,11 @@ import (
 )
 
 func TestGraphMetadata(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	env := cedar.GetEnvironment()
+	ctx, cancel := env.Context()
+	defer cancel()
 
 	cleanup := func() {
-		require.NoError(t, env.Configure(&cedar.Configuration{
-			MongoDBURI:         "mongodb://localhost:27017",
-			DatabaseName:       "cedar_test_depgraph",
-			SocketTimeout:      time.Hour,
-			NumWorkers:         2,
-			DisableRemoteQueue: true,
-		}))
-
 		conf, session, err := cedar.GetSessionWithConfig(env)
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
@@ -49,15 +41,17 @@ func TestGraphMetadata(t *testing.T) {
 			assert.Contains(t, err.Error(), "could not find")
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, testDBName, &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
+				DatabaseName:       testDBName,
+				SocketTimeout:      time.Minute,
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			graph.Setup(env)
-			err := graph.Find()
+			err = graph.Find()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem running graph metadata query")
 		},
@@ -70,18 +64,20 @@ func TestGraphMetadata(t *testing.T) {
 			assert.NoError(t, err)
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, testDBName, &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
+				DatabaseName:       testDBName,
+				SocketTimeout:      time.Minute,
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			graph.BuildID = "bar"
 			graph.Setup(env)
 			graph.populated = true
-			err := graph.Save()
-			assert.Error(t, err)
+			err = graph.Save()
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "Invalid namespace specified")
 		},
 		"SaveErrorsWithNoEnvConfigured": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {

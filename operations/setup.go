@@ -103,11 +103,12 @@ func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
 	return send.NewConfiguredMultiSender(senders...), nil
 }
 
-func (c *serviceConf) setup(ctx context.Context, env cedar.Environment) error {
-	err := env.Configure(ctx, c.export())
+func (c *serviceConf) setup(ctx context.Context) error {
+	env, err := cedar.NewEnvironment(ctx, "cedar-service", c.export())
 	if err != nil {
-		return errors.Wrap(err, "problem setting up configuration")
+		return errors.WithStack(err)
 	}
+	cedar.SetEnvironment(env)
 
 	conf := &model.CedarConfig{}
 	conf.Setup(env)

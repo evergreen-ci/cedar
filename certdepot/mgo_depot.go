@@ -7,7 +7,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/square/certstrap/depot"
-	"go.mongodb.org/mongo-driver/mongo"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -166,5 +165,5 @@ func (m *mgoCertDepot) Delete(tag *depot.Tag) error {
 }
 
 func errNotNotFound(err error) bool {
-	return err != nil && (err != mgo.ErrNotFound || err != mongo.ErrNoDocuments)
+	return err != nil && err != mgo.ErrNotFound
 }
