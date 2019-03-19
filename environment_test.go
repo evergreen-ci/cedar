@@ -109,7 +109,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			conf := &Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				NumWorkers:         2,
-				MongoDBDialTimeout: 10 * time.Millisecond,
+				MongoDBDialTimeout: time.Second,
 				SocketTimeout:      time.Second,
 				DatabaseName:       testDatabaseName,
 			}
