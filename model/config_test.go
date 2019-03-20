@@ -28,11 +28,7 @@ func init() {
 }
 
 func TestCedarConfig(t *testing.T) {
-	env := cedar.GetEnvironment()
-	ctx, cancel := env.Context()
-	defer cancel()
-
-	conf, session, err := cedar.GetSessionWithConfig(env)
+	conf, session, err := cedar.GetSessionWithConfig(cedar.GetEnvironment())
 	require.NoError(t, err)
 	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
 
@@ -117,10 +113,12 @@ func TestCedarConfig(t *testing.T) {
 		// "": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
-			tctx, cancel := context.WithCancel(ctx)
+			env := cedar.GetEnvironment()
+			ctx, cancel := env.Context()
 			defer cancel()
-			test(tctx, t, env, &CedarConfig{})
+
+			require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
+			test(ctx, t, env, &CedarConfig{})
 		})
 	}
 

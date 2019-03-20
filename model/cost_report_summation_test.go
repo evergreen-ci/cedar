@@ -10,11 +10,9 @@ import (
 )
 
 func TestCostReportSummary(t *testing.T) {
-	env := cedar.GetEnvironment()
-	ctx, cancel := env.Context()
-	defer cancel()
-
 	cleanup := func() {
+		env := cedar.GetEnvironment()
+
 		conf, session, err := cedar.GetSessionWithConfig(env)
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
@@ -102,10 +100,10 @@ func TestCostReportSummary(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			cleanup()
-			tctx, cancel := context.WithCancel(ctx)
+			env := cedar.GetEnvironment()
+			ctx, cancel := env.Context()
 			defer cancel()
-			test(tctx, t, env, &CostReportSummary{})
+			test(ctx, t, env, &CostReportSummary{})
 		})
 	}
 }
