@@ -12,11 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	validDataFile   = "testdata/valid.ftdc"
-	invalidDataFile = "testdata/invalid.ftdc"
-	testDBName      = "cedar_test_config"
-)
+const testDBName = "cedar_test_config"
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
@@ -65,11 +61,11 @@ func TestFTDCRollupsJob(t *testing.T) {
 	resultInfo := model.PerformanceResultInfo{Project: "valid"}
 	validResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact})
 	validResult.Setup(env)
-	validResult.Save()
+	assert.NoError(t, validResult.Save())
 	resultInfo = model.PerformanceResultInfo{Project: "invalid"}
 	invalidResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{invalidArtifact})
 	invalidResult.Setup(env)
-	invalidResult.Save()
+	assert.NoError(t, invalidResult.Save())
 
 	t.Run("ValidData", func(t *testing.T) {
 		j := &ftdcRollupsJob{

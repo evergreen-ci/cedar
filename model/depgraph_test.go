@@ -40,7 +40,7 @@ func TestGraphMetadata(t *testing.T) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "could not find")
 		},
-		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
+		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, graph *GraphMetadata) {
 			env, err := cedar.NewEnvironment(ctx, testDBName, &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "'$",
@@ -63,7 +63,7 @@ func TestGraphMetadata(t *testing.T) {
 			err := graph.Find()
 			assert.NoError(t, err)
 		},
-		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {
+		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, _ cedar.Environment, graph *GraphMetadata) {
 			env, err := cedar.NewEnvironment(ctx, testDBName, &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "'$",

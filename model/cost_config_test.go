@@ -53,7 +53,7 @@ func TestCostConfig(t *testing.T) {
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "could not find")
 		},
-		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
+		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CostConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
@@ -76,7 +76,7 @@ func TestCostConfig(t *testing.T) {
 			err := conf.Find()
 			assert.NoError(t, err)
 		},
-		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
+		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",

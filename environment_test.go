@@ -72,7 +72,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 		},
 		"PanicsWithNilConfig": func(t *testing.T, conf *Configuration) {
 			assert.Panics(t, func() {
-				NewEnvironment(ctx, ename, nil)
+				_, _ = NewEnvironment(ctx, ename, nil)
 			})
 		},
 		"ErrorsWithMongoDBThatDoesNotExist": func(t *testing.T, conf *Configuration) {
