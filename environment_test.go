@@ -3,6 +3,7 @@ package cedar
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -96,6 +97,9 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			assert.False(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
 		"DefaultsToRemoteQueueType": func(t *testing.T, conf *Configuration) {
+			if runtime.GOOS == "windows" {
+				t.Skip("windows support is not required")
+			}
 			env, err := NewEnvironment(ctx, ename, conf)
 			require.NoError(t, err)
 			q, err := env.GetRemoteQueue()
@@ -110,7 +114,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 				MongoDBURI:         "mongodb://localhost:27017",
 				NumWorkers:         2,
 				MongoDBDialTimeout: time.Second,
-				SocketTimeout:      time.Second,
+				SocketTimeout:      10 * time.Second,
 				DatabaseName:       testDatabaseName,
 			}
 			test(t, conf)
