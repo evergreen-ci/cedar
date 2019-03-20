@@ -4,7 +4,7 @@ package model
 
 import (
 	"github.com/mongodb/anser/bsonutil"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // SystemIndexes holds the keys, options and the collection for an index.

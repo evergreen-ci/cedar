@@ -13,8 +13,8 @@ type APIPerformanceResult struct {
 	CompletedAt APITime                  `json:"completed_at"`
 	Version     int                      `json:"version"`
 	Artifacts   []APIArtifactInfo        `json:"artifacts"`
+	Rollups     APIPerfRollups           `json:"rollups"`
 	Total       *APIPerformanceEvent     `json:"total"`
-	Rollups     *APIPerfRollups          `json:"rollups"`
 }
 
 func (apiResult *APIPerformanceResult) Import(i interface{}) error {
@@ -25,14 +25,11 @@ func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 		apiResult.CompletedAt = NewTime(r.CompletedAt)
 		apiResult.Version = r.Version
 		apiResult.Info = getPerformanceResultInfo(r.Info)
+		apiResult.Rollups = getPerfRollups(r.Rollups)
 
 		if r.Total != nil {
 			total := getPerformanceEvent(r.Total)
 			apiResult.Total = &total
-		}
-		if r.Rollups != nil {
-			rollups := getPerfRollups(r.Rollups)
-			apiResult.Rollups = &rollups
 		}
 
 		var apiArtifacts []APIArtifactInfo
@@ -164,7 +161,7 @@ type APIPerfRollupValue struct {
 	UserSubmitted bool        `json:"user"`
 }
 
-func getPerfRollups(r *dbmodel.PerfRollups) APIPerfRollups {
+func getPerfRollups(r dbmodel.PerfRollups) APIPerfRollups {
 	rollups := APIPerfRollups{
 		ProcessedAt: NewTime(r.ProcessedAt),
 		Count:       r.Count,

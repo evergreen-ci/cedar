@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -10,8 +11,9 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const defaultVer = 1
@@ -101,17 +103,17 @@ func (r *PerfRollups) Setup(env cedar.Environment) {
 	r.env = env
 }
 
-func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t MetricType, value interface{}) error {
+func (r *PerfRollups) Add(ctx context.Context, name string, version int, userSubmitted bool, t MetricType, value interface{}) error {
 	if r.id == "" {
 		return errors.New("rollups missing id")
 	}
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
+
+	database, err := r.env.GetDB()
 	if err != nil {
 		return errors.Wrap(err, "error connecting")
 	}
-	defer session.Close()
+	collection := database.Collection(perfResultCollection)
 
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	rollup := PerfRollupValue{
 		Name:          name,
 		Value:         value,
@@ -120,15 +122,15 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 		MetricType:    t,
 	}
 
-	err = tryUpdate(r.id, rollup, c)
-	if err == mgo.ErrNotFound {
-		search := bson.M{perfIDKey: r.id}
-		update := bson.M{
-			"$push": bson.M{
-				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey): rollup,
-			},
-		}
-		err = c.Update(search, update)
+	updated, err := tryUpdate(ctx, collection, r.id, rollup)
+	if !updated {
+		_, err = collection.UpdateOne(ctx,
+			bson.M{perfIDKey: r.id},
+			bson.M{
+				"$push": bson.M{
+					bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey): rollup,
+				},
+			})
 	}
 
 	if err != nil {
@@ -155,29 +157,33 @@ func (r *PerfRollups) Add(name string, version int, userSubmitted bool, t Metric
 	return nil
 }
 
-func tryUpdate(id string, r PerfRollupValue, c *mgo.Collection) error {
-	query := bson.M{
-		perfIDKey: id,
-		bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey): r.Name,
-	}
-	update := bson.M{
-		"$set": bson.M{
-			bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, "$[elem]"): r,
+func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r PerfRollupValue) (bool, error) {
+	res, err := collection.UpdateOne(ctx,
+		bson.M{
+			perfIDKey: id,
+			bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey): r.Name,
 		},
-	}
-	arrayFilters := []bson.M{
-		{
-			"$and": []bson.M{
-				{
-					bsonutil.GetDottedKeyName("elem", perfRollupValueNameKey): bson.M{"$eq": r.Name},
-				},
-				{
-					bsonutil.GetDottedKeyName("elem", perfRollupValueVersionKey): bson.M{"$lte": r.Version},
+
+		bson.M{
+			"$set": bson.M{
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, "$[elem]"): r,
+			},
+		}, options.Update().SetArrayFilters(options.ArrayFilters{
+			Filters: []interface{}{
+				bson.M{
+					"$and": []bson.M{
+						{
+							bsonutil.GetDottedKeyName("elem", perfRollupValueNameKey): bson.M{"$eq": r.Name},
+						},
+						{
+							bsonutil.GetDottedKeyName("elem", perfRollupValueVersionKey): bson.M{"$lte": r.Version},
+						},
+					},
 				},
 			},
-		},
-	}
-	return c.UpdateWithOpts(query, update, arrayFilters)
+		}))
+
+	return res.MatchedCount == 1, errors.WithStack(err)
 }
 
 func (r *PerfRollups) GetInt(name string) (int, error) {
@@ -462,40 +468,40 @@ func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSu
 	return out, catcher.Resolve()
 }
 
-func (r *PerformanceResult) UpdateThroughputOps(perf performanceMetricSummary) error {
+func (r *PerformanceResult) UpdateThroughputOps(ctx context.Context, perf performanceMetricSummary) error {
 	if float64(perf.span) == 0 {
 		return errors.New("cannot divide by zero")
 	}
 	name := fmt.Sprintf("throughputOps_%s", perf.metricType)
 	val := perf.counters.operations / perf.span.Seconds()
 	// save to database
-	err := r.Rollups.Add(name, defaultVer, false, MetricTypeThroughput, val)
+	err := r.Rollups.Add(ctx, name, defaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
 	return nil
 }
 
-func (r *PerformanceResult) UpdateThroughputSize(perf performanceMetricSummary) error {
+func (r *PerformanceResult) UpdateThroughputSize(ctx context.Context, perf performanceMetricSummary) error {
 	if float64(perf.span) == 0 {
 		return errors.New("cannot divide by zero")
 	}
 	name := fmt.Sprintf("throughputSize_%s", perf.metricType)
 	val := perf.counters.size / perf.span.Seconds()
-	err := r.Rollups.Add(name, defaultVer, false, MetricTypeThroughput, val)
+	err := r.Rollups.Add(ctx, name, defaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
 	return nil
 }
 
-func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error {
+func (r *PerformanceResult) UpdateErrorRate(ctx context.Context, perf performanceMetricSummary) error {
 	if float64(perf.span) == 0 {
 		return errors.New("cannot divide by zero")
 	}
 	name := fmt.Sprintf("errorRate_%s", perf.metricType)
 	val := perf.counters.errors / perf.span.Seconds()
-	err := r.Rollups.Add(name, defaultVer, false, MetricTypeThroughput, val)
+	err := r.Rollups.Add(ctx, name, defaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -503,9 +509,9 @@ func (r *PerformanceResult) UpdateErrorRate(perf performanceMetricSummary) error
 }
 
 // TotalTime stored in seconds
-func (r *PerformanceResult) UpdateTotalTime(perf performanceMetricSummary) error {
+func (r *PerformanceResult) UpdateTotalTime(ctx context.Context, perf performanceMetricSummary) error {
 	val := perf.totalTime.duration
-	err := r.Rollups.Add("totalTime", defaultVer, false, MetricTypeSum, val.Seconds())
+	err := r.Rollups.Add(ctx, "totalTime", defaultVer, false, MetricTypeSum, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalTime")
 	}
@@ -513,20 +519,20 @@ func (r *PerformanceResult) UpdateTotalTime(perf performanceMetricSummary) error
 }
 
 // Latency stored in seconds
-func (r *PerformanceResult) UpdateLatency(perf performanceMetricSummary) error {
+func (r *PerformanceResult) UpdateLatency(ctx context.Context, perf performanceMetricSummary) error {
 	if time.Duration(perf.totalCount.operations) == 0 {
 		return errors.New("cannot divide by zero duration")
 	}
 	val := perf.totalTime.duration / time.Duration(perf.totalCount.operations)
-	err := r.Rollups.Add("latency", defaultVer, false, MetricTypeLatency, val.Seconds())
+	err := r.Rollups.Add(ctx, "latency", defaultVer, false, MetricTypeLatency, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating latency")
 	}
 	return nil
 }
 
-func (r *PerformanceResult) UpdateTotalSamples(perf performanceMetricSummary) error {
-	err := r.Rollups.Add("totalSamples", defaultVer, false, MetricTypeSum, perf.samples)
+func (r *PerformanceResult) UpdateTotalSamples(ctx context.Context, perf performanceMetricSummary) error {
+	err := r.Rollups.Add(ctx, "totalSamples", defaultVer, false, MetricTypeSum, perf.samples)
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalSamples")
 	}
@@ -536,7 +542,7 @@ func (r *PerformanceResult) UpdateTotalSamples(perf performanceMetricSummary) er
 // UpdateDefaultRollups adds throughput and error rate means and 50th/90th percentiles.
 // Additionally computes latency, total time, and total number of samples.
 // These are either added or updated within r.Rollups.
-func (r *PerformanceResult) UpdateDefaultRollups(ts PerformanceTimeSeries) error {
+func (r *PerformanceResult) UpdateDefaultRollups(ctx context.Context, ts PerformanceTimeSeries) error {
 	perfStats, err := ts.statistics()
 	if err != nil {
 		return errors.WithStack(err)
@@ -553,31 +559,26 @@ func (r *PerformanceResult) UpdateDefaultRollups(ts PerformanceTimeSeries) error
 	}
 
 	for _, perf := range []performanceMetricSummary{means, percentile50, percentile90} {
-		err = r.UpdateErrorRate(perf)
-		catcher.Add(err)
-		err = r.UpdateThroughputOps(perf)
-		catcher.Add(err)
-		err = r.UpdateThroughputSize(perf)
-		catcher.Add(err)
+		catcher.Add(r.UpdateErrorRate(ctx, perf))
+		catcher.Add(r.UpdateThroughputOps(ctx, perf))
+		catcher.Add(r.UpdateThroughputSize(ctx, perf))
 	}
 
-	err = r.UpdateTotalSamples(means)
-	catcher.Add(err)
-	err = r.UpdateTotalTime(means)
-	catcher.Add(err)
-	err = r.UpdateLatency(means)
-	catcher.Add(err)
+	catcher.Add(r.UpdateTotalSamples(ctx, means))
+	catcher.Add(r.UpdateTotalTime(ctx, means))
+	catcher.Add(r.UpdateLatency(ctx, means))
+
 	return catcher.Resolve()
 }
 
-func (r *PerformanceResult) MergeRollups(rollups []*PerfRollupValue) error {
+func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []*PerfRollupValue) error {
 	catcher := grip.NewBasicCatcher()
 
 	r.Rollups.id = r.ID
 	r.Rollups.Setup(r.env)
 
 	for _, rollup := range rollups {
-		catcher.Add(r.Rollups.Add(
+		catcher.Add(r.Rollups.Add(ctx,
 			rollup.Name,
 			rollup.Version,
 			rollup.UserSubmitted,

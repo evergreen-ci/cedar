@@ -77,7 +77,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	}
 
 	record.Setup(srv.env)
-	if err := record.MergeRollups(ExportRollupValues(result.Rollups)); err != nil {
+	if err := record.MergeRollups(ctx, ExportRollupValues(result.Rollups)); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 
@@ -126,7 +126,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	resp.Id = record.ID
 
 	record.Setup(srv.env)
-	if err := record.MergeRollups(ExportRollupValues(rollupData.Rollups)); err != nil {
+	if err := record.MergeRollups(ctx, ExportRollupValues(rollupData.Rollups)); err != nil {
 		return nil, errors.Wrap(err, "problem attaching rollup data")
 	}
 
@@ -162,11 +162,7 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 
 			point, err := stream.Recv()
 			if err == io.EOF {
-				catcher.Add(stream.SendAndClose(&SendResponse{
-					Id:      record.ID,
-					Count:   int64(count),
-					Success: !catcher.HasErrors(),
-				}))
+				catcher.Add(stream.SendAndClose(&SendResponse{}))
 				return
 			}
 			if err != nil {
@@ -246,8 +242,11 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 		if err != nil {
 			return errors.Wrap(err, "problem exporting artifacts")
 		}
-		// TODO: allow clients to override this in some way
-		artifact.Type = model.PailS3
+
+		if artifact.Type == "" {
+			artifact.Type = model.PailS3
+		}
+
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 

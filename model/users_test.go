@@ -5,28 +5,19 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/mongodb/anser/db"
 	"github.com/stretchr/testify/suite"
-	mgo "gopkg.in/mgo.v2"
 )
 
 type UserTestSuite struct {
 	users []*User
-	sess  *mgo.Session
-	c     *mgo.Collection
+	sess  db.Session
+	c     db.Collection
 	suite.Suite
 }
 
 func TestUser(t *testing.T) {
-	s := &UserTestSuite{}
-	env := cedar.GetEnvironment()
-	s.Require().NoError(env.Configure(&cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		SocketTimeout: time.Hour,
-		NumWorkers:    2,
-		DatabaseName:  "user-test",
-	}))
-	suite.Run(t, s)
-
+	suite.Run(t, &UserTestSuite{})
 }
 
 func (s *UserTestSuite) SetupTest() {

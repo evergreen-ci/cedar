@@ -18,40 +18,33 @@ import (
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	mgo "gopkg.in/mgo.v2"
 )
 
 const (
 	localAddress  = "localhost:2289"
 	remoteAddress = "cedar.mongodb.com:7070"
+	testDBName    = "cedar_grpc_test"
 )
 
-type MockEnv struct {
-	queue   amboy.Queue
-	session *mgo.Session
-	conf    *cedar.Configuration
-}
-
-func (m *MockEnv) Configure(config *cedar.Configuration) error { m.conf = config; return nil }
-func (m *MockEnv) GetConf() (*cedar.Configuration, error)      { return m.conf, nil }
-func (m *MockEnv) SetLocalQueue(queue amboy.Queue) error       { m.queue = queue; return nil }
-func (m *MockEnv) SetRemoteQueue(queue amboy.Queue) error      { m.queue = queue; return nil }
-func (m *MockEnv) GetLocalQueue() (amboy.Queue, error)         { return m.queue, nil }
-func (m *MockEnv) GetRemoteQueue() (amboy.Queue, error)        { return m.queue, nil }
-func (m *MockEnv) GetSession() (*mgo.Session, error)           { return m.session, errors.New("mock err") }
-func (m *MockEnv) Close(_ context.Context) error               { return nil }
-func (m *MockEnv) RegisterCloser(_ string, _ cedar.CloserFunc) {}
-
-func (m *MockEnv) GetRemoteReporter() (reporting.Reporter, error) {
-	return nil, errors.New("not supported")
+func init() {
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
+		MongoDBURI:    "mongodb://localhost:27017",
+		DatabaseName:  testDBName,
+		SocketTimeout: time.Minute,
+		NumWorkers:    2,
+	})
+	if err != nil {
+		panic(err)
+	}
+	cedar.SetEnvironment(env)
 }
 
 func startPerfService(ctx context.Context, env cedar.Environment) error {
@@ -118,27 +111,12 @@ func setupAuthRestClient(ctx context.Context, host string, port int) (*rest.Clie
 	}
 	apiKey, err := client.GetAuthKey(ctx, os.Getenv("LDAP_USER"), os.Getenv("LDAP_PASSWORD"))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "problem authenticating from environment")
 	}
 	opts.ApiKey = apiKey
 
 	client, err = rest.NewClientFromExisting(client.Client(), opts)
-	return client, err
-}
-
-func createEnv(mock bool) (cedar.Environment, error) {
-	if mock {
-		return &MockEnv{}, nil
-	}
-	env := cedar.GetEnvironment()
-	err := env.Configure(&cedar.Configuration{
-		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       "grpc_test",
-		SocketTimeout:      time.Hour,
-		NumWorkers:         2,
-		DisableRemoteQueue: false,
-	})
-	return env, errors.WithStack(err)
+	return client, errors.Wrap(err, "problem getting client")
 }
 
 func tearDownEnv(env cedar.Environment, mock bool) error {
@@ -204,14 +182,26 @@ func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string)
 func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id string) {
 	q, err := env.GetRemoteQueue()
 	require.NoError(t, err)
-	require.NoError(t, q.Start(ctx))
-	time.Sleep(time.Second)
+	amboy.WaitCtxInterval(ctx, q, 250*time.Millisecond)
+	for j := range q.Results(ctx) {
+		err := j.Error()
+		msg := "job completed without error"
+		if err != nil {
+			msg = err.Error()
+		}
+
+		grip.Info(message.Fields{
+			"job":     j.ID(),
+			"result":  id,
+			"message": msg,
+		})
+	}
 
 	conf, sess, err := cedar.GetSessionWithConfig(env)
 	require.NoError(t, err)
 	result := &model.PerformanceResult{}
 	assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(id).One(result))
-	assert.NotEmpty(t, result.Rollups.Stats)
+	assert.NotEmpty(t, result.Rollups.Stats, "%s", id)
 }
 
 func TestCreateMetricSeries(t *testing.T) {
@@ -261,8 +251,10 @@ func TestCreateMetricSeries(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			env, err := createEnv(test.mockEnv)
-			require.NoError(t, err)
+			var env cedar.Environment
+			if !test.mockEnv {
+				env = cedar.GetEnvironment()
+			}
 			defer func() {
 				require.NoError(t, tearDownEnv(env, test.mockEnv))
 			}()
@@ -270,17 +262,17 @@ func TestCreateMetricSeries(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			err = startPerfService(ctx, env)
+			err := startPerfService(ctx, env)
 			require.NoError(t, err)
 			client, err := getGRPCClient(ctx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
-			assert.Equal(t, test.expectedResp, resp)
+			require.Equal(t, test.expectedResp, resp)
 			if test.err {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id)
 			}
 		})
@@ -410,8 +402,7 @@ func TestAttachResultData(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			env, err := createEnv(false)
-			require.NoError(t, err)
+			env := cedar.GetEnvironment()
 			defer func() {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
@@ -419,7 +410,7 @@ func TestAttachResultData(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			err = startPerfService(ctx, env)
+			err := startPerfService(ctx, env)
 			require.NoError(t, err)
 			client, err := getGRPCClient(ctx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
@@ -479,6 +470,7 @@ func TestCuratorSend(t *testing.T) {
 	require.NoError(t, err)
 	restClient, err := setupAuthRestClient(ctx, "https://cedar.mongodb.com", 443)
 	require.NoError(t, err)
+
 	for _, test := range []struct {
 		name   string
 		skip   bool
@@ -488,8 +480,7 @@ func TestCuratorSend(t *testing.T) {
 		{
 			name: "WithoutAuthOrTLS",
 			setup: func(t *testing.T) *exec.Cmd {
-				env, err := createEnv(false)
-				assert.NoError(t, err)
+				env := cedar.GetEnvironment()
 				assert.NoError(t, startPerfService(ctx, env))
 
 				return createSendCommand(curatorPath, localAddress, "", "", "", true)
@@ -503,7 +494,7 @@ func TestCuratorSend(t *testing.T) {
 				conf, session, err := cedar.GetSessionWithConfig(env)
 				require.NoError(t, err)
 				perfResult := &model.PerformanceResult{}
-				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(nil).One(perfResult))
+				assert.NoError(t, session.DB(conf.DatabaseName).C("perf_results").Find(struct{}{}).One(perfResult))
 				assert.Equal(t, expectedResult.ID, perfResult.ID)
 			},
 		},
@@ -560,8 +551,7 @@ func TestCertificateGeneration(t *testing.T) {
 	pass := "password"
 	certDB := "certDepot"
 	collName := "depot"
-	env, envErr := createEnv(false)
-	require.NoError(t, envErr)
+	env := cedar.GetEnvironment()
 	defer func() {
 		assert.NoError(t, tearDownEnv(env, false))
 	}()

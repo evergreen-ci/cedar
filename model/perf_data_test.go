@@ -1,13 +1,14 @@
 package model
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/suite"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type perfRollupSuite struct {
@@ -21,18 +22,23 @@ func TestPerfRollupSuite(t *testing.T) {
 
 func (s *perfRollupSuite) SetupTest() {
 	s.r = new(PerfRollups)
+	s.r.Stats = []PerfRollupValue{}
 	s.r.Setup(cedar.GetEnvironment())
 	s.r.id = "123"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 
-	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: s.r.id}))
+	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: s.r.id, Rollups: PerfRollups{Stats: []PerfRollupValue{}}}))
 
-	s.NoError(s.r.Add("float", 1, true, MetricTypeMax, 12.4))
-	s.NoError(s.r.Add("int", 2, true, MetricTypeMax, 12))
-	s.NoError(s.r.Add("int32", 3, false, MetricTypeMax, int32(32)))
-	s.NoError(s.r.Add("long", 4, false, MetricTypeMax, int64(20216)))
+	s.NoError(s.r.Add(ctx, "float", 1, true, MetricTypeMax, 12.4))
+	s.NoError(s.r.Add(ctx, "int", 2, true, MetricTypeMax, 12))
+	s.NoError(s.r.Add(ctx, "int32", 3, false, MetricTypeMax, int32(32)))
+	s.NoError(s.r.Add(ctx, "long", 4, false, MetricTypeMax, int64(20216)))
 }
 
 func (s *perfRollupSuite) TestSetupTestIsValid() {
@@ -47,6 +53,8 @@ func (s *perfRollupSuite) TestSetupTestIsValid() {
 	out := PerformanceResult{}
 	err = c.Find(search).One(&out)
 	s.Require().NoError(err)
+	s.Require().NotNil(out.Rollups)
+
 	s.Len(out.Rollups.Stats, 4)
 	hasFloat, hasInt, hasInt32, hasLong := false, false, false, false
 	for _, entry := range out.Rollups.Stats {
@@ -118,10 +126,13 @@ func (s *perfRollupSuite) TestLong() {
 }
 
 func (s *perfRollupSuite) TestAddPerfRollupValue() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.Len(s.r.Stats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
-	err = s.r.Add("mean", 1, false, MetricTypeMean, 12.24)
+	err = s.r.Add(ctx, "mean", 1, false, MetricTypeMean, 12.24)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
@@ -130,7 +141,10 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 }
 
 func (s *perfRollupSuite) TestMaps() {
-	err := s.r.Add("mean", 1, true, MetricTypeMean, 12.24)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := s.r.Add(ctx, "mean", 1, true, MetricTypeMean, 12.24)
 	s.NoError(err)
 
 	allFloats := s.r.MapFloat()
@@ -151,6 +165,9 @@ func (s *perfRollupSuite) TestMaps() {
 }
 
 func (s *perfRollupSuite) TestUpdateExistingEntry() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.r.id = "234"
 	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
@@ -159,7 +176,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	err = s.r.Add("mean", 4, true, MetricTypeMax, 12.24)
+	err = s.r.Add(ctx, "mean", 4, true, MetricTypeMax, 12.24)
 	s.NoError(err)
 
 	search := bson.M{
@@ -174,7 +191,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
-	err = s.r.Add("mean", 3, true, MetricTypeMax, 24.12) // should fail with older version
+	err = s.r.Add(ctx, "mean", 3, true, MetricTypeMax, 24.12) // should fail with older version
 	s.Require().NoError(err)
 	err = c.Find(search).One(&out)
 	s.Require().NoError(err)
@@ -183,7 +200,7 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
-	err = s.r.Add("mean", 5, false, MetricTypeMax, 24.12)
+	err = s.r.Add(ctx, "mean", 5, false, MetricTypeMax, 24.12)
 	s.NoError(err)
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
@@ -240,24 +257,31 @@ func initializeTS() PerformanceTimeSeries {
 }
 
 func (s *perfRollupSuite) TestUpdateDefaultRollups() {
-	r := new(PerfRollups)
+	r := PerfRollups{
+		Stats: []PerfRollupValue{},
+	}
 	r.Setup(cedar.GetEnvironment())
 	r.id = "345"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	s.Require().NoError(err)
 	defer session.Close()
 
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: r.id})
+	err = session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: r.id, Rollups: PerfRollups{Stats: []PerfRollupValue{}}})
 	s.Require().NoError(err)
 
 	ts := initializeTS()
 	result := PerformanceResult{
 		Rollups: r,
 	}
-	s.NoError(result.UpdateDefaultRollups(ts))
+	s.Require().NoError(result.UpdateDefaultRollups(ctx, ts))
 
-	rollups := r.MapFloat()
+	rollups := result.Rollups.MapFloat()
 	span := (2 * time.Minute).Seconds()
+
 	s.Require().Len(rollups, 12)
 	s.Equal((3 * time.Hour).Seconds(), rollups["totalTime"])
 	s.Equal(3.0, rollups["totalSamples"])
@@ -265,17 +289,20 @@ func (s *perfRollupSuite) TestUpdateDefaultRollups() {
 
 	// test update of previous rollup
 	ts[0].Counters.Size = 10000
-	s.NoError(result.UpdateDefaultRollups(ts))
-	rollups2 := r.MapFloat()
+	s.NoError(result.UpdateDefaultRollups(ctx, ts))
+	rollups2 := result.Rollups.MapFloat()
 	s.Require().Len(rollups2, 12)
 	s.Equal(rollups["errorRate_mean"], rollups2["errorRate_mean"])
 	s.NotEqual(rollups["throughputSize_mean"], rollups2["throughputSize_mean"])
 
 	ts[0].Timestamp = ts[2].Timestamp
-	s.Error(result.UpdateDefaultRollups(ts))
+	s.Error(result.UpdateDefaultRollups(ctx, ts))
 }
 
 func (s *perfRollupSuite) TestMergeRollups() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
@@ -299,15 +326,15 @@ func (s *perfRollupSuite) TestMergeRollups() {
 		result := &PerformanceResult{}
 		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
 		result.Setup(s.r.env)
-		s.NoError(result.MergeRollups(rollups))
-		result = &PerformanceResult{}
+		s.NoError(result.MergeRollups(ctx, rollups))
 		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
 		count := 0
+		s.Require().NotNil(result.Rollups)
 		for _, rollup := range result.Rollups.Stats {
 			if rollup.Name == "ops_per_sec" || rollup.Name == "latency" {
-				count += 1
+				count++
 			}
 		}
-		s.Equal(2, count)
+		s.Equal(2, count, "iter=%d", i)
 	}
 }

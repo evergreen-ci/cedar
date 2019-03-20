@@ -13,12 +13,12 @@ import (
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	"github.com/mongodb/mongo-go-driver/mongo/options"
-	"github.com/mongodb/mongo-go-driver/x/bsonx"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/bsonx"
 )
 
 type mongoDriver struct {
@@ -72,7 +72,7 @@ func (d *mongoDriver) Open(ctx context.Context) error {
 		return nil
 	}
 
-	client, err := mongo.Connect(ctx, d.mongodbURI)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(d.mongodbURI))
 	if err != nil {
 		return errors.Wrapf(err, "problem opening connection to mongodb at '%s", d.mongodbURI)
 	}
@@ -124,7 +124,6 @@ func (d *mongoDriver) setupDB(ctx context.Context) error {
 			Value: bsonx.Int32(1),
 		},
 	}
-
 	if d.respectWaitUntil {
 		keys = append(keys, bsonx.Elem{
 			Key:   "time_info.wait_until",
@@ -167,14 +166,6 @@ func (d *mongoDriver) Get(ctx context.Context, name string) (amboy.Job, error) {
 	j := &registry.JobInterchange{}
 
 	err := d.getCollection().FindOne(ctx, bson.M{"_id": name}).Decode(j)
-
-	grip.Debug(message.WrapError(err, message.Fields{
-		"operation": "get job",
-		"name":      name,
-		"id":        d.instanceID,
-		"service":   "amboy.queue.mongo",
-	}))
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "GET problem fetching '%s'", name)
 	}
@@ -199,13 +190,6 @@ func (d *mongoDriver) Put(ctx context.Context, j amboy.Job) error {
 	if _, err = d.getCollection().InsertOne(ctx, job); err != nil {
 		return errors.Wrapf(err, "problem saving new job %s", name)
 	}
-
-	grip.Debug(message.Fields{
-		"id":        d.instanceID,
-		"service":   "amboy.queue.mongo",
-		"operation": "put job",
-		"name":      name,
-	})
 
 	return nil
 }
@@ -245,14 +229,6 @@ func (d *mongoDriver) Save(ctx context.Context, j amboy.Job) error {
 		}
 		return errors.Wrapf(err, "problem saving document %s: %+v", name, res)
 	}
-
-	grip.Debug(message.Fields{
-		"id":        d.instanceID,
-		"service":   "amboy.queue.mongo",
-		"operation": "save job",
-		"name":      name,
-		"info":      res,
-	})
 
 	return nil
 }
@@ -423,7 +399,7 @@ func (d *mongoDriver) Next(ctx context.Context) amboy.Job {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	var iter mongo.Cursor
+	var iter *mongo.Cursor
 	j := &registry.JobInterchange{}
 	for {
 		select {
@@ -501,7 +477,7 @@ func (d *mongoDriver) Next(ctx context.Context) amboy.Job {
 func (d *mongoDriver) Stats(ctx context.Context) amboy.QueueStats {
 	coll := d.getCollection()
 
-	numJobs, err := coll.Count(ctx, nil)
+	numJobs, err := coll.CountDocuments(ctx, struct{}{})
 	grip.Warning(message.WrapError(err, message.Fields{
 		"id":         d.instanceID,
 		"service":    "amboy.queue.mongo",
@@ -510,7 +486,7 @@ func (d *mongoDriver) Stats(ctx context.Context) amboy.QueueStats {
 		"message":    "problem counting all jobs",
 	}))
 
-	pending, err := coll.Count(ctx, bson.M{"status.completed": false})
+	pending, err := coll.CountDocuments(ctx, bson.M{"status.completed": false})
 	grip.Warning(message.WrapError(err, message.Fields{
 		"id":         d.instanceID,
 		"service":    "amboy.queue.mongo",
@@ -519,7 +495,7 @@ func (d *mongoDriver) Stats(ctx context.Context) amboy.QueueStats {
 		"message":    "problem counting pending jobs",
 	}))
 
-	numLocked, err := coll.Count(ctx, bson.M{"status.completed": false, "status.in_prog": true})
+	numLocked, err := coll.CountDocuments(ctx, bson.M{"status.completed": false, "status.in_prog": true})
 	grip.Warning(message.WrapError(err, message.Fields{
 		"id":         d.instanceID,
 		"service":    "amboy.queue.mongo",

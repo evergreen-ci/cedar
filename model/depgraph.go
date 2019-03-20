@@ -31,7 +31,7 @@ var (
 )
 
 func (g *GraphMetadata) Setup(e cedar.Environment) { g.env = e }
-func (g *GraphMetadata) IsNil() bool              { return !g.populated }
+func (g *GraphMetadata) IsNil() bool               { return !g.populated }
 
 func (g *GraphMetadata) Save() error {
 	if g.BuildID == "" {
@@ -168,22 +168,19 @@ func (g *GraphMetadata) edgeQuery(conf *cedar.Configuration, session db.Session)
 }
 
 func (g *GraphMetadata) GetEdges() (db.Iterator, error) {
-	conf, s, err := cedar.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	session := db.WrapSession(s)
 
 	return db.NewCombinedIterator(session, g.edgeQuery(conf, session).Iter()), nil
 }
 
 func (g *GraphMetadata) AllEdges() ([]GraphEdge, error) {
-	conf, s, err := cedar.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 
 	defer session.Close()
 	out := []GraphEdge{}
@@ -202,21 +199,19 @@ func (g *GraphMetadata) nodeQuery(conf *cedar.Configuration, session db.Session)
 }
 
 func (g *GraphMetadata) GetNodes() (db.Iterator, error) {
-	conf, s, err := cedar.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 
 	return db.NewCombinedIterator(session, g.nodeQuery(conf, session).Iter()), nil
 }
 
 func (g *GraphMetadata) AllNodes() ([]GraphNode, error) {
-	conf, s, err := cedar.GetSessionWithConfig(g.env)
+	conf, session, err := cedar.GetSessionWithConfig(g.env)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 
 	out := []GraphNode{}

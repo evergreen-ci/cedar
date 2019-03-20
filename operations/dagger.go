@@ -77,14 +77,14 @@ func loadGraphToDB() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			graph, err := depgraph.New("cli", fn)
 			if err != nil {
 				return errors.Wrap(err, "problem loading graph")
@@ -147,16 +147,16 @@ func cleanDB() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			graphs := &model.DependencyGraphs{}
-
+			graphs.Setup(env)
 			if err := graphs.FindIncomplete(); err != nil {
 				return errors.Wrap(err, "encountered problem finding incomplete graphs")
 			}

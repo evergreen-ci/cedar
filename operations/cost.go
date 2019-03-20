@@ -55,13 +55,14 @@ func dumpCostConfig() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
+
+			env := cedar.GetEnvironment()
 
 			conf := &model.CostConfig{}
 			conf.Setup(env)
@@ -92,13 +93,14 @@ func loadCostConfig() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
+
+			env := cedar.GetEnvironment()
 
 			conf, err := model.LoadCostConfig(fileName)
 			if err != nil {
@@ -129,14 +131,14 @@ func collectLoop() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			q, err := env.GetLocalQueue()
 			if err != nil {
 				return errors.Wrap(err, "problem getting queue")
@@ -205,14 +207,14 @@ func summarize() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			reports := &model.CostReports{}
 			reports.Setup(env)
 			iter, err := reports.Iterator(time.Time{}, time.Now())
@@ -366,14 +368,14 @@ func dump() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			conf := &model.CostConfig{}
 			conf.Setup(env)
 			if err := conf.Find(); err != nil {

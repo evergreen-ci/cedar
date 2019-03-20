@@ -20,19 +20,11 @@ func (c *CostConfig) PopulateMock() {
 }
 
 func TestCostConfig(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	env := cedar.GetEnvironment()
+	ctx, cancel := env.Context()
+	defer cancel()
 
 	cleanup := func() {
-		require.NoError(t, env.Configure(&cedar.Configuration{
-			MongoDBURI:         "mongodb://localhost:27017",
-			DatabaseName:       "cedar_test_costconfig",
-			SocketTimeout:      time.Hour,
-			NumWorkers:         2,
-			DisableRemoteQueue: true,
-		}))
-
 		conf, session, err := cedar.GetSessionWithConfig(env)
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
@@ -62,15 +54,16 @@ func TestCostConfig(t *testing.T) {
 			assert.Contains(t, err.Error(), "could not find")
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			conf.Setup(env)
-			err := conf.Find()
+			err = conf.Find()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem finding")
 		},
@@ -85,16 +78,17 @@ func TestCostConfig(t *testing.T) {
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			conf.Setup(env)
 			conf.populated = true
-			err := conf.Save()
+			err = conf.Save()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem saving cost reporting configuration")
 		},

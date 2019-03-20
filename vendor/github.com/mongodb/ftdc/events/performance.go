@@ -41,7 +41,7 @@ type PerformanceCounters struct {
 // general Duration+Waiting should equal the time since the
 // last data point.
 type PerformanceTimers struct {
-	Duration time.Duration `bson:"duration" json:"duration" yaml:"duration"`
+	Duration time.Duration `bson:"dur" json:"dur" yaml:"dur"`
 	Total    time.Duration `bson:"total" json:"total" yaml:"total"`
 }
 

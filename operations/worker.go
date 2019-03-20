@@ -32,13 +32,12 @@ func Worker() cli.Command {
 			bucket := c.String(bucketNameFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := cedar.GetEnvironment()
-
 			sc := newServiceConf(workers, false, mongodbURI, bucket, dbName)
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			q, err := env.GetRemoteQueue()
 			if err != nil {
 				return errors.Wrap(err, "problem getting queue")

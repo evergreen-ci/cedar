@@ -14,14 +14,18 @@ type PailType string
 const (
 	PailS3           PailType = "s3"
 	PailLegacyGridFS PailType = "gridfs-legacy"
+	PailGridFS       PailType = "gridfs"
 	PailLocal        PailType = "local"
+
+	defaultS3Region = "us-east-1"
 )
 
 func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
 	switch t {
 	case PailS3:
 		opts := pail.S3Options{
-			Name: bucket,
+			Name:   bucket,
+			Region: defaultS3Region,
 		}
 		b, err := pail.NewS3Bucket(opts)
 		if err != nil {
@@ -29,8 +33,16 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 		}
 
 		return b, nil
-	case PailLegacyGridFS:
-		conf, session, err := cedar.GetSessionWithConfig(env)
+	case PailLegacyGridFS, PailGridFS:
+		ctx, cancel := env.Context()
+		defer cancel()
+
+		client, err := env.GetClient()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		conf, err := env.GetConf()
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -39,7 +51,7 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 			Database: conf.DatabaseName,
 			Prefix:   bucket,
 		}
-		b, err := pail.NewLegacyGridFSBucketWithSession(session, opts)
+		b, err := pail.NewGridFSBucketWithClient(ctx, client, opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,17 +13,21 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func createEnv() (cedar.Environment, error) {
-	env := cedar.GetEnvironment()
-	err := env.Configure(&cedar.Configuration{
+const testDBName = "cedar_grpc_test"
+
+func init() {
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       "grpc_test",
-		SocketTimeout:      time.Hour,
+		DatabaseName:       testDBName,
+		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
-		DisableLocalQueue:  true,
 	})
-	return env, errors.WithStack(err)
+	if err != nil {
+		panic(err)
+	}
+
+	cedar.SetEnvironment(env)
 }
 
 func tearDownEnv(env cedar.Environment) error {
@@ -172,10 +177,8 @@ type PerfConnectorSuite struct {
 }
 
 func (s *PerfConnectorSuite) setup() {
-	env, err := createEnv()
-	s.Require().NoError(err)
-	s.env = env
-	err = s.createPerformanceResults(env)
+	s.env = cedar.GetEnvironment()
+	err := s.createPerformanceResults(s.env)
 	s.Require().NoError(err)
 	s.createChildMap()
 }

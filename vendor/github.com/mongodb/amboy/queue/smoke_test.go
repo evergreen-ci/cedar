@@ -18,12 +18,12 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/send"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	"github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"gopkg.in/mgo.v2"
 )
 
@@ -572,8 +572,7 @@ func TestSmokeRemoteUnorderedWorkerPoolsWithMgoDriver(t *testing.T) {
 
 		grip.Infof("test with %d jobs, duration = %s", poolSize, time.Since(start))
 		err := cleanupMgo(opts.DB, name, d.session.Clone())
-		grip.AlertWhenf(err != nil,
-			"encountered error cleaning up %s: %+v", name, err)
+		grip.AlertWhenf(err != nil, "encountered error cleaning up %s: %+v", name, err)
 	}
 }
 
@@ -600,8 +599,7 @@ func TestSmokeRemoteUnorderedWorkerPoolsWithMongoDriver(t *testing.T) {
 
 		grip.Infof("test with %d jobs, duration = %s", poolSize, time.Since(start))
 		err := cleanupMongo(ctx, opts.DB, name, d.client)
-		grip.AlertWhenf(err != nil,
-			"encountered error cleaning up %s: %+v", name, err)
+		grip.AlertWhenf(err != nil, "encountered error cleaning up %s: %+v", name, err)
 	}
 }
 
@@ -1076,8 +1074,7 @@ func TestSmokeSimpleRemoteOrderedWorkerPoolsWithMgoDriver(t *testing.T) {
 
 		grip.Infof("test with %d jobs, duration = %s", poolSize, time.Since(start))
 		err = cleanupMgo(opts.DB, name, session.Clone())
-		grip.AlertWhenf(err != nil,
-			"encountered error cleaning up %s: %+v", name, err)
+		grip.AlertWhenf(err != nil, "encountered error cleaning up %s: %+v", name, err)
 	}
 }
 
@@ -1315,7 +1312,7 @@ func TestSmokeRemoteOrderedWithWorkerPoolsAndMongoDriver(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	client, err := mongo.Connect(ctx, opts.URI, options.Client().SetConnectTimeout(5*time.Second))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(opts.URI).SetConnectTimeout(5*time.Second))
 	require.NoError(t, err)
 
 	for _, poolSize := range []int{2, 4, 8, 16, 32} {

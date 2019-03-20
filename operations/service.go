@@ -88,12 +88,13 @@ func Service() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go signalListener(ctx, cancel)
-			env := cedar.GetEnvironment()
-			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName)
 
-			if err := sc.setup(ctx, env); err != nil {
+			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName)
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
+
+			env := cedar.GetEnvironment()
 
 			if err := units.StartCrons(ctx, env); err != nil {
 				return errors.WithStack(err)

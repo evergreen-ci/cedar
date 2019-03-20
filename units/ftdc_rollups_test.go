@@ -15,18 +15,22 @@ import (
 const (
 	validDataFile   = "testdata/valid.ftdc"
 	invalidDataFile = "testdata/invalid.ftdc"
+	testDBName      = "cedar_test_config"
 )
 
-func createEnv() (cedar.Environment, error) {
-	env := cedar.GetEnvironment()
-	err := env.Configure(&cedar.Configuration{
+func init() {
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       "ftdc_rollups_job_test",
-		SocketTimeout:      time.Hour,
+		DatabaseName:       testDBName,
+		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
 	})
-	return env, errors.WithStack(err)
+	if err != nil {
+		panic(err)
+	}
+
+	cedar.SetEnvironment(env)
 }
 
 func tearDownEnv(env cedar.Environment) error {
@@ -39,8 +43,8 @@ func tearDownEnv(env cedar.Environment) error {
 }
 
 func TestFTDCRollupsJob(t *testing.T) {
-	env, err := createEnv()
-	require.NoError(t, err)
+	env := cedar.GetEnvironment()
+
 	defer func() {
 		assert.NoError(t, tearDownEnv(env))
 	}()
@@ -78,6 +82,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.False(t, j.HasErrors())
 		result := &model.PerformanceResult{}
 		assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(validResult.ID).One(result))
+		require.NotNil(t, result.Rollups)
 		assert.NotEmpty(t, result.Rollups.Stats)
 	})
 	t.Run("InvalidData", func(t *testing.T) {

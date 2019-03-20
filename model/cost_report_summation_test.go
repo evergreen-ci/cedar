@@ -10,25 +10,16 @@ import (
 )
 
 func TestCostReportSummary(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	env := cedar.GetEnvironment()
+	ctx, cancel := env.Context()
+	defer cancel()
 
 	cleanup := func() {
-
-		require.NoError(t, env.Configure(&cedar.Configuration{
-			MongoDBURI:         "mongodb://localhost:27017",
-			DatabaseName:       "cedar_test_costreport_summation",
-			NumWorkers:         2,
-			DisableRemoteQueue: true,
-		}))
-
 		conf, session, err := cedar.GetSessionWithConfig(env)
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
 			assert.Contains(t, err.Error(), "not found")
 		}
-
 	}
 
 	defer cleanup()
@@ -49,15 +40,16 @@ func TestCostReportSummary(t *testing.T) {
 			assert.Contains(t, err.Error(), "could not find")
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, env cedar.Environment, report *CostReportSummary) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			report.Setup(env)
-			err := report.Find()
+			err = report.Find()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem finding")
 		},
@@ -69,17 +61,18 @@ func TestCostReportSummary(t *testing.T) {
 			assert.NoError(t, err)
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, env cedar.Environment, report *CostReportSummary) {
-			require.NoError(t, env.Configure(&cedar.Configuration{
+			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
 				MongoDBURI:         "mongodb://localhost:27017",
 				DatabaseName:       "\"", // intentionally invalid
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
-			}))
+			})
+			require.NoError(t, err)
 
 			report.ID = "one"
 			report.Setup(env)
 			report.populated = true
-			err := report.Save()
+			err = report.Save()
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "Invalid namespace")
 		},

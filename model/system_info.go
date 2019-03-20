@@ -8,7 +8,8 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const sysInfoCollection = "sysinfo.stats"
@@ -30,7 +31,7 @@ var (
 )
 
 func (i *SystemInformationRecord) Setup(e cedar.Environment) { i.env = e }
-func (i *SystemInformationRecord) IsNil() bool              { return !i.populated }
+func (i *SystemInformationRecord) IsNil() bool               { return !i.populated }
 
 func (i *SystemInformationRecord) Save() error {
 	if !i.populated {
@@ -38,7 +39,7 @@ func (i *SystemInformationRecord) Save() error {
 	}
 
 	if i.ID == "" {
-		i.ID = string(bson.NewObjectId())
+		i.ID = primitive.NewObjectID().String()
 	}
 
 	conf, session, err := cedar.GetSessionWithConfig(i.env)
@@ -74,7 +75,7 @@ type SystemInformationRecords struct {
 	env       cedar.Environment
 }
 
-func (i *SystemInformationRecords) Setup(e cedar.Environment)          { i.env = e }
+func (i *SystemInformationRecords) Setup(e cedar.Environment)         { i.env = e }
 func (i *SystemInformationRecords) IsNil() bool                       { return !i.populated }
 func (i *SystemInformationRecords) Slice() []*SystemInformationRecord { return i.slice }
 func (i *SystemInformationRecords) Size() int                         { return len(i.slice) }
@@ -95,11 +96,10 @@ func (i *SystemInformationRecords) runQuery(query db.Query) error {
 }
 
 func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
-	conf, s, err := cedar.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 
 	query := session.DB(conf.DatabaseName).C(sysInfoCollection).Find(map[string]interface{}{
@@ -114,11 +114,10 @@ func (i *SystemInformationRecords) FindHostname(host string, limit int) error {
 }
 
 func (i *SystemInformationRecords) FindHostnameBetween(host string, before, after time.Time, limit int) error {
-	conf, s, err := cedar.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 
 	query := session.DB(conf.DatabaseName).C(sysInfoCollection).Find(map[string]interface{}{
@@ -137,11 +136,10 @@ func (i *SystemInformationRecords) FindHostnameBetween(host string, before, afte
 }
 
 func (i *SystemInformationRecords) FindBetween(before, after time.Time, limit int) error {
-	conf, s, err := cedar.GetSessionWithConfig(i.env)
+	conf, session, err := cedar.GetSessionWithConfig(i.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	session := db.WrapSession(s)
 	defer session.Close()
 
 	query := session.DB(conf.DatabaseName).C(sysInfoCollection).Find(map[string]interface{}{

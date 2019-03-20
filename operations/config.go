@@ -28,14 +28,14 @@ func dumpCedarConfig() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
 
-			if err := sc.setup(ctx, env); err != nil {
+			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
 
+			env := cedar.GetEnvironment()
 			conf := &model.CedarConfig{}
 			conf.Setup(env)
 
@@ -70,13 +70,12 @@ func loadCedarConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			env := cedar.GetEnvironment()
 			sc := newServiceConf(2, true, mongodbURI, "", dbName)
 			sc.interactive = true
-
-			if err = sc.setup(ctx, env); err != nil {
+			if err = sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
+			env := cedar.GetEnvironment()
 
 			conf.Setup(env)
 			if err = conf.Save(); err != nil {

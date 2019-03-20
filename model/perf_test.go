@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -23,8 +24,16 @@ func getTimeForTestingByDate(day int) time.Time {
 }
 
 func (s *perfResultSuite) SetupTest() {
+	env := cedar.GetEnvironment()
+
+	// ctx, cancel := env.Context()
+	// defer cancel()
+	// db, err := env.GetDB()
+	// s.Require().NoError(err)
+	// s.Require().NoError(db.Collection(perfResultCollection).Drop(ctx))
+
 	s.r = new(PerformanceResults)
-	s.r.Setup(cedar.GetEnvironment())
+	s.r.Setup(env)
 	args := make(map[string]int32)
 	args["timeout"] = 12
 	info := PerformanceResultInfo{
@@ -57,6 +66,15 @@ func (s *perfResultSuite) SetupTest() {
 	result2.CompletedAt = getTimeForTestingByDate(18)
 	result2.Version = 2
 	s.NoError(result2.Save())
+}
+
+func (s *perfResultSuite) TearDownTest() {
+	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
+	s.Require().NoError(err)
+	defer session.Close()
+	c := session.DB(conf.DatabaseName).C(perfResultCollection)
+	err = c.DropCollection()
+	s.Require().NoError(err)
 }
 
 func (s *perfResultSuite) TestSavePerfResult() {
@@ -105,13 +123,13 @@ func (s *perfResultSuite) TestFindResultsByTimeInterval() {
 	}
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
-	s.Equal(s.r.Results[0].Version, 1)
+	s.Equal(1, s.r.Results[0].Version)
 
 	start = getTimeForTestingByDate(16)
 	options.Interval = util.GetTimeRange(start, time.Hour*48)
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
-	s.Equal(s.r.Results[0].Version, 2)
+	s.Equal(2, s.r.Results[0].Version)
 
 	start = getTimeForTestingByDate(15)
 	options.Interval = util.GetTimeRange(start, time.Hour*72)
@@ -139,7 +157,7 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	options.Info.Project = "test"
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
-	s.Equal(s.r.Results[0].Info.Version, "1")
+	s.Equal("1", s.r.Results[0].Info.Version, "%+v", options)
 
 	options.Info = PerformanceResultInfo{}
 	options.Info.Trial = 10
@@ -197,10 +215,16 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 4)
-	s.Equal(s.r.Results[0].ID, nodeA.ID)
-	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[3].ID, nodeD.ID)
+
+	s.Equal(nodeA.ID, s.r.Results[0].ID)
+	s.Equal(nodeB.ID, s.r.Results[2].ID)
+	s.Equal(nodeC.ID, s.r.Results[3].ID)
+	s.Equal(nodeD.ID, s.r.Results[1].ID)
+
+	s.Equal("NA", s.r.Results[0].Info.Parent)
+	s.Equal(nodeB.ID, s.r.Results[1].Info.Parent)
+	s.Equal(nodeA.ID, s.r.Results[2].Info.Parent)
+	s.Equal(nodeA.ID, s.r.Results[3].Info.Parent)
 
 	// Test min through max depth without $graphLookup
 	options = PerfFindOptions{
@@ -217,6 +241,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 3)
+	grip.Notice(s.r.Results)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
@@ -227,10 +252,16 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 4)
-	s.Equal(s.r.Results[0].ID, nodeA.ID)
-	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[3].ID, nodeD.ID)
+
+	s.Equal(nodeA.ID, s.r.Results[0].ID)
+	s.Equal(nodeB.ID, s.r.Results[2].ID)
+	s.Equal(nodeC.ID, s.r.Results[3].ID)
+	s.Equal(nodeD.ID, s.r.Results[1].ID)
+
+	s.Equal("NA", s.r.Results[0].Info.Parent)
+	s.Equal(nodeB.ID, s.r.Results[1].Info.Parent)
+	s.Equal(nodeA.ID, s.r.Results[2].Info.Parent)
+	s.Equal(nodeA.ID, s.r.Results[3].Info.Parent)
 
 	// With $graphLookup
 	options = PerfFindOptions{
@@ -303,13 +334,4 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(options))
 	s.Len(s.r.Results, 0)
-}
-
-func (s *perfResultSuite) TearDownTest() {
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
-	s.Require().NoError(err)
-	defer session.Close()
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.DropCollection()
-	s.NoError(err)
 }
