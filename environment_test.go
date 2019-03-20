@@ -89,7 +89,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			conf.DisableRemoteQueue = true
 
 			env, err := NewEnvironment(ctx, ename, conf)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			q, err := env.GetLocalQueue()
 			assert.NoError(t, err)
 			assert.NotNil(t, q)
@@ -97,7 +97,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 		},
 		"DefaultsToRemoteQueueType": func(t *testing.T, conf *Configuration) {
 			env, err := NewEnvironment(ctx, ename, conf)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			q, err := env.GetRemoteQueue()
 			assert.NoError(t, err)
 			assert.NotNil(t, q)
