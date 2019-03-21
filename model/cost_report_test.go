@@ -115,12 +115,8 @@ func TestModelStructToJSON(t *testing.T) {
 }
 
 func TestCostReport(t *testing.T) {
-	env := cedar.GetEnvironment()
-	ctx, cancel := env.Context()
-	defer cancel()
-
 	cleanup := func() {
-		conf, session, err := cedar.GetSessionWithConfig(env)
+		conf, session, err := cedar.GetSessionWithConfig(cedar.GetEnvironment())
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
 			assert.Contains(t, err.Error(), "not found")
@@ -242,9 +238,12 @@ func TestCostReport(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			cleanup()
-			tctx, cancel := context.WithCancel(ctx)
+
+			env := cedar.GetEnvironment()
+			ctx, cancel := env.Context()
 			defer cancel()
-			test(tctx, t, env, &CostReport{})
+
+			test(ctx, t, env, &CostReport{})
 		})
 	}
 }

@@ -11,12 +11,8 @@ import (
 )
 
 func TestGraphMetadata(t *testing.T) {
-	env := cedar.GetEnvironment()
-	ctx, cancel := env.Context()
-	defer cancel()
-
 	cleanup := func() {
-		conf, session, err := cedar.GetSessionWithConfig(env)
+		conf, session, err := cedar.GetSessionWithConfig(cedar.GetEnvironment())
 		require.NoError(t, err)
 		if err := session.DB(conf.DatabaseName).DropDatabase(); err != nil {
 			assert.Contains(t, err.Error(), "not found")
@@ -90,10 +86,11 @@ func TestGraphMetadata(t *testing.T) {
 		// "": func(ctx context.Context, t *testing.T, env cedar.Environment, graph *GraphMetadata) {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			cleanup()
-			tctx, cancel := context.WithCancel(ctx)
+			env := cedar.GetEnvironment()
+			ctx, cancel := env.Context()
 			defer cancel()
-			test(tctx, t, env, &GraphMetadata{})
+
+			test(ctx, t, env, &GraphMetadata{})
 		})
 	}
 }
