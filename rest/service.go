@@ -8,7 +8,6 @@ import (
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -21,12 +20,12 @@ type Service struct {
 	Prefix      string
 	Environment cedar.Environment
 	Conf        *model.CedarConfig
+	UserManager gimlet.UserManager
 
 	RPCServers []string
 	Depot      depot.Depot
 
 	// internal settings
-	um     gimlet.UserManager
 	umconf gimlet.UserMiddlewareConfiguration
 	queue  amboy.Queue
 	app    *gimlet.APIApp
@@ -62,30 +61,6 @@ func (s *Service) Validate() error {
 		}
 		if s.queue == nil {
 			return errors.New("no queue defined")
-		}
-	}
-
-	if s.Conf.LDAP.URL != "" {
-		s.um, err = ldap.NewUserService(ldap.CreationOpts{
-			URL:           s.Conf.LDAP.URL,
-			Port:          s.Conf.LDAP.Port,
-			UserPath:      s.Conf.LDAP.UserPath,
-			ServicePath:   s.Conf.LDAP.ServicePath,
-			UserGroup:     s.Conf.LDAP.UserGroup,
-			ServiceGroup:  s.Conf.LDAP.ServiceGroup,
-			PutCache:      model.PutLoginCache,
-			GetCache:      model.GetLoginCache,
-			ClearCache:    model.ClearLoginCache,
-			GetUser:       model.GetUser,
-			GetCreateUser: model.GetOrAddUser,
-		})
-		if err != nil {
-			return errors.Wrap(err, "problem setting up ldap user manager")
-		}
-	} else if s.Conf.NaiveAuth.AppAuth {
-		s.um, err = model.NewNaiveUserManager(&s.Conf.NaiveAuth)
-		if err != nil {
-			return errors.Wrap(err, "problem setting up naive user manager")
 		}
 	}
 
@@ -158,9 +133,9 @@ func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
 
-	s.app.AddMiddleware(gimlet.UserMiddleware(s.um, s.umconf))
+	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, s.umconf))
 
-	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.um))
+	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
 }
 
 func (s *Service) addRoutes() {
