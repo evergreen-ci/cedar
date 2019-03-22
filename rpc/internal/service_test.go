@@ -548,6 +548,7 @@ func TestCertificateGeneration(t *testing.T) {
 	}
 
 	user := "evergreen"
+	invalidUser := "invalid"
 	pass := "password"
 	certDB := "certDepot"
 	collName := "depot"
@@ -645,16 +646,16 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, u.Cert, crt)
 	})
+	t.Run("CertificateHandshakeValidUser", func(t *testing.T) {
+		ca, err := restClient.GetRootCertificate(ctx)
+		require.NoError(t, err)
+		crt, err := restClient.GetUserCertificate(ctx, user, pass)
+		require.NoError(t, err)
+		key, err := restClient.GetUserCertificateKey(ctx, user, pass)
+		require.NoError(t, err)
+		grpcClient, err := getTLSGRPCClient(ctx, localAddress, []byte(ca), []byte(crt), []byte(key))
+		require.NoError(t, err)
 
-	ca, err := restClient.GetRootCertificate(ctx)
-	require.NoError(t, err)
-	crt, err := restClient.GetUserCertificate(ctx, user, pass)
-	require.NoError(t, err)
-	key, err := restClient.GetUserCertificateKey(ctx, user, pass)
-	require.NoError(t, err)
-	grpcClient, err := getTLSGRPCClient(ctx, localAddress, []byte(ca), []byte(crt), []byte(key))
-	require.NoError(t, err)
-	t.Run("CertificateHandshake", func(t *testing.T) {
 		data := &ResultData{
 			Id: &ResultID{
 				Project: "testing",
@@ -664,5 +665,24 @@ func TestCertificateGeneration(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
 		assert.NotEmpty(t, resp.Id)
+	})
+	t.Run("CertficiateHandshakeInvalidUser", func(t *testing.T) {
+		ca, err := restClient.GetRootCertificate(ctx)
+		require.NoError(t, err)
+		crt, err := restClient.GetUserCertificate(ctx, invalidUser, pass)
+		require.NoError(t, err)
+		key, err := restClient.GetUserCertificateKey(ctx, invalidUser, pass)
+		require.NoError(t, err)
+		grpcClient, err := getTLSGRPCClient(ctx, localAddress, []byte(ca), []byte(crt), []byte(key))
+		require.NoError(t, err)
+
+		data := &ResultData{
+			Id: &ResultID{
+				Project: "testing",
+			},
+		}
+		resp, err := grpcClient.CreateMetricSeries(ctx, data)
+		require.Error(t, err)
+		assert.Nil(t, resp)
 	})
 }

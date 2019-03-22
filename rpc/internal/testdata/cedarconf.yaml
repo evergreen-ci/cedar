@@ -4,6 +4,10 @@ naive_auth:
     - username: evergreen
       password: password
       email: evergreen@evergreen.com
+    - username: invalid
+      password: password
+      email: invalid@invalid.com
+      invalid: true
 certdepot:
   mgo_depot:
     coll_name: depot
