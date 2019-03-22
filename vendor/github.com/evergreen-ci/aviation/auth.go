@@ -55,7 +55,7 @@ func MakeAuthenticationRequiredUnaryInterceptor(um gimlet.UserManager, conf giml
 	}
 }
 
-func MakeAuthenticationRequiredStreamingInterceptor(um gimlet.UserManager, conf gimlet.UserMiddlewareConfiguration) grpc.StreamServerInterceptor {
+func MakeAuthenticationRequiredStreamInterceptor(um gimlet.UserManager, conf gimlet.UserMiddlewareConfiguration) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		ctx := stream.Context()
 
