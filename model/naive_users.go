@@ -14,6 +14,7 @@ type NaiveUser struct {
 	User         string `bson:"username" json:"username" yaml:"username"`
 	Pass         string `bson:"password" json:"password" yaml:"password"`
 	EmailAddress string `bson:"email" json:"email" yaml:"email"`
+	Invalid      bool   `bson:"invalid", json:"invalid", yaml:"invalid"`
 }
 
 func (u *NaiveUser) DisplayName() string { return u.User }
@@ -72,6 +73,9 @@ func (*NaiveUserManager) IsRedirect() bool                          { return fal
 func (um *NaiveUserManager) GetUserByID(id string) (gimlet.User, error) {
 	for _, user := range um.users {
 		if user.User == id {
+			if user.Invalid {
+				return nil, errors.Errorf("user %s not authorized!", id)
+			}
 			return user, nil
 		}
 	}
