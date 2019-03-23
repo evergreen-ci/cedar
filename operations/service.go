@@ -15,7 +15,6 @@ import (
 	"github.com/evergreen-ci/cedar/rpc"
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/gimlet/ldap"
 	amboyRest "github.com/mongodb/amboy/rest"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
@@ -107,33 +106,8 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem getting application configuration")
 			}
 
-			var um gimlet.UserManager
-			var err error
-			if conf.LDAP.URL != "" {
-				um, err = ldap.NewUserService(ldap.CreationOpts{
-					URL:           conf.LDAP.URL,
-					Port:          conf.LDAP.Port,
-					UserPath:      conf.LDAP.UserPath,
-					ServicePath:   conf.LDAP.ServicePath,
-					UserGroup:     conf.LDAP.UserGroup,
-					ServiceGroup:  conf.LDAP.ServiceGroup,
-					PutCache:      model.PutLoginCache,
-					GetCache:      model.GetLoginCache,
-					ClearCache:    model.ClearLoginCache,
-					GetUser:       model.GetUser,
-					GetCreateUser: model.GetOrAddUser,
-				})
-				if err != nil {
-					return errors.Wrap(err, "problem setting up ldap user manager")
-				}
-			} else if conf.NaiveAuth.AppAuth {
-				um, err = model.NewNaiveUserManager(&conf.NaiveAuth)
-				if err != nil {
-					return errors.Wrap(err, "problem setting up naive user manager")
-				}
-			}
-
 			var d depot.Depot
+			var err error
 			if rpcTLS {
 				if conf.SSLExpireAfter == 0 {
 					conf.SSLExpireAfter = 365 * 24 * time.Hour
@@ -154,7 +128,6 @@ func Service() cli.Command {
 				Environment: env,
 				Conf:        conf,
 				RPCServers:  conf.Service.AppServers,
-				UserManager: um,
 			}
 			if rpcTLS {
 				service.Depot = d
@@ -185,7 +158,7 @@ func Service() cli.Command {
 				Depot:       d,
 				CAName:      conf.CertDepot.CAName,
 				ServiceName: conf.CertDepot.ServiceName,
-				UserManager: um,
+				UserManager: service.UserManager,
 			})
 
 			if err != nil {

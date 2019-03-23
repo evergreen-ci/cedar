@@ -8,6 +8,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -52,6 +53,30 @@ func (s *Service) Validate() error {
 	}
 	if err = s.umconf.Validate(); err != nil {
 		return errors.New("programmer error; invalid user manager configuration")
+	}
+
+	if s.Conf.LDAP.URL != "" {
+		s.UserManager, err = ldap.NewUserService(ldap.CreationOpts{
+			URL:           s.Conf.LDAP.URL,
+			Port:          s.Conf.LDAP.Port,
+			UserPath:      s.Conf.LDAP.UserPath,
+			ServicePath:   s.Conf.LDAP.ServicePath,
+			UserGroup:     s.Conf.LDAP.UserGroup,
+			ServiceGroup:  s.Conf.LDAP.ServiceGroup,
+			PutCache:      model.PutLoginCache,
+			GetCache:      model.GetLoginCache,
+			ClearCache:    model.ClearLoginCache,
+			GetUser:       model.GetUser,
+			GetCreateUser: model.GetOrAddUser,
+		})
+		if err != nil {
+			return errors.Wrap(err, "problem setting up ldap user manager")
+		}
+	} else if s.Conf.NaiveAuth.AppAuth {
+		s.UserManager, err = model.NewNaiveUserManager(&s.Conf.NaiveAuth)
+		if err != nil {
+			return errors.Wrap(err, "problem setting up naive user manager")
+		}
 	}
 
 	if s.queue == nil {
