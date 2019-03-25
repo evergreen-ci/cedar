@@ -1,8 +1,6 @@
 package certdepot
 
 import (
-	"time"
-
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -15,7 +13,6 @@ type mgoCertDepot struct {
 	session        *mgo.Session
 	databaseName   string
 	collectionName string
-	expireAfter    time.Duration
 }
 
 // NewMgoCertDepot creates a new cert depot using the legacy mgo
@@ -45,7 +42,6 @@ func NewMgoCertDepotWithSession(s *mgo.Session, opts MongoDBOptions) (depot.Depo
 		session:        s,
 		databaseName:   opts.DatabaseName,
 		collectionName: opts.CollectionName,
-		expireAfter:    opts.ExpireAfter,
 	}, nil
 }
 

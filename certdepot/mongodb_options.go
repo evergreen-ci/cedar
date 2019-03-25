@@ -28,7 +28,6 @@ type MongoDBOptions struct {
 	CollectionName       string        `bson:"coll_name" json:"coll_name" yaml:"coll_name"`
 	MongoDBDialTimeout   time.Duration `bson:"dial_timeout,omitempty" json:"dial_timeout,omitempty" yaml:"dial_timeout,omitempty"`
 	MongoDBSocketTimeout time.Duration `bson:"socket_timeout,omitempty" json:"socket_timeout,omitempty" yaml:"socket_timeout,omitempty"`
-	ExpireAfter          time.Duration `bson:"expire_after,omitempty" json:"expire_after,omitempty" yaml:"expire_after,omitempty"`
 }
 
 func (opts *MongoDBOptions) IsZero() bool {
@@ -54,9 +53,6 @@ func (opts *MongoDBOptions) validate() error {
 	}
 	if opts.CollectionName == "" {
 		opts.CollectionName = "certs"
-	}
-	if opts.ExpireAfter <= 0 {
-		opts.ExpireAfter = 30 * 24 * time.Hour
 	}
 
 	return nil
