@@ -7,12 +7,11 @@ import (
 )
 
 type User struct {
-	ID            string    `bson:"_id"`
-	Cert          string    `bson:"cert"`
-	PrivateKey    string    `bson:"private_key"`
-	CertReq       string    `bson:"cert_req"`
-	CertRevocList string    `bson:"cert_revoc_list"`
-	TTL           time.Time `bson:"ttl"`
+	ID            string `bson:"_id"`
+	Cert          string `bson:"cert"`
+	PrivateKey    string `bson:"private_key"`
+	CertReq       string `bson:"cert_req"`
+	CertRevocList string `bson:"cert_revoc_list"`
 }
 
 var (
@@ -21,7 +20,6 @@ var (
 	userPrivateKeyKey    = bsonutil.MustHaveTag(User{}, "PrivateKey")
 	userCertReqKey       = bsonutil.MustHaveTag(User{}, "CertReq")
 	userCertRevocListKey = bsonutil.MustHaveTag(User{}, "CertRevocList")
-	userTTLKey           = bsonutil.MustHaveTag(User{}, "TTL")
 )
 
 type MongoDBOptions struct {

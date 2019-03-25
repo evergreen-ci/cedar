@@ -69,9 +69,6 @@ func (m *mongoDepot) Put(tag *depot.Tag, data []byte) error {
 	name, key := getNameAndKey(tag)
 
 	update := bson.M{"$set": bson.M{key: string(data)}}
-	if key == userCertKey {
-		update["$set"].(bson.M)[userTTLKey] = time.Now()
-	}
 
 	res, err := m.client.Database(m.databaseName).Collection(m.collectionName).UpdateOne(m.ctx,
 		bson.D{{Key: "_id", Value: name}},
@@ -121,8 +118,7 @@ func (m *mongoDepot) Check(tag *depot.Tag) bool {
 }
 
 // Get reads the data for the user specified by tag. Returns an error if the
-// user does not exist, if the TTL has expired (for certs), or if the data is
-// empty.
+// user does not exist or if the data is empty.
 func (m *mongoDepot) Get(tag *depot.Tag) ([]byte, error) {
 	name, key := getNameAndKey(tag)
 
@@ -139,18 +135,12 @@ func (m *mongoDepot) Get(tag *depot.Tag) ([]byte, error) {
 	switch key {
 	case userCertKey:
 		data = []byte(u.Cert)
-		if len(data) > 0 && time.Since(u.TTL) > m.expireAfter {
-			return nil, errors.Errorf("certificate for %s has expired", name)
-		}
 	case userPrivateKeyKey:
 		data = []byte(u.PrivateKey)
 	case userCertReqKey:
 		data = []byte(u.CertReq)
 	case userCertRevocListKey:
 		data = []byte(u.CertRevocList)
-		if len(data) > 0 && time.Since(u.TTL) > m.expireAfter {
-			return nil, errors.Errorf("certificate revocation list for %s has expired", name)
-		}
 	}
 
 	if len(data) == 0 {
