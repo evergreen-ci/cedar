@@ -27,13 +27,13 @@ imports:
 - name: github.com/mongodb/anser
   version: 5ca2ab17add1f23f55d16d15dd85374f98f72b05
 - name: github.com/evergreen-ci/gimlet
-  version: 6e3fba1f12650daabbdfe31f21c25ed5c3dd70fb
+  version: 2180fc22266fe2030e026816640a5e395abffd33
 - name: github.com/mongodb/ftdc
   version: 95cd464bcb36fa3fda27889aca47f62de1851125
 - name: github.com/evergreen-ci/pail
   version: 7b2f8e0b2d972ca621cad3777d68276a54da13d0
 - name: github.com/evergreen-ci/aviation
-  version: 0b7fdb85cbd336e56042fcef0531f0e82db38115
+  version: 0b330d8c587ae147150ac9d691bda7fd8a69e415
 
 - name: go.mongodb.org/mongo-driver
   version: 1c3b9b9a41eecdf056560e07b68e6407b8d598c3

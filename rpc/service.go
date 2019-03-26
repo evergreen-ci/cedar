@@ -9,6 +9,7 @@ import (
 	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/rpc/internal"
+	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
@@ -26,6 +27,7 @@ type CertConfig struct {
 	CAName      string
 	ServiceName string
 	Depot       depot.Depot
+	UserManager gimlet.UserManager
 }
 
 func (c *CertConfig) Validate() error {
@@ -91,20 +93,27 @@ func (c *CertConfig) Resolve() (*tls.Config, error) {
 }
 
 func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
-	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))),
-		grpc.StreamInterceptor(aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))),
-	}
+	unaryInterceptors := []grpc.UnaryServerInterceptor{aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))}
+	streamInterceptors := []grpc.StreamServerInterceptor{aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))}
+	opts := []grpc.ServerOption{}
 
 	if err := conf.Validate(); conf.TLS && err != nil {
 		return nil, errors.Wrap(err, "invalid tls config")
-	} else {
+	} else if conf.TLS {
 		tlsConf, err := conf.Resolve()
 		if err != nil {
 			return nil, errors.Wrap(err, "problem generating tls config")
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConf)))
+		unaryInterceptors = append(unaryInterceptors, aviation.MakeCertificateUserValidationUnaryInterceptor(conf.UserManager))
+		streamInterceptors = append(streamInterceptors, aviation.MakeCertificateUserValidationStreamInterceptor(conf.UserManager))
 	}
+
+	opts = append(
+		opts,
+		grpc.UnaryInterceptor(aviation.ChainUnaryServer(unaryInterceptors...)),
+		grpc.StreamInterceptor(aviation.ChainStreamServer(streamInterceptors...)),
+	)
 
 	srv := grpc.NewServer(opts...)
 

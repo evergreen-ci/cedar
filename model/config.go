@@ -84,13 +84,33 @@ var (
 )
 
 type NaiveAuthConfig struct {
-	AppAuth bool         `bson:"app_auth" json:"app_auth" yaml:"app_auth"`
-	Users   []*NaiveUser `bson:"users" json:"users" yaml:"users"`
+	AppAuth bool              `bson:"app_auth" json:"app_auth" yaml:"app_auth"`
+	Users   []NaiveUserConfig `bson:"users" json:"users" yaml:"users"`
 }
 
 var (
 	cedarNaiveAuthConfigAppAuthKey = bsonutil.MustHaveTag(NaiveAuthConfig{}, "AppAuth")
 	cedarNaiveAuthConfigUsersKey   = bsonutil.MustHaveTag(NaiveAuthConfig{}, "Users")
+)
+
+type NaiveUserConfig struct {
+	ID           string   `bson:"_id" json:"id" yaml:"id"`
+	Name         string   `bson:"name" json:"name" yaml:"name"`
+	EmailAddress string   `bson:"email" json:"email" yaml:"email"`
+	Password     string   `bson:"password" json:"password" yaml:"password"`
+	Key          string   `bson:"key" json:"key" yaml:"key"`
+	AccessRoles  []string `bson:"roles" json:"roles" yaml:"roles"`
+	Invalid      bool     `bson:"invalid" json:"invalid" yaml:"invalid"`
+}
+
+var (
+	cedarNaiveUserConfigIDKey           = bsonutil.MustHaveTag(NaiveUserConfig{}, "ID")
+	cedarNaiveUserConfigNameKey         = bsonutil.MustHaveTag(NaiveUserConfig{}, "Name")
+	cedarNaiveUserConfigEmailAddressKey = bsonutil.MustHaveTag(NaiveUserConfig{}, "EmailAddress")
+	cedarNaiveUserConfigPasswordKey     = bsonutil.MustHaveTag(NaiveUserConfig{}, "Password")
+	cedarNaiveUserConfigKeyKey          = bsonutil.MustHaveTag(NaiveUserConfig{}, "Key")
+	cedarNaiveUserConfigAccessRolesKey  = bsonutil.MustHaveTag(NaiveUserConfig{}, "AccessRoles")
+	cedarNaiveUserConfigInvalidKey      = bsonutil.MustHaveTag(NaiveUserConfig{}, "Invalid")
 )
 
 type ServiceConfig struct {

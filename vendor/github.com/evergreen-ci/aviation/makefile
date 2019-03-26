@@ -109,6 +109,19 @@ $(buildDir)/cover.html:$(buildDir)/cover.out
 # end test and coverage artifacts
 
 
+# start vendoring configuration
+#    begin with configuration of dependencies
+vendor-clean:
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/testify/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pkg/errors/
+	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/testify/
+	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/mongodb/grip/
+	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pkg/errors/
+	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
+phony += vendor-clean
+# end vendoring tooling configuration
+
+
 # userfacing targets for basic build and development operations
 compile:
 	$(gobin) build ./
