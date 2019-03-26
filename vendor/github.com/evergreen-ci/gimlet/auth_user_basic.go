@@ -23,6 +23,7 @@ type basicUser struct {
 	Key          string   `bson:"key" json:"key" yaml:"key"`
 	AccessRoles  []string `bson:"roles" json:"roles" yaml:"roles"`
 	Password     string   `bson:"password" json:"password" yaml:"password"`
+	Invalid      bool     `bson:"invalid" json:"invalid" yaml:"invalid"`
 }
 
 func (u *basicUser) Username() string    { return u.ID }
