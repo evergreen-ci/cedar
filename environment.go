@@ -138,44 +138,45 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
 type Environment interface {
-	GetConf() (*Configuration, error)
+	GetConf() *Configuration
 	Context() (context.Context, context.CancelFunc)
 
 	// GetQueue retrieves the application's shared queue, which is cache
 	// for easy access from within units or inside of requests or command
 	// line operations
-	GetRemoteQueue() (amboy.Queue, error)
+	GetRemoteQueue() amboy.Queue
 	SetRemoteQueue(amboy.Queue) error
-	GetRemoteReporter() (reporting.Reporter, error)
-	GetLocalQueue() (amboy.Queue, error)
+	GetRemoteReporter() reporting.Reporter
+	GetLocalQueue() amboy.Queue
 	SetLocalQueue(amboy.Queue) error
 
-	GetSession() (db.Session, error)
-	GetClient() (*mongo.Client, error)
-	GetDB() (*mongo.Database, error)
+	GetSession() db.Session
+	GetClient() *mongo.Client
+	GetDB() *mongo.Database
 
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
 }
 
-type CloserFunc func(context.Context) error
-
 func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 	if env == nil {
 		return nil, nil, errors.New("env is nil")
 	}
-	conf, err := env.GetConf()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "problem getting configuration")
+
+	conf := env.GetConf()
+	if conf == nil {
+		return nil, nil, errors.New("conf is nil")
 	}
 
-	session, err := env.GetSession()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "problem getting db session")
+	session := env.GetSession()
+	if session == nil {
+		return nil, nil, errors.New("session is nil")
 	}
 
-	return conf, session.Clone(), nil
+	return conf, session, nil
 }
+
+type CloserFunc func(context.Context) error
 
 type closerOp struct {
 	name   string
@@ -218,26 +219,18 @@ func (c *envState) SetRemoteQueue(q amboy.Queue) error {
 	return nil
 }
 
-func (c *envState) GetRemoteQueue() (amboy.Queue, error) {
+func (c *envState) GetRemoteQueue() amboy.Queue {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if c.remoteQueue == nil {
-		return nil, errors.New("no remote queue defined in the services cache")
-	}
-
-	return c.remoteQueue, nil
+	return c.remoteQueue
 }
 
-func (c *envState) GetRemoteReporter() (reporting.Reporter, error) {
+func (c *envState) GetRemoteReporter() reporting.Reporter {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if c.remoteReporter == nil {
-		return nil, errors.New("no remote reporter")
-	}
-
-	return c.remoteReporter, nil
+	return c.remoteReporter
 }
 
 func (c *envState) SetLocalQueue(q amboy.Queue) error {
@@ -257,67 +250,59 @@ func (c *envState) SetLocalQueue(q amboy.Queue) error {
 	return nil
 }
 
-func (c *envState) GetLocalQueue() (amboy.Queue, error) {
+func (c *envState) GetLocalQueue() amboy.Queue {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if c.localQueue == nil {
-		return nil, errors.New("no local queue defined in the services cache")
-	}
-
-	return c.localQueue, nil
+	return c.localQueue
 }
 
-func (c *envState) GetSession() (db.Session, error) {
+func (c *envState) GetSession() db.Session {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	if c.client == nil {
-		return nil, errors.New("no valid session defined")
+		return nil
 	}
 
-	return db.WrapClient(c.ctx, c.client), nil
+	return db.WrapClient(c.ctx, c.client)
 }
 
-func (c *envState) GetClient() (*mongo.Client, error) {
+func (c *envState) GetClient() *mongo.Client {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.client
+}
+
+func (c *envState) GetDB() *mongo.Database {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	if c.client == nil {
-		return nil, errors.New("client is not configured")
-	}
-
-	return c.client, nil
-}
-
-func (c *envState) GetDB() (*mongo.Database, error) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if c.client == nil {
-		return nil, errors.New("client is not configured")
+		return nil
 	}
 
 	if c.conf.DatabaseName == "" {
-		return nil, errors.New("database is not defined in the configuration")
+		return nil
 	}
 
-	return c.client.Database(c.conf.DatabaseName), nil
+	return c.client.Database(c.conf.DatabaseName)
 }
 
-func (c *envState) GetConf() (*Configuration, error) {
+func (c *envState) GetConf() *Configuration {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	if c.conf == nil {
-		return nil, errors.New("configuration is not set")
+		return nil
 	}
 
 	// copy the struct
 	out := &Configuration{}
 	*out = *c.conf
 
-	return out, nil
+	return out
 }
 
 func (c *envState) RegisterCloser(name string, op CloserFunc) {

@@ -182,19 +182,16 @@ func Service() cli.Command {
 }
 
 func getAdminService(env cedar.Environment) (*gimlet.APIApp, error) {
-	reporter, err := env.GetRemoteReporter()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
 	app := gimlet.NewApp()
-	if err = app.SetPort(2285); err != nil {
+
+	if err := app.SetPort(2285); err != nil {
 		return nil, errors.WithStack(err)
 	}
 	app.NoVersions = true
 
 	app.AddMiddleware(gimlet.MakeRecoveryLogger())
-	err = app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(reporter).App())
+
+	err := app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(env.GetRemoteReporter()).App())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

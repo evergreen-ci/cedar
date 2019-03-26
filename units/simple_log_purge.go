@@ -99,11 +99,7 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		}
 
 	}
-	conf, err := j.env.GetConf()
-	if err != nil {
-		j.AddError(errors.WithStack(err))
-		return
-	}
+	conf := j.env.GetConf()
 
 	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
 	if err != nil {

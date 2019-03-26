@@ -256,10 +256,7 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactInfo) error {
 	var hasEventData bool
 
-	q, err := srv.env.GetRemoteQueue()
-	if err != nil {
-		return errors.Wrap(err, "problem getting remote queue when adding FTDC rollups job")
-	}
+	q := srv.env.GetRemoteQueue()
 
 	for _, artifact := range artifacts {
 		if artifact.Schema != model.SchemaRawEvents {

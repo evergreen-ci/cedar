@@ -38,12 +38,8 @@ func Worker() cli.Command {
 			}
 
 			env := cedar.GetEnvironment()
-			q, err := env.GetRemoteQueue()
-			if err != nil {
-				return errors.Wrap(err, "problem getting queue")
-			}
-
-			if err = q.Start(ctx); err != nil {
+			q := env.GetRemoteQueue()
+			if err := q.Start(ctx); err != nil {
 				return errors.Wrap(err, "problem starting queue")
 			}
 
