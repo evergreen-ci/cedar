@@ -73,9 +73,24 @@ func (s *Service) Validate() error {
 			return errors.Wrap(err, "problem setting up ldap user manager")
 		}
 	} else if s.Conf.NaiveAuth.AppAuth {
-		s.UserManager, err = model.NewNaiveUserManager(&s.Conf.NaiveAuth)
+		users := []gimlet.User{}
+		for _, user := range s.Conf.NaiveAuth.Users {
+			users = append(
+				users,
+				gimlet.NewBasicUser(
+					user.ID,
+					user.Name,
+					user.EmailAddress,
+					user.Password,
+					user.Key,
+					user.AccessRoles,
+					user.Invalid,
+				),
+			)
+		}
+		s.UserManager, err = gimlet.NewBasicUserManager(users)
 		if err != nil {
-			return errors.Wrap(err, "problem setting up naive user manager")
+			return errors.Wrap(err, "problem setting up basic user manager")
 		}
 	}
 

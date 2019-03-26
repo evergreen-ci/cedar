@@ -84,13 +84,32 @@ var (
 )
 
 type NaiveAuthConfig struct {
-	AppAuth bool         `bson:"app_auth" json:"app_auth" yaml:"app_auth"`
-	Users   []*NaiveUser `bson:"users" json:"users" yaml:"users"`
+	AppAuth bool             `bson:"app_auth" json:"app_auth" yaml:"app_auth"`
+	Users   []MockUserConfig `bson:"users" json:"users" yaml:"users"`
 }
 
 var (
 	cedarNaiveAuthConfigAppAuthKey = bsonutil.MustHaveTag(NaiveAuthConfig{}, "AppAuth")
 	cedarNaiveAuthConfigUsersKey   = bsonutil.MustHaveTag(NaiveAuthConfig{}, "Users")
+)
+
+type MockUserConfig struct {
+	ID           string   `bson:"_id" json:"id" yaml:"id"`
+	Name         string   `bson:"name" json:"name" yaml:"name"`
+	EmailAddress string   `bson:"email" json:"email" yaml:"email"`
+	Password     string   `bson:"password" json:"password" yaml:"password"`
+	Key          string   `bson:"key" json:"key" yaml:"key"`
+	AccessRoles  []string `bson:"roles" json:"roles" yaml:"roles"`
+	Invalid      bool     `bson:"invalid" json:"invalid" yaml:"invalid"`
+}
+
+var (
+	cedarMockUserConfigIDKey           = bsonutil.MustHaveTag(MockUserConfig{}, "ID")
+	cedarMockUserConfigNameKey         = bsonutil.MustHaveTag(MockUserConfig{}, "Name")
+	cedarMockUserConfigEmailAddressKey = bsonutil.MustHaveTag(MockUserConfig{}, "EmailAddress")
+	cedarMockUserConfigPasswordKey     = bsonutil.MustHaveTag(MockUserConfig{}, "Password")
+	cedarMockUserConfigKeyKey          = bsonutil.MustHaveTag(MockUserConfig{}, "Key")
+	cedarMockUserConfigAccessRolesKey  = bsonutil.MustHaveTag(MockUserConfig{}, "AccessRoles")
 )
 
 type ServiceConfig struct {
