@@ -1,9 +1,11 @@
 naive_auth:
   app_auth: true
   users:
-    - username: evergreen
+    - id: evergreen
       password: password
-      email: evergreen@evergreen.com
+    - id: invalid
+      password: password
+      invalid: true
 certdepot:
   mgo_depot:
     coll_name: depot

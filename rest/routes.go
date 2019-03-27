@@ -665,13 +665,13 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	resp := &userAPIKeyResponse{Username: creds.Username}
 
-	token, err := s.um.CreateUserToken(creds.Username, creds.Password)
+	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
 		return
 	}
 
-	user, err := s.um.GetUserByToken(r.Context(), token)
+	user, err := s.UserManager.GetUserByToken(r.Context(), token)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
 		return
@@ -737,13 +737,13 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 		return "", false
 	}
 
-	token, err := s.um.CreateUserToken(creds.Username, creds.Password)
+	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
 		return "", false
 	}
 
-	user, err := s.um.GetUserByToken(r.Context(), token)
+	user, err := s.UserManager.GetUserByToken(r.Context(), token)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
 		return "", false

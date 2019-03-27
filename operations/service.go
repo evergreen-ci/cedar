@@ -158,6 +158,7 @@ func Service() cli.Command {
 				Depot:       d,
 				CAName:      conf.CertDepot.CAName,
 				ServiceName: conf.CertDepot.ServiceName,
+				UserManager: service.UserManager,
 			})
 
 			if err != nil {
