@@ -58,19 +58,17 @@ func (s *ServiceCacheSuite) TestRemoteQueueNotSettableToNil() {
 }
 
 func (s *ServiceCacheSuite) TestQueueGetterRetrievesQueue() {
-	q, err := s.cache.GetLocalQueue()
+	q := s.cache.GetLocalQueue()
 	s.Nil(q)
-	s.Error(err)
 
-	q, err = s.cache.GetRemoteQueue()
+	q = s.cache.GetRemoteQueue()
 	s.Nil(q)
-	s.Error(err)
 
 	q = queue.NewLocalOrdered(2)
+	s.NotNil(q)
 	s.NoError(s.cache.SetLocalQueue(q))
 
-	retrieved, err := s.cache.GetLocalQueue()
-	s.NotNil(q)
-	s.NoError(err)
+	retrieved := s.cache.GetLocalQueue()
+	s.NotNil(retrieved)
 	s.Equal(retrieved, q)
 }

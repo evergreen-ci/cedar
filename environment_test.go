@@ -49,7 +49,7 @@ func TestDatabaseSessionAccessor(t *testing.T) {
 	env.(*envState).client = nil
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "db session")
+	assert.Contains(t, err.Error(), "session is nil")
 
 	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
 	assert.NoError(t, err)
@@ -91,9 +91,8 @@ func TestEnvironmentConfiguration(t *testing.T) {
 
 			env, err := NewEnvironment(ctx, ename, conf)
 			require.NoError(t, err)
-			q, err := env.GetLocalQueue()
-			assert.NoError(t, err)
-			assert.NotNil(t, q)
+			q := env.GetLocalQueue()
+			require.NotNil(t, q)
 			assert.False(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
 		"DefaultsToRemoteQueueType": func(t *testing.T, conf *Configuration) {
@@ -102,9 +101,8 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			}
 			env, err := NewEnvironment(ctx, ename, conf)
 			require.NoError(t, err)
-			q, err := env.GetRemoteQueue()
-			assert.NoError(t, err)
-			assert.NotNil(t, q)
+			q := env.GetRemoteQueue()
+			require.NotNil(t, q)
 			assert.True(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
 		// "": func(t *testing.T, conf *Configuration) {},
