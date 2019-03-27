@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const testDBName = "cedar_test_config"
@@ -45,9 +46,6 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.NoError(t, tearDownEnv(env))
 	}()
 
-	conf, sess, err := cedar.GetSessionWithConfig(env)
-	require.NoError(t, err)
-
 	validArtifact := model.ArtifactInfo{
 		Type:   model.PailLocal,
 		Bucket: "testdata",
@@ -73,11 +71,17 @@ func TestFTDCRollupsJob(t *testing.T) {
 			ArtifactInfo: &validArtifact,
 		}
 		assert.NoError(t, j.validate())
-		j.Run(context.TODO())
+		ctx, cancel := env.Context()
+		defer cancel()
+
+		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.False(t, j.HasErrors())
 		result := &model.PerformanceResult{}
-		assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(validResult.ID).One(result))
+		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
+		require.NoError(t, res.Err())
+		assert.NoError(t, res.Decode(result))
+		// assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(validResult.ID).One(result))
 		require.NotNil(t, result.Rollups)
 		assert.NotEmpty(t, result.Rollups.Stats)
 	})
