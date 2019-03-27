@@ -81,7 +81,6 @@ func TestFTDCRollupsJob(t *testing.T) {
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
 		require.NoError(t, res.Err())
 		assert.NoError(t, res.Decode(result))
-		// assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(validResult.ID).One(result))
 		require.NotNil(t, result.Rollups)
 		assert.NotEmpty(t, result.Rollups.Stats)
 	})
