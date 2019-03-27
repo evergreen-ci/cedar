@@ -265,7 +265,7 @@ func (c *envState) GetSession() db.Session {
 		return nil
 	}
 
-	return db.WrapClient(c.ctx, c.client)
+	return db.WrapClient(c.ctx, c.client).Clone()
 }
 
 func (c *envState) GetClient() *mongo.Client {
