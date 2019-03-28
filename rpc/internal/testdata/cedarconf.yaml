@@ -13,9 +13,9 @@ certdepot:
   service_name: localhost
   ca_opts:
     cn: test-root
-    expires: 3600000000000
+    expires: 24h
   service_opts:
     cn: localhost
     host: localhost
     ca: test-root
-    expires: 3600000000000
+    expires: 24h

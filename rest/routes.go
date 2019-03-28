@@ -836,7 +836,7 @@ func (s *Service) fetchAndValidateCert(usr string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting raw certificate")
 	}
-	if rawCert.NotAfter.Before(time.Now().Add(30 * time.Minute)) {
+	if rawCert.NotAfter.Before(time.Now().Add(time.Hour)) {
 		err = depot.DeleteCertificate(s.Depot, usr)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to delete expired certificate")
