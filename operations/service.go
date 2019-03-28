@@ -113,7 +113,7 @@ func Service() cli.Command {
 					conf.SSLExpireAfter = 365 * 24 * time.Hour
 				}
 				if conf.SSLRenewalBefore == 0 {
-					conf.SSLRenewalBefore = time.Hour
+					conf.SSLRenewalBefore = 4 * time.Hour
 				}
 				d, err = certdepot.BootstrapDepot(conf.CertDepot)
 				if err != nil {
