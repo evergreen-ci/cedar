@@ -37,15 +37,8 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 		ctx, cancel := env.Context()
 		defer cancel()
 
-		client, err := env.GetClient()
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-
-		conf, err := env.GetConf()
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
+		client := env.GetClient()
+		conf := env.GetConf()
 
 		opts := pail.GridFSOptions{
 			Database: conf.DatabaseName,

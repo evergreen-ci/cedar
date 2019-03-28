@@ -55,6 +55,13 @@ func (s *Service) Validate() error {
 		return errors.New("programmer error; invalid user manager configuration")
 	}
 
+	if s.queue == nil {
+		s.queue = s.Environment.GetRemoteQueue()
+		if s.queue == nil {
+			return errors.New("no queue defined")
+		}
+	}
+
 	if s.Conf.LDAP.URL != "" {
 		s.UserManager, err = ldap.NewUserService(ldap.CreationOpts{
 			URL:           s.Conf.LDAP.URL,
@@ -95,10 +102,7 @@ func (s *Service) Validate() error {
 	}
 
 	if s.queue == nil {
-		s.queue, err = s.Environment.GetRemoteQueue()
-		if err != nil {
-			return errors.Wrap(err, "problem getting queue")
-		}
+		s.queue = s.Environment.GetRemoteQueue()
 		if s.queue == nil {
 			return errors.New("no queue defined")
 		}

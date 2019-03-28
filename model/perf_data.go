@@ -108,10 +108,7 @@ func (r *PerfRollups) Add(ctx context.Context, name string, version int, userSub
 		return errors.New("rollups missing id")
 	}
 
-	database, err := r.env.GetDB()
-	if err != nil {
-		return errors.Wrap(err, "error connecting")
-	}
+	database := r.env.GetDB()
 	collection := database.Collection(perfResultCollection)
 
 	rollup := PerfRollupValue{

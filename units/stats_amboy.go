@@ -13,6 +13,7 @@ import (
 	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -74,15 +75,8 @@ func (j *amboyStatsCollector) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
-	localQueue, err := j.env.GetLocalQueue()
-	j.AddError(err)
-
-	remoteQueue, err := j.env.GetRemoteQueue()
-	j.AddError(err)
-
-	if j.HasErrors() {
-		return
-	}
+	localQueue := j.env.GetLocalQueue()
+	remoteQueue := j.env.GetRemoteQueue()
 
 	if !j.ExcludeLocal && (localQueue != nil && localQueue.Started()) {
 		grip.Info(message.Fields{
@@ -104,9 +98,9 @@ func (j *amboyStatsCollector) Run(ctx context.Context) {
 }
 
 func (j *amboyStatsCollector) collectExtendedRemoteStats(ctx context.Context) error {
-	reporter, err := j.env.GetRemoteReporter()
-	if err != nil {
-		return err
+	reporter := j.env.GetRemoteReporter()
+	if reporter == nil {
+		return errors.New("reporter is not defined")
 	}
 
 	r := message.Fields{

@@ -23,14 +23,8 @@ func StartCrons(ctx context.Context, env cedar.Environment) error {
 		DebugLogging:    false,
 	}
 
-	remote, err := env.GetRemoteQueue()
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	local, err := env.GetLocalQueue()
-	if err != nil {
-		return errors.WithStack(err)
-	}
+	remote := env.GetRemoteQueue()
+	local := env.GetLocalQueue()
 
 	grip.Info(message.Fields{
 		"message": "starting background cron jobs",

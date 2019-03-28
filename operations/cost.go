@@ -139,11 +139,7 @@ func collectLoop() cli.Command {
 			}
 
 			env := cedar.GetEnvironment()
-			q, err := env.GetLocalQueue()
-			if err != nil {
-				return errors.Wrap(err, "problem getting queue")
-			}
-
+			q := env.GetLocalQueue()
 			if err := q.Start(ctx); err != nil {
 				return errors.Wrap(err, "problem starting queue")
 			}

@@ -68,12 +68,11 @@ func MakeSaveSimpleLogJob(env cedar.Environment, logID, content string, ts time.
 func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 
-	conf, err := j.env.GetConf()
-	if err != nil {
-		grip.Warning(err)
-		j.AddError(err)
-		return
+	if j.env == nil {
+		j.env = cedar.GetEnvironment()
 	}
+
+	conf := j.env.GetConf()
 
 	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
 	if err != nil {
@@ -140,13 +139,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 		return
 	}
 
-	q, err := j.env.GetLocalQueue()
-	if err != nil {
-		err = errors.Wrap(err, "problem fetching queue")
-		grip.Critical(err)
-		j.AddError(err)
-		return
-	}
+	q := j.env.GetLocalQueue()
 
 	if err := q.Put(parser); err != nil {
 		grip.Error(err)
