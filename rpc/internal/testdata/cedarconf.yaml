@@ -6,16 +6,17 @@ naive_auth:
     - id: invalid
       password: password
       invalid: true
-certdepot:
-  mgo_depot:
-    coll_name: depot
-  ca_name: test-root
-  service_name: localhost
-  ca_opts:
-    cn: test-root
-    expires: 24h
-  service_opts:
-    cn: localhost
-    host: localhost
-    ca: test-root
-    expires: 24h
+ca:
+  certdepot:
+    mgo_depot:
+      coll_name: depot
+    ca_name: test-root
+    service_name: localhost
+    ca_opts:
+      cn: test-root
+      expires: 24h
+    service_opts:
+      cn: localhost
+      host: localhost
+      ca: test-root
+      expires: 24h
