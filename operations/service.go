@@ -112,6 +112,9 @@ func Service() cli.Command {
 				if conf.SSLExpireAfter == 0 {
 					conf.SSLExpireAfter = 365 * 24 * time.Hour
 				}
+				if conf.SSLRenewalBefore == 0 {
+					conf.SSLRenewalBefore = time.Hour
+				}
 				d, err = certdepot.BootstrapDepot(conf.CertDepot)
 				if err != nil {
 					return errors.Wrap(err, "problem setting up the certificate depot")
