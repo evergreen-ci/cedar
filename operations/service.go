@@ -110,7 +110,7 @@ func Service() cli.Command {
 			var err error
 			if rpcTLS {
 				if conf.SSLExpireAfter == 0 {
-					conf.SSLExpireAfter = 365 * 24 * time.Hour
+					conf.SSLExpireAfter = 48 * time.Hour
 				}
 				if conf.SSLRenewalBefore == 0 {
 					conf.SSLRenewalBefore = 4 * time.Hour
