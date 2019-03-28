@@ -122,7 +122,6 @@ func TestDepot(t *testing.T) {
 					session:        session,
 					databaseName:   databaseName,
 					collectionName: collectionName,
-					expireAfter:    30 * 24 * time.Hour,
 				}
 			},
 			check: func(t *testing.T, tag *depot.Tag, data []byte) {
