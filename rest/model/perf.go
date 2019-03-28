@@ -2,7 +2,6 @@ package model
 
 import (
 	dbmodel "github.com/evergreen-ci/cedar/model"
-	"github.com/mongodb/ftdc/events"
 	"github.com/pkg/errors"
 )
 
@@ -11,10 +10,8 @@ type APIPerformanceResult struct {
 	Info        APIPerformanceResultInfo `json:"info"`
 	CreatedAt   APITime                  `json:"create_at"`
 	CompletedAt APITime                  `json:"completed_at"`
-	Version     int                      `json:"version"`
 	Artifacts   []APIArtifactInfo        `json:"artifacts"`
 	Rollups     APIPerfRollups           `json:"rollups"`
-	Total       *APIPerformanceEvent     `json:"total"`
 }
 
 func (apiResult *APIPerformanceResult) Import(i interface{}) error {
@@ -23,14 +20,8 @@ func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 		apiResult.Name = ToAPIString(r.ID)
 		apiResult.CreatedAt = NewTime(r.CreatedAt)
 		apiResult.CompletedAt = NewTime(r.CompletedAt)
-		apiResult.Version = r.Version
 		apiResult.Info = getPerformanceResultInfo(r.Info)
 		apiResult.Rollups = getPerfRollups(r.Rollups)
-
-		if r.Total != nil {
-			total := getPerformanceEvent(r.Total)
-			apiResult.Total = &total
-		}
 
 		var apiArtifacts []APIArtifactInfo
 		for _, artifactInfo := range r.Artifacts {
@@ -58,7 +49,6 @@ type APIPerformanceResultInfo struct {
 	Parent    APIString        `json:"parent"`
 	Tags      []string         `json:"tags"`
 	Arguments map[string]int32 `json:"args"`
-	Schema    int              `json:"schema"`
 }
 
 func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceResultInfo {
@@ -73,7 +63,6 @@ func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceRes
 		Parent:    ToAPIString(r.Parent),
 		Tags:      r.Tags,
 		Arguments: r.Arguments,
-		Schema:    r.Schema,
 	}
 }
 
@@ -98,52 +87,6 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 		Schema:      ToAPIString(string(r.Schema)),
 		Tags:        r.Tags,
 		CreatedAt:   NewTime(r.CreatedAt),
-	}
-}
-
-type APIPerformanceEvent struct {
-	Timestamp APITime                `json:"ts"`
-	Counters  APIPerformanceCounters `json:"counters"`
-	Timers    APIPerformanceTimers   `json:"timers"`
-	Gauges    APIPerformanceGauges   `json:"gauges"`
-}
-
-type APIPerformanceCounters struct {
-	Number     int64 `json:"n"`
-	Operations int64 `json:"ops"`
-	Size       int64 `json:"size"`
-	Errors     int64 `json:"errors"`
-}
-
-type APIPerformanceTimers struct {
-	Duration APIDuration `json:"dur"`
-	Total    APIDuration `json:"total"`
-}
-
-type APIPerformanceGauges struct {
-	State   int64 `json:"state"`
-	Workers int64 `json:"workers"`
-	Failed  bool  `json:"failed"`
-}
-
-func getPerformanceEvent(r *events.Performance) APIPerformanceEvent {
-	return APIPerformanceEvent{
-		Timestamp: NewTime(r.Timestamp),
-		Counters: APIPerformanceCounters{
-			Number:     r.Counters.Number,
-			Operations: r.Counters.Operations,
-			Size:       r.Counters.Size,
-			Errors:     r.Counters.Errors,
-		},
-		Timers: APIPerformanceTimers{
-			Duration: NewAPIDuration(r.Timers.Duration),
-			Total:    NewAPIDuration(r.Timers.Total),
-		},
-		Gauges: APIPerformanceGauges{
-			State:   r.Gauges.State,
-			Workers: r.Gauges.Workers,
-			Failed:  r.Gauges.Failed,
-		},
 	}
 }
 
