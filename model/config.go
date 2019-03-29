@@ -125,10 +125,8 @@ var (
 )
 
 type ServiceConfig struct {
-	AppServers []string `bson:"app_servers" json:"app_servers" yaml:"app_servers"`
-
-	// in the future this will include CA certs, and potentially
-	// other information
+	AppServers  []string `bson:"app_servers" json:"app_servers" yaml:"app_servers"`
+	CORSOrigins []string `bson:"cors_origins" json:"cors_origins" yaml:"cors_origins"`
 }
 
 func (c *CedarConfig) Setup(e cedar.Environment) { c.env = e }

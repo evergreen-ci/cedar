@@ -14,6 +14,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"github.com/rs/cors"
 	"github.com/square/certstrap/depot"
 )
 
@@ -188,6 +189,12 @@ func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, s.umconf))
 
 	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
+
+	if s.Conf.Service.CORSOrigins != nil {
+		s.app.AddMiddleware(cors.New(cors.Options{
+			AllowedOrigins: s.Conf.Service.CORSOrigins,
+		}))
+	}
 }
 
 func (s *Service) addRoutes() {
