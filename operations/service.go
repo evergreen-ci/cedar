@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/certdepot"
@@ -109,10 +108,7 @@ func Service() cli.Command {
 			var d depot.Depot
 			var err error
 			if rpcTLS {
-				if conf.SSLExpireAfter == 0 {
-					conf.SSLExpireAfter = 365 * 24 * time.Hour
-				}
-				d, err = certdepot.BootstrapDepot(conf.CertDepot)
+				d, err = certdepot.BootstrapDepot(conf.CA.CertDepot)
 				if err != nil {
 					return errors.Wrap(err, "problem setting up the certificate depot")
 				}
@@ -156,8 +152,8 @@ func Service() cli.Command {
 			rpcSrv, err := rpc.GetServer(env, rpc.CertConfig{
 				TLS:         rpcTLS,
 				Depot:       d,
-				CAName:      conf.CertDepot.CAName,
-				ServiceName: conf.CertDepot.ServiceName,
+				CAName:      conf.CA.CertDepot.CAName,
+				ServiceName: conf.CA.CertDepot.ServiceName,
 				UserManager: service.UserManager,
 			})
 

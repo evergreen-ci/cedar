@@ -22,6 +22,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
+	"github.com/square/certstrap/depot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	grpc "google.golang.org/grpc"
@@ -646,6 +647,41 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, u.Cert, crt)
 	})
+	t.Run("ExpiredCertificate", func(t *testing.T) {
+		depotOpts := certdepot.MongoDBOptions{
+			DatabaseName:   certDB,
+			CollectionName: collName,
+		}
+		d, err := certdepot.NewMongoDBCertDepot(ctx, depotOpts)
+		require.NoError(t, err)
+		require.NoError(t, depot.DeleteCertificate(d, user))
+		require.NoError(t, depot.DeleteCertificateSigningRequest(d, user))
+		require.NoError(t, d.Delete(depot.PrivKeyTag(user)))
+		opts := certdepot.CertificateOptions{
+			CommonName: user,
+			CA:         "test-root",
+			Host:       user,
+			Expires:    0,
+		}
+		require.NoError(t, opts.CertRequest(d))
+		require.NoError(t, opts.Sign(d))
+
+		oldCrt, err := depot.GetCertificate(d, user)
+		require.NoError(t, err)
+		oldCrtPayload, err := oldCrt.Export()
+		require.NoError(t, err)
+
+		crtPayload, err := restClient.GetUserCertificate(ctx, user, pass)
+		assert.NoError(t, err)
+		assert.NotEqual(t, oldCrtPayload, crtPayload)
+
+		crt, err := depot.GetCertificate(d, user)
+		require.NoError(t, err)
+		rawCrt, err := crt.GetRawCertificate()
+		require.NoError(t, err)
+
+		assert.True(t, rawCrt.NotAfter.After(time.Now()))
+	})
 	t.Run("CertificateHandshakeValidUser", func(t *testing.T) {
 		ca, err := restClient.GetRootCertificate(ctx)
 		require.NoError(t, err)
@@ -685,4 +721,5 @@ func TestCertificateGeneration(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, resp)
 	})
+
 }

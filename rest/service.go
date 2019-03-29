@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
@@ -99,6 +100,13 @@ func (s *Service) Validate() error {
 		if err != nil {
 			return errors.Wrap(err, "problem setting up basic user manager")
 		}
+	}
+
+	if s.Conf.CA.SSLExpireAfter == 0 {
+		s.Conf.CA.SSLExpireAfter = 48 * time.Hour
+	}
+	if s.Conf.CA.SSLRenewalBefore == 0 {
+		s.Conf.CA.SSLRenewalBefore = 4 * time.Hour
 	}
 
 	if s.queue == nil {
