@@ -13,7 +13,6 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
-	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -40,12 +39,6 @@ type PerformanceResult struct {
 	// generated.)
 	Artifacts []ArtifactInfo `bson:"artifacts"`
 
-	// Total represents the sum of all events, and used for tests
-	// that report a single summarized event rather than a
-	// sequence of timeseries points. Is omitted except when
-	// provided by the test.
-	Total *events.Performance `bson:"total,omitempty"`
-
 	Rollups PerfRollups `bson:"rollups"`
 
 	env       cedar.Environment
@@ -59,7 +52,6 @@ var (
 	perfCompletedAtKey = bsonutil.MustHaveTag(PerformanceResult{}, "CompletedAt")
 	perfArtifactsKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
 	perfRollupsKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
-	perfTotalKey       = bsonutil.MustHaveTag(PerformanceResult{}, "Total")
 	perfVersionlKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
