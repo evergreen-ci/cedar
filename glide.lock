@@ -53,6 +53,8 @@ imports:
   version: 7c3cf72121515513fad9d6c9a090db2aa4f47143
 - name: github.com/square/certstrap
   version: a0ea37d7c3834c63c247ab2083acf9d4657b19cd
+- name: github.com/rs/cors
+  version: 76f58f330d76a55c5badc74f6212e8a15e742c77
 
 - name: github.com/tychoish/tarjan
   version: fcd3f3321826209eac4a6f41c0108624d948e499
