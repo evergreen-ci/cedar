@@ -6,7 +6,6 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
-	"github.com/mongodb/ftdc/events"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,7 +49,6 @@ func TestImportHelperFunctions(t *testing.T) {
 					"argument1": 1,
 					"argument2": 2,
 				},
-				Schema: 1,
 			},
 		},
 		{
@@ -74,45 +72,6 @@ func TestImportHelperFunctions(t *testing.T) {
 				Schema:      ToAPIString(string(dbmodel.SchemaCollapsedEvents)),
 				Tags:        []string{"tag0", "tag1", "tag2"},
 				CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
-			},
-		},
-		{
-			name: "GetPerformanceEvent",
-			input: &events.Performance{
-				Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-				Counters: events.PerformanceCounters{
-					Number:     1,
-					Operations: 1,
-					Size:       1,
-					Errors:     1,
-				},
-				Timers: events.PerformanceTimers{
-					Duration: time.Duration(1000),
-					Total:    time.Duration(5000),
-				},
-				Gauges: events.PerformanceGauges{
-					State:   1,
-					Workers: 100,
-					Failed:  true,
-				},
-			},
-			expectedOutput: APIPerformanceEvent{
-				Timestamp: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-				Counters: APIPerformanceCounters{
-					Number:     1,
-					Operations: 1,
-					Size:       1,
-					Errors:     1,
-				},
-				Timers: APIPerformanceTimers{
-					Duration: NewAPIDuration(time.Duration(1000)),
-					Total:    NewAPIDuration(time.Duration(5000)),
-				},
-				Gauges: APIPerformanceGauges{
-					State:   1,
-					Workers: 100,
-					Failed:  true,
-				},
 			},
 		},
 		{
@@ -185,8 +144,6 @@ func TestImportHelperFunctions(t *testing.T) {
 				output = getPerformanceResultInfo(i)
 			case dbmodel.ArtifactInfo:
 				output = getArtifactInfo(i)
-			case *events.Performance:
-				output = getPerformanceEvent(i)
 			case dbmodel.PerfRollupValue:
 				output = getPerfRollupValue(i)
 			case dbmodel.PerfRollups:
@@ -262,22 +219,6 @@ func TestImport(t *testing.T) {
 						CreatedAt:   time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
 				},
-				Total: &events.Performance{
-					Timestamp: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-					Counters: events.PerformanceCounters{
-						Number:     1,
-						Operations: 1,
-						Size:       1,
-						Errors:     1,
-					},
-					Timers: events.PerformanceTimers{
-						Duration: time.Duration(1000),
-						Total:    time.Duration(5000),
-					},
-					Gauges: events.PerformanceGauges{
-						Workers: 100,
-					},
-				},
 				Rollups: dbmodel.PerfRollups{
 					Stats: []dbmodel.PerfRollupValue{
 						dbmodel.PerfRollupValue{
@@ -318,11 +259,9 @@ func TestImport(t *testing.T) {
 						"argument1": 1,
 						"argument2": 2,
 					},
-					Schema: 1,
 				},
 				CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				CompletedAt: NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
-				Version:     1,
 				Artifacts: []APIArtifactInfo{
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
@@ -355,22 +294,6 @@ func TestImport(t *testing.T) {
 						CreatedAt:   NewTime(time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 				},
-				Total: &APIPerformanceEvent{
-					Timestamp: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-					Counters: APIPerformanceCounters{
-						Number:     1,
-						Operations: 1,
-						Size:       1,
-						Errors:     1,
-					},
-					Timers: APIPerformanceTimers{
-						Duration: NewAPIDuration(time.Duration(1000)),
-						Total:    NewAPIDuration(time.Duration(5000)),
-					},
-					Gauges: APIPerformanceGauges{
-						Workers: 100,
-					},
-				},
 				Rollups: APIPerfRollups{
 					Stats: []APIPerfRollupValue{
 						APIPerfRollupValue{
@@ -397,7 +320,7 @@ func TestImport(t *testing.T) {
 		},
 		{
 			name:     "TestImportInvalidType",
-			input:    APIPerformanceEvent{},
+			input:    APIArtifactInfo{},
 			expected: APIPerformanceResult{},
 			err:      true,
 		},
