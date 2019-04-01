@@ -223,13 +223,22 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth in
 
 func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
 	result, ok := mc.CachedPerformanceResults[id]
+	apiResult := dataModel.APIPerformanceResult{}
+	err := apiResult.Import(result)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("corrupt data"),
+		}
+	}
+
 	if !ok {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
 		}
 	}
-	return &result, nil
+	return &apiResult, nil
 }
 
 func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
@@ -240,18 +249,27 @@ func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
 		return 0, nil
 	}
 
-	children := mc.findChildren(id, -1, []string{})
+	children, err := mc.findChildren(id, -1, []string{})
 	for _, child := range children {
 		delete(mc.CachedPerformanceResults, *child.Name)
 	}
-	return len(children) + 1, nil
+	return len(children) + 1, err
 }
 
 func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if *result.Info.TaskID == taskId && mc.checkInterval(*result.Name, interval) && mc.checkTags(*result.Name, tags) {
-			results = append(results, result)
+		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) {
+			apiResult := dataModel.APIPerformanceResult{}
+			err := apiResult.Import(result)
+			if err != nil {
+				return nil, gimlet.ErrorResponse{
+					StatusCode: http.StatusInternalServerError,
+					Message:    fmt.Sprintf("corrupt data"),
+				}
+			}
+
+			results = append(results, apiResult)
 		}
 	}
 
@@ -267,8 +285,16 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval 
 func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if *result.Info.TaskName == taskName && mc.checkInterval(*result.Name, interval) && mc.checkTags(*result.Name, tags) {
-			results = append(results, result)
+		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) && result.Info.Mainline {
+			apiResult := dataModel.APIPerformanceResult{}
+			err := apiResult.Import(result)
+			if err != nil {
+				return nil, gimlet.ErrorResponse{
+					StatusCode: http.StatusInternalServerError,
+					Message:    fmt.Sprintf("corrupt data"),
+				}
+			}
+			results = append(results, apiResult)
 		}
 	}
 
@@ -285,8 +311,17 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, inter
 func (mc *MockConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if *result.Info.Version == version && mc.checkInterval(*result.Name, interval) && mc.checkTags(*result.Name, tags) {
-			results = append(results, result)
+		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) && result.Info.Mainline {
+			apiResult := dataModel.APIPerformanceResult{}
+			err := apiResult.Import(result)
+			if err != nil {
+				return nil, gimlet.ErrorResponse{
+					StatusCode: http.StatusInternalServerError,
+					Message:    fmt.Sprintf("corrupt data"),
+				}
+			}
+
+			results = append(results, apiResult)
 		}
 	}
 
@@ -308,7 +343,8 @@ func (mc *MockConnector) FindPerformanceResultWithChildren(id string, maxDepth i
 	}
 	results = append(results, *result)
 
-	return append(results, mc.findChildren(id, maxDepth, tags)...), nil
+	children, err := mc.findChildren(id, maxDepth, tags)
+	return append(results, children...), err
 }
 
 func (mc *MockConnector) checkInterval(id string, interval util.TimeRange) bool {
@@ -335,9 +371,9 @@ func (mc *MockConnector) checkTags(id string, tags []string) bool {
 	return true
 }
 
-func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) []dataModel.APIPerformanceResult {
+func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([]dataModel.APIPerformanceResult, error) {
 	if maxDepth == 0 {
-		return []dataModel.APIPerformanceResult{}
+		return []dataModel.APIPerformanceResult{}, nil
 	}
 
 	results := []dataModel.APIPerformanceResult{}
@@ -356,9 +392,18 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) []
 			seen[child] = seen[next] + 1
 			result, ok := mc.CachedPerformanceResults[child]
 			if ok && mc.checkTags(child, tags) {
-				results = append(results, result)
+				apiResult := dataModel.APIPerformanceResult{}
+				err := apiResult.Import(result)
+				if err != nil {
+					return nil, gimlet.ErrorResponse{
+						StatusCode: http.StatusInternalServerError,
+						Message:    fmt.Sprintf("corrupt data"),
+					}
+				}
+
+				results = append(results, apiResult)
 			}
 		}
 	}
-	return results
+	return results, nil
 }
