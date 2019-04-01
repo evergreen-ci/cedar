@@ -7,84 +7,91 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
-	"github.com/evergreen-ci/cedar/rest/model"
+	datamodel "github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/stretchr/testify/suite"
 )
 
 type PerfHandlerSuite struct {
-	sc data.MockConnector
-	rh map[string]gimlet.RouteHandler
+	sc         data.MockConnector
+	rh         map[string]gimlet.RouteHandler
+	apiResults map[string]datamodel.APIPerformanceResult
 
 	suite.Suite
 }
 
 func (s *PerfHandlerSuite) setup() {
 	s.sc = data.MockConnector{
-		CachedPerformanceResults: map[string]model.APIPerformanceResult{
-			"abc": model.APIPerformanceResult{
-				Name: model.ToAPIString("abc"),
-				Info: model.APIPerformanceResultInfo{
-					Version:  model.ToAPIString("1"),
-					TaskID:   model.ToAPIString("123"),
-					TaskName: model.ToAPIString("taskname0"),
+		CachedPerformanceResults: map[string]model.PerformanceResult{
+			"abc": model.PerformanceResult{
+				ID: "abc",
+				Info: model.PerformanceResultInfo{
+					Version:  "1",
+					TaskID:   "123",
+					TaskName: "taskname0",
 					Tags:     []string{"a", "b"},
+					Mainline: true,
 				},
 			},
-			"def": model.APIPerformanceResult{
-				Name:        model.ToAPIString("def"),
-				CreatedAt:   model.NewTime(time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC)),
-				CompletedAt: model.NewTime(time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC)),
-				Info: model.APIPerformanceResultInfo{
-					Version:  model.ToAPIString("1"),
-					TaskID:   model.ToAPIString("123"),
-					TaskName: model.ToAPIString("taskname0"),
+			"def": model.PerformanceResult{
+				ID:          "def",
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC),
+				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
+				Info: model.PerformanceResultInfo{
+					Version:  "1",
+					TaskID:   "123",
+					TaskName: ("taskname0"),
 					Tags:     []string{"a"},
+					Mainline: true,
 				},
 			},
-			"ghi": model.APIPerformanceResult{
-				Name:        model.ToAPIString("ghi"),
-				CreatedAt:   model.NewTime(time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC)),
-				CompletedAt: model.NewTime(time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC)),
-				Info: model.APIPerformanceResultInfo{
-					Version:  model.ToAPIString("1"),
-					TaskID:   model.ToAPIString("123"),
-					TaskName: model.ToAPIString("taskname0"),
+			"ghi": model.PerformanceResult{
+				ID:          "ghi",
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC),
+				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
+				Info: model.PerformanceResultInfo{
+					Version:  "1",
+					TaskID:   "123",
+					TaskName: "taskname0",
 					Tags:     []string{"b"},
+					Mainline: true,
 				},
 			},
-
-			"jkl": model.APIPerformanceResult{
-				Name:        model.ToAPIString("jkl"),
-				CreatedAt:   model.NewTime(time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC)),
-				CompletedAt: model.NewTime(time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC)),
-				Info: model.APIPerformanceResultInfo{
-					Version:  model.ToAPIString("1"),
-					TaskID:   model.ToAPIString("123"),
-					TaskName: model.ToAPIString("taskname0"),
+			"jkl": model.PerformanceResult{
+				ID:          "jkl",
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC),
+				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
+				Info: model.PerformanceResultInfo{
+					Version:  "1",
+					TaskID:   "123",
+					TaskName: "taskname0",
 					Tags:     []string{"a", "b", "c"},
+					Mainline: true,
 				},
 			},
-			"lmn": model.APIPerformanceResult{
-				Name:        model.ToAPIString("lmn"),
-				CreatedAt:   model.NewTime(time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC)),
-				CompletedAt: model.NewTime(time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC)),
-				Info: model.APIPerformanceResultInfo{
-					Version:  model.ToAPIString("2"),
-					TaskID:   model.ToAPIString("456"),
-					TaskName: model.ToAPIString("taskname1"),
+			"lmn": model.PerformanceResult{
+				ID:          "lmn",
+				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC),
+				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
+				Info: model.PerformanceResultInfo{
+					Version:  "2",
+					TaskID:   "456",
+					TaskName: "taskname1",
+					Mainline: true,
 				},
 			},
-			"delete": model.APIPerformanceResult{
-				Name:        model.ToAPIString("delete"),
-				CreatedAt:   model.NewTime(time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC)),
-				CompletedAt: model.NewTime(time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC)),
-				Info: model.APIPerformanceResultInfo{
-					Version:  model.ToAPIString("1"),
-					TaskID:   model.ToAPIString("456"),
-					TaskName: model.ToAPIString("taskname1"),
+			"delete": model.PerformanceResult{
+				ID:          "delete",
+				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC),
+				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
+				Info: model.PerformanceResultInfo{
+					Version:  "1",
+					TaskID:   "456",
+					TaskName: "taskname1",
+					Mainline: true,
 				},
 			},
 		},
@@ -101,6 +108,12 @@ func (s *PerfHandlerSuite) setup() {
 		"version":   makeGetPerfByVersion(&s.sc),
 		"children":  makeGetPerfChildren(&s.sc),
 	}
+	s.apiResults = map[string]datamodel.APIPerformanceResult{}
+	for key, val := range s.sc.CachedPerformanceResults {
+		apiResult := datamodel.APIPerformanceResult{}
+		s.Require().NoError(apiResult.Import(val))
+		s.apiResults[key] = apiResult
+	}
 }
 
 func TestPerfHandlerSuite(t *testing.T) {
@@ -112,7 +125,7 @@ func TestPerfHandlerSuite(t *testing.T) {
 func (s *PerfHandlerSuite) TestPerfGetByIdHandlerFound() {
 	rh := s.rh["id"]
 	rh.(*perfGetByIdHandler).id = "abc"
-	expected := s.sc.CachedPerformanceResults["abc"]
+	expected := s.apiResults["abc"]
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -156,7 +169,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByTaskIdHandler).tags = []string{"a", "b"}
-	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["jkl"]}
+	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -186,7 +199,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByTaskNameHandler).tags = []string{"a", "b"}
-	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["jkl"]}
+	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -216,7 +229,7 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByVersionHandler).tags = []string{"a", "b"}
-	expected := []model.APIPerformanceResult{s.sc.CachedPerformanceResults["jkl"]}
+	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -243,9 +256,9 @@ func (s *PerfHandlerSuite) TestPerfGetChildrenHandlerFound() {
 	rh.(*perfGetChildrenHandler).id = "abc"
 	rh.(*perfGetChildrenHandler).maxDepth = 1
 	rh.(*perfGetChildrenHandler).tags = []string{"a"}
-	expected := []model.APIPerformanceResult{
-		s.sc.CachedPerformanceResults["abc"],
-		s.sc.CachedPerformanceResults["def"],
+	expected := []datamodel.APIPerformanceResult{
+		s.apiResults["abc"],
+		s.apiResults["def"],
 	}
 
 	resp := rh.Run(context.TODO())
