@@ -45,7 +45,7 @@ type testResults []struct {
 }
 
 func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) error {
-	s.idMap = map[string]dataModel.APIPerformanceResult{}
+	s.idMap = map[string]model.PerformanceResult{}
 	results := testResults{
 		{
 			info: &model.PerformanceResultInfo{
@@ -94,6 +94,16 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		{
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
+				Version:  "0",
+				TaskName: "task0",
+				TaskID:   "task0patch",
+				Mainline: false,
+			},
+			parent: -1,
+		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "test",
 				Version:  "1",
 				TaskName: "task0",
 				TaskID:   "task2",
@@ -112,7 +122,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			info: &model.PerformanceResultInfo{
 				Project: "removeThisOne",
 			},
-			parent: 5,
+			parent: 6,
 		},
 	}
 
@@ -127,10 +137,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		apiResult := dataModel.APIPerformanceResult{}
-		err = apiResult.Import(*performanceResult)
-		s.Require().NoError(err)
-		s.idMap[performanceResult.ID] = apiResult
+		s.idMap[performanceResult.ID] = *performanceResult
 	}
 	s.results = results
 	return nil
@@ -170,7 +177,7 @@ type PerfConnectorSuite struct {
 	sc       Connector
 	env      cedar.Environment
 	results  testResults
-	idMap    map[string]dataModel.APIPerformanceResult
+	idMap    map[string]model.PerformanceResult
 	childMap map[string][]string
 
 	suite.Suite
@@ -226,7 +233,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
 
 func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
 	// check that exists
-	expectedIDs := []string{s.results[5].info.ID(), s.results[6].info.ID()}
+	expectedIDs := []string{s.results[6].info.ID(), s.results[7].info.ID()}
 	for _, id := range expectedIDs {
 		actualResult, err := s.sc.FindPerformanceResultById(id)
 		s.Require().NoError(err)
@@ -317,7 +324,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	expectedTaskName := s.results[0].info.TaskName
 	expectedCount := 0
 	for _, result := range s.results {
-		if result.info.TaskName == expectedTaskName {
+		if result.info.TaskName == expectedTaskName && result.info.Mainline {
 			expectedCount++
 		}
 	}
@@ -374,7 +381,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
 	for _, result := range s.results {
-		if result.info.Version == expectedVersion {
+		if result.info.Version == expectedVersion && result.info.Mainline {
 			expectedCount++
 		}
 	}
