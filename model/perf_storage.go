@@ -21,18 +21,26 @@ const (
 )
 
 func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
+	var b pail.Bucket
+	var err error
+
 	switch t {
 	case PailS3:
-		opts := pail.S3Options{
-			Name:   bucket,
-			Region: defaultS3Region,
+		conf := &CedarConfig{}
+		conf.Setup(env)
+		if err := conf.Find(); err != nil {
+			return nil, errors.Wrap(err, "problem getting application configuration")
 		}
-		b, err := pail.NewS3Bucket(opts)
+
+		opts := pail.S3Options{
+			Name:        bucket,
+			Region:      defaultS3Region,
+			Credentials: pail.CreateAWSCredentials(conf.BucketCreds.AWSKey, conf.BucketCreds.AWSPassword),
+		}
+		b, err = pail.NewS3Bucket(opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-
-		return b, nil
 	case PailLegacyGridFS, PailGridFS:
 		ctx, cancel := env.Context()
 		defer cancel()
@@ -44,25 +52,26 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 			Database: conf.DatabaseName,
 			Prefix:   bucket,
 		}
-		b, err := pail.NewGridFSBucketWithClient(ctx, client, opts)
+		b, err = pail.NewGridFSBucketWithClient(ctx, client, opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-
-		return b, nil
 	case PailLocal:
 		opts := pail.LocalOptions{
 			Path: bucket,
 		}
-		b, err := pail.NewLocalBucket(opts)
+		b, err = pail.NewLocalBucket(opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-
-		return b, nil
 	default:
 		return nil, errors.New("not implemented")
 	}
+
+	if err = b.Check(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return b, nil
 }
 
 type FileDataFormat string
