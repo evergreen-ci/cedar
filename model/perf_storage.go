@@ -23,6 +23,8 @@ const (
 func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
 	var b pail.Bucket
 	var err error
+	ctx, cancel := env.Context()
+	defer cancel()
 
 	switch t {
 	case PailS3:
@@ -35,16 +37,13 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 		opts := pail.S3Options{
 			Name:        bucket,
 			Region:      defaultS3Region,
-			Credentials: pail.CreateAWSCredentials(conf.BucketCreds.AWSKey, conf.BucketCreds.AWSPassword),
+			Credentials: pail.CreateAWSCredentials(conf.BucketCreds.AWSKey, conf.BucketCreds.AWSPassword, ""),
 		}
 		b, err = pail.NewS3Bucket(opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
 	case PailLegacyGridFS, PailGridFS:
-		ctx, cancel := env.Context()
-		defer cancel()
-
 		client := env.GetClient()
 		conf := env.GetConf()
 
@@ -68,7 +67,7 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 		return nil, errors.New("not implemented")
 	}
 
-	if err = b.Check(); err != nil {
+	if err = b.Check(ctx); err != nil {
 		return nil, errors.WithStack(err)
 	}
 	return b, nil
