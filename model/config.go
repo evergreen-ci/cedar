@@ -126,8 +126,8 @@ var (
 )
 
 type BucketCredsConfig struct {
-	AWSKey      string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
-	AWSPassword string `bson:"aws_pass" json:"aws_pass" yaml:"aws_pass"`
+	AWSKey    string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
+	AWSSecret string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
 }
 
 var (
