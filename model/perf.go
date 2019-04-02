@@ -315,13 +315,14 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 	}
 	if options.Info.TaskID != "" {
 		search[bsonutil.GetDottedKeyName("info", "task_id")] = options.Info.TaskID
-		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
 		delete(search, "created_at")
 		delete(search, "completed_at")
 	} else {
 		search[bsonutil.GetDottedKeyName("info", "mainline")] = true
 	}
-
+	if options.Info.Execution != 0 {
+		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
+	}
 	if options.Info.TestName != "" {
 		search[bsonutil.GetDottedKeyName("info", "test_name")] = options.Info.TestName
 	}
