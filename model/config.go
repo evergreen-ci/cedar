@@ -18,14 +18,15 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID        string                    `bson:"_id" json:"id" yaml:"id"`
-	Splunk    send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack     SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	NaiveAuth NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
-	CA        CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
-	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
-	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ID          string                    `bson:"_id" json:"id" yaml:"id"`
+	Splunk      send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack       SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP        LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	NaiveAuth   NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
+	CA          CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
+	BucketCreds BucketCredsConfig         `bson:"bucket_creds" json:"bucket_creds" yaml:"bucket_creds"`
+	Flags       OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
+	Service     ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 
 	populated bool
 	env       cedar.Environment
@@ -122,6 +123,16 @@ var (
 	cedarCAConfigCertDepotKey        = bsonutil.MustHaveTag(CAConfig{}, "CertDepot")
 	cedarCAConfigSSLExpireAfterKey   = bsonutil.MustHaveTag(CAConfig{}, "SSLExpireAfter")
 	cedarCAConfigSSLRenewalBeforeKey = bsonutil.MustHaveTag(CAConfig{}, "SSLRenewalBefore")
+)
+
+type BucketCredsConfig struct {
+	AWSKey    string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
+	AWSSecret string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
+}
+
+var (
+	cedarBucketCredsConfigAWSKeyKey      = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSKey")
+	cedarBucketCredsConfigAWSKeyPassword = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSSecret")
 )
 
 type ServiceConfig struct {
