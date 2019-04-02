@@ -132,7 +132,7 @@ type BucketCredsConfig struct {
 
 var (
 	cedarBucketCredsConfigAWSKeyKey      = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSKey")
-	cedarBucketCredsConfigAWSKeyPassword = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSPassword")
+	cedarBucketCredsConfigAWSKeyPassword = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSSecret")
 )
 
 type ServiceConfig struct {
