@@ -30,7 +30,7 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 	case PailS3:
 		conf := &CedarConfig{}
 		conf.Setup(env)
-		if err := conf.Find(); err != nil {
+		if err = conf.Find(); err != nil {
 			return nil, errors.Wrap(err, "problem getting application configuration")
 		}
 

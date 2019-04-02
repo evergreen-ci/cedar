@@ -3,7 +3,6 @@ package data
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -349,8 +348,8 @@ func (mc *MockConnector) FindPerformanceResultWithChildren(id string, maxDepth i
 
 func (mc *MockConnector) checkInterval(id string, interval util.TimeRange) bool {
 	result := mc.CachedPerformanceResults[id]
-	createdAt := time.Time(result.CreatedAt)
-	completedAt := time.Time(result.CompletedAt)
+	createdAt := result.CreatedAt
+	completedAt := result.CompletedAt
 	return (interval.StartAt.Before(createdAt) || interval.StartAt.Equal(createdAt)) &&
 		(interval.EndAt.After(completedAt) || interval.EndAt.Equal(completedAt))
 }

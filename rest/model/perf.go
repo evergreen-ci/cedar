@@ -8,7 +8,7 @@ import (
 type APIPerformanceResult struct {
 	Name        APIString                `json:"name"`
 	Info        APIPerformanceResultInfo `json:"info"`
-	CreatedAt   APITime                  `json:"create_at"`
+	CreatedAt   APITime                  `json:"created_at"`
 	CompletedAt APITime                  `json:"completed_at"`
 	Artifacts   []APIArtifactInfo        `json:"artifacts"`
 	Rollups     APIPerfRollups           `json:"rollups"`
@@ -72,9 +72,9 @@ type APIArtifactInfo struct {
 	Path        APIString `json:"path"`
 	Format      APIString `json:"format"`
 	Compression APIString `json:"compression"`
-	Schema      APIString `bson:"schema"`
+	Schema      APIString `json:"schema"`
 	Tags        []string  `json:"tags"`
-	CreatedAt   APITime   `bson:"created_at"`
+	CreatedAt   APITime   `json:"created_at"`
 }
 
 func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
