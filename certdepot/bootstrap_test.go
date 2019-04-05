@@ -62,6 +62,17 @@ func TestBootstrapDepotConfigValidate(t *testing.T) {
 			fail: true,
 		},
 		{
+			name: "UnsetDepotWithNonNilMgoDepot",
+			conf: BootstrapDepotConfig{
+				MgoDepot:    &MongoDBOptions{},
+				CAName:      "root",
+				ServiceName: "localhost",
+				CACert:      "ca cert",
+				CAKey:       "ca key",
+			},
+			fail: true,
+		},
+		{
 			name: "MoreThanOneDepotSet",
 			conf: BootstrapDepotConfig{
 				FileDepot: "depot",
