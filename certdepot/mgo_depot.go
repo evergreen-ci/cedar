@@ -15,8 +15,7 @@ type mgoCertDepot struct {
 	collectionName string
 }
 
-// NewMgoCertDepot creates a new cert depot using the legacy mgo
-// driver.
+// NewMgoCertDepot creates a new cert depot using the legacy mgo driver.
 func NewMgoCertDepot(opts *MongoDBOptions) (depot.Depot, error) {
 	s, err := mgo.DialWithTimeout(opts.MongoDBURI, opts.MongoDBDialTimeout)
 	if err != nil {
@@ -27,8 +26,8 @@ func NewMgoCertDepot(opts *MongoDBOptions) (depot.Depot, error) {
 	return NewMgoCertDepotWithSession(s, opts)
 }
 
-// NewMgoCertDepotWithSession creates a certificate depot using the
-// provided legacy mgo drivers session.
+// NewMgoCertDepotWithSession creates a certificate depot using the provided
+// legacy mgo drivers session.
 func NewMgoCertDepotWithSession(s *mgo.Session, opts *MongoDBOptions) (depot.Depot, error) {
 	if s == nil {
 		return nil, errors.New("must specify a non-nil session")

@@ -11,6 +11,7 @@ import (
 	"github.com/square/certstrap/pkix"
 )
 
+// Options to use for Init, CertRequest, and Sign.
 type CertificateOptions struct {
 	//
 	// Options specific to Init and CertRequest.
