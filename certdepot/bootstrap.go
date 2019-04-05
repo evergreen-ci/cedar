@@ -1,13 +1,15 @@
 package certdepot
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"github.com/square/certstrap/depot"
 )
 
 type BootstrapDepotConfig struct {
 	FileDepot   string              `bson:"file_depot,omitempty" json:"file_depot,omitempty" yaml:"file_depot,omitempty"`
-	MgoDepot    *MongoDBOptions     `bson:"mgo_depot,omitempty" json:"mgo_depot,omitempty" yaml:"mgo_depot,omitempty"`
+	MongoDepot  *MongoDBOptions     `bson:"mgo_depot,omitempty" json:"mgo_depot,omitempty" yaml:"mgo_depot,omitempty"`
 	CACert      string              `bson:"ca_cert" json:"ca_cert" yaml:"ca_cert"`
 	CAKey       string              `bson:"ca_key" json:"ca_key" yaml:"ca_key"`
 	CAName      string              `bson:"ca_name" json:"ca_name" yaml:"ca_name"`
@@ -17,11 +19,11 @@ type BootstrapDepotConfig struct {
 }
 
 func (c *BootstrapDepotConfig) Validate() error {
-	if c.FileDepot != "" && c.MgoDepot != nil && !c.MgoDepot.IsZero() {
+	if c.FileDepot != "" && c.MongoDepot != nil && !c.MongoDepot.IsZero() {
 		return errors.New("cannot specify more than one depot configuration")
 	}
 
-	if c.FileDepot == "" && (c.MgoDepot == nil || c.MgoDepot.IsZero()) {
+	if c.FileDepot == "" && (c.MongoDepot == nil || c.MongoDepot.IsZero()) {
 		return errors.New("must specify one depot configuration")
 	}
 
@@ -44,12 +46,12 @@ func (c *BootstrapDepotConfig) Validate() error {
 	return nil
 }
 
-func BootstrapDepot(conf BootstrapDepotConfig) (depot.Depot, error) {
+func BootstrapDepot(ctx context.Context, conf BootstrapDepotConfig) (depot.Depot, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid configuration")
 	}
 
-	d, err := createDepot(conf)
+	d, err := createDepot(ctx, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem creating depot")
 	}
@@ -72,7 +74,7 @@ func BootstrapDepot(conf BootstrapDepotConfig) (depot.Depot, error) {
 	return d, nil
 }
 
-func createDepot(conf BootstrapDepotConfig) (depot.Depot, error) {
+func createDepot(ctx context.Context, conf BootstrapDepotConfig) (depot.Depot, error) {
 	var d depot.Depot
 	var err error
 
@@ -81,8 +83,8 @@ func createDepot(conf BootstrapDepotConfig) (depot.Depot, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "problem initializing the file deopt")
 		}
-	} else if !conf.MgoDepot.IsZero() {
-		d, err = NewMgoCertDepot(conf.MgoDepot)
+	} else if !conf.MongoDepot.IsZero() {
+		d, err = NewMongoDBCertDepot(ctx, conf.MongoDepot)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem initializing the mgo depot")
 		}
