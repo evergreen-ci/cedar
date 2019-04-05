@@ -64,7 +64,7 @@ func (c *BootstrapDepotConfig) Validate() error {
 	}
 
 	if c.ServiceOpts != nil && c.ServiceOpts.CA != c.CAName {
-		return errors.New("CAName and ServiceNames.CA must be the same!")
+		return errors.New("CAName and ServiceOpts.CA must be the same!")
 	}
 
 	return nil

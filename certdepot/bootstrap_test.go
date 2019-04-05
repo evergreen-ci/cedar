@@ -139,7 +139,7 @@ func TestBootstrapDepotConfigValidate(t *testing.T) {
 			fail: true,
 		},
 		{
-			name: "MismatchingCAName",
+			name: "MismatchingCACommonName",
 			conf: BootstrapDepotConfig{
 				FileDepot:   "depot",
 				CAName:      "root",
@@ -150,13 +150,27 @@ func TestBootstrapDepotConfigValidate(t *testing.T) {
 			fail: true,
 		},
 		{
-			name: "MismatchingServiceName",
+			name: "MismatchingServiceCommonName",
 			conf: BootstrapDepotConfig{
 				FileDepot:   "depot",
 				CAName:      "root",
 				ServiceName: "localhost",
 				CAOpts:      &CertificateOptions{CommonName: "root"},
 				ServiceOpts: &CertificateOptions{CommonName: "different"},
+			},
+			fail: true,
+		},
+		{
+			name: "MismatchingServiceCA",
+			conf: BootstrapDepotConfig{
+				FileDepot:   "depot",
+				CAName:      "root",
+				ServiceName: "localhost",
+				CAOpts:      &CertificateOptions{CommonName: "root"},
+				ServiceOpts: &CertificateOptions{
+					CommonName: "localhost",
+					CA:         "different",
+				},
 			},
 			fail: true,
 		},
