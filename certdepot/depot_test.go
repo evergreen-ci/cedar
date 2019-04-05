@@ -35,6 +35,7 @@ func getTagPath(tag *depot.Tag) string {
 
 func TestDepot(t *testing.T) {
 	var tempDir string
+	var data []byte
 
 	session, err := mgo.DialWithTimeout("mongodb://localhost:27017", 2*time.Second)
 	require.NoError(t, err)
@@ -240,7 +241,7 @@ func TestDepot(t *testing.T) {
 						}
 						require.NoError(t, session.DB(databaseName).C(collectionName).Insert(u))
 
-						data, err := d.Get(depot.CrtTag(name))
+						data, err = d.Get(depot.CrtTag(name))
 						assert.Error(t, err)
 						assert.Nil(t, data)
 
@@ -388,7 +389,7 @@ func TestDepot(t *testing.T) {
 						_, err = client.Database(databaseName).Collection(collectionName).InsertOne(ctx, u)
 						require.NoError(t, err)
 
-						data, err := d.Get(depot.CrtTag(name))
+						data, err = d.Get(depot.CrtTag(name))
 						assert.Error(t, err)
 						assert.Nil(t, data)
 
