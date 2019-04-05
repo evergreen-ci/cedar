@@ -295,7 +295,7 @@ func uploadCerts() cli.Command {
 				return errors.New("certificate of that name does not exist")
 			}
 
-			opts := certdepot.MongoDBOptions{
+			opts := &certdepot.MongoDBOptions{
 				MongoDBURI:     mongodbURI,
 				DatabaseName:   dbName,
 				CollectionName: collName,
