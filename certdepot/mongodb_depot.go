@@ -19,7 +19,7 @@ type mongoDepot struct {
 	collectionName string
 }
 
-func NewMongoDBCertDepot(ctx context.Context, opts MongoDBOptions) (depot.Depot, error) {
+func NewMongoDBCertDepot(ctx context.Context, opts *MongoDBOptions) (depot.Depot, error) {
 	if err := opts.validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid options")
 	}
@@ -39,7 +39,7 @@ func NewMongoDBCertDepot(ctx context.Context, opts MongoDBOptions) (depot.Depot,
 	}, nil
 }
 
-func NewMongoDBCertDepotWithClient(ctx context.Context, client *mongo.Client, opts MongoDBOptions) (depot.Depot, error) {
+func NewMongoDBCertDepotWithClient(ctx context.Context, client *mongo.Client, opts *MongoDBOptions) (depot.Depot, error) {
 	if client == nil {
 		return nil, errors.New("must specify a non-nil client")
 	}

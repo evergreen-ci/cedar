@@ -82,7 +82,7 @@ func createDepot(conf BootstrapDepotConfig) (depot.Depot, error) {
 			return nil, errors.Wrap(err, "problem initializing the file deopt")
 		}
 	} else if !conf.MgoDepot.IsZero() {
-		d, err = NewMgoCertDepot(*conf.MgoDepot)
+		d, err = NewMgoCertDepot(conf.MgoDepot)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem initializing the mgo depot")
 		}

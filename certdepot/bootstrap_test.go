@@ -220,7 +220,7 @@ func TestBootstrapDepot(t *testing.T) {
 					CollectionName: depotName,
 				}
 
-				d, err := NewMgoCertDepot(*conf.MgoDepot)
+				d, err := NewMgoCertDepot(conf.MgoDepot)
 				require.NoError(t, err)
 				return d
 			},
