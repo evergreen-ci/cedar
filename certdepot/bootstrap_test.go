@@ -28,9 +28,20 @@ func TestBootstrapDepotConfigValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "ValidFileDepotWithNonNilMgoDepot",
+			conf: BootstrapDepotConfig{
+				FileDepot:   "depot",
+				MgoDepot:    &MongoDBOptions{},
+				CAName:      "root",
+				ServiceName: "localhost",
+				CACert:      "ca cert",
+				CAKey:       "ca key",
+			},
+		},
+		{
 			name: "ValidMgoDepot",
 			conf: BootstrapDepotConfig{
-				MgoDepot: MongoDBOptions{
+				MgoDepot: &MongoDBOptions{
 					DatabaseName:   "one",
 					CollectionName: "two",
 				},
@@ -54,7 +65,7 @@ func TestBootstrapDepotConfigValidate(t *testing.T) {
 			name: "MoreThanOneDepotSet",
 			conf: BootstrapDepotConfig{
 				FileDepot: "depot",
-				MgoDepot: MongoDBOptions{
+				MgoDepot: &MongoDBOptions{
 					DatabaseName:   "one",
 					CollectionName: "two",
 				},
@@ -111,6 +122,28 @@ func TestBootstrapDepotConfigValidate(t *testing.T) {
 				CAName:      "root",
 				ServiceName: "localhost",
 				CAKey:       "ca key",
+			},
+			fail: true,
+		},
+		{
+			name: "MismatchingCAName",
+			conf: BootstrapDepotConfig{
+				FileDepot:   "depot",
+				CAName:      "root",
+				ServiceName: "localhost",
+				CAOpts:      &CertificateOptions{CommonName: "different"},
+				ServiceOpts: &CertificateOptions{CommonName: "localhost"},
+			},
+			fail: true,
+		},
+		{
+			name: "MismatchingServiceName",
+			conf: BootstrapDepotConfig{
+				FileDepot:   "depot",
+				CAName:      "root",
+				ServiceName: "localhost",
+				CAOpts:      &CertificateOptions{CommonName: "root"},
+				ServiceOpts: &CertificateOptions{CommonName: "different"},
 			},
 			fail: true,
 		},
@@ -171,12 +204,12 @@ func TestBootstrapDepot(t *testing.T) {
 		{
 			name: "MgoDepot",
 			setup: func(conf *BootstrapDepotConfig) depot.Depot {
-				conf.MgoDepot = MongoDBOptions{
+				conf.MgoDepot = &MongoDBOptions{
 					DatabaseName:   databaseName,
 					CollectionName: depotName,
 				}
 
-				d, err := NewMgoCertDepot(conf.MgoDepot)
+				d, err := NewMgoCertDepot(*conf.MgoDepot)
 				require.NoError(t, err)
 				return d
 			},
@@ -226,7 +259,7 @@ func TestBootstrapDepot(t *testing.T) {
 						ServiceName: serviceName,
 						CACert:      string(caCert),
 						CAKey:       string(caKey),
-						ServiceOpts: CertificateOptions{
+						ServiceOpts: &CertificateOptions{
 							CommonName: serviceName,
 							Host:       serviceName,
 							CA:         caName,
@@ -247,11 +280,11 @@ func TestBootstrapDepot(t *testing.T) {
 					conf: BootstrapDepotConfig{
 						CAName:      caName,
 						ServiceName: serviceName,
-						CAOpts: CertificateOptions{
+						CAOpts: &CertificateOptions{
 							CommonName: caName,
 							Expires:    time.Hour,
 						},
-						ServiceOpts: CertificateOptions{
+						ServiceOpts: &CertificateOptions{
 							CommonName: serviceName,
 							Host:       serviceName,
 							CA:         caName,
