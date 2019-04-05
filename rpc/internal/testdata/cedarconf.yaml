@@ -8,7 +8,7 @@ naive_auth:
       invalid: true
 ca:
   certdepot:
-    mgo_depot:
+    mongo_depot:
       coll_name: depot
     ca_name: test-root
     service_name: localhost

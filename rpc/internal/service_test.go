@@ -648,7 +648,7 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.Equal(t, u.Cert, crt)
 	})
 	t.Run("ExpiredCertificate", func(t *testing.T) {
-		depotOpts := certdepot.MongoDBOptions{
+		depotOpts := &certdepot.MongoDBOptions{
 			DatabaseName:   certDB,
 			CollectionName: collName,
 		}
