@@ -3,7 +3,6 @@ package perf
 import (
 	"bytes"
 	"context"
-	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -45,7 +44,7 @@ func TestCalculateDefaultRollups(t *testing.T) {
 				assert.Equal(t, []model.PerfRollupValue{}, actual)
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, 13, len(actual))
+				assert.Equal(t, 11, len(actual))
 				assert.NoError(t, err)
 			}
 		})
@@ -94,7 +93,6 @@ func TestCalcFunctions(t *testing.T) {
 			function: (*performanceStatistics).perfMeans,
 			expected: []interface{}{
 				float64(s.timers.durationTotal) / float64(s.numSamples),
-				float64(s.gauges.stateTotal) / float64(s.numSamples),
 				float64(s.gauges.workersTotal) / float64(s.numSamples),
 			},
 			metricType: model.MetricTypeMean,
@@ -135,8 +133,7 @@ func TestCalcFunctions(t *testing.T) {
 				s.counters.operations = 0
 				rollups := s.perfLatencies()
 				s.counters.operations = original
-				require.Equal(t, 1, len(rollups))
-				assert.Equal(t, rollups[0].Value, math.Inf(0))
+				require.Empty(t, rollups)
 			},
 		},
 		{
