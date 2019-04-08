@@ -20,7 +20,7 @@ const (
 	defaultS3Region = "us-east-1"
 )
 
-func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, error) {
+func (t PailType) Create(env cedar.Environment, bucket, prefix string) (pail.Bucket, error) {
 	var b pail.Bucket
 	var err error
 	ctx, cancel := env.Context()
@@ -36,6 +36,7 @@ func (t PailType) Create(env cedar.Environment, bucket string) (pail.Bucket, err
 
 		opts := pail.S3Options{
 			Name:        bucket,
+			Prefix:      prefix,
 			Region:      defaultS3Region,
 			Credentials: pail.CreateAWSCredentials(conf.BucketCreds.AWSKey, conf.BucketCreds.AWSSecret, ""),
 		}
@@ -141,6 +142,7 @@ func (fs FileSchema) Validate() error {
 type ArtifactInfo struct {
 	Type        PailType        `bson:"type"`
 	Bucket      string          `bson:"bucket"`
+	Prefix      string          `bson:"prefix"`
 	Path        string          `bson:"path"`
 	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`

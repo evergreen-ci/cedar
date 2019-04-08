@@ -131,6 +131,7 @@ func (a *ArtifactInfo) Export() (*model.ArtifactInfo, error) {
 	return &model.ArtifactInfo{
 		Type:        a.Location.Export(),
 		Bucket:      a.Bucket,
+		Prefix:      a.Prefix,
 		Path:        a.Path,
 		Format:      a.Format.Export(),
 		Tags:        a.Tags,
