@@ -1,7 +1,6 @@
 package perf
 
 import (
-	"math"
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
@@ -67,7 +66,7 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 			case "counters.errors":
 				perfStats.counters.errors = metric.Values[len(metric.Values)-1]
 			case "timers.duration", "timers.dur":
-				perfStats.timers.durationTotal += time.Duration(util.SumInt64(metric.Values))
+				perfStats.timers.durationTotal = time.Duration(metric.Values[len(metric.Values)-1])
 			case "timers.total":
 				perfStats.timers.total = time.Duration(metric.Values[len(metric.Values)-1])
 			case "gauges.state":
@@ -90,30 +89,30 @@ func (s *performanceStatistics) perfMeans() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
 	if s.numSamples > 0 {
-		return append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          "avgDuration",
-				Value:         float64(s.timers.durationTotal) / float64(s.numSamples),
-				Version:       defaultVer,
-				MetricType:    model.MetricTypeMean,
-				UserSubmitted: false,
-			},
-			model.PerfRollupValue{
-				Name:          "avgState",
-				Value:         float64(s.gauges.stateTotal) / float64(s.numSamples),
-				Version:       defaultVer,
-				MetricType:    model.MetricTypeMean,
-				UserSubmitted: false,
-			},
-			model.PerfRollupValue{
-				Name:          "avgWorkers",
-				Value:         float64(s.gauges.workersTotal) / float64(s.numSamples),
-				Version:       defaultVer,
-				MetricType:    model.MetricTypeMean,
-				UserSubmitted: false,
-			},
-		)
+		if s.timers.durationTotal > 0 {
+			rollups = append(
+				rollups,
+				model.PerfRollupValue{
+					Name:          "avgDuration",
+					Value:         float64(s.timers.durationTotal) / float64(s.numSamples),
+					Version:       defaultVer,
+					MetricType:    model.MetricTypeMean,
+					UserSubmitted: false,
+				},
+			)
+		}
+		if s.gauges.workersTotal > 0 {
+			rollups = append(
+				rollups,
+				model.PerfRollupValue{
+					Name:          "avgWorkers",
+					Value:         float64(s.gauges.workersTotal) / float64(s.numSamples),
+					Version:       defaultVer,
+					MetricType:    model.MetricTypeMean,
+					UserSubmitted: false,
+				},
+			)
+		}
 	}
 	return rollups
 }
@@ -155,7 +154,7 @@ func (s *performanceStatistics) perfLatencies() []model.PerfRollupValue {
 
 	var value float64
 	if s.counters.operations == 0 {
-		value = math.Inf(0)
+		return rollups
 	} else {
 		value = float64(s.timers.durationTotal) / float64(s.counters.operations)
 	}
