@@ -16,7 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const defaultVer = 1
+const DefaultVer = 2
 
 type MetricType string
 
@@ -472,7 +472,7 @@ func (r *PerformanceResult) UpdateThroughputOps(ctx context.Context, perf perfor
 	name := fmt.Sprintf("throughputOps_%s", perf.metricType)
 	val := perf.counters.operations / perf.span.Seconds()
 	// save to database
-	err := r.Rollups.Add(ctx, name, defaultVer, false, MetricTypeThroughput, val)
+	err := r.Rollups.Add(ctx, name, DefaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -485,7 +485,7 @@ func (r *PerformanceResult) UpdateThroughputSize(ctx context.Context, perf perfo
 	}
 	name := fmt.Sprintf("throughputSize_%s", perf.metricType)
 	val := perf.counters.size / perf.span.Seconds()
-	err := r.Rollups.Add(ctx, name, defaultVer, false, MetricTypeThroughput, val)
+	err := r.Rollups.Add(ctx, name, DefaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -498,7 +498,7 @@ func (r *PerformanceResult) UpdateErrorRate(ctx context.Context, perf performanc
 	}
 	name := fmt.Sprintf("errorRate_%s", perf.metricType)
 	val := perf.counters.errors / perf.span.Seconds()
-	err := r.Rollups.Add(ctx, name, defaultVer, false, MetricTypeThroughput, val)
+	err := r.Rollups.Add(ctx, name, DefaultVer, false, MetricTypeThroughput, val)
 	if err != nil {
 		return errors.Wrapf(err, "error calculating %s", name)
 	}
@@ -508,7 +508,7 @@ func (r *PerformanceResult) UpdateErrorRate(ctx context.Context, perf performanc
 // TotalTime stored in seconds
 func (r *PerformanceResult) UpdateTotalTime(ctx context.Context, perf performanceMetricSummary) error {
 	val := perf.totalTime.duration
-	err := r.Rollups.Add(ctx, "totalTime", defaultVer, false, MetricTypeSum, val.Seconds())
+	err := r.Rollups.Add(ctx, "totalTime", DefaultVer, false, MetricTypeSum, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalTime")
 	}
@@ -521,7 +521,7 @@ func (r *PerformanceResult) UpdateLatency(ctx context.Context, perf performanceM
 		return errors.New("cannot divide by zero duration")
 	}
 	val := perf.totalTime.duration / time.Duration(perf.totalCount.operations)
-	err := r.Rollups.Add(ctx, "latency", defaultVer, false, MetricTypeLatency, val.Seconds())
+	err := r.Rollups.Add(ctx, "latency", DefaultVer, false, MetricTypeLatency, val.Seconds())
 	if err != nil {
 		return errors.Wrap(err, "error calculating latency")
 	}
@@ -529,7 +529,7 @@ func (r *PerformanceResult) UpdateLatency(ctx context.Context, perf performanceM
 }
 
 func (r *PerformanceResult) UpdateTotalSamples(ctx context.Context, perf performanceMetricSummary) error {
-	err := r.Rollups.Add(ctx, "totalSamples", defaultVer, false, MetricTypeSum, perf.samples)
+	err := r.Rollups.Add(ctx, "totalSamples", DefaultVer, false, MetricTypeSum, perf.samples)
 	if err != nil {
 		return errors.Wrap(err, "error calculating totalSamples")
 	}

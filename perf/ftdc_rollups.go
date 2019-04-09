@@ -9,10 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	defaultVer = 1
-)
-
 type performanceStatistics struct {
 	counters struct {
 		operations int64
@@ -95,7 +91,7 @@ func (s *performanceStatistics) perfMeans() []model.PerfRollupValue {
 				model.PerfRollupValue{
 					Name:          "avgDuration",
 					Value:         float64(s.timers.durationTotal) / float64(s.numSamples),
-					Version:       defaultVer,
+					Version:       model.DefaultVer,
 					MetricType:    model.MetricTypeMean,
 					UserSubmitted: false,
 				},
@@ -107,7 +103,7 @@ func (s *performanceStatistics) perfMeans() []model.PerfRollupValue {
 				model.PerfRollupValue{
 					Name:          "avgWorkers",
 					Value:         float64(s.gauges.workersTotal) / float64(s.numSamples),
-					Version:       defaultVer,
+					Version:       model.DefaultVer,
 					MetricType:    model.MetricTypeMean,
 					UserSubmitted: false,
 				},
@@ -126,21 +122,21 @@ func (s *performanceStatistics) perfThroughputs() []model.PerfRollupValue {
 			model.PerfRollupValue{
 				Name:          "throughputOps",
 				Value:         float64(s.counters.operations) / s.timers.durationTotal.Seconds(),
-				Version:       defaultVer,
+				Version:       model.DefaultVer,
 				MetricType:    model.MetricTypeThroughput,
 				UserSubmitted: false,
 			},
 			model.PerfRollupValue{
 				Name:          "throughputSize",
 				Value:         float64(s.counters.size) / s.timers.durationTotal.Seconds(),
-				Version:       defaultVer,
+				Version:       model.DefaultVer,
 				MetricType:    model.MetricTypeThroughput,
 				UserSubmitted: false,
 			},
 			model.PerfRollupValue{
 				Name:          "errorRate",
 				Value:         float64(s.counters.errors) / s.timers.durationTotal.Seconds(),
-				Version:       defaultVer,
+				Version:       model.DefaultVer,
 				MetricType:    model.MetricTypeThroughput,
 				UserSubmitted: false,
 			},
@@ -161,7 +157,7 @@ func (s *performanceStatistics) perfLatencies() []model.PerfRollupValue {
 	return append(rollups, model.PerfRollupValue{
 		Name:          "latency",
 		Value:         value,
-		Version:       defaultVer,
+		Version:       model.DefaultVer,
 		MetricType:    model.MetricTypeLatency,
 		UserSubmitted: false,
 	})
@@ -175,42 +171,42 @@ func (s *performanceStatistics) perfTotals() []model.PerfRollupValue {
 		model.PerfRollupValue{
 			Name:          "totalTime",
 			Value:         s.timers.durationTotal,
-			Version:       defaultVer,
+			Version:       model.DefaultVer,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: false,
 		},
 		model.PerfRollupValue{
 			Name:          "totalFailures",
 			Value:         s.gauges.failedTotal,
-			Version:       defaultVer,
+			Version:       model.DefaultVer,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: false,
 		},
 		model.PerfRollupValue{
 			Name:          "totalErrors",
 			Value:         s.counters.errors,
-			Version:       defaultVer,
+			Version:       model.DefaultVer,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: false,
 		},
 		model.PerfRollupValue{
 			Name:          "totalOperations",
 			Value:         s.counters.operations,
-			Version:       defaultVer,
+			Version:       model.DefaultVer,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: false,
 		},
 		model.PerfRollupValue{
 			Name:          "totalSize",
 			Value:         s.counters.size,
-			Version:       defaultVer,
+			Version:       model.DefaultVer,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: false,
 		},
 		model.PerfRollupValue{
 			Name:          "totalSamples",
 			Value:         s.numSamples,
-			Version:       defaultVer,
+			Version:       model.DefaultVer,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: false,
 		},
