@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aclements/go-moremath/stats"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/ftdc"
 	"github.com/mongodb/ftdc/bsonx"
@@ -44,7 +45,7 @@ func TestCalculateDefaultRollups(t *testing.T) {
 				assert.Equal(t, []model.PerfRollupValue{}, actual)
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, 11, len(actual))
+				assert.Equal(t, 18, len(actual))
 				assert.NoError(t, err)
 			}
 		})
@@ -54,108 +55,141 @@ func TestCalculateDefaultRollups(t *testing.T) {
 func TestCalcFunctions(t *testing.T) {
 	s := &performanceStatistics{
 		counters: struct {
-			operations int64
-			size       int64
-			errors     int64
+			operationsTotal int64
+			sizeTotal       int64
+			errorsTotal     int64
 		}{
-			operations: 10,
-			size:       1000,
-			errors:     5,
+			operationsTotal: 10,
+			sizeTotal:       1000,
+			errorsTotal:     5,
 		},
 		timers: struct {
-			durationTotal time.Duration
-			total         time.Duration
+			extractedDurations []float64
+			durationTotal      time.Duration
+			total              time.Duration
 		}{
+			extractedDurations: extractValues(convertToFloats([]int64{
+				500000,
+				600000,
+				1200000,
+				1900000,
+				2400000,
+				3000000,
+				4000000,
+				4400000,
+				4800000,
+				5000000,
+			})),
 			durationTotal: time.Duration(5000000),
 			total:         time.Duration(6000000),
 		},
 		gauges: struct {
-			stateTotal   int64
-			workersTotal int64
-			failedTotal  int64
+			state   []float64
+			workers []float64
+			failed  []float64
 		}{
-			stateTotal:   90,
-			workersTotal: 100,
-			failedTotal:  2,
+			state:   convertToFloats([]int64{1, 5, 100, 5, 60, 90, 40, 30, 5, 1}),
+			workers: convertToFloats([]int64{1, 100, 100, 100, 100, 100, 100, 100, 100, 2}),
 		},
-		numSamples: 98,
 	}
+	expectedExtractedDurations := []float64{500000, 100000, 600000, 700000, 500000, 600000, 1000000, 400000, 400000, 200000}
 
 	for _, test := range []struct {
-		name       string
-		function   func(*performanceStatistics) []model.PerfRollupValue
-		expected   []interface{}
-		metricType model.MetricType
-		zeroValue  func()
+		name               string
+		function           func(*performanceStatistics) []model.PerfRollupValue
+		expectedValue      []interface{}
+		expectedMetricType []model.MetricType
+		zeroValue          func()
 	}{
 		{
 			name:     "TestMeans",
-			function: (*performanceStatistics).perfMeans,
-			expected: []interface{}{
-				float64(s.timers.durationTotal) / float64(s.numSamples),
-				float64(s.gauges.workersTotal) / float64(s.numSamples),
+			function: (*performanceStatistics).means,
+			expectedValue: []interface{}{
+				float64(s.timers.durationTotal) / float64(s.counters.operationsTotal),
+				float64(s.counters.sizeTotal) / float64(s.counters.operationsTotal),
 			},
-			metricType: model.MetricTypeMean,
+			expectedMetricType: []model.MetricType{
+				model.MetricTypeMean,
+				model.MetricTypeMean,
+			},
 			zeroValue: func() {
-				original := s.numSamples
-				s.numSamples = 0
-				rollups := s.perfMeans()
-				s.numSamples = original
+				original := s.counters.operationsTotal
+				s.counters.operationsTotal = 0
+				rollups := s.means()
+				s.counters.operationsTotal = original
 				assert.Equal(t, rollups, []model.PerfRollupValue{})
 			},
 		},
 		{
 			name:     "TestThroughputs",
-			function: (*performanceStatistics).perfThroughputs,
-			expected: []interface{}{
-				float64(s.counters.operations) / float64(s.timers.durationTotal.Seconds()),
-				float64(s.counters.size) / float64(s.timers.durationTotal.Seconds()),
-				float64(s.counters.errors) / float64(s.timers.durationTotal.Seconds()),
+			function: (*performanceStatistics).throughputs,
+			expectedValue: []interface{}{
+				float64(s.counters.operationsTotal) / float64(s.timers.durationTotal.Seconds()),
+				float64(s.counters.sizeTotal) / float64(s.timers.durationTotal.Seconds()),
+				float64(s.counters.errorsTotal) / float64(s.timers.durationTotal.Seconds()),
 			},
-			metricType: model.MetricTypeThroughput,
+			expectedMetricType: []model.MetricType{
+				model.MetricTypeThroughput,
+				model.MetricTypeThroughput,
+				model.MetricTypeThroughput,
+			},
 			zeroValue: func() {
 				original := s.timers.durationTotal
 				s.timers.durationTotal = time.Duration(0)
-				rollups := s.perfThroughputs()
+				rollups := s.throughputs()
 				s.timers.durationTotal = original
 				assert.Equal(t, rollups, []model.PerfRollupValue{})
 			},
 		},
 		{
-			name:     "TestLatencies",
-			function: (*performanceStatistics).perfLatencies,
-			expected: []interface{}{
-				float64(s.timers.durationTotal) / float64(s.counters.operations),
+			name:     "TestPercentiles",
+			function: (*performanceStatistics).percentiles,
+			expectedValue: []interface{}{
+				stats.Sample{Xs: expectedExtractedDurations}.Quantile(0.5),
+				stats.Sample{Xs: expectedExtractedDurations}.Quantile(0.8),
+				stats.Sample{Xs: expectedExtractedDurations}.Quantile(0.9),
+				stats.Sample{Xs: expectedExtractedDurations}.Quantile(0.95),
+				stats.Sample{Xs: expectedExtractedDurations}.Quantile(0.99),
 			},
-			metricType: model.MetricTypeLatency,
+			expectedMetricType: []model.MetricType{
+				model.MetricTypePercentile50,
+				model.MetricTypePercentile80,
+				model.MetricTypePercentile90,
+				model.MetricTypePercentile95,
+				model.MetricTypePercentile99,
+			},
 			zeroValue: func() {
-				original := s.counters.operations
-				s.counters.operations = 0
-				rollups := s.perfLatencies()
-				s.counters.operations = original
+				original := s.timers.extractedDurations
+				s.timers.extractedDurations = nil
+				rollups := s.percentiles()
+				s.timers.extractedDurations = original
 				require.Empty(t, rollups)
 			},
 		},
 		{
-			name:     "TestTotals",
-			function: (*performanceStatistics).perfTotals,
-			expected: []interface{}{
+			name:     "TestSums",
+			function: (*performanceStatistics).sums,
+			expectedValue: []interface{}{
 				s.timers.durationTotal,
-				s.gauges.failedTotal,
-				s.counters.errors,
-				s.counters.operations,
-				s.counters.size,
-				s.numSamples,
+				s.counters.errorsTotal,
+				s.counters.operationsTotal,
+				s.counters.sizeTotal,
 			},
-			metricType: model.MetricTypeSum,
+			expectedMetricType: []model.MetricType{
+				model.MetricTypeSum,
+				model.MetricTypeSum,
+				model.MetricTypeSum,
+				model.MetricTypeSum,
+			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			actual := test.function(s)
-			require.Equal(t, len(test.expected), len(actual))
+			require.Equal(t, len(test.expectedValue), len(actual))
 			for i, rollup := range actual {
-				assert.Equal(t, test.expected[i], rollup.Value)
-				assert.Equal(t, test.metricType, rollup.MetricType)
+				assert.Equal(t, test.expectedValue[i], rollup.Value)
+				assert.Equal(t, test.expectedMetricType[i], rollup.MetricType)
+				assert.False(t, rollup.UserSubmitted)
 			}
 			if test.zeroValue != nil {
 				test.zeroValue()

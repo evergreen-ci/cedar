@@ -3,31 +3,30 @@ package perf
 import (
 	"time"
 
+	"github.com/aclements/go-moremath/stats"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/ftdc"
 	"github.com/pkg/errors"
 )
 
 type performanceStatistics struct {
 	counters struct {
-		operations int64
-		size       int64
-		errors     int64
+		operationsTotal int64
+		sizeTotal       int64
+		errorsTotal     int64
 	}
 
 	timers struct {
-		durationTotal time.Duration
-		total         time.Duration
+		extractedDurations []float64
+		durationTotal      time.Duration
+		total              time.Duration
 	}
 
 	gauges struct {
-		stateTotal   int64
-		workersTotal int64
-		failedTotal  int64
+		state   []float64
+		workers []float64
+		failed  []float64
 	}
-
-	numSamples int
 }
 
 func CalculateDefaultRollups(dx *ftdc.ChunkIterator) ([]model.PerfRollupValue, error) {
@@ -38,10 +37,11 @@ func CalculateDefaultRollups(dx *ftdc.ChunkIterator) ([]model.PerfRollupValue, e
 		return rollups, errors.Wrap(err, "problem calculating perf rollups")
 	}
 
-	rollups = append(rollups, perfStats.perfMeans()...)
-	rollups = append(rollups, perfStats.perfThroughputs()...)
-	rollups = append(rollups, perfStats.perfLatencies()...)
-	rollups = append(rollups, perfStats.perfTotals()...)
+	rollups = append(rollups, perfStats.means()...)
+	rollups = append(rollups, perfStats.throughputs()...)
+	rollups = append(rollups, perfStats.percentiles()...)
+	rollups = append(rollups, perfStats.bounds()...)
+	rollups = append(rollups, perfStats.sums()...)
 	return rollups, nil
 }
 
@@ -51,26 +51,26 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 	defer dx.Close()
 	for i := 0; dx.Next(); i++ {
 		chunk := dx.Chunk()
-		perfStats.numSamples += chunk.Size()
 
 		for _, metric := range chunk.Metrics {
 			switch name := metric.Key(); name {
 			case "counters.ops":
-				perfStats.counters.operations = metric.Values[len(metric.Values)-1]
+				perfStats.counters.operationsTotal = metric.Values[len(metric.Values)-1]
 			case "counters.size":
-				perfStats.counters.size = metric.Values[len(metric.Values)-1]
+				perfStats.counters.sizeTotal = metric.Values[len(metric.Values)-1]
 			case "counters.errors":
-				perfStats.counters.errors = metric.Values[len(metric.Values)-1]
+				perfStats.counters.errorsTotal = metric.Values[len(metric.Values)-1]
 			case "timers.duration", "timers.dur":
+				perfStats.timers.extractedDurations = extractValues(convertToFloats(metric.Values))
 				perfStats.timers.durationTotal = time.Duration(metric.Values[len(metric.Values)-1])
 			case "timers.total":
 				perfStats.timers.total = time.Duration(metric.Values[len(metric.Values)-1])
 			case "gauges.state":
-				perfStats.gauges.stateTotal += util.SumInt64(metric.Values)
+				perfStats.gauges.state = convertToFloats(metric.Values)
 			case "gauges.workers":
-				perfStats.gauges.workersTotal += util.SumInt64(metric.Values)
+				perfStats.gauges.workers = convertToFloats(metric.Values)
 			case "gauges.failed":
-				perfStats.gauges.failedTotal += util.SumInt64(metric.Values)
+				perfStats.gauges.failed = convertToFloats(metric.Values)
 			case "ts", "counters.n", "id":
 				continue
 			default:
@@ -81,134 +81,184 @@ func createPerformanceStats(dx *ftdc.ChunkIterator) (performanceStatistics, erro
 	return perfStats, errors.WithStack(dx.Err())
 }
 
-func (s *performanceStatistics) perfMeans() []model.PerfRollupValue {
+func (s *performanceStatistics) means() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
-	if s.numSamples > 0 {
+	if s.counters.operationsTotal > 0 {
 		if s.timers.durationTotal > 0 {
 			rollups = append(
 				rollups,
 				model.PerfRollupValue{
-					Name:          "avgDuration",
-					Value:         float64(s.timers.durationTotal) / float64(s.numSamples),
-					Version:       model.DefaultVer,
-					MetricType:    model.MetricTypeMean,
-					UserSubmitted: false,
+					Name:       "AverageLatency",
+					Value:      float64(s.timers.durationTotal) / float64(s.counters.operationsTotal),
+					Version:    model.DefaultVer,
+					MetricType: model.MetricTypeMean,
 				},
 			)
 		}
-		if s.gauges.workersTotal > 0 {
-			rollups = append(
-				rollups,
-				model.PerfRollupValue{
-					Name:          "avgWorkers",
-					Value:         float64(s.gauges.workersTotal) / float64(s.numSamples),
-					Version:       model.DefaultVer,
-					MetricType:    model.MetricTypeMean,
-					UserSubmitted: false,
-				},
-			)
-		}
-	}
-	return rollups
-}
-
-func (s *performanceStatistics) perfThroughputs() []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-
-	if s.timers.durationTotal > 0 {
-		return append(
+		rollups = append(
 			rollups,
 			model.PerfRollupValue{
-				Name:          "throughputOps",
-				Value:         float64(s.counters.operations) / s.timers.durationTotal.Seconds(),
-				Version:       model.DefaultVer,
-				MetricType:    model.MetricTypeThroughput,
-				UserSubmitted: false,
-			},
-			model.PerfRollupValue{
-				Name:          "throughputSize",
-				Value:         float64(s.counters.size) / s.timers.durationTotal.Seconds(),
-				Version:       model.DefaultVer,
-				MetricType:    model.MetricTypeThroughput,
-				UserSubmitted: false,
-			},
-			model.PerfRollupValue{
-				Name:          "errorRate",
-				Value:         float64(s.counters.errors) / s.timers.durationTotal.Seconds(),
-				Version:       model.DefaultVer,
-				MetricType:    model.MetricTypeThroughput,
-				UserSubmitted: false,
+				Name:       "AverageOperationSize",
+				Value:      float64(s.counters.sizeTotal) / float64(s.counters.operationsTotal),
+				Version:    model.DefaultVer,
+				MetricType: model.MetricTypeMean,
 			},
 		)
 	}
 	return rollups
 }
 
-func (s *performanceStatistics) perfLatencies() []model.PerfRollupValue {
+func (s *performanceStatistics) throughputs() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
-	var value float64
-	if s.counters.operations == 0 {
-		return rollups
-	} else {
-		value = float64(s.timers.durationTotal) / float64(s.counters.operations)
+	if s.timers.durationTotal > 0 {
+		rollups = append(
+			rollups,
+			model.PerfRollupValue{
+				Name:       "OperationThroughput",
+				Value:      float64(s.counters.operationsTotal) / s.timers.durationTotal.Seconds(),
+				Version:    model.DefaultVer,
+				MetricType: model.MetricTypeThroughput,
+			},
+			model.PerfRollupValue{
+				Name:       "SizeThroughput",
+				Value:      float64(s.counters.sizeTotal) / s.timers.durationTotal.Seconds(),
+				Version:    model.DefaultVer,
+				MetricType: model.MetricTypeThroughput,
+			},
+			model.PerfRollupValue{
+				Name:       "ErrorRate",
+				Value:      float64(s.counters.errorsTotal) / s.timers.durationTotal.Seconds(),
+				Version:    model.DefaultVer,
+				MetricType: model.MetricTypeThroughput,
+			},
+		)
 	}
-	return append(rollups, model.PerfRollupValue{
-		Name:          "latency",
-		Value:         value,
-		Version:       model.DefaultVer,
-		MetricType:    model.MetricTypeLatency,
-		UserSubmitted: false,
-	})
+	return rollups
 }
 
-func (s *performanceStatistics) perfTotals() []model.PerfRollupValue {
+func (s *performanceStatistics) percentiles() []model.PerfRollupValue {
+	rollups := []model.PerfRollupValue{}
+
+	latencySample := stats.Sample{Xs: s.timers.extractedDurations}
+	if len(s.timers.extractedDurations) > 0 {
+		rollups = append(
+			rollups,
+			model.PerfRollupValue{
+				Name:       "Latency50thPercentile",
+				Value:      latencySample.Quantile(0.5),
+				MetricType: model.MetricTypePercentile50,
+			},
+			model.PerfRollupValue{
+				Name:       "Latency80thPercentile",
+				Value:      latencySample.Quantile(0.8),
+				MetricType: model.MetricTypePercentile80,
+			},
+			model.PerfRollupValue{
+				Name:       "Latency90thPercentile",
+				Value:      latencySample.Quantile(0.9),
+				MetricType: model.MetricTypePercentile90,
+			},
+			model.PerfRollupValue{
+				Name:       "Latency95thPercentile",
+				Value:      latencySample.Quantile(0.95),
+				MetricType: model.MetricTypePercentile95,
+			},
+			model.PerfRollupValue{
+				Name:       "Latency99thPercentile",
+				Value:      latencySample.Quantile(0.99),
+				MetricType: model.MetricTypePercentile99,
+			},
+		)
+	}
+	return rollups
+}
+
+func (s *performanceStatistics) bounds() []model.PerfRollupValue {
+	rollups := []model.PerfRollupValue{}
+
+	min, max := stats.Sample{Xs: s.gauges.workers}.Bounds()
+	rollups = append(
+		rollups,
+		model.PerfRollupValue{
+			Name:       "WorkersMin",
+			Value:      min,
+			MetricType: model.MetricTypeMin,
+		},
+		model.PerfRollupValue{
+			Name:       "WorkersMax",
+			Value:      max,
+			MetricType: model.MetricTypeMax,
+		},
+	)
+	min, max = stats.Sample{Xs: s.timers.extractedDurations}.Bounds()
+	rollups = append(
+		rollups,
+		model.PerfRollupValue{
+			Name:       "LatencyMin",
+			Value:      min,
+			MetricType: model.MetricTypeMin,
+		},
+		model.PerfRollupValue{
+			Name:       "LatencyMax",
+			Value:      max,
+			MetricType: model.MetricTypeMax,
+		},
+	)
+	return rollups
+}
+
+func (s *performanceStatistics) sums() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
 	return append(
 		rollups,
 		model.PerfRollupValue{
-			Name:          "totalTime",
-			Value:         s.timers.durationTotal,
-			Version:       model.DefaultVer,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: false,
+			Name:       "DurationTotal",
+			Value:      s.timers.durationTotal,
+			Version:    model.DefaultVer,
+			MetricType: model.MetricTypeSum,
 		},
 		model.PerfRollupValue{
-			Name:          "totalFailures",
-			Value:         s.gauges.failedTotal,
-			Version:       model.DefaultVer,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: false,
+			Name:       "ErrorsTotal",
+			Value:      s.counters.errorsTotal,
+			Version:    model.DefaultVer,
+			MetricType: model.MetricTypeSum,
 		},
 		model.PerfRollupValue{
-			Name:          "totalErrors",
-			Value:         s.counters.errors,
-			Version:       model.DefaultVer,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: false,
+			Name:       "OperationsTotal",
+			Value:      s.counters.operationsTotal,
+			Version:    model.DefaultVer,
+			MetricType: model.MetricTypeSum,
 		},
 		model.PerfRollupValue{
-			Name:          "totalOperations",
-			Value:         s.counters.operations,
-			Version:       model.DefaultVer,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: false,
-		},
-		model.PerfRollupValue{
-			Name:          "totalSize",
-			Value:         s.counters.size,
-			Version:       model.DefaultVer,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: false,
-		},
-		model.PerfRollupValue{
-			Name:          "totalSamples",
-			Value:         s.numSamples,
-			Version:       model.DefaultVer,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: false,
+			Name:       "SizeTotal",
+			Value:      s.counters.sizeTotal,
+			Version:    model.DefaultVer,
+			MetricType: model.MetricTypeSum,
 		},
 	)
+}
+
+func convertToFloats(ints []int64) []float64 {
+	floats := []float64{}
+	for i := range ints {
+		floats = append(floats, float64(ints[i]))
+	}
+
+	return floats
+}
+
+// expects slice of cumulative values
+func extractValues(vals []float64) []float64 {
+	extractedVals := make([]float64, len(vals))
+
+	lastValue := float64(0)
+	for i := range vals {
+		extractedVals[i] = vals[i] - lastValue
+		lastValue = vals[i]
+	}
+
+	return extractedVals
 }
