@@ -64,6 +64,8 @@ imports:
   version: 1bf9dbcd8cbe1fdb75add3785b1d4a9a646269ab
 - name: github.com/mitchellh/go-homedir
   version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
+- name: github.com/aclements/go-moremath
+  version: b1aff36309c727972dd8b46fcc93f88763a62348
 
 # grpc and dependencies
 - name: google.golang.org/grpc
