@@ -167,6 +167,27 @@ func TestCalcFunctions(t *testing.T) {
 			},
 		},
 		{
+			name:          "TestBounds",
+			function:      (*performanceStatistics).bounds,
+			expectedValue: []interface{}{float64(1), float64(100), float64(100000), float64(1000000)},
+			expectedMetricType: []model.MetricType{
+				model.MetricTypeMin,
+				model.MetricTypeMax,
+				model.MetricTypeMin,
+				model.MetricTypeMax,
+			},
+			zeroValue: func() {
+				originalWorkers := s.gauges.workers
+				s.gauges.workers = nil
+				originalExtractedDurations := s.timers.extractedDurations
+				s.timers.extractedDurations = nil
+				rollups := s.bounds()
+				s.gauges.workers = originalWorkers
+				s.timers.extractedDurations = originalExtractedDurations
+				require.Empty(t, rollups)
+			},
+		},
+		{
 			name:     "TestSums",
 			function: (*performanceStatistics).sums,
 			expectedValue: []interface{}{

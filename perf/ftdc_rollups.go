@@ -178,34 +178,38 @@ func (s *performanceStatistics) percentiles() []model.PerfRollupValue {
 func (s *performanceStatistics) bounds() []model.PerfRollupValue {
 	rollups := []model.PerfRollupValue{}
 
-	min, max := stats.Sample{Xs: s.gauges.workers}.Bounds()
-	rollups = append(
-		rollups,
-		model.PerfRollupValue{
-			Name:       "WorkersMin",
-			Value:      min,
-			MetricType: model.MetricTypeMin,
-		},
-		model.PerfRollupValue{
-			Name:       "WorkersMax",
-			Value:      max,
-			MetricType: model.MetricTypeMax,
-		},
-	)
-	min, max = stats.Sample{Xs: s.timers.extractedDurations}.Bounds()
-	rollups = append(
-		rollups,
-		model.PerfRollupValue{
-			Name:       "LatencyMin",
-			Value:      min,
-			MetricType: model.MetricTypeMin,
-		},
-		model.PerfRollupValue{
-			Name:       "LatencyMax",
-			Value:      max,
-			MetricType: model.MetricTypeMax,
-		},
-	)
+	if len(s.gauges.workers) > 0 {
+		min, max := stats.Sample{Xs: s.gauges.workers}.Bounds()
+		rollups = append(
+			rollups,
+			model.PerfRollupValue{
+				Name:       "WorkersMin",
+				Value:      min,
+				MetricType: model.MetricTypeMin,
+			},
+			model.PerfRollupValue{
+				Name:       "WorkersMax",
+				Value:      max,
+				MetricType: model.MetricTypeMax,
+			},
+		)
+	}
+	if len(s.timers.extractedDurations) > 0 {
+		min, max := stats.Sample{Xs: s.timers.extractedDurations}.Bounds()
+		rollups = append(
+			rollups,
+			model.PerfRollupValue{
+				Name:       "LatencyMin",
+				Value:      min,
+				MetricType: model.MetricTypeMin,
+			},
+			model.PerfRollupValue{
+				Name:       "LatencyMax",
+				Value:      max,
+				MetricType: model.MetricTypeMax,
+			},
+		)
+	}
 	return rollups
 }
 
