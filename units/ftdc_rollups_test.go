@@ -9,6 +9,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,10 +72,43 @@ func TestFTDCRollupsJob(t *testing.T) {
 	invalidResult.Setup(env)
 	assert.NoError(t, invalidResult.Save())
 
+	validRollupTypes := []string{}
+	for _, factory := range perf.DefaultRollupFactories() {
+		validRollupTypes = append(validRollupTypes, factory.Type())
+	}
+	invalidRollupTypes := append([]string{"DNE"}, validRollupTypes...)
+
 	t.Run("ValidData", func(t *testing.T) {
+		for _, user := range []bool{true, false} {
+			j := &ftdcRollupsJob{
+				PerfID:        validResult.ID,
+				ArtifactInfo:  &validArtifact,
+				RollupTypes:   validRollupTypes,
+				UserSubmitted: user,
+			}
+			assert.NoError(t, j.validate())
+			ctx, cancel := env.Context()
+			defer cancel()
+
+			j.Run(ctx)
+			assert.True(t, j.Status().Completed)
+			assert.False(t, j.HasErrors())
+			result := &model.PerformanceResult{}
+			res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
+			require.NoError(t, res.Err())
+			assert.NoError(t, res.Decode(result))
+			require.NotNil(t, result.Rollups)
+			assert.True(t, len(j.RollupTypes) <= len(result.Rollups.Stats))
+			for _, stats := range result.Rollups.Stats {
+				assert.Equal(t, user, stats.UserSubmitted)
+			}
+		}
+	})
+	t.Run("InvalidRollupTypes", func(t *testing.T) {
 		j := &ftdcRollupsJob{
 			PerfID:       validResult.ID,
 			ArtifactInfo: &validArtifact,
+			RollupTypes:  invalidRollupTypes,
 		}
 		assert.NoError(t, j.validate())
 		ctx, cancel := env.Context()
@@ -82,18 +116,19 @@ func TestFTDCRollupsJob(t *testing.T) {
 
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.False(t, j.HasErrors())
+		assert.Equal(t, 1, j.ErrorCount())
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
 		require.NoError(t, res.Err())
 		assert.NoError(t, res.Decode(result))
 		require.NotNil(t, result.Rollups)
-		assert.NotEmpty(t, result.Rollups.Stats)
+		assert.True(t, len(j.RollupTypes)-1 <= len(result.Rollups.Stats))
 	})
 	t.Run("InvalidData", func(t *testing.T) {
 		j := &ftdcRollupsJob{
 			PerfID:       invalidResult.ID,
 			ArtifactInfo: &invalidArtifact,
+			RollupTypes:  validRollupTypes,
 		}
 		assert.NoError(t, j.validate())
 		j.Run(context.TODO())
@@ -104,6 +139,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		j := &ftdcRollupsJob{
 			PerfID:       "DNE",
 			ArtifactInfo: &validArtifact,
+			RollupTypes:  validRollupTypes,
 		}
 		assert.NoError(t, j.validate())
 		j.Run(context.TODO())
@@ -112,15 +148,26 @@ func TestFTDCRollupsJob(t *testing.T) {
 	})
 	t.Run("InvalidSetup", func(t *testing.T) {
 		j := &ftdcRollupsJob{
-			PerfID: validResult.ID,
+			PerfID:      validResult.ID,
+			RollupTypes: validRollupTypes,
 		}
 		assert.Error(t, j.validate())
+		assert.False(t, j.Status().Completed)
 
 		j = &ftdcRollupsJob{
+			ArtifactInfo: &validArtifact,
+			RollupTypes:  validRollupTypes,
+		}
+		assert.Error(t, j.validate())
+		assert.False(t, j.Status().Completed)
+
+		j = &ftdcRollupsJob{
+			PerfID:       validResult.ID,
 			ArtifactInfo: &validArtifact,
 		}
 		assert.Error(t, j.validate())
 		assert.False(t, j.Status().Completed)
+
 	})
 	t.Run("InvalidBucket", func(t *testing.T) {
 		j := &ftdcRollupsJob{
@@ -130,6 +177,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 				Bucket: "DNE",
 				Path:   "valid.ftdc",
 			},
+			RollupTypes: validRollupTypes,
 		}
 		assert.NoError(t, j.validate())
 		j.Run(context.TODO())
@@ -137,9 +185,14 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.Equal(t, 1, j.ErrorCount())
 	})
 	t.Run("PublicFunction", func(t *testing.T) {
-		j, err := NewFTDCRollupsJob(validResult.ID, &validArtifact)
-		require.NoError(t, err)
-		j.Run(context.TODO())
-		assert.True(t, j.Status().Completed)
+		for _, user := range []bool{true, false} {
+			j, err := NewFTDCRollupsJob(validResult.ID, &validArtifact, perf.DefaultRollupFactories(), user)
+			require.NoError(t, err)
+			assert.Equal(t, validResult.ID, j.(*ftdcRollupsJob).PerfID)
+			assert.Equal(t, &validArtifact, j.(*ftdcRollupsJob).ArtifactInfo)
+			assert.Equal(t, user, j.(*ftdcRollupsJob).UserSubmitted)
+			j.Run(context.TODO())
+			assert.True(t, j.Status().Completed)
+		}
 	})
 }
