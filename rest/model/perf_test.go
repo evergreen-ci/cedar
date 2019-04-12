@@ -56,6 +56,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			input: dbmodel.ArtifactInfo{
 				Type:        dbmodel.PailS3,
 				Bucket:      "bucket",
+				Prefix:      "prefix",
 				Path:        "path",
 				Format:      dbmodel.FileFTDC,
 				Compression: dbmodel.FileZip,
@@ -66,6 +67,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			expectedOutput: APIArtifactInfo{
 				Type:        ToAPIString(string(dbmodel.PailS3)),
 				Bucket:      ToAPIString("bucket"),
+				Prefix:      ToAPIString("prefix"),
 				Path:        ToAPIString("path"),
 				Format:      ToAPIString(string(dbmodel.FileFTDC)),
 				Compression: ToAPIString(string(dbmodel.FileZip)),
@@ -201,6 +203,7 @@ func TestImport(t *testing.T) {
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket1",
+						Prefix:      "prefix1",
 						Path:        "path1",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
@@ -211,6 +214,7 @@ func TestImport(t *testing.T) {
 					dbmodel.ArtifactInfo{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket2",
+						Prefix:      "prefix2",
 						Path:        "path2",
 						Format:      dbmodel.FileFTDC,
 						Compression: dbmodel.FileZip,
@@ -266,6 +270,7 @@ func TestImport(t *testing.T) {
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
 						Bucket:      ToAPIString("bucket0"),
+						Prefix:      ToAPIString(""),
 						Path:        ToAPIString("path0"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
@@ -276,6 +281,7 @@ func TestImport(t *testing.T) {
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
 						Bucket:      ToAPIString("bucket1"),
+						Prefix:      ToAPIString("prefix1"),
 						Path:        ToAPIString("path1"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),
@@ -286,6 +292,7 @@ func TestImport(t *testing.T) {
 					APIArtifactInfo{
 						Type:        ToAPIString(string(dbmodel.PailS3)),
 						Bucket:      ToAPIString("bucket2"),
+						Prefix:      ToAPIString("prefix2"),
 						Path:        ToAPIString("path2"),
 						Format:      ToAPIString(string(dbmodel.FileFTDC)),
 						Compression: ToAPIString(string(dbmodel.FileZip)),

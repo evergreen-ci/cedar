@@ -69,6 +69,7 @@ func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceRes
 type APIArtifactInfo struct {
 	Type        APIString `json:"type"`
 	Bucket      APIString `json:"bucket"`
+	Prefix      APIString `json:"prefix"`
 	Path        APIString `json:"path"`
 	Format      APIString `json:"format"`
 	Compression APIString `json:"compression"`
@@ -81,6 +82,7 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 	return APIArtifactInfo{
 		Type:        ToAPIString(string(r.Type)),
 		Bucket:      ToAPIString(r.Bucket),
+		Prefix:      ToAPIString(r.Prefix),
 		Path:        ToAPIString(r.Path),
 		Format:      ToAPIString(string(r.Format)),
 		Compression: ToAPIString(string(r.Compression)),
