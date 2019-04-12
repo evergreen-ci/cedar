@@ -1,6 +1,8 @@
 package perf
 
 import (
+	"sort"
+
 	"github.com/aclements/go-moremath/stats"
 	"github.com/evergreen-ci/cedar/model"
 )
@@ -12,6 +14,7 @@ type RollupFactory interface {
 	Calc(*PerformanceStatistics, bool) []model.PerfRollupValue
 }
 
+// TODO: Should this be a registry?
 var rollupsMap = map[string]RollupFactory{
 	latencyAverageName:      &latencyAverage{},
 	sizeAverageName:         &sizeAverage{},
@@ -67,21 +70,19 @@ func (f *latencyAverage) Type() string    { return latencyAverageName }
 func (f *latencyAverage) Names() []string { return []string{latencyAverageName} }
 func (f *latencyAverage) Version() int    { return latencyAverageVersion }
 func (f *latencyAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-	if s.counters.operationsTotal > 0 {
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          latencyAverageName,
-				Value:         float64(s.timers.durationTotal) / float64(s.counters.operationsTotal),
-				Version:       latencyAverageVersion,
-				MetricType:    model.MetricTypeMean,
-				UserSubmitted: user,
-			},
-		)
+	rollup := model.PerfRollupValue{
+		Name:          latencyAverageName,
+		Version:       latencyAverageVersion,
+		MetricType:    model.MetricTypeMean,
+		UserSubmitted: user,
 	}
 
-	return rollups
+	if s.counters.operationsTotal > 0 {
+		rollup.Value = float64(s.timers.durationTotal) / float64(s.counters.operationsTotal)
+		rollup.Valid = true
+	}
+
+	return []model.PerfRollupValue{rollup}
 }
 
 type sizeAverage struct{}
@@ -95,21 +96,19 @@ func (f *sizeAverage) Type() string    { return sizeAverageName }
 func (f *sizeAverage) Names() []string { return []string{sizeAverageName} }
 func (f *sizeAverage) Version() int    { return sizeAverageVersion }
 func (f *sizeAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-	if s.counters.operationsTotal > 0 {
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          sizeAverageName,
-				Value:         float64(s.counters.sizeTotal) / float64(s.counters.operationsTotal),
-				Version:       sizeAverageVersion,
-				MetricType:    model.MetricTypeMean,
-				UserSubmitted: user,
-			},
-		)
+	rollup := model.PerfRollupValue{
+		Name:          sizeAverageName,
+		Version:       sizeAverageVersion,
+		MetricType:    model.MetricTypeMean,
+		UserSubmitted: user,
 	}
 
-	return rollups
+	if s.counters.operationsTotal > 0 {
+		rollup.Value = float64(s.counters.sizeTotal) / float64(s.counters.operationsTotal)
+		rollup.Valid = true
+	}
+
+	return []model.PerfRollupValue{rollup}
 }
 
 ////////////////////////
@@ -126,21 +125,19 @@ func (f *operationThroughput) Type() string    { return operationThroughputName 
 func (f *operationThroughput) Names() []string { return []string{operationThroughputName} }
 func (f *operationThroughput) Version() int    { return operationThroughputVersion }
 func (f *operationThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-	if s.timers.durationTotal > 0 {
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          operationThroughputName,
-				Value:         float64(s.counters.operationsTotal) / s.timers.durationTotal.Seconds(),
-				Version:       operationThroughputVersion,
-				MetricType:    model.MetricTypeThroughput,
-				UserSubmitted: user,
-			},
-		)
+	rollup := model.PerfRollupValue{
+		Name:          operationThroughputName,
+		Version:       operationThroughputVersion,
+		MetricType:    model.MetricTypeThroughput,
+		UserSubmitted: user,
 	}
 
-	return rollups
+	if s.timers.durationTotal > 0 {
+		rollup.Value = float64(s.counters.operationsTotal) / s.timers.durationTotal.Seconds()
+		rollup.Valid = true
+	}
+
+	return []model.PerfRollupValue{rollup}
 }
 
 type sizeThroughput struct{}
@@ -154,21 +151,18 @@ func (f *sizeThroughput) Type() string    { return sizeThroughputName }
 func (f *sizeThroughput) Names() []string { return []string{sizeThroughputName} }
 func (f *sizeThroughput) Version() int    { return sizeThroughputVersion }
 func (f *sizeThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
+	rollup := model.PerfRollupValue{
+		Name:          sizeThroughputName,
+		Version:       sizeThroughputVersion,
+		MetricType:    model.MetricTypeThroughput,
+		UserSubmitted: user,
+	}
 	if s.timers.durationTotal > 0 {
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          sizeThroughputName,
-				Value:         float64(s.counters.sizeTotal) / s.timers.durationTotal.Seconds(),
-				Version:       sizeThroughputVersion,
-				MetricType:    model.MetricTypeThroughput,
-				UserSubmitted: user,
-			},
-		)
+		rollup.Value = float64(s.counters.sizeTotal) / s.timers.durationTotal.Seconds()
+		rollup.Valid = true
 	}
 
-	return rollups
+	return []model.PerfRollupValue{rollup}
 }
 
 type errorThroughput struct{}
@@ -182,21 +176,19 @@ func (f *errorThroughput) Type() string    { return errorThroughputName }
 func (f *errorThroughput) Names() []string { return []string{errorThroughputName} }
 func (f *errorThroughput) Version() int    { return errorThroughputVersion }
 func (f *errorThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-	if s.timers.durationTotal > 0 {
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          errorThroughputName,
-				Value:         float64(s.counters.errorsTotal) / s.timers.durationTotal.Seconds(),
-				Version:       errorThroughputVersion,
-				MetricType:    model.MetricTypeThroughput,
-				UserSubmitted: user,
-			},
-		)
+	rollup := model.PerfRollupValue{
+		Name:          errorThroughputName,
+		Version:       errorThroughputVersion,
+		MetricType:    model.MetricTypeThroughput,
+		UserSubmitted: user,
 	}
 
-	return rollups
+	if s.timers.durationTotal > 0 {
+		rollup.Value = float64(s.counters.errorsTotal) / s.timers.durationTotal.Seconds()
+		rollup.Valid = true
+	}
+
+	return []model.PerfRollupValue{rollup}
 }
 
 ////////////////////////
@@ -226,51 +218,58 @@ func (f *latencyPercentile) Names() []string {
 }
 func (f *latencyPercentile) Version() int { return latencyPercentileVersion }
 func (f *latencyPercentile) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-	// probably should sort this for better efficiency
-	latencySample := stats.Sample{Xs: s.timers.extractedDurations}
-	if len(s.timers.extractedDurations) > 0 {
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          latencyPercentile50Name,
-				Value:         latencySample.Quantile(0.5),
-				Version:       latencyPercentileVersion,
-				MetricType:    model.MetricTypePercentile50,
-				UserSubmitted: user,
-			},
-			model.PerfRollupValue{
-				Name:          latencyPercentile80Name,
-				Value:         latencySample.Quantile(0.8),
-				Version:       latencyPercentileVersion,
-				MetricType:    model.MetricTypePercentile80,
-				UserSubmitted: user,
-			},
-			model.PerfRollupValue{
-				Name:          latencyPercentile90Name,
-				Value:         latencySample.Quantile(0.9),
-				Version:       latencyPercentileVersion,
-				MetricType:    model.MetricTypePercentile90,
-				UserSubmitted: user,
-			},
-			model.PerfRollupValue{
-				Name:          latencyPercentile95Name,
-				Value:         latencySample.Quantile(0.95),
-				Version:       latencyPercentileVersion,
-				MetricType:    model.MetricTypePercentile95,
-				UserSubmitted: user,
-			},
-			model.PerfRollupValue{
-				Name:          latencyPercentile99Name,
-				Value:         latencySample.Quantile(0.99),
-				Version:       latencyPercentileVersion,
-				MetricType:    model.MetricTypePercentile99,
-				UserSubmitted: user,
-			},
-		)
+	p50 := model.PerfRollupValue{
+		Name:          latencyPercentile50Name,
+		Version:       latencyPercentileVersion,
+		MetricType:    model.MetricTypePercentile50,
+		UserSubmitted: user,
+	}
+	p80 := model.PerfRollupValue{
+		Name:          latencyPercentile80Name,
+		Version:       latencyPercentileVersion,
+		MetricType:    model.MetricTypePercentile80,
+		UserSubmitted: user,
+	}
+	p90 := model.PerfRollupValue{
+		Name:          latencyPercentile90Name,
+		Version:       latencyPercentileVersion,
+		MetricType:    model.MetricTypePercentile90,
+		UserSubmitted: user,
+	}
+	p95 := model.PerfRollupValue{
+		Name:          latencyPercentile95Name,
+		Version:       latencyPercentileVersion,
+		MetricType:    model.MetricTypePercentile95,
+		UserSubmitted: user,
+	}
+	p99 := model.PerfRollupValue{
+		Name:          latencyPercentile99Name,
+		Version:       latencyPercentileVersion,
+		MetricType:    model.MetricTypePercentile99,
+		UserSubmitted: user,
 	}
 
-	return rollups
+	if len(s.timers.extractedDurations) > 0 {
+		durs := make(sort.Float64Slice, len(s.timers.extractedDurations))
+		copy(durs, s.timers.extractedDurations)
+		durs.Sort()
+		latencySample := stats.Sample{
+			Xs:     durs,
+			Sorted: true,
+		}
+		p50.Value = latencySample.Quantile(0.5)
+		p50.Valid = true
+		p80.Value = latencySample.Quantile(0.8)
+		p80.Valid = true
+		p90.Value = latencySample.Quantile(0.9)
+		p90.Valid = true
+		p95.Value = latencySample.Quantile(0.95)
+		p95.Valid = true
+		p99.Value = latencySample.Quantile(0.99)
+		p99.Valid = true
+	}
+
+	return []model.PerfRollupValue{p50, p80, p90, p95, p99}
 }
 
 ///////////////////
@@ -289,29 +288,25 @@ func (f *workersBounds) Type() string    { return workersBoundsName }
 func (f *workersBounds) Names() []string { return []string{workersMinName, workersMaxName} }
 func (f *workersBounds) Version() int    { return workersBoundsVersion }
 func (f *workersBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
+	min := model.PerfRollupValue{
+		Name:          workersMinName,
+		Version:       workersBoundsVersion,
+		MetricType:    model.MetricTypeMin,
+		UserSubmitted: user,
+	}
+	max := model.PerfRollupValue{
+		Name:          workersMaxName,
+		Version:       workersBoundsVersion,
+		MetricType:    model.MetricTypeMax,
+		UserSubmitted: user,
+	}
 	if len(s.gauges.workers) > 0 {
-		min, max := stats.Sample{Xs: s.gauges.workers}.Bounds()
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          workersMinName,
-				Value:         min,
-				Version:       workersBoundsVersion,
-				MetricType:    model.MetricTypeMin,
-				UserSubmitted: user,
-			},
-			model.PerfRollupValue{
-				Name:          workersMaxName,
-				Value:         max,
-				Version:       workersBoundsVersion,
-				MetricType:    model.MetricTypeMax,
-				UserSubmitted: user,
-			},
-		)
+		min.Value, max.Value = stats.Sample{Xs: s.gauges.workers}.Bounds()
+		min.Valid = true
+		max.Valid = true
 	}
 
-	return rollups
+	return []model.PerfRollupValue{min, max}
 }
 
 type latencyBounds struct{}
@@ -327,29 +322,26 @@ func (f *latencyBounds) Type() string    { return latencyBoundsName }
 func (f *latencyBounds) Names() []string { return []string{latencyMinName, latencyMaxName} }
 func (f *latencyBounds) Version() int    { return latencyBoundsVersion }
 func (f *latencyBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollups := []model.PerfRollupValue{}
-	if len(s.timers.extractedDurations) > 0 {
-		min, max := stats.Sample{Xs: s.timers.extractedDurations}.Bounds()
-		rollups = append(
-			rollups,
-			model.PerfRollupValue{
-				Name:          latencyMinName,
-				Value:         min,
-				Version:       latencyBoundsVersion,
-				MetricType:    model.MetricTypeMin,
-				UserSubmitted: user,
-			},
-			model.PerfRollupValue{
-				Name:          latencyMaxName,
-				Value:         max,
-				Version:       latencyBoundsVersion,
-				MetricType:    model.MetricTypeMax,
-				UserSubmitted: user,
-			},
-		)
+	min := model.PerfRollupValue{
+		Name:          latencyMinName,
+		Version:       latencyBoundsVersion,
+		MetricType:    model.MetricTypeMin,
+		UserSubmitted: user,
+	}
+	max := model.PerfRollupValue{
+		Name:          latencyMaxName,
+		Version:       latencyBoundsVersion,
+		MetricType:    model.MetricTypeMax,
+		UserSubmitted: user,
 	}
 
-	return rollups
+	if len(s.timers.extractedDurations) > 0 {
+		min.Value, max.Value = stats.Sample{Xs: s.timers.extractedDurations}.Bounds()
+		min.Valid = true
+		max.Valid = true
+	}
+
+	return []model.PerfRollupValue{min, max}
 }
 
 /////////////////
@@ -373,6 +365,7 @@ func (f *durationSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 			Version:       durationSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
+			Valid:         true,
 		},
 	}
 }
@@ -395,6 +388,7 @@ func (f *errorsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollup
 			Version:       errorsSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
+			Valid:         true,
 		},
 	}
 }
@@ -417,6 +411,7 @@ func (f *operationsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 			Version:       operationsSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
+			Valid:         true,
 		},
 	}
 }
@@ -439,6 +434,7 @@ func (f *sizeSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupVa
 			Version:       sizeSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
+			Valid:         true,
 		},
 	}
 }

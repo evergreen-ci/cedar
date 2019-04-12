@@ -144,7 +144,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 
 	result.Rollups.Setup(j.env)
 	for _, r := range rollups {
-		err = result.Rollups.Add(ctx, r.Name, r.Version, r.UserSubmitted, r.MetricType, r.Value)
+		err = result.Rollups.Add(ctx, r.Name, r.Version, r.UserSubmitted, r.Valid, r.MetricType, r.Value)
 		if err != nil {
 			err = errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID)
 			grip.Warning(err)

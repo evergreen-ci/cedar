@@ -101,7 +101,7 @@ func TestCalcFunctions(t *testing.T) {
 		expectedValues      []interface{}
 		expectedVersion     int
 		expectedMetricTypes []model.MetricType
-		zeroValue           func(RollupFactory, bool)
+		zeroValue           func(RollupFactory, bool) []model.PerfRollupValue
 	}{
 		{
 			name:    latencyAverageName,
@@ -111,12 +111,12 @@ func TestCalcFunctions(t *testing.T) {
 			},
 			expectedVersion:     latencyAverageVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeMean},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.counters.operationsTotal
 				s.counters.operationsTotal = 0
 				rollups := f.Calc(s, u)
 				s.counters.operationsTotal = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -127,12 +127,12 @@ func TestCalcFunctions(t *testing.T) {
 			},
 			expectedVersion:     sizeAverageVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeMean},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.counters.operationsTotal
 				s.counters.operationsTotal = 0
 				rollups := f.Calc(s, u)
 				s.counters.operationsTotal = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -143,12 +143,12 @@ func TestCalcFunctions(t *testing.T) {
 			},
 			expectedVersion:     operationThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.timers.durationTotal
 				s.timers.durationTotal = 0
 				rollups := f.Calc(s, u)
 				s.timers.durationTotal = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -159,12 +159,12 @@ func TestCalcFunctions(t *testing.T) {
 			},
 			expectedVersion:     sizeThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.timers.durationTotal
 				s.timers.durationTotal = 0
 				rollups := f.Calc(s, u)
 				s.timers.durationTotal = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -175,12 +175,12 @@ func TestCalcFunctions(t *testing.T) {
 			},
 			expectedVersion:     errorThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.timers.durationTotal
 				s.timers.durationTotal = 0
 				rollups := f.Calc(s, u)
 				s.timers.durationTotal = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -201,12 +201,12 @@ func TestCalcFunctions(t *testing.T) {
 				model.MetricTypePercentile95,
 				model.MetricTypePercentile99,
 			},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.timers.extractedDurations
 				s.timers.extractedDurations = nil
 				rollups := f.Calc(s, u)
 				s.timers.extractedDurations = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -215,12 +215,12 @@ func TestCalcFunctions(t *testing.T) {
 			expectedValues:      []interface{}{float64(1), float64(100)},
 			expectedVersion:     workersBoundsVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeMin, model.MetricTypeMax},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.gauges.workers
 				s.gauges.workers = nil
 				rollups := f.Calc(s, u)
 				s.gauges.workers = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -229,12 +229,12 @@ func TestCalcFunctions(t *testing.T) {
 			expectedValues:      []interface{}{float64(100000), float64(1000000)},
 			expectedVersion:     workersBoundsVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeMin, model.MetricTypeMax},
-			zeroValue: func(f RollupFactory, u bool) {
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.timers.extractedDurations
 				s.timers.extractedDurations = nil
 				rollups := f.Calc(s, u)
 				s.timers.extractedDurations = original
-				assert.Empty(t, rollups)
+				return rollups
 			},
 		},
 		{
@@ -273,15 +273,24 @@ func TestCalcFunctions(t *testing.T) {
 						actual := test.factory.Calc(s, user)
 						require.Equal(t, len(test.expectedValues), len(actual))
 						for i, rollup := range actual {
+							assert.Equal(t, test.factory.Names()[i], rollup.Name)
 							assert.Equal(t, test.expectedValues[i], rollup.Value)
 							assert.Equal(t, test.expectedMetricTypes[i], rollup.MetricType)
 							assert.Equal(t, user, rollup.UserSubmitted)
+							assert.True(t, rollup.Valid)
 						}
 					})
 
 					if test.zeroValue != nil {
 						t.Run("ZeroValue", func(t *testing.T) {
-							test.zeroValue(test.factory, user)
+							actual := test.zeroValue(test.factory, user)
+							for i, rollup := range actual {
+								assert.Equal(t, test.factory.Names()[i], rollup.Name)
+								assert.Nil(t, rollup.Value)
+								assert.Equal(t, test.expectedMetricTypes[i], rollup.MetricType)
+								assert.Equal(t, user, rollup.UserSubmitted)
+								assert.False(t, rollup.Valid)
+							}
 						})
 					}
 				})
