@@ -12,6 +12,30 @@ type RollupFactory interface {
 	Calc(*PerformanceStatistics, bool) []model.PerfRollupValue
 }
 
+var rollupsMap = map[string]RollupFactory{
+	latencyAverageName:      &latencyAverage{},
+	sizeAverageName:         &sizeAverage{},
+	operationThroughputName: &operationThroughput{},
+	sizeThroughputName:      &sizeThroughput{},
+	errorThroughputName:     &errorThroughput{},
+	latencyPercentileName:   &latencyPercentile{},
+	workersBoundsName:       &workersBounds{},
+	latencyBoundsName:       &latencyBounds{},
+	durationSumName:         &durationSum{},
+	errorsSumName:           &errorsSum{},
+	operationsSumName:       &operationsSum{},
+	sizeSumName:             &sizeSum{},
+}
+
+// TODO: Which function of the two following is better?
+func RollupsMap() map[string]RollupFactory {
+	return rollupsMap
+}
+
+func RollupFactoryFromType(t string) RollupFactory {
+	return rollupsMap[t]
+}
+
 var defaultRollups = []RollupFactory{
 	&latencyAverage{},
 	&sizeAverage{},
@@ -28,21 +52,6 @@ var defaultRollups = []RollupFactory{
 }
 
 func DefaultRollupFactories() []RollupFactory { return defaultRollups }
-
-var rollupsMap = map[string]RollupFactory{
-	latencyAverageName:      &latencyAverage{},
-	sizeAverageName:         &sizeAverage{},
-	operationThroughputName: &operationThroughput{},
-	sizeThroughputName:      &sizeThroughput{},
-	errorThroughputName:     &errorThroughput{},
-	latencyPercentileName:   &latencyPercentile{},
-	workersBoundsName:       &workersBounds{},
-	latencyBoundsName:       &latencyBounds{},
-	durationSumName:         &durationSum{},
-	errorsSumName:           &errorsSum{},
-	operationsSumName:       &operationsSum{},
-	sizeSumName:             &sizeSum{},
-}
 
 //////////////////
 // Default Means
