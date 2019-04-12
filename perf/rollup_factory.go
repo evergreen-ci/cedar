@@ -6,6 +6,7 @@ import (
 )
 
 type RollupFactory interface {
+	Type() string
 	Names() []string
 	Version() int
 	Calc(*PerformanceStatistics, bool) []model.PerfRollupValue
@@ -28,14 +29,32 @@ var defaultRollups = []RollupFactory{
 
 func DefaultRollupFactories() []RollupFactory { return defaultRollups }
 
+var defaultRollupsMap = map[string]RollupFactory{
+	latencyAverageName:      &latencyAverage{},
+	sizeAverageName:         &sizeAverage{},
+	operationThroughputName: &operationThroughput{},
+	sizeThroughputName:      &sizeThroughput{},
+	errorThroughputName:     &errorThroughput{},
+	latencyPercentileName:   &latencyPercentile{},
+	workersBoundsName:       &workersBounds{},
+	latencyBoundsName:       &latencyBounds{},
+	durationSumName:         &durationSum{},
+	errorsSumName:           &errorsSum{},
+	operationsSumName:       &operationsSum{},
+	sizeSumName:             &sizeSum{},
+}
+
 //////////////////
 // Default Means
 //////////////////
 type latencyAverage struct{}
 
-const latencyAverageName = "AverageLatency"
-const latencyAverageVersion = 3
+const (
+	latencyAverageName    = "AverageLatency"
+	latencyAverageVersion = 3
+)
 
+func (f *latencyAverage) Type() string    { return latencyAverageName }
 func (f *latencyAverage) Names() []string { return []string{latencyAverageName} }
 func (f *latencyAverage) Version() int    { return latencyAverageVersion }
 func (f *latencyAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -58,9 +77,12 @@ func (f *latencyAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfR
 
 type sizeAverage struct{}
 
-const sizeAverageName = "AverageSize"
-const sizeAverageVersion = 3
+const (
+	sizeAverageName    = "AverageSize"
+	sizeAverageVersion = 3
+)
 
+func (f *sizeAverage) Type() string    { return sizeAverageName }
 func (f *sizeAverage) Names() []string { return []string{sizeAverageName} }
 func (f *sizeAverage) Version() int    { return sizeAverageVersion }
 func (f *sizeAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -86,9 +108,12 @@ func (f *sizeAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 ////////////////////////
 type operationThroughput struct{}
 
-const operationThroughputName = "OperationThroughput"
-const operationThroughputVersion = 3
+const (
+	operationThroughputName    = "OperationThroughput"
+	operationThroughputVersion = 3
+)
 
+func (f *operationThroughput) Type() string    { return operationThroughputName }
 func (f *operationThroughput) Names() []string { return []string{operationThroughputName} }
 func (f *operationThroughput) Version() int    { return operationThroughputVersion }
 func (f *operationThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -111,9 +136,12 @@ func (f *operationThroughput) Calc(s *PerformanceStatistics, user bool) []model.
 
 type sizeThroughput struct{}
 
-const sizeThroughputName = "SizeThroughput"
-const sizeThroughputVersion = 3
+const (
+	sizeThroughputName    = "SizeThroughput"
+	sizeThroughputVersion = 3
+)
 
+func (f *sizeThroughput) Type() string    { return sizeThroughputName }
 func (f *sizeThroughput) Names() []string { return []string{sizeThroughputName} }
 func (f *sizeThroughput) Version() int    { return sizeThroughputVersion }
 func (f *sizeThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -136,9 +164,12 @@ func (f *sizeThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfR
 
 type errorThroughput struct{}
 
-const errorThroughputName = "ErrorRate"
-const errorThroughputVersion = 3
+const (
+	errorThroughputName    = "ErrorRate"
+	errorThroughputVersion = 3
+)
 
+func (f *errorThroughput) Type() string    { return errorThroughputName }
 func (f *errorThroughput) Names() []string { return []string{errorThroughputName} }
 func (f *errorThroughput) Version() int    { return errorThroughputVersion }
 func (f *errorThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -164,13 +195,17 @@ func (f *errorThroughput) Calc(s *PerformanceStatistics, user bool) []model.Perf
 ////////////////////////
 type latencyPercentile struct{}
 
-const latencyPercentile50Name = "Latency50thPercentile"
-const latencyPercentile80Name = "Latency80thPercentile"
-const latencyPercentile90Name = "Latency90thPercentile"
-const latencyPercentile95Name = "Latency95thPercentile"
-const latencyPercentile99Name = "Latency99thPercentile"
-const latencyPercentileVersion = 3
+const (
+	latencyPercentileName    = "LatencyPercentile"
+	latencyPercentile50Name  = "Latency50thPercentile"
+	latencyPercentile80Name  = "Latency80thPercentile"
+	latencyPercentile90Name  = "Latency90thPercentile"
+	latencyPercentile95Name  = "Latency95thPercentile"
+	latencyPercentile99Name  = "Latency99thPercentile"
+	latencyPercentileVersion = 3
+)
 
+func (f *latencyPercentile) Type() string { return latencyPercentileName }
 func (f *latencyPercentile) Names() []string {
 	return []string{
 		latencyPercentile50Name,
@@ -234,10 +269,14 @@ func (f *latencyPercentile) Calc(s *PerformanceStatistics, user bool) []model.Pe
 ///////////////////
 type workersBounds struct{}
 
-const workersMinName = "WorkersMin"
-const workersMaxName = "WorkersMax"
-const workersBoundsVersion = 3
+const (
+	workersBoundsName    = "WorkersBounds"
+	workersMinName       = "WorkersMin"
+	workersMaxName       = "WorkersMax"
+	workersBoundsVersion = 3
+)
 
+func (f *workersBounds) Type() string    { return workersBoundsName }
 func (f *workersBounds) Names() []string { return []string{workersMinName, workersMaxName} }
 func (f *workersBounds) Version() int    { return workersBoundsVersion }
 func (f *workersBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -268,10 +307,14 @@ func (f *workersBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 
 type latencyBounds struct{}
 
-const latencyMinName = "LatencyMin"
-const latencyMaxName = "LatencyMax"
-const latencyBoundsVersion = 3
+const (
+	latencyBoundsName    = "LatencyBounds"
+	latencyMinName       = "LatencyMin"
+	latencyMaxName       = "LatencyMax"
+	latencyBoundsVersion = 3
+)
 
+func (f *latencyBounds) Type() string    { return latencyBoundsName }
 func (f *latencyBounds) Names() []string { return []string{latencyMinName, latencyMaxName} }
 func (f *latencyBounds) Version() int    { return latencyBoundsVersion }
 func (f *latencyBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -305,9 +348,12 @@ func (f *latencyBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 /////////////////
 type durationSum struct{}
 
-const durationSumName = "DurationTotal"
-const durationSumVersion = 3
+const (
+	durationSumName    = "DurationTotal"
+	durationSumVersion = 3
+)
 
+func (f *durationSum) Type() string    { return durationSumName }
 func (f *durationSum) Names() []string { return []string{durationSumName} }
 func (f *durationSum) Version() int    { return durationSumVersion }
 func (f *durationSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -324,9 +370,12 @@ func (f *durationSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 
 type errorsSum struct{}
 
-const errorsSumName = "ErrorsTotal"
-const errorsSumVersion = 3
+const (
+	errorsSumName    = "ErrorsTotal"
+	errorsSumVersion = 3
+)
 
+func (f *errorsSum) Type() string    { return errorsSumName }
 func (f *errorsSum) Names() []string { return []string{errorsSumName} }
 func (f *errorsSum) Version() int    { return errorsSumVersion }
 func (f *errorsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -343,9 +392,12 @@ func (f *errorsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollup
 
 type operationsSum struct{}
 
-const operationsSumName = "OperationsTotal"
-const operationsSumVersion = 3
+const (
+	operationsSumName    = "OperationsTotal"
+	operationsSumVersion = 3
+)
 
+func (f *operationsSum) Type() string    { return operationsSumName }
 func (f *operationsSum) Names() []string { return []string{operationsSumName} }
 func (f *operationsSum) Version() int    { return operationsSumVersion }
 func (f *operationsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
@@ -362,9 +414,12 @@ func (f *operationsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 
 type sizeSum struct{}
 
-const sizeSumName = "SizeTotal"
-const sizeSumVersion = 3
+const (
+	sizeSumName    = "SizeTotal"
+	sizeSumVersion = 3
+)
 
+func (f *sizeSum) Type() string    { return sizeSumName }
 func (f *sizeSum) Names() []string { return []string{sizeSumName} }
 func (f *sizeSum) Version() int    { return sizeSumVersion }
 func (f *sizeSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {

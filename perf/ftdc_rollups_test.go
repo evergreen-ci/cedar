@@ -184,7 +184,7 @@ func TestCalcFunctions(t *testing.T) {
 			},
 		},
 		{
-			name:    "LatencyPercentiles",
+			name:    latencyPercentileName,
 			factory: &latencyPercentile{},
 			expectedValues: []interface{}{
 				stats.Sample{Xs: expectedExtractedDurations}.Quantile(0.5),
@@ -210,7 +210,7 @@ func TestCalcFunctions(t *testing.T) {
 			},
 		},
 		{
-			name:                "WorkersBounds",
+			name:                workersBoundsName,
 			factory:             &workersBounds{},
 			expectedValues:      []interface{}{float64(1), float64(100)},
 			expectedVersion:     workersBoundsVersion,
@@ -224,7 +224,7 @@ func TestCalcFunctions(t *testing.T) {
 			},
 		},
 		{
-			name:                "LatencyBounds",
+			name:                latencyBoundsName,
 			factory:             &latencyBounds{},
 			expectedValues:      []interface{}{float64(100000), float64(1000000)},
 			expectedVersion:     workersBoundsVersion,
