@@ -29,7 +29,7 @@ var defaultRollups = []RollupFactory{
 
 func DefaultRollupFactories() []RollupFactory { return defaultRollups }
 
-var defaultRollupsMap = map[string]RollupFactory{
+var rollupsMap = map[string]RollupFactory{
 	latencyAverageName:      &latencyAverage{},
 	sizeAverageName:         &sizeAverage{},
 	operationThroughputName: &operationThroughput{},
