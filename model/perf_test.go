@@ -335,3 +335,76 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.NoError(s.r.Find(options))
 	s.Len(s.r.Results, 0)
 }
+
+func (s *perfResultSuite) TestFindOutdated() {
+	s.TearDownTest()
+	s.r = new(PerformanceResults)
+	s.r.Setup(cedar.GetEnvironment())
+	source := []ArtifactInfo{}
+	rollupName := "SomeRollup"
+
+	correctVersionValid := PerformanceResultInfo{Project: "CorrectVersionValid"}
+	result := CreatePerformanceResult(correctVersionValid, source)
+	result.Rollups.Stats = append(
+		result.Rollups.Stats,
+		PerfRollupValue{
+			Name:    rollupName,
+			Value:   1,
+			Version: 2,
+			Valid:   true,
+		},
+	)
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.Save())
+
+	correctVersionInvalid := PerformanceResultInfo{Project: "CorrectVersionInvalid"}
+	result = CreatePerformanceResult(correctVersionInvalid, source)
+	result.Rollups.Stats = append(
+		result.Rollups.Stats,
+		PerfRollupValue{
+			Name:    rollupName,
+			Version: 2,
+			Valid:   false,
+		},
+	)
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.Save())
+
+	outdated := PerformanceResultInfo{Project: "Outdated"}
+	result = CreatePerformanceResult(outdated, source)
+	result.Rollups.Stats = append(
+		result.Rollups.Stats,
+		PerfRollupValue{
+			Name:    rollupName,
+			Value:   1.01,
+			Version: 1,
+			Valid:   true,
+		},
+	)
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.Save())
+
+	s.Require().NoError(s.r.FindOutdatedRollups(rollupName, 2))
+	s.Require().Len(s.r.Results, 1)
+	s.Equal(outdated.ID(), s.r.Results[0].Info.ID())
+
+	doesNotExist := PerformanceResultInfo{Project: "DNE"}
+	result = CreatePerformanceResult(doesNotExist, source)
+	result.Rollups.Stats = append(
+		result.Rollups.Stats,
+		PerfRollupValue{
+			Name:    "DNE",
+			Value:   1.01,
+			Version: 1,
+			Valid:   true,
+		},
+	)
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.Save())
+
+	s.Require().NoError(s.r.FindOutdatedRollups("DNE", 1))
+	s.Require().Len(s.r.Results, 3)
+	for _, result := range s.r.Results {
+		s.NotEqual(doesNotExist.ID(), result.Info.ID())
+	}
+}
