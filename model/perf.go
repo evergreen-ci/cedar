@@ -447,6 +447,7 @@ func (r *PerformanceResults) FindOutdatedRollups(name string, version int) error
 	defer session.Close()
 
 	search := bson.M{
+		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey): FileFTDC,
 		"$or": []bson.M{
 			{
 				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey): bson.M{

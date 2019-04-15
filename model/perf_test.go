@@ -340,11 +340,23 @@ func (s *perfResultSuite) TestFindOutdated() {
 	s.TearDownTest()
 	s.r = new(PerformanceResults)
 	s.r.Setup(cedar.GetEnvironment())
-	source := []ArtifactInfo{}
+	source := []ArtifactInfo{
+		{
+			Format: FileFTDC,
+		},
+		{
+			Format: FileBSON,
+		},
+	}
 	rollupName := "SomeRollup"
 
+	noFTDCData := PerformanceResultInfo{Project: "NoFTDCData"}
+	result := CreatePerformanceResult(noFTDCData, source[1:])
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.Save())
+
 	correctVersionValid := PerformanceResultInfo{Project: "CorrectVersionValid"}
-	result := CreatePerformanceResult(correctVersionValid, source)
+	result = CreatePerformanceResult(correctVersionValid, source)
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
 		PerfRollupValue{
