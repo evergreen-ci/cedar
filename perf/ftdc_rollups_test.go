@@ -91,6 +91,7 @@ func TestCalcFunctions(t *testing.T) {
 		}{
 			state:   convertToFloats([]int64{1, 5, 100, 5, 60, 90, 40, 30, 5, 1}),
 			workers: convertToFloats([]int64{1, 100, 100, 100, 100, 100, 100, 100, 100, 2}),
+			failed:  []float64{},
 		},
 	}
 	expectedExtractedDurations := []float64{500000, 100000, 600000, 700000, 500000, 600000, 1000000, 400000, 400000, 200000}

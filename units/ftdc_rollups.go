@@ -24,7 +24,7 @@ const (
 type ftdcRollupsJob struct {
 	PerfID        string              `bson:"perf_id" json:"perf_id" yaml:"perf_id"`
 	ArtifactInfo  *model.ArtifactInfo `bson:"artifact" json:"artifact" yaml:"artifact"`
-	RollupTypes   []string            `bson:"rollup_types" json:"rollup_types" yaml:rollup_types"`
+	RollupTypes   []string            `bson:"rollup_types" json:"rollup_types" yaml:"rollup_types"`
 	UserSubmitted bool                `bson:"user" json:"user" yaml:"user"`
 
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`

@@ -21,7 +21,7 @@ const (
 )
 
 type findOutdatedRollupsJob struct {
-	RollupTypes []string `bson:"rollup_types" json:"rollup_types" yaml:rollup_types"`
+	RollupTypes []string `bson:"rollup_types" json:"rollup_types" yaml:"rollup_types"`
 
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env      cedar.Environment
@@ -108,7 +108,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 
 			for _, result := range results.Results {
 				if _, ok := j.seenIDs[result.Info.ID()]; !ok {
-					j.createFTDCRollupsJobs(factories[i:len(factories)], result)
+					j.createFTDCRollupsJobs(factories[i:], result)
 				}
 			}
 		}
