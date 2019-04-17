@@ -7,6 +7,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
@@ -67,6 +68,14 @@ func StartCrons(ctx context.Context, env cedar.Environment) error {
 		}
 
 		return queue.Put(NewRemoteAmboyStatsCollector(env, util.RoundPartOfMinute(0).Format(tsFormat)))
+	})
+	amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(queue amboy.Queue) error {
+		job, err := NewFindOutdatedRollupsJob(perf.DefaultRollupFactories())
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		return queue.Put(job)
 	})
 
 	return nil
