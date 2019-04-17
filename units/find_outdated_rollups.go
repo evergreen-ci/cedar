@@ -25,6 +25,7 @@ type findOutdatedRollupsJob struct {
 
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env      cedar.Environment
+	seenIDs  map[string]bool
 }
 
 func init() {
@@ -77,6 +78,10 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
+	if j.seenIDs == nil {
+		j.seenIDs = map[string]bool{}
+	}
+
 	factories := []perf.RollupFactory{}
 	for _, t := range j.RollupTypes {
 		factory := perf.RollupFactoryFromType(t)
@@ -91,7 +96,6 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 
 	results := model.PerformanceResults{}
 	results.Setup(j.env)
-	seenIDs := map[string]bool{}
 	for i, factory := range factories {
 		for _, name := range factory.Names() {
 			if err := results.FindOutdatedRollups(name, factory.Version()); err != nil {
@@ -102,31 +106,33 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 			}
 
 			for _, result := range results.Results {
-				if _, ok := seenIDs[result.Info.ID()]; ok {
-					continue
+				if _, ok := j.seenIDs[result.Info.ID()]; !ok {
+					j.createFTDCRollupsJobs(factories[i:len(factories)], result)
 				}
-				outdated := findOutdatedFromResult(factories[i+1:len(factories)], result)
-				outdated = append(outdated, factory)
-
-				job, err := NewFTDCRollupsJob(result.Info.ID(), getFTDCArtifact(result.Artifacts), outdated, false)
-				if err != nil {
-					err = errors.Wrapf(err, "problem creating FTDC rollups job for %s", result.Info.ID())
-					grip.Warning(err)
-					j.AddError(err)
-					continue
-				}
-
-				if err = j.env.GetRemoteQueue().Put(job); err != nil {
-					err = errors.Wrapf(err, "problem putting FTDC rollups job %s on remote queue", j.ID())
-					grip.Warning(err)
-					j.AddError(err)
-					continue
-				}
-
-				seenIDs[result.Info.ID()] = true
 			}
 		}
 	}
+}
+
+func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(factories []perf.RollupFactory, result model.PerformanceResult) {
+	outdated := findOutdatedFromResult(factories, result)
+
+	job, err := NewFTDCRollupsJob(result.Info.ID(), getFTDCArtifact(result.Artifacts), outdated, false)
+	if err != nil {
+		err = errors.Wrapf(err, "problem creating FTDC rollups job for %s", result.Info.ID())
+		grip.Warning(err)
+		j.AddError(err)
+		return
+	}
+
+	if err = j.env.GetRemoteQueue().Put(job); err != nil {
+		err = errors.Wrapf(err, "problem putting FTDC rollups job %s on remote queue", j.ID())
+		grip.Warning(err)
+		j.AddError(err)
+		return
+	}
+
+	j.seenIDs[result.Info.ID()] = true
 }
 
 func getFTDCArtifact(artifacts []model.ArtifactInfo) *model.ArtifactInfo {
