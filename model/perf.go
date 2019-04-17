@@ -439,7 +439,7 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 
 // Returns performance results with missing or outdated rollup information for
 // the given `name` and `version`.
-func (r *PerformanceResults) FindOutdatedRollups(name string, version int) error {
+func (r *PerformanceResults) FindOutdatedRollups(name string, version int, after time.Time) error {
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -447,6 +447,7 @@ func (r *PerformanceResults) FindOutdatedRollups(name string, version int) error
 	defer session.Close()
 
 	search := bson.M{
+		perfCreatedAtKey: bson.M{"$gt": after},
 		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey): FileFTDC,
 		"$or": []bson.M{
 			{

@@ -352,11 +352,13 @@ func (s *perfResultSuite) TestFindOutdated() {
 
 	noFTDCData := PerformanceResultInfo{Project: "NoFTDCData"}
 	result := CreatePerformanceResult(noFTDCData, source[1:])
+	result.CreatedAt = time.Now()
 	result.Setup(cedar.GetEnvironment())
 	s.Require().NoError(result.Save())
 
 	correctVersionValid := PerformanceResultInfo{Project: "CorrectVersionValid"}
 	result = CreatePerformanceResult(correctVersionValid, source)
+	result.CreatedAt = time.Now()
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
 		PerfRollupValue{
@@ -371,6 +373,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 
 	correctVersionInvalid := PerformanceResultInfo{Project: "CorrectVersionInvalid"}
 	result = CreatePerformanceResult(correctVersionInvalid, source)
+	result.CreatedAt = time.Now()
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
 		PerfRollupValue{
@@ -384,6 +387,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 
 	outdated := PerformanceResultInfo{Project: "Outdated"}
 	result = CreatePerformanceResult(outdated, source)
+	result.CreatedAt = time.Now()
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
 		PerfRollupValue{
@@ -396,7 +400,22 @@ func (s *perfResultSuite) TestFindOutdated() {
 	result.Setup(cedar.GetEnvironment())
 	s.Require().NoError(result.Save())
 
-	s.Require().NoError(s.r.FindOutdatedRollups(rollupName, 2))
+	outdatedOld := PerformanceResultInfo{Project: "OutdatedOld"}
+	result = CreatePerformanceResult(outdatedOld, source)
+	result.CreatedAt = time.Now().Add(-time.Hour)
+	result.Rollups.Stats = append(
+		result.Rollups.Stats,
+		PerfRollupValue{
+			Name:    rollupName,
+			Value:   1.01,
+			Version: 1,
+			Valid:   true,
+		},
+	)
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.Save())
+
+	s.Require().NoError(s.r.FindOutdatedRollups(rollupName, 2, time.Now().Add(-time.Hour)))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(outdated.ID(), s.r.Results[0].Info.ID())
 
@@ -414,8 +433,8 @@ func (s *perfResultSuite) TestFindOutdated() {
 	result.Setup(cedar.GetEnvironment())
 	s.Require().NoError(result.Save())
 
-	s.Require().NoError(s.r.FindOutdatedRollups("DNE", 1))
-	s.Require().Len(s.r.Results, 3)
+	s.Require().NoError(s.r.FindOutdatedRollups("DNE", 1, time.Now().Add(-2*time.Hour)))
+	s.Require().Len(s.r.Results, 4)
 	for _, result := range s.r.Results {
 		s.NotEqual(doesNotExist.ID(), result.Info.ID())
 	}
