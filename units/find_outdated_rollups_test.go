@@ -2,8 +2,6 @@ package units
 
 import (
 	"context"
-	"os"
-	"runtime"
 	"testing"
 	"time"
 
@@ -16,10 +14,6 @@ import (
 )
 
 func TestFindOutdatedRollupsJob(t *testing.T) {
-	if runtime.GOOS == "darwin" && os.Getenv("EVR_TASK_ID") != "" {
-		t.Skip("avoid less relevant failing test in evergreen")
-	}
-
 	env := cedar.GetEnvironment()
 
 	defer func() {
@@ -109,7 +103,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.False(t, j.HasErrors())
-		time.Sleep(time.Second)
+		time.Sleep(5 * time.Second)
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})
@@ -155,7 +149,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
-		time.Sleep(time.Second)
+		time.Sleep(5 * time.Second)
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})
