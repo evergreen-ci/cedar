@@ -37,7 +37,7 @@ func (c *Configuration) Validate() error {
 		c.SocketTimeout = time.Minute
 	}
 	if c.QueueName == "" {
-		c.QueueName = "ceder.service"
+		c.QueueName = "cedar.service"
 	}
 
 	return catcher.Resolve()
