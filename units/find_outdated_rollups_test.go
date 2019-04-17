@@ -2,6 +2,7 @@ package units
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 )
 
 func TestFindOutdatedRollupsJob(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("windows is slow")
+	}
+
 	env := cedar.GetEnvironment()
 
 	defer func() {
@@ -103,7 +108,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.False(t, j.HasErrors())
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Second)
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})
@@ -149,7 +154,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Second)
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})
