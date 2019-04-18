@@ -108,7 +108,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.False(t, j.HasErrors())
-		time.Sleep(time.Second)
+		time.Sleep(5 * time.Second)
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})

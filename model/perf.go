@@ -463,15 +463,7 @@ func (r *PerformanceResults) FindOutdatedRollups(name string, version int, after
 			},
 		},
 	}
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
-	if err != nil {
-		return errors.Wrapf(
-			err,
-			"problem finding perf results with outdated rollup %s (version %d)",
-			name,
-			version,
-		)
-	}
 
-	return nil
+	return errors.Wrapf(session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results),
+		"problem finding perf results with outdated rollup %s, version %d", name, version)
 }

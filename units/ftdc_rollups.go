@@ -13,7 +13,6 @@ import (
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/ftdc"
-	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -98,7 +97,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	bucket, err := j.ArtifactInfo.Type.Create(j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix)
 	if err != nil {
 		err = errors.Wrap(err, "problem resolving bucket")
-		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
@@ -106,7 +104,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	data, err := bucket.Get(ctx, j.ArtifactInfo.Path)
 	if err != nil {
 		err = errors.Wrap(err, "problem fetching artifact")
-		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
@@ -115,7 +112,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	perfStats, err := perf.CreatePerformanceStats(iter)
 	if err != nil {
 		err = errors.Wrap(err, "problem computing performance statistics from raw data")
-		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
@@ -125,7 +121,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		factory := perf.RollupFactoryFromType(t)
 		if factory == nil {
 			err = errors.Errorf("problem resolving rollup factory type %s", t)
-			grip.Warning(err)
 			j.AddError(err)
 			continue
 		}
@@ -137,7 +132,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	err = result.Find()
 	if err != nil {
 		err = errors.Wrap(err, "problem running query")
-		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
@@ -147,7 +141,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		err = result.Rollups.Add(ctx, r.Name, r.Version, r.UserSubmitted, r.Valid, r.MetricType, r.Value)
 		if err != nil {
 			err = errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID)
-			grip.Warning(err)
 			j.AddError(err)
 		}
 	}

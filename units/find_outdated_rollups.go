@@ -12,7 +12,6 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -25,6 +24,7 @@ type findOutdatedRollupsJob struct {
 
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env      cedar.Environment
+	queue    amboy.Queue
 	seenIDs  map[string]bool
 }
 
@@ -77,7 +77,9 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-
+	if j.queue == nil {
+		j.queue = j.env.GetRemoteQueue()
+	}
 	if j.seenIDs == nil {
 		j.seenIDs = map[string]bool{}
 	}
@@ -87,7 +89,6 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 		factory := perf.RollupFactoryFromType(t)
 		if factory == nil {
 			err := errors.Errorf("problem resolving rollup factory type %s", t)
-			grip.Warning(err)
 			j.AddError(err)
 			continue
 		}
@@ -101,7 +102,6 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 			after := time.Now().Add(-3 * 24 * time.Hour)
 			if err := results.FindOutdatedRollups(name, factory.Version(), after); err != nil {
 				err = errors.Wrapf(err, "problem checking for outdated rollups for %s", name)
-				grip.Warning(err)
 				j.AddError(err)
 				continue
 			}
@@ -121,14 +121,12 @@ func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(factories []perf.RollupFa
 	job, err := NewFTDCRollupsJob(result.Info.ID(), getFTDCArtifact(result.Artifacts), outdated, false)
 	if err != nil {
 		err = errors.Wrapf(err, "problem creating FTDC rollups job for %s", result.Info.ID())
-		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
 
-	if err = j.env.GetRemoteQueue().Put(job); err != nil {
+	if err = j.queue.Put(job); err != nil {
 		err = errors.Wrapf(err, "problem putting FTDC rollups job %s on remote queue", j.ID())
-		grip.Warning(err)
 		j.AddError(err)
 		return
 	}
