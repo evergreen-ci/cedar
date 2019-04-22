@@ -25,7 +25,7 @@ imports:
 - name: github.com/mongodb/grip
   version: 8b8accd7a3ec9b31a2d3eea610d5bf906bddfd11
 - name: github.com/mongodb/anser
-  version: 5ca2ab17add1f23f55d16d15dd85374f98f72b05
+  version: 1fb43a6d9968b19ddfd66e6a77373f9e4c54adeb
 - name: github.com/evergreen-ci/gimlet
   version: 2180fc22266fe2030e026816640a5e395abffd33
 - name: github.com/mongodb/ftdc
@@ -36,7 +36,7 @@ imports:
   version: 0b330d8c587ae147150ac9d691bda7fd8a69e415
 
 - name: go.mongodb.org/mongo-driver
-  version: 1c3b9b9a41eecdf056560e07b68e6407b8d598c3
+  version: 305bc4a5e4131420fe8ba5628e6faa9e6ade4e86
 
 - name: github.com/papertrail/go-tail
   version: 973c153b04319fc4604d847b09861a5730cbbde2

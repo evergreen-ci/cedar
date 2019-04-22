@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"time"
 
@@ -14,6 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/x/bsonx"
 )
 
+// WrapClient provides the anser database Session interface, which is
+// modeled on mgo's interface but based on new mongo.Client fundamentals.
 func WrapClient(ctx context.Context, client *mongo.Client) Session {
 	return &sessionWrapper{
 		ctx:     ctx,
@@ -23,16 +24,19 @@ func WrapClient(ctx context.Context, client *mongo.Client) Session {
 }
 
 type sessionWrapper struct {
-	ctx     context.Context
-	client  *mongo.Client
-	catcher grip.Catcher
-	isClone bool
+	ctx      context.Context
+	canceler context.CancelFunc
+	client   *mongo.Client
+	catcher  grip.Catcher
+	isClone  bool
 }
 
-func (s *sessionWrapper) Clone() Session                   { s.isClone = true; return s }
-func (s *sessionWrapper) Copy() Session                    { s.isClone = true; return s }
-func (s *sessionWrapper) Error() error                     { return s.catcher.Resolve() }
-func (s *sessionWrapper) SetSocketTimeout(d time.Duration) {}
+func (s *sessionWrapper) Clone() Session { s.isClone = true; return s }
+func (s *sessionWrapper) Copy() Session  { s.isClone = true; return s }
+func (s *sessionWrapper) Error() error   { return s.catcher.Resolve() }
+func (s *sessionWrapper) SetSocketTimeout(d time.Duration) {
+	s.ctx, s.canceler = context.WithTimeout(s.ctx, d)
+}
 
 func (s *sessionWrapper) DB(name string) Database {
 	return &databaseWrapper{
@@ -42,6 +46,10 @@ func (s *sessionWrapper) DB(name string) Database {
 }
 
 func (s *sessionWrapper) Close() {
+	if s.canceler != nil {
+		s.canceler()
+	}
+
 	if s.isClone {
 		return
 	}
@@ -70,7 +78,7 @@ type collectionWrapper struct {
 func (c *collectionWrapper) DropCollection() error { return errors.WithStack(c.coll.Drop(c.ctx)) }
 
 func (c *collectionWrapper) Pipe(p interface{}) Results {
-	cursor, err := c.coll.Aggregate(c.ctx, p)
+	cursor, err := c.coll.Aggregate(c.ctx, p, options.Aggregate().SetAllowDiskUse(true))
 
 	return &resultsWrapper{
 		err:    err,
@@ -91,7 +99,7 @@ func (c *collectionWrapper) FindId(id interface{}) Query {
 	return &queryWrapper{
 		ctx:    c.ctx,
 		coll:   c.coll,
-		filter: bson.D{{"_id", id}},
+		filter: bson.D{{Key: "_id", Value: id}},
 	}
 }
 
@@ -101,7 +109,12 @@ func (c *collectionWrapper) Count() (int, error) {
 }
 
 func (c *collectionWrapper) Insert(d ...interface{}) error {
-	_, err := c.coll.InsertMany(c.ctx, d)
+	var err error
+	if len(d) == 1 {
+		_, err = c.coll.InsertOne(c.ctx, d[0])
+	} else {
+		_, err = c.coll.InsertMany(c.ctx, d)
+	}
 	return errors.WithStack(err)
 }
 
@@ -111,7 +124,7 @@ func (c *collectionWrapper) Remove(q interface{}) error {
 }
 
 func (c *collectionWrapper) RemoveId(id interface{}) error {
-	_, err := c.coll.DeleteOne(c.ctx, bson.D{{"_id", id}})
+	_, err := c.coll.DeleteOne(c.ctx, bson.D{{Key: "_id", Value: id}})
 	return errors.WithStack(err)
 }
 
@@ -150,7 +163,7 @@ func (c *collectionWrapper) UpsertId(id interface{}, u interface{}) (*ChangeInfo
 		return nil, errors.WithStack(err)
 	}
 
-	query := bson.D{{"_id", id}}
+	query := bson.D{{Key: "_id", Value: id}}
 
 	var res *mongo.UpdateResult
 	if hasDollarKey(doc) {
@@ -172,14 +185,19 @@ func (c *collectionWrapper) Update(q interface{}, u interface{}) error {
 		return errors.WithStack(err)
 	}
 
+	var res *mongo.UpdateResult
 	if hasDollarKey(doc) {
-		_, err = c.coll.UpdateOne(c.ctx, q, u)
+		res, err = c.coll.UpdateOne(c.ctx, q, u)
 	} else {
-		_, err = c.coll.ReplaceOne(c.ctx, q, u)
+		res, err = c.coll.ReplaceOne(c.ctx, q, u)
 	}
 
 	if err != nil {
 		return errors.WithStack(err)
+	}
+
+	if res.MatchedCount == 0 {
+		return errors.WithStack(errNotFound)
 	}
 
 	return nil
@@ -192,14 +210,19 @@ func (c *collectionWrapper) UpdateId(q interface{}, u interface{}) error {
 
 	query := bson.D{{"_id", q}}
 
+	var res *mongo.UpdateResult
 	if hasDollarKey(doc) {
-		_, err = c.coll.UpdateOne(c.ctx, query, u)
+		res, err = c.coll.UpdateOne(c.ctx, query, doc)
 	} else {
-		_, err = c.coll.ReplaceOne(c.ctx, query, u)
+		res, err = c.coll.ReplaceOne(c.ctx, query, doc)
 	}
 
 	if err != nil {
 		return errors.WithStack(err)
+	}
+
+	if res.MatchedCount == 0 {
+		return errors.WithStack(errNotFound)
 	}
 
 	return nil
@@ -321,10 +344,18 @@ type resultsWrapper struct {
 }
 
 func (r *resultsWrapper) All(result interface{}) error {
-	return errors.WithStack(ResolveCursorAll(r.ctx, r.cursor, result))
+	if r.err != nil {
+		return errors.WithStack(r.err)
+	}
+
+	return errors.WithStack(r.cursor.All(r.ctx, result))
 }
 
 func (r *resultsWrapper) One(result interface{}) error {
+	if r.err != nil {
+		return errors.WithStack(r.err)
+	}
+
 	return errors.WithStack(ResolveCursorOne(r.ctx, r.cursor, result))
 }
 
@@ -385,36 +416,88 @@ func (q *queryWrapper) Count() (int, error) {
 	return int(v), errors.WithStack(err)
 }
 
+func (q *queryWrapper) Apply(ch Change, result interface{}) (*ChangeInfo, error) {
+	if ch.Remove && ch.Update != nil {
+		return nil, errors.New("cannot delete and update in a findAndUpdate")
+	}
+
+	var res *mongo.SingleResult
+	out := &ChangeInfo{}
+	if ch.Remove {
+		if ch.ReturnNew {
+			return nil, errors.New("cannot return new with a delete operation")
+		}
+
+		opts := options.FindOneAndDelete().SetProjection(q.projection)
+		if q.sort != nil {
+			opts.SetSort(getSort(q.sort))
+		}
+
+		res = q.coll.FindOneAndDelete(q.ctx, q.filter, opts)
+
+		out.Removed++
+	} else if ch.Update != nil {
+		doc, err := transformDocument(ch.Update)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		if hasDollarKey(doc) {
+
+			opts := options.FindOneAndUpdate().SetProjection(q.projection).SetUpsert(ch.Upsert).SetReturnDocument(getFindAndModifyReturn(ch.ReturnNew))
+			if q.sort != nil {
+				opts.SetSort(getSort(q.sort))
+			}
+			res = q.coll.FindOneAndUpdate(q.ctx, q.filter, ch.Update, opts)
+		} else {
+			opts := options.FindOneAndReplace().SetProjection(q.projection).SetUpsert(ch.Upsert).SetReturnDocument(getFindAndModifyReturn(ch.ReturnNew))
+			if q.sort != nil {
+				opts.SetSort(getSort(q.sort))
+			}
+			res = q.coll.FindOneAndReplace(q.ctx, q.filter, ch.Update, opts)
+		}
+		out.Updated++
+	} else {
+		return nil, errors.New("invalid change defined")
+	}
+
+	if err := res.Err(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if err := res.Decode(result); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return out, nil
+
+}
+
 func (q *queryWrapper) exec() error {
 	if q.cursor != nil {
 		return nil
 	}
 
+	if q.filter == nil {
+		q.filter = struct{}{}
+	}
+
 	opts := options.Find()
-	opts.Projection = q.projection
+	if q.projection != nil {
+		opts.SetProjection(q.projection)
+	}
+	if q.sort != nil {
+		opts.SetSort(getSort(q.sort))
+	}
 	if q.limit > 0 {
 		opts.SetLimit(int64(q.limit))
 	}
-
 	if q.skip > 0 {
 		opts.SetSkip(int64(q.skip))
 	}
 
-	if q.sort != nil {
-		sort := bson.D{}
-
-		for _, k := range q.sort {
-			if strings.HasPrefix(k, "-") {
-				sort = append(sort, bson.E{k[1:], -11})
-			} else {
-				sort = append(sort, bson.E{k, 1})
-			}
-		}
-
-		opts.SetSort(sort)
-	}
-
 	var err error
+
 	q.cursor, err = q.coll.Find(q.ctx, q.filter, opts)
 
 	return errors.WithStack(err)
@@ -424,10 +507,12 @@ func (q *queryWrapper) All(result interface{}) error {
 	if err := q.exec(); err != nil {
 		return errors.WithStack(err)
 	}
-	return errors.WithStack(ResolveCursorAll(q.ctx, q.cursor, result))
+	return errors.WithStack(q.cursor.All(q.ctx, result))
 }
 
 func (q *queryWrapper) One(result interface{}) error {
+	q.limit = 1
+
 	if err := q.exec(); err != nil {
 		return errors.WithStack(err)
 	}
@@ -453,51 +538,26 @@ func (q *queryWrapper) Iter() Iterator {
 	}
 }
 
-// ResolveCursorAll uses legacy mgo code to resolve a new driver's
-// cursor into an array.
-func ResolveCursorAll(ctx context.Context, iter *mongo.Cursor, result interface{}) error {
-	resultv := reflect.ValueOf(result)
-	if resultv.Kind() != reflect.Ptr || resultv.Elem().Kind() != reflect.Slice {
-		return errors.New("result argument must be a slice address")
-	}
-	slicev := resultv.Elem()
-	slicev = slicev.Slice(0, slicev.Cap())
-	elemt := slicev.Type().Elem()
-	catcher := grip.NewCatcher()
-	i := 0
-	for {
-		if slicev.Len() == i {
-			elemp := reflect.New(elemt)
-			if !iter.Next(ctx) {
-				break
-			}
-
-			catcher.Add(iter.Decode(elemp.Interface()))
-			slicev = reflect.Append(slicev, elemp.Elem())
-			slicev = slicev.Slice(0, slicev.Cap())
-		} else {
-			if !iter.Next(ctx) {
-				break
-			}
-
-			catcher.Add(iter.Decode(slicev.Index(i).Addr().Interface()))
-		}
-		i++
-	}
-	resultv.Elem().Set(slicev.Slice(0, i))
-	catcher.Add(iter.Err())
-	catcher.Add(iter.Close(ctx))
-	return catcher.Resolve()
-}
-
 // ResolveCursorOne decodes the first result in a cursor, for use in
 // "FindOne" cases.
 func ResolveCursorOne(ctx context.Context, iter *mongo.Cursor, result interface{}) error {
+	if iter == nil {
+		return errors.New("cannot resolve result from cursor")
+	}
+
+	catcher := grip.NewCatcher()
+	defer func() {
+		catcher.Add(iter.Close(ctx))
+	}()
+
 	if !iter.Next(ctx) {
 		return errors.WithStack(errNotFound)
 	}
 
-	return errors.WithStack(iter.Decode(result))
+	catcher.Add(iter.Decode(result))
+	catcher.Add(iter.Err())
+
+	return errors.Wrap(catcher.Resolve(), "problem resolving result")
 }
 
 func transformDocument(val interface{}) (bsonx.Doc, error) {
@@ -533,4 +593,31 @@ func hasDollarKey(doc bsonx.Doc) bool {
 	}
 
 	return true
+}
+
+func getSort(keys []string) bson.D {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	sort := bson.D{}
+
+	for _, k := range keys {
+		if strings.HasPrefix(k, "-") {
+			sort = append(sort, bson.E{Key: k[1:], Value: -1})
+		} else if strings.HasPrefix(k, "+") {
+			sort = append(sort, bson.E{Key: k[1:], Value: 1})
+		} else {
+			sort = append(sort, bson.E{Key: k, Value: 1})
+		}
+	}
+
+	return sort
+}
+
+func getFindAndModifyReturn(returnNew bool) options.ReturnDocument {
+	if returnNew {
+		return options.After
+	}
+	return options.Before
 }
