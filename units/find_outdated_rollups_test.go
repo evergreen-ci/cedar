@@ -41,7 +41,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 
 	resultInfo := model.PerformanceResultInfo{Project: "HasOutdatedRollups"}
 	outdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact})
-	outdatedResult.CreatedAt = time.Now().Add(-3*24*time.Hour + time.Hour)
+	outdatedResult.CreatedAt = time.Now().Add(-90*24*time.Hour + time.Hour)
 	outdatedResult.Rollups.Stats = append(
 		outdatedResult.Rollups.Stats,
 		model.PerfRollupValue{
@@ -58,7 +58,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasOutdatedRollupsButOld"}
 	oldOutdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact})
-	oldOutdatedResult.CreatedAt = time.Now().Add(-3 * 24 * time.Hour)
+	oldOutdatedResult.CreatedAt = time.Now().Add(-90 * 24 * time.Hour)
 	oldOutdatedResult.Rollups.Stats = outdatedResult.Rollups.Stats
 	oldOutdatedResult.Setup(env)
 	assert.NoError(t, oldOutdatedResult.Save())
