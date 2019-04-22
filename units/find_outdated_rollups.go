@@ -99,7 +99,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 	results.Setup(j.env)
 	for i, factory := range factories {
 		for _, name := range factory.Names() {
-			after := time.Now().Add(-3 * 24 * time.Hour)
+			after := time.Now().Add(-90 * 24 * time.Hour)
 			if err := results.FindOutdatedRollups(name, factory.Version(), after); err != nil {
 				err = errors.Wrapf(err, "problem checking for outdated rollups for %s", name)
 				j.AddError(err)
