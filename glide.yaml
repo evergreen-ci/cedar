@@ -23,3 +23,4 @@ import:
 - package: golang.org/x/exp
 - package: gopkg.in/mgo.v2
 - package: github.com/mitchellh/go-homedir
+- package: github.com/aclements/go-moremath

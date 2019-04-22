@@ -2,14 +2,11 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
-	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -53,6 +50,7 @@ type PerfRollupValue struct {
 	Version       int         `bson:"version"`
 	MetricType    MetricType  `bson:"type"`
 	UserSubmitted bool        `bson:"user"`
+	Valid         bool        `bson:"valid"`
 }
 
 var (
@@ -103,21 +101,13 @@ func (r *PerfRollups) Setup(env cedar.Environment) {
 	r.env = env
 }
 
-func (r *PerfRollups) Add(ctx context.Context, name string, version int, userSubmitted bool, t MetricType, value interface{}) error {
+func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 	if r.id == "" {
 		return errors.New("rollups missing id")
 	}
 
 	database := r.env.GetDB()
 	collection := database.Collection(perfResultCollection)
-
-	rollup := PerfRollupValue{
-		Name:          name,
-		Value:         value,
-		Version:       version,
-		UserSubmitted: userSubmitted,
-		MetricType:    t,
-	}
 
 	updated, err := tryUpdate(ctx, collection, r.id, rollup)
 	if !updated {
@@ -135,21 +125,16 @@ func (r *PerfRollups) Add(ctx context.Context, name string, version int, userSub
 	}
 
 	for i := range r.Stats {
-		if r.Stats[i].Name == name {
-			r.Stats[i].Version = version
-			r.Stats[i].Value = value
-			r.Stats[i].UserSubmitted = userSubmitted
-			r.Stats[i].MetricType = t
+		if r.Stats[i].Name == rollup.Name {
+			r.Stats[i].Version = rollup.Version
+			r.Stats[i].Value = rollup.Value
+			r.Stats[i].UserSubmitted = rollup.UserSubmitted
+			r.Stats[i].MetricType = rollup.MetricType
+			r.Stats[i].Valid = rollup.Valid
 			return nil
 		}
 	}
-	r.Stats = append(r.Stats, PerfRollupValue{
-		Name:          name,
-		Value:         value,
-		Version:       version,
-		UserSubmitted: userSubmitted,
-		MetricType:    t,
-	})
+	r.Stats = append(r.Stats, rollup)
 	r.Count++
 	return nil
 }
@@ -251,323 +236,6 @@ func (r *PerfRollups) MapFloat() map[string]float64 {
 	return result
 }
 
-////////////////////////////////////////////////////////////////////////
-//
-// Legacy Rollup Calculations. TODO: port to new system asap
-
-// PerformanceStatistics is an intermediate form used to calculate
-// statistics from a sequence of reports. It is never persisted to the
-// database, but provides access to application level aggregations.
-type performanceStatistics struct {
-	counters struct {
-		operations stats.Float64Data
-		size       stats.Float64Data
-		errors     stats.Float64Data
-	}
-
-	totalCount struct {
-		operations int64
-		size       int64
-		errors     int64
-	}
-
-	timers struct {
-		duration stats.Float64Data
-		total    stats.Float64Data
-	}
-
-	totalTime struct {
-		duration time.Duration
-		waiting  time.Duration
-	}
-
-	state struct {
-		workers stats.Float64Data
-		failed  bool
-	}
-
-	samples int
-	span    time.Duration
-}
-
-type performanceMetricSummary struct {
-	counters struct {
-		operations float64
-		size       float64
-		errors     float64
-	}
-
-	totalCount struct {
-		operations int64
-		size       int64
-		errors     int64
-	}
-
-	totalTime struct {
-		duration time.Duration
-		waiting  time.Duration
-	}
-
-	timers struct {
-		duration float64
-		total    float64
-	}
-
-	gauges struct {
-		workers float64
-		failed  bool
-	}
-
-	span       time.Duration
-	samples    int
-	metricType string
-}
-
-// PerformanceTimeSeries provides an expanded, in-memory value
-// reflecting the results of a single value. These series reflect,
-// generally the data stored in the FTDC chunks that are persisted in
-// off-line storage. While the FTDC data often requires additional data
-// than a sequence of points, these series are the basis of the
-// reporting that this application does across test values.
-type PerformanceTimeSeries []*events.Performance
-
-// statistics converts a a series into an intermediate format that we
-// can use to calculate means/totals/etc to create default rollups
-func (ts PerformanceTimeSeries) statistics() (*performanceStatistics, error) {
-	out := &performanceStatistics{
-		samples: len(ts),
-	}
-
-	out.counters.operations = make(stats.Float64Data, len(ts))
-	out.counters.size = make(stats.Float64Data, len(ts))
-	out.counters.errors = make(stats.Float64Data, len(ts))
-	out.state.workers = make(stats.Float64Data, len(ts))
-	out.timers.duration = make(stats.Float64Data, len(ts))
-	out.timers.total = make(stats.Float64Data, len(ts))
-
-	var lastPoint time.Time
-
-	for idx, point := range ts {
-		if idx == 0 {
-			lastPoint = point.Timestamp
-		} else if point.Timestamp.Before(lastPoint) {
-			return nil, errors.New("data is not valid")
-		} else {
-			out.span += point.Timestamp.Sub(lastPoint)
-			lastPoint = point.Timestamp
-		}
-
-		out.counters.operations[idx] = float64(point.Counters.Operations)
-		out.counters.size[idx] = float64(point.Counters.Size)
-		out.counters.errors[idx] = float64(point.Counters.Errors)
-		out.state.workers[idx] = float64(point.Gauges.Workers)
-
-		out.totalCount.errors += point.Counters.Errors
-		out.totalCount.operations += point.Counters.Operations
-		out.totalCount.size += point.Counters.Size
-
-		if point.Gauges.Failed {
-			out.state.failed = true
-		}
-
-		// Handle time differently: Negative duration values should be ignored
-		if point.Timers.Duration > 0 {
-			out.timers.duration[idx] = float64(point.Timers.Duration)
-			out.totalTime.waiting += point.Timers.Duration
-		}
-		if point.Timers.Total > 0 {
-			out.timers.total[idx] = float64(point.Timers.Total)
-			out.totalTime.duration += point.Timers.Total
-		}
-	}
-
-	return out, nil
-}
-
-func (perf *performanceStatistics) mean() (performanceMetricSummary, error) {
-	var err error
-	catcher := grip.NewBasicCatcher()
-	out := performanceMetricSummary{
-		samples:    perf.samples,
-		span:       perf.span,
-		metricType: "mean",
-	}
-	out.totalTime.duration = perf.totalTime.duration
-	out.totalTime.waiting = perf.totalTime.waiting
-	out.totalCount.errors = perf.totalCount.errors
-	out.totalCount.size = perf.totalCount.size
-	out.totalCount.operations = perf.totalCount.operations
-	out.gauges.failed = perf.state.failed
-
-	out.counters.size, err = perf.counters.size.Mean()
-	catcher.Add(err)
-
-	out.counters.operations, err = perf.counters.operations.Mean()
-	catcher.Add(err)
-
-	out.counters.errors, err = perf.counters.errors.Mean()
-	catcher.Add(err)
-
-	out.gauges.workers, err = perf.state.workers.Mean()
-	catcher.Add(err)
-
-	out.timers.duration, err = perf.timers.duration.Mean()
-	catcher.Add(err)
-
-	out.timers.total, err = perf.timers.total.Mean()
-	catcher.Add(err)
-
-	return out, catcher.Resolve()
-}
-
-func (perf *performanceStatistics) p90() (performanceMetricSummary, error) {
-	return perf.percentile(90.0)
-}
-
-func (perf *performanceStatistics) p50() (performanceMetricSummary, error) {
-	return perf.percentile(50.0)
-}
-
-func (perf *performanceStatistics) percentile(pval float64) (performanceMetricSummary, error) {
-	var err error
-	catcher := grip.NewBasicCatcher()
-	out := performanceMetricSummary{
-		samples:    perf.samples,
-		span:       perf.span,
-		metricType: fmt.Sprintf("percentile_%.2f", pval),
-	}
-
-	out.gauges.failed = perf.state.failed
-	out.totalTime.duration = perf.totalTime.duration
-	out.totalTime.waiting = perf.totalTime.waiting
-	out.totalCount.errors = perf.totalCount.errors
-	out.totalCount.size = perf.totalCount.size
-	out.totalCount.operations = perf.totalCount.operations
-
-	out.counters.size, err = perf.counters.size.Percentile(pval)
-	catcher.Add(err)
-
-	out.counters.operations, err = perf.counters.operations.Percentile(pval)
-	catcher.Add(err)
-
-	out.counters.errors, err = perf.counters.errors.Percentile(pval)
-	catcher.Add(err)
-
-	out.gauges.workers, err = perf.state.workers.Percentile(pval)
-	catcher.Add(err)
-
-	out.timers.duration, err = perf.timers.duration.Percentile(pval)
-	catcher.Add(err)
-
-	out.timers.total, err = perf.timers.total.Percentile(pval)
-	catcher.Add(err)
-
-	return out, catcher.Resolve()
-}
-
-func (r *PerformanceResult) UpdateThroughputOps(ctx context.Context, perf performanceMetricSummary) error {
-	if float64(perf.span) == 0 {
-		return errors.New("cannot divide by zero")
-	}
-	name := fmt.Sprintf("throughputOps_%s", perf.metricType)
-	val := perf.counters.operations / perf.span.Seconds()
-	// save to database
-	err := r.Rollups.Add(ctx, name, DefaultVer, false, MetricTypeThroughput, val)
-	if err != nil {
-		return errors.Wrapf(err, "error calculating %s", name)
-	}
-	return nil
-}
-
-func (r *PerformanceResult) UpdateThroughputSize(ctx context.Context, perf performanceMetricSummary) error {
-	if float64(perf.span) == 0 {
-		return errors.New("cannot divide by zero")
-	}
-	name := fmt.Sprintf("throughputSize_%s", perf.metricType)
-	val := perf.counters.size / perf.span.Seconds()
-	err := r.Rollups.Add(ctx, name, DefaultVer, false, MetricTypeThroughput, val)
-	if err != nil {
-		return errors.Wrapf(err, "error calculating %s", name)
-	}
-	return nil
-}
-
-func (r *PerformanceResult) UpdateErrorRate(ctx context.Context, perf performanceMetricSummary) error {
-	if float64(perf.span) == 0 {
-		return errors.New("cannot divide by zero")
-	}
-	name := fmt.Sprintf("errorRate_%s", perf.metricType)
-	val := perf.counters.errors / perf.span.Seconds()
-	err := r.Rollups.Add(ctx, name, DefaultVer, false, MetricTypeThroughput, val)
-	if err != nil {
-		return errors.Wrapf(err, "error calculating %s", name)
-	}
-	return nil
-}
-
-// TotalTime stored in seconds
-func (r *PerformanceResult) UpdateTotalTime(ctx context.Context, perf performanceMetricSummary) error {
-	val := perf.totalTime.duration
-	err := r.Rollups.Add(ctx, "totalTime", DefaultVer, false, MetricTypeSum, val.Seconds())
-	if err != nil {
-		return errors.Wrap(err, "error calculating totalTime")
-	}
-	return nil
-}
-
-// Latency stored in seconds
-func (r *PerformanceResult) UpdateLatency(ctx context.Context, perf performanceMetricSummary) error {
-	if time.Duration(perf.totalCount.operations) == 0 {
-		return errors.New("cannot divide by zero duration")
-	}
-	val := perf.totalTime.duration / time.Duration(perf.totalCount.operations)
-	err := r.Rollups.Add(ctx, "latency", DefaultVer, false, MetricTypeLatency, val.Seconds())
-	if err != nil {
-		return errors.Wrap(err, "error calculating latency")
-	}
-	return nil
-}
-
-func (r *PerformanceResult) UpdateTotalSamples(ctx context.Context, perf performanceMetricSummary) error {
-	err := r.Rollups.Add(ctx, "totalSamples", DefaultVer, false, MetricTypeSum, perf.samples)
-	if err != nil {
-		return errors.Wrap(err, "error calculating totalSamples")
-	}
-	return nil
-}
-
-// UpdateDefaultRollups adds throughput and error rate means and 50th/90th percentiles.
-// Additionally computes latency, total time, and total number of samples.
-// These are either added or updated within r.Rollups.
-func (r *PerformanceResult) UpdateDefaultRollups(ctx context.Context, ts PerformanceTimeSeries) error {
-	perfStats, err := ts.statistics()
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	catcher := grip.NewBasicCatcher()
-	means, err := perfStats.mean()
-	catcher.Add(err)
-	percentile50, err := perfStats.p50()
-	catcher.Add(err)
-	percentile90, err := perfStats.p90()
-	catcher.Add(err)
-	if catcher.HasErrors() {
-		return catcher.Resolve()
-	}
-
-	for _, perf := range []performanceMetricSummary{means, percentile50, percentile90} {
-		catcher.Add(r.UpdateErrorRate(ctx, perf))
-		catcher.Add(r.UpdateThroughputOps(ctx, perf))
-		catcher.Add(r.UpdateThroughputSize(ctx, perf))
-	}
-
-	catcher.Add(r.UpdateTotalSamples(ctx, means))
-	catcher.Add(r.UpdateTotalTime(ctx, means))
-	catcher.Add(r.UpdateLatency(ctx, means))
-
-	return catcher.Resolve()
-}
-
 func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []*PerfRollupValue) error {
 	catcher := grip.NewBasicCatcher()
 
@@ -575,13 +243,14 @@ func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []*PerfRol
 	r.Rollups.Setup(r.env)
 
 	for _, rollup := range rollups {
-		catcher.Add(r.Rollups.Add(ctx,
-			rollup.Name,
-			rollup.Version,
-			rollup.UserSubmitted,
-			rollup.MetricType,
-			rollup.Value,
-		))
+		catcher.Add(r.Rollups.Add(ctx, PerfRollupValue{
+			Name:          rollup.Name,
+			Version:       rollup.Version,
+			Value:         rollup.Value,
+			MetricType:    rollup.MetricType,
+			UserSubmitted: rollup.UserSubmitted,
+			Valid:         rollup.Valid,
+		}))
 	}
 
 	r.Rollups.ProcessedAt = time.Now()

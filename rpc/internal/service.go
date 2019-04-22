@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
@@ -268,7 +269,7 @@ func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactI
 		}
 		hasEventData = true
 
-		job, err := units.NewFTDCRollupsJob(id, &artifact)
+		job, err := units.NewFTDCRollupsJob(id, &artifact, perf.DefaultRollupFactories(), false)
 		if err != nil {
 			return errors.WithStack(err)
 		}
