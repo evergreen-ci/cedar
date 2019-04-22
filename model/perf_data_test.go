@@ -33,10 +33,38 @@ func (s *perfRollupSuite) SetupTest() {
 
 	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: s.r.id, Rollups: PerfRollups{Stats: []PerfRollupValue{}}}))
 
-	s.NoError(s.r.Add(ctx, "float", 1, true, true, MetricTypeMax, 12.4))
-	s.NoError(s.r.Add(ctx, "int", 2, true, true, MetricTypeMax, 12))
-	s.NoError(s.r.Add(ctx, "int32", 3, false, true, MetricTypeMax, int32(32)))
-	s.NoError(s.r.Add(ctx, "long", 4, false, true, MetricTypeMax, int64(20216)))
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "float",
+		Value:         12.4,
+		Version:       1,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "int",
+		Version:       2,
+		Value:         12,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "int32",
+		Version:       3,
+		Value:         int32(32),
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "long",
+		Version:       4,
+		Value:         int64(20216),
+		MetricType:    MetricTypeMax,
+		UserSubmitted: false,
+		Valid:         true,
+	}))
 }
 
 func (s *perfRollupSuite) TestSetupTestIsValid() {
@@ -130,8 +158,14 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	s.Len(s.r.Stats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
-	err = s.r.Add(ctx, "mean", 1, false, true, MetricTypeMean, 12.24)
-	s.NoError(err)
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       1,
+		Value:         12.24,
+		MetricType:    MetricTypeMean,
+		UserSubmitted: false,
+		Valid:         true,
+	}))
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(12.24, val)
@@ -150,8 +184,14 @@ func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	err = s.r.Add(ctx, "invalid", 1, true, false, MetricTypeMax, nil)
-	s.NoError(err)
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "invalid",
+		Version:       1,
+		Value:         nil,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         false,
+	}))
 	search := bson.M{
 		"_id":                s.r.id,
 		"rollups.stats.name": "invalid",
@@ -172,8 +212,14 @@ func (s *perfRollupSuite) TestMaps() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := s.r.Add(ctx, "mean", 1, true, true, MetricTypeMean, 12.24)
-	s.NoError(err)
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       1,
+		Value:         12.24,
+		MetricType:    MetricTypeMean,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
 
 	allFloats := s.r.MapFloat()
 	s.Len(allFloats, 5)
@@ -204,8 +250,14 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	c := session.DB(conf.DatabaseName).C(perfResultCollection)
 	err = c.Insert(bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	err = s.r.Add(ctx, "mean", 4, true, true, MetricTypeMax, 12.24)
-	s.NoError(err)
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       4,
+		Value:         12.24,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
 
 	search := bson.M{
 		"_id":                s.r.id,
@@ -219,22 +271,32 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
-	err = s.r.Add(ctx, "mean", 3, true, true, MetricTypeMax, 24.12) // should fail with older version
-	s.Require().NoError(err)
-	err = c.Find(search).One(&out)
-	s.Require().NoError(err)
+	s.Require().NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       3,
+		Value:         24.12,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
+	s.Require().NoError(c.Find(search).One(&out))
 	s.Require().Len(out.Rollups.Stats, 1)
 	s.Equal(out.Rollups.Stats[0].Version, 4)
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
-	err = s.r.Add(ctx, "mean", 5, false, true, MetricTypeMax, 24.12)
-	s.NoError(err)
+	s.NoError(s.r.Add(ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       5,
+		Value:         24.12,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: false,
+		Valid:         true,
+	}))
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(24.12, val)
-	err = c.Find(search).One(&out)
-	s.Require().NoError(err)
+	s.Require().NoError(c.Find(search).One(&out))
 	s.Require().Len(out.Rollups.Stats, 1)
 	s.Equal(5, out.Rollups.Stats[0].Version)
 	s.Equal(24.12, out.Rollups.Stats[0].Value)

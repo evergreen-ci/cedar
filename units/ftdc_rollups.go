@@ -72,9 +72,6 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo, factorie
 
 	j.RollupTypes = []string{}
 	for _, factory := range factories {
-		// TODO: Should we add an assertion here, making sure that the
-		// rollup types are in the "registry"? Can also do this in
-		// validate.
 		j.RollupTypes = append(j.RollupTypes, factory.Type())
 	}
 
@@ -138,7 +135,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 
 	result.Rollups.Setup(j.env)
 	for _, r := range rollups {
-		err = result.Rollups.Add(ctx, r.Name, r.Version, r.UserSubmitted, r.Valid, r.MetricType, r.Value)
+		err = result.Rollups.Add(ctx, r)
 		if err != nil {
 			err = errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID)
 			j.AddError(err)

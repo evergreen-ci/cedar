@@ -101,22 +101,13 @@ func (r *PerfRollups) Setup(env cedar.Environment) {
 	r.env = env
 }
 
-func (r *PerfRollups) Add(ctx context.Context, name string, version int, userSubmitted, valid bool, t MetricType, value interface{}) error {
+func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 	if r.id == "" {
 		return errors.New("rollups missing id")
 	}
 
 	database := r.env.GetDB()
 	collection := database.Collection(perfResultCollection)
-
-	rollup := PerfRollupValue{
-		Name:          name,
-		Value:         value,
-		Version:       version,
-		UserSubmitted: userSubmitted,
-		Valid:         valid,
-		MetricType:    t,
-	}
 
 	updated, err := tryUpdate(ctx, collection, r.id, rollup)
 	if !updated {
@@ -134,23 +125,16 @@ func (r *PerfRollups) Add(ctx context.Context, name string, version int, userSub
 	}
 
 	for i := range r.Stats {
-		if r.Stats[i].Name == name {
-			r.Stats[i].Version = version
-			r.Stats[i].Value = value
-			r.Stats[i].UserSubmitted = userSubmitted
-			r.Stats[i].MetricType = t
-			r.Stats[i].Valid = valid
+		if r.Stats[i].Name == rollup.Name {
+			r.Stats[i].Version = rollup.Version
+			r.Stats[i].Value = rollup.Value
+			r.Stats[i].UserSubmitted = rollup.UserSubmitted
+			r.Stats[i].MetricType = rollup.MetricType
+			r.Stats[i].Valid = rollup.Valid
 			return nil
 		}
 	}
-	r.Stats = append(r.Stats, PerfRollupValue{
-		Name:          name,
-		Value:         value,
-		Version:       version,
-		UserSubmitted: userSubmitted,
-		Valid:         valid,
-		MetricType:    t,
-	})
+	r.Stats = append(r.Stats, rollup)
 	r.Count++
 	return nil
 }
@@ -259,14 +243,14 @@ func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []*PerfRol
 	r.Rollups.Setup(r.env)
 
 	for _, rollup := range rollups {
-		catcher.Add(r.Rollups.Add(ctx,
-			rollup.Name,
-			rollup.Version,
-			rollup.UserSubmitted,
-			rollup.Valid,
-			rollup.MetricType,
-			rollup.Value,
-		))
+		catcher.Add(r.Rollups.Add(ctx, PerfRollupValue{
+			Name:          rollup.Name,
+			Version:       rollup.Version,
+			Value:         rollup.Value,
+			MetricType:    rollup.MetricType,
+			UserSubmitted: rollup.UserSubmitted,
+			Valid:         rollup.Valid,
+		}))
 	}
 
 	r.Rollups.ProcessedAt = time.Now()
