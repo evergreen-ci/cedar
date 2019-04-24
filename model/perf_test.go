@@ -135,6 +135,9 @@ func (s *perfResultSuite) TestFindResultsByTimeInterval() {
 	options.Interval = util.GetTimeRange(start, time.Hour*72)
 	s.NoError(s.r.Find(options))
 	s.Len(s.r.Results, 2)
+	options.Limit = 1
+	s.NoError(s.r.Find(options))
+	s.Len(s.r.Results, 1)
 
 	options.Interval = util.GetTimeRange(start, -time.Hour*24)
 	s.Error(s.r.Find(options))

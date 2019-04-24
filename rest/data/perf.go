@@ -96,7 +96,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 
 // FindPerformanceResultsByTaskName queries the database to find all performance
 // results with the given taskName, time inteval, and optional tags.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -281,8 +281,9 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval 
 	return results, nil
 }
 
-func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
+	count := 0
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) && result.Info.Mainline {
 			apiResult := dataModel.APIPerformanceResult{}
@@ -294,6 +295,10 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, inter
 				}
 			}
 			results = append(results, apiResult)
+			count++
+			if limit > 0 && count >= limit {
+				break
+			}
 		}
 	}
 

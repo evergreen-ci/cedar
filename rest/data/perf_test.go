@@ -332,7 +332,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0)
 	s.Equal(expectedCount, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)
@@ -340,7 +340,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, "tag1", "tag2")
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0, "tag1", "tag2")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)
@@ -362,7 +362,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() 
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName("doesNotExist", tr)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName("doesNotExist", tr, 0)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -373,7 +373,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameNarrowInterval(
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.results[0].info.TaskName, tr)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.results[0].info.TaskName, tr, 0)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
