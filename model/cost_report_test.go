@@ -223,7 +223,7 @@ func TestCostReport(t *testing.T) {
 			assert.False(t, r2.populated)
 			assert.NoError(t, r2.Find())
 			assert.True(t, r2.populated)
-			assert.Equal(t, report.Report.Generated, r2.Report.Generated)
+			assert.Equal(t, report.Report.Generated.UTC(), r2.Report.Generated.UTC())
 		},
 		"DataCachingWithMockDocument": func(ctx context.Context, t *testing.T, env cedar.Environment, _ *CostReport) {
 			r := createTestStruct()
