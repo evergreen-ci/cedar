@@ -11,6 +11,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -142,6 +143,7 @@ type perfGetByTaskNameHandler struct {
 	taskName string
 	interval util.TimeRange
 	tags     []string
+	limit    int
 	sc       data.Connector
 }
 
@@ -164,14 +166,18 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	var err error
+	catcher := grip.NewBasicCatcher()
 	h.interval, err = parseInterval(vals)
-	return err
+	catcher.Add(err)
+	h.limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
+	catcher.Add(err)
+	return catcher.Resolve()
 }
 
 // Run calls the data FindPerformanceResultsByTaskName function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.interval, h.tags...)
+	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.interval, h.limit, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskName))
 	}

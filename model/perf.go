@@ -248,6 +248,7 @@ type PerfFindOptions struct {
 	Info        PerformanceResultInfo
 	MaxDepth    int
 	GraphLookup bool
+	Limit       int
 }
 
 func (r *PerformanceResults) Setup(e cedar.Environment) { r.env = e }
@@ -272,7 +273,11 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	}
 
 	r.populated = false
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results)
+	query := session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).Sort("-" + perfCreatedAtKey)
+	if options.Limit > 0 {
+		query = query.Limit(options.Limit)
+	}
+	err = query.All(&r.Results)
 	if err != nil {
 		return errors.WithStack(err)
 	}
