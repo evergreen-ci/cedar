@@ -8,11 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mongodb/grip"
-
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
