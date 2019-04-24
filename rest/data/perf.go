@@ -107,6 +107,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interv
 			Tags:     tags,
 		},
 		MaxDepth: 0,
+		Limit:    limit,
 	}
 
 	if err := results.Find(options); err != nil {
