@@ -80,7 +80,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 				})
 				return errors.New("failed to stop with running jobs")
 			}
-			env.localQueue.Runner().Close()
+			env.localQueue.Runner().Close(ctx)
 			return nil
 		})
 
@@ -119,7 +119,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 
 		env.RegisterCloser("remote-queue", func(ctx context.Context) error {
-			env.localQueue.Runner().Close()
+			env.localQueue.Runner().Close(ctx)
 			return nil
 		})
 
