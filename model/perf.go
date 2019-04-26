@@ -68,7 +68,7 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 		Artifacts: source,
 		Rollups: PerfRollups{
 			id:    info.ID(),
-			Stats: rollups,
+			Stats: append([]PerfRollupValue{}, rollups...),
 		},
 		populated: true,
 	}

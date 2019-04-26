@@ -63,11 +63,11 @@ func TestFTDCRollupsJob(t *testing.T) {
 		Path:   "invalid.ftdc",
 	}
 	resultInfo := model.PerformanceResultInfo{Project: "valid"}
-	validResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact})
+	validResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact}, nil)
 	validResult.Setup(env)
 	assert.NoError(t, validResult.Save())
 	resultInfo = model.PerformanceResultInfo{Project: "invalid"}
-	invalidResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{invalidArtifact})
+	invalidResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{invalidArtifact}, nil)
 	invalidResult.Setup(env)
 	assert.NoError(t, invalidResult.Save())
 
