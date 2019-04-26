@@ -313,16 +313,6 @@ func (s *perfRollupSuite) TearDownTest() {
 	s.NoError(err)
 }
 
-func (s *perfRollupSuite) TestValidate() {
-	err := s.r.Validate()
-	s.NoError(err)
-	s.Equal(s.r.Count, 4)
-
-	s.r.Count++
-	err = s.r.Validate()
-	s.Error(err)
-}
-
 func (s *perfRollupSuite) TestMergeRollups() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
