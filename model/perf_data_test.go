@@ -322,7 +322,7 @@ func (s *perfRollupSuite) TestMergeRollups() {
 	defer session.Close()
 
 	// without errors
-	rollups := []*PerfRollupValue{
+	rollups := []PerfRollupValue{
 		{
 			Name:       "ops_per_sec",
 			Value:      50001.24,

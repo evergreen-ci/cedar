@@ -226,21 +226,14 @@ func (r *PerfRollups) MapFloat() map[string]float64 {
 	return result
 }
 
-func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []*PerfRollupValue) error {
+func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []PerfRollupValue) error {
 	catcher := grip.NewBasicCatcher()
 
 	r.Rollups.id = r.ID
 	r.Rollups.Setup(r.env)
 
 	for _, rollup := range rollups {
-		catcher.Add(r.Rollups.Add(ctx, PerfRollupValue{
-			Name:          rollup.Name,
-			Version:       rollup.Version,
-			Value:         rollup.Value,
-			MetricType:    rollup.MetricType,
-			UserSubmitted: rollup.UserSubmitted,
-			Valid:         rollup.Valid,
-		}))
+		catcher.Add(r.Rollups.Add(ctx, rollup))
 	}
 
 	r.Rollups.ProcessedAt = time.Now()

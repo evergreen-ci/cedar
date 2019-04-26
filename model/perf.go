@@ -55,7 +55,7 @@ var (
 	perfVersionlKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
-func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, rollups []PerfRollupValue) *PerformanceResult {
 	createdAt := time.Now()
 
 	for idx := range source {
@@ -68,7 +68,7 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 		Artifacts: source,
 		Rollups: PerfRollups{
 			id:    info.ID(),
-			Stats: []PerfRollupValue{},
+			Stats: rollups,
 		},
 		populated: true,
 	}
