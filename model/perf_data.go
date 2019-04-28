@@ -64,7 +64,6 @@ var (
 type PerfRollups struct {
 	Stats       []PerfRollupValue `bson:"stats"`
 	ProcessedAt time.Time         `bson:"processed_at"`
-	Count       int               `bson:"count"`
 	Valid       bool              `bson:"valid"`
 
 	dirty bool // nolint
@@ -75,7 +74,6 @@ type PerfRollups struct {
 var (
 	perfRollupsStatsKey       = bsonutil.MustHaveTag(PerfRollups{}, "Stats")
 	perfRollupsProcessedAtKey = bsonutil.MustHaveTag(PerfRollups{}, "ProcessedAt")
-	perfRollupsCountKey       = bsonutil.MustHaveTag(PerfRollups{}, "Count")
 	perfRollupsValidKey       = bsonutil.MustHaveTag(PerfRollups{}, "Valid")
 )
 
@@ -135,7 +133,6 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 		}
 	}
 	r.Stats = append(r.Stats, rollup)
-	r.Count++
 	return nil
 }
 
@@ -206,13 +203,6 @@ func (r *PerfRollups) GetFloat(name string) (float64, error) {
 	return 0, errors.Errorf("name %s does not exist", name)
 }
 
-func (r *PerfRollups) Validate() error {
-	if len(r.Stats) != r.Count {
-		return errors.New("number of stats and count of stats not equal")
-	}
-	return nil
-}
-
 func (r *PerfRollups) Map() map[string]int64 {
 	result := make(map[string]int64)
 	for _, rollup := range r.Stats {
@@ -236,25 +226,17 @@ func (r *PerfRollups) MapFloat() map[string]float64 {
 	return result
 }
 
-func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []*PerfRollupValue) error {
+func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []PerfRollupValue) error {
 	catcher := grip.NewBasicCatcher()
 
 	r.Rollups.id = r.ID
 	r.Rollups.Setup(r.env)
 
 	for _, rollup := range rollups {
-		catcher.Add(r.Rollups.Add(ctx, PerfRollupValue{
-			Name:          rollup.Name,
-			Version:       rollup.Version,
-			Value:         rollup.Value,
-			MetricType:    rollup.MetricType,
-			UserSubmitted: rollup.UserSubmitted,
-			Valid:         rollup.Valid,
-		}))
+		catcher.Add(r.Rollups.Add(ctx, rollup))
 	}
 
 	r.Rollups.ProcessedAt = time.Now()
-	r.Rollups.Count = len(r.Rollups.Stats)
 	r.Rollups.Valid = !catcher.HasErrors()
 
 	return catcher.Resolve()

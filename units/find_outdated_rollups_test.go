@@ -40,7 +40,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 	require.Len(t, factories[2].Names(), 1)
 
 	resultInfo := model.PerformanceResultInfo{Project: "HasOutdatedRollups"}
-	outdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact})
+	outdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
 	outdatedResult.CreatedAt = time.Now().Add(-90*24*time.Hour + time.Hour)
 	outdatedResult.Rollups.Stats = append(
 		outdatedResult.Rollups.Stats,
@@ -57,14 +57,14 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 	assert.NoError(t, outdatedResult.Save())
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasOutdatedRollupsButOld"}
-	oldOutdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact})
+	oldOutdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
 	oldOutdatedResult.CreatedAt = time.Now().Add(-90 * 24 * time.Hour)
 	oldOutdatedResult.Rollups.Stats = outdatedResult.Rollups.Stats
 	oldOutdatedResult.Setup(env)
 	assert.NoError(t, oldOutdatedResult.Save())
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasUpdatedRollups"}
-	updatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact})
+	updatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
 	updatedResult.CreatedAt = time.Now()
 	updatedResult.Rollups.Stats = append(
 		updatedResult.Rollups.Stats,
@@ -85,7 +85,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 	assert.NoError(t, updatedResult.Save())
 
 	resultInfo = model.PerformanceResultInfo{Project: "NoFTDCData"}
-	noFTDCResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{})
+	noFTDCResult := model.CreatePerformanceResult(resultInfo, nil, nil)
 	noFTDCResult.CreatedAt = time.Now()
 	noFTDCResult.Setup(env)
 	assert.NoError(t, noFTDCResult.Save())

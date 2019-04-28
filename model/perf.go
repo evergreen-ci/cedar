@@ -55,7 +55,7 @@ var (
 	perfVersionlKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
-func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) *PerformanceResult {
+func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, rollups []PerfRollupValue) *PerformanceResult {
 	createdAt := time.Now()
 
 	for idx := range source {
@@ -68,7 +68,7 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo) 
 		Artifacts: source,
 		Rollups: PerfRollups{
 			id:    info.ID(),
-			Stats: []PerfRollupValue{},
+			Stats: append([]PerfRollupValue{}, rollups...),
 		},
 		populated: true,
 	}
@@ -117,14 +117,13 @@ func (result *PerformanceResult) Save() error {
 
 	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).UpsertId(result.ID, result)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":            model.Namespace{DB: conf.DatabaseName, Collection: perfResultCollection},
-		"id":            result.ID,
-		"updated":       changeInfo.Updated,
-		"upsertedID":    changeInfo.UpsertedId,
-		"rollups.count": result.Rollups.Count,
-		"rollups.len":   len(result.Rollups.Stats),
-		"artifacts":     len(result.Artifacts),
-		"op":            "save perf result",
+		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: perfResultCollection},
+		"id":          result.ID,
+		"updated":     changeInfo.Updated,
+		"upsertedID":  changeInfo.UpsertedId,
+		"rollups.len": len(result.Rollups.Stats),
+		"artifacts":   len(result.Artifacts),
+		"op":          "save perf result",
 	})
 	return errors.Wrap(err, "problem saving perf result to collection")
 }

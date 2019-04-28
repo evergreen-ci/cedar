@@ -46,7 +46,7 @@ func (s *perfResultSuite) SetupTest() {
 		Mainline:  true,
 	}
 	source := []ArtifactInfo{}
-	result := CreatePerformanceResult(info, source)
+	result := CreatePerformanceResult(info, source, nil)
 	result.Setup(cedar.GetEnvironment())
 	result.CreatedAt = getTimeForTestingByDate(15)
 	result.Version = 1
@@ -60,7 +60,7 @@ func (s *perfResultSuite) SetupTest() {
 		Tags:     []string{"tag2", "json"},
 		Mainline: true,
 	}
-	result2 := CreatePerformanceResult(info, source)
+	result2 := CreatePerformanceResult(info, source, nil)
 	result2.Setup(cedar.GetEnvironment())
 	result2.CreatedAt = getTimeForTestingByDate(16)
 	result2.CompletedAt = getTimeForTestingByDate(18)
@@ -80,7 +80,7 @@ func (s *perfResultSuite) TearDownTest() {
 func (s *perfResultSuite) TestSavePerfResult() {
 	info := PerformanceResultInfo{Parent: "345"}
 	source := []ArtifactInfo{}
-	result := CreatePerformanceResult(info, source)
+	result := CreatePerformanceResult(info, source, nil)
 	result.Setup(cedar.GetEnvironment())
 	result.CreatedAt = getTimeForTestingByDate(12)
 	s.NoError(result.Save())
@@ -91,7 +91,7 @@ func (s *perfResultSuite) TestRemovePerfResult() {
 	// save result
 	info := PerformanceResultInfo{Parent: "345"}
 	source := []ArtifactInfo{}
-	result := CreatePerformanceResult(info, source)
+	result := CreatePerformanceResult(info, source, nil)
 	result.Setup(cedar.GetEnvironment())
 	result.CreatedAt = getTimeForTestingByDate(12)
 	s.NoError(result.Save())
@@ -107,7 +107,7 @@ func (s *perfResultSuite) TestRemovePerfResult() {
 	s.Error(result.Find())
 
 	// remove again should not return error
-	result = CreatePerformanceResult(info, source)
+	result = CreatePerformanceResult(info, source, nil)
 	result.Setup(cedar.GetEnvironment())
 	result.CreatedAt = getTimeForTestingByDate(12)
 	numRemoved, err = result.Remove()
@@ -182,7 +182,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 
 	info := PerformanceResultInfo{Parent: "NA"}
 	source := []ArtifactInfo{}
-	nodeA := CreatePerformanceResult(info, source)
+	nodeA := CreatePerformanceResult(info, source, nil)
 	nodeA.Setup(cedar.GetEnvironment())
 	nodeA.CreatedAt = getTimeForTestingByDate(15)
 	s.NoError(nodeA.Save())
@@ -191,13 +191,13 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 		Parent: nodeA.ID,
 		Tags:   []string{"tag0"},
 	}
-	nodeB := CreatePerformanceResult(info, []ArtifactInfo{})
+	nodeB := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeB.Setup(cedar.GetEnvironment())
 	nodeB.CreatedAt = getTimeForTestingByDate(16)
 	s.NoError(nodeB.Save())
 
 	info.Version = "C"
-	nodeC := CreatePerformanceResult(info, []ArtifactInfo{})
+	nodeC := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeC.Setup(cedar.GetEnvironment())
 	nodeC.CreatedAt = getTimeForTestingByDate(16)
 	s.NoError(nodeC.Save())
@@ -206,7 +206,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 		Parent: nodeB.ID,
 		Tags:   []string{"tag1"},
 	}
-	nodeD := CreatePerformanceResult(info, []ArtifactInfo{})
+	nodeD := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeD.Setup(cedar.GetEnvironment())
 	nodeD.CreatedAt = getTimeForTestingByDate(17)
 	s.NoError(nodeD.Save())
@@ -354,13 +354,13 @@ func (s *perfResultSuite) TestFindOutdated() {
 	rollupName := "SomeRollup"
 
 	noFTDCData := PerformanceResultInfo{Project: "NoFTDCData"}
-	result := CreatePerformanceResult(noFTDCData, source[1:])
+	result := CreatePerformanceResult(noFTDCData, source[1:], nil)
 	result.CreatedAt = time.Now()
 	result.Setup(cedar.GetEnvironment())
 	s.Require().NoError(result.Save())
 
 	correctVersionValid := PerformanceResultInfo{Project: "CorrectVersionValid"}
-	result = CreatePerformanceResult(correctVersionValid, source)
+	result = CreatePerformanceResult(correctVersionValid, source, nil)
 	result.CreatedAt = time.Now()
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
@@ -375,7 +375,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 	s.Require().NoError(result.Save())
 
 	correctVersionInvalid := PerformanceResultInfo{Project: "CorrectVersionInvalid"}
-	result = CreatePerformanceResult(correctVersionInvalid, source)
+	result = CreatePerformanceResult(correctVersionInvalid, source, nil)
 	result.CreatedAt = time.Now()
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
@@ -389,7 +389,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 	s.Require().NoError(result.Save())
 
 	outdated := PerformanceResultInfo{Project: "Outdated"}
-	result = CreatePerformanceResult(outdated, source)
+	result = CreatePerformanceResult(outdated, source, nil)
 	result.CreatedAt = time.Now()
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
@@ -404,7 +404,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 	s.Require().NoError(result.Save())
 
 	outdatedOld := PerformanceResultInfo{Project: "OutdatedOld"}
-	result = CreatePerformanceResult(outdatedOld, source)
+	result = CreatePerformanceResult(outdatedOld, source, nil)
 	result.CreatedAt = time.Now().Add(-time.Hour)
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
@@ -423,7 +423,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 	s.Equal(outdated.ID(), s.r.Results[0].Info.ID())
 
 	doesNotExist := PerformanceResultInfo{Project: "DNE"}
-	result = CreatePerformanceResult(doesNotExist, source)
+	result = CreatePerformanceResult(doesNotExist, source, nil)
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
 		PerfRollupValue{

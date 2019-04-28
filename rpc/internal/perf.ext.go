@@ -152,7 +152,7 @@ func (r *ResultData) Export() (*model.PerformanceResult, error) {
 		artifacts = append(artifacts, *artifact)
 	}
 
-	result := model.CreatePerformanceResult(r.Id.Export(), artifacts)
+	result := model.CreatePerformanceResult(r.Id.Export(), artifacts, ExportRollupValues(r.Rollups))
 
 	if r.Id.CreatedAt != nil {
 		ts, err := ptypes.Timestamp(r.Id.CreatedAt)
@@ -199,20 +199,27 @@ func (m *MetricsPoint) Export() (*events.Performance, error) {
 }
 
 func (r *RollupValue) Export() model.PerfRollupValue {
+	var value interface{}
+	if x, ok := r.Value.(*RollupValue_Int); ok {
+		value = x.Int
+	} else if x, ok := r.Value.(*RollupValue_Fl); ok {
+		value = x.Fl
+	}
+
 	return model.PerfRollupValue{
 		Name:          r.Name,
 		Version:       int(r.Version),
-		Value:         r.Value,
+		Value:         value,
 		UserSubmitted: r.UserSubmitted,
 		MetricType:    r.Type.Export(),
 	}
 }
 
-func ExportRollupValues(r []*RollupValue) []*model.PerfRollupValue {
-	perfRollupValues := []*model.PerfRollupValue{}
+func ExportRollupValues(r []*RollupValue) []model.PerfRollupValue {
+	perfRollupValues := []model.PerfRollupValue{}
 	for _, rollupValue := range r {
 		exportedRollup := rollupValue.Export()
-		perfRollupValues = append(perfRollupValues, &exportedRollup)
+		perfRollupValues = append(perfRollupValues, exportedRollup)
 	}
 	return perfRollupValues
 }

@@ -130,7 +130,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		if result.parent > -1 {
 			result.info.Parent = results[result.parent].info.ID()
 		}
-		performanceResult := model.CreatePerformanceResult(*result.info, []model.ArtifactInfo{})
+		performanceResult := model.CreatePerformanceResult(*result.info, nil, nil)
 		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
 		performanceResult.Setup(env)
 		err := performanceResult.Save()

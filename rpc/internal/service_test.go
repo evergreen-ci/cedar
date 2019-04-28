@@ -180,7 +180,7 @@ func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string)
 	return nil
 }
 
-func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id string) {
+func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id string, rollups []*RollupValue) {
 	q := env.GetRemoteQueue()
 	require.NotNil(t, q)
 	amboy.WaitCtxInterval(ctx, q, 250*time.Millisecond)
@@ -202,7 +202,26 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 	require.NoError(t, err)
 	result := &model.PerformanceResult{}
 	assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(id).One(result))
-	assert.NotEmpty(t, result.Rollups.Stats, "%s", id)
+	assert.True(t, len(result.Rollups.Stats) > len(rollups), "%s", id)
+
+	rollupMap := map[string]model.PerfRollupValue{}
+	for _, rollup := range result.Rollups.Stats {
+		rollupMap[rollup.Name] = rollup
+	}
+	for _, rollup := range rollups {
+		actualRollup, ok := rollupMap[rollup.Name]
+		require.True(t, ok)
+
+		var expectedValue interface{}
+		if x, ok := rollup.Value.(*RollupValue_Int); ok {
+			expectedValue = x.Int
+		} else if x, ok := rollup.Value.(*RollupValue_Fl); ok {
+			expectedValue = x.Fl
+		}
+		assert.Equal(t, expectedValue, actualRollup.Value)
+		assert.Equal(t, int(rollup.Version), actualRollup.Version)
+		assert.Equal(t, rollup.UserSubmitted, actualRollup.UserSubmitted)
+	}
 }
 
 func TestCreateMetricSeries(t *testing.T) {
@@ -226,6 +245,14 @@ func TestCreateMetricSeries(t *testing.T) {
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
 						CreatedAt: &timestamp.Timestamp{},
+					},
+				},
+				Rollups: []*RollupValue{
+					{
+						Name:    "Max",
+						Value:   &RollupValue_Int{Int: 5},
+						Type:    0,
+						Version: 1,
 					},
 				},
 			},
@@ -274,7 +301,7 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				checkRollups(t, ctx, env, resp.Id)
+				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 			}
 		})
 	}
@@ -442,7 +469,7 @@ func TestAttachResultData(t *testing.T) {
 			}
 
 			if test.checkRollups {
-				checkRollups(t, ctx, env, resp.Id)
+				checkRollups(t, ctx, env, resp.Id, nil)
 			}
 		})
 	}
@@ -466,6 +493,7 @@ func TestCuratorSend(t *testing.T) {
 			Trial:     1,
 		},
 		[]model.ArtifactInfo{},
+		[]model.PerfRollupValue{},
 	)
 	curatorPath, err := filepath.Abs("curator")
 	require.NoError(t, err)
