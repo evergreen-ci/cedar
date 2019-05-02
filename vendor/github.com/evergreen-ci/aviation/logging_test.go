@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/send"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,7 @@ func TestGripInterceptors(t *testing.T) {
 		name       string
 		unaryInfo  *grpc.UnaryServerInfo
 		streamInfo *grpc.StreamServerInfo
+		action     string
 		err        bool
 	}{
 		{
@@ -24,8 +26,15 @@ func TestGripInterceptors(t *testing.T) {
 			unaryInfo: &grpc.UnaryServerInfo{},
 		},
 		{
+			name:      "ErrorLogging",
+			unaryInfo: &grpc.UnaryServerInfo{},
+			action:    "error",
+			err:       true,
+		},
+		{
 			name:      "PanicLogging",
 			unaryInfo: &grpc.UnaryServerInfo{},
+			action:    "panic",
 			err:       true,
 		},
 	} {
@@ -37,17 +46,21 @@ func TestGripInterceptors(t *testing.T) {
 				startAt := getNumber()
 
 				interceptor := MakeGripUnaryInterceptor(journaler)
+				_, err = interceptor(context.TODO(), test.action, &grpc.UnaryServerInfo{}, mockUnaryHandler)
 				if test.err {
-					_, err = interceptor(context.TODO(), "panic", &grpc.UnaryServerInfo{}, mockUnaryHandler)
 					assert.Error(t, err)
 				} else {
-					_, err = interceptor(context.TODO(), nil, &grpc.UnaryServerInfo{}, mockUnaryHandler)
 					assert.NoError(t, err)
 				}
 
 				assert.Equal(t, startAt+2, getNumber())
-				assert.True(t, sender.HasMessage())
-				assert.Equal(t, 2, sender.Len())
+				if assert.True(t, sender.HasMessage()) {
+					require.Equal(t, 2, sender.Len())
+					msg := sender.GetMessage()
+					assert.Equal(t, level.Debug, msg.Priority)
+					msg = sender.GetMessage()
+					assert.Equal(t, expectedPriority(test.action), msg.Priority)
+				}
 			})
 			t.Run("Streaming", func(t *testing.T) {
 				sender, err := send.NewInternalLogger("test", grip.GetSender().Level())
@@ -56,18 +69,33 @@ func TestGripInterceptors(t *testing.T) {
 				startAt := getNumber()
 
 				interceptor := MakeGripStreamInterceptor(journaler)
+				err = interceptor(test.action, &mockServerStream{}, &grpc.StreamServerInfo{}, mockStreamHandler)
 				if test.err {
-					err = interceptor("panic", &mockServerStream{}, &grpc.StreamServerInfo{}, mockStreamHandler)
 					assert.Error(t, err)
 				} else {
-					err = interceptor(nil, &mockServerStream{}, &grpc.StreamServerInfo{}, mockStreamHandler)
 					assert.NoError(t, err)
 				}
 
 				assert.Equal(t, startAt+2, getNumber())
-				assert.True(t, sender.HasMessage())
-				assert.Equal(t, 2, sender.Len())
+				if assert.True(t, sender.HasMessage()) {
+					require.Equal(t, 2, sender.Len())
+					msg := sender.GetMessage()
+					assert.Equal(t, level.Debug, msg.Priority)
+					msg = sender.GetMessage()
+					assert.Equal(t, expectedPriority(test.action), msg.Priority)
+				}
 			})
 		})
+	}
+}
+
+func expectedPriority(action string) level.Priority {
+	switch action {
+	case "error":
+		return level.Error
+	case "panic":
+		return level.Alert
+	default:
+		return level.Debug
 	}
 }
