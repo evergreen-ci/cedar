@@ -12,7 +12,6 @@ import:
 - package: github.com/mongodb/ftdc
 - package: github.com/mongodb/grip
 - package: github.com/mongodb/mongo-go-driver
-- package: github.com/montanaflynn/stats
 - package: github.com/pkg/errors
 - package: github.com/pmezard/go-difflib
 - package: github.com/satori/go.uuid

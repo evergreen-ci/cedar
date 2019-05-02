@@ -47,7 +47,8 @@ func MakeGripUnaryInterceptor(logger grip.Journaler) grpc.UnaryServerInterceptor
 			"response_type": fmt.Sprintf("%T", resp),
 			"service_type":  fmt.Sprintf("%T", info.Server),
 			"duration_ms":   int64(time.Since(startAt) / time.Millisecond),
-			"has_error":     err == nil,
+			"has_error":     err != nil,
+			"error_msg":     err,
 			"method":        info.FullMethod,
 			"code":          stat.Code().String(),
 		}
@@ -56,7 +57,11 @@ func MakeGripUnaryInterceptor(logger grip.Journaler) grpc.UnaryServerInterceptor
 			m["desc"] = desc
 		}
 
-		logger.Debug(m)
+		if m["has_error"] == true {
+			logger.Error(m)
+		} else {
+			logger.Debug(m)
+		}
 
 		return
 	}
@@ -93,7 +98,8 @@ func MakeGripStreamInterceptor(logger grip.Journaler) grpc.StreamServerIntercept
 			"request":      id,
 			"service_type": fmt.Sprintf("%T", srv),
 			"duration_ms":  int64(time.Since(startAt) / time.Millisecond),
-			"has_error":    err == nil,
+			"has_error":    err != nil,
+			"error_msg":    err,
 			"method":       info.FullMethod,
 			"code":         stat.Code().String(),
 		}
@@ -102,7 +108,11 @@ func MakeGripStreamInterceptor(logger grip.Journaler) grpc.StreamServerIntercept
 			m["desc"] = desc
 		}
 
-		logger.Debug(m)
+		if m["has_error"] == true {
+			logger.Error(m)
+		} else {
+			logger.Debug(m)
+		}
 
 		return
 	}

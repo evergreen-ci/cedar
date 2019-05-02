@@ -123,7 +123,6 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pmezard/go-difflib/
 	rm -rf vendor/github.com/mongodb/grip/vendor/golang.org/x/net/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pkg/
-	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/montanaflynn/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/davecgh/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pmezard/
@@ -136,7 +135,6 @@ vendor-clean:
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/net
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/text
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/gopkg.in/yaml.v2/
-	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/montanaflynn
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/davecgh/go-spew/
 	rm -rf vendor/github.com/rs/cors/examples/
 	rm -rf vendor/github.com/rs/cors/wrapper
@@ -155,6 +153,7 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/pkg/errors/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/stretchr/
+	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/jpillora/backoff/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/grpc/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 phony += vendor-clean

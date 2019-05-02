@@ -33,7 +33,7 @@ imports:
 - name: github.com/evergreen-ci/pail
   version: 7b2f8e0b2d972ca621cad3777d68276a54da13d0
 - name: github.com/evergreen-ci/aviation
-  version: 0b330d8c587ae147150ac9d691bda7fd8a69e415
+  version: 970463c1ba21b3d3b1ded3c30eea60806144b883
 
 - name: go.mongodb.org/mongo-driver
   version: 305bc4a5e4131420fe8ba5628e6faa9e6ade4e86
@@ -60,8 +60,6 @@ imports:
   version: fcd3f3321826209eac4a6f41c0108624d948e499
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
-- name: github.com/montanaflynn/stats
-  version: 1bf9dbcd8cbe1fdb75add3785b1d4a9a646269ab
 - name: github.com/mitchellh/go-homedir
   version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
 - name: github.com/aclements/go-moremath
