@@ -108,7 +108,7 @@ func Service() cli.Command {
 			var d depot.Depot
 			var err error
 			if rpcTLS {
-				d, err = certdepot.BootstrapDepot(ctx, conf.CA.CertDepot)
+				d, err = certdepot.BootstrapDepotWithMongoClient(ctx, env.GetClient(), conf.CA.CertDepot)
 				if err != nil {
 					return errors.Wrap(err, "problem setting up the certificate depot")
 				}
