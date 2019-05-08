@@ -20,6 +20,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			input: dbmodel.PerformanceResultInfo{
 				Project:   "project",
 				Version:   "version",
+				Order:     "order",
 				TaskName:  "taskname",
 				TaskID:    "taskid",
 				Execution: 1,
@@ -37,6 +38,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			expectedOutput: APIPerformanceResultInfo{
 				Project:   ToAPIString("project"),
 				Version:   ToAPIString("version"),
+				Order:     ToAPIString("order"),
 				TaskName:  ToAPIString("taskname"),
 				TaskID:    ToAPIString("taskid"),
 				Execution: 1,
@@ -170,6 +172,7 @@ func TestImport(t *testing.T) {
 				Info: dbmodel.PerformanceResultInfo{
 					Project:   "project",
 					Version:   "version",
+					Order:     "order",
 					TaskName:  "taskname",
 					TaskID:    "taskid",
 					Execution: 1,
@@ -248,6 +251,7 @@ func TestImport(t *testing.T) {
 				Info: APIPerformanceResultInfo{
 					Project:   ToAPIString("project"),
 					Version:   ToAPIString("version"),
+					Order:     ToAPIString("order"),
 					TaskName:  ToAPIString("taskname"),
 					TaskID:    ToAPIString("taskid"),
 					Execution: 1,
