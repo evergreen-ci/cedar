@@ -170,6 +170,7 @@ func (result *PerformanceResult) Remove() (int, error) {
 type PerformanceResultInfo struct {
 	Project   string           `bson:"project,omitempty"`
 	Version   string           `bson:"version,omitempty"`
+	Order     string           `bson:"order,omitempty"`
 	Variant   string           `bson:"variant,omitempty"`
 	TaskName  string           `bson:"task_name,omitempty"`
 	TaskID    string           `bson:"task_id,omitempty"`
