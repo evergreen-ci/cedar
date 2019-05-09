@@ -51,6 +51,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
 				Version:  "0",
+				Order:    1,
 				TaskName: "task0",
 				TaskID:   "task1",
 				Tags:     []string{"tag1", "tag2"},
@@ -95,6 +96,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
 				Version:  "0",
+				Order:    2,
 				TaskName: "task0",
 				TaskID:   "task0patch",
 				Mainline: false,
@@ -105,6 +107,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
 				Version:  "1",
+				Order:    3,
 				TaskName: "task0",
 				TaskID:   "task2",
 				Tags:     []string{"tag3"},
@@ -332,15 +335,23 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0, false)
 	s.Equal(expectedCount, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)
 	}
 	s.NoError(err)
 
+	limit := 1
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, limit, false)
+	s.Equal(limit, len(actualResult))
+	for _, result := range actualResult {
+		s.Equal(expectedTaskName, *result.Info.TaskName)
+	}
+	s.NoError(err)
+
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0, "tag1", "tag2")
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0, false, "tag1", "tag2")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)
@@ -354,6 +365,28 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 		s.True(foundTag)
 	}
 	s.NoError(err)
+
+	// Sorted with and without limit
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, 0, true)
+	s.Equal(expectedCount, len(actualResult))
+	previousOrder := actualResult[0].Info.Order
+	for _, result := range actualResult {
+		s.Equal(expectedTaskName, *result.Info.TaskName)
+		s.True(previousOrder >= result.Info.Order)
+		previousOrder = result.Info.Order
+	}
+	s.NoError(err)
+
+	limit = 2
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(expectedTaskName, tr, limit, true)
+	s.Equal(limit, len(actualResult))
+	previousOrder = actualResult[0].Info.Order
+	for _, result := range actualResult {
+		s.Equal(expectedTaskName, *result.Info.TaskName)
+		s.True(previousOrder >= result.Info.Order)
+		previousOrder = result.Info.Order
+	}
+	s.NoError(err)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() {
@@ -362,7 +395,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() 
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName("doesNotExist", tr, 0)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName("doesNotExist", tr, 0, false)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -373,10 +406,11 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameNarrowInterval(
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.results[0].info.TaskName, tr, 0)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.results[0].info.TaskName, tr, 0, false)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
+
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
