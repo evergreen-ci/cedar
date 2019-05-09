@@ -204,6 +204,10 @@ func (id *PerformanceResultInfo) ID() string {
 	var hash hash.Hash
 
 	if id.Schema == 0 {
+		// This hash does not include order because it was added as a
+		// field after data existed in the database. The order field
+		// does not affect uniqueness but will be added in later schema
+		// versions.
 		hash = sha1.New()
 		_, _ = io.WriteString(hash, id.Project)
 		_, _ = io.WriteString(hash, id.Version)
@@ -281,8 +285,9 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	}
 	if options.Sort != nil {
 		query = query.Sort(options.Sort...)
+	} else {
+		query = query.Sort("-" + perfCreatedAtKey)
 	}
-	query = query.Sort("-" + perfCreatedAtKey)
 	err = query.All(&r.Results)
 	if err != nil {
 		return errors.WithStack(err)
