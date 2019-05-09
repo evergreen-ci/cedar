@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -96,7 +97,11 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 
 // FindPerformanceResultsByTaskName queries the database to find all performance
 // results with the given taskName, time inteval, and optional tags.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+// If limit is greater than 0, the number of results returned will be no
+// greater than limit.
+// If sorted is true, the results will be sorted (descending) by the order
+// field.
+func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, sorted bool, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -108,6 +113,9 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interv
 		},
 		MaxDepth: 0,
 		Limit:    limit,
+	}
+	if sorted {
+		options.Sort = []string{"-info.order"}
 	}
 
 	if err := results.Find(options); err != nil {
@@ -282,9 +290,8 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval 
 	return results, nil
 }
 
-func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, sorted bool, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
-	count := 0
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) && result.Info.Mainline {
 			apiResult := dataModel.APIPerformanceResult{}
@@ -296,10 +303,6 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, inter
 				}
 			}
 			results = append(results, apiResult)
-			count++
-			if limit > 0 && count >= limit {
-				break
-			}
 		}
 	}
 
@@ -309,8 +312,15 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, inter
 			Message:    fmt.Sprintf("performance result with task_name '%s' not found", taskName),
 		}
 	}
-	return results, nil
 
+	if sorted {
+		sort.Slice(results, func(i, j int) bool { return results[i].Info.Order > results[j].Info.Order })
+	}
+	if limit > 0 && limit < len(results) {
+		results = results[:limit]
+	}
+
+	return results, nil
 }
 
 func (mc *MockConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {

@@ -144,6 +144,7 @@ type perfGetByTaskNameHandler struct {
 	interval util.TimeRange
 	tags     []string
 	limit    int
+	sorted   bool
 	sc       data.Connector
 }
 
@@ -169,10 +170,18 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 	catcher := grip.NewBasicCatcher()
 	h.interval, err = parseInterval(vals)
 	catcher.Add(err)
-	limit := r.URL.Query().Get("limit")
+	limit := vals.Get("limit")
 	if limit != "" {
 		h.limit, err = strconv.Atoi(limit)
 		catcher.Add(err)
+	} else {
+		h.limit = 0
+	}
+	sorted := vals.Get("sorted")
+	if sorted == "true" {
+		h.sorted = true
+	} else {
+		h.sorted = false
 	}
 	return catcher.Resolve()
 }
@@ -180,7 +189,7 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 // Run calls the data FindPerformanceResultsByTaskName function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.interval, h.limit, h.tags...)
+	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.interval, h.limit, h.sorted, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskName))
 	}

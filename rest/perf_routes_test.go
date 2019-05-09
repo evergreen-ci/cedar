@@ -30,6 +30,7 @@ func (s *PerfHandlerSuite) setup() {
 				ID: "abc",
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
+					Order:    1,
 					TaskID:   "123",
 					TaskName: "taskname0",
 					Tags:     []string{"a", "b"},
@@ -42,8 +43,9 @@ func (s *PerfHandlerSuite) setup() {
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
+					Order:    2,
 					TaskID:   "123",
-					TaskName: ("taskname0"),
+					TaskName: "taskname0",
 					Tags:     []string{"a"},
 					Mainline: true,
 				},
@@ -54,6 +56,7 @@ func (s *PerfHandlerSuite) setup() {
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
+					Order:    3,
 					TaskID:   "123",
 					TaskName: "taskname0",
 					Tags:     []string{"b"},
@@ -66,6 +69,7 @@ func (s *PerfHandlerSuite) setup() {
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
+					Order:    4,
 					TaskID:   "123",
 					TaskName: "taskname0",
 					Tags:     []string{"a", "b", "c"},
@@ -78,6 +82,7 @@ func (s *PerfHandlerSuite) setup() {
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "2",
+					Order:    1,
 					TaskID:   "456",
 					TaskName: "taskname1",
 					Mainline: true,
@@ -89,6 +94,7 @@ func (s *PerfHandlerSuite) setup() {
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
+					Order:    2,
 					TaskID:   "456",
 					TaskName: "taskname1",
 					Mainline: true,
@@ -200,12 +206,42 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	}
 	rh.(*perfGetByTaskNameHandler).tags = []string{"a", "b"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
-
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	rh.(*perfGetByTaskNameHandler).interval = util.TimeRange{
+		StartAt: time.Time{},
+		EndAt:   time.Now(),
+	}
+	rh.(*perfGetByTaskNameHandler).tags = []string{}
+	rh.(*perfGetByTaskNameHandler).sorted = true
+	expected = []datamodel.APIPerformanceResult{
+		s.apiResults["jkl"],
+		s.apiResults["ghi"],
+		s.apiResults["def"],
+		s.apiResults["abc"],
+	}
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+	rh.(*perfGetByTaskNameHandler).limit = 3
+	expected = []datamodel.APIPerformanceResult{
+		s.apiResults["jkl"],
+		s.apiResults["ghi"],
+		s.apiResults["def"],
+	}
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
@@ -282,6 +318,7 @@ func (s *PerfHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
 		handler   string
+		sorted    bool
 	}{
 		{
 			handler:   "task_id",
@@ -290,23 +327,25 @@ func (s *PerfHandlerSuite) TestParse() {
 		{
 			handler:   "task_name",
 			urlString: "http://example.com/perf/task_name/task_name0",
+			sorted:    true,
 		},
 		{
 			handler:   "version",
 			urlString: "http://example.com/perf/version/verison0",
 		},
 	} {
-		s.testParseValid(test.handler, test.urlString)
+		s.testParseValid(test.handler, test.urlString, test.sorted)
 		s.testParseInvalid(test.handler, test.urlString)
-		s.testParseDefaults(test.handler, test.urlString)
+		s.testParseDefaults(test.handler, test.urlString, test.sorted)
 	}
 }
 
-func (s *PerfHandlerSuite) testParseValid(handler, urlString string) {
+func (s *PerfHandlerSuite) testParseValid(handler, urlString string, sorted bool) {
 	ctx := context.Background()
 	urlString += "?started_after=2012-11-01T22:08:00%2B00:00"
 	urlString += "&finished_before=2013-11-01T22:08:00%2B00:00"
 	urlString += "&tags=hello&tags=world"
+	urlString += "&limit=5&sorted=true"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	expectedInterval := util.TimeRange{
@@ -319,6 +358,10 @@ func (s *PerfHandlerSuite) testParseValid(handler, urlString string) {
 	err := rh.Parse(ctx, req)
 	s.Equal(expectedInterval, getInterval(rh, handler))
 	s.Equal(expectedTags, getTags(rh, handler))
+	if sorted {
+		s.Equal(5, getLimit(rh, handler))
+		s.True(getSorted(rh, handler))
+	}
 	s.NoError(err)
 }
 
@@ -338,7 +381,7 @@ func (s *PerfHandlerSuite) testParseInvalid(handler, urlString string) {
 	s.Error(err)
 }
 
-func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string) {
+func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, sorted bool) {
 	ctx := context.Background()
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
@@ -357,6 +400,10 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string) {
 	time.Sleep(time.Second)
 	s.True(interval.EndAt.Before(time.Now()))
 	s.Nil(getTags(rh, handler))
+	if sorted {
+		s.Zero(getLimit(rh, handler))
+		s.False(getSorted(rh, handler))
+	}
 	s.NoError(err)
 }
 
@@ -383,5 +430,23 @@ func getTags(rh gimlet.RouteHandler, handler string) []string {
 		return rh.(*perfGetByVersionHandler).tags
 	default:
 		return []string{}
+	}
+}
+
+func getLimit(rh gimlet.RouteHandler, handler string) int {
+	switch handler {
+	case "task_name":
+		return rh.(*perfGetByTaskNameHandler).limit
+	default:
+		return 0
+	}
+}
+
+func getSorted(rh gimlet.RouteHandler, handler string) bool {
+	switch handler {
+	case "task_name":
+		return rh.(*perfGetByTaskNameHandler).sorted
+	default:
+		return false
 	}
 }
