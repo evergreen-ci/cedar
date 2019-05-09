@@ -96,11 +96,10 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 }
 
 // FindPerformanceResultsByTaskName queries the database to find all performance
-// results with the given taskName, time inteval, and optional tags.
+// results with the given taskName, time inteval, and optional tags. Results
+// are returned sorted (descending) by the Evergreen order.
 // If limit is greater than 0, the number of results returned will be no
 // greater than limit.
-// If sorted is true, the results will be sorted (descending) by the order
-// field.
 func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
