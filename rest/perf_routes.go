@@ -169,10 +169,12 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 	catcher := grip.NewBasicCatcher()
 	h.interval, err = parseInterval(vals)
 	catcher.Add(err)
-	limit := r.URL.Query().Get("limit")
+	limit := vals.Get("limit")
 	if limit != "" {
 		h.limit, err = strconv.Atoi(limit)
 		catcher.Add(err)
+	} else {
+		h.limit = 0
 	}
 	return catcher.Resolve()
 }

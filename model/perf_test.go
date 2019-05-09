@@ -6,6 +6,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -39,6 +40,8 @@ func (s *perfResultSuite) SetupTest() {
 	info := PerformanceResultInfo{
 		Parent:    "123",
 		Version:   "1",
+		Order:     1,
+		TaskName:  "task",
 		Project:   "test",
 		Trial:     12,
 		Tags:      []string{"tag1", "bson"},
@@ -56,6 +59,8 @@ func (s *perfResultSuite) SetupTest() {
 	info = PerformanceResultInfo{
 		Parent:   "234",
 		Version:  "1",
+		Order:    2,
+		TaskName: "task",
 		Trial:    10,
 		Tags:     []string{"tag2", "json"},
 		Mainline: true,
@@ -66,6 +71,17 @@ func (s *perfResultSuite) SetupTest() {
 	result2.CompletedAt = getTimeForTestingByDate(18)
 	result2.Version = 2
 	s.NoError(result2.Save())
+
+	info = PerformanceResultInfo{
+		Version:  "1",
+		Order:    3,
+		TaskName: "task",
+		Mainline: true,
+	}
+	result3 := CreatePerformanceResult(info, source, nil)
+	result3.Setup(cedar.GetEnvironment())
+	s.NoError(result3.Save())
+
 }
 
 func (s *perfResultSuite) TearDownTest() {
@@ -173,6 +189,37 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	s.NoError(s.r.Find(options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].Info.Version, "1")
+}
+
+func (s *perfResultSuite) TestFindResultsWithSortAndLimit() {
+	options := PerfFindOptions{
+		Interval: util.TimeRange{
+			StartAt: time.Time{},
+			EndAt:   time.Now(),
+		},
+		Info: PerformanceResultInfo{TaskName: "task"},
+		Sort: []string{"-" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey)},
+	}
+	s.NoError(s.r.Find(options))
+	s.Len(s.r.Results, 3)
+	for i := 1; i < len(s.r.Results); i++ {
+		s.True(s.r.Results[i-1].Info.Order >= s.r.Results[i].Info.Order)
+	}
+
+	options.Limit = 2
+	s.NoError(s.r.Find(options))
+	s.Len(s.r.Results, 2)
+	for i := 1; i < len(s.r.Results); i++ {
+		s.True(s.r.Results[i-1].Info.Order >= s.r.Results[i].Info.Order)
+	}
+
+	options.Sort = []string{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey)}
+	options.Limit = 0
+	s.NoError(s.r.Find(options))
+	s.Len(s.r.Results, 3)
+	for i := 1; i < len(s.r.Results); i++ {
+		s.True(s.r.Results[i-1].Info.Order <= s.r.Results[i].Info.Order)
+	}
 }
 
 func (s *perfResultSuite) TestSearchResultsWithParent() {

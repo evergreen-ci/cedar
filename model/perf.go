@@ -170,6 +170,7 @@ func (result *PerformanceResult) Remove() (int, error) {
 type PerformanceResultInfo struct {
 	Project   string           `bson:"project,omitempty"`
 	Version   string           `bson:"version,omitempty"`
+	Order     int              `bson:"order,omitempty"`
 	Variant   string           `bson:"variant,omitempty"`
 	TaskName  string           `bson:"task_name,omitempty"`
 	TaskID    string           `bson:"task_id,omitempty"`
@@ -186,6 +187,7 @@ type PerformanceResultInfo struct {
 var (
 	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
 	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
+	perfResultInfoOrderKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Order")
 	perfResultInfoVariantKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Variant")
 	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
 	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
@@ -202,6 +204,10 @@ func (id *PerformanceResultInfo) ID() string {
 	var hash hash.Hash
 
 	if id.Schema == 0 {
+		// This hash does not include order because it was added as a
+		// field after data existed in the database. The order field
+		// does not affect uniqueness but will be added in later schema
+		// versions.
 		hash = sha1.New()
 		_, _ = io.WriteString(hash, id.Project)
 		_, _ = io.WriteString(hash, id.Version)
@@ -248,6 +254,7 @@ type PerfFindOptions struct {
 	MaxDepth    int
 	GraphLookup bool
 	Limit       int
+	Sort        []string
 }
 
 func (r *PerformanceResults) Setup(e cedar.Environment) { r.env = e }
@@ -272,9 +279,14 @@ func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	}
 
 	r.populated = false
-	query := session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).Sort("-" + perfCreatedAtKey)
+	query := session.DB(conf.DatabaseName).C(perfResultCollection).Find(search)
 	if options.Limit > 0 {
 		query = query.Limit(options.Limit)
+	}
+	if options.Sort != nil {
+		query = query.Sort(options.Sort...)
+	} else {
+		query = query.Sort("-" + perfCreatedAtKey)
 	}
 	err = query.All(&r.Results)
 	if err != nil {
