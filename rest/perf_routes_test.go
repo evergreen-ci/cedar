@@ -217,7 +217,6 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 		EndAt:   time.Now(),
 	}
 	rh.(*perfGetByTaskNameHandler).tags = []string{}
-	rh.(*perfGetByTaskNameHandler).sorted = true
 	expected = []datamodel.APIPerformanceResult{
 		s.apiResults["jkl"],
 		s.apiResults["ghi"],
@@ -318,7 +317,7 @@ func (s *PerfHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
 		handler   string
-		sorted    bool
+		limit     bool
 	}{
 		{
 			handler:   "task_id",
@@ -327,25 +326,25 @@ func (s *PerfHandlerSuite) TestParse() {
 		{
 			handler:   "task_name",
 			urlString: "http://example.com/perf/task_name/task_name0",
-			sorted:    true,
+			limit:     true,
 		},
 		{
 			handler:   "version",
 			urlString: "http://example.com/perf/version/verison0",
 		},
 	} {
-		s.testParseValid(test.handler, test.urlString, test.sorted)
+		s.testParseValid(test.handler, test.urlString, test.limit)
 		s.testParseInvalid(test.handler, test.urlString)
-		s.testParseDefaults(test.handler, test.urlString, test.sorted)
+		s.testParseDefaults(test.handler, test.urlString, test.limit)
 	}
 }
 
-func (s *PerfHandlerSuite) testParseValid(handler, urlString string, sorted bool) {
+func (s *PerfHandlerSuite) testParseValid(handler, urlString string, limit bool) {
 	ctx := context.Background()
 	urlString += "?started_after=2012-11-01T22:08:00%2B00:00"
 	urlString += "&finished_before=2013-11-01T22:08:00%2B00:00"
 	urlString += "&tags=hello&tags=world"
-	urlString += "&limit=5&sorted=true"
+	urlString += "&limit=5"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	expectedInterval := util.TimeRange{
@@ -358,9 +357,8 @@ func (s *PerfHandlerSuite) testParseValid(handler, urlString string, sorted bool
 	err := rh.Parse(ctx, req)
 	s.Equal(expectedInterval, getInterval(rh, handler))
 	s.Equal(expectedTags, getTags(rh, handler))
-	if sorted {
+	if limit {
 		s.Equal(5, getLimit(rh, handler))
-		s.True(getSorted(rh, handler))
 	}
 	s.NoError(err)
 }
@@ -381,7 +379,7 @@ func (s *PerfHandlerSuite) testParseInvalid(handler, urlString string) {
 	s.Error(err)
 }
 
-func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, sorted bool) {
+func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, limit bool) {
 	ctx := context.Background()
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
@@ -400,9 +398,8 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, sorted b
 	time.Sleep(time.Second)
 	s.True(interval.EndAt.Before(time.Now()))
 	s.Nil(getTags(rh, handler))
-	if sorted {
+	if limit {
 		s.Zero(getLimit(rh, handler))
-		s.False(getSorted(rh, handler))
 	}
 	s.NoError(err)
 }
@@ -439,14 +436,5 @@ func getLimit(rh gimlet.RouteHandler, handler string) int {
 		return rh.(*perfGetByTaskNameHandler).limit
 	default:
 		return 0
-	}
-}
-
-func getSorted(rh gimlet.RouteHandler, handler string) bool {
-	switch handler {
-	case "task_name":
-		return rh.(*perfGetByTaskNameHandler).sorted
-	default:
-		return false
 	}
 }
