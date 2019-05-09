@@ -207,6 +207,7 @@ func (id *PerformanceResultInfo) ID() string {
 		hash = sha1.New()
 		_, _ = io.WriteString(hash, id.Project)
 		_, _ = io.WriteString(hash, id.Version)
+		_, _ = io.WriteString(hash, id.Order)
 		_, _ = io.WriteString(hash, id.Variant)
 		_, _ = io.WriteString(hash, id.TaskName)
 		_, _ = io.WriteString(hash, id.TaskID)
