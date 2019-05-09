@@ -73,16 +73,12 @@ func (c *BootstrapDepotConfig) Validate() error {
 
 // BootstrapDepot creates a certificate depot with a CA and service certificate.
 func BootstrapDepot(ctx context.Context, conf BootstrapDepotConfig) (depot.Depot, error) {
-	return bootstrapDepot(ctx, nil, conf)
+	return BootstrapDepotWithMongoClient(ctx, nil, conf)
 }
 
 // BootstrapDepot creates a certificate depot with a CA and service certificate
 // using the provided mongo driver client.
 func BootstrapDepotWithMongoClient(ctx context.Context, client *mongo.Client, conf BootstrapDepotConfig) (depot.Depot, error) {
-	return bootstrapDepot(ctx, client, conf)
-}
-
-func bootstrapDepot(ctx context.Context, client *mongo.Client, conf BootstrapDepotConfig) (depot.Depot, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid configuration")
 	}
