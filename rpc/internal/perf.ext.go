@@ -109,6 +109,7 @@ func (m *ResultID) Export() model.PerformanceResultInfo {
 	return model.PerformanceResultInfo{
 		Project:   m.Project,
 		Version:   m.Version,
+		Order:     int(m.Order),
 		Variant:   m.Variant,
 		TaskID:    m.TaskId,
 		TaskName:  m.TaskName,
