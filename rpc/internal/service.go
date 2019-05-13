@@ -244,10 +244,6 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 			return errors.Wrap(err, "problem exporting artifacts")
 		}
 
-		if artifact.Type == "" {
-			artifact.Type = model.PailS3
-		}
-
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
