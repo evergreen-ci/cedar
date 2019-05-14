@@ -35,6 +35,11 @@ type mgoGroupDriver struct {
 // serves as a prefix for collection names, and a MongoDB connection
 func NewMgoGroupDriver(name string, opts MongoDBOptions, group string) Driver {
 	host, _ := os.Hostname() // nolint
+
+	if !opts.Format.IsValid() {
+		opts.Format = amboy.BSON
+	}
+
 	return &mgoGroupDriver{
 		name:       name,
 		opts:       opts,
@@ -49,7 +54,7 @@ func NewMgoGroupDriver(name string, opts MongoDBOptions, group string) Driver {
 func OpenNewMgoGroupDriver(ctx context.Context, name string, opts MongoDBOptions, group string, session *mgo.Session) (Driver, error) {
 	d := NewMgoGroupDriver(name, opts, group).(*mgoGroupDriver)
 
-	if err := d.start(ctx, session.Copy()); err != nil {
+	if err := d.start(ctx, session.Clone()); err != nil {
 		return nil, errors.Wrap(err, "problem starting driver")
 	}
 
@@ -170,7 +175,7 @@ func (d *mgoGroupDriver) Get(_ context.Context, name string) (amboy.Job, error) 
 
 	j.Name = j.Name[len(d.group)+1:]
 
-	output, err := j.Resolve(amboy.BSON)
+	output, err := j.Resolve(d.opts.Format)
 	if err != nil {
 		return nil, errors.Wrapf(err,
 			"GET problem converting '%s' to job object", name)
@@ -181,7 +186,7 @@ func (d *mgoGroupDriver) Get(_ context.Context, name string) (amboy.Job, error) 
 
 // Put inserts the job into the collection, returning an error when that job already exists.
 func (d *mgoGroupDriver) Put(_ context.Context, j amboy.Job) error {
-	job, err := registry.MakeJobInterchange(j, amboy.BSON)
+	job, err := registry.MakeJobInterchange(j, d.opts.Format)
 	if err != nil {
 		return errors.Wrap(err, "problem converting job to interchange format")
 	}
@@ -212,7 +217,7 @@ func (d *mgoGroupDriver) Save(_ context.Context, j amboy.Job) error {
 	stat.ModificationTime = time.Now()
 	j.SetStatus(stat)
 
-	job, err := registry.MakeJobInterchange(j, amboy.BSON)
+	job, err := registry.MakeJobInterchange(j, d.opts.Format)
 	if err != nil {
 		return errors.Wrap(err, "problem converting job to interchange format")
 	}
@@ -285,7 +290,7 @@ func (d *mgoGroupDriver) Jobs(ctx context.Context) <-chan amboy.Job {
 		for results.Next(j) {
 			j.Name = j.Name[len(d.group)+1:]
 
-			job, err := j.Resolve(amboy.BSON)
+			job, err := j.Resolve(d.opts.Format)
 			if err != nil {
 				grip.Warning(message.WrapError(err, message.Fields{
 					"id":        d.instanceID,
@@ -422,13 +427,13 @@ func (d *mgoGroupDriver) Next(ctx context.Context) amboy.Job {
 					}))
 					return nil
 				}
-				timer.Reset(time.Duration(misses * rand.Int63n(int64(time.Second))))
+				timer.Reset(time.Duration(misses * rand.Int63n(int64(d.opts.WaitInterval))))
 				iter = query.Iter()
 				continue
 			}
 			j.Name = j.Name[len(d.group)+1:]
 
-			job, err = j.Resolve(amboy.BSON)
+			job, err = j.Resolve(d.opts.Format)
 			if err != nil {
 				grip.Warning(message.WrapError(err, message.Fields{
 					"id":        d.instanceID,
@@ -472,7 +477,17 @@ func (d *mgoGroupDriver) Stats(_ context.Context) amboy.QueueStats {
 	session, jobs := d.getJobsCollection()
 	defer session.Close()
 
-	pending, err := jobs.Find(bson.M{"group": d.group, "status.completed": false, "status.in_prog": false}).Count()
+	total, err := jobs.Find(bson.M{"group": d.group}).Count()
+	grip.Warning(message.WrapError(err, message.Fields{
+		"id":         d.instanceID,
+		"group":      d.group,
+		"service":    "amboy.queue.group.mgo",
+		"collection": jobs.Name,
+		"operation":  "queue stats",
+		"message":    "problem all jobs",
+	}))
+
+	pending, err := jobs.Find(bson.M{"group": d.group, "status.completed": false}).Count()
 	grip.Warning(message.WrapError(err, message.Fields{
 		"id":         d.instanceID,
 		"service":    "amboy.queue.group.mgo",
@@ -491,20 +506,11 @@ func (d *mgoGroupDriver) Stats(_ context.Context) amboy.QueueStats {
 		"operation":  "queue stats",
 		"message":    "problem counting locked jobs",
 	}))
-	numCompleted, err := jobs.Find(bson.M{"group": d.group, "status.completed": true}).Count()
-	grip.Warning(message.WrapError(err, message.Fields{
-		"id":         d.instanceID,
-		"group":      d.group,
-		"service":    "amboy.queue.group.mgo",
-		"collection": jobs.Name,
-		"operation":  "queue stats",
-		"message":    "problem counting locked jobs",
-	}))
 
 	return amboy.QueueStats{
-		Total:     pending + numCompleted + numLocked,
+		Total:     total,
 		Pending:   pending,
-		Completed: numCompleted,
+		Completed: total - pending,
 		Running:   numLocked,
 	}
 }
