@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/grip"
 )
@@ -49,6 +50,8 @@ func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 		DB:             c.DatabaseName,
 		Priority:       true,
 		CheckWaitUntil: true,
+		Format:         amboy.BSON2,
+		WaitInterval:   time.Second,
 	}
 
 }
