@@ -46,7 +46,7 @@ func TestCalculateDefaultRollups(t *testing.T) {
 				assert.Equal(t, []model.PerfRollupValue{}, actual)
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, 18, len(actual))
+				assert.Equal(t, 19, len(actual))
 				assert.NoError(t, err)
 			}
 		})
@@ -68,6 +68,7 @@ func TestCalcFunctions(t *testing.T) {
 			extractedDurations []float64
 			durationTotal      time.Duration
 			total              time.Duration
+			totalWallTime      time.Duration
 		}{
 			extractedDurations: extractValues(convertToFloats([]int64{
 				500000,
@@ -80,9 +81,10 @@ func TestCalcFunctions(t *testing.T) {
 				4400000,
 				4800000,
 				5000000,
-			})),
-			durationTotal: time.Duration(5000000),
-			total:         time.Duration(6000000),
+			}), 0),
+			durationTotal: time.Duration(500000000),
+			total:         time.Duration(600000000),
+			totalWallTime: time.Duration(2 * time.Second),
 		},
 		gauges: struct {
 			state   []float64
@@ -140,15 +142,15 @@ func TestCalcFunctions(t *testing.T) {
 			name:    operationThroughputName,
 			factory: &operationThroughput{},
 			expectedValues: []interface{}{
-				float64(s.counters.operationsTotal) / float64(s.timers.durationTotal.Seconds()),
+				float64(s.counters.operationsTotal) / float64(s.timers.totalWallTime.Seconds()),
 			},
 			expectedVersion:     operationThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
 			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
-				original := s.timers.durationTotal
-				s.timers.durationTotal = 0
+				original := s.timers.totalWallTime
+				s.timers.totalWallTime = 0
 				rollups := f.Calc(s, u)
-				s.timers.durationTotal = original
+				s.timers.totalWallTime = original
 				return rollups
 			},
 		},
@@ -156,15 +158,15 @@ func TestCalcFunctions(t *testing.T) {
 			name:    sizeThroughputName,
 			factory: &sizeThroughput{},
 			expectedValues: []interface{}{
-				float64(s.counters.sizeTotal) / float64(s.timers.durationTotal.Seconds()),
+				float64(s.counters.sizeTotal) / float64(s.timers.totalWallTime.Seconds()),
 			},
 			expectedVersion:     sizeThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
 			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
-				original := s.timers.durationTotal
-				s.timers.durationTotal = 0
+				original := s.timers.totalWallTime
+				s.timers.totalWallTime = 0
 				rollups := f.Calc(s, u)
-				s.timers.durationTotal = original
+				s.timers.totalWallTime = original
 				return rollups
 			},
 		},
@@ -172,15 +174,15 @@ func TestCalcFunctions(t *testing.T) {
 			name:    errorThroughputName,
 			factory: &errorThroughput{},
 			expectedValues: []interface{}{
-				float64(s.counters.errorsTotal) / float64(s.timers.durationTotal.Seconds()),
+				float64(s.counters.errorsTotal) / float64(s.timers.totalWallTime.Seconds()),
 			},
 			expectedVersion:     errorThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
 			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
-				original := s.timers.durationTotal
-				s.timers.durationTotal = 0
+				original := s.timers.totalWallTime
+				s.timers.totalWallTime = 0
 				rollups := f.Calc(s, u)
-				s.timers.durationTotal = original
+				s.timers.totalWallTime = original
 				return rollups
 			},
 		},
@@ -241,7 +243,7 @@ func TestCalcFunctions(t *testing.T) {
 		{
 			name:                durationSumName,
 			factory:             &durationSum{},
-			expectedValues:      []interface{}{s.timers.durationTotal},
+			expectedValues:      []interface{}{s.timers.totalWallTime},
 			expectedVersion:     durationSumVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeSum},
 		},
@@ -264,6 +266,13 @@ func TestCalcFunctions(t *testing.T) {
 			factory:             &sizeSum{},
 			expectedValues:      []interface{}{s.counters.sizeTotal},
 			expectedVersion:     sizeSumVersion,
+			expectedMetricTypes: []model.MetricType{model.MetricTypeSum},
+		},
+		{
+			name:                overheadSumName,
+			factory:             &overheadSum{},
+			expectedValues:      []interface{}{s.timers.total - s.timers.durationTotal},
+			expectedVersion:     overheadSumVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeSum},
 		},
 	} {
