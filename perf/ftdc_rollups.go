@@ -19,6 +19,7 @@ type PerformanceStatistics struct {
 		extractedDurations []float64
 		durationTotal      time.Duration
 		total              time.Duration
+		totalWallTime      time.Duration
 	}
 
 	gauges struct {
@@ -46,6 +47,9 @@ func CalculateDefaultRollups(dx *ftdc.ChunkIterator, user bool) ([]model.PerfRol
 
 func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, error) {
 	perfStats := &PerformanceStatistics{}
+	lastValue := float64(0)
+	var start time.Time
+	var end time.Time
 
 	defer dx.Close()
 	for i := 0; dx.Next(); i++ {
@@ -60,7 +64,11 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 			case "counters.errors":
 				perfStats.counters.errorsTotal = metric.Values[len(metric.Values)-1]
 			case "timers.duration", "timers.dur":
-				perfStats.timers.extractedDurations = extractValues(convertToFloats(metric.Values))
+				perfStats.timers.extractedDurations = append(
+					perfStats.timers.extractedDurations,
+					extractValues(convertToFloats(metric.Values), lastValue)...,
+				)
+				lastValue = float64(metric.Values[len(metric.Values)-1])
 				perfStats.timers.durationTotal = time.Duration(metric.Values[len(metric.Values)-1])
 			case "timers.total":
 				perfStats.timers.total = time.Duration(metric.Values[len(metric.Values)-1])
@@ -70,13 +78,23 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 				perfStats.gauges.workers = convertToFloats(metric.Values)
 			case "gauges.failed":
 				perfStats.gauges.failed = convertToFloats(metric.Values)
-			case "ts", "counters.n", "id":
+			case "ts":
+				if i == 0 {
+					t := metric.Values[0]
+					start = time.Unix(t/1000, t%1000*1000000)
+				}
+				t := metric.Values[len(metric.Values)-1]
+				end = time.Unix(t/1000, t%1000*1000000)
+			case "counters.n", "id":
 				continue
 			default:
 				return nil, errors.Errorf("unknown field name %s", name)
 			}
 		}
 	}
+
+	perfStats.timers.totalWallTime = end.Sub(start)
+
 	return perfStats, errors.WithStack(dx.Err())
 }
 
@@ -90,10 +108,9 @@ func convertToFloats(ints []int64) []float64 {
 }
 
 // expects slice of cumulative values
-func extractValues(vals []float64) []float64 {
+func extractValues(vals []float64, lastValue float64) []float64 {
 	extractedVals := make([]float64, len(vals))
 
-	lastValue := float64(0)
 	for i := range vals {
 		extractedVals[i] = vals[i] - lastValue
 		lastValue = vals[i]

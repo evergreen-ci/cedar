@@ -28,6 +28,7 @@ var rollupsMap = map[string]RollupFactory{
 	errorsSumName:           &errorsSum{},
 	operationsSumName:       &operationsSum{},
 	sizeSumName:             &sizeSum{},
+	overheadSumName:         &overheadSum{},
 }
 
 // TODO: Which function of the two following is better?
@@ -52,6 +53,7 @@ var defaultRollups = []RollupFactory{
 	&errorsSum{},
 	&operationsSum{},
 	&sizeSum{},
+	&overheadSum{},
 }
 
 func DefaultRollupFactories() []RollupFactory { return defaultRollups }
@@ -118,7 +120,7 @@ type operationThroughput struct{}
 
 const (
 	operationThroughputName    = "OperationThroughput"
-	operationThroughputVersion = 3
+	operationThroughputVersion = 4
 )
 
 func (f *operationThroughput) Type() string    { return operationThroughputName }
@@ -132,8 +134,8 @@ func (f *operationThroughput) Calc(s *PerformanceStatistics, user bool) []model.
 		UserSubmitted: user,
 	}
 
-	if s.timers.durationTotal > 0 {
-		rollup.Value = float64(s.counters.operationsTotal) / s.timers.durationTotal.Seconds()
+	if s.timers.totalWallTime > 0 {
+		rollup.Value = float64(s.counters.operationsTotal) / s.timers.totalWallTime.Seconds()
 		rollup.Valid = true
 	}
 
@@ -144,7 +146,7 @@ type sizeThroughput struct{}
 
 const (
 	sizeThroughputName    = "SizeThroughput"
-	sizeThroughputVersion = 3
+	sizeThroughputVersion = 4
 )
 
 func (f *sizeThroughput) Type() string    { return sizeThroughputName }
@@ -157,8 +159,8 @@ func (f *sizeThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfR
 		MetricType:    model.MetricTypeThroughput,
 		UserSubmitted: user,
 	}
-	if s.timers.durationTotal > 0 {
-		rollup.Value = float64(s.counters.sizeTotal) / s.timers.durationTotal.Seconds()
+	if s.timers.totalWallTime > 0 {
+		rollup.Value = float64(s.counters.sizeTotal) / s.timers.totalWallTime.Seconds()
 		rollup.Valid = true
 	}
 
@@ -169,7 +171,7 @@ type errorThroughput struct{}
 
 const (
 	errorThroughputName    = "ErrorRate"
-	errorThroughputVersion = 3
+	errorThroughputVersion = 4
 )
 
 func (f *errorThroughput) Type() string    { return errorThroughputName }
@@ -183,8 +185,8 @@ func (f *errorThroughput) Calc(s *PerformanceStatistics, user bool) []model.Perf
 		UserSubmitted: user,
 	}
 
-	if s.timers.durationTotal > 0 {
-		rollup.Value = float64(s.counters.errorsTotal) / s.timers.durationTotal.Seconds()
+	if s.timers.totalWallTime > 0 {
+		rollup.Value = float64(s.counters.errorsTotal) / s.timers.totalWallTime.Seconds()
 		rollup.Valid = true
 	}
 
@@ -203,7 +205,7 @@ const (
 	latencyPercentile90Name  = "Latency90thPercentile"
 	latencyPercentile95Name  = "Latency95thPercentile"
 	latencyPercentile99Name  = "Latency99thPercentile"
-	latencyPercentileVersion = 3
+	latencyPercentileVersion = 4
 )
 
 func (f *latencyPercentile) Type() string { return latencyPercentileName }
@@ -315,7 +317,7 @@ const (
 	latencyBoundsName    = "LatencyBounds"
 	latencyMinName       = "LatencyMin"
 	latencyMaxName       = "LatencyMax"
-	latencyBoundsVersion = 3
+	latencyBoundsVersion = 4
 )
 
 func (f *latencyBounds) Type() string    { return latencyBoundsName }
@@ -351,7 +353,7 @@ type durationSum struct{}
 
 const (
 	durationSumName    = "DurationTotal"
-	durationSumVersion = 3
+	durationSumVersion = 4
 )
 
 func (f *durationSum) Type() string    { return durationSumName }
@@ -361,7 +363,7 @@ func (f *durationSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 	return []model.PerfRollupValue{
 		model.PerfRollupValue{
 			Name:          durationSumName,
-			Value:         s.timers.durationTotal,
+			Value:         s.timers.totalWallTime,
 			Version:       durationSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
@@ -432,6 +434,29 @@ func (f *sizeSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupVa
 			Name:          sizeSumName,
 			Value:         s.counters.sizeTotal,
 			Version:       sizeSumVersion,
+			MetricType:    model.MetricTypeSum,
+			UserSubmitted: user,
+			Valid:         true,
+		},
+	}
+}
+
+type overheadSum struct{}
+
+const (
+	overheadSumName    = "OverheadTotal"
+	overheadSumVersion = 1
+)
+
+func (f *overheadSum) Type() string    { return overheadSumName }
+func (f *overheadSum) Names() []string { return []string{overheadSumName} }
+func (f *overheadSum) Version() int    { return overheadSumVersion }
+func (f *overheadSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
+	return []model.PerfRollupValue{
+		model.PerfRollupValue{
+			Name:          overheadSumName,
+			Value:         s.timers.total - s.timers.durationTotal,
+			Version:       overheadSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
 			Valid:         true,
