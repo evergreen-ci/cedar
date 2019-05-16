@@ -17,8 +17,7 @@ import (
 func TestGetDownloadURL(t *testing.T) {
 	ctx := context.TODO()
 	path := "download-test.txt"
-	//s3Name := "build-test-curator"
-	s3Name := "pail-bucket-test"
+	s3Name := "build-test-curator"
 	s3Prefix := "perf-storage-test"
 	s3Opts := pail.S3Options{
 		Name:       s3Name,
