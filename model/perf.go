@@ -254,6 +254,7 @@ type PerfFindOptions struct {
 	MaxDepth    int
 	GraphLookup bool
 	Limit       int
+	Variant     string
 	Sort        []string
 }
 
@@ -347,6 +348,9 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 	}
 	if len(options.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": options.Info.Tags}
+	}
+	if options.Variant != "" {
+		search[bsonutil.GetDottedKeyName("info", "variant")] = options.Variant
 	}
 
 	if len(options.Info.Arguments) > 0 {
