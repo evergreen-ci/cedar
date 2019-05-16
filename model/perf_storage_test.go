@@ -87,7 +87,7 @@ func TestGetDownloadURL(t *testing.T) {
 
 			if test.expectedURL != "" {
 				expectedString := "testing"
-				test.bucket.Put(ctx, path, strings.NewReader(expectedString))
+				require.NoError(t, test.bucket.Put(ctx, path, strings.NewReader(expectedString)))
 				defer func() {
 					assert.NoError(t, test.bucket.Remove(ctx, path))
 				}()
