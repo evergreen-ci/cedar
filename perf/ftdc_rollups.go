@@ -81,10 +81,10 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 			case "ts":
 				if i == 0 {
 					t := metric.Values[0]
-					start = time.Unix(int64(t)/1000, int64(t)%1000*1000000)
+					start = time.Unix(t/1000, t%1000*1000000)
 				}
 				t := metric.Values[len(metric.Values)-1]
-				end = time.Unix(int64(t)/1000, int64(t)%1000*1000000)
+				end = time.Unix(t/1000, t%1000*1000000)
 			case "counters.n", "id":
 				continue
 			default:
