@@ -78,6 +78,7 @@ type APIArtifactInfo struct {
 	Schema      APIString `json:"schema"`
 	Tags        []string  `json:"tags"`
 	CreatedAt   APITime   `json:"created_at"`
+	DownloadURL APIString `json:"download_url"`
 }
 
 func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
@@ -91,6 +92,7 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 		Schema:      ToAPIString(string(r.Schema)),
 		Tags:        r.Tags,
 		CreatedAt:   NewTime(r.CreatedAt),
+		DownloadURL: ToAPIString(r.GetDownloadURL()),
 	}
 }
 
