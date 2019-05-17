@@ -69,7 +69,7 @@ functions:
         if [ "Windows_NT" == "$OS" ]; then
           export AWS_DIR=/cygdrive/c/Users/$USER/.aws
         else
-          export AWS_DIR=~/.aws
+          export AWS_DIR=$HOME/.aws
         fi
 
         mkdir $AWS_DIR
