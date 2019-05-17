@@ -64,18 +64,25 @@ functions:
     command: shell.exec
     type: setup
     params:
-       silent: true
-       script: |
-         mkdir ~/.aws
-         cat <<EOF > ~/.aws/config
-         [default]
-         region = us-east-1
-         EOF
-         cat <<EOF > ~/.aws/credentials
-         [default]
-         aws_access_key_id = ${aws_key}
-         aws_secret_access_key = ${aws_secret}
-         EOF
+      silent: true
+      script: |
+        if [ "Windows_NT" == "$OS" ]; then
+          export AWS_DIR=/cygdrive/c/Users/$USER/.aws
+        else
+          export AWS_DIR=$HOME/.aws
+        fi
+
+        mkdir $AWS_DIR
+        cat <<EOF > $AWS_DIR/config
+        [default]
+        region = us-east-1
+        EOF
+        cat <<EOF > $AWS_DIR/credentials
+        [default]
+        aws_access_key_id = ${aws_key}
+        aws_secret_access_key = ${aws_secret}
+        EOF
+
   run-make:
     command: shell.exec
     type: test
@@ -93,7 +100,8 @@ functions:
 
          # on windows we need to turn the slashes the other way
          if [ "Windows_NT" == "$OS" ]; then
-            export GOPATH=$(cygpath -m $GOPATH)
+           export USERPROFILE=C:\\Users\\$USER
+           export GOPATH=$(cygpath -m $GOPATH)
          fi
 
          cd gopath/src/github.com/evergreen-ci/cedar

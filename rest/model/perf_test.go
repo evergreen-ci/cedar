@@ -66,7 +66,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				Tags:        []string{"tag0", "tag1", "tag2"},
 				CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 			},
-			expectedOutput: APIArtifactInfo{
+			expectedOutput: &APIArtifactInfo{
 				Type:        ToAPIString(string(dbmodel.PailS3)),
 				Bucket:      ToAPIString("bucket"),
 				Prefix:      ToAPIString("prefix"),
@@ -146,6 +146,9 @@ func TestImportHelperFunctions(t *testing.T) {
 				output = getPerformanceResultInfo(i)
 			case dbmodel.ArtifactInfo:
 				output = getArtifactInfo(i)
+				expected := test.expectedOutput.(*APIArtifactInfo)
+				expected.DownloadURL = ToAPIString(i.GetDownloadURL())
+				test.expectedOutput = *expected
 			case dbmodel.PerfRollupValue:
 				output = getPerfRollupValue(i)
 			case dbmodel.PerfRollups:
@@ -335,12 +338,15 @@ func TestImport(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			apiPerformanceResult := APIPerformanceResult{}
 			err := apiPerformanceResult.Import(test.input)
-			assert.Equal(t, test.expected, apiPerformanceResult)
 			if test.err {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+				for i := range test.expected.Artifacts {
+					test.expected.Artifacts[i].DownloadURL = ToAPIString(test.input.(dbmodel.PerformanceResult).Artifacts[i].GetDownloadURL())
+				}
 			}
+			assert.Equal(t, test.expected, apiPerformanceResult)
 		})
 	}
 

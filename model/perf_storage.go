@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -72,6 +74,19 @@ func (t PailType) Create(env cedar.Environment, bucket, prefix string) (pail.Buc
 		return nil, errors.WithStack(err)
 	}
 	return b, nil
+}
+
+func (t PailType) GetDownloadURL(bucket, prefix, path string) string {
+	switch t {
+	case PailS3:
+		return fmt.Sprintf(
+			"https://%s.s3.amazonaws.com/%s",
+			bucket,
+			filepath.Join(prefix, path),
+		)
+	default:
+		return ""
+	}
 }
 
 type FileDataFormat string
@@ -160,3 +175,7 @@ var (
 	artifactInfoTagsKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Tags")
 	artifactInfoCreatedAtKey   = bsonutil.MustHaveTag(ArtifactInfo{}, "CreatedAt")
 )
+
+func (a *ArtifactInfo) GetDownloadURL() string {
+	return a.Type.GetDownloadURL(a.Bucket, a.Prefix, a.Path)
+}
