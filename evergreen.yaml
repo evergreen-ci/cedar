@@ -67,6 +67,7 @@ functions:
       silent: true
       script: |
         if [ "Windows_NT" == "$OS" ]; then
+          export USERPROFILE=C:\\Users\\$USER
           export AWS_DIR=/cygdrive/c/Users/$USER/.aws
         else
           export AWS_DIR=~/.aws
