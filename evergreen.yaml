@@ -67,7 +67,6 @@ functions:
       silent: true
       script: |
         if [ "Windows_NT" == "$OS" ]; then
-          export USERPROFILE=C:\\Users\\$USER
           export AWS_DIR=/cygdrive/c/Users/$USER/.aws
         else
           export AWS_DIR=~/.aws
@@ -101,6 +100,7 @@ functions:
 
          # on windows we need to turn the slashes the other way
          if [ "Windows_NT" == "$OS" ]; then
+           export USERPROFILE=C:\\Users\\$USER
            export GOPATH=$(cygpath -m $GOPATH)
          fi
 
