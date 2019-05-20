@@ -42,6 +42,7 @@ type APIPerformanceResultInfo struct {
 	Project   APIString        `json:"project"`
 	Version   APIString        `json:"version"`
 	Order     int              `json:"order"`
+	Variant   APIString        `json:"variant"`
 	TaskName  APIString        `json:"task_name"`
 	TaskID    APIString        `json:"task_id"`
 	Execution int              `json:"execution"`
@@ -57,6 +58,7 @@ func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceRes
 		Project:   ToAPIString(r.Project),
 		Version:   ToAPIString(r.Version),
 		Order:     r.Order,
+		Variant:   ToAPIString(r.Variant),
 		TaskName:  ToAPIString(r.TaskName),
 		TaskID:    ToAPIString(r.TaskID),
 		Execution: r.Execution,

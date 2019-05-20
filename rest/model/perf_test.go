@@ -25,6 +25,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				TaskID:    "taskid",
 				Execution: 1,
 				TestName:  "testname",
+				Variant:   "foo",
 				Trial:     1,
 				Parent:    "parent",
 				Tags:      []string{"tag0", "tag1", "tag2"},
@@ -43,6 +44,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				TaskID:    ToAPIString("taskid"),
 				Execution: 1,
 				TestName:  ToAPIString("testname"),
+				Variant:   ToAPIString("foo"),
 				Trial:     1,
 				Parent:    ToAPIString("parent"),
 				Tags:      []string{"tag0", "tag1", "tag2"},
@@ -260,6 +262,7 @@ func TestImport(t *testing.T) {
 					Execution: 1,
 					TestName:  ToAPIString("testname"),
 					Trial:     1,
+					Variant:   ToAPIString(""),
 					Parent:    ToAPIString("parent"),
 					Tags:      []string{"tag0", "tag1", "tag2"},
 					Arguments: map[string]int32{
