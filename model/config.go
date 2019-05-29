@@ -114,9 +114,10 @@ var (
 )
 
 type CAConfig struct {
-	CertDepot        certdepot.BootstrapDepotConfig `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
-	SSLExpireAfter   time.Duration                  `bson:"ssl_expire" json:"ssl_expire" yaml:"ssl_expire"`
-	SSLRenewalBefore time.Duration                  `bson:"ssl_renewal" json:"ssl_renewal" yaml:"ssl_renewal"`
+	CertDepot         certdepot.BootstrapDepotConfig `bson:"certdepot" json:"certdepot" yaml:"certdepot"`
+	SSLExpireAfter    time.Duration                  `bson:"ssl_expire" json:"ssl_expire" yaml:"ssl_expire"`
+	SSLRenewalBefore  time.Duration                  `bson:"ssl_renewal" json:"ssl_renewal" yaml:"ssl_renewal"`
+	ServerCertVersion int                            `bson:"server_cert_version"`
 }
 
 var (

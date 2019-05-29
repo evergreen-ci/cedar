@@ -154,6 +154,9 @@ type Environment interface {
 	GetClient() *mongo.Client
 	GetDB() *mongo.Database
 
+	GetServerCertVersion() *int
+	SetServerCertVersion(i int)
+
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
 }
@@ -184,15 +187,16 @@ type closerOp struct {
 }
 
 type envState struct {
-	name           string
-	remoteQueue    amboy.Queue
-	localQueue     amboy.Queue
-	remoteReporter reporting.Reporter
-	ctx            context.Context
-	client         *mongo.Client
-	conf           *Configuration
-	closers        []closerOp
-	mutex          sync.RWMutex
+	name              string
+	remoteQueue       amboy.Queue
+	localQueue        amboy.Queue
+	remoteReporter    reporting.Reporter
+	ctx               context.Context
+	client            *mongo.Client
+	conf              *Configuration
+	serverCertVersion *int
+	closers           []closerOp
+	mutex             sync.RWMutex
 }
 
 func (c *envState) Context() (context.Context, context.CancelFunc) {
@@ -303,6 +307,22 @@ func (c *envState) GetConf() *Configuration {
 	*out = *c.conf
 
 	return out
+}
+
+func (c *envState) GetServerCertVersion() *int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.serverCertVersion
+}
+
+func (c *envState) SetServerCertVersion(i int) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.serverCertVersion == nil || i > *c.serverCertVersion {
+		c.serverCertVersion = &i
+	}
 }
 
 func (c *envState) RegisterCloser(name string, op CloserFunc) {
