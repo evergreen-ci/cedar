@@ -109,7 +109,7 @@ func CreateDepot(ctx context.Context, client *mongo.Client, conf BootstrapDepotC
 	var d depot.Depot
 	var err error
 
-	if err := conf.Validate(); err != nil {
+	if err = conf.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid configuration")
 	}
 

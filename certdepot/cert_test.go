@@ -59,7 +59,9 @@ func TestInit(t *testing.T) {
 			name:       "NewCA",
 			changeOpts: func() { opts.CommonName = "ca" },
 			keyTest: func() {
-				key, err := depot.GetPrivateKey(d, opts.CommonName)
+				var key *pkix.Key
+
+				key, err = depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				privKey, ok := key.Private.(*rsa.PrivateKey)
 				require.True(t, ok)
@@ -69,9 +71,12 @@ func TestInit(t *testing.T) {
 		{
 			name: "ExistingKey",
 			changeOpts: func() {
-				existingKey, err := pkix.CreateRSAKey(2048)
+				var existingKey *pkix.Key
+				var data []byte
+
+				existingKey, err = pkix.CreateRSAKey(2048)
 				require.NoError(t, err)
-				data, err := existingKey.ExportPrivate()
+				data, err = existingKey.ExportPrivate()
 				require.NoError(t, err)
 				keyFile := filepath.Join(tempDir, "ca2key")
 				require.NoError(t, ioutil.WriteFile(keyFile, data, 0777))
@@ -79,11 +84,14 @@ func TestInit(t *testing.T) {
 				opts.Key = keyFile
 			},
 			keyTest: func() {
-				data, err := ioutil.ReadFile(opts.Key)
+				var existingKey, key *pkix.Key
+				var data []byte
+
+				data, err = ioutil.ReadFile(opts.Key)
 				require.NoError(t, err)
-				existingKey, err := pkix.NewKeyFromPrivateKeyPEM(data)
+				existingKey, err = pkix.NewKeyFromPrivateKeyPEM(data)
 				require.NoError(t, err)
-				key, err := depot.GetPrivateKey(d, opts.CommonName)
+				key, err = depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				assert.Equal(t, existingKey, key)
 			},
@@ -96,7 +104,9 @@ func TestInit(t *testing.T) {
 				opts.Key = ""
 			},
 			keyTest: func() {
-				key, err := depot.GetPrivateKey(d, opts.CommonName)
+				var key *pkix.Key
+
+				key, err = depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				privKey, ok := key.Private.(*rsa.PrivateKey)
 				require.True(t, ok)
@@ -204,7 +214,9 @@ func TestCertRequest(t *testing.T) {
 				opts.Domain = []string{"evergreen"}
 			},
 			keyTest: func() {
-				key, err := depot.GetPrivateKey(d, opts.Domain[0])
+				var key *pkix.Key
+
+				key, err = depot.GetPrivateKey(d, opts.Domain[0])
 				require.NoError(t, err)
 				privKey, ok := key.Private.(*rsa.PrivateKey)
 				require.True(t, ok)
@@ -218,7 +230,9 @@ func TestCertRequest(t *testing.T) {
 				opts.CommonName = "test"
 			},
 			keyTest: func() {
-				key, err := depot.GetPrivateKey(d, opts.CommonName)
+				var key *pkix.Key
+
+				key, err = depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				privKey, ok := key.Private.(*rsa.PrivateKey)
 				require.True(t, ok)
@@ -229,9 +243,12 @@ func TestCertRequest(t *testing.T) {
 			name:    "ExistingKey",
 			csrName: "test2",
 			changeOpts: func() {
-				existingKey, err := pkix.CreateRSAKey(2048)
+				var existingKey *pkix.Key
+				var data []byte
+
+				existingKey, err = pkix.CreateRSAKey(2048)
 				require.NoError(t, err)
-				data, err := existingKey.ExportPrivate()
+				data, err = existingKey.ExportPrivate()
 				require.NoError(t, err)
 				keyFile := filepath.Join(tempDir, "test2key")
 				require.NoError(t, ioutil.WriteFile(keyFile, data, 0777))
@@ -239,11 +256,14 @@ func TestCertRequest(t *testing.T) {
 				opts.Key = keyFile
 			},
 			keyTest: func() {
-				data, err := ioutil.ReadFile(opts.Key)
+				var existingKey, key *pkix.Key
+				var data []byte
+
+				data, err = ioutil.ReadFile(opts.Key)
 				require.NoError(t, err)
-				existingKey, err := pkix.NewKeyFromPrivateKeyPEM(data)
+				existingKey, err = pkix.NewKeyFromPrivateKeyPEM(data)
 				require.NoError(t, err)
-				key, err := depot.GetPrivateKey(d, opts.CommonName)
+				key, err = depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				assert.Equal(t, existingKey, key)
 			},
@@ -257,7 +277,9 @@ func TestCertRequest(t *testing.T) {
 				opts.Key = ""
 			},
 			keyTest: func() {
-				key, err := depot.GetPrivateKey(d, opts.CommonName)
+				var key *pkix.Key
+
+				key, err = depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				privKey, ok := key.Private.(*rsa.PrivateKey)
 				require.True(t, ok)
@@ -435,7 +457,7 @@ func TestSign(t *testing.T) {
 			changeOpts: func() {
 				caOpts.CommonName = "ca2"
 				caOpts.Passphrase = "passphrase"
-				caOpts.Init(d)
+				require.NoError(t, caOpts.Init(d))
 				csrOpts.CommonName = "test3"
 				require.NoError(t, csrOpts.CertRequest(d))
 				crtOpts.CA = "ca2"

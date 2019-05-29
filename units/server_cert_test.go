@@ -28,7 +28,7 @@ func TestServerCertRotationJob(t *testing.T) {
 	baseConfigFile := filepath.Join(tempDir, "base_config.yaml")
 	f, err := os.Create(baseConfigFile)
 	require.NoError(t, err)
-	f.Close()
+	require.NoError(t, f.Close())
 	baseConfig, err := model.LoadCedarConfig(baseConfigFile)
 	require.NoError(t, err)
 	baseConfig.Setup(env)
@@ -125,6 +125,7 @@ func TestServerCertRotationJob(t *testing.T) {
 							Expires:    test.expires,
 						},
 					})
+					require.NoError(t, err)
 					_, expectedNotAfter, err = certdepot.ValidityBounds(d, test.caConf.CertDepot.ServiceName)
 					require.NoError(t, err)
 				}

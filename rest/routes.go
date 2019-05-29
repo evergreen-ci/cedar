@@ -778,6 +778,10 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	crt, err := depot.GetCertificate(s.Depot, usr)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate")))
+		return
+	}
 	payload, err := crt.Export()
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
