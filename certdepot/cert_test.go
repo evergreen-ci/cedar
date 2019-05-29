@@ -86,7 +86,6 @@ func TestInit(t *testing.T) {
 				key, err := depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				assert.Equal(t, existingKey, key)
-
 			},
 		},
 		{
@@ -113,9 +112,9 @@ func TestInit(t *testing.T) {
 			},
 			keyTest: func() {
 				_, err = depot.GetPrivateKey(d, opts.CommonName)
-				require.Error(t, err)
+				assert.Error(t, err)
 				_, err = depot.GetEncryptedPrivateKey(d, opts.CommonName, []byte(opts.Passphrase))
-				require.NoError(t, err)
+				assert.NoError(t, err)
 
 			},
 		},
@@ -136,6 +135,7 @@ func TestInit(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+
 				rawCert, err := getRawCertificate(d, opts.CommonName)
 				require.NoError(t, err)
 				assert.True(t, rawCert.IsCA)
@@ -145,9 +145,9 @@ func TestInit(t *testing.T) {
 				assert.Equal(t, []string{opts.Locality}, rawCert.Subject.Locality)
 				assert.Equal(t, []string{opts.OrganizationalUnit}, rawCert.Subject.OrganizationalUnit)
 				assert.Equal(t, []string{opts.Province}, rawCert.Subject.Province)
-				require.Empty(t, rawCert.IPAddresses)
-				require.Empty(t, rawCert.DNSNames)
-				require.Empty(t, rawCert.URIs)
+				assert.Empty(t, rawCert.IPAddresses)
+				assert.Empty(t, rawCert.DNSNames)
+				assert.Empty(t, rawCert.URIs)
 				assert.Equal(t, rawCert.Subject, rawCert.Issuer)
 				assert.True(t, rawCert.NotBefore.Before(time.Now()))
 				assert.True(t, rawCert.NotAfter.After(time.Now().Add(23*time.Hour)))
@@ -246,7 +246,6 @@ func TestCertRequest(t *testing.T) {
 				key, err := depot.GetPrivateKey(d, opts.CommonName)
 				require.NoError(t, err)
 				assert.Equal(t, existingKey, key)
-
 			},
 		},
 		{
@@ -275,10 +274,9 @@ func TestCertRequest(t *testing.T) {
 			},
 			keyTest: func() {
 				_, err = depot.GetPrivateKey(d, opts.CommonName)
-				require.Error(t, err)
+				assert.Error(t, err)
 				_, err = depot.GetEncryptedPrivateKey(d, opts.CommonName, []byte(opts.Passphrase))
-				require.NoError(t, err)
-
+				assert.NoError(t, err)
 			},
 		},
 		{
@@ -313,6 +311,7 @@ func TestCertRequest(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+
 				csr, err := depot.GetCertificateSigningRequest(d, test.csrName)
 				require.NoError(t, err)
 				rawCSR, err := csr.GetRawCertificateSigningRequest()
@@ -334,8 +333,6 @@ func TestCertRequest(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	t.Skip("Skip until PR fixing bug in certsrap accepted")
-
 	tempDir, err := ioutil.TempDir(".", "cert-test")
 	require.NoError(t, err)
 	defer func() {
@@ -485,6 +482,7 @@ func TestSign(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+
 				rawCert, err := getRawCertificate(d, crtOpts.Host)
 				require.NoError(t, err)
 				assert.Equal(t, crtOpts.Intermediate, rawCert.IsCA)
@@ -512,6 +510,8 @@ func TestSign(t *testing.T) {
 }
 
 func TestCreateCertificateOnExpiration(t *testing.T) {
+	t.Skip("Skip until PR fixing bug in certsrap accepted")
+
 	ctx := context.TODO()
 	tempDir, err := ioutil.TempDir(".", "cert-test")
 	require.NoError(t, err)
