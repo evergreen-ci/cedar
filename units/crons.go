@@ -3,6 +3,7 @@ package units
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -17,7 +18,7 @@ import (
 
 const tsFormat = "2006-01-02.15-04-05"
 
-func StartCrons(ctx context.Context, env cedar.Environment) error {
+func StartCrons(ctx context.Context, cancel context.CancelFunc, env cedar.Environment, rpcTLS bool) error {
 	opts := amboy.QueueOperationConfig{
 		ContinueOnError: true,
 		LogErrors:       false,
@@ -77,6 +78,32 @@ func StartCrons(ctx context.Context, env cedar.Environment) error {
 
 		return queue.Put(job)
 	})
+
+	if rpcTLS {
+		amboy.IntervalQueueOperation(ctx, remote, 24*time.Hour, time.Now(), opts, func(queue amboy.Queue) error {
+			return queue.Put(NewServerCertRotationJob())
+		})
+		amboy.IntervalQueueOperation(ctx, local, time.Hour, time.Now(), opts, func(queue amboy.Queue) error {
+			// put random wait to avoid having all app servers
+			// restart at the same time
+			time.Sleep(time.Duration(rand.Int63n(60)) * time.Second)
+
+			conf := model.NewCedarConfig(env)
+			if err := conf.Find(); err != nil {
+				return errors.WithStack(err)
+			}
+
+			localServerCertVersion := env.GetServerCertVersion()
+			if localServerCertVersion == nil {
+				env.SetServerCertVersion(conf.CA.ServerCertVersion)
+			} else if *localServerCertVersion < conf.CA.ServerCertVersion {
+				// cancel context to force restart
+				cancel()
+			}
+
+			return nil
+		})
+	}
 
 	return nil
 }
