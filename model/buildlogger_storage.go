@@ -9,13 +9,13 @@ import (
 type S3Permissions string
 
 const (
-	Private                S3Permissions = s3.ObjectCannedACLPrivate
-	PublicRead             S3Permissions = s3.ObjectCannedACLPublicRead
-	PublicReadWrite        S3Permissions = s3.ObjectCannedACLPublicReadWrite
-	AuthenticatedRead      S3Permissions = s3.ObjectCannedACLAuthenticatedRead
-	AWSExecRead            S3Permissions = s3.ObjectCannedACLAwsExecRead
-	BucketOwnerRead        S3Permissions = s3.ObjectCannedACLBucketOwnerRead
-	BucketOwnerFullControl S3Permissions = s3.ObjectCannedACLBucketOwnerFullControl
+	S3PermissionsPrivate                S3Permissions = s3.ObjectCannedACLPrivate
+	S3PermissionsPublicRead             S3Permissions = s3.ObjectCannedACLPublicRead
+	S3PermissionsPublicReadWrite        S3Permissions = s3.ObjectCannedACLPublicReadWrite
+	S3PermissionsAuthenticatedRead      S3Permissions = s3.ObjectCannedACLAuthenticatedRead
+	S3PermissionsAWSExecRead            S3Permissions = s3.ObjectCannedACLAwsExecRead
+	S3PermissionsBucketOwnerRead        S3Permissions = s3.ObjectCannedACLBucketOwnerRead
+	S3PermissionsBucketOwnerFullControl S3Permissions = s3.ObjectCannedACLBucketOwnerFullControl
 )
 
 // LogArtifact is a type that describes a sub-bucket of logs stored in s3. It
