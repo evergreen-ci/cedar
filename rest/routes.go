@@ -773,7 +773,7 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	}
 	_, err := opts.CreateCertificateOnExpiration(s.Depot, s.Conf.CA.SSLRenewalBefore)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate")))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem updating certificate")))
 		return
 	}
 
