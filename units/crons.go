@@ -85,7 +85,7 @@ func StartCrons(ctx context.Context, cancel context.CancelFunc, env cedar.Enviro
 		})
 		amboy.IntervalQueueOperation(ctx, local, time.Hour, time.Now(), opts, func(queue amboy.Queue) error {
 			// put random wait to avoid having all app servers
-			// restart at the same time
+			// restarting at the same time
 			time.Sleep(time.Duration(rand.Int63n(60)) * time.Second)
 
 			conf := model.NewCedarConfig(env)
