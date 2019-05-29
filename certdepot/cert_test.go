@@ -510,8 +510,6 @@ func TestSign(t *testing.T) {
 }
 
 func TestCreateCertificateOnExpiration(t *testing.T) {
-	t.Skip("Skip until PR fixing bug in certsrap accepted")
-
 	ctx := context.TODO()
 	tempDir, err := ioutil.TempDir(".", "cert-test")
 	require.NoError(t, err)
