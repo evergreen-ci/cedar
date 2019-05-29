@@ -147,7 +147,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/satori/go.uuid/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/gopkg.in/
 	rm -rf vendor/github.com/evergreen-ci/pail/vendor/
-	rm -rf vendor/github.com/square/certstrap/vendor/github.com/urfave/
+	rm -rf vendor/github.com/square/certstrap/vendor/github.com/urfave/cli/
 	rm -rf vendor/github.com/square/certstrap/vendor/golang.org/x/sys/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/evergreen-ci/gimlet/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/mongodb/grip/
