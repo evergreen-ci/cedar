@@ -46,9 +46,9 @@ func makeServerCertRotationJob() *serverCertRotationJob {
 func NewServerCertRotationJob() amboy.Job {
 	j := makeServerCertRotationJob()
 
-	timestamp := util.RoundPartOfHour(0)
-	if timestamp.Hour()%2 == 1 {
-		timestamp.Add(-time.Hour)
+	timestamp := util.RoundPartOfDay(0)
+	if timestamp.Day()%2 == 1 {
+		timestamp.Add(-24 * time.Hour)
 	}
 
 	j.SetID(fmt.Sprintf("server-cert-rotation.%s", util.RoundPartOfHour(0)))
@@ -65,7 +65,7 @@ func (j *serverCertRotationJob) Run(ctx context.Context) {
 
 	conf := model.NewCedarConfig(j.env)
 	if err := conf.Find(); err != nil {
-		err = errors.Wrap(err, "problem getting application configuration")
+		err = errors.Wrap(err, "problem fetching application configuration")
 		j.AddError(err)
 		return
 	}
@@ -88,7 +88,7 @@ func (j *serverCertRotationJob) Run(ctx context.Context) {
 	}
 	created, err := opts.CreateCertificateOnExpiration(d, 7*24*time.Hour)
 	if err != nil {
-		err = errors.Wrap(err, "problem creating new server certificate")
+		err = errors.Wrap(err, "problem updating server certificate")
 		j.AddError(err)
 		return
 	}
