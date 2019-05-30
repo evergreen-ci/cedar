@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/pkg/errors"
 )
 
 // S3 Permissions is a type that describes the object canned ACL from S3.
@@ -17,6 +18,19 @@ const (
 	S3PermissionsBucketOwnerRead        S3Permissions = s3.ObjectCannedACLBucketOwnerRead
 	S3PermissionsBucketOwnerFullControl S3Permissions = s3.ObjectCannedACLBucketOwnerFullControl
 )
+
+func (p S3Permissions) Validate() error {
+	switch p {
+	case S3PermissionsPublicRead, S3PermissionsPublicReadWrite:
+		return nil
+	case S3PermissionsPrivate, S3PermissionsAuthenticatedRead, S3PermissionsAWSExecRead:
+		return nil
+	case S3PermissionsBucketOwnerRead, S3PermissionsBucketOwnerFullControl:
+		return nil
+	default:
+		return errors.New("invalid S3 permissions type specified")
+	}
+}
 
 // LogArtifact is a type that describes a sub-bucket of logs stored in s3. It
 // is the bridge between S3-based offline log storage and the cedar-based log
