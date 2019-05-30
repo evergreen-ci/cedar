@@ -13,6 +13,7 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -99,5 +100,6 @@ func (j *serverCertRotationJob) Run(ctx context.Context) {
 			err = errors.Wrap(err, "problem saving configuration")
 			j.AddError(err)
 		}
+		grip.Info("rotated server certificate")
 	}
 }
