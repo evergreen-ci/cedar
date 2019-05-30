@@ -32,6 +32,24 @@ func (p S3Permissions) Validate() error {
 	}
 }
 
+type LogFormat string
+
+const (
+	LogFormatUnknown LogFormat = "unknown"
+	LogFormatText    LogFormat = "text"
+	LogFormatJSON    LogFormat = "json"
+	LogFormatBSON    LogFormat = "bson"
+)
+
+func (lf LogFormat) Validate() error {
+	switch lf {
+	case LogFormatUnknown, LogFormatText, LogFormatJSON, LogFormatBSON:
+		return nil
+	default:
+		return errors.New("invalid log format type specified")
+	}
+}
+
 // LogArtifact is a type that describes a sub-bucket of logs stored in s3. It
 // is the bridge between S3-based offline log storage and the cedar-based log
 // metadata storage. The prefix field indicates the name of the sub-bucket. The
