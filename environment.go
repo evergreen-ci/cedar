@@ -159,6 +159,8 @@ type Environment interface {
 
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
+	SetCancel(context.CancelFunc)
+	Cancel() error
 }
 
 func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
@@ -196,6 +198,7 @@ type envState struct {
 	conf              *Configuration
 	serverCertVersion int
 	closers           []closerOp
+	globalCancel      context.CancelFunc
 	mutex             sync.RWMutex
 }
 
@@ -359,4 +362,23 @@ func (c *envState) Close(ctx context.Context) error {
 	wg.Wait()
 
 	return catcher.Resolve()
+}
+
+func (c *envState) SetCancel(cancel context.CancelFunc) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	c.globalCancel = cancel
+}
+
+func (c *envState) Cancel() error {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.globalCancel != nil {
+		c.globalCancel()
+		return nil
+	}
+
+	return errors.New("environment not configured with a cancel function")
 }

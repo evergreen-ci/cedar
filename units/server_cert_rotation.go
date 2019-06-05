@@ -52,7 +52,7 @@ func NewServerCertRotationJob() amboy.Job {
 		timestamp.Add(-24 * time.Hour)
 	}
 
-	j.SetID(fmt.Sprintf("server-cert-rotation.%s", util.RoundPartOfHour(0)))
+	j.SetID(fmt.Sprintf("server-cert-rotation.%s", timestamp))
 
 	return j
 }
