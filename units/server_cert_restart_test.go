@@ -44,10 +44,10 @@ func TestServerCertRestartJob(t *testing.T) {
 			hasCancel:   true,
 		},
 		{
-			name:        "Unset5",
-			confVersion: 5,
-			envVersion:  -1,
-			hasCancel:   true,
+			name:        "NoCancelFunc",
+			confVersion: 1,
+			envVersion:  0,
+			hasErr:      true,
 		},
 		{
 			name:        "Outdated",
@@ -61,12 +61,6 @@ func TestServerCertRestartJob(t *testing.T) {
 			envVersion:  10,
 			hasCancel:   true,
 		},
-		{
-			name:        "NoCancelFunc",
-			confVersion: 1,
-			envVersion:  0,
-			hasErr:      true,
-		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			conf := model.NewCedarConfig(env)
@@ -78,17 +72,19 @@ func TestServerCertRestartJob(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			if test.hasCancel {
 				env.SetCancel(cancel)
+			} else {
+				env.SetCancel(nil)
 			}
 
 			j := NewServerCertRestartJob()
 			j.Run(ctx)
 
 			if test.hasErr {
-				assert.Error(t, j.Error)
+				assert.Error(t, j.Error())
 				assert.NoError(t, ctx.Err())
 			} else {
-				assert.NoError(t, j.Error)
-				if test.confVersion > test.envVersion {
+				assert.NoError(t, j.Error())
+				if test.envVersion >= 0 && test.confVersion > test.envVersion {
 					assert.Error(t, ctx.Err())
 				}
 			}

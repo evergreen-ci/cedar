@@ -163,7 +163,7 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			if err := units.StartCrons(ctx, cancel, env, rpcTLS); err != nil {
+			if err := units.StartCrons(ctx, env, rpcTLS); err != nil {
 				return errors.WithStack(err)
 			}
 
