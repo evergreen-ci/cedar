@@ -40,7 +40,7 @@ func GetEnvironment() Environment {
 }
 
 func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Environment, error) {
-	env := &envState{}
+	env := &envState{serverCertVersion: -1}
 
 	var err error
 
@@ -154,7 +154,7 @@ type Environment interface {
 	GetClient() *mongo.Client
 	GetDB() *mongo.Database
 
-	GetServerCertVersion() *int
+	GetServerCertVersion() int
 	SetServerCertVersion(i int)
 
 	RegisterCloser(string, CloserFunc)
@@ -194,7 +194,7 @@ type envState struct {
 	ctx               context.Context
 	client            *mongo.Client
 	conf              *Configuration
-	serverCertVersion *int
+	serverCertVersion int
 	closers           []closerOp
 	mutex             sync.RWMutex
 }
@@ -309,7 +309,7 @@ func (c *envState) GetConf() *Configuration {
 	return out
 }
 
-func (c *envState) GetServerCertVersion() *int {
+func (c *envState) GetServerCertVersion() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -320,8 +320,8 @@ func (c *envState) SetServerCertVersion(i int) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if c.serverCertVersion == nil || i > *c.serverCertVersion {
-		c.serverCertVersion = &i
+	if i > c.serverCertVersion {
+		c.serverCertVersion = i
 	}
 }
 

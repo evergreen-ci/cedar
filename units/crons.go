@@ -94,7 +94,7 @@ func StartCrons(ctx context.Context, cancel context.CancelFunc, env cedar.Enviro
 			}
 
 			localServerCertVersion := env.GetServerCertVersion()
-			if localServerCertVersion == nil {
+			if localServerCertVersion < 0 {
 				env.SetServerCertVersion(conf.CA.ServerCertVersion)
 			} else if *localServerCertVersion < conf.CA.ServerCertVersion {
 				// cancel context to force restart
