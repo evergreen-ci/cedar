@@ -6,21 +6,28 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestServerCertRestartJob(t *testing.T) {
-	env := cedar.GetEnvironment()
 	tempDir, err := ioutil.TempDir(".", "server-cert-restart")
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tempDir))
 	}()
 
+	env, err := cedar.NewEnvironment(context.Background(), "cert-restart", &cedar.Configuration{
+		MongoDBURI:    "mongodb://localhost:27017",
+		DatabaseName:  "cert-restart",
+		SocketTimeout: time.Minute,
+		NumWorkers:    2,
+	})
 	baseConfigFile := filepath.Join(tempDir, "base_config.yaml")
 	f, err := os.Create(baseConfigFile)
 	require.NoError(t, err)
@@ -34,35 +41,59 @@ func TestServerCertRestartJob(t *testing.T) {
 		name        string
 		confVersion int
 		envVersion  int
-		hasCancel   bool
-		hasErr      bool
+		hasCloser   bool
+		restart     bool
+		returnErr   error
 	}{
 		{
-			name:        "Unset0",
+			name:        "Unset",
 			confVersion: 0,
 			envVersion:  -1,
-			hasCancel:   true,
+			hasCloser:   true,
 		},
 		{
-			name:        "NoCancelFunc",
+			name:        "NoCloserFunc",
 			confVersion: 1,
 			envVersion:  0,
-			hasErr:      true,
+		},
+		{
+			name:        "CloserReturnError",
+			confVersion: 2,
+			envVersion:  1,
+			hasCloser:   true,
+			restart:     true,
+			returnErr:   errors.New("dummy err"),
 		},
 		{
 			name:        "Outdated",
-			confVersion: 5,
-			envVersion:  2,
-			hasCancel:   true,
+			confVersion: 1,
+			envVersion:  0,
+			hasCloser:   true,
+			restart:     true,
 		},
 		{
 			name:        "UpToDate",
 			confVersion: 10,
 			envVersion:  10,
-			hasCancel:   true,
+			hasCloser:   true,
+		},
+		{
+			name:        "AheadOfDate",
+			confVersion: 0,
+			envVersion:  1,
+			hasCloser:   true,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			env, err = cedar.NewEnvironment(context.Background(), "cert-restart", &cedar.Configuration{
+				MongoDBURI:    "mongodb://localhost:27017",
+				DatabaseName:  "cert-restart",
+				SocketTimeout: time.Minute,
+				NumWorkers:    2,
+			})
+			require.NoError(t, err)
+			envCtx, envCancel := env.Context()
+			defer envCancel()
 			conf := model.NewCedarConfig(env)
 			require.NoError(t, conf.Find())
 			conf.CA.ServerCertVersion = test.confVersion
@@ -70,23 +101,26 @@ func TestServerCertRestartJob(t *testing.T) {
 			env.SetServerCertVersion(test.envVersion)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			if test.hasCancel {
-				env.SetCancel(cancel)
-			} else {
-				env.SetCancel(nil)
+			if test.hasCloser {
+				env.RegisterCloser("web-services-closer", func(_ context.Context) error {
+					cancel()
+					return test.returnErr
+				})
 			}
 
 			j := NewServerCertRestartJob()
-			j.Run(ctx)
+			j.(*serverCertRestartJob).env = env
+			j.Run(envCtx)
 
-			if test.hasErr {
+			if test.returnErr != nil {
 				assert.Error(t, j.Error())
-				assert.NoError(t, ctx.Err())
 			} else {
 				assert.NoError(t, j.Error())
-				if test.envVersion >= 0 && test.confVersion > test.envVersion {
-					assert.Error(t, ctx.Err())
-				}
+			}
+			if test.restart {
+				assert.Error(t, ctx.Err())
+			} else {
+				assert.NoError(t, ctx.Err())
 			}
 		})
 	}

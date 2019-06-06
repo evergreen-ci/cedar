@@ -167,6 +167,13 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
+			ctx, cancel := context.WithCancel(context.Background)
+			defer cancel()
+			env.RegisterCloser("web-services-closer", func(_ context.Context) {
+				cancel()
+				return nil
+			})
+
 			adminWait(ctx)
 			restWait(ctx)
 			rpcWait(ctx)
