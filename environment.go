@@ -196,7 +196,6 @@ type envState struct {
 	conf              *Configuration
 	serverCertVersion int
 	closers           []closerOp
-	globalCancel      context.CancelFunc
 	mutex             sync.RWMutex
 }
 
