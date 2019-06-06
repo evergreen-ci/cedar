@@ -102,6 +102,7 @@ func TestServerCertRestartJob(t *testing.T) {
 			env.SetServerCertVersion(test.envVersion)
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			if test.hasCloser {
 				env.RegisterCloser("web-services-closer", func(_ context.Context) error {
 					cancel()
