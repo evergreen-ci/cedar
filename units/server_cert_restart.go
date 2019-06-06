@@ -75,7 +75,7 @@ func (j *serverCertRestartJob) Run(ctx context.Context) {
 		j.env.SetServerCertVersion(conf.CA.ServerCertVersion)
 	} else if localServerCertVersion < conf.CA.ServerCertVersion {
 		grip.Info("restarting application to update server certificate")
-		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		closeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		if err := j.env.Close(closeCtx); err != nil {
 			err = errors.Wrap(err, "problem restarting application with an outdated server certificate")
