@@ -94,7 +94,6 @@ func Service() cli.Command {
 			}
 
 			env := cedar.GetEnvironment()
-			env.SetCancel(cancel)
 
 			conf := &model.CedarConfig{}
 			conf.Setup(env)
@@ -167,9 +166,9 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background)
+			ctx, cancel = context.WithCancel(context.Background())
 			defer cancel()
-			env.RegisterCloser("web-services-closer", func(_ context.Context) {
+			env.RegisterCloser("web-services-closer", func(_ context.Context) error {
 				cancel()
 				return nil
 			})
