@@ -765,20 +765,30 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !depot.CheckCertificate(s.Depot, usr) {
-		if err := s.createUserCert(usr); err != nil {
-			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "failed to generate certificate")))
-			return
-		}
+	opts := certdepot.CertificateOptions{
+		CommonName: usr,
+		CA:         s.Conf.CA.CertDepot.CAName,
+		Host:       usr,
+		Expires:    s.Conf.CA.SSLExpireAfter,
 	}
-
-	cert, err := s.fetchAndValidateCert(usr)
+	_, err := opts.CreateCertificateOnExpiration(s.Depot, s.Conf.CA.SSLRenewalBefore)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem updating certificate")))
 		return
 	}
 
-	gimlet.WriteBinary(rw, cert)
+	crt, err := depot.GetCertificate(s.Depot, usr)
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate")))
+		return
+	}
+	payload, err := crt.Export()
+	if err != nil {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
+		return
+	}
+
+	gimlet.WriteBinary(rw, payload)
 }
 
 func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
@@ -788,15 +798,21 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if !depot.CheckPrivateKey(s.Depot, usr) {
-		if err := s.createUserCert(usr); err != nil {
-			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "failed to generate certificate")))
+		opts := certdepot.CertificateOptions{
+			CommonName: usr,
+			CA:         s.Conf.CA.CertDepot.CAName,
+			Host:       usr,
+			Expires:    s.Conf.CA.SSLExpireAfter,
+		}
+		if err := opts.CreateCertificate(s.Depot); err != nil {
+			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem generating certificate")))
 			return
 		}
 	}
 
 	key, err := depot.GetPrivateKey(s.Depot, usr)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem getting certificate key")))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate key")))
 		return
 	}
 	payload, err := key.ExportPrivate()
@@ -806,63 +822,4 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	gimlet.WriteBinary(rw, payload)
-}
-
-func (s *Service) createUserCert(usr string) error {
-	opts := certdepot.CertificateOptions{
-		CommonName: usr,
-		CA:         s.Conf.CA.CertDepot.CAName,
-		Host:       usr,
-		Expires:    s.Conf.CA.SSLExpireAfter,
-	}
-
-	if err := opts.CertRequest(s.Depot); err != nil {
-		return errors.WithStack(err)
-	}
-	if err := opts.Sign(s.Depot); err != nil {
-		return errors.WithStack(err)
-	}
-
-	return nil
-}
-
-func (s *Service) fetchAndValidateCert(usr string) ([]byte, error) {
-	cert, err := depot.GetCertificate(s.Depot, usr)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem getting certificate")
-	}
-
-	rawCert, err := cert.GetRawCertificate()
-	if err != nil {
-		return nil, errors.Wrap(err, "problem getting raw certificate")
-	}
-	if rawCert.NotAfter.Before(time.Now().Add(s.Conf.CA.SSLRenewalBefore)) {
-		err = depot.DeleteCertificate(s.Depot, usr)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to delete expired certificate")
-		}
-		err = depot.DeleteCertificateSigningRequest(s.Depot, usr)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to delete expired certificate signing request")
-		}
-		err = s.Depot.Delete(depot.PrivKeyTag(usr))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to delete expired certificate key")
-		}
-
-		if err = s.createUserCert(usr); err != nil {
-			return nil, errors.Wrap(err, "failed to generate certificate")
-		}
-		cert, err = depot.GetCertificate(s.Depot, usr)
-		if err != nil {
-			return nil, errors.Wrap(err, "problem getting certificate")
-		}
-	}
-
-	payload, err := cert.Export()
-	if err != nil {
-		return nil, errors.Wrap(err, "problem exporting certificate")
-	}
-
-	return payload, nil
 }

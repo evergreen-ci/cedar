@@ -32,13 +32,13 @@ type CertConfig struct {
 
 func (c *CertConfig) Validate() error {
 	if c.Depot == nil {
-		return errors.New("must specify a certificate depot!")
+		return errors.New("must specify a certificate depot")
 	}
 	if c.CAName == "" {
-		return errors.New("must specify a CA name!")
+		return errors.New("must specify a CA name")
 	}
 	if c.ServiceName == "" {
-		return errors.New("must specify a server name!")
+		return errors.New("must specify a service name")
 	}
 
 	return nil

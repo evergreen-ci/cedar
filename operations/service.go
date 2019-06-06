@@ -95,10 +95,6 @@ func Service() cli.Command {
 
 			env := cedar.GetEnvironment()
 
-			if err := units.StartCrons(ctx, env); err != nil {
-				return errors.WithStack(err)
-			}
-
 			conf := &model.CedarConfig{}
 			conf.Setup(env)
 			if err := conf.Find(); err != nil {
@@ -166,8 +162,16 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
+			if err := units.StartCrons(ctx, env, rpcTLS); err != nil {
+				return errors.WithStack(err)
+			}
+
 			ctx, cancel = context.WithCancel(context.Background())
 			defer cancel()
+			env.RegisterCloser("web-services-closer", func(_ context.Context) error {
+				cancel()
+				return nil
+			})
 
 			adminWait(ctx)
 			restWait(ctx)

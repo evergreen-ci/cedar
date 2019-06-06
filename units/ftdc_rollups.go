@@ -85,7 +85,7 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo, factorie
 		timestamp.Add(-time.Hour)
 	}
 
-	j.SetID(fmt.Sprintf("perf-rollup.%s.%s.%s", perfId, artifactInfo.Path, util.RoundPartOfHour(0)))
+	j.SetID(fmt.Sprintf("perf-rollup.%s.%s.%s", perfId, artifactInfo.Path, timestamp))
 
 	return j, nil
 }

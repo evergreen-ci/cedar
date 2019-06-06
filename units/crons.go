@@ -3,6 +3,7 @@ package units
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -17,7 +18,7 @@ import (
 
 const tsFormat = "2006-01-02.15-04-05"
 
-func StartCrons(ctx context.Context, env cedar.Environment) error {
+func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 	opts := amboy.QueueOperationConfig{
 		ContinueOnError: true,
 		LogErrors:       false,
@@ -77,6 +78,19 @@ func StartCrons(ctx context.Context, env cedar.Environment) error {
 
 		return queue.Put(job)
 	})
+
+	if rpcTLS {
+		amboy.IntervalQueueOperation(ctx, remote, 24*time.Hour, time.Now().Add(12*time.Hour), opts, func(queue amboy.Queue) error {
+			return queue.Put(NewServerCertRotationJob())
+		})
+		amboy.IntervalQueueOperation(ctx, local, time.Hour, time.Now().Add(time.Hour), opts, func(queue amboy.Queue) error {
+			// put random wait to avoid having all app servers
+			// restarting at the same time
+			time.Sleep(time.Duration(rand.Int63n(60)) * time.Second)
+
+			return queue.Put(NewServerCertRestartJob())
+		})
+	}
 
 	return nil
 }

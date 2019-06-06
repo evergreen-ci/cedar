@@ -274,13 +274,13 @@ buildvariants:
       - name: "dist"
 
   - name: macos
-    display_name: macOS 10.12
+    display_name: macOS 10.14
     expansions:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
       build_env: "GOROOT=/opt/golang/go1.11 PATH=/opt/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
       curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-macos-latest.tar.gz
     run_on:
-      - macos-1012
+      - macos-1014
     tasks:
       - name: ".test"
       - name: "dist"
