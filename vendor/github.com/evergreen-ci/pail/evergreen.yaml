@@ -70,6 +70,7 @@ functions:
         DISABLE_COVERAGE: ${disable_coverage}
         GOROOT: ${goroot}
         GOPATH: ${workdir}/gopath
+        USERPROFILE: C:\\Users\\Administrator
         AWS_KEY: ${aws_key}
         AWS_SECRET: ${aws_secret}
   set-up-mongodb:
@@ -102,8 +103,9 @@ post:
     params:
       files:
         - "gopath/src/github.com/evergreen-ci/pail/build/output.*"
-        - "gopath/src/github.com/evergreen-ci/pail/build/test.*.out"
-        - "gopath/src/github.com/evergreen-ci/pail/build/race.*.out"
+        - "gopath/src/github.com/evergreen-ci/pail/build/test.out"
+        - "gopath/src/github.com/evergreen-ci/pail/build/race.out"
+        - "gopath/src/github.com/evergreen-ci/pail/build/cover*"
   - command: subprocess.exec
     type: setup
     params:
@@ -113,7 +115,7 @@ post:
     params:
       aws_key: ${aws_key}
       aws_secret: ${aws_secret}
-      local_files_include_filter: ["gopath/src/github.com/evergreen-ci/pail/build/output.*.coverage.html"]
+      local_files_include_filter: ["gopath/src/github.com/evergreen-ci/pail/build/cover.html"]
       remote_file: pail/${task_id}/
       bucket: mciuploads
       content_type: text/html
@@ -124,7 +126,7 @@ post:
     params:
       aws_key: ${aws_key}
       aws_secret: ${aws_secret}
-      local_files_include_filter: ["gopath/src/github.com/evergreen-ci/pail/build/output.*.coverage"]
+      local_files_include_filter: ["gopath/src/github.com/evergreen-ci/pail/build/cover.out"]
       remote_file: pail/${task_id}/
       bucket: mciuploads
       content_type: text/plain
@@ -192,14 +194,14 @@ buildvariants:
       - name: ".test"
 
   - name: macos
-    display_name: macOS 10.12
+    display_name: macOS 10.14
     expansions:
       mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
       goroot: /usr/local/go1.8/go
       gobin: /usr/local/go1.8/go/bin/go
       disable_coverage: true
     run_on:
-      - macos-1012
+      - macos-1014
     tasks:
       - name: ".test"
 

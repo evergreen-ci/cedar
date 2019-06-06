@@ -119,12 +119,9 @@ func (b *localFileSystem) Upload(ctx context.Context, name, path string) error {
 }
 
 func (b *localFileSystem) Download(ctx context.Context, name, path string) error {
-	reader, err := b.Reader(ctx, name)
-	if err != nil {
-		return errors.WithStack(err)
-	}
+	catcher := grip.NewBasicCatcher()
 
-	if err = os.MkdirAll(filepath.Dir(path), 0600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0600); err != nil {
 		return errors.Wrapf(err, "problem creating enclosing directory for '%s'", path)
 	}
 
@@ -132,13 +129,23 @@ func (b *localFileSystem) Download(ctx context.Context, name, path string) error
 	if err != nil {
 		return errors.Wrapf(err, "problem creating file '%s'", path)
 	}
+
+	reader, err := b.Reader(ctx, name)
+	if err != nil {
+		_ = f.Close()
+		return errors.WithStack(err)
+	}
+
 	_, err = io.Copy(f, reader)
 	if err != nil {
 		_ = f.Close()
+		_ = reader.Close()
 		return errors.Wrap(err, "problem copying data")
 	}
 
-	return errors.WithStack(f.Close())
+	catcher.Add(reader.Close())
+	catcher.Add(f.Close())
+	return errors.WithStack(catcher.Resolve())
 }
 
 func (b *localFileSystem) Copy(ctx context.Context, options CopyOptions) error {
@@ -196,7 +203,7 @@ func (b *localFileSystem) Push(ctx context.Context, local, remote string) error 
 		target := filepath.Join(b.path, remote, fn)
 		file := filepath.Join(local, fn)
 		if _, err := os.Stat(target); os.IsNotExist(err) {
-			if err := b.Upload(ctx, target, file); err != nil {
+			if err := b.Upload(ctx, filepath.Join(remote, fn), file); err != nil {
 				return errors.WithStack(err)
 			}
 
@@ -276,6 +283,7 @@ func (b *localFileSystem) List(ctx context.Context, prefix string) (BucketIterat
 		files:  files,
 		idx:    -1,
 		bucket: b,
+		prefix: prefix,
 	}, nil
 }
 
@@ -285,6 +293,7 @@ type localFileSystemIterator struct {
 	idx    int
 	item   *bucketItemImpl
 	bucket *localFileSystem
+	prefix string
 }
 
 func (iter *localFileSystemIterator) Err() error       { return iter.err }
@@ -297,7 +306,7 @@ func (iter *localFileSystemIterator) Next(_ context.Context) bool {
 
 	iter.item = &bucketItemImpl{
 		bucket: iter.bucket.path,
-		key:    iter.files[iter.idx],
+		key:    filepath.Join(iter.prefix, iter.files[iter.idx]),
 		b:      iter.bucket,
 	}
 	return true
