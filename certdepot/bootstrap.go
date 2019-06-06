@@ -49,7 +49,7 @@ func (c *BootstrapDepotConfig) Validate() error {
 	}
 
 	if c.CAName == "" || c.ServiceName == "" {
-		return errors.New("must the name of the CA and service")
+		return errors.New("must specify the name of the CA and service")
 	}
 
 	if (c.CACert != "" && c.CAKey == "") || (c.CACert == "" && c.CAKey != "") {

@@ -38,7 +38,7 @@ func (c *CertConfig) Validate() error {
 		return errors.New("must specify a CA name")
 	}
 	if c.ServiceName == "" {
-		return errors.New("must specify a server name")
+		return errors.New("must specify a service name")
 	}
 
 	return nil

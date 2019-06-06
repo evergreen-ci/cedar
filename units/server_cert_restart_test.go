@@ -21,10 +21,11 @@ func TestServerCertRestartJob(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tempDir))
 	}()
+	dbName := "cert-restart"
 
-	env, err := cedar.NewEnvironment(context.Background(), "cert-restart", &cedar.Configuration{
+	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
-		DatabaseName:  "cert-restart",
+		DatabaseName:  dbName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
 	})
@@ -85,9 +86,9 @@ func TestServerCertRestartJob(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			env, err = cedar.NewEnvironment(context.Background(), "cert-restart", &cedar.Configuration{
+			env, err = cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 				MongoDBURI:    "mongodb://localhost:27017",
-				DatabaseName:  "cert-restart",
+				DatabaseName:  dbName,
 				SocketTimeout: time.Minute,
 				NumWorkers:    2,
 			})

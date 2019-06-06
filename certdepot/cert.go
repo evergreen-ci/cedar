@@ -64,7 +64,7 @@ type CertificateOptions struct {
 // Init initializes a new CA.
 func (opts *CertificateOptions) Init(d depot.Depot) error {
 	if opts.CommonName == "" {
-		return errors.New("must provide Common Name for CA")
+		return errors.New("must provide common name of CA")
 	}
 	formattedName := strings.Replace(opts.CommonName, " ", "_", -1)
 
