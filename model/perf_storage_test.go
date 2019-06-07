@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -20,10 +19,10 @@ func TestGetDownloadURL(t *testing.T) {
 	s3Name := "build-test-curator"
 	s3Prefix := "perf-storage-test"
 	s3Opts := pail.S3Options{
-		Name:       s3Name,
-		Prefix:     s3Prefix,
-		Region:     "us-east-1",
-		Permission: "public-read",
+		Name:        s3Name,
+		Prefix:      s3Prefix,
+		Region:      "us-east-1",
+		Permissions: pail.S3PermissionsPublicRead,
 	}
 	s3Bucket, err := pail.NewS3Bucket(s3Opts)
 	require.NoError(t, err)
@@ -42,7 +41,7 @@ func TestGetDownloadURL(t *testing.T) {
 				Prefix: s3Prefix,
 				Path:   path,
 			},
-			expectedURL: fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s3Name, filepath.Join(s3Prefix, path)),
+			expectedURL: fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s3Name, s3Prefix+"/"+path),
 			bucket:      s3Bucket,
 		},
 		{

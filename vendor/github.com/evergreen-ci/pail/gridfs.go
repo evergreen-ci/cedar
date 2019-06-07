@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -183,7 +183,7 @@ func (b *gridfsBucket) Push(ctx context.Context, local, remote string) error {
 	}
 
 	for _, path := range localPaths {
-		target := filepath.Join(remote, path)
+		target := consistentJoin(remote, path)
 		_ = b.Remove(ctx, target)
 		if err = b.Upload(ctx, target, filepath.Join(local, path)); err != nil {
 			return errors.Wrapf(err, "problem uploading '%s' to '%s'", path, target)
@@ -346,12 +346,7 @@ func (b *gridfsBucket) RemoveMatching(ctx context.Context, expr string) error {
 func (b *gridfsBucket) List(ctx context.Context, prefix string) (BucketIterator, error) {
 	filter := bson.M{}
 	if prefix != "" {
-		pat, err := regexp.Compile(fmt.Sprintf("^%s.*", prefix))
-		if err != nil {
-			return nil, errors.Wrap(err, "problem with filename matching")
-		}
-
-		filter = bson.M{"filename": pat}
+		filter = bson.M{"filename": primitive.Regex{Pattern: fmt.Sprintf("^%s.*", prefix)}}
 	}
 
 	grid, err := b.bucket(ctx)

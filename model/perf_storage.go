@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -82,7 +81,7 @@ func (t PailType) GetDownloadURL(bucket, prefix, path string) string {
 		return fmt.Sprintf(
 			"https://%s.s3.amazonaws.com/%s",
 			bucket,
-			filepath.Join(prefix, path),
+			prefix+"/"+path,
 		)
 	default:
 		return ""

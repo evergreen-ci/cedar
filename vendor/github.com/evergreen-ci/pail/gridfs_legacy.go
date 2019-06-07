@@ -185,7 +185,7 @@ func (b *gridfsLegacyBucket) Push(ctx context.Context, local, remote string) err
 
 	gridfs := b.gridFS()
 	for _, path := range localPaths {
-		target := filepath.Join(remote, path)
+		target := consistentJoin(remote, path)
 		file, err := gridfs.Open(target)
 		if err == mgo.ErrNotFound {
 			if err = b.Upload(ctx, target, filepath.Join(local, path)); err != nil {
