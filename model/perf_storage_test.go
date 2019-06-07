@@ -20,10 +20,10 @@ func TestGetDownloadURL(t *testing.T) {
 	s3Name := "build-test-curator"
 	s3Prefix := "perf-storage-test"
 	s3Opts := pail.S3Options{
-		Name:       s3Name,
-		Prefix:     s3Prefix,
-		Region:     "us-east-1",
-		Permission: "public-read",
+		Name:        s3Name,
+		Prefix:      s3Prefix,
+		Region:      "us-east-1",
+		Permissions: pail.S3PermissionsPublicRead,
 	}
 	s3Bucket, err := pail.NewS3Bucket(s3Opts)
 	require.NoError(t, err)
