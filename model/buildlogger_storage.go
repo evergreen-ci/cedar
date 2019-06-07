@@ -6,8 +6,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// LogFormat is a type that describes the format of a log.
 type LogFormat string
 
+// Valid log formats.
 const (
 	LogFormatUnknown LogFormat = "unknown"
 	LogFormatText    LogFormat = "text"
@@ -15,6 +17,7 @@ const (
 	LogFormatBSON    LogFormat = "bson"
 )
 
+// Validate the log format.
 func (lf LogFormat) Validate() error {
 	switch lf {
 	case LogFormatUnknown, LogFormatText, LogFormatJSON, LogFormatBSON:
