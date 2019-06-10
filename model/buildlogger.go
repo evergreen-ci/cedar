@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const buildloggerCollection = "buildlogger"
+const buildloggerCollection = "buildlogs"
 
 // Log describes metadata for a buildlogger log.
 type Log struct {
