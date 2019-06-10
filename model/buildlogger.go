@@ -19,6 +19,7 @@ import (
 
 const buildloggerCollection = "buildlogger"
 
+// Log describes metadata for a buildlogger log.
 type Log struct {
 	ID          string          `bson:"_id,omitempty"`
 	Info        LogInfo         `bson:"info,omitempty"`
@@ -38,8 +39,13 @@ var (
 	logArtifactKey    = bsonutil.MustHaveTag(Log{}, "Artifact")
 )
 
+// Setup sets up the environment for the log.
 func (l *Log) Setup(e cedar.Environment) { l.env = e }
-func (l *Log) IsNil() bool               { return !l.populated }
+
+// IsNil returns if the log is populated or not.
+func (l *Log) IsNil() bool { return !l.populated }
+
+// Find searches the database for the log.
 func (l *Log) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
@@ -64,6 +70,7 @@ func (l *Log) Find() error {
 	return nil
 }
 
+// Save upserts the log to the database.
 func (l *Log) Save() error {
 	if !l.populated {
 		return errors.New("cannot save non-populated log data")
@@ -91,6 +98,7 @@ func (l *Log) Save() error {
 	return errors.Wrap(err, "problem saving log to collection")
 }
 
+// Remove removes the log from the database.
 func (l *Log) Remove() error {
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -98,7 +106,7 @@ func (l *Log) Remove() error {
 
 	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
-		errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	defer session.Close()
 
@@ -106,6 +114,7 @@ func (l *Log) Remove() error {
 		"problem removing log record with _id %s", l.ID)
 }
 
+// LogInfo describes information unique to a single buildlogger log.
 type LogInfo struct {
 	Project     string           `bson:"project,omitempty"`
 	Version     string           `bson:"version,omitempty"`
@@ -140,6 +149,7 @@ var (
 	logInfoSchemaKey      = bsonutil.MustHaveTag(LogInfo{}, "Schema")
 )
 
+// ID creates a unique hash for a buildlogger log.
 func (id *LogInfo) ID() string {
 	var hash hash.Hash
 
