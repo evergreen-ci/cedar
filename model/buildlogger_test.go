@@ -10,39 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	info1 = LogInfo{
-		Project:  "project",
-		TestName: "test1",
-	}
-	log1 = Log{
-		ID:          info1.ID(),
-		Info:        info1,
-		CreatedAt:   time.Now().Add(-24 * time.Hour),
-		CompletedAt: time.Now().Add(-23 * time.Hour),
-		Artifact: LogArtifactInfo{
-			Prefix:      "log1",
-			Permissions: pail.S3PermissionsPublicRead,
-			Version:     1,
-		},
-	}
-	info2 = LogInfo{
-		Project:  "project",
-		TestName: "test2",
-	}
-	log2 = Log{
-		ID:          info2.ID(),
-		Info:        info2,
-		CreatedAt:   time.Now().Add(-2 * time.Hour),
-		CompletedAt: time.Now().Add(-time.Hour),
-		Artifact: LogArtifactInfo{
-			Prefix:      "log2",
-			Permissions: pail.S3PermissionsPublicRead,
-			Version:     1,
-		},
-	}
-)
-
 func TestBuildloggerFind(t *testing.T) {
 	env := cedar.GetEnvironment()
 	conf, session, err := cedar.GetSessionWithConfig(env)
@@ -50,6 +17,7 @@ func TestBuildloggerFind(t *testing.T) {
 	defer func() {
 		assert.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).DropCollection())
 	}()
+	log1, log2 := getTestLogs()
 
 	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log1))
 	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log2))
@@ -73,7 +41,7 @@ func TestBuildloggerFind(t *testing.T) {
 		assert.True(t, l.populated)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
-		l := Log{Info: info2}
+		l := Log{Info: log2.Info}
 		l.Setup(env)
 		require.NoError(t, l.Find())
 		assert.Equal(t, log2.ID, l.ID)
@@ -91,11 +59,12 @@ func TestBuildloggerSave(t *testing.T) {
 	defer func() {
 		assert.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).DropCollection())
 	}()
+	log1, log2 := getTestLogs()
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := Log{
-			ID:        info1.ID(),
-			Info:      info1,
+			ID:        log1.ID,
+			Info:      log1.Info,
 			Artifact:  log1.Artifact,
 			populated: true,
 		}
@@ -103,8 +72,8 @@ func TestBuildloggerSave(t *testing.T) {
 	})
 	t.Run("Unpopulated", func(t *testing.T) {
 		l := Log{
-			ID:        info1.ID(),
-			Info:      info1,
+			ID:        log1.ID,
+			Info:      log1.Info,
 			Artifact:  log1.Artifact,
 			populated: false,
 		}
@@ -117,7 +86,7 @@ func TestBuildloggerSave(t *testing.T) {
 
 		l := Log{
 			ID:        log1.ID,
-			Info:      info1,
+			Info:      log1.Info,
 			Artifact:  log1.Artifact,
 			populated: true,
 		}
@@ -125,7 +94,7 @@ func TestBuildloggerSave(t *testing.T) {
 		require.NoError(t, l.Save())
 		require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log1.ID).One(savedLog))
 		assert.Equal(t, log1.ID, savedLog.ID)
-		assert.Equal(t, info1, savedLog.Info)
+		assert.Equal(t, log1.Info, savedLog.Info)
 		assert.Equal(t, log1.Artifact, savedLog.Artifact)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
@@ -133,7 +102,7 @@ func TestBuildloggerSave(t *testing.T) {
 		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
 
 		l := Log{
-			Info:      info2,
+			Info:      log2.Info,
 			Artifact:  log2.Artifact,
 			populated: true,
 		}
@@ -141,7 +110,7 @@ func TestBuildloggerSave(t *testing.T) {
 		require.NoError(t, l.Save())
 		require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
 		assert.Equal(t, log2.ID, savedLog.ID)
-		assert.Equal(t, info2, savedLog.Info)
+		assert.Equal(t, log2.Info, savedLog.Info)
 		assert.Equal(t, log2.Artifact, savedLog.Artifact)
 	})
 	t.Run("Upsert", func(t *testing.T) {
@@ -172,6 +141,7 @@ func TestBuildloggerRemove(t *testing.T) {
 	defer func() {
 		assert.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).DropCollection())
 	}()
+	log1, log2 := getTestLogs()
 
 	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log1))
 	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log2))
@@ -197,4 +167,37 @@ func TestBuildloggerRemove(t *testing.T) {
 		savedLog := &Log{}
 		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
 	})
+}
+
+func getTestLogs() (*Log, *Log) {
+	log1 := &Log{
+		Info: LogInfo{
+			Project:  "project",
+			TestName: "test1",
+		},
+		CreatedAt:   time.Now().Add(-24 * time.Hour),
+		CompletedAt: time.Now().Add(-23 * time.Hour),
+		Artifact: LogArtifactInfo{
+			Prefix:      "log1",
+			Permissions: pail.S3PermissionsPublicRead,
+			Version:     1,
+		},
+	}
+	log1.ID = log1.Info.ID()
+	log2 := &Log{
+		Info: LogInfo{
+			Project:  "project",
+			TestName: "test2",
+		},
+		CreatedAt:   time.Now().Add(-2 * time.Hour),
+		CompletedAt: time.Now().Add(-time.Hour),
+		Artifact: LogArtifactInfo{
+			Prefix:      "log2",
+			Permissions: pail.S3PermissionsPublicRead,
+			Version:     1,
+		},
+	}
+	log2.ID = log2.Info.ID()
+
+	return log1, log2
 }
