@@ -15,6 +15,8 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const buildloggerCollection = "buildlogger"
@@ -48,24 +50,23 @@ func (l *Log) IsNil() bool { return !l.populated }
 
 // Find searches the database for the log. The enviromemt should not be nil.
 func (l *Log) Find() error {
-	conf, session, err := cedar.GetSessionWithConfig(l.env)
-	if err != nil {
-		return errors.WithStack(err)
+	if l.env == nil {
+		return errors.New("cannot find with a nil environment")
 	}
-	defer session.Close()
+	ctx, cancel := l.env.Context()
+	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
 	}
 
 	l.populated = false
-	err = session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(l.ID).One(l)
+	err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l)
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find log record in the database")
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding log record")
 	}
-
 	l.populated = true
 
 	return nil
@@ -77,43 +78,41 @@ func (l *Log) Save() error {
 	if !l.populated {
 		return errors.New("cannot save non-populated log data")
 	}
+	if l.env == nil {
+		return errors.New("cannot save with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
 	}
 
-	conf, session, err := cedar.GetSessionWithConfig(l.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-
-	changeInfo, err := session.DB(conf.DatabaseName).C(buildloggerCollection).UpsertId(l.ID, l)
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).ReplaceOne(ctx, bson.M{"_id": l.ID}, l, options.Replace().SetUpsert(true))
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":         model.Namespace{DB: conf.DatabaseName, Collection: buildloggerCollection},
-		"id":         l.ID,
-		"updated":    changeInfo.Updated,
-		"upsertedID": changeInfo.UpsertedId,
-		"artifact":   l.Artifact,
-		"op":         "save buildlogger log",
+		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"id":           l.ID,
+		"updateResult": updateResult,
+		"artifact":     l.Artifact,
+		"op":           "save buildlogger log",
 	})
 	return errors.Wrap(err, "problem saving log to collection")
 }
 
-// Remove removes the log from the database.
+// Remove removes the log from the database. The environment should not be nil.
 func (l *Log) Remove() error {
+	if l.env == nil {
+		return errors.New("cannot remove with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+
 	if l.ID == "" {
 		l.ID = l.Info.ID()
 	}
 
-	conf, session, err := cedar.GetSessionWithConfig(l.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-
-	return errors.Wrapf(session.DB(conf.DatabaseName).C(buildloggerCollection).RemoveId(l.ID),
-		"problem removing log record with _id %s", l.ID)
+	_, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
+	return errors.Wrapf(err, "problem removing log record with _id %s", l.ID)
 }
 
 // LogInfo describes information unique to a single buildlogger log.
