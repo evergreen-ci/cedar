@@ -175,4 +175,26 @@ func TestBuildloggerRemove(t *testing.T) {
 
 	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log1))
 	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log2))
+
+	t.Run("DNE", func(t *testing.T) {
+		l := Log{ID: "DNE"}
+		l.Setup(env)
+		require.NoError(t, l.Remove())
+	})
+	t.Run("WithID", func(t *testing.T) {
+		l := Log{ID: log1.ID}
+		l.Setup(env)
+		require.NoError(t, l.Remove())
+
+		savedLog := &Log{}
+		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log1.ID).One(savedLog))
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		l := Log{ID: log2.ID}
+		l.Setup(env)
+		require.NoError(t, l.Remove())
+
+		savedLog := &Log{}
+		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
+	})
 }
