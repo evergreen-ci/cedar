@@ -21,6 +21,16 @@ import (
 
 const buildloggerCollection = "buildlogs"
 
+func CreateLog(info LogInfo, artifact LogArtifactInfo) *Log {
+	return &Log{
+		ID:       info.ID(),
+		Info:     info,
+		Artifact: artifact,
+
+		populated: true,
+	}
+}
+
 // Log describes metadata for a buildlogger log.
 type Log struct {
 	ID          string          `bson:"_id,omitempty"`

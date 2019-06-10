@@ -10,6 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCreateLog(t *testing.T) {
+	log, _ := getTestLogs()
+	log.populated = true
+	createdLog := CreateLog(log.Info, log.Artifact)
+	assert.Equal(t, log, createdLog)
+}
+
 func TestBuildloggerFind(t *testing.T) {
 	env := cedar.GetEnvironment()
 	conf, session, err := cedar.GetSessionWithConfig(env)
