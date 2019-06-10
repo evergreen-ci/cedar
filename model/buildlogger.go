@@ -39,13 +39,14 @@ var (
 	logArtifactKey    = bsonutil.MustHaveTag(Log{}, "Artifact")
 )
 
-// Setup sets up the environment for the log.
+// Setup sets the environment for the log. The environment is required for
+// numerous functions on Log.
 func (l *Log) Setup(e cedar.Environment) { l.env = e }
 
 // IsNil returns if the log is populated or not.
 func (l *Log) IsNil() bool { return !l.populated }
 
-// Find searches the database for the log.
+// Find searches the database for the log. The enviromemt should not be nil.
 func (l *Log) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(l.env)
 	if err != nil {
@@ -70,7 +71,8 @@ func (l *Log) Find() error {
 	return nil
 }
 
-// Save upserts the log to the database.
+// Save upserts the log to the database. The log should be populated and the
+// environment should not be nil.
 func (l *Log) Save() error {
 	if !l.populated {
 		return errors.New("cannot save non-populated log data")
