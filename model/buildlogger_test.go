@@ -14,7 +14,10 @@ func TestCreateLog(t *testing.T) {
 	log, _ := getTestLogs()
 	log.populated = true
 	createdLog := CreateLog(log.Info, log.Artifact)
-	assert.Equal(t, log, createdLog)
+	assert.Equal(t, log.ID, createdLog.ID)
+	assert.Equal(t, log.Info, createdLog.Info)
+	assert.Equal(t, log.Artifact, createdLog.Artifact)
+	assert.True(t, createdLog.populated)
 }
 
 func TestBuildloggerFind(t *testing.T) {
