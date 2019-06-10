@@ -20,12 +20,14 @@ import (
 const buildloggerCollection = "buildlogger"
 
 type Log struct {
-	ID          string    `bson:"_id,omitempty"`
-	Info        LogInfo   `bson:"info,omitempty"`
-	CreatedAt   time.Time `bson:"created_at"`
-	CompletedAt time.Time `bson:"completed_at"`
+	ID          string          `bson:"_id,omitempty"`
+	Info        LogInfo         `bson:"info,omitempty"`
+	CreatedAt   time.Time       `bson:"created_at"`
+	CompletedAt time.Time       `bson:"completed_at"`
+	Artifact    LogArtifactInfo `bson:"artifact"`
 
-	Artifact LogArtifactInfo `bson:"artifact"`
+	env       cedar.Environment
+	populated bool
 }
 
 var (
@@ -44,6 +46,10 @@ func (l *Log) Find() error {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
 
 	l.populated = false
 	err = session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(l.ID).One(l)
@@ -96,8 +102,8 @@ func (l *Log) Remove() error {
 	}
 	defer session.Close()
 
-	return errors.Wrapf(session.DB(conf.DatabaseName).C(perflCollection).RemoveId(l.ID),
-		"problem removing log with _id %s", l.ID)
+	return errors.Wrapf(session.DB(conf.DatabaseName).C(buildloggerCollection).RemoveId(l.ID),
+		"problem removing log record with _id %s", l.ID)
 }
 
 type LogInfo struct {
@@ -109,7 +115,7 @@ type LogInfo struct {
 	Execution   int              `bson:"execution"`
 	TestName    string           `bson:"test_name,omitempty"`
 	Trial       int              `bson:"trial"`
-	ProcessName string           `bson:proc_name,omitempty"`
+	ProcessName string           `bson:"proc_name,omitempty"`
 	Format      string           `bson:"format,omitempty"`
 	Arguments   map[string]int32 `bson:"args,omitempty"`
 	ExitCode    int              `bson:"exit_code, omitempty"`
@@ -148,8 +154,8 @@ func (id *LogInfo) ID() string {
 		_, _ = io.WriteString(hash, id.TestName)
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Trial))
 		_, _ = io.WriteString(hash, id.ProcessName)
-		_, _ = io.WriteString(hash, Format)
-		_, _ = io.WriteString(hash, fmt.Sprintf(id.ExitCode))
+		_, _ = io.WriteString(hash, id.Format)
+		_, _ = io.WriteString(hash, fmt.Sprint(id.ExitCode))
 
 		if len(id.Arguments) > 0 {
 			args := []string{}
