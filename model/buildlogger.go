@@ -98,7 +98,24 @@ func (l *Log) Save() error {
 		l.ID = l.Info.ID()
 	}
 
-	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).ReplaceOne(ctx, bson.M{"_id": l.ID}, l, options.Replace().SetUpsert(true))
+	update := bson.M{
+		"$set": bson.M{
+			logInfoKey:        l.Info,
+			logCreatedAtKey:   l.CreatedAt,
+			logCompletedAtKey: l.CompletedAt,
+			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoPrefixKey):      l.Artifact.Prefix,
+			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoPermissionsKey): l.Artifact.Permissions,
+			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoVersionKey):     l.Artifact.Version,
+		},
+	}
+	if l.Artifact.Chunks != nil {
+		update["$addToSet"] = bson.M{
+			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): bson.M{
+				"$each": l.Artifact.Chunks,
+			},
+		}
+	}
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update, options.Update().SetUpsert(true))
 	grip.DebugWhen(err == nil, message.Fields{
 		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
 		"id":           l.ID,

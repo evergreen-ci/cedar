@@ -8,6 +8,7 @@ import (
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestCreateLog(t *testing.T) {
@@ -22,15 +23,18 @@ func TestCreateLog(t *testing.T) {
 
 func TestBuildloggerFind(t *testing.T) {
 	env := cedar.GetEnvironment()
-	conf, session, err := cedar.GetSessionWithConfig(env)
-	require.NoError(t, err)
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
 	defer func() {
-		assert.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).DropCollection())
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
 	log1, log2 := getTestLogs()
 
-	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log1))
-	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log2))
+	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
+	require.NoError(t, err)
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	require.NoError(t, err)
 
 	t.Run("DNE", func(t *testing.T) {
 		l := Log{ID: "DNE"}
@@ -64,10 +68,11 @@ func TestBuildloggerFind(t *testing.T) {
 
 func TestBuildloggerSave(t *testing.T) {
 	env := cedar.GetEnvironment()
-	conf, session, err := cedar.GetSessionWithConfig(env)
-	require.NoError(t, err)
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
 	defer func() {
-		assert.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).DropCollection())
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
 	log1, log2 := getTestLogs()
 
@@ -92,7 +97,7 @@ func TestBuildloggerSave(t *testing.T) {
 	})
 	t.Run("WithID", func(t *testing.T) {
 		savedLog := &Log{}
-		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log1.ID).One(savedLog))
+		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(savedLog))
 
 		l := Log{
 			ID:        log1.ID,
@@ -102,14 +107,14 @@ func TestBuildloggerSave(t *testing.T) {
 		}
 		l.Setup(env)
 		require.NoError(t, l.Save())
-		require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log1.ID).One(savedLog))
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(savedLog))
 		assert.Equal(t, log1.ID, savedLog.ID)
 		assert.Equal(t, log1.Info, savedLog.Info)
 		assert.Equal(t, log1.Artifact, savedLog.Artifact)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		savedLog := &Log{}
-		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
+		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
 
 		l := Log{
 			Info:      log2.Info,
@@ -118,7 +123,7 @@ func TestBuildloggerSave(t *testing.T) {
 		}
 		l.Setup(env)
 		require.NoError(t, l.Save())
-		require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
 		assert.Equal(t, log2.ID, savedLog.ID)
 		assert.Equal(t, log2.Info, savedLog.Info)
 		assert.Equal(t, log2.Artifact, savedLog.Artifact)
@@ -129,32 +134,44 @@ func TestBuildloggerSave(t *testing.T) {
 		l := Log{
 			ID:        log2.ID,
 			populated: true,
+			Artifact:  log2.Artifact,
 		}
 		l.Setup(env)
 		require.NoError(t, l.Save())
-		require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
 		assert.Equal(t, log2.ID, savedLog.ID)
 
 		l.Artifact.Prefix = "changedPrefix"
+		l.Artifact.Chunks = []LogChunkInfo{
+			log2.Artifact.Chunks[0],
+			{
+				Key:      "key3",
+				NumLines: 500,
+			},
+		}
 		l.populated = true
 		l.Setup(env)
 		require.NoError(t, l.Save())
-		require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
 		assert.Equal(t, l.Artifact.Prefix, savedLog.Artifact.Prefix)
+		assert.Equal(t, append(log2.Artifact.Chunks, l.Artifact.Chunks[1]), savedLog.Artifact.Chunks)
 	})
 }
 
 func TestBuildloggerRemove(t *testing.T) {
 	env := cedar.GetEnvironment()
-	conf, session, err := cedar.GetSessionWithConfig(env)
-	require.NoError(t, err)
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
 	defer func() {
-		assert.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).DropCollection())
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
 	log1, log2 := getTestLogs()
 
-	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log1))
-	require.NoError(t, session.DB(conf.DatabaseName).C(buildloggerCollection).Insert(log2))
+	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
+	require.NoError(t, err)
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	require.NoError(t, err)
 
 	t.Run("DNE", func(t *testing.T) {
 		l := Log{ID: "DNE"}
@@ -167,7 +184,7 @@ func TestBuildloggerRemove(t *testing.T) {
 		require.NoError(t, l.Remove())
 
 		savedLog := &Log{}
-		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log1.ID).One(savedLog))
+		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(savedLog))
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		l := Log{ID: log2.ID}
@@ -175,7 +192,7 @@ func TestBuildloggerRemove(t *testing.T) {
 		require.NoError(t, l.Remove())
 
 		savedLog := &Log{}
-		require.Error(t, session.DB(conf.DatabaseName).C(buildloggerCollection).FindId(log2.ID).One(savedLog))
+		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
 	})
 }
 
@@ -205,6 +222,20 @@ func getTestLogs() (*Log, *Log) {
 			Prefix:      "log2",
 			Permissions: pail.S3PermissionsPublicRead,
 			Version:     1,
+			Chunks: []LogChunkInfo{
+				{
+					Key:      "key1",
+					NumLines: 100,
+					Start:    time.Now().Add(-2 * time.Hour).Unix(),
+					End:      time.Now().Add(-90 * time.Minute).Unix(),
+				},
+				{
+					Key:      "key2",
+					NumLines: 101,
+					Start:    time.Now().Add(-89 * time.Minute).Unix(),
+					End:      time.Now().Add(-time.Hour).Unix(),
+				},
+			},
 		},
 	}
 	log2.ID = log2.Info.ID()
