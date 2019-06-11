@@ -134,9 +134,9 @@ type S3BucketConfig struct {
 }
 
 var (
-	cedarS3BucketConfigAWSKeyKey       = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSKey")
-	cedarS3BucketConfigAWSSecretKey    = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSSecret")
-	cedarS3BucketConfigBuildLogsBucket = bsonutil.MustHaveTag(S3BucketConfig{}, "BuildLogsBucket")
+	cedarS3BucketConfigAWSKeyKey          = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSKey")
+	cedarS3BucketConfigAWSSecretKey       = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSSecret")
+	cedarS3BucketConfigBuildLogsBucketKey = bsonutil.MustHaveTag(S3BucketConfig{}, "BuildLogsBucket")
 )
 
 type ServiceConfig struct {
