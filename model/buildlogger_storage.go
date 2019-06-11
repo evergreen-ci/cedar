@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
@@ -42,3 +43,23 @@ var (
 	logArtifactInfoPermissionsKey = bsonutil.MustHaveTag(LogArtifactInfo{}, "Permissions")
 	logArtifactInfoVersionKey     = bsonutil.MustHaveTag(LogArtifactInfo{}, "Version")
 )
+
+// Create a pail bucket, backed by S3, using the top level application bucket
+// configuration and the prefix and permissions provided in log artifact info.
+func (l *LogArtifactInfo) CreateBucket(env cedar.Environment) (pail.Bucket, error) {
+	conf := &CedarConfig{}
+	conf.Setup(env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.Wrap(err, "problem getting application configuration")
+	}
+
+	opts := pail.S3Options{
+		Name:        conf.S3Bucket.BuildLogsBucket,
+		Prefix:      l.Prefix,
+		Region:      defaultS3Region,
+		Credentials: pail.CreateAWSCredentials(conf.S3Bucket.AWSKey, conf.S3Bucket.AWSSecret, ""),
+		Permissions: l.Permissions,
+	}
+	b, err := pail.NewS3Bucket(opts)
+	return b, errors.WithStack(err)
+}

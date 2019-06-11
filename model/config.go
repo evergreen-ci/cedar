@@ -18,15 +18,15 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID          string                    `bson:"_id" json:"id" yaml:"id"`
-	Splunk      send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack       SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP        LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	NaiveAuth   NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
-	CA          CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
-	BucketCreds BucketCredsConfig         `bson:"bucket_creds" json:"bucket_creds" yaml:"bucket_creds"`
-	Flags       OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
-	Service     ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ID        string                    `bson:"_id" json:"id" yaml:"id"`
+	Splunk    send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack     SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	NaiveAuth NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
+	CA        CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
+	S3Bucket  S3BucketConfig            `bson:"s3_bucket" json:"s3_bucket" yaml:"s3_bucket"`
+	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
+	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 
 	populated bool
 	env       cedar.Environment
@@ -126,14 +126,17 @@ var (
 	cedarCAConfigSSLRenewalBeforeKey = bsonutil.MustHaveTag(CAConfig{}, "SSLRenewalBefore")
 )
 
-type BucketCredsConfig struct {
-	AWSKey    string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
-	AWSSecret string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
+// Credentials and other configuration information for AWS S3.
+type S3BucketConfig struct {
+	AWSKey          string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
+	AWSSecret       string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
+	BuildLogsBucket string `bson:"build_logs_bucket" json:"build_logs_bucket" yaml:"build_logs_bucket"`
 }
 
 var (
-	cedarBucketCredsConfigAWSKeyKey    = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSKey")
-	cedarBucketCredsConfigAWSSecretKey = bsonutil.MustHaveTag(BucketCredsConfig{}, "AWSSecret")
+	cedarS3BucketConfigAWSKeyKey          = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSKey")
+	cedarS3BucketConfigAWSSecretKey       = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSSecret")
+	cedarS3BucketConfigBuildLogsBucketKey = bsonutil.MustHaveTag(S3BucketConfig{}, "BuildLogsBucket")
 )
 
 type ServiceConfig struct {
