@@ -278,8 +278,9 @@ func getTestLogs() (*Log, *Log) {
 		CreatedAt:   time.Now().Add(-24 * time.Hour),
 		CompletedAt: time.Now().Add(-23 * time.Hour),
 		Artifact: LogArtifactInfo{
+			Type:        PailS3,
 			Prefix:      "log1",
-			Permissions: pail.S3PermissionsPublicRead,
+			Permissions: string(pail.S3PermissionsPublicRead),
 			Version:     1,
 		},
 	}
@@ -292,8 +293,9 @@ func getTestLogs() (*Log, *Log) {
 		CreatedAt:   time.Now().Add(-2 * time.Hour),
 		CompletedAt: time.Now().Add(-time.Hour),
 		Artifact: LogArtifactInfo{
+			Type:        PailS3,
 			Prefix:      "log2",
-			Permissions: pail.S3PermissionsPublicRead,
+			Permissions: string(pail.S3PermissionsPublicRead),
 			Version:     1,
 			Chunks: []LogChunkInfo{
 				{
