@@ -16,10 +16,20 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const buildloggerCollection = "buildlogs"
+
+// CreateLog is the entry point for creating a buildlogger Log.
+func CreateLog(info LogInfo, artifact LogArtifactInfo) *Log {
+	return &Log{
+		ID:       info.ID(),
+		Info:     info,
+		Artifact: artifact,
+
+		populated: true,
+	}
+}
 
 // Log describes metadata for a buildlogger log.
 type Log struct {
@@ -63,7 +73,7 @@ func (l *Log) Find() error {
 	l.populated = false
 	err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l)
 	if db.ResultsNotFound(err) {
-		return errors.New("could not find log record in the database")
+		return errors.Errorf("could not find log record with id %s in the database", l.ID)
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding log record")
 	}
@@ -72,11 +82,12 @@ func (l *Log) Find() error {
 	return nil
 }
 
-// Save upserts the log to the database. The log should be populated and the
+// SaveNewLog saves a new log to the database, if a log with the same ID
+// already exists an error is returned. The log should be populated and the
 // environment should not be nil.
-func (l *Log) Save() error {
+func (l *Log) SaveNew() error {
 	if !l.populated {
-		return errors.New("cannot save non-populated log data")
+		return errors.New("cannot save unpopulated log")
 	}
 	if l.env == nil {
 		return errors.New("cannot save with a nil environment")
@@ -88,21 +99,52 @@ func (l *Log) Save() error {
 		l.ID = l.Info.ID()
 	}
 
-	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).ReplaceOne(ctx, bson.M{"_id": l.ID}, l, options.Replace().SetUpsert(true))
+	insertResult, err := l.env.GetDB().Collection(buildloggerCollection).InsertOne(ctx, l)
+	grip.DebugWhen(err == nil, message.Fields{
+		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"id":           l.ID,
+		"insertResult": insertResult,
+		"op":           "save new buildlogger log",
+	})
+	return errors.Wrapf(err, "problem saving new log %s", l.ID)
+}
+
+// AppendLogChunkInfo adds a new log chunk to the log's chunks array in the
+// database. The environment should not be nil.
+func (l *Log) AppendLogChunkInfo(logChunk LogChunkInfo) error {
+	if l.env == nil {
+		return errors.New("cannot append to a log with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
+
+	update := bson.M{
+		"$push": bson.M{
+			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): logChunk,
+		},
+	}
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
 	grip.DebugWhen(err == nil, message.Fields{
 		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
 		"id":           l.ID,
 		"updateResult": updateResult,
-		"artifact":     l.Artifact,
-		"op":           "save buildlogger log",
+		"logChunkInfo": logChunk,
+		"op":           "append log chunk info to buildlogger log",
 	})
-	return errors.Wrap(err, "problem saving log to collection")
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
+	}
+	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
 }
 
 // Remove removes the log from the database. The environment should not be nil.
 func (l *Log) Remove() error {
 	if l.env == nil {
-		return errors.New("cannot remove with a nil environment")
+		return errors.New("cannot remove a log with a nil environment")
 	}
 	ctx, cancel := l.env.Context()
 	defer cancel()
