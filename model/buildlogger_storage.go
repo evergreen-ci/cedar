@@ -35,7 +35,7 @@ type LogArtifactInfo struct {
 	Prefix      string             `bson:"prefix"`
 	Permissions pail.S3Permissions `bson:"permissions"`
 	Version     int                `bson:"version"`
-	Chunks      []LogChunkInfo     `bson:"chunks"`
+	Chunks      []LogChunkInfo     `bson:"chunks,omitempty"`
 }
 
 var (
