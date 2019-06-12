@@ -34,11 +34,10 @@ func (lf LogFormat) Validate() error {
 // "sub-bucket". The top level bucket is accesible via the cedar.Environment
 // interface.
 type LogArtifactInfo struct {
-	Type        PailType       `bson:"type"`
-	Prefix      string         `bson:"prefix"`
-	Permissions string         `bson:"permissions"`
-	Version     int            `bson:"version"`
-	Chunks      []LogChunkInfo `bson:"chunks,omitempty"`
+	Type    PailType       `bson:"type"`
+	Prefix  string         `bson:"prefix"`
+	Version int            `bson:"version"`
+	Chunks  []LogChunkInfo `bson:"chunks,omitempty"`
 }
 
 var (
