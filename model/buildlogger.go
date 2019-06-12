@@ -81,9 +81,9 @@ func (l *Log) Find() error {
 	return nil
 }
 
-// SaveNewLog saves a new log to the database. If a log with the same ID exists
-// an error is returned. The log should be populated and the environment should
-// not be nil.
+// SaveNewLog saves a new log to the database, if a log with the same ID
+// already exists an error is returned. The log should be populated and the
+// environment should not be nil.
 func (l *Log) SaveNew() error {
 	if !l.populated {
 		return errors.New("cannot save unpopulated log")
