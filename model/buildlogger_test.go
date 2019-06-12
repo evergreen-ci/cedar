@@ -177,14 +177,14 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 			{
 				Key:      "key1",
 				NumLines: 100,
-				Start:    time.Now().Add(-time.Hour).Unix(),
-				End:      time.Now().Add(-30 * time.Minute).Unix(),
+				Start:    time.Date(2019, time.January, 1, 12, 0, 0, 0, time.UTC),
+				End:      time.Date(2019, time.January, 1, 13, 30, 0, 0, time.UTC),
 			},
 			{
 				Key:      "key2",
 				NumLines: 101,
-				Start:    time.Now().Add(-30 * time.Minute).Unix(),
-				End:      time.Now().Unix(),
+				Start:    time.Date(2019, time.January, 1, 13, 31, 0, 0, time.UTC),
+				End:      time.Date(2019, time.January, 1, 14, 31, 0, 0, time.UTC),
 			},
 		}
 		l := &Log{ID: log1.ID}
@@ -301,14 +301,14 @@ func getTestLogs() (*Log, *Log) {
 				{
 					Key:      "key1",
 					NumLines: 100,
-					Start:    time.Now().Add(-2 * time.Hour).Unix(),
-					End:      time.Now().Add(-90 * time.Minute).Unix(),
+					Start:    time.Date(2019, time.January, 1, 12, 0, 0, 0, time.UTC),
+					End:      time.Date(2019, time.January, 1, 13, 30, 0, 0, time.UTC),
 				},
 				{
 					Key:      "key2",
 					NumLines: 101,
-					Start:    time.Now().Add(-89 * time.Minute).Unix(),
-					End:      time.Now().Add(-time.Hour).Unix(),
+					Start:    time.Date(2019, time.January, 1, 13, 31, 0, 0, time.UTC),
+					End:      time.Date(2019, time.January, 1, 14, 31, 0, 0, time.UTC),
 				},
 			},
 		},

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 )
@@ -50,10 +52,10 @@ var (
 // LogChunkInfo describes a chunk of log lines stored in pail-backed offline
 // storage.
 type LogChunkInfo struct {
-	Key      string `bson:"key"`
-	NumLines int    `bson:"num_lines"`
-	Start    int64  `bson:"start"`
-	End      int64  `bson:"end"`
+	Key      string    `bson:"key"`
+	NumLines int       `bson:"num_lines"`
+	Start    time.Time `bson:"start"`
+	End      time.Time `bson:"end"`
 }
 
 var (
