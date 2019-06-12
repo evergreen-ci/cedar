@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -196,7 +195,6 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		assert.Equal(t, log1.ID, updatedLog.ID)
 		assert.Equal(t, log1.Info, updatedLog.Info)
 		assert.Equal(t, log1.Artifact.Prefix, updatedLog.Artifact.Prefix)
-		assert.Equal(t, log1.Artifact.Permissions, updatedLog.Artifact.Permissions)
 		assert.Equal(t, log1.Artifact.Version, updatedLog.Artifact.Version)
 		assert.Equal(t, chunks[:1], updatedLog.Artifact.Chunks)
 
@@ -206,7 +204,6 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		assert.Equal(t, log1.ID, updatedLog.ID)
 		assert.Equal(t, log1.Info, updatedLog.Info)
 		assert.Equal(t, log1.Artifact.Prefix, updatedLog.Artifact.Prefix)
-		assert.Equal(t, log1.Artifact.Permissions, updatedLog.Artifact.Permissions)
 		assert.Equal(t, log1.Artifact.Version, updatedLog.Artifact.Version)
 		assert.Equal(t, chunks, updatedLog.Artifact.Chunks)
 	})
@@ -224,7 +221,6 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		assert.Equal(t, log2.ID, updatedLog.ID)
 		assert.Equal(t, log2.Info, updatedLog.Info)
 		assert.Equal(t, log2.Artifact.Prefix, updatedLog.Artifact.Prefix)
-		assert.Equal(t, log2.Artifact.Permissions, updatedLog.Artifact.Permissions)
 		assert.Equal(t, log2.Artifact.Version, updatedLog.Artifact.Version)
 		assert.Equal(t, append(log2.Artifact.Chunks, chunk), updatedLog.Artifact.Chunks)
 
@@ -278,10 +274,9 @@ func getTestLogs() (*Log, *Log) {
 		CreatedAt:   time.Now().Add(-24 * time.Hour),
 		CompletedAt: time.Now().Add(-23 * time.Hour),
 		Artifact: LogArtifactInfo{
-			Type:        PailS3,
-			Prefix:      "log1",
-			Permissions: string(pail.S3PermissionsPublicRead),
-			Version:     1,
+			Type:    PailS3,
+			Prefix:  "log1",
+			Version: 1,
 		},
 	}
 	log1.ID = log1.Info.ID()
@@ -293,10 +288,9 @@ func getTestLogs() (*Log, *Log) {
 		CreatedAt:   time.Now().Add(-2 * time.Hour),
 		CompletedAt: time.Now().Add(-time.Hour),
 		Artifact: LogArtifactInfo{
-			Type:        PailS3,
-			Prefix:      "log2",
-			Permissions: string(pail.S3PermissionsPublicRead),
-			Version:     1,
+			Type:    PailS3,
+			Prefix:  "log2",
+			Version: 1,
 			Chunks: []LogChunkInfo{
 				{
 					Key:      "key1",

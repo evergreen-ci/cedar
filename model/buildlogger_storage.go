@@ -41,11 +41,10 @@ type LogArtifactInfo struct {
 }
 
 var (
-	logArtifactInfoTypeKey        = bsonutil.MustHaveTag(LogArtifactInfo{}, "Type")
-	logArtifactInfoPrefixKey      = bsonutil.MustHaveTag(LogArtifactInfo{}, "Prefix")
-	logArtifactInfoPermissionsKey = bsonutil.MustHaveTag(LogArtifactInfo{}, "Permissions")
-	logArtifactInfoVersionKey     = bsonutil.MustHaveTag(LogArtifactInfo{}, "Version")
-	logArtifactInfoChunksKey      = bsonutil.MustHaveTag(LogArtifactInfo{}, "Chunks")
+	logArtifactInfoTypeKey    = bsonutil.MustHaveTag(LogArtifactInfo{}, "Type")
+	logArtifactInfoPrefixKey  = bsonutil.MustHaveTag(LogArtifactInfo{}, "Prefix")
+	logArtifactInfoVersionKey = bsonutil.MustHaveTag(LogArtifactInfo{}, "Version")
+	logArtifactInfoChunksKey  = bsonutil.MustHaveTag(LogArtifactInfo{}, "Chunks")
 )
 
 // LogChunkInfo describes a chunk of log lines stored in pail-backed offline
