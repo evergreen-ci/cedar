@@ -20,6 +20,7 @@ import (
 
 const buildloggerCollection = "buildlogs"
 
+// CreateLog is the entry point for creating a buildlogger Log.
 func CreateLog(info LogInfo, artifact LogArtifactInfo) *Log {
 	return &Log{
 		ID:       info.ID(),

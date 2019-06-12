@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// PailType describes the name of the blob storage backing a pail Bucket
+// implementation.
 type PailType string
 
 const (
@@ -19,6 +21,7 @@ const (
 	defaultS3Region = "us-east-1"
 )
 
+// Create returns a pail Bucket backed by PailType.
 func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions string) (pail.Bucket, error) {
 	var b pail.Bucket
 	var err error
@@ -74,13 +77,15 @@ func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions stri
 	return b, nil
 }
 
-func (t PailType) GetDownloadURL(bucket, prefix, path string) string {
+// GetDownloadURL returns, if applicable, the download URL for the object at
+// the given bucket/prefix/key location.
+func (t PailType) GetDownloadURL(bucket, prefix, key string) string {
 	switch t {
 	case PailS3:
 		return fmt.Sprintf(
 			"https://%s.s3.amazonaws.com/%s",
 			bucket,
-			prefix+"/"+path,
+			prefix+"/"+key,
 		)
 	default:
 		return ""
