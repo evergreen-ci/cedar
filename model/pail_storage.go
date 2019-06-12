@@ -38,7 +38,7 @@ func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions stri
 			Prefix:      prefix,
 			Region:      defaultS3Region,
 			Permissions: pail.S3Permissions(permissions),
-			Credentials: pail.CreateAWSCredentials(conf.BucketCreds.AWSKey, conf.BucketCreds.AWSSecret, ""),
+			Credentials: pail.CreateAWSCredentials(conf.S3Bucket.AWSKey, conf.S3Bucket.AWSSecret, ""),
 		}
 		b, err = pail.NewS3Bucket(opts)
 		if err != nil {
