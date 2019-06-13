@@ -127,9 +127,9 @@ func TestBucket(t *testing.T) {
 		{
 			name: "Local",
 			constructor: func(t *testing.T) Bucket {
-				path := filepath.Join(tempdir, uuid, newUUID())
+				path := filepath.Join(tempdir, uuid)
 				require.NoError(t, os.MkdirAll(path, 0777))
-				return &localFileSystem{path: path}
+				return &localFileSystem{path: path, prefix: newUUID()}
 			},
 			tests: []bucketTestCase{
 				{
@@ -227,6 +227,7 @@ func TestBucket(t *testing.T) {
 						cancel()
 						bucket := b.(*localFileSystem)
 						bucket.path = ""
+						bucket.prefix = ""
 						err := b.Pull(tctx, "", filepath.Dir(file))
 						assert.Error(t, err)
 					},
@@ -247,6 +248,7 @@ func TestBucket(t *testing.T) {
 			constructor: func(t *testing.T) Bucket {
 				require.NoError(t, client.Database(uuid).Drop(ctx))
 				b, err := NewGridFSBucketWithClient(ctx, client, GridFSOptions{
+					Name:     newUUID(),
 					Prefix:   newUUID(),
 					Database: uuid,
 				})
@@ -259,6 +261,7 @@ func TestBucket(t *testing.T) {
 			constructor: func(t *testing.T) Bucket {
 				require.NoError(t, client.Database(uuid).Drop(ctx))
 				b, err := NewLegacyGridFSBucketWithSession(ses.Clone(), GridFSOptions{
+					Name:     newUUID(),
 					Prefix:   newUUID(),
 					Database: uuid,
 				})

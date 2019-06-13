@@ -69,6 +69,9 @@ func walkLocalTree(ctx context.Context, prefix string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "problem finding files")
 	}
+	if ctx.Err() != nil {
+		return nil, errors.New("operation canceled")
+	}
 
 	return out, nil
 }
