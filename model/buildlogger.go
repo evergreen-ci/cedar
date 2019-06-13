@@ -127,7 +127,14 @@ func (l *Log) Remove() error {
 		l.ID = l.Info.ID()
 	}
 
-	_, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
+	deleteResult, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
+	grip.DebugWhen(err == nil, message.Fields{
+		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"id":           l.ID,
+		"deleteResult": deleteResult,
+		"op":           "remove log",
+	})
+
 	return errors.Wrapf(err, "problem removing log record with _id %s", l.ID)
 }
 
@@ -147,7 +154,7 @@ func (l *Log) Upload(lines []LogLine) error {
 	}
 	ctx, cancel := l.env.Context()
 	defer cancel()
-	key := fmt.Sprint(time.Now())
+	key := fmt.Sprint(util.UnixMilli(time.Now()))
 
 	linesCombined := ""
 	for _, line := range lines {
@@ -170,9 +177,8 @@ func (l *Log) Upload(lines []LogLine) error {
 	info := LogChunkInfo{
 		Key:      key,
 		NumLines: len(lines),
-		// TODO:Should these two be rounded to nearest ms?
-		Start: lines[0].Timestamp,
-		End:   lines[len(lines)-1].Timestamp,
+		Start:    lines[0].Timestamp,
+		End:      lines[len(lines)-1].Timestamp,
 	}
 	return errors.Wrap(l.appendLogChunkInfo(info), "problem updating log metadata during upload")
 }
@@ -284,6 +290,5 @@ func (id *LogInfo) ID() string {
 // passes data from RPC calls to the upload phase.
 type LogLine struct {
 	Timestamp time.Time
-	// TODO: string or byte array?
-	Data string
+	Data      string
 }
