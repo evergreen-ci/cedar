@@ -6,9 +6,12 @@ import (
 	"hash"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -21,12 +24,15 @@ import (
 const buildloggerCollection = "buildlogs"
 
 // CreateLog is the entry point for creating a buildlogger Log.
-func CreateLog(info LogInfo, artifact LogArtifactInfo) *Log {
+func CreateLog(info LogInfo, artifactStorageType PailType) *Log {
 	return &Log{
-		ID:       info.ID(),
-		Info:     info,
-		Artifact: artifact,
-
+		ID:   info.ID(),
+		Info: info,
+		Artifact: LogArtifactInfo{
+			Type:    artifactStorageType,
+			Prefix:  info.ID(),
+			Version: 0,
+		},
 		populated: true,
 	}
 }
@@ -109,9 +115,71 @@ func (l *Log) SaveNew() error {
 	return errors.Wrapf(err, "problem saving new log %s", l.ID)
 }
 
-// AppendLogChunkInfo adds a new log chunk to the log's chunks array in the
+// Remove removes the log from the database. The environment should not be nil.
+func (l *Log) Remove() error {
+	if l.env == nil {
+		return errors.New("cannot remove a log with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
+
+	_, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
+	return errors.Wrapf(err, "problem removing log record with _id %s", l.ID)
+}
+
+// Upload uploads a chunk of log lines to the offline blob storage bucket
+// configured for the log and updates the metadata in the database to reflect
+// the uploaded lines.
+func (l *Log) Upload(lines []LogLine) error {
+	if !l.populated {
+		return errors.New("cannot upload log lines when log unpopulated")
+	}
+	if l.env == nil {
+		return errors.New("cannot not upload log lines with a nil environment")
+	}
+	if len(lines) == 0 {
+		grip.Warning("Log.Upload called with empty LogLine slice")
+		return nil
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+	key := fmt.Sprint(time.Now())
+
+	linesCombined := ""
+	for _, line := range lines {
+		linesCombined += fmt.Sprintf("%d%s", util.UnixMilli(line.Timestamp), line.Data)
+	}
+
+	conf := &CedarConfig{}
+	conf.Setup(l.env)
+	if err := conf.Find(); err != nil {
+		return errors.Wrap(err, "problem getting application configuration")
+	}
+	bucket, err := l.Artifact.Type.Create(l.env, conf.Bucket.BuildLogsBucket, l.Artifact.Prefix, string(pail.S3PermissionsPrivate))
+	if err != nil {
+		return errors.Wrap(err, "problem creating bucket")
+	}
+	if err := bucket.Put(ctx, key, strings.NewReader(linesCombined)); err != nil {
+		return errors.Wrap(err, "problem uploading log lines to bucket")
+	}
+
+	info := LogChunkInfo{
+		Key:      key,
+		NumLines: len(lines),
+		// TODO:Should these two be rounded to nearest ms?
+		Start: lines[0].Timestamp,
+		End:   lines[len(lines)-1].Timestamp,
+	}
+	return errors.Wrap(l.appendLogChunkInfo(info), "problem updating log metadata during upload")
+}
+
+// appendLogChunkInfo adds a new log chunk to the log's chunks array in the
 // database. The environment should not be nil.
-func (l *Log) AppendLogChunkInfo(logChunk LogChunkInfo) error {
+func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	if l.env == nil {
 		return errors.New("cannot append to a log with a nil environment")
 	}
@@ -139,22 +207,6 @@ func (l *Log) AppendLogChunkInfo(logChunk LogChunkInfo) error {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
 	}
 	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
-}
-
-// Remove removes the log from the database. The environment should not be nil.
-func (l *Log) Remove() error {
-	if l.env == nil {
-		return errors.New("cannot remove a log with a nil environment")
-	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
-
-	if l.ID == "" {
-		l.ID = l.Info.ID()
-	}
-
-	_, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
-	return errors.Wrapf(err, "problem removing log record with _id %s", l.ID)
 }
 
 // LogInfo describes information unique to a single buildlogger log.
@@ -226,4 +278,12 @@ func (id *LogInfo) ID() string {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+// LogLine describes a buildlogger log line. This is an intermediary type that
+// passes data from RPC calls to the upload phase.
+type LogLine struct {
+	Timestamp time.Time
+	// TODO: string or byte array?
+	Data string
 }

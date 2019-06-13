@@ -41,7 +41,8 @@ func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions stri
 			Prefix:      prefix,
 			Region:      defaultS3Region,
 			Permissions: pail.S3Permissions(permissions),
-			Credentials: pail.CreateAWSCredentials(conf.S3Bucket.AWSKey, conf.S3Bucket.AWSSecret, ""),
+			Credentials: pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
+			MaxRetries:  10,
 		}
 		b, err = pail.NewS3Bucket(opts)
 		if err != nil {
@@ -53,7 +54,8 @@ func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions stri
 
 		opts := pail.GridFSOptions{
 			Database: conf.DatabaseName,
-			Prefix:   bucket,
+			Name:     bucket,
+			Prefix:   prefix,
 		}
 		b, err = pail.NewGridFSBucketWithClient(ctx, client, opts)
 		if err != nil {
@@ -61,7 +63,8 @@ func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions stri
 		}
 	case PailLocal:
 		opts := pail.LocalOptions{
-			Path: bucket,
+			Path:   bucket,
+			Prefix: prefix,
 		}
 		b, err = pail.NewLocalBucket(opts)
 		if err != nil {

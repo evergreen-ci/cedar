@@ -1,10 +1,16 @@
 package model
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,10 +20,12 @@ import (
 func TestCreateLog(t *testing.T) {
 	log, _ := getTestLogs()
 	log.populated = true
-	createdLog := CreateLog(log.Info, log.Artifact)
+	createdLog := CreateLog(log.Info, PailS3)
 	assert.Equal(t, log.ID, createdLog.ID)
 	assert.Equal(t, log.Info, createdLog.Info)
-	assert.Equal(t, log.Artifact, createdLog.Artifact)
+	assert.Equal(t, PailS3, createdLog.Artifact.Type)
+	assert.Equal(t, log.ID, createdLog.Artifact.Prefix)
+	assert.Equal(t, 0, createdLog.Artifact.Version)
 	assert.True(t, createdLog.populated)
 }
 
@@ -158,7 +166,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := &Log{ID: log1.ID}
-		assert.Error(t, l.AppendLogChunkInfo(LogChunkInfo{
+		assert.Error(t, l.appendLogChunkInfo(LogChunkInfo{
 			Key:      "key",
 			NumLines: 100,
 		}))
@@ -166,7 +174,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		l := &Log{ID: "DNE"}
 		l.Setup(env)
-		assert.Error(t, l.AppendLogChunkInfo(LogChunkInfo{
+		assert.Error(t, l.appendLogChunkInfo(LogChunkInfo{
 			Key:      "key",
 			NumLines: 100,
 		}))
@@ -189,7 +197,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		l := &Log{ID: log1.ID}
 		l.Setup(env)
 
-		require.NoError(t, l.AppendLogChunkInfo(chunks[0]))
+		require.NoError(t, l.appendLogChunkInfo(chunks[0]))
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
 		assert.Equal(t, log1.ID, updatedLog.ID)
@@ -199,7 +207,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		assert.Equal(t, chunks[:1], updatedLog.Artifact.Chunks)
 
 		l.Setup(env)
-		require.NoError(t, l.AppendLogChunkInfo(chunks[1]))
+		require.NoError(t, l.appendLogChunkInfo(chunks[1]))
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
 		assert.Equal(t, log1.ID, updatedLog.ID)
 		assert.Equal(t, log1.Info, updatedLog.Info)
@@ -215,7 +223,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		l := &Log{ID: log2.ID}
 		l.Setup(env)
 
-		require.NoError(t, l.AppendLogChunkInfo(chunk))
+		require.NoError(t, l.appendLogChunkInfo(chunk))
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(updatedLog))
 		assert.Equal(t, log2.ID, updatedLog.ID)
@@ -262,6 +270,126 @@ func TestBuildloggerRemove(t *testing.T) {
 
 		savedLog := &Log{}
 		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
+	})
+}
+
+func TestBuildloggerUpload(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "upload-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+	}()
+	//s3BucketName := "build-test-curator"
+
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	log := Log{populated: true}
+	log.ID = log.Info.ID()
+	log.Artifact = LogArtifactInfo{
+		Type:   PailLocal,
+		Prefix: log.Info.ID(),
+	}
+	chunk1 := []LogLine{
+		{
+			Timestamp: time.Now().Add(-time.Hour).Round(time.Millisecond).UTC(),
+			Data:      "This is not a test.\n",
+		},
+		{
+			Timestamp: time.Now().Add(-59 * time.Minute).Round(time.Millisecond).UTC(),
+			Data:      "This is a test.\n",
+		},
+	}
+	chunk2 := []LogLine{
+		{
+			Timestamp: time.Now().Add(-57 * time.Minute).Round(time.Millisecond).UTC(),
+			Data:      "Logging is fun.\n",
+		},
+		{
+			Timestamp: time.Now().Add(-56 * time.Minute).Round(time.Millisecond).UTC(),
+			Data:      "Buildogger logging logs.\n",
+		},
+
+		{
+			Timestamp: time.Now().Add(-55 * time.Minute).Round(time.Millisecond).UTC(),
+			Data:      "Finished logging.\n",
+		},
+	}
+
+	t.Run("NoEnv", func(t *testing.T) {
+		l := Log{populated: true}
+		assert.Error(t, l.Upload(chunk1))
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		l := Log{}
+		l.Setup(env)
+		assert.Error(t, l.Upload(chunk1))
+	})
+	t.Run("DNE", func(t *testing.T) {
+		log.Setup(env)
+		assert.Error(t, log.Upload(chunk1))
+	})
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log)
+	require.NoError(t, err)
+	t.Run("NoConfig", func(t *testing.T) {
+		log.Setup(env)
+		assert.Error(t, log.Upload(chunk1))
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		log.Setup(env)
+		assert.Error(t, log.Upload(chunk1))
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.BuildLogsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("UploadToBucket", func(t *testing.T) {
+		log.Setup(env)
+		require.NoError(t, log.Upload(chunk1))
+		require.NoError(t, log.Upload(chunk2))
+		expectedData := []byte{}
+		for _, line := range append(chunk1, chunk2...) {
+			expectedData = append(expectedData, []byte(fmt.Sprintf("%d%s", util.UnixMilli(line.Timestamp), line.Data))...)
+		}
+
+		filenames := map[string]bool{}
+		actualData := []byte{}
+		iter, err := testBucket.List(ctx, log.ID)
+		require.NoError(t, err)
+		for iter.Next(ctx) {
+			key, err := filepath.Rel(log.ID, iter.Item().Name())
+			require.NoError(t, err)
+			filenames[key] = true
+			r, err := iter.Item().Get(ctx)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, r.Close())
+			}()
+			data, err := ioutil.ReadAll(r)
+			require.NoError(t, err)
+			actualData = append(actualData, data...)
+		}
+		assert.Equal(t, expectedData, actualData)
+		assert.Len(t, filenames, 2)
+
+		l := &Log{}
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log.Info.ID()}).Decode(l))
+		assert.Len(t, l.Artifact.Chunks, 2)
+		chunks := [][]LogLine{chunk1, chunk2}
+		for i, chunk := range l.Artifact.Chunks {
+			assert.True(t, filenames[chunk.Key])
+			assert.Equal(t, len(chunks[i]), chunk.NumLines)
+			assert.Equal(t, chunks[i][0].Timestamp, chunk.Start)
+			assert.Equal(t, chunks[i][len(chunks[i])-1].Timestamp, chunk.End)
+		}
 	})
 }
 
