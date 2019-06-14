@@ -49,7 +49,7 @@ func (t RollupType) Export() model.MetricType {
 	case RollupType_PERCENTILE_90TH:
 		return model.MetricTypePercentile90
 	case RollupType_PERCENTILE_95TH:
-		return model.MetricTypePercentile99
+		return model.MetricTypePercentile95
 	case RollupType_PERCENTILE_99TH:
 		return model.MetricTypePercentile99
 	default:
@@ -89,7 +89,6 @@ func (c CompressionType) Export() model.FileCompression {
 	default:
 		return model.FileUncompressed
 	}
-
 }
 
 func (s SchemaType) Export() model.FileSchema {
