@@ -140,16 +140,21 @@ func (l *Log) Remove() error {
 
 // Append uploads a chunk of log lines to the offline blob storage bucket
 // configured for the log and updates the metadata in the database to reflect
-// the uploaded lines.
+// the uploaded lines. The log should be populated and the environment should
+// not be nil.
 func (l *Log) Append(lines []LogLine) error {
 	if !l.populated {
-		return errors.New("cannot upload log lines when log unpopulated")
+		return errors.New("cannot append log lines when log unpopulated")
 	}
 	if l.env == nil {
-		return errors.New("cannot not upload log lines with a nil environment")
+		return errors.New("cannot not append log lines with a nil environment")
 	}
 	if len(lines) == 0 {
-		grip.Warning("Log.Upload called with empty LogLine slice")
+		grip.Warning(message.Fields{
+			"ns":      model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+			"id":      l.ID,
+			"message": "append called with no log lines",
+		})
 		return nil
 	}
 	ctx, cancel := l.env.Context()
