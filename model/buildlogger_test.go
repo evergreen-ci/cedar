@@ -354,6 +354,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		log.Setup(env)
 		require.NoError(t, log.Append(chunk1))
 		require.NoError(t, log.Append(chunk2))
+		time.Sleep(time.Second)
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
 			expectedData = append(expectedData, []byte(fmt.Sprintf("%d%s", util.UnixMilli(line.Timestamp), line.Data))...)
