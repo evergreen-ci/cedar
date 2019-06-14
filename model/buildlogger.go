@@ -138,10 +138,10 @@ func (l *Log) Remove() error {
 	return errors.Wrapf(err, "problem removing log record with _id %s", l.ID)
 }
 
-// Upload uploads a chunk of log lines to the offline blob storage bucket
+// Append uploads a chunk of log lines to the offline blob storage bucket
 // configured for the log and updates the metadata in the database to reflect
 // the uploaded lines.
-func (l *Log) Upload(lines []LogLine) error {
+func (l *Log) Append(lines []LogLine) error {
 	if !l.populated {
 		return errors.New("cannot upload log lines when log unpopulated")
 	}

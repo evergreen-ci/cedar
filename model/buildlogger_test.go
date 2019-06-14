@@ -273,18 +273,17 @@ func TestBuildloggerRemove(t *testing.T) {
 	})
 }
 
-func TestBuildloggerUpload(t *testing.T) {
+func TestBuildloggerAppend(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
 	ctx, cancel := env.Context()
 	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "upload-test")
+	tmpDir, err := ioutil.TempDir(".", "append-test")
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	//s3BucketName := "build-test-curator"
 
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -323,38 +322,38 @@ func TestBuildloggerUpload(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := Log{populated: true}
-		assert.Error(t, l.Upload(chunk1))
+		assert.Error(t, l.Append(chunk1))
 	})
 	t.Run("Unpopulated", func(t *testing.T) {
 		l := Log{}
 		l.Setup(env)
-		assert.Error(t, l.Upload(chunk1))
+		assert.Error(t, l.Append(chunk1))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		log.Setup(env)
-		assert.Error(t, log.Upload(chunk1))
+		assert.Error(t, log.Append(chunk1))
 	})
 	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log)
 	require.NoError(t, err)
 	t.Run("NoConfig", func(t *testing.T) {
 		log.Setup(env)
-		assert.Error(t, log.Upload(chunk1))
+		assert.Error(t, log.Append(chunk1))
 	})
 	conf := &CedarConfig{populated: true}
 	conf.Setup(env)
 	require.NoError(t, conf.Save())
 	t.Run("ConfigWithoutBucket", func(t *testing.T) {
 		log.Setup(env)
-		assert.Error(t, log.Upload(chunk1))
+		assert.Error(t, log.Append(chunk1))
 	})
 	conf.Setup(env)
 	require.NoError(t, conf.Find())
 	conf.Bucket.BuildLogsBucket = tmpDir
 	require.NoError(t, conf.Save())
-	t.Run("UploadToBucket", func(t *testing.T) {
+	t.Run("AppendToBucketAndDB", func(t *testing.T) {
 		log.Setup(env)
-		require.NoError(t, log.Upload(chunk1))
-		require.NoError(t, log.Upload(chunk2))
+		require.NoError(t, log.Append(chunk1))
+		require.NoError(t, log.Append(chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
 			expectedData = append(expectedData, []byte(fmt.Sprintf("%d%s", util.UnixMilli(line.Timestamp), line.Data))...)
