@@ -147,14 +147,18 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/satori/go.uuid/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/gopkg.in/
 	rm -rf vendor/github.com/evergreen-ci/pail/vendor/
-	rm -rf vendor/github.com/square/certstrap/vendor/github.com/urfave/cli/
-	rm -rf vendor/github.com/square/certstrap/vendor/golang.org/x/sys/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/evergreen-ci/gimlet/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/pkg/errors/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/jpillora/backoff/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/grpc/
+	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/github.com/pkg/errors/
+	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/github.com/stretchr/testify/
+	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/github.com/mongodb/anser/
+	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/github.com/mongodb/grip/
+	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/go.mongodb.org/mongo-driver/
+	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/gopkg.in/mgo.v2/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 phony += vendor-clean
 # end vendoring tooling configuration
