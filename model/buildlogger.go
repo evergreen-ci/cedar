@@ -222,20 +222,20 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 
 // LogInfo describes information unique to a single buildlogger log.
 type LogInfo struct {
-	Project     string           `bson:"project,omitempty"`
-	Version     string           `bson:"version,omitempty"`
-	Variant     string           `bson:"variant,omitempty"`
-	TaskName    string           `bson:"task_name,omitempty"`
-	TaskID      string           `bson:"task_id,omitempty"`
-	Execution   int              `bson:"execution"`
-	TestName    string           `bson:"test_name,omitempty"`
-	Trial       int              `bson:"trial"`
-	ProcessName string           `bson:"proc_name,omitempty"`
-	Format      string           `bson:"format,omitempty"`
-	Arguments   map[string]int32 `bson:"args,omitempty"`
-	ExitCode    int              `bson:"exit_code, omitempty"`
-	Mainline    bool             `bson:"mainline"`
-	Schema      int              `bson:"schema,omitempty"`
+	Project     string            `bson:"project,omitempty"`
+	Version     string            `bson:"version,omitempty"`
+	Variant     string            `bson:"variant,omitempty"`
+	TaskName    string            `bson:"task_name,omitempty"`
+	TaskID      string            `bson:"task_id,omitempty"`
+	Execution   int               `bson:"execution"`
+	TestName    string            `bson:"test_name,omitempty"`
+	Trial       int               `bson:"trial"`
+	ProcessName string            `bson:"proc_name,omitempty"`
+	Format      string            `bson:"format,omitempty"`
+	Arguments   map[string]string `bson:"args,omitempty"`
+	ExitCode    int               `bson:"exit_code, omitempty"`
+	Mainline    bool              `bson:"mainline"`
+	Schema      int               `bson:"schema,omitempty"`
 }
 
 var (
