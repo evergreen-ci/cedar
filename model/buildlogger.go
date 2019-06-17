@@ -276,7 +276,7 @@ func (id *LogInfo) ID() string {
 		if len(id.Arguments) > 0 {
 			args := []string{}
 			for k, v := range id.Arguments {
-				args = append(args, fmt.Sprintf("%s=%d", k, v))
+				args = append(args, fmt.Sprintf("%s=%s", k, v))
 			}
 
 			sort.Strings(args)
