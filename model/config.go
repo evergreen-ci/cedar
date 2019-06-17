@@ -24,7 +24,7 @@ type CedarConfig struct {
 	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
 	NaiveAuth NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
 	CA        CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
-	S3Bucket  S3BucketConfig            `bson:"s3_bucket" json:"s3_bucket" yaml:"s3_bucket"`
+	Bucket    BucketConfig              `bson:"bucket" json:"bucket" yaml:"bucket"`
 	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 
@@ -126,17 +126,17 @@ var (
 	cedarCAConfigSSLRenewalBeforeKey = bsonutil.MustHaveTag(CAConfig{}, "SSLRenewalBefore")
 )
 
-// Credentials and other configuration information for AWS S3.
-type S3BucketConfig struct {
+// Credentials and other configuration information for pail Bucket usage.
+type BucketConfig struct {
 	AWSKey          string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
 	AWSSecret       string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
 	BuildLogsBucket string `bson:"build_logs_bucket" json:"build_logs_bucket" yaml:"build_logs_bucket"`
 }
 
 var (
-	cedarS3BucketConfigAWSKeyKey          = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSKey")
-	cedarS3BucketConfigAWSSecretKey       = bsonutil.MustHaveTag(S3BucketConfig{}, "AWSSecret")
-	cedarS3BucketConfigBuildLogsBucketKey = bsonutil.MustHaveTag(S3BucketConfig{}, "BuildLogsBucket")
+	cedarS3BucketConfigAWSKeyKey          = bsonutil.MustHaveTag(BucketConfig{}, "AWSKey")
+	cedarS3BucketConfigAWSSecretKey       = bsonutil.MustHaveTag(BucketConfig{}, "AWSSecret")
+	cedarS3BucketConfigBuildLogsBucketKey = bsonutil.MustHaveTag(BucketConfig{}, "BuildLogsBucket")
 )
 
 type ServiceConfig struct {
