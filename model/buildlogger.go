@@ -231,7 +231,7 @@ type LogInfo struct {
 	TestName    string            `bson:"test_name,omitempty"`
 	Trial       int               `bson:"trial"`
 	ProcessName string            `bson:"proc_name,omitempty"`
-	Format      string            `bson:"format,omitempty"`
+	Format      LogFormat         `bson:"format,omitempty"`
 	Arguments   map[string]string `bson:"args,omitempty"`
 	ExitCode    int               `bson:"exit_code, omitempty"`
 	Mainline    bool              `bson:"mainline"`
@@ -270,7 +270,7 @@ func (id *LogInfo) ID() string {
 		_, _ = io.WriteString(hash, id.TestName)
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Trial))
 		_, _ = io.WriteString(hash, id.ProcessName)
-		_, _ = io.WriteString(hash, id.Format)
+		_, _ = io.WriteString(hash, string(id.Format))
 		_, _ = io.WriteString(hash, fmt.Sprint(id.ExitCode))
 
 		if len(id.Arguments) > 0 {
