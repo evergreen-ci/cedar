@@ -16,13 +16,13 @@ message LogInfo{
   string test_name = 7;
   int32 trial = 8;
   string proc_name = 9;
-  Format format = 10;
+  LogFormat format = 10;
   map<string, string> arguments = 11;
   bool mainline = 12;
   google.protobuf.Timestamp created_at = 13;
 }
 
-enum Format {
+enum LogFormat {
   LOG_FORMAT_UNKNOWN = 0;
   LOG_FORMAT_TEXT = 1;
   LOG_FORMAT_JSON = 2;
