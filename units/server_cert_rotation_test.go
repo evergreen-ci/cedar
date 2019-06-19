@@ -109,7 +109,7 @@ func TestServerCertRotationJob(t *testing.T) {
 				require.NoError(t, conf.Save())
 
 				if !test.hasErr {
-					d, err := certdepot.BootstrapDepot(ctx, certdepot.BootstrapDepotConfig{
+					bd, err := certdepot.BootstrapDepot(ctx, certdepot.BootstrapDepotConfig{
 						FileDepot:   tempDir,
 						CAName:      caName,
 						ServiceName: test.caConf.CertDepot.ServiceName,
@@ -125,7 +125,7 @@ func TestServerCertRotationJob(t *testing.T) {
 						},
 					})
 					require.NoError(t, err)
-					_, expectedNotAfter, err = certdepot.ValidityBounds(d, test.caConf.CertDepot.ServiceName)
+					_, expectedNotAfter, err = certdepot.ValidityBounds(bd, test.caConf.CertDepot.ServiceName)
 					require.NoError(t, err)
 				}
 			}
