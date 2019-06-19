@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Export exports LogFormat to its corresponding LogFormat type in the model
+// Export exports LogFormat to the corresponding LogFormat type in the model
 // package.
 func (l LogFormat) Export() model.LogFormat {
 	switch l {
@@ -23,7 +23,7 @@ func (l LogFormat) Export() model.LogFormat {
 	}
 }
 
-// Export exports LogLine to its corresponding LogLine type in the model
+// Export exports LogLine to the corresponding LogLine type in the model
 // package.
 func (l LogLine) Export() (model.LogLine, error) {
 	ts, err := ptypes.Timestamp(l.Timestamp)
@@ -37,7 +37,7 @@ func (l LogLine) Export() (model.LogLine, error) {
 	}, nil
 }
 
-// Export exports LogInfo to its corresponding LogInfo type in the model
+// Export exports LogInfo to the corresponding LogInfo type in the model
 // package.
 func (l LogInfo) Export() model.LogInfo {
 	return model.LogInfo{
