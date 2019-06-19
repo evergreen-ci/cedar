@@ -35,7 +35,7 @@ imports:
 - name: github.com/evergreen-ci/aviation
   version: 970463c1ba21b3d3b1ded3c30eea60806144b883
 - name: github.com/evergreen-ci/certdepot
-  version: e909a280009a851c39b82a77715a1a11e6199c13
+  version: 3063bc24913930d8f13a827a0ce1bb8b0c649ae0
 
 - name: go.mongodb.org/mongo-driver
   version: 305bc4a5e4131420fe8ba5628e6faa9e6ade4e86
