@@ -29,7 +29,7 @@ enum LogFormat {
   LOG_FORMAT_BSON = 3;
 }
 
-message Loglines {
+message LogLines {
   repeated LogLine lines = 1;
 }
 
@@ -41,4 +41,16 @@ message LogLine {
 message LogEndInfo {
   int32 exit_code = 1;
   google.protobuf.Timestamp completed_at = 2;
+}
+
+message BuildloggerResponse {
+  string id = 1;
+  bool success = 2;
+}
+
+
+service Buildlogger {
+  rpc CreateLog(LogInfo) returns (BuildloggerResponse);
+  rpc AppendLogLines(LogLines) returns (BuildloggerResponse);
+  rpc CloseLog(LogEndInfo) returns (BuildloggerResponse);
 }
