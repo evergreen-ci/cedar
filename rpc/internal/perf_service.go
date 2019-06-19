@@ -1,6 +1,7 @@
-package internal
+package cedar
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -13,19 +14,17 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 type perfService struct {
 	env cedar.Environment
 }
 
-func AttachService(env cedar.Environment, s *grpc.Server) {
+func AttachPerfService(env cedar.Environment, s *grpc.Server) {
 	srv := &perfService{
 		env: env,
 	}
-
 	RegisterCedarPerformanceMetricsServer(s, srv)
 }
 

@@ -117,7 +117,7 @@ func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
 
 	srv := grpc.NewServer(opts...)
 
-	internal.AttachService(env, srv)
+	internal.AttachPerfService(env, srv)
 
 	return srv, nil
 }
