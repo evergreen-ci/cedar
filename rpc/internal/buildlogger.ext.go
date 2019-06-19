@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Export exports LogFormat to its corresponding LogFormat type in the model
+// package.
 func (l LogFormat) Export() model.LogFormat {
 	switch l {
 	case LogFormat_LOG_FORMAT_UNKNOWN:
@@ -21,6 +23,8 @@ func (l LogFormat) Export() model.LogFormat {
 	}
 }
 
+// Export exports LogLine to its corresponding LogLine type in the model
+// package.
 func (l LogLine) Export() (model.LogLine, error) {
 	ts, err := ptypes.Timestamp(l.Timestamp)
 	if err != nil {
@@ -33,6 +37,8 @@ func (l LogLine) Export() (model.LogLine, error) {
 	}, nil
 }
 
+// Export exports LogInfo to its corresponding LogInfo type in the model
+// package.
 func (l LogInfo) Export() model.LogInfo {
 	return model.LogInfo{
 		Project:     l.Project,
