@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"

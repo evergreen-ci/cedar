@@ -8,6 +8,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/mongodb/amboy"
@@ -15,7 +16,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"github.com/square/certstrap/depot"
 )
 
 type Service struct {
@@ -26,7 +26,7 @@ type Service struct {
 	UserManager gimlet.UserManager
 
 	RPCServers []string
-	Depot      depot.Depot
+	Depot      certdepot.Depot
 
 	// internal settings
 	umconf gimlet.UserMiddlewareConfiguration
