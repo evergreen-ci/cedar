@@ -1,4 +1,4 @@
-package cedar
+package internal
 
 import (
 	"context"
