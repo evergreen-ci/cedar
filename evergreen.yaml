@@ -184,7 +184,7 @@ post:
       aws_key: ${aws_key}
       aws_secret: ${aws_secret}
       local_files_include_filter: ["gopath/src/github.com/evergreen-ci/cedar/build/output.*.coverage.html"]
-      remote_file: cedar/${task_id}/
+      remote_file: sink/${task_id}/
       bucket: mciuploads
       content_type: text/html
       permissions: public-read
@@ -195,7 +195,7 @@ post:
       aws_key: ${aws_key}
       aws_secret: ${aws_secret}
       local_files_include_filter: ["gopath/src/github.com/evergreen-ci/cedar/build/output.*.coverage"]
-      remote_file: cedar/${task_id}/
+      remote_file: sink/${task_id}/
       bucket: mciuploads
       content_type: text/plain
       permissions: public-read

@@ -54,7 +54,7 @@ func startPerfService(ctx context.Context, env cedar.Environment) error {
 	}
 
 	s := grpc.NewServer()
-	AttachService(env, s)
+	AttachPerfService(env, s)
 
 	go func() {
 		_ = s.Serve(lis)
