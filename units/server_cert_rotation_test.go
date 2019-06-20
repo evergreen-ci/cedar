@@ -9,9 +9,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/square/certstrap/depot"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +35,7 @@ func TestServerCertRotationJob(t *testing.T) {
 
 	caName := "ca"
 	serviceName := "service"
-	d, err := depot.NewFileDepot(tempDir)
+	d, err := certdepot.NewFileDepot(tempDir)
 	require.NoError(t, err)
 
 	for _, test := range []struct {
@@ -110,7 +109,7 @@ func TestServerCertRotationJob(t *testing.T) {
 				require.NoError(t, conf.Save())
 
 				if !test.hasErr {
-					d, err := certdepot.BootstrapDepot(ctx, certdepot.BootstrapDepotConfig{
+					bd, err := certdepot.BootstrapDepot(ctx, certdepot.BootstrapDepotConfig{
 						FileDepot:   tempDir,
 						CAName:      caName,
 						ServiceName: test.caConf.CertDepot.ServiceName,
@@ -126,7 +125,7 @@ func TestServerCertRotationJob(t *testing.T) {
 						},
 					})
 					require.NoError(t, err)
-					_, expectedNotAfter, err = certdepot.ValidityBounds(d, test.caConf.CertDepot.ServiceName)
+					_, expectedNotAfter, err = certdepot.ValidityBounds(bd, test.caConf.CertDepot.ServiceName)
 					require.NoError(t, err)
 				}
 			}
