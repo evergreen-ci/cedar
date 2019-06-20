@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
 )
 
@@ -316,12 +315,12 @@ func uploadCerts() cli.Command {
 				return errors.Wrap(err, "problem creating depot interface")
 			}
 
-			err = mdepot.Put(depot.CrtTag(certName), crt)
+			err = mdepot.Put(certdepot.CrtTag(certName), crt)
 			if err != nil {
 				return errors.Wrap(err, "could not save cert file")
 			}
 
-			err = mdepot.Put(depot.PrivKeyTag(certName), key)
+			err = mdepot.Put(certdepot.PrivKeyTag(certName), key)
 			if err != nil {
 				return errors.Wrap(err, "could not save cert key file")
 			}

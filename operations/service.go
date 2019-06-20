@@ -8,17 +8,16 @@ import (
 	"syscall"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
 	"github.com/evergreen-ci/cedar/rpc"
 	"github.com/evergreen-ci/cedar/units"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	amboyRest "github.com/mongodb/amboy/rest"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	"github.com/square/certstrap/depot"
 	"github.com/urfave/cli"
 )
 
@@ -101,7 +100,7 @@ func Service() cli.Command {
 				return errors.Wrap(err, "problem getting application configuration")
 			}
 
-			var d depot.Depot
+			var d certdepot.Depot
 			var err error
 			if rpcTLS {
 				d, err = certdepot.BootstrapDepotWithMongoClient(ctx, env.GetClient(), conf.CA.CertDepot)

@@ -9,12 +9,12 @@ import (
 	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/rpc/internal"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	"github.com/square/certstrap/depot"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -26,7 +26,7 @@ type CertConfig struct {
 	SkipVerify  bool
 	CAName      string
 	ServiceName string
-	Depot       depot.Depot
+	Depot       certdepot.Depot
 	UserManager gimlet.UserManager
 }
 
@@ -46,7 +46,7 @@ func (c *CertConfig) Validate() error {
 
 func (c *CertConfig) Resolve() (*tls.Config, error) {
 	// Load the certificates
-	cert, err := depot.GetCertificate(c.Depot, c.ServiceName)
+	cert, err := certdepot.GetCertificate(c.Depot, c.ServiceName)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting server certificate")
 	}
@@ -54,7 +54,7 @@ func (c *CertConfig) Resolve() (*tls.Config, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "problem exporting server certificate")
 	}
-	key, err := depot.GetPrivateKey(c.Depot, c.ServiceName)
+	key, err := certdepot.GetPrivateKey(c.Depot, c.ServiceName)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting server certificate key")
 	}
@@ -69,7 +69,7 @@ func (c *CertConfig) Resolve() (*tls.Config, error) {
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
-	ca, err := depot.GetCertificate(c.Depot, c.CAName)
+	ca, err := certdepot.GetCertificate(c.Depot, c.CAName)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem getting ca certificate")
 	}

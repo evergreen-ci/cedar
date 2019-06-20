@@ -13,16 +13,15 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
-	"github.com/square/certstrap/depot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	grpc "google.golang.org/grpc"
@@ -682,9 +681,9 @@ func TestCertificateGeneration(t *testing.T) {
 		}
 		d, err := certdepot.NewMongoDBCertDepot(ctx, depotOpts)
 		require.NoError(t, err)
-		require.NoError(t, depot.DeleteCertificate(d, user))
-		require.NoError(t, depot.DeleteCertificateSigningRequest(d, user))
-		require.NoError(t, d.Delete(depot.PrivKeyTag(user)))
+		require.NoError(t, certdepot.DeleteCertificate(d, user))
+		require.NoError(t, certdepot.DeleteCertificateSigningRequest(d, user))
+		require.NoError(t, d.Delete(certdepot.PrivKeyTag(user)))
 		opts := certdepot.CertificateOptions{
 			CommonName: user,
 			CA:         "test-root",
@@ -694,7 +693,7 @@ func TestCertificateGeneration(t *testing.T) {
 		require.NoError(t, opts.CertRequest(d))
 		require.NoError(t, opts.Sign(d))
 
-		oldCrt, err := depot.GetCertificate(d, user)
+		oldCrt, err := certdepot.GetCertificate(d, user)
 		require.NoError(t, err)
 		oldCrtPayload, err := oldCrt.Export()
 		require.NoError(t, err)
@@ -703,7 +702,7 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEqual(t, oldCrtPayload, crtPayload)
 
-		crt, err := depot.GetCertificate(d, user)
+		crt, err := certdepot.GetCertificate(d, user)
 		require.NoError(t, err)
 		rawCrt, err := crt.GetRawCertificate()
 		require.NoError(t, err)

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/certdepot"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
+	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/amboy"
@@ -18,7 +18,6 @@ import (
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
-	"github.com/square/certstrap/depot"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -707,7 +706,7 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
-	rootcrt, err := depot.GetCertificate(s.Depot, s.Conf.CA.CertDepot.CAName)
+	rootcrt, err := certdepot.GetCertificate(s.Depot, s.Conf.CA.CertDepot.CAName)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
 			"problem getting root cert '%s'", s.Conf.CA.CertDepot.CAName)))
@@ -777,7 +776,7 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	crt, err := depot.GetCertificate(s.Depot, usr)
+	crt, err := certdepot.GetCertificate(s.Depot, usr)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate")))
 		return
@@ -797,7 +796,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !depot.CheckPrivateKey(s.Depot, usr) {
+	if !certdepot.CheckPrivateKey(s.Depot, usr) {
 		opts := certdepot.CertificateOptions{
 			CommonName: usr,
 			CA:         s.Conf.CA.CertDepot.CAName,
@@ -810,7 +809,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	key, err := depot.GetPrivateKey(s.Depot, usr)
+	key, err := certdepot.GetPrivateKey(s.Depot, usr)
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate key")))
 		return
