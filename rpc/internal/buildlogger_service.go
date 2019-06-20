@@ -26,7 +26,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, info *LogLines)
 	return nil, nil
 }
 
-func (s *buildloggerService) StreamAppendLogLines(stream Buildlogger_StreamAppendLogLinesServer) error {
+func (s *buildloggerService) StreamLog(stream Buildlogger_StreamLogServer) error {
 	return nil
 }
 
