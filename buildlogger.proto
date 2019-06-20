@@ -44,7 +44,7 @@ message LogEndInfo {
 }
 
 message BuildloggerResponse {
-  string id = 1;
+  string log_id = 1;
   bool success = 2;
 }
 
