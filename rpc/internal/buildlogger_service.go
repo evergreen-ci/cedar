@@ -26,6 +26,10 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, info *LogLines)
 	return nil, nil
 }
 
+func (s *buildloggerService) StreamAppendLogLines(stream Buildlogger_StreamAppendLogLinesServer) error {
+	return nil
+}
+
 func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*BuildloggerResponse, error) {
 	return nil, nil
 }
