@@ -512,7 +512,7 @@ func TestCuratorSend(t *testing.T) {
 				env := cedar.GetEnvironment()
 				assert.NoError(t, startPerfService(ctx, env, 7000))
 
-				return createSendCommand(curatorPath, localAddress, "", "", "", true)
+				return createSendCommand(curatorPath, "localhost:7000", "", "", "", true)
 			},
 			closer: func(t *testing.T) {
 				env := cedar.GetEnvironment()
