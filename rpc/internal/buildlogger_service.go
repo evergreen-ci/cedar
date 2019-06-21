@@ -35,14 +35,7 @@ func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*Bui
 	}
 	log.Setup(s.env)
 
-	resp := &BuildloggerResponse{}
-	resp.LogId = log.ID
-
-	if err := log.SaveNew(); err != nil {
-		return nil, errors.Wrap(err, "problem saving log record")
-	}
-
-	return resp, nil
+	return &BuildloggerResponse{LogId: log.ID}, errors.Wrap(log.SaveNew(), "problem saving log record")
 }
 
 func (s *buildloggerService) AppendLogLines(ctx context.Context, info *LogLines) (*BuildloggerResponse, error) {
