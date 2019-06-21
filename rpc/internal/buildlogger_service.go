@@ -2,8 +2,12 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
 
@@ -18,8 +22,26 @@ func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 	RegisterBuildloggerServer(s, srv)
 }
 
-func (s *buildloggerService) CreateLog(ctx context.Context, info *LogInfo) (*BuildloggerResponse, error) {
-	return nil, nil
+func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*BuildloggerResponse, error) {
+	log := model.CreateLog(data.Info.Export(), data.Storage.Export())
+	log.CreatedAt = time.Now()
+	if data.CreatedAt != nil {
+		ts, err := ptypes.Timestamp(data.CreatedAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem converting timestamp value artifact")
+		}
+		log.CreatedAt = ts
+	}
+	log.Setup(s.env)
+
+	resp := &BuildloggerResponse{}
+	resp.LogId = log.ID
+
+	if err := log.SaveNew(); err != nil {
+		return nil, errors.Wrap(err, "problem saving log record")
+	}
+
+	return resp, nil
 }
 
 func (s *buildloggerService) AppendLogLines(ctx context.Context, info *LogLines) (*BuildloggerResponse, error) {

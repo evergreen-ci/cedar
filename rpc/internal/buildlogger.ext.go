@@ -23,6 +23,21 @@ func (l LogFormat) Export() model.LogFormat {
 	}
 }
 
+// Export exports LogStorage to the corresponding PailType in the model
+// package.
+func (l LogStorage) Export() model.PailType {
+	switch l {
+	case LogStorage_LOG_STORAGE_S3:
+		return model.PailS3
+	case LogStorage_LOG_STORAGE_GRIDFS:
+		return model.PailGridFS
+	case LogStorage_LOG_STORAGE_LOCAL:
+		return model.PailLocal
+	default:
+		return model.PailLocal
+	}
+}
+
 // Export exports LogLine to the corresponding LogLine type in the model
 // package.
 func (l LogLine) Export() (model.LogLine, error) {
