@@ -287,7 +287,6 @@ func TestCreateMetricSeries(t *testing.T) {
 			}()
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
 
 			err := startPerfService(ctx, env)
 			require.NoError(t, err)
@@ -302,6 +301,8 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 			}
+
+			cancel()
 		})
 	}
 }
@@ -435,7 +436,6 @@ func TestAttachResultData(t *testing.T) {
 			}()
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
 
 			err := startPerfService(ctx, env)
 			require.NoError(t, err)
@@ -470,6 +470,8 @@ func TestAttachResultData(t *testing.T) {
 			if test.checkRollups {
 				checkRollups(t, ctx, env, resp.Id, nil)
 			}
+
+			cancel()
 		})
 	}
 }
