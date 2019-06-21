@@ -22,6 +22,7 @@ func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 	RegisterBuildloggerServer(s, srv)
 }
 
+// CreateLog creates a new buildlogger log record in the database.
 func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*BuildloggerResponse, error) {
 	log := model.CreateLog(data.Info.Export(), data.Storage.Export())
 	log.CreatedAt = time.Now()
