@@ -289,6 +289,7 @@ func TestCreateMetricSeries(t *testing.T) {
 			}()
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 
 			require.NoError(t, startPerfService(ctx, env, port))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
@@ -302,8 +303,6 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 			}
-
-			cancel()
 		})
 	}
 }
@@ -438,6 +437,7 @@ func TestAttachResultData(t *testing.T) {
 			}()
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 
 			require.NoError(t, startPerfService(ctx, env, port))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
@@ -471,8 +471,6 @@ func TestAttachResultData(t *testing.T) {
 			if test.checkRollups {
 				checkRollups(t, ctx, env, resp.Id, nil)
 			}
-
-			cancel()
 		})
 	}
 }
