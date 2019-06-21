@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	fmt "fmt"
 	"net"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ func TestCreateLog(t *testing.T) {
 	defer func() {
 		assert.NoError(t, teardownBuildloggerEnv(ctx, env))
 	}()
+	port := 4000
 
 	for _, test := range []struct {
 		name        string
@@ -77,9 +79,8 @@ func TestCreateLog(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			srvCtx, srvCancel := context.WithTimeout(ctx, time.Minute)
-			require.NoError(t, startBuildloggerService(srvCtx, test.env))
-			client, err := getBuildloggerGRPCClient(srvCtx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, startBuildloggerService(ctx, test.env, port))
+			client, err := getBuildloggerGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			info := test.data.Info.Export()
@@ -103,7 +104,7 @@ func TestCreateLog(t *testing.T) {
 				assert.Equal(t, test.ts.Round(time.Minute), log.CreatedAt.Round(time.Minute))
 			}
 
-			srvCancel()
+			port += 1
 		})
 	}
 }
@@ -124,8 +125,8 @@ func teardownBuildloggerEnv(ctx context.Context, env cedar.Environment) error {
 	return errors.WithStack(env.GetDB().Drop(ctx))
 }
 
-func startBuildloggerService(ctx context.Context, env cedar.Environment) error {
-	lis, err := net.Listen("tcp", localAddress)
+func startBuildloggerService(ctx context.Context, env cedar.Environment, port int) error {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return errors.WithStack(err)
 	}
