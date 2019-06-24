@@ -41,7 +41,8 @@ enum LogFormat {
 }
 
 message LogLines {
-  repeated LogLine lines = 1;
+  string log_id = 1;
+  repeated LogLine lines = 2;
 }
 
 message LogLine {

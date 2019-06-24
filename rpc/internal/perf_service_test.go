@@ -225,7 +225,10 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 }
 
 func TestCreateMetricSeries(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	port := 5000
+
 	for _, test := range []struct {
 		name         string
 		mockEnv      bool
@@ -288,9 +291,6 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, test.mockEnv))
 			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-
 			require.NoError(t, startPerfService(ctx, env, port))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
@@ -303,12 +303,17 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 			}
+
+			port += 1
 		})
 	}
 }
 
 func TestAttachResultData(t *testing.T) {
-	port := 6000
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	port := 5100
+
 	for _, test := range []struct {
 		name         string
 		save         bool
@@ -436,9 +441,6 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-
 			require.NoError(t, startPerfService(ctx, env, port))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
@@ -471,6 +473,8 @@ func TestAttachResultData(t *testing.T) {
 			if test.checkRollups {
 				checkRollups(t, ctx, env, resp.Id, nil)
 			}
+
+			port += 1
 		})
 	}
 }
