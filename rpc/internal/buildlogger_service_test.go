@@ -3,12 +3,16 @@ package internal
 import (
 	"context"
 	fmt "fmt"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/pail"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -61,7 +65,6 @@ func TestCreateLog(t *testing.T) {
 				Storage:   LogStorage_LOG_STORAGE_GRIDFS,
 				CreatedAt: &timestamp.Timestamp{Seconds: 253402300800},
 			},
-			ts:          time.Now().UTC(),
 			env:         env,
 			nilResponse: true,
 			hasErr:      true,
@@ -73,7 +76,6 @@ func TestCreateLog(t *testing.T) {
 				Storage:   LogStorage_LOG_STORAGE_GRIDFS,
 				CreatedAt: &timestamp.Timestamp{},
 			},
-			ts:     time.Now().UTC(),
 			env:    nil,
 			hasErr: true,
 		},
@@ -102,6 +104,188 @@ func TestCreateLog(t *testing.T) {
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
 				assert.Equal(t, test.ts.Round(time.Minute), log.CreatedAt.Round(time.Minute))
+			}
+
+			port += 1
+		})
+	}
+}
+
+func TestAppendLogLines(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createBuildloggerEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownBuildloggerEnv(ctx, env))
+	}()
+	tempDir, err := ioutil.TempDir(".", "buildlogger-test")
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tempDir))
+	}()
+	require.NoError(t, err)
+	port := 5000
+
+	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
+	require.NoError(t, err)
+
+	log := model.CreateLog(model.LogInfo{Project: "test"}, model.PailLocal)
+	log.Setup(env)
+	require.NoError(t, log.SaveNew())
+
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
+		Path:   tempDir,
+		Prefix: log.Artifact.Prefix,
+	})
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name        string
+		setup       func()
+		lines       *LogLines
+		env         cedar.Environment
+		invalidConf bool
+		hasErr      bool
+	}{
+		{
+			name: "ValidData",
+			lines: &LogLines{
+				LogId: log.ID,
+				Lines: []*LogLine{
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the first log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the second log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the third log line.\n",
+					},
+				},
+			},
+			env: env,
+		},
+		{
+			name: "LogDNE",
+			lines: &LogLines{
+				LogId: "DNE",
+				Lines: []*LogLine{
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the first log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the second log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
+						Data:      "This is the third log line, which is invalid.\n",
+					},
+				},
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name: "InvalidTimestamp",
+			lines: &LogLines{
+				LogId: log.ID,
+				Lines: []*LogLine{
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the first log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the second log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
+						Data:      "This is the third log line, which is invalid.\n",
+					},
+				},
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name: "InvalidEnv",
+			lines: &LogLines{
+				LogId: log.ID,
+				Lines: []*LogLine{
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the first log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the second log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the third log line.\n",
+					},
+				},
+			},
+			env:    nil,
+			hasErr: true,
+		},
+		{
+			name: "InvalidConf",
+			lines: &LogLines{
+				LogId: log.ID,
+				Lines: []*LogLine{
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the first log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the second log line.\n",
+					},
+					{
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the third log line.\n",
+					},
+				},
+			},
+			env:         env,
+			invalidConf: true,
+			hasErr:      true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.NoError(t, startBuildloggerService(ctx, test.env, port))
+			client, err := getBuildloggerGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+
+			if test.invalidConf {
+				conf.Bucket.BuildLogsBucket = ""
+			} else {
+				conf.Bucket.BuildLogsBucket = tempDir
+			}
+			conf.Setup(env)
+			require.NoError(t, conf.Save())
+
+			resp, err := client.AppendLogLines(ctx, test.lines)
+			if test.hasErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.lines.LogId, resp.LogId)
+
+				l := &model.Log{ID: resp.LogId}
+				l.Setup(env)
+				require.NoError(t, l.Find())
+				assert.Len(t, l.Artifact.Chunks, 1)
+				_, err := bucket.Get(ctx, l.Artifact.Chunks[0].Key)
+				assert.NoError(t, err)
 			}
 
 			port += 1

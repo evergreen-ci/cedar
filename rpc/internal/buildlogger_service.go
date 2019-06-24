@@ -38,8 +38,27 @@ func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*Bui
 	return &BuildloggerResponse{LogId: log.ID}, errors.Wrap(log.SaveNew(), "problem saving log record")
 }
 
-func (s *buildloggerService) AppendLogLines(ctx context.Context, info *LogLines) (*BuildloggerResponse, error) {
-	return nil, nil
+func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines) (*BuildloggerResponse, error) {
+	// TODO: some type of size check? We should probably limit the size of
+	// log lines.
+
+	log := &model.Log{ID: lines.LogId}
+	log.Setup(s.env)
+	if err := log.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding log record for '%s'", lines.LogId)
+	}
+
+	exportedLines := []model.LogLine{}
+	for _, line := range lines.Lines {
+		exportedLine, err := line.Export()
+		if err != nil {
+			return nil, errors.Wrapf(err, "problem exporting log lines")
+		}
+		exportedLines = append(exportedLines, exportedLine)
+	}
+
+	log.Setup(s.env)
+	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.Append(exportedLines), "problem appending log lines for '%s'", lines.LogId)
 }
 
 func (s *buildloggerService) StreamLog(stream Buildlogger_StreamLogServer) error {
