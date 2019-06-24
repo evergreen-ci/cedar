@@ -38,6 +38,7 @@ func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*Bui
 	return &BuildloggerResponse{LogId: log.ID}, errors.Wrap(log.SaveNew(), "problem saving log record")
 }
 
+// AppendLogLines adds log lines to an existing buildlogger log.
 func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines) (*BuildloggerResponse, error) {
 	// TODO: some type of size check? We should probably limit the size of
 	// log lines.
