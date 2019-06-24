@@ -310,7 +310,7 @@ func TestCreateMetricSeries(t *testing.T) {
 func TestAttachResultData(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	port := 6000
+	port := 5100
 
 	for _, test := range []struct {
 		name         string

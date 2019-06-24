@@ -124,7 +124,7 @@ func TestAppendLogLines(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tempDir))
 	}()
 	require.NoError(t, err)
-	port := 5000
+	port := 4100
 
 	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 	require.NoError(t, err)
