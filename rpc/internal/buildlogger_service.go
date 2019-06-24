@@ -26,15 +26,16 @@ func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*BuildloggerResponse, error) {
 	log := model.CreateLog(data.Info.Export(), data.Storage.Export())
 	log.CreatedAt = time.Now()
+
 	if data.CreatedAt != nil {
-		ts, err := ptypes.Timestamp(data.CreatedAt)
+		var err error
+		log.CreatedAt, err = ptypes.Timestamp(data.CreatedAt)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem converting timestamp value artifact")
 		}
-		log.CreatedAt = ts
 	}
-	log.Setup(s.env)
 
+	log.Setup(s.env)
 	return &BuildloggerResponse{LogId: log.ID}, errors.Wrap(log.SaveNew(), "problem saving log record")
 }
 
@@ -66,6 +67,23 @@ func (s *buildloggerService) StreamLog(stream Buildlogger_StreamLogServer) error
 	return nil
 }
 
+// CloseLog sets the ExitCode and CompletedAt fields of a buildlogger log. This
+// should be the last rcp call made on a Log.
 func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*BuildloggerResponse, error) {
-	return nil, nil
+	log := &model.Log{ID: info.LogId}
+	log.Setup(s.env)
+	if err := log.Find(); err != nil {
+		return nil, errors.Wrapf(err, "problem finding log record for '%s'", lines.LogId)
+	}
+
+	completedAt := time.Now()
+	if info.CompletedAt != nil {
+		completdAt, err := ptypes.Timestamp(info.CompletedAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem converting completed_at timestamp")
+		}
+	}
+
+	log.Setup(s.env)
+	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.CloseLog(completedAt, info.ExitCode))
 }
