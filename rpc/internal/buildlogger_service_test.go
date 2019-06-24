@@ -141,7 +141,6 @@ func TestAppendLogLines(t *testing.T) {
 
 	for _, test := range []struct {
 		name        string
-		setup       func()
 		lines       *LogLines
 		env         cedar.Environment
 		invalidConf bool
