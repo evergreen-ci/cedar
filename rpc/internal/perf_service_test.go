@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	fmt "fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -47,8 +48,8 @@ func init() {
 	cedar.SetEnvironment(env)
 }
 
-func startPerfService(ctx context.Context, env cedar.Environment) error {
-	lis, err := net.Listen("tcp", localAddress)
+func startPerfService(ctx context.Context, env cedar.Environment, port int) error {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -224,6 +225,7 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 }
 
 func TestCreateMetricSeries(t *testing.T) {
+	port := 5000
 	for _, test := range []struct {
 		name         string
 		mockEnv      bool
@@ -289,9 +291,8 @@ func TestCreateMetricSeries(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			err := startPerfService(ctx, env)
-			require.NoError(t, err)
-			client, err := getGRPCClient(ctx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, startPerfService(ctx, env, port))
+			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
@@ -307,6 +308,7 @@ func TestCreateMetricSeries(t *testing.T) {
 }
 
 func TestAttachResultData(t *testing.T) {
+	port := 6000
 	for _, test := range []struct {
 		name         string
 		save         bool
@@ -437,9 +439,8 @@ func TestAttachResultData(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			err := startPerfService(ctx, env)
-			require.NoError(t, err)
-			client, err := getGRPCClient(ctx, localAddress, []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, startPerfService(ctx, env, port))
+			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			if test.save {
@@ -509,9 +510,9 @@ func TestCuratorSend(t *testing.T) {
 			name: "WithoutAuthOrTLS",
 			setup: func(t *testing.T) *exec.Cmd {
 				env := cedar.GetEnvironment()
-				assert.NoError(t, startPerfService(ctx, env))
+				assert.NoError(t, startPerfService(ctx, env, 7000))
 
-				return createSendCommand(curatorPath, localAddress, "", "", "", true)
+				return createSendCommand(curatorPath, "localhost:7000", "", "", "", true)
 			},
 			closer: func(t *testing.T) {
 				env := cedar.GetEnvironment()

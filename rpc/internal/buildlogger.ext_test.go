@@ -36,13 +36,46 @@ func TestLogFormatExport(t *testing.T) {
 			expectedModelFormat: model.LogFormatBSON,
 		},
 		{
-			name:                "Invalid",
+			name:                "Default",
 			rpcFormat:           LogFormat(4),
 			expectedModelFormat: model.LogFormatUnknown,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			assert.Equal(t, test.expectedModelFormat, test.rpcFormat.Export())
+		})
+	}
+}
+
+func TestLogStorageExport(t *testing.T) {
+	for _, test := range []struct {
+		name             string
+		storageType      LogStorage
+		expectedPailType model.PailType
+	}{
+		{
+			name:             "S3",
+			storageType:      LogStorage_LOG_STORAGE_S3,
+			expectedPailType: model.PailS3,
+		},
+		{
+			name:             "GridFS",
+			storageType:      LogStorage_LOG_STORAGE_GRIDFS,
+			expectedPailType: model.PailGridFS,
+		},
+		{
+			name:             "Local",
+			storageType:      LogStorage_LOG_STORAGE_LOCAL,
+			expectedPailType: model.PailLocal,
+		},
+		{
+			name:             "Default",
+			storageType:      LogStorage(3),
+			expectedPailType: model.PailLocal,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expectedPailType, test.storageType.Export())
 		})
 	}
 }
@@ -83,7 +116,6 @@ func TestLogInfoExport(t *testing.T) {
 		Format:    LogFormat_LOG_FORMAT_TEXT,
 		Arguments: map[string]string{"hello": "world", "goodbye": "world"},
 		Mainline:  true,
-		CreatedAt: &timestamp.Timestamp{Seconds: 11111111},
 	}
 	modelLogInfo := logInfo.Export()
 	assert.Equal(t, logInfo.Project, modelLogInfo.Project)
