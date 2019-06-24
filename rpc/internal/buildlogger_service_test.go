@@ -182,8 +182,8 @@ func TestAppendLogLines(t *testing.T) {
 						Data:      "This is the second log line.\n",
 					},
 					{
-						Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
-						Data:      "This is the third log line, which is invalid.\n",
+						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Data:      "This is the third log line.\n",
 					},
 				},
 			},
