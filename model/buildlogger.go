@@ -220,6 +220,44 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
 }
 
+// CloseLog "closes out" the log by populating the completed_at and
+// info.exit_code fields. It should be the last call made on a buildlogger log.
+func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
+	if !l.populated {
+		return errors.New("cannot close log when log unpopulated")
+	}
+	if l.env == nil {
+		return errors.New("cannot close log with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			logCompletedAtKey: completedAt,
+			bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey): exitCode,
+		},
+	}
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
+	grip.DebugWhen(err == nil, message.Fields{
+		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"id":           l.ID,
+		"completed_at": completedAt,
+		"exit_code":    exitCode,
+		"updateResult": updateResult,
+		"op":           "close buildlogger log",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
+	}
+	return errors.Wrapf(err, "problem close log with id %s", l.ID)
+
+}
+
 // LogInfo describes information unique to a single buildlogger log.
 type LogInfo struct {
 	Project     string            `bson:"project,omitempty"`
@@ -271,7 +309,6 @@ func (id *LogInfo) ID() string {
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Trial))
 		_, _ = io.WriteString(hash, id.ProcessName)
 		_, _ = io.WriteString(hash, string(id.Format))
-		_, _ = io.WriteString(hash, fmt.Sprint(id.ExitCode))
 
 		if len(id.Arguments) > 0 {
 			args := []string{}

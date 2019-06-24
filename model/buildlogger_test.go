@@ -392,6 +392,76 @@ func TestBuildloggerAppend(t *testing.T) {
 	})
 }
 
+func TestBuildloggerCloseLog(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+	}()
+	log1, log2 := getTestLogs()
+
+	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
+	require.NoError(t, err)
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		l := &Log{ID: log1.ID, populated: true}
+		assert.Error(t, l.CloseLog(time.Now(), 0))
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		l := &Log{ID: log2.ID}
+		l.Setup(env)
+		assert.Error(t, l.CloseLog(time.Now(), 0))
+	})
+
+	t.Run("DNE", func(t *testing.T) {
+		l := &Log{ID: "DNE"}
+		l.Setup(env)
+		assert.Error(t, l.CloseLog(time.Now(), 0))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		t1 := time.Now().Add(-15 * time.Minute)
+		e1 := 0
+
+		l1 := &Log{ID: log1.ID, populated: true}
+		l1.Setup(env)
+		require.NoError(t, l1.CloseLog(t1, e1))
+
+		updatedLog := &Log{}
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
+		assert.Equal(t, log1.ID, updatedLog.ID)
+		assert.Equal(t, log1.ID, updatedLog.Info.ID())
+		assert.Equal(t, log1.CreatedAt.UTC().Round(time.Second), updatedLog.CreatedAt.Round(time.Second))
+		assert.Equal(t, t1.UTC().Round(time.Second), updatedLog.CompletedAt.Round(time.Second))
+		assert.Equal(t, e1, updatedLog.Info.ExitCode)
+		assert.Equal(t, log1.Info.Mainline, updatedLog.Info.Mainline)
+		assert.Equal(t, log1.Info.Schema, updatedLog.Info.Schema)
+		assert.Equal(t, log1.Artifact, updatedLog.Artifact)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		t2 := time.Now()
+		e2 := 9
+
+		l2 := &Log{Info: log2.Info, populated: true}
+		l2.Setup(env)
+		require.NoError(t, l2.CloseLog(t2, e2))
+
+		updatedLog := &Log{}
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(updatedLog))
+		assert.Equal(t, log2.ID, updatedLog.ID)
+		assert.Equal(t, log2.ID, updatedLog.Info.ID())
+		assert.Equal(t, log2.CreatedAt.UTC().Round(time.Second), updatedLog.CreatedAt.Round(time.Second))
+		assert.Equal(t, t2.UTC().Round(time.Second), updatedLog.CompletedAt.Round(time.Second))
+		assert.Equal(t, e2, updatedLog.Info.ExitCode)
+		assert.Equal(t, log2.Info.Mainline, updatedLog.Info.Mainline)
+		assert.Equal(t, log2.Info.Schema, updatedLog.Info.Schema)
+		assert.Equal(t, log2.Artifact, updatedLog.Artifact)
+	})
+}
+
 func getTestLogs() (*Log, *Log) {
 	log1 := &Log{
 		Info: LogInfo{
