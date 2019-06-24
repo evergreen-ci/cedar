@@ -303,6 +303,8 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 			}
+
+			port += 1
 		})
 	}
 }
@@ -471,6 +473,8 @@ func TestAttachResultData(t *testing.T) {
 			if test.checkRollups {
 				checkRollups(t, ctx, env, resp.Id, nil)
 			}
+
+			port += 1
 		})
 	}
 }
