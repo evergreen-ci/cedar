@@ -59,7 +59,6 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 		exportedLines = append(exportedLines, exportedLine)
 	}
 
-	log.Setup(s.env)
 	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.Append(exportedLines), "problem appending log lines for '%s'", lines.LogId)
 }
 
@@ -85,6 +84,5 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 		}
 	}
 
-	log.Setup(s.env)
 	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.CloseLog(completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID)
 }
