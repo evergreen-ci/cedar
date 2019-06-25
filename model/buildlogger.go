@@ -201,12 +201,15 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 		l.ID = l.Info.ID()
 	}
 
-	update := bson.M{
-		"$push": bson.M{
-			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): logChunk,
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": l.ID},
+		bson.M{
+			"$push": bson.M{
+				bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): logChunk,
+			},
 		},
-	}
-	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
+	)
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   buildloggerCollection,
 		"id":           l.ID,
@@ -237,13 +240,16 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 		l.ID = l.Info.ID()
 	}
 
-	update := bson.M{
-		"$set": bson.M{
-			logCompletedAtKey: completedAt,
-			bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey): exitCode,
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": l.ID},
+		bson.M{
+			"$set": bson.M{
+				logCompletedAtKey: completedAt,
+				bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey): exitCode,
+			},
 		},
-	}
-	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
+	)
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   buildloggerCollection,
 		"id":           l.ID,
