@@ -112,6 +112,7 @@ func (l *Log) SaveNew() error {
 		"insertResult": insertResult,
 		"op":           "save new buildlogger log",
 	})
+
 	return errors.Wrapf(err, "problem saving new log %s", l.ID)
 }
 
@@ -217,6 +218,7 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
 	}
+
 	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
 }
 
@@ -254,6 +256,7 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
 	}
+
 	return errors.Wrapf(err, "problem close log with id %s", l.ID)
 
 }

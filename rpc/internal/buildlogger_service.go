@@ -67,8 +67,8 @@ func (s *buildloggerService) StreamLog(stream Buildlogger_StreamLogServer) error
 	return nil
 }
 
-// CloseLog sets the ExitCode and CompletedAt fields of a buildlogger log. This
-// should be the last rcp call made on a Log.
+// CloseLog "closes out" a buildlogger log by setting the completed at
+// timestamp and the exit code. This should be the last rcp call made on a log.
 func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*BuildloggerResponse, error) {
 	log := &model.Log{ID: info.LogId}
 	log.Setup(s.env)
