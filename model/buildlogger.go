@@ -78,7 +78,7 @@ func (l *Log) Find() error {
 	l.populated = false
 	err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l)
 	if db.ResultsNotFound(err) {
-		return errors.Errorf("could not find log record with id %s in the database", l.ID)
+		return errors.Wrapf(err, "could not find log record with id %s in the database", l.ID)
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding log record")
 	}
