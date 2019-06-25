@@ -14,7 +14,6 @@ import (
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -107,7 +106,7 @@ func (l *Log) SaveNew() error {
 
 	insertResult, err := l.env.GetDB().Collection(buildloggerCollection).InsertOne(ctx, l)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"insertResult": insertResult,
 		"op":           "save new buildlogger log",
@@ -130,7 +129,7 @@ func (l *Log) Remove() error {
 
 	deleteResult, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"deleteResult": deleteResult,
 		"op":           "remove log",
@@ -152,9 +151,9 @@ func (l *Log) Append(lines []LogLine) error {
 	}
 	if len(lines) == 0 {
 		grip.Warning(message.Fields{
-			"ns":      model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
-			"id":      l.ID,
-			"message": "append called with no log lines",
+			"collection": buildloggerCollection,
+			"id":         l.ID,
+			"message":    "append called with no log lines",
 		})
 		return nil
 	}
@@ -209,7 +208,7 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	}
 	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"updateResult": updateResult,
 		"logChunkInfo": logChunk,
@@ -246,7 +245,7 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 	}
 	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"completed_at": completedAt,
 		"exit_code":    exitCode,
@@ -257,7 +256,7 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
 	}
 
-	return errors.Wrapf(err, "problem close log with id %s", l.ID)
+	return errors.Wrapf(err, "problem closing log with id %s", l.ID)
 
 }
 
