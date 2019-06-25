@@ -73,17 +73,18 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 	log := &model.Log{ID: info.LogId}
 	log.Setup(s.env)
 	if err := log.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding log record for '%s'", lines.LogId)
+		return nil, errors.Wrapf(err, "problem finding log record for '%s'", info.LogId)
 	}
 
 	completedAt := time.Now()
 	if info.CompletedAt != nil {
-		completdAt, err := ptypes.Timestamp(info.CompletedAt)
+		var err error
+		completedAt, err = ptypes.Timestamp(info.CompletedAt)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem converting completed_at timestamp")
 		}
 	}
 
 	log.Setup(s.env)
-	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.CloseLog(completedAt, info.ExitCode))
+	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.CloseLog(completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID)
 }

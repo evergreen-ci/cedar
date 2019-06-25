@@ -28,7 +28,6 @@ func TestCreateLog(t *testing.T) {
 	defer func() {
 		assert.NoError(t, teardownBuildloggerEnv(ctx, env))
 	}()
-	port := 4000
 
 	for _, test := range []struct {
 		name        string
@@ -81,6 +80,7 @@ func TestCreateLog(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
 			require.NoError(t, startBuildloggerService(ctx, test.env, port))
 			client, err := getBuildloggerGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
@@ -105,8 +105,6 @@ func TestCreateLog(t *testing.T) {
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
 				assert.Equal(t, test.ts.Round(time.Minute), log.CreatedAt.Round(time.Minute))
 			}
-
-			port += 1
 		})
 	}
 }
@@ -124,7 +122,6 @@ func TestAppendLogLines(t *testing.T) {
 		assert.NoError(t, os.RemoveAll(tempDir))
 	}()
 	require.NoError(t, err)
-	port := 4100
 
 	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 	require.NoError(t, err)
@@ -258,6 +255,7 @@ func TestAppendLogLines(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
 			require.NoError(t, startBuildloggerService(ctx, test.env, port))
 			client, err := getBuildloggerGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
@@ -282,12 +280,96 @@ func TestAppendLogLines(t *testing.T) {
 				l := &model.Log{ID: resp.LogId}
 				l.Setup(env)
 				require.NoError(t, l.Find())
+				assert.Equal(t, log.ID, log.Info.ID())
 				assert.Len(t, l.Artifact.Chunks, 1)
 				_, err := bucket.Get(ctx, l.Artifact.Chunks[0].Key)
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
 
-			port += 1
+func TestCloseLog(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createBuildloggerEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownBuildloggerEnv(ctx, env))
+	}()
+
+	log := model.CreateLog(model.LogInfo{Project: "test"}, model.PailLocal)
+	log.Setup(env)
+	require.NoError(t, log.SaveNew())
+
+	for _, test := range []struct {
+		name   string
+		info   *LogEndInfo
+		ts     time.Time
+		env    cedar.Environment
+		hasErr bool
+	}{
+		{
+			name: "ValidData",
+			info: &LogEndInfo{
+				LogId:       log.ID,
+				ExitCode:    1,
+				CompletedAt: &timestamp.Timestamp{Seconds: 253402300799},
+			},
+			ts:  time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC),
+			env: env,
+		},
+		{
+			name: "DefaultData",
+			info: &LogEndInfo{LogId: log.ID},
+			ts:   time.Now().UTC(),
+			env:  env,
+		},
+		{
+			name:   "LogDNE",
+			info:   &LogEndInfo{LogId: "DNE"},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name: "InvalidTimestamp",
+			info: &LogEndInfo{
+				LogId:       log.ID,
+				CompletedAt: &timestamp.Timestamp{Seconds: 253402300800},
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name:   "InvalidEnv",
+			info:   &LogEndInfo{LogId: log.ID},
+			env:    nil,
+			hasErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
+			require.NoError(t, startBuildloggerService(ctx, test.env, port))
+			client, err := getBuildloggerGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+
+			resp, err := client.CloseLog(ctx, test.info)
+			if test.hasErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, log.ID, resp.LogId)
+
+				l := &model.Log{ID: resp.LogId}
+				l.Setup(env)
+				require.NoError(t, l.Find())
+				assert.Equal(t, log.ID, l.Info.ID())
+				assert.Equal(t, log.Artifact, l.Artifact)
+				assert.Equal(t, int(test.info.ExitCode), l.Info.ExitCode)
+				assert.Equal(t, test.ts.Round(time.Minute), l.CompletedAt.Round(time.Minute))
+			}
 		})
 	}
 }

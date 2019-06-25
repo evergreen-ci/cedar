@@ -227,7 +227,6 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 func TestCreateMetricSeries(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	port := 5000
 
 	for _, test := range []struct {
 		name         string
@@ -283,6 +282,7 @@ func TestCreateMetricSeries(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
 			var env cedar.Environment
 			if !test.mockEnv {
 				env = cedar.GetEnvironment()
@@ -303,8 +303,6 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 			}
-
-			port += 1
 		})
 	}
 }
@@ -312,7 +310,6 @@ func TestCreateMetricSeries(t *testing.T) {
 func TestAttachResultData(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	port := 5100
 
 	for _, test := range []struct {
 		name         string
@@ -436,6 +433,7 @@ func TestAttachResultData(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
 			env := cedar.GetEnvironment()
 			defer func() {
 				require.NoError(t, tearDownEnv(env, false))
@@ -473,8 +471,6 @@ func TestAttachResultData(t *testing.T) {
 			if test.checkRollups {
 				checkRollups(t, ctx, env, resp.Id, nil)
 			}
-
-			port += 1
 		})
 	}
 }
