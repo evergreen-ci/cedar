@@ -7,8 +7,10 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
 )
 
 type buildloggerService struct {
@@ -26,16 +28,17 @@ func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*BuildloggerResponse, error) {
 	log := model.CreateLog(data.Info.Export(), data.Storage.Export())
 	log.CreatedAt = time.Now()
-	if data.CreatedAt != nil {
-		ts, err := ptypes.Timestamp(data.CreatedAt)
-		if err != nil {
-			return nil, errors.Wrap(err, "problem converting timestamp value artifact")
-		}
-		log.CreatedAt = ts
-	}
-	log.Setup(s.env)
 
-	return &BuildloggerResponse{LogId: log.ID}, errors.Wrap(log.SaveNew(), "problem saving log record")
+	if data.CreatedAt != nil {
+		var err error
+		log.CreatedAt, err = ptypes.Timestamp(data.CreatedAt)
+		if err != nil {
+			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem converting timestamp value artifact"))
+		}
+	}
+
+	log.Setup(s.env)
+	return &BuildloggerResponse{LogId: log.ID}, newRPCError(codes.Internal, errors.Wrap(log.SaveNew(), "problem saving log record"))
 }
 
 // AppendLogLines adds log lines to an existing buildlogger log.
@@ -46,26 +49,50 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 	log := &model.Log{ID: lines.LogId}
 	log.Setup(s.env)
 	if err := log.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding log record for '%s'", lines.LogId)
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding log record for '%s'", lines.LogId))
 	}
 
 	exportedLines := []model.LogLine{}
 	for _, line := range lines.Lines {
 		exportedLine, err := line.Export()
 		if err != nil {
-			return nil, errors.Wrapf(err, "problem exporting log lines")
+			return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem exporting log lines"))
 		}
 		exportedLines = append(exportedLines, exportedLine)
 	}
 
-	log.Setup(s.env)
-	return &BuildloggerResponse{LogId: log.ID}, errors.Wrapf(log.Append(exportedLines), "problem appending log lines for '%s'", lines.LogId)
+	return &BuildloggerResponse{LogId: log.ID},
+		newRPCError(codes.Internal, errors.Wrapf(log.Append(exportedLines), "problem appending log lines for '%s'", lines.LogId))
 }
 
 func (s *buildloggerService) StreamLog(stream Buildlogger_StreamLogServer) error {
 	return nil
 }
 
+// CloseLog "closes out" a buildlogger log by setting the completed at
+// timestamp and the exit code. This should be the last rcp call made on a log.
 func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*BuildloggerResponse, error) {
-	return nil, nil
+	log := &model.Log{ID: info.LogId}
+	log.Setup(s.env)
+	if err := log.Find(); err != nil {
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding log record for '%s'", info.LogId))
+	}
+
+	completedAt := time.Now()
+	if info.CompletedAt != nil {
+		var err error
+		completedAt, err = ptypes.Timestamp(info.CompletedAt)
+		if err != nil {
+			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem converting completed_at timestamp"))
+		}
+	}
+
+	return &BuildloggerResponse{LogId: log.ID},
+		newRPCError(codes.Internal, errors.Wrapf(log.CloseLog(completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID))
 }

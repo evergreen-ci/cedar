@@ -14,7 +14,6 @@ import (
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -79,7 +78,7 @@ func (l *Log) Find() error {
 	l.populated = false
 	err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l)
 	if db.ResultsNotFound(err) {
-		return errors.Errorf("could not find log record with id %s in the database", l.ID)
+		return errors.Wrapf(err, "could not find log record with id %s in the database", l.ID)
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding log record")
 	}
@@ -107,11 +106,12 @@ func (l *Log) SaveNew() error {
 
 	insertResult, err := l.env.GetDB().Collection(buildloggerCollection).InsertOne(ctx, l)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"insertResult": insertResult,
 		"op":           "save new buildlogger log",
 	})
+
 	return errors.Wrapf(err, "problem saving new log %s", l.ID)
 }
 
@@ -129,7 +129,7 @@ func (l *Log) Remove() error {
 
 	deleteResult, err := l.env.GetDB().Collection(buildloggerCollection).DeleteOne(ctx, bson.M{"_id": l.ID})
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"deleteResult": deleteResult,
 		"op":           "remove log",
@@ -151,9 +151,9 @@ func (l *Log) Append(lines []LogLine) error {
 	}
 	if len(lines) == 0 {
 		grip.Warning(message.Fields{
-			"ns":      model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
-			"id":      l.ID,
-			"message": "append called with no log lines",
+			"collection": buildloggerCollection,
+			"id":         l.ID,
+			"message":    "append called with no log lines",
 		})
 		return nil
 	}
@@ -201,14 +201,17 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 		l.ID = l.Info.ID()
 	}
 
-	update := bson.M{
-		"$push": bson.M{
-			bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): logChunk,
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": l.ID},
+		bson.M{
+			"$push": bson.M{
+				bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): logChunk,
+			},
 		},
-	}
-	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(ctx, bson.M{"_id": l.ID}, update)
+	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":           model.Namespace{DB: l.env.GetConf().DatabaseName, Collection: buildloggerCollection},
+		"collection":   buildloggerCollection,
 		"id":           l.ID,
 		"updateResult": updateResult,
 		"logChunkInfo": logChunk,
@@ -217,7 +220,50 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
 	}
+
 	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
+}
+
+// CloseLog "closes out" the log by populating the completed_at and
+// info.exit_code fields. It should be the last call made on a buildlogger log.
+func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
+	if !l.populated {
+		return errors.New("cannot close log when log unpopulated")
+	}
+	if l.env == nil {
+		return errors.New("cannot close log with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
+
+	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": l.ID},
+		bson.M{
+			"$set": bson.M{
+				logCompletedAtKey: completedAt,
+				bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey): exitCode,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   buildloggerCollection,
+		"id":           l.ID,
+		"completed_at": completedAt,
+		"exit_code":    exitCode,
+		"updateResult": updateResult,
+		"op":           "close buildlogger log",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
+	}
+
+	return errors.Wrapf(err, "problem closing log with id %s", l.ID)
+
 }
 
 // LogInfo describes information unique to a single buildlogger log.
@@ -271,7 +317,6 @@ func (id *LogInfo) ID() string {
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Trial))
 		_, _ = io.WriteString(hash, id.ProcessName)
 		_, _ = io.WriteString(hash, string(id.Format))
-		_, _ = io.WriteString(hash, fmt.Sprint(id.ExitCode))
 
 		if len(id.Arguments) > 0 {
 			args := []string{}
