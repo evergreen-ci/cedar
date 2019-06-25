@@ -103,7 +103,7 @@ func TestCreateLog(t *testing.T) {
 				require.NoError(t, log.Find())
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
-				assert.Equal(t, test.ts.Round(time.Minute), log.CreatedAt.Round(time.Minute))
+				assert.Equal(t, test.ts.Truncate(time.Minute), log.CreatedAt.Truncate(time.Minute))
 			}
 		})
 	}
@@ -368,7 +368,7 @@ func TestCloseLog(t *testing.T) {
 				assert.Equal(t, log.ID, l.Info.ID())
 				assert.Equal(t, log.Artifact, l.Artifact)
 				assert.Equal(t, int(test.info.ExitCode), l.Info.ExitCode)
-				assert.Equal(t, test.ts.Round(time.Minute), l.CompletedAt.Round(time.Minute))
+				assert.Equal(t, test.ts.Truncate(time.Minute), l.CompletedAt.Truncate(time.Minute))
 			}
 		})
 	}
