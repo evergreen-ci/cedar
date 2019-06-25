@@ -12,7 +12,6 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -117,7 +116,7 @@ func (result *PerformanceResult) Save() error {
 
 	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).UpsertId(result.ID, result)
 	grip.DebugWhen(err == nil, message.Fields{
-		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: perfResultCollection},
+		"collection":  perfResultCollection,
 		"id":          result.ID,
 		"updated":     changeInfo.Updated,
 		"upsertedID":  changeInfo.UpsertedId,
