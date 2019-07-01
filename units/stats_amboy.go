@@ -81,14 +81,14 @@ func (j *amboyStatsCollector) Run(ctx context.Context) {
 	if !j.ExcludeLocal && (localQueue != nil && localQueue.Started()) {
 		grip.Info(message.Fields{
 			"message": "amboy local queue stats",
-			"stats":   localQueue.Stats(),
+			"stats":   localQueue.Stats(ctx),
 		})
 	}
 
 	if !j.ExcludeRemote && (remoteQueue != nil && remoteQueue.Started()) {
 		grip.Info(message.Fields{
 			"message": "amboy remote queue stats",
-			"stats":   remoteQueue.Stats(),
+			"stats":   remoteQueue.Stats(ctx),
 		})
 
 		if enableExtendedRemoteStats {

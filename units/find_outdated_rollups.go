@@ -108,14 +108,14 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 
 			for _, result := range results.Results {
 				if _, ok := j.seenIDs[result.ID]; !ok {
-					j.createFTDCRollupsJobs(factories[i:], result)
+					j.createFTDCRollupsJobs(ctx, factories[i:], result)
 				}
 			}
 		}
 	}
 }
 
-func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(factories []perf.RollupFactory, result model.PerformanceResult) {
+func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(ctx context.Context, factories []perf.RollupFactory, result model.PerformanceResult) {
 	outdated := findOutdatedFromResult(factories, result)
 
 	job, err := NewFTDCRollupsJob(result.ID, getFTDCArtifact(result.Artifacts), outdated, false)
@@ -125,7 +125,7 @@ func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(factories []perf.RollupFa
 		return
 	}
 
-	if err = j.queue.Put(job); err != nil {
+	if err = j.queue.Put(ctx, job); err != nil {
 		err = errors.Wrapf(err, "problem putting FTDC rollups job %s on remote queue", j.ID())
 		j.AddError(err)
 		return

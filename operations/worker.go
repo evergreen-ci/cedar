@@ -44,8 +44,8 @@ func Worker() cli.Command {
 			}
 
 			time.Sleep(time.Minute)
-			grip.Debug(q.Stats())
-			amboy.WaitCtxInterval(ctx, q, time.Second)
+			grip.Debug(q.Stats(ctx))
+			amboy.WaitInterval(ctx, q, time.Second)
 			grip.Notice("no pending work; shutting worker down.")
 
 			return nil

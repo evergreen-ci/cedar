@@ -72,11 +72,11 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
 
 		env.RegisterCloser("local-queue", func(ctx context.Context) error {
-			if !amboy.WaitCtxInterval(ctx, env.localQueue, 10*time.Millisecond) {
+			if !amboy.WaitInterval(ctx, env.localQueue, 10*time.Millisecond) {
 				grip.Critical(message.Fields{
 					"message": "pending jobs failed to finish",
 					"queue":   "system",
-					"status":  env.localQueue.Stats(),
+					"status":  env.localQueue.Stats(ctx),
 				})
 				return errors.New("failed to stop with running jobs")
 			}
@@ -113,7 +113,11 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		if err = env.remoteQueue.Start(ctx); err != nil {
 			return nil, errors.Wrap(err, "problem starting remote queue")
 		}
-		env.remoteReporter, err = reporting.MakeDBQueueState(ctx, conf.QueueName, opts, env.client)
+		reporterOpts := reporting.DBQueueReporterOptions{
+			Name:    conf.QueueName,
+			Options: opts,
+		}
+		env.remoteReporter, err = reporting.MakeDBQueueState(ctx, reporterOpts, env.client)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem starting wrapper")
 		}

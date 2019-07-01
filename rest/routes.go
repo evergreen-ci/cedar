@@ -33,6 +33,9 @@ type StatusResponse struct {
 
 // statusHandler processes the GET request for
 func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := s.Environment.Context()
+	defer cancel()
+
 	resp := &StatusResponse{
 		Revision: cedar.BuildRevision,
 		RPCInfo:  s.RPCServers,
@@ -40,7 +43,7 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 
 	if s.queue != nil {
 		resp.QueueRunning = s.queue.Started()
-		resp.QueueStats = s.queue.Stats()
+		resp.QueueStats = s.queue.Stats(ctx)
 	}
 
 	gimlet.WriteJSON(w, resp)
@@ -189,6 +192,9 @@ type SimpleLogInjestionResponse struct {
 }
 
 func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := s.Environment.Context()
+	defer cancel()
+
 	req := &simpleLogRequest{}
 	resp := &SimpleLogInjestionResponse{}
 	resp.LogID = gimlet.GetVars(r)["id"]
@@ -210,7 +216,7 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 	j := units.MakeSaveSimpleLogJob(s.Environment, resp.LogID, req.Content, req.Time, req.Increment)
 	resp.JobID = j.ID()
 
-	if err := s.queue.Put(j); err != nil {
+	if err := s.queue.Put(ctx, j); err != nil {
 		grip.Error(err)
 		resp.Errors = append(resp.Errors, err.Error())
 		gimlet.WriteJSONInternalError(w, resp)
