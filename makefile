@@ -118,6 +118,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/go.mongodb.org/mongo-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/mongo-go-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/aws/aws-sdk-go
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/urfave/cli/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/davecgh/go-spew/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pmezard/go-difflib/
