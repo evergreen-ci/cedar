@@ -46,7 +46,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return resp, errors.Wrap(err, "problem saving record")
 	}
 
-	if err := srv.addFTDCRollupsJob(record.ID, record.Artifacts); err != nil {
+	if err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts); err != nil {
 		return resp, errors.Wrap(err, "problem creating ftdc rollups job")
 	}
 
@@ -72,7 +72,7 @@ func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	if err := srv.addArtifacts(record, result.Artifacts); err != nil {
+	if err := srv.addArtifacts(ctx, record, result.Artifacts); err != nil {
 		return resp, err
 	}
 
@@ -101,7 +101,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	if err := srv.addArtifacts(record, artifactData.Artifacts); err != nil {
+	if err := srv.addArtifacts(ctx, record, artifactData.Artifacts); err != nil {
 		return resp, err
 	}
 
@@ -236,7 +236,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	return resp, nil
 }
 
-func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts []*ArtifactInfo) error {
+func (srv *perfService) addArtifacts(ctx context.Context, record *model.PerformanceResult, artifacts []*ArtifactInfo) error {
 	for _, a := range artifacts {
 		artifact, err := a.Export()
 		if err != nil {
@@ -246,10 +246,10 @@ func (srv *perfService) addArtifacts(record *model.PerformanceResult, artifacts 
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
-	return errors.Wrap(srv.addFTDCRollupsJob(record.ID, record.Artifacts), "problem creating ftdc rollups job")
+	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "problem creating ftdc rollups job")
 }
 
-func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactInfo) error {
+func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) error {
 	var hasEventData bool
 
 	q := srv.env.GetRemoteQueue()
@@ -269,7 +269,7 @@ func (srv *perfService) addFTDCRollupsJob(id string, artifacts []model.ArtifactI
 			return errors.WithStack(err)
 		}
 
-		if err = q.Put(job); err != nil {
+		if err = q.Put(ctx, job); err != nil {
 			return errors.Wrap(err, "problem putting FTDC rollups job on the remote queue")
 		}
 	}

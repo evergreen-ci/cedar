@@ -159,14 +159,14 @@ func collectLoop() cli.Command {
 				ContinueOnError: true,
 			}
 
-			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), conf, func(queue amboy.Queue) error {
+			amboy.IntervalQueueOperation(ctx, q, 30*time.Minute, time.Now(), conf, func(ctx context.Context, queue amboy.Queue) error {
 				now := time.Now().Add(-time.Hour).UTC()
 				opts.StartAt = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
 
 				id := fmt.Sprintf("bcr-%s", opts.StartAt.Format(costReportDateFormat))
 
 				j := units.NewBuildCostReport(env, id, &opts)
-				if err := queue.Put(j); err != nil {
+				if err := queue.Put(ctx, j); err != nil {
 					grip.Warning(err)
 					return err
 				}
@@ -175,7 +175,7 @@ func collectLoop() cli.Command {
 
 				numReports, _ := reports.Count()
 				grip.Info(message.Fields{
-					"queue":         queue.Stats(),
+					"queue":         queue.Stats(ctx),
 					"reports-count": numReports,
 					"scheduled":     id,
 				})

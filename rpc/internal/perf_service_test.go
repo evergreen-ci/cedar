@@ -183,7 +183,7 @@ func writeCerts(ca, caPath, userCert, userCertPath, userKey, userKeyPath string)
 func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id string, rollups []*RollupValue) {
 	q := env.GetRemoteQueue()
 	require.NotNil(t, q)
-	amboy.WaitCtxInterval(ctx, q, 250*time.Millisecond)
+	amboy.WaitInterval(ctx, q, 250*time.Millisecond)
 	for j := range q.Results(ctx) {
 		err := j.Error()
 		msg := "job completed without error"

@@ -141,7 +141,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 
 	q := j.env.GetLocalQueue()
 
-	if err := q.Put(parser); err != nil {
+	if err := q.Put(ctx, parser); err != nil {
 		grip.Error(err)
 		j.AddError(err)
 		return
