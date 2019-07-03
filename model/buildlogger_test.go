@@ -297,26 +297,26 @@ func TestBuildloggerAppend(t *testing.T) {
 	chunk1 := []LogLine{
 		{
 			Timestamp: time.Now().Add(-time.Hour).Round(time.Millisecond).UTC(),
-			Data:      "This is not a test.\n",
+			Data:      "This is not a test.",
 		},
 		{
 			Timestamp: time.Now().Add(-59 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "This is a test.\n",
+			Data:      "This is a test.",
 		},
 	}
 	chunk2 := []LogLine{
 		{
 			Timestamp: time.Now().Add(-57 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Logging is fun.\n",
+			Data:      "Logging is fun.",
 		},
 		{
 			Timestamp: time.Now().Add(-56 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Buildogger logging logs.\n",
+			Data:      "Buildogger logging logs.",
 		},
 
 		{
 			Timestamp: time.Now().Add(-55 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Finished logging.\n",
+			Data:      "Finished logging.",
 		},
 	}
 
@@ -356,7 +356,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		require.NoError(t, log.Append(chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
-			expectedData = append(expectedData, []byte(fmt.Sprintf("%d%s", util.UnixMilli(line.Timestamp), line.Data))...)
+			expectedData = append(expectedData, []byte(fmt.Sprintf("%d%s/n", util.UnixMilli(line.Timestamp), line.Data))...)
 		}
 
 		filenames := map[string]bool{}
