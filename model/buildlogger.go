@@ -163,7 +163,7 @@ func (l *Log) Append(lines []LogLine) error {
 
 	linesCombined := ""
 	for _, line := range lines {
-		linesCombined += fmt.Sprintf("%d%s", util.UnixMilli(line.Timestamp), line.Data)
+		linesCombined += fmt.Sprintf("%d%s/n", util.UnixMilli(line.Timestamp), line.Data)
 	}
 
 	conf := &CedarConfig{}
