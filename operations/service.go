@@ -42,7 +42,7 @@ func Service() cli.Command {
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
-				cli.BoolTFlag{
+				cli.BoolFlag{
 					Name:  rpcTLSFlag,
 					Usage: "specify whether to disable the use of TLS over rpc",
 				},
@@ -78,7 +78,8 @@ func Service() cli.Command {
 			dbName := c.String(dbNameFlag)
 			port := c.Int(servicePortFlag)
 
-			rpcTLS := c.BoolT(rpcTLSFlag)
+			rpcTLS := !c.Bool(rpcTLSFlag)
+			fmt.Println(rpcTLS)
 			rpcHost := c.String(rpcHostFlag)
 			rpcPort := c.Int(rpcPortFlag)
 			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
