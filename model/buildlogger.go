@@ -314,17 +314,17 @@ func (l *Log) Download() (*LogIterator, error) {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			//defer recovery.LogAndContinue("downloader")
 			defer func() {
 				if r := recover(); r != nil {
 					// TODO: should this be critical?
 					grip.Criticalf("download go routine panicked: %s", r)
 				}
+				wg.Done()
 			}()
 
 			for chunk := range work {
 				if err := ctx.Done(); err != nil {
+					catcher.Add(ctx.Err())
 					return
 				} else {
 					r, err := bucket.Get(ctx, chunk.Key)
