@@ -1,12 +1,17 @@
 package model
 
 import (
+	"bufio"
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash"
 	"io"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -266,6 +271,154 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 
 }
 
+// Download returns a LogIterator which iterates lines of the given log. The
+// log should be populated and the environment should not be nil.
+func (l *Log) Download() (*LogIterator, error) {
+	if !l.populated {
+		return nil, errors.New("cannot downdload log when log unpopulated")
+	}
+	if l.env == nil {
+		return nil, errors.New("cannot download log with a nil environment")
+	}
+	ctx, cancel := l.env.Context()
+	defer cancel()
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
+
+	conf := &CedarConfig{}
+	conf.Setup(l.env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.Wrap(err, "problem getting application configuration")
+	}
+
+	bucket, err := l.Artifact.Type.Create(
+		l.env,
+		conf.Bucket.BuildLogsBucket,
+		l.Artifact.Prefix,
+		string(pail.S3PermissionsPrivate),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem creating bucket")
+	}
+
+	work := make(chan LogChunkInfo, len(l.Artifact.Chunks))
+	for _, chunk := range l.Artifact.Chunks {
+		work <- chunk
+	}
+	close(work)
+	var wg sync.WaitGroup
+	readers := map[string]io.ReadCloser{}
+	catcher := grip.NewBasicCatcher()
+	for i := 0; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			//defer recovery.LogAndContinue("downloader")
+			defer func() {
+				if r := recover(); r != nil {
+					// TODO: should this be critical?
+					grip.Criticalf("download go routine panicked: %s", r)
+				}
+			}()
+
+			for chunk := range work {
+				if err := ctx.Done(); err != nil {
+					return
+				} else {
+					r, err := bucket.Get(ctx, chunk.Key)
+					if err != nil {
+						catcher.Add(err)
+					}
+					readers[chunk.Key] = r
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	if err := catcher.Resolve(); err != nil {
+		return nil, errors.Wrap(err, "problem downloading log artifacts")
+	}
+
+	return &LogIterator{
+		chunks:  l.Artifact.Chunks,
+		readers: readers,
+		catcher: grip.NewBasicCatcher(),
+	}, nil
+}
+
+// LogIterator is a log line iterator.
+type LogIterator struct {
+	chunks        []LogChunkInfo
+	lineCount     int
+	keyIndex      int
+	readers       map[string]io.ReadCloser
+	currentReader *bufio.Reader
+	currentItem   LogLine
+	catcher       grip.Catcher
+}
+
+// Next returns true if there is another log line to iterator over, false
+// otherwise.
+func (i *LogIterator) Next(ctx context.Context) bool {
+	if i.currentReader == nil {
+		if i.keyIndex >= len(i.chunks) {
+			return false
+		}
+		i.currentReader = bufio.NewReader(i.readers[i.chunks[i.keyIndex].Key])
+	}
+
+	data, err := i.currentReader.ReadString('\n')
+	if err == io.EOF {
+		if i.lineCount != i.chunks[i.keyIndex].NumLines {
+			i.catcher.Add(errors.New("corrupt data"))
+		}
+
+		i.currentReader = nil
+		i.lineCount = 0
+		i.keyIndex++
+
+		return i.Next(ctx)
+	} else if err != nil {
+		i.catcher.Add(errors.Wrap(err, "problem getting line"))
+		return false
+	}
+
+	ts, err := strconv.ParseInt(data[:20], 10, 64)
+	if err != nil {
+		i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
+	}
+	i.currentItem = LogLine{
+		Timestamp: time.Unix(0, ts*int64(time.Millisecond)).UTC(),
+		Data:      data[20:],
+	}
+	i.lineCount++
+
+	return true
+}
+
+// Err returns any errors captured by the iterator.
+func (i *LogIterator) Err() error {
+	return i.catcher.Resolve()
+}
+
+// Item returns the current LogLine item.
+func (i *LogIterator) Item() LogLine { return i.currentItem }
+
+// Close closes the iterator. This function should always be called once the
+// iterator is done being used.
+func (i *LogIterator) Close() error {
+	catcher := grip.NewBasicCatcher()
+
+	for _, r := range i.readers {
+		catcher.Add(r.Close())
+	}
+
+	return catcher.Resolve()
+}
+
 // LogInfo describes information unique to a single buildlogger log.
 type LogInfo struct {
 	Project     string            `bson:"project,omitempty"`
@@ -337,7 +490,8 @@ func (id *LogInfo) ID() string {
 }
 
 // LogLine describes a buildlogger log line. This is an intermediary type that
-// passes data from RPC calls to the upload phase.
+// passes data from RPC calls to the upload phase and is used as the return
+// item for the LogIterator.
 type LogLine struct {
 	Timestamp time.Time
 	Data      string
