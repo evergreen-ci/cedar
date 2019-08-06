@@ -141,6 +141,7 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 type perfGetByTaskNameHandler struct {
 	taskName string
+	project  string
 	interval util.TimeRange
 	tags     []string
 	limit    int
@@ -167,6 +168,7 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	h.variant = vals.Get("variant")
+	h.project = vals.Get("project")
 	var err error
 	catcher := grip.NewBasicCatcher()
 	h.interval, err = parseInterval(vals)
@@ -184,7 +186,7 @@ func (h *perfGetByTaskNameHandler) Parse(ctx context.Context, r *http.Request) e
 // Run calls the data FindPerformanceResultsByTaskName function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.taskName, h.variant, h.interval, h.limit, h.tags...)
+	perfResults, err := h.sc.FindPerformanceResultsByTaskName(h.project, h.taskName, h.variant, h.interval, h.limit, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskName))
 	}

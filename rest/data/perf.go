@@ -100,7 +100,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 // are returned sorted (descending) by the Evergreen order.
 // If limit is greater than 0, the number of results returned will be no
 // greater than limit.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByTaskName(project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -109,6 +109,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(taskName string, varian
 		Info: model.PerformanceResultInfo{
 			TaskName: taskName,
 			Tags:     tags,
+			Project:  project,
 		},
 		MaxDepth: 0,
 		Limit:    limit,
@@ -288,7 +289,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval 
 	return results, nil
 }
 
-func (mc *MockConnector) FindPerformanceResultsByTaskName(taskName string, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskName(project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) &&
