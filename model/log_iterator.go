@@ -278,7 +278,7 @@ func parseLogLineString(data string) (LogLine, error) {
 	}, nil
 }
 
-func prependTimestamp(data string, t time.Time) string {
+func prependTimestamp(t time.Time, data string) string {
 	ts := fmt.Sprintf("%d", util.UnixMilli(t))
 	pre_zeros := 20 - len(ts)
 	for i := 0; i < pre_zeros; i++ {

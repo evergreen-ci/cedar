@@ -127,7 +127,7 @@ func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]
 				Timestamp: ts.UTC(),
 				Data:      line + "\n",
 			}
-			rawLines += prependTimestamp(line, ts)
+			rawLines += prependTimestamp(ts, line)
 			ts = ts.Add(time.Second)
 			j++
 		}

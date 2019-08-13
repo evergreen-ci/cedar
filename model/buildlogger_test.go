@@ -356,7 +356,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		require.NoError(t, log.Append(chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
-			expectedData = append(expectedData, []byte(prependTimestamp(line.Data, line.Timestamp))...)
+			expectedData = append(expectedData, []byte(prependTimestamp(line.Timestamp, line.Data))...)
 		}
 
 		filenames := map[string]bool{}

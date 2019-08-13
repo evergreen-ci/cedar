@@ -163,7 +163,7 @@ func (l *Log) Append(lines []LogLine) error {
 
 	linesCombined := ""
 	for _, line := range lines {
-		linesCombined += prependTimestamp(line.Data, line.Timestamp)
+		linesCombined += prependTimestamp(line.Timestamp, line.Data)
 	}
 
 	conf := &CedarConfig{}
