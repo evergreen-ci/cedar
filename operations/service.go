@@ -79,7 +79,6 @@ func Service() cli.Command {
 			port := c.Int(servicePortFlag)
 
 			rpcTLS := !c.Bool(rpcTLSFlag)
-			fmt.Println(rpcTLS)
 			rpcHost := c.String(rpcHostFlag)
 			rpcPort := c.Int(rpcPortFlag)
 			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
