@@ -113,7 +113,7 @@ func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
 		opts,
 		grpc.UnaryInterceptor(aviation.ChainUnaryServer(unaryInterceptors...)),
 		grpc.StreamInterceptor(aviation.ChainStreamServer(streamInterceptors...)),
-		grpc.MaxRecvMsgSize(5e9),
+		grpc.MaxRecvMsgSize(1e9),
 	)
 
 	srv := grpc.NewServer(opts...)
