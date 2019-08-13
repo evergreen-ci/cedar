@@ -7,6 +7,7 @@ import (
 	"io"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -267,7 +268,8 @@ func (i *batchedIterator) Close() error {
 ///////////////////
 
 func parseLogLineString(data string) (LogLine, error) {
-	ts, err := strconv.ParseInt(data[:20], 10, 64)
+	ts, err := strconv.ParseInt(strings.TrimSpace(data[:20]), 10, 64)
+
 	if err != nil {
 		return LogLine{}, err
 	}
@@ -279,11 +281,7 @@ func parseLogLineString(data string) (LogLine, error) {
 }
 
 func prependTimestamp(t time.Time, data string) string {
-	ts := fmt.Sprintf("%d", util.UnixMilli(t))
-	pre_zeros := 20 - len(ts)
-	for i := 0; i < pre_zeros; i++ {
-		ts = "0" + ts
-	}
+	ts := fmt.Sprintf("%20d", util.UnixMilli(t))
 
 	return fmt.Sprintf("%s%s\n", ts, data)
 }
