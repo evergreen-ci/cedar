@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -283,6 +282,7 @@ func TestBuildloggerAppend(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
 
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
@@ -356,7 +356,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		require.NoError(t, log.Append(chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
-			expectedData = append(expectedData, []byte(fmt.Sprintf("%d%s/n", util.UnixMilli(line.Timestamp), line.Data))...)
+			expectedData = append(expectedData, []byte(prependTimestamp(line.Data, line.Timestamp))...)
 		}
 
 		filenames := map[string]bool{}
@@ -392,6 +392,110 @@ func TestBuildloggerAppend(t *testing.T) {
 	})
 }
 
+func TestBuildloggerDownload(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+	log1, log2 := getTestLogs()
+
+	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
+	require.NoError(t, err)
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		l := Log{
+			ID:        log1.ID,
+			populated: true,
+		}
+		it, err := l.Download()
+		assert.Error(t, err)
+		assert.Nil(t, it)
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		l := Log{ID: log1.ID}
+		l.Setup(env)
+		it, err := l.Download()
+		assert.Nil(t, it)
+		assert.Error(t, err)
+	})
+	t.Run("NoConfig", func(t *testing.T) {
+		l := Log{
+			ID:        "DNE",
+			populated: true,
+		}
+		l.Setup(env)
+		it, err := l.Download()
+		assert.Error(t, err)
+		assert.Nil(t, it)
+		fmt.Println(err)
+	})
+	conf := &CedarConfig{
+		populated: true,
+		Bucket:    BucketConfig{BuildLogsBucket: "."},
+	}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("NoArtifact", func(t *testing.T) {
+		l := Log{
+			ID:        log1.ID,
+			populated: true,
+		}
+		l.Setup(env)
+		it, err := l.Download()
+		assert.Error(t, err)
+		assert.Nil(t, it)
+	})
+	t.Run("WithID", func(t *testing.T) {
+		log2.populated = true
+		log2.Setup(env)
+		it, err := log2.Download()
+		require.NoError(t, err)
+		require.NotNil(t, it)
+
+		expectedBucket, err := log2.Artifact.Type.Create(
+			log2.env,
+			conf.Bucket.BuildLogsBucket,
+			log2.Artifact.Prefix,
+			string(pail.S3PermissionsPrivate),
+		)
+		require.NoError(t, err)
+
+		rawIt, ok := it.(*batchedIterator)
+		require.True(t, ok)
+		assert.Equal(t, expectedBucket, rawIt.bucket)
+		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
+		assert.Equal(t, 100, rawIt.batchSize)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		log2.ID = ""
+		log2.populated = true
+		log2.Setup(env)
+		it, err := log2.Download()
+		require.NoError(t, err)
+		require.NotNil(t, it)
+
+		expectedBucket, err := log2.Artifact.Type.Create(
+			log2.env,
+			conf.Bucket.BuildLogsBucket,
+			log2.Artifact.Prefix,
+			string(pail.S3PermissionsPrivate),
+		)
+		require.NoError(t, err)
+
+		rawIt, ok := it.(*batchedIterator)
+		require.True(t, ok)
+		assert.Equal(t, expectedBucket, rawIt.bucket)
+		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
+		assert.Equal(t, 100, rawIt.batchSize)
+	})
+}
+
 func TestBuildloggerCloseLog(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -416,7 +520,6 @@ func TestBuildloggerCloseLog(t *testing.T) {
 		l.Setup(env)
 		assert.Error(t, l.CloseLog(time.Now(), 0))
 	})
-
 	t.Run("DNE", func(t *testing.T) {
 		l := &Log{ID: "DNE"}
 		l.Setup(env)
@@ -485,7 +588,7 @@ func getTestLogs() (*Log, *Log) {
 		CreatedAt:   time.Now().Add(-2 * time.Hour),
 		CompletedAt: time.Now().Add(-time.Hour),
 		Artifact: LogArtifactInfo{
-			Type:    PailS3,
+			Type:    PailLocal,
 			Prefix:  "log2",
 			Version: 1,
 			Chunks: []LogChunkInfo{

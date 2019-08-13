@@ -1,17 +1,12 @@
 package model
 
 import (
-	"bufio"
-	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash"
 	"io"
-	"runtime"
 	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -168,7 +163,7 @@ func (l *Log) Append(lines []LogLine) error {
 
 	linesCombined := ""
 	for _, line := range lines {
-		linesCombined += fmt.Sprintf("%d%s/n", util.UnixMilli(line.Timestamp), line.Data)
+		linesCombined += prependTimestamp(line.Data, line.Timestamp)
 	}
 
 	conf := &CedarConfig{}
@@ -273,15 +268,13 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 
 // Download returns a LogIterator which iterates lines of the given log. The
 // log should be populated and the environment should not be nil.
-func (l *Log) Download() (*LogIterator, error) {
+func (l *Log) Download() (LogIterator, error) {
 	if !l.populated {
 		return nil, errors.New("cannot downdload log when log unpopulated")
 	}
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -303,120 +296,7 @@ func (l *Log) Download() (*LogIterator, error) {
 		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	work := make(chan LogChunkInfo, len(l.Artifact.Chunks))
-	for _, chunk := range l.Artifact.Chunks {
-		work <- chunk
-	}
-	close(work)
-	var wg sync.WaitGroup
-	readers := map[string]io.ReadCloser{}
-	catcher := grip.NewBasicCatcher()
-	for i := 0; i < runtime.NumCPU(); i++ {
-		wg.Add(1)
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					// TODO: should this be critical?
-					grip.Criticalf("download go routine panicked: %s", r)
-				}
-				wg.Done()
-			}()
-
-			for chunk := range work {
-				if err := ctx.Done(); err != nil {
-					catcher.Add(ctx.Err())
-					return
-				} else {
-					r, err := bucket.Get(ctx, chunk.Key)
-					if err != nil {
-						catcher.Add(err)
-					}
-					readers[chunk.Key] = r
-				}
-			}
-		}()
-	}
-	wg.Wait()
-
-	if err := catcher.Resolve(); err != nil {
-		return nil, errors.Wrap(err, "problem downloading log artifacts")
-	}
-
-	return &LogIterator{
-		chunks:  l.Artifact.Chunks,
-		readers: readers,
-		catcher: grip.NewBasicCatcher(),
-	}, nil
-}
-
-// LogIterator is a log line iterator.
-type LogIterator struct {
-	chunks        []LogChunkInfo
-	lineCount     int
-	keyIndex      int
-	readers       map[string]io.ReadCloser
-	currentReader *bufio.Reader
-	currentItem   LogLine
-	catcher       grip.Catcher
-}
-
-// Next returns true if there is another log line to iterator over, false
-// otherwise.
-func (i *LogIterator) Next(ctx context.Context) bool {
-	if i.currentReader == nil {
-		if i.keyIndex >= len(i.chunks) {
-			return false
-		}
-		i.currentReader = bufio.NewReader(i.readers[i.chunks[i.keyIndex].Key])
-	}
-
-	data, err := i.currentReader.ReadString('\n')
-	if err == io.EOF {
-		if i.lineCount != i.chunks[i.keyIndex].NumLines {
-			i.catcher.Add(errors.New("corrupt data"))
-		}
-
-		i.currentReader = nil
-		i.lineCount = 0
-		i.keyIndex++
-
-		return i.Next(ctx)
-	} else if err != nil {
-		i.catcher.Add(errors.Wrap(err, "problem getting line"))
-		return false
-	}
-
-	ts, err := strconv.ParseInt(data[:20], 10, 64)
-	if err != nil {
-		i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
-	}
-	i.currentItem = LogLine{
-		Timestamp: time.Unix(0, ts*int64(time.Millisecond)).UTC(),
-		Data:      data[20:],
-	}
-	i.lineCount++
-
-	return true
-}
-
-// Err returns any errors captured by the iterator.
-func (i *LogIterator) Err() error {
-	return i.catcher.Resolve()
-}
-
-// Item returns the current LogLine item.
-func (i *LogIterator) Item() LogLine { return i.currentItem }
-
-// Close closes the iterator. This function should always be called once the
-// iterator is done being used.
-func (i *LogIterator) Close() error {
-	catcher := grip.NewBasicCatcher()
-
-	for _, r := range i.readers {
-		catcher.Add(r.Close())
-	}
-
-	return catcher.Resolve()
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100), nil
 }
 
 // LogInfo describes information unique to a single buildlogger log.
