@@ -28,7 +28,7 @@ func TestLogIterator(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "log-iterator-test")
 	require.NoError(t, err)
 	defer func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
