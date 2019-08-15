@@ -20,6 +20,16 @@ func (t TimeRange) Duration() time.Duration { return t.EndAt.Sub(t.StartAt) }
 func (t TimeRange) IsZero() bool            { return t.EndAt.IsZero() && t.StartAt.IsZero() }
 func (t TimeRange) IsValid() bool           { return t.Duration() >= 0 }
 
+// Check returns true if the given time is within the TimeRange (inclusive) and
+// false otherwise.
+func (t TimeRange) Check(ts time.Time) bool {
+	if (ts.After(t.StartAt) || ts.Equal(t.StartAt)) &&
+		(ts.Before(t.EndAt) || ts.Equal(t.EndAt)) {
+		return true
+	}
+	return false
+}
+
 // GetTimeRange builds a time range structure. If startAt is the zero
 // time, then end defaults to the current time and the start time is
 // determined by the duration. Otherwise the end time is determined

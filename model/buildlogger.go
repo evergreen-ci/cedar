@@ -163,7 +163,7 @@ func (l *Log) Append(lines []LogLine) error {
 
 	linesCombined := ""
 	for _, line := range lines {
-		linesCombined += fmt.Sprintf("%d%s/n", util.UnixMilli(line.Timestamp), line.Data)
+		linesCombined += prependTimestamp(line.Timestamp, line.Data)
 	}
 
 	conf := &CedarConfig{}
@@ -266,6 +266,39 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 
 }
 
+// Download returns a LogIterator which iterates lines of the given log. The
+// log should be populated and the environment should not be nil.
+func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
+	if !l.populated {
+		return nil, errors.New("cannot downdload log when log unpopulated")
+	}
+	if l.env == nil {
+		return nil, errors.New("cannot download log with a nil environment")
+	}
+
+	if l.ID == "" {
+		l.ID = l.Info.ID()
+	}
+
+	conf := &CedarConfig{}
+	conf.Setup(l.env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.Wrap(err, "problem getting application configuration")
+	}
+
+	bucket, err := l.Artifact.Type.Create(
+		l.env,
+		conf.Bucket.BuildLogsBucket,
+		l.Artifact.Prefix,
+		string(pail.S3PermissionsPrivate),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem creating bucket")
+	}
+
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100, timeRange), nil
+}
+
 // LogInfo describes information unique to a single buildlogger log.
 type LogInfo struct {
 	Project     string            `bson:"project,omitempty"`
@@ -337,7 +370,8 @@ func (id *LogInfo) ID() string {
 }
 
 // LogLine describes a buildlogger log line. This is an intermediary type that
-// passes data from RPC calls to the upload phase.
+// passes data from RPC calls to the upload phase and is used as the return
+// item for the LogIterator.
 type LogLine struct {
 	Timestamp time.Time
 	Data      string

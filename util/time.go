@@ -1,6 +1,8 @@
 package util
 
-import "time"
+import (
+	"time"
+)
 
 // UnixMilli returns t as a Unix time, the number of nanoseconds elapsed since
 // January 1, 1970 UTC. The result is undefined if the Unix time in nanoseconds
@@ -9,7 +11,7 @@ import "time"
 // on the zero Time is undefined. The result does not depend on the location
 // associated with t.
 func UnixMilli(t time.Time) int64 {
-	return t.UnixNano() / int64(time.Millisecond)
+	return t.UnixNano() / 1e6
 }
 
 // ParseRoundPartOfDay produces a time value with the hour value
