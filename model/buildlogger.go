@@ -268,7 +268,7 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 
 // Download returns a LogIterator which iterates lines of the given log. The
 // log should be populated and the environment should not be nil.
-func (l *Log) Download() (LogIterator, error) {
+func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
 	if !l.populated {
 		return nil, errors.New("cannot downdload log when log unpopulated")
 	}
@@ -296,7 +296,7 @@ func (l *Log) Download() (LogIterator, error) {
 		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100), nil
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100, timeRange), nil
 }
 
 // LogInfo describes information unique to a single buildlogger log.

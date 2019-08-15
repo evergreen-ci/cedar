@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -38,6 +39,14 @@ func TestLogIterator(t *testing.T) {
 	badBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: "DNE"})
 	require.NoError(t, err)
 
+	completeTimeRange := util.TimeRange{EndAt: chunks[len(chunks)-1].End}
+	partialTimeRange := util.TimeRange{
+		StartAt: chunks[1].Start,
+		EndAt:   chunks[len(chunks)-1].End.Add(-time.Minute),
+	}
+	offset := chunks[0].NumLines
+	partialLinesLen := len(lines) - chunks[0].NumLines - 1
+
 	for _, test := range []struct {
 		name      string
 		iterators map[string]LogIterator
@@ -46,9 +55,9 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "EmptyIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, []LogChunkInfo{}),
-				batched:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2),
-				parallelized: NewParallelizedLogIterator(bucket, []LogChunkInfo{}),
+				serialized:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				batched:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
+				parallelized: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				assert.False(t, it.Next(ctx))
@@ -60,9 +69,9 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ExhaustedIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, chunks),
-				batched:      NewBatchedLogIterator(bucket, chunks, 2),
-				parallelized: NewParallelizedLogIterator(bucket, chunks),
+				serialized:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				batched:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				parallelized: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -79,9 +88,9 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ErroredIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(badBucket, chunks),
-				batched:      NewBatchedLogIterator(badBucket, chunks, 2),
-				parallelized: NewParallelizedLogIterator(badBucket, chunks),
+				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange),
+				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange),
+				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -90,6 +99,25 @@ func TestLogIterator(t *testing.T) {
 				}
 				assert.Equal(t, 0, count)
 				assert.Error(t, it.Err())
+				assert.NoError(t, it.Close())
+			},
+		},
+		{
+			name: "LimitedTimeRange",
+			iterators: map[string]LogIterator{
+				serialized:   NewSerializedLogIterator(bucket, chunks, partialTimeRange),
+				batched:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
+				parallelized: NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
+			},
+			test: func(t *testing.T, it LogIterator) {
+				count := 0
+				for it.Next(ctx) {
+					require.True(t, offset+count < len(lines))
+					assert.Equal(t, lines[offset+count], it.Item())
+					count++
+				}
+				assert.Equal(t, partialLinesLen, count)
+				assert.NoError(t, it.Err())
 				assert.NoError(t, it.Close())
 			},
 		},
@@ -111,7 +139,7 @@ func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]
 		numChunks += 1
 	}
 	chunks := make([]LogChunkInfo, numChunks)
-	ts := time.Now().Round(time.Millisecond)
+	ts := time.Now().Round(time.Millisecond).UTC()
 
 	for i := 0; i < numChunks; i++ {
 		rawLines := ""
@@ -124,11 +152,11 @@ func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]
 		for j < chunkSize && j+i*chunkSize < size {
 			line := newRandCharSetString(100)
 			lines[j+i*chunkSize] = LogLine{
-				Timestamp: ts.UTC(),
+				Timestamp: ts,
 				Data:      line + "\n",
 			}
 			rawLines += prependTimestamp(ts, line)
-			ts = ts.Add(time.Second)
+			ts = ts.Add(time.Minute)
 			j++
 		}
 
@@ -137,7 +165,8 @@ func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]
 		}
 
 		chunks[i].NumLines = j
-		chunks[i].End = ts
+		chunks[i].End = ts.Add(-time.Minute)
+		ts = ts.Add(time.Hour)
 	}
 
 	return chunks, lines, nil

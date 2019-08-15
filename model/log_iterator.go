@@ -39,6 +39,7 @@ type LogIterator interface {
 type serializedIterator struct {
 	bucket            pail.Bucket
 	chunks            []LogChunkInfo
+	timeRange         util.TimeRange
 	lineCount         int
 	keyIndex          int
 	currentReadCloser io.ReadCloser
@@ -49,54 +50,67 @@ type serializedIterator struct {
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
 // chunks from blob storage while iterating over lines of a buildlogger log.
-func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo) LogIterator {
+func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+	chunks = filterChunks(timeRange, chunks)
+
 	return &serializedIterator{
-		bucket:  bucket,
-		chunks:  chunks,
-		catcher: grip.NewBasicCatcher(),
+		bucket:    bucket,
+		chunks:    chunks,
+		timeRange: timeRange,
+		catcher:   grip.NewBasicCatcher(),
 	}
 }
 
 func (i *serializedIterator) Next(ctx context.Context) bool {
-	if i.currentReader == nil {
-		if i.keyIndex >= len(i.chunks) {
-			return false
+	for {
+		if i.currentReader == nil {
+			if i.keyIndex >= len(i.chunks) {
+				return false
+			}
+
+			var err error
+			i.currentReadCloser, err = i.bucket.Get(ctx, i.chunks[i.keyIndex].Key)
+			if err != nil {
+				i.catcher.Add(errors.Wrap(err, "problem downloading log artifact"))
+				return false
+			}
+			i.currentReader = bufio.NewReader(i.currentReadCloser)
 		}
 
-		var err error
-		i.currentReadCloser, err = i.bucket.Get(ctx, i.chunks[i.keyIndex].Key)
+		data, err := i.currentReader.ReadString('\n')
+		if err == io.EOF {
+			if i.lineCount != i.chunks[i.keyIndex].NumLines {
+				i.catcher.Add(errors.New("corrupt data"))
+			}
+
+			i.catcher.Add(errors.Wrap(i.currentReadCloser.Close(), "problem closing ReadCloser"))
+			i.currentReadCloser = nil
+			i.currentReader = nil
+			i.lineCount = 0
+			i.keyIndex++
+
+			return i.Next(ctx)
+		}
 		if err != nil {
-			i.catcher.Add(errors.Wrap(err, "problem downloading log artifact"))
+			i.catcher.Add(errors.Wrap(err, "problem getting line"))
 			return false
 		}
-		i.currentReader = bufio.NewReader(i.currentReadCloser)
-	}
 
-	data, err := i.currentReader.ReadString('\n')
-	if err == io.EOF {
-		if i.lineCount != i.chunks[i.keyIndex].NumLines {
-			i.catcher.Add(errors.New("corrupt data"))
+		i.currentItem, err = parseLogLineString(data)
+		if err != nil {
+			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
+			return false
 		}
+		i.lineCount++
 
-		i.catcher.Add(errors.Wrap(i.currentReadCloser.Close(), "problem closing ReadCloser"))
-		i.currentReadCloser = nil
-		i.currentReader = nil
-		i.lineCount = 0
-		i.keyIndex++
-
-		return i.Next(ctx)
+		if i.currentItem.Timestamp.After(i.timeRange.EndAt) {
+			return false
+		}
+		if i.currentItem.Timestamp.After(i.timeRange.StartAt) ||
+			i.currentItem.Timestamp.Equal(i.timeRange.StartAt) {
+			break
+		}
 	}
-	if err != nil {
-		i.catcher.Add(errors.Wrap(err, "problem getting line"))
-		return false
-	}
-
-	i.currentItem, err = parseLogLineString(data)
-	if err != nil {
-		i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
-		return false
-	}
-	i.lineCount++
 
 	return true
 }
@@ -121,6 +135,7 @@ type batchedIterator struct {
 	batchSize     int
 	chunks        []LogChunkInfo
 	chunkIndex    int
+	timeRange     util.TimeRange
 	lineCount     int
 	keyIndex      int
 	readers       map[string]io.ReadCloser
@@ -132,11 +147,14 @@ type batchedIterator struct {
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
 // caller) of chunks from blob storage in parallel while iterating over lines
 // of a buildlogger log.
-func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int) LogIterator {
+func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange) LogIterator {
+	chunks = filterChunks(timeRange, chunks)
+
 	return &batchedIterator{
 		bucket:    bucket,
 		batchSize: batchSize,
 		chunks:    chunks,
+		timeRange: timeRange,
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
@@ -144,11 +162,14 @@ func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize 
 // NewParallelizedLogIterator returns a LogIterator that fetches all chunks
 // from blob storage in parallel while iterating over lines of a buildlogger
 // log.
-func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo) LogIterator {
+func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+	chunks = filterChunks(timeRange, chunks)
+
 	return &batchedIterator{
 		bucket:    bucket,
 		batchSize: len(chunks),
 		chunks:    chunks,
+		timeRange: timeRange,
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
@@ -206,45 +227,55 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 }
 
 func (i *batchedIterator) Next(ctx context.Context) bool {
-	if i.currentReader == nil {
-		if i.keyIndex >= len(i.chunks) {
+	for {
+		if i.currentReader == nil {
+			if i.keyIndex >= len(i.chunks) {
+				return false
+			}
+
+			reader, ok := i.readers[i.chunks[i.keyIndex].Key]
+			if !ok {
+				if err := i.getNextBatch(ctx); err != nil {
+					i.catcher.Add(err)
+					return false
+				}
+				continue
+			}
+
+			i.currentReader = bufio.NewReader(reader)
+		}
+
+		data, err := i.currentReader.ReadString('\n')
+		if err == io.EOF {
+			if i.lineCount != i.chunks[i.keyIndex].NumLines {
+				i.catcher.Add(errors.New("corrupt data"))
+			}
+
+			i.currentReader = nil
+			i.lineCount = 0
+			i.keyIndex++
+
+			return i.Next(ctx)
+		} else if err != nil {
+			i.catcher.Add(errors.Wrap(err, "problem getting line"))
 			return false
 		}
 
-		reader, ok := i.readers[i.chunks[i.keyIndex].Key]
-		if !ok {
-			if err := i.getNextBatch(ctx); err != nil {
-				i.catcher.Add(err)
-				return false
-			}
-			return i.Next(ctx)
+		i.currentItem, err = parseLogLineString(data)
+		if err != nil {
+			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
+			return false
 		}
+		i.lineCount++
 
-		i.currentReader = bufio.NewReader(reader)
-	}
-
-	data, err := i.currentReader.ReadString('\n')
-	if err == io.EOF {
-		if i.lineCount != i.chunks[i.keyIndex].NumLines {
-			i.catcher.Add(errors.New("corrupt data"))
+		if i.currentItem.Timestamp.After(i.timeRange.EndAt) {
+			return false
 		}
-
-		i.currentReader = nil
-		i.lineCount = 0
-		i.keyIndex++
-
-		return i.Next(ctx)
-	} else if err != nil {
-		i.catcher.Add(errors.Wrap(err, "problem getting line"))
-		return false
+		if i.currentItem.Timestamp.After(i.timeRange.StartAt) ||
+			i.currentItem.Timestamp.Equal(i.timeRange.StartAt) {
+			break
+		}
 	}
-
-	i.currentItem, err = parseLogLineString(data)
-	if err != nil {
-		i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
-		return false
-	}
-	i.lineCount++
 
 	return true
 }
@@ -275,7 +306,7 @@ func parseLogLineString(data string) (LogLine, error) {
 	}
 
 	return LogLine{
-		Timestamp: time.Unix(0, ts*int64(time.Millisecond)).UTC(),
+		Timestamp: time.Unix(0, ts*1e6).UTC(),
 		Data:      data[20:],
 	}, nil
 }
@@ -284,4 +315,15 @@ func prependTimestamp(t time.Time, data string) string {
 	ts := fmt.Sprintf("%20d", util.UnixMilli(t))
 
 	return fmt.Sprintf("%s%s\n", ts, data)
+}
+
+func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
+	filteredChunks := []LogChunkInfo{}
+	for _, chunk := range chunks {
+		if timeRange.Check(chunk.Start) || timeRange.Check(chunk.End) {
+			filteredChunks = append(filteredChunks, chunk)
+		}
+	}
+
+	return filteredChunks
 }

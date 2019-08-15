@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -408,19 +408,24 @@ func TestBuildloggerDownload(t *testing.T) {
 	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
 	require.NoError(t, err)
 
+	timeRange := util.TimeRange{
+		StartAt: log2.Artifact.Chunks[0].Start,
+		EndAt:   log2.Artifact.Chunks[len(log2.Artifact.Chunks)-1].End,
+	}
+
 	t.Run("NoEnv", func(t *testing.T) {
 		l := Log{
 			ID:        log1.ID,
 			populated: true,
 		}
-		it, err := l.Download()
+		it, err := l.Download(timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
 	t.Run("Unpopulated", func(t *testing.T) {
 		l := Log{ID: log1.ID}
 		l.Setup(env)
-		it, err := l.Download()
+		it, err := l.Download(timeRange)
 		assert.Nil(t, it)
 		assert.Error(t, err)
 	})
@@ -430,10 +435,9 @@ func TestBuildloggerDownload(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		it, err := l.Download()
+		it, err := l.Download(timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
-		fmt.Println(err)
 	})
 	conf := &CedarConfig{
 		populated: true,
@@ -447,14 +451,14 @@ func TestBuildloggerDownload(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		it, err := l.Download()
+		it, err := l.Download(timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
 	t.Run("WithID", func(t *testing.T) {
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download()
+		it, err := log2.Download(timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
@@ -470,13 +474,14 @@ func TestBuildloggerDownload(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, expectedBucket, rawIt.bucket)
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
+		assert.Equal(t, timeRange, rawIt.timeRange)
 		assert.Equal(t, 100, rawIt.batchSize)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		log2.ID = ""
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download()
+		it, err := log2.Download(timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
@@ -492,6 +497,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, expectedBucket, rawIt.bucket)
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
+		assert.Equal(t, timeRange, rawIt.timeRange)
 		assert.Equal(t, 100, rawIt.batchSize)
 	})
 }
