@@ -327,3 +327,35 @@ func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInf
 
 	return filteredChunks
 }
+
+// LogIteratorHeap is a min-heap of LogIterator items.
+type LogIteratorHeap []logIteratorHeapObject
+
+type logIteratorHeapObject struct {
+	item LogLine
+	it   LogIterator
+}
+
+func (h LogIteratorHeap) Len() int           { return len(h) }
+func (h LogIteratorHeap) Less(i, j int) bool { return h[i].item.Timestamp.Before(h[j].item.Timestamp) }
+func (h LogIteratorHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *LogIteratorHeap) Push(x interface{}) {
+	it, ok := x.(LogIterator)
+	if !ok {
+		return
+	}
+
+	*h = append(*h, logIteratorHeapObject{
+		item: it.Item(),
+		it:   it,
+	})
+}
+
+func (h *LogIteratorHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x.it
+}

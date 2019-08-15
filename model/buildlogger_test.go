@@ -1,9 +1,12 @@
 package model
 
 import (
+	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -499,6 +502,84 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
 		assert.Equal(t, timeRange, rawIt.timeRange)
 		assert.Equal(t, 100, rawIt.batchSize)
+	})
+}
+
+func TestBuildloggerMerge(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
+	require.NoError(t, err)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	t.Run("SingleLog", func(t *testing.T) {
+		chunks, lines, err := createLog(ctx, bucket, 100, 10)
+		require.NoError(t, err)
+		timeRange := util.TimeRange{
+			StartAt: chunks[0].Start,
+			EndAt:   chunks[len(chunks)-1].End,
+		}
+		it := NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+		lineChan := MergeLogs(ctx, it)
+
+		count := 0
+		for {
+			line, more := <-lineChan
+			if more {
+				require.True(t, count < len(lines))
+				assert.Equal(t, fmt.Sprintf("%s %s", lines[count].Timestamp, lines[count].Data), line)
+				count++
+			} else {
+				break
+			}
+		}
+		assert.Equal(t, len(lines), count)
+	})
+	t.Run("MultipleLogs", func(t *testing.T) {
+		numLogs := 10
+		its := make([]LogIterator, numLogs)
+		lineMap := map[string]bool{}
+		for i := 0; i < numLogs; i++ {
+			chunks, lines, err := createLog(ctx, bucket, 100, 10)
+			require.NoError(t, err)
+
+			timeRange := util.TimeRange{
+				StartAt: chunks[0].Start,
+				EndAt:   chunks[len(chunks)-1].End,
+			}
+			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+			for _, line := range lines {
+				lineMap[line.Data] = false
+			}
+		}
+		lineChan := MergeLogs(ctx, its...)
+
+		count := 0
+		lastTime := time.Time{}
+		for {
+			line, more := <-lineChan
+			if more {
+				split := strings.SplitAfterN(line, "UTC", 2)
+				require.Len(t, split, 2)
+				ts, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", split[0])
+				require.NoError(t, err)
+				data := split[1][1:]
+
+				assert.True(t, lastTime.Before(ts) || lastTime.Equal(ts))
+				seen, ok := lineMap[data]
+				require.True(t, ok)
+				assert.False(t, seen)
+				lineMap[data] = true
+				count++
+			} else {
+				break
+			}
+		}
+		assert.Equal(t, len(lineMap), count)
 	})
 }
 

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"container/heap"
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash"
@@ -297,6 +299,42 @@ func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
 	}
 
 	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100, timeRange), nil
+}
+
+// MergeLogs merges N logs, passed in as LogIterators, respecting the order of
+// each line's timestamp. Note that once all lines are merged, the string
+// channel is closed.
+func MergeLogs(ctx context.Context, iterators ...LogIterator) chan string {
+	h := &LogIteratorHeap{}
+	heap.Init(h)
+	lines := make(chan string, len(iterators))
+
+	for _, it := range iterators {
+		if it.Next(ctx) {
+			heap.Push(h, it)
+		}
+	}
+
+	go func() {
+		defer close(lines)
+		for h.Len() > 0 {
+			if ctx.Err() != nil {
+				return
+			}
+
+			i := heap.Pop(h)
+			it := i.(LogIterator)
+
+			line := fmt.Sprintf("%s %s", it.Item().Timestamp, it.Item().Data)
+			lines <- line
+
+			if it.Next(ctx) {
+				heap.Push(h, it)
+			}
+		}
+	}()
+
+	return lines
 }
 
 // LogInfo describes information unique to a single buildlogger log.
