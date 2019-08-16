@@ -64,6 +64,6 @@ message BuildloggerResponse {
 service Buildlogger {
   rpc CreateLog(LogData) returns (BuildloggerResponse);
   rpc AppendLogLines(LogLines) returns (BuildloggerResponse);
-  rpc StreamLog(stream LogLines) returns (BuildloggerResponse);
+  rpc StreamLogLines(stream LogLines) returns (BuildloggerResponse);
   rpc CloseLog(LogEndInfo) returns (BuildloggerResponse);
 }
