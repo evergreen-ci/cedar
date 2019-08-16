@@ -88,10 +88,10 @@ func (s *buildloggerService) StreamLogLines(stream Buildlogger_StreamLogLinesSer
 			return err
 		}
 
-		if id != "" && lines.LogId != id {
-			return newRPCError(codes.Aborted, errors.New("log ID in stream does not match reference, aborting"))
-		} else {
+		if id == "" {
 			id = lines.LogId
+		} else if lines.LogId != id {
+			return newRPCError(codes.Aborted, errors.New("log ID in stream does not match reference, aborting"))
 		}
 
 		_, err = s.AppendLogLines(ctx, lines)
