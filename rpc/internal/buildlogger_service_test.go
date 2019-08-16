@@ -103,7 +103,7 @@ func TestCreateLog(t *testing.T) {
 				require.NoError(t, log.Find())
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
-				assert.Equal(t, test.ts.Truncate(time.Minute), log.CreatedAt.Truncate(time.Minute))
+				assert.True(t, test.ts.Sub(log.CreatedAt) <= time.Second)
 			}
 		})
 	}
