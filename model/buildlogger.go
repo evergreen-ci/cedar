@@ -301,9 +301,9 @@ func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
 	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100, timeRange), nil
 }
 
-// MergeLogs merges N logs, passed in as LogIterators, respecting the order of
-// each line's timestamp. Note that once all lines are merged, the string
-// channel is closed.
+// MergeLogs merges N buildlogger logs, passed in as LogIterators, respecting
+// the order of each line's timestamp. Note that once all lines are merged, the
+// returned string channel is closed.
 func MergeLogs(ctx context.Context, iterators ...LogIterator) chan string {
 	h := &LogIteratorHeap{}
 	heap.Init(h)
