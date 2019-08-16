@@ -570,6 +570,7 @@ func TestBuildloggerMerge(t *testing.T) {
 				data := split[1][1:]
 
 				assert.True(t, lastTime.Before(ts) || lastTime.Equal(ts))
+				lastTime = ts
 				seen, ok := lineMap[data]
 				require.True(t, ok)
 				assert.False(t, seen)
