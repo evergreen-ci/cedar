@@ -159,7 +159,6 @@ message RollupData {
 
 service CedarPerformanceMetrics {
   rpc CreateMetricSeries(ResultData) returns (MetricsResponse);
-  rpc AttachResultData(ResultData) returns (MetricsResponse);
   rpc AttachArtifacts(ArtifactData) returns (MetricsResponse);
   rpc AttachRollups(RollupData) returns (MetricsResponse);
   rpc SendMetrics(stream MetricsEvent) returns (SendResponse);

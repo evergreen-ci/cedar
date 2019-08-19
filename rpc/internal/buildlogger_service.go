@@ -17,6 +17,8 @@ type buildloggerService struct {
 	env cedar.Environment
 }
 
+// AttachBuildloggerService attaches the buildlogger service to the given gRPC
+// server.
 func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 	srv := &buildloggerService{
 		env: env,
@@ -94,5 +96,5 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.CloseLog(completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID))
+		newRPCError(codes.Internal, errors.Wrapf(log.Close(completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID))
 }
