@@ -321,12 +321,7 @@ func TestBuildloggerAppend(t *testing.T) {
 	}
 
 	t.Run("NoEnv", func(t *testing.T) {
-		l := Log{populated: true}
-		assert.Error(t, l.Append(chunk1))
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		l := Log{}
-		l.Setup(env)
+		l := Log{ID: log.ID}
 		assert.Error(t, l.Append(chunk1))
 	})
 	t.Run("DNE", func(t *testing.T) {
@@ -421,13 +416,6 @@ func TestBuildloggerDownload(t *testing.T) {
 		it, err := l.Download(timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		l := Log{ID: log1.ID}
-		l.Setup(env)
-		it, err := l.Download(timeRange)
-		assert.Nil(t, it)
-		assert.Error(t, err)
 	})
 	t.Run("NoConfig", func(t *testing.T) {
 		l := Log{

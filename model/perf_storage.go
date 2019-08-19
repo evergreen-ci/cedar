@@ -94,6 +94,7 @@ var (
 	artifactInfoCreatedAtKey   = bsonutil.MustHaveTag(ArtifactInfo{}, "CreatedAt")
 )
 
+// GetDownloadURL returns the link to download an the given artifact.
 func (a *ArtifactInfo) GetDownloadURL() string {
 	return a.Type.GetDownloadURL(a.Bucket, a.Prefix, a.Path)
 }

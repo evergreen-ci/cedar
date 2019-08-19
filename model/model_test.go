@@ -31,7 +31,6 @@ func TestModelInterface(t *testing.T) {
 		func() commonModel { return &LogRecord{} },
 		func() commonModel { return &Event{} },
 		func() commonModel { return &SystemInformationRecord{} },
-		func() commonModel { return &PerformanceResult{} },
 	}
 	oddballs := []interface{}{
 		&LogSegment{},

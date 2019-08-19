@@ -20,6 +20,8 @@ import (
 
 const perfResultCollection = "perf_results"
 
+// PerformanceResult describes a single result of a performance test from
+// Evergreen.
 type PerformanceResult struct {
 	ID          string                `bson:"_id,omitempty"`
 	Info        PerformanceResultInfo `bson:"info,omitempty"`
@@ -54,6 +56,8 @@ var (
 	perfVersionlKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
+// CreatePerformanceResult is the entry point for creating a performance
+// result.
 func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, rollups []PerfRollupValue) *PerformanceResult {
 	createdAt := time.Now()
 
@@ -73,14 +77,25 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 	}
 }
 
+// Setup sets the environment for the performance result. The environment is
+// required for numerous functions on PerformanceResult.
 func (result *PerformanceResult) Setup(e cedar.Environment) { result.env = e }
-func (result *PerformanceResult) IsNil() bool               { return !result.populated }
+
+// IsNil returns if the performance result is populated or not.
+func (result *PerformanceResult) IsNil() bool { return !result.populated }
+
+// Find searches the database for the performance result. The enviromemt should
+// not be nil.
 func (result *PerformanceResult) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(result.env)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer session.Close()
+
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+	}
 
 	result.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).FindId(result.ID).One(result)
@@ -96,43 +111,82 @@ func (result *PerformanceResult) Find() error {
 	return nil
 }
 
-func (result *PerformanceResult) Save() error {
+// SaveNew saves a new performance result to the database, if a result with the
+// same ID already exists an error is returned. The result should be populated
+// and the environment should not be nil.
+func (result *PerformanceResult) SaveNew() error {
 	if !result.populated {
-		return errors.New("cannot save non-populated result data")
+		return errors.New("cannot save unpopulated performance result")
 	}
+	if result.env == nil {
+		return errors.New("cannot save with a nil environment")
+	}
+	ctx, cancel := result.env.Context()
+	defer cancel()
 
 	if result.ID == "" {
 		result.ID = result.Info.ID()
-		if result.ID == "" {
-			return errors.New("cannot save result data without ID")
-		}
 	}
 
-	conf, session, err := cedar.GetSessionWithConfig(result.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-
-	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).UpsertId(result.ID, result)
+	insertResult, err := result.env.GetDB().Collection(perfResultCollection).InsertOne(ctx, result)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":  perfResultCollection,
-		"id":          result.ID,
-		"updated":     changeInfo.Updated,
-		"upsertedID":  changeInfo.UpsertedId,
-		"rollups.len": len(result.Rollups.Stats),
-		"artifacts":   len(result.Artifacts),
-		"op":          "save perf result",
+		"collection":   perfResultCollection,
+		"id":           result.ID,
+		"insertResult": insertResult,
+		"op":           "save new performance result",
 	})
-	return errors.Wrap(err, "problem saving perf result to collection")
+
+	return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
 }
 
+// AppendArtifacts appends new artifacts to an existing performance result. The
+// environment should not be nil.
+func (result *PerformanceResult) AppendArtifacts(artifacts []ArtifactInfo) error {
+	if result.env == nil {
+		return errors.New("cannot not append artifacts with a nil environment")
+	}
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+	}
+	if len(artifacts) == 0 {
+		grip.Warning(message.Fields{
+			"collection": perfResultCollection,
+			"id":         result.ID,
+			"message":    "append artifacts called with no artifacts",
+		})
+		return nil
+	}
+	ctx, cancel := result.env.Context()
+	defer cancel()
+
+	updateResult, err := result.env.GetDB().Collection(perfResultCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": result.ID},
+		bson.M{
+			"$push": bson.M{
+				perfArtifactsKey: bson.M{"$each": artifacts},
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   perfResultCollection,
+		"id":           result.ID,
+		"updateResult": updateResult,
+		"artifacts":    artifacts,
+		"op":           "append artifacts to a perf result",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find perf result record with id %s in the database", result.ID)
+	}
+
+	return errors.Wrapf(err, "problem appending artifacts to perf result with id %s", result.ID)
+}
+
+// Remove removes the performance result from the database. The environment
+// should not be nil.
 func (result *PerformanceResult) Remove() (int, error) {
 	if result.ID == "" {
 		result.ID = result.Info.ID()
-		if result.ID == "" {
-			return -1, errors.New("cannot remove result data without ID")
-		}
 	}
 
 	conf, session, err := cedar.GetSessionWithConfig(result.env)
@@ -162,10 +216,45 @@ func (result *PerformanceResult) Remove() (int, error) {
 	return changeInfo.Removed, nil
 }
 
+// Close "closes out" the performance result by populating the completed_at
+// field. The envirnment should not be nil.
+func (result *PerformanceResult) Close(completedAt time.Time) error {
+	if result.env == nil {
+		return errors.New("cannot close perf result with a nil environment")
+	}
+	ctx, cancel := result.env.Context()
+	defer cancel()
+
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+	}
+
+	updateResult, err := result.env.GetDB().Collection(perfResultCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": result.ID},
+		bson.M{"$set": bson.M{perfCompletedAtKey: completedAt}},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   perfResultCollection,
+		"id":           result.ID,
+		"completed_at": completedAt,
+		"updateResult": updateResult,
+		"op":           "close perf result",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find perf result record with id %s in the database", result.ID)
+	}
+
+	return errors.Wrapf(err, "problem closing perf result with id %s", result.ID)
+
+}
+
 ////////////////////////////////////////////////////////////////////////
 //
 // Component Types
 
+// PerformanceResultInfo describes information unique to a single performance
+// result.
 type PerformanceResultInfo struct {
 	Project   string           `bson:"project,omitempty"`
 	Version   string           `bson:"version,omitempty"`
@@ -199,6 +288,7 @@ var (
 	perfResultInfoSchemaKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
 )
 
+// ID creates a unique hash for a performance result.
 func (id *PerformanceResultInfo) ID() string {
 	var hash hash.Hash
 
@@ -241,12 +331,16 @@ func (id *PerformanceResultInfo) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
+// PerformanceResults describes a set of performance results, typically related
+// by some criteria.
 type PerformanceResults struct {
 	Results   []PerformanceResult `bson:"results"`
 	env       cedar.Environment
 	populated bool
 }
 
+// PerfFindOptions describe the search criteria for the Find function on
+// PerformanceResults.
 type PerfFindOptions struct {
 	Interval    util.TimeRange
 	Info        PerformanceResultInfo
@@ -257,10 +351,15 @@ type PerfFindOptions struct {
 	Sort        []string
 }
 
+// Setup sets the environment for the performance results. The environment is
+// required for numerous functions on PerformanceResults.
 func (r *PerformanceResults) Setup(e cedar.Environment) { r.env = e }
-func (r *PerformanceResults) IsNil() bool               { return r.Results == nil }
 
-// Returns the PerformanceResults that are started/completed within the given range (if completed).
+// IsNil returns if the performance results are populated or not.
+func (r *PerformanceResults) IsNil() bool { return r.Results == nil }
+
+// Find returns the performance results that are started/completed matching the
+// given criteria.
 func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
@@ -456,8 +555,8 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 	return nil
 }
 
-// Returns performance results with missing or outdated rollup information for
-// the given `name` and `version`.
+// FindOutdatedRollups returns performance results with missing or outdated
+// rollup information for the given `name` and `version`.
 func (r *PerformanceResults) FindOutdatedRollups(name string, version int, after time.Time) error {
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {

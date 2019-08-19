@@ -87,9 +87,9 @@ func (l *Log) Find() error {
 	return nil
 }
 
-// SaveNewLog saves a new log to the database, if a log with the same ID
-// already exists an error is returned. The log should be populated and the
-// environment should not be nil.
+// SaveNew saves a new log to the database, if a log with the same ID already
+// exists an error is returned. The log should be populated and the environment
+// should not be nil.
 func (l *Log) SaveNew() error {
 	if !l.populated {
 		return errors.New("cannot save unpopulated log")
@@ -140,12 +140,8 @@ func (l *Log) Remove() error {
 
 // Append uploads a chunk of log lines to the offline blob storage bucket
 // configured for the log and updates the metadata in the database to reflect
-// the uploaded lines. The log should be populated and the environment should
-// not be nil.
+// the uploaded lines. The environment should not be nil.
 func (l *Log) Append(lines []LogLine) error {
-	if !l.populated {
-		return errors.New("cannot append log lines when log unpopulated")
-	}
 	if l.env == nil {
 		return errors.New("cannot not append log lines with a nil environment")
 	}
@@ -224,9 +220,9 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
 }
 
-// CloseLog "closes out" the log by populating the completed_at and
-// info.exit_code fields. It should be the last call made on a buildlogger log.
-func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
+// Close "closes out" the log by populating the completed_at and info.exit_code
+// fields. The environment should not be nil.
+func (l *Log) Close(completedAt time.Time, exitCode int) error {
 	if l.env == nil {
 		return errors.New("cannot close log with a nil environment")
 	}
@@ -264,11 +260,8 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 }
 
 // Download returns a LogIterator which iterates lines of the given log. The
-// log should be populated and the environment should not be nil.
+// environment should not be nil.
 func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
-	if !l.populated {
-		return nil, errors.New("cannot downdload log when log unpopulated")
-	}
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")
 	}
