@@ -54,14 +54,14 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		},
 	)
 	outdatedResult.Setup(env)
-	assert.NoError(t, outdatedResult.Save())
+	assert.NoError(t, outdatedResult.SaveNew())
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasOutdatedRollupsButOld"}
 	oldOutdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
 	oldOutdatedResult.CreatedAt = time.Now().Add(-90 * 24 * time.Hour)
 	oldOutdatedResult.Rollups.Stats = outdatedResult.Rollups.Stats
 	oldOutdatedResult.Setup(env)
-	assert.NoError(t, oldOutdatedResult.Save())
+	assert.NoError(t, oldOutdatedResult.SaveNew())
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasUpdatedRollups"}
 	updatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
@@ -82,13 +82,13 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		},
 	)
 	updatedResult.Setup(env)
-	assert.NoError(t, updatedResult.Save())
+	assert.NoError(t, updatedResult.SaveNew())
 
 	resultInfo = model.PerformanceResultInfo{Project: "NoFTDCData"}
 	noFTDCResult := model.CreatePerformanceResult(resultInfo, nil, nil)
 	noFTDCResult.CreatedAt = time.Now()
 	noFTDCResult.Setup(env)
-	assert.NoError(t, noFTDCResult.Save())
+	assert.NoError(t, noFTDCResult.SaveNew())
 
 	validRollupTypes := []string{}
 	for _, factory := range factories {

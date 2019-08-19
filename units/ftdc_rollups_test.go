@@ -65,11 +65,11 @@ func TestFTDCRollupsJob(t *testing.T) {
 	resultInfo := model.PerformanceResultInfo{Project: "valid"}
 	validResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact}, nil)
 	validResult.Setup(env)
-	assert.NoError(t, validResult.Save())
+	assert.NoError(t, validResult.SaveNew())
 	resultInfo = model.PerformanceResultInfo{Project: "invalid"}
 	invalidResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{invalidArtifact}, nil)
 	invalidResult.Setup(env)
-	assert.NoError(t, invalidResult.Save())
+	assert.NoError(t, invalidResult.SaveNew())
 
 	validRollupTypes := []string{}
 	for _, factory := range perf.DefaultRollupFactories() {

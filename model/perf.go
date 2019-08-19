@@ -358,8 +358,8 @@ func (r *PerformanceResults) Setup(e cedar.Environment) { r.env = e }
 // IsNil returns if the performance results are populated or not.
 func (r *PerformanceResults) IsNil() bool { return r.Results == nil }
 
-// Find returns the performance results that are started/completed matching the
-// given criteria.
+// Find returns the performance results that are started/completed and matching
+// the given criteria.
 func (r *PerformanceResults) Find(options PerfFindOptions) error {
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {

@@ -64,7 +64,7 @@ var (
 	perfRollupValueUserSubmittedKey = bsonutil.MustHaveTag(PerfRollupValue{}, "UserSubmitted")
 )
 
-// PerfRollups represent the "rolledups", or calculated metrics from time
+// PerfRollups represent the "rolled up", or calculated metrics from time
 // series data collected in a given performance test, of a performance result.
 type PerfRollups struct {
 	Stats       []PerfRollupValue `bson:"stats"`
