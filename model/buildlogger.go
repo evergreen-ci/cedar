@@ -227,9 +227,6 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 // CloseLog "closes out" the log by populating the completed_at and
 // info.exit_code fields. It should be the last call made on a buildlogger log.
 func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
-	if !l.populated {
-		return errors.New("cannot close log when log unpopulated")
-	}
 	if l.env == nil {
 		return errors.New("cannot close log with a nil environment")
 	}

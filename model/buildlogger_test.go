@@ -263,7 +263,7 @@ func TestBuildloggerRemove(t *testing.T) {
 		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(savedLog))
 	})
 	t.Run("WithoutID", func(t *testing.T) {
-		l := Log{ID: log2.ID}
+		l := Log{Info: log2.Info}
 		l.Setup(env)
 		require.NoError(t, l.Remove())
 
@@ -519,11 +519,6 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := &Log{ID: log1.ID, populated: true}
-		assert.Error(t, l.CloseLog(time.Now(), 0))
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		l := &Log{ID: log2.ID}
-		l.Setup(env)
 		assert.Error(t, l.CloseLog(time.Now(), 0))
 	})
 	t.Run("DNE", func(t *testing.T) {
