@@ -351,7 +351,7 @@ func (s *perfRollupSuite) TestMergeRollups() {
 			}
 		}
 		s.Equal(2, count, "iter=%d", i)
-		s.True(time.Now().Sub(result.Rollups.ProcessedAt) <= time.Minute)
+		s.True(time.Since(result.Rollups.ProcessedAt) <= time.Minute)
 		s.True(result.Rollups.Valid)
 	}
 }
