@@ -2,6 +2,7 @@ package model
 
 import (
 	"bufio"
+	"container/heap"
 	"context"
 	"fmt"
 	"io"
@@ -331,14 +332,20 @@ func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInf
 // LogIteratorHeap is a min-heap of LogIterator items.
 type LogIteratorHeap []LogIterator
 
+// Len returns the size of the heap.
 func (h LogIteratorHeap) Len() int { return len(h) }
 
+// Less returns true if the object at index i is less than the object at index
+// j in the heap, false otherwise.
 func (h LogIteratorHeap) Less(i, j int) bool {
 	return h[i].Item().Timestamp.Before(h[j].Item().Timestamp)
 }
 
+// Swap swaps the objects at indexes i and j.
 func (h LogIteratorHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
+// Push appends a new object of type LogIterator to the heap. Note that if x is
+// not a LogIterator nothing happens.
 func (h *LogIteratorHeap) Push(x interface{}) {
 	it, ok := x.(LogIterator)
 	if !ok {
@@ -348,10 +355,30 @@ func (h *LogIteratorHeap) Push(x interface{}) {
 	*h = append(*h, it)
 }
 
+// Pop returns the minimum object (as an empty interface) from the heap. Note
+// that if the heap is empty this will panic.
 func (h *LogIteratorHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
 	*h = old[0 : n-1]
 	return x
+}
+
+// SafePush is a wrapper function around heap.Push that ensures, during compile
+// time, that the correct type of object is put in the heap.
+func (h *LogIteratorHeap) SafePush(it LogIterator) {
+	heap.Push(h, it)
+}
+
+// SafePop is a wrapper function around heap.Pop that converts the returned
+// interface into a LogIterator object before returning it.
+func (h *LogIteratorHeap) SafePop() LogIterator {
+	if h.Len() == 0 {
+		return nil
+	}
+
+	i := heap.Pop(h)
+	it := i.(LogIterator)
+	return it
 }

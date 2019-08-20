@@ -311,7 +311,7 @@ func MergeLogs(ctx context.Context, iterators ...LogIterator) chan string {
 
 	for _, it := range iterators {
 		if it.Next(ctx) {
-			heap.Push(h, it)
+			h.SafePush(it)
 		}
 	}
 
@@ -322,14 +322,13 @@ func MergeLogs(ctx context.Context, iterators ...LogIterator) chan string {
 				return
 			}
 
-			i := heap.Pop(h)
-			it := i.(LogIterator)
+			it := h.SafePop()
 
 			line := fmt.Sprintf("%s %s", it.Item().Timestamp, it.Item().Data)
 			lines <- line
 
 			if it.Next(ctx) {
-				heap.Push(h, it)
+				h.SafePush(it)
 			}
 		}
 	}()
