@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -70,8 +71,36 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 		newRPCError(codes.Internal, errors.Wrapf(log.Append(exportedLines), "problem appending log lines for '%s'", lines.LogId))
 }
 
-func (s *buildloggerService) StreamLog(stream Buildlogger_StreamLogServer) error {
-	return nil
+// StreamLogLines adds log lines via client-side streaming to an existing
+// buildlogger log.
+func (s *buildloggerService) StreamLogLines(stream Buildlogger_StreamLogLinesServer) error {
+	ctx := stream.Context()
+	id := ""
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return newRPCError(codes.Aborted, err)
+		}
+
+		lines, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&BuildloggerResponse{LogId: id})
+		}
+		if err != nil {
+			return err
+		}
+
+		if id == "" {
+			id = lines.LogId
+		} else if lines.LogId != id {
+			return newRPCError(codes.Aborted, errors.New("log ID in stream does not match reference, aborting"))
+		}
+
+		_, err = s.AppendLogLines(ctx, lines)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // CloseLog "closes out" a buildlogger log by setting the completed at

@@ -14,6 +14,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -103,7 +104,7 @@ func TestCreateLog(t *testing.T) {
 				require.NoError(t, log.Find())
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
-				assert.Equal(t, test.ts.Truncate(time.Minute), log.CreatedAt.Truncate(time.Minute))
+				assert.True(t, test.ts.Sub(log.CreatedAt) <= time.Second)
 			}
 		})
 	}
@@ -284,6 +285,233 @@ func TestAppendLogLines(t *testing.T) {
 				assert.Len(t, l.Artifact.Chunks, 1)
 				_, err := bucket.Get(ctx, l.Artifact.Chunks[0].Key)
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestStreamLogLines(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createBuildloggerEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownBuildloggerEnv(ctx, env))
+	}()
+	tempDir, err := ioutil.TempDir(".", "buildlogger-test")
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tempDir))
+	}()
+	require.NoError(t, err)
+
+	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
+	require.NoError(t, err)
+
+	log := model.CreateLog(model.LogInfo{Project: "test"}, model.PailLocal)
+	log.Setup(env)
+	require.NoError(t, log.SaveNew())
+	log2 := model.CreateLog(model.LogInfo{Project: "test2"}, model.PailLocal)
+	log2.Setup(env)
+	require.NoError(t, log2.SaveNew())
+
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
+		Path:   tempDir,
+		Prefix: log.Artifact.Prefix,
+	})
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name        string
+		lines       []*LogLines
+		env         cedar.Environment
+		invalidConf bool
+		hasErr      bool
+	}{
+		{
+			name: "ValidData",
+			lines: []*LogLines{
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the first log line.\n",
+						},
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the second log line.\n",
+						},
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the third log line.\n",
+						},
+					},
+				},
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the fourth log line.\n",
+						},
+					},
+				},
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the fifth log line.\n",
+						},
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the sixth log line.\n",
+						},
+					},
+				},
+			},
+			env: env,
+		},
+		{
+			name: "DifferentLogIDs",
+			lines: []*LogLines{
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the first log line.\n",
+						},
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the second log line.\n",
+						},
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the third log line.\n",
+						},
+					},
+				},
+				{
+					LogId: log2.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the fourth log line.\n",
+						},
+					},
+				},
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name: "LogDNE",
+			lines: []*LogLines{
+				{
+					LogId: "DNE",
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the first log line.\n",
+						},
+					},
+				},
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name: "InvalidTimestamp",
+			lines: []*LogLines{
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
+							Data:      "This is the third log line, which is invalid.\n",
+						},
+					},
+				},
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name: "InvalidEnv",
+			lines: []*LogLines{
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the first log line.\n",
+						},
+					},
+				},
+			},
+			env:    nil,
+			hasErr: true,
+		},
+		{
+			name: "InvalidConf",
+			lines: []*LogLines{
+				{
+					LogId: log.ID,
+					Lines: []*LogLine{
+						{
+							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Data:      "This is the first log line.\n",
+						},
+					},
+				},
+			},
+			env:         env,
+			invalidConf: true,
+			hasErr:      true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
+			require.NoError(t, startBuildloggerService(ctx, test.env, port))
+			client, err := getBuildloggerGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+
+			if test.invalidConf {
+				conf.Bucket.BuildLogsBucket = ""
+			} else {
+				conf.Bucket.BuildLogsBucket = tempDir
+			}
+			conf.Setup(env)
+			require.NoError(t, conf.Save())
+
+			stream, err := client.StreamLogLines(ctx)
+			require.NoError(t, err)
+
+			catcher := grip.NewBasicCatcher()
+			for i := 0; i < len(test.lines); i++ {
+				catcher.Add(stream.Send(test.lines[i]))
+			}
+			resp, err := stream.CloseAndRecv()
+			catcher.Add(err)
+
+			if test.hasErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.lines[0].LogId, resp.LogId)
+
+				l := &model.Log{ID: resp.LogId}
+				l.Setup(env)
+				require.NoError(t, l.Find())
+				assert.Equal(t, log.ID, log.Info.ID())
+				assert.Len(t, l.Artifact.Chunks, len(test.lines))
+				for _, chunk := range l.Artifact.Chunks {
+					_, err := bucket.Get(ctx, chunk.Key)
+					assert.NoError(t, err)
+				}
 			}
 		})
 	}
