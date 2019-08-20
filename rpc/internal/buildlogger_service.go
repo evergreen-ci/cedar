@@ -77,7 +77,7 @@ func (s *buildloggerService) StreamLogLines(stream Buildlogger_StreamLogLinesSer
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return newRPCError(codes.Aborted, err)
 		}
 
 		lines, err := stream.Recv()
