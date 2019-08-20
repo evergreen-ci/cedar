@@ -46,7 +46,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	if err := record.SaveNew(); err != nil {
+	if err := record.SaveNew(ctx); err != nil {
 		return resp, newRPCError(codes.Internal, errors.Wrap(err, "problem saving record"))
 	}
 
@@ -78,7 +78,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	}
 
 	record.Setup(srv.env)
-	if err := record.AppendArtifacts(record.Artifacts); err != nil {
+	if err := record.AppendArtifacts(ctx, record.Artifacts); err != nil {
 		return resp, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending artifacts to perf result '%s'", record.ID))
 	}
 
@@ -202,7 +202,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	}
 
 	record.Setup(srv.env)
-	if err := record.Close(completedAt); err != nil {
+	if err := record.Close(ctx, completedAt); err != nil {
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem closing perf result record '%s'", record.ID))
 	}
 

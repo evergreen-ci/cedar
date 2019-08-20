@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/evergreen-ci/cedar"
@@ -22,11 +23,9 @@ const (
 )
 
 // Create returns a pail Bucket backed by PailType.
-func (t PailType) Create(env cedar.Environment, bucket, prefix, permissions string) (pail.Bucket, error) {
+func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, prefix, permissions string) (pail.Bucket, error) {
 	var b pail.Bucket
 	var err error
-	ctx, cancel := env.Context()
-	defer cancel()
 
 	switch t {
 	case PailS3:

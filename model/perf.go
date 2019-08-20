@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash"
@@ -114,15 +115,13 @@ func (result *PerformanceResult) Find() error {
 // SaveNew saves a new performance result to the database, if a result with the
 // same ID already exists an error is returned. The result should be populated
 // and the environment should not be nil.
-func (result *PerformanceResult) SaveNew() error {
+func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 	if !result.populated {
 		return errors.New("cannot save unpopulated performance result")
 	}
 	if result.env == nil {
 		return errors.New("cannot save with a nil environment")
 	}
-	ctx, cancel := result.env.Context()
-	defer cancel()
 
 	if result.ID == "" {
 		result.ID = result.Info.ID()
@@ -141,7 +140,7 @@ func (result *PerformanceResult) SaveNew() error {
 
 // AppendArtifacts appends new artifacts to an existing performance result. The
 // environment should not be nil.
-func (result *PerformanceResult) AppendArtifacts(artifacts []ArtifactInfo) error {
+func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts []ArtifactInfo) error {
 	if result.env == nil {
 		return errors.New("cannot not append artifacts with a nil environment")
 	}
@@ -156,8 +155,6 @@ func (result *PerformanceResult) AppendArtifacts(artifacts []ArtifactInfo) error
 		})
 		return nil
 	}
-	ctx, cancel := result.env.Context()
-	defer cancel()
 
 	updateResult, err := result.env.GetDB().Collection(perfResultCollection).UpdateOne(
 		ctx,
@@ -218,12 +215,10 @@ func (result *PerformanceResult) Remove() (int, error) {
 
 // Close "closes out" the performance result by populating the completed_at
 // field. The envirnment should not be nil.
-func (result *PerformanceResult) Close(completedAt time.Time) error {
+func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Time) error {
 	if result.env == nil {
 		return errors.New("cannot close perf result with a nil environment")
 	}
-	ctx, cancel := result.env.Context()
-	defer cancel()
 
 	if result.ID == "" {
 		result.ID = result.Info.ID()

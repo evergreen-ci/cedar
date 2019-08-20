@@ -41,7 +41,7 @@ func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*Bui
 	}
 
 	log.Setup(s.env)
-	return &BuildloggerResponse{LogId: log.ID}, newRPCError(codes.Internal, errors.Wrap(log.SaveNew(), "problem saving log record"))
+	return &BuildloggerResponse{LogId: log.ID}, newRPCError(codes.Internal, errors.Wrap(log.SaveNew(ctx), "problem saving log record"))
 }
 
 // AppendLogLines adds log lines to an existing buildlogger log.
@@ -51,7 +51,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 
 	log := &model.Log{ID: lines.LogId}
 	log.Setup(s.env)
-	if err := log.Find(); err != nil {
+	if err := log.Find(ctx); err != nil {
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
@@ -68,7 +68,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.Append(exportedLines), "problem appending log lines for '%s'", lines.LogId))
+		newRPCError(codes.Internal, errors.Wrapf(log.Append(ctx, exportedLines), "problem appending log lines for '%s'", lines.LogId))
 }
 
 // StreamLogLines adds log lines via client-side streaming to an existing
@@ -108,7 +108,7 @@ func (s *buildloggerService) StreamLogLines(stream Buildlogger_StreamLogLinesSer
 func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*BuildloggerResponse, error) {
 	log := &model.Log{ID: info.LogId}
 	log.Setup(s.env)
-	if err := log.Find(); err != nil {
+	if err := log.Find(ctx); err != nil {
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
@@ -125,5 +125,5 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.Close(completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID))
+		newRPCError(codes.Internal, errors.Wrapf(log.Close(ctx, completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID))
 }
