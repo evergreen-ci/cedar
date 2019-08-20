@@ -137,7 +137,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, nil)
 		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
 		performanceResult.Setup(env)
-		err := performanceResult.Save()
+		err := performanceResult.SaveNew()
 		if err != nil {
 			return errors.WithStack(err)
 		}
