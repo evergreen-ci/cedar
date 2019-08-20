@@ -490,7 +490,7 @@ func TestBuildloggerDownload(t *testing.T) {
 	})
 }
 
-func TestBuildloggerCloseLog(t *testing.T) {
+func TestBuildloggerClose(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
 	ctx, cancel := env.Context()
@@ -507,12 +507,12 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := &Log{ID: log1.ID, populated: true}
-		assert.Error(t, l.CloseLog(time.Now(), 0))
+		assert.Error(t, l.Close(time.Now(), 0))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		l := &Log{ID: "DNE"}
 		l.Setup(env)
-		assert.Error(t, l.CloseLog(time.Now(), 0))
+		assert.Error(t, l.Close(time.Now(), 0))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		t1 := time.Now().Add(-15 * time.Minute)
@@ -520,7 +520,7 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 		l1 := &Log{ID: log1.ID, populated: true}
 		l1.Setup(env)
-		require.NoError(t, l1.CloseLog(t1, e1))
+		require.NoError(t, l1.Close(t1, e1))
 
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
@@ -539,7 +539,7 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 		l2 := &Log{Info: log2.Info, populated: true}
 		l2.Setup(env)
-		require.NoError(t, l2.CloseLog(t2, e2))
+		require.NoError(t, l2.Close(t2, e2))
 
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(updatedLog))

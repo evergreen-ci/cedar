@@ -248,9 +248,6 @@ func TestPerfAppendArtifacts(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		result := PerformanceResult{ID: "DNE"}
 		assert.Error(t, result.AppendArtifacts(artifacts))
-
-		savedResult := &PerformanceResult{}
-		require.Error(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		result := PerformanceResult{ID: result1.ID}
