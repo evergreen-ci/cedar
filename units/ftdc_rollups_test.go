@@ -47,6 +47,8 @@ func TestFTDCRollupsJob(t *testing.T) {
 	}
 
 	env := cedar.GetEnvironment()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	defer func() {
 		assert.NoError(t, tearDownEnv(env))
@@ -65,11 +67,11 @@ func TestFTDCRollupsJob(t *testing.T) {
 	resultInfo := model.PerformanceResultInfo{Project: "valid"}
 	validResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact}, nil)
 	validResult.Setup(env)
-	assert.NoError(t, validResult.SaveNew())
+	assert.NoError(t, validResult.SaveNew(ctx))
 	resultInfo = model.PerformanceResultInfo{Project: "invalid"}
 	invalidResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{invalidArtifact}, nil)
 	invalidResult.Setup(env)
-	assert.NoError(t, invalidResult.SaveNew())
+	assert.NoError(t, invalidResult.SaveNew(ctx))
 
 	validRollupTypes := []string{}
 	for _, factory := range perf.DefaultRollupFactories() {
@@ -86,8 +88,6 @@ func TestFTDCRollupsJob(t *testing.T) {
 				UserSubmitted: user,
 			}
 			assert.NoError(t, j.validate())
-			ctx, cancel := env.Context()
-			defer cancel()
 
 			j.Run(ctx)
 			assert.True(t, j.Status().Completed)
@@ -110,8 +110,6 @@ func TestFTDCRollupsJob(t *testing.T) {
 			RollupTypes:  invalidRollupTypes,
 		}
 		assert.NoError(t, j.validate())
-		ctx, cancel := env.Context()
-		defer cancel()
 
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
@@ -130,7 +128,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			RollupTypes:  validRollupTypes,
 		}
 		assert.NoError(t, j.validate())
-		j.Run(context.TODO())
+		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
 	})
@@ -141,7 +139,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			RollupTypes:  validRollupTypes,
 		}
 		assert.NoError(t, j.validate())
-		j.Run(context.TODO())
+		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
 	})
@@ -179,7 +177,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			RollupTypes: validRollupTypes,
 		}
 		assert.NoError(t, j.validate())
-		j.Run(context.TODO())
+		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
 	})
@@ -190,7 +188,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			assert.Equal(t, validResult.ID, j.(*ftdcRollupsJob).PerfID)
 			assert.Equal(t, &validArtifact, j.(*ftdcRollupsJob).ArtifactInfo)
 			assert.Equal(t, user, j.(*ftdcRollupsJob).UserSubmitted)
-			j.Run(context.TODO())
+			j.Run(ctx)
 			assert.True(t, j.Status().Completed)
 		}
 	})

@@ -45,6 +45,9 @@ type testResults []struct {
 }
 
 func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.idMap = map[string]model.PerformanceResult{}
 	results := testResults{
 		{
@@ -137,7 +140,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, nil)
 		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
 		performanceResult.Setup(env)
-		err := performanceResult.SaveNew()
+		err := performanceResult.SaveNew(ctx)
 		if err != nil {
 			return errors.WithStack(err)
 		}
