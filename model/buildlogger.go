@@ -18,6 +18,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -316,6 +317,7 @@ func MergeLogs(ctx context.Context, iterators ...LogIterator) chan string {
 	}
 
 	go func() {
+		defer recovery.LogStackTraceAndContinue("merging buildlogger logs")
 		defer close(lines)
 		for h.Len() > 0 {
 			if ctx.Err() != nil {
