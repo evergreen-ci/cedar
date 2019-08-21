@@ -13,7 +13,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
-	"github.com/jpillora/backoff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -358,36 +357,22 @@ func TestBuildloggerAppend(t *testing.T) {
 			expectedData = append(expectedData, []byte(prependTimestamp(line.Timestamp, line.Data))...)
 		}
 
-		b := &backoff.Backoff{
-			Min:    100 * time.Millisecond,
-			Max:    5 * time.Second,
-			Factor: 2,
-		}
-		var filenames map[string]bool
-		var actualData []byte
-		for i := 0; i < 10; i++ {
-			filenames = map[string]bool{}
-			actualData = []byte{}
-			iter, err := testBucket.List(ctx, log.ID)
+		filenames := map[string]bool{}
+		actualData := []byte{}
+		iter, err := testBucket.List(ctx, log.ID)
+		require.NoError(t, err)
+		for iter.Next(ctx) {
+			key, err := filepath.Rel(log.ID, iter.Item().Name())
 			require.NoError(t, err)
-			for iter.Next(ctx) {
-				key, err := filepath.Rel(log.ID, iter.Item().Name())
-				require.NoError(t, err)
-				filenames[key] = true
-				r, err := iter.Item().Get(ctx)
-				require.NoError(t, err)
-				defer func() {
-					assert.NoError(t, r.Close())
-				}()
-				data, err := ioutil.ReadAll(r)
-				require.NoError(t, err)
-				actualData = append(actualData, data...)
-			}
-
-			if len(filenames) > 1 {
-				break
-			}
-			time.Sleep(b.Duration())
+			filenames[key] = true
+			r, err := iter.Item().Get(ctx)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, r.Close())
+			}()
+			data, err := ioutil.ReadAll(r)
+			require.NoError(t, err)
+			actualData = append(actualData, data...)
 		}
 		assert.Equal(t, expectedData, actualData)
 		assert.Len(t, filenames, 2)
