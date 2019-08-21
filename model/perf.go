@@ -101,9 +101,9 @@ func (result *PerformanceResult) Find() error {
 	result.populated = false
 	err = session.DB(conf.DatabaseName).C(perfResultCollection).FindId(result.ID).One(result)
 	if db.ResultsNotFound(err) {
-		return errors.New("could not find result record in the database")
+		return errors.New("could not find performance result record in the database")
 	} else if err != nil {
-		return errors.Wrap(err, "problem finding result")
+		return errors.Wrap(err, "problem finding performance result")
 	}
 
 	result.populated = true
@@ -170,13 +170,13 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		"id":           result.ID,
 		"updateResult": updateResult,
 		"artifacts":    artifacts,
-		"op":           "append artifacts to a perf result",
+		"op":           "append artifacts to a performance result",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find perf result record with id %s in the database", result.ID)
+		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
 
-	return errors.Wrapf(err, "problem appending artifacts to perf result with id %s", result.ID)
+	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
 }
 
 // Remove removes the performance result from the database. The environment
@@ -208,7 +208,7 @@ func (result *PerformanceResult) Remove() (int, error) {
 	}
 	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).RemoveAll(query)
 	if err != nil {
-		return -1, errors.Wrap(err, "problem removing perf results")
+		return -1, errors.Wrap(err, "problem removing performance results")
 	}
 	return changeInfo.Removed, nil
 }
@@ -217,7 +217,7 @@ func (result *PerformanceResult) Remove() (int, error) {
 // field. The envirnment should not be nil.
 func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Time) error {
 	if result.env == nil {
-		return errors.New("cannot close perf result with a nil environment")
+		return errors.New("cannot close performance result with a nil environment")
 	}
 
 	if result.ID == "" {
@@ -237,10 +237,10 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 		"op":           "close perf result",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find perf result record with id %s in the database", result.ID)
+		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
 
-	return errors.Wrapf(err, "problem closing perf result with id %s", result.ID)
+	return errors.Wrapf(err, "problem closing performance result with id %s", result.ID)
 
 }
 
@@ -578,5 +578,5 @@ func (r *PerformanceResults) FindOutdatedRollups(name string, version int, after
 	}
 
 	return errors.Wrapf(session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results),
-		"problem finding perf results with outdated rollup %s, version %d", name, version)
+		"problem finding performance results with outdated rollup %s, version %d", name, version)
 }
