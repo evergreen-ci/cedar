@@ -20,6 +20,8 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 	}
 
 	env := cedar.GetEnvironment()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	defer func() {
 		assert.NoError(t, tearDownEnv(env))
@@ -54,14 +56,14 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		},
 	)
 	outdatedResult.Setup(env)
-	assert.NoError(t, outdatedResult.Save())
+	assert.NoError(t, outdatedResult.SaveNew(ctx))
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasOutdatedRollupsButOld"}
 	oldOutdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
 	oldOutdatedResult.CreatedAt = time.Now().Add(-90 * 24 * time.Hour)
 	oldOutdatedResult.Rollups.Stats = outdatedResult.Rollups.Stats
 	oldOutdatedResult.Setup(env)
-	assert.NoError(t, oldOutdatedResult.Save())
+	assert.NoError(t, oldOutdatedResult.SaveNew(ctx))
 
 	resultInfo = model.PerformanceResultInfo{Project: "HasUpdatedRollups"}
 	updatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
@@ -82,13 +84,13 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		},
 	)
 	updatedResult.Setup(env)
-	assert.NoError(t, updatedResult.Save())
+	assert.NoError(t, updatedResult.SaveNew(ctx))
 
 	resultInfo = model.PerformanceResultInfo{Project: "NoFTDCData"}
 	noFTDCResult := model.CreatePerformanceResult(resultInfo, nil, nil)
 	noFTDCResult.CreatedAt = time.Now()
 	noFTDCResult.Setup(env)
-	assert.NoError(t, noFTDCResult.Save())
+	assert.NoError(t, noFTDCResult.SaveNew(ctx))
 
 	validRollupTypes := []string{}
 	for _, factory := range factories {
@@ -102,8 +104,6 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 			env:         env,
 		}
 		assert.NoError(t, j.validate())
-		ctx, cancel := env.Context()
-		defer cancel()
 
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
@@ -148,8 +148,6 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 			env:         env,
 		}
 		assert.NoError(t, j.validate())
-		ctx, cancel := env.Context()
-		defer cancel()
 
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
@@ -192,7 +190,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		for i := range rollupTypes {
 			assert.Equal(t, factories[i].Type(), rollupTypes[i])
 		}
-		j.Run(context.TODO())
+		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -44,6 +45,8 @@ func (t MetricType) Validate() error {
 	}
 }
 
+// PerfRollupValue represents a single "rollup", see PerfRollups for more
+// information.
 type PerfRollupValue struct {
 	Name          string      `bson:"name"`
 	Value         interface{} `bson:"val"`
@@ -61,6 +64,8 @@ var (
 	perfRollupValueUserSubmittedKey = bsonutil.MustHaveTag(PerfRollupValue{}, "UserSubmitted")
 )
 
+// PerfRollups represent the "rolled up", or calculated metrics from time
+// series data collected in a given performance test, of a performance result.
 type PerfRollups struct {
 	Stats       []PerfRollupValue `bson:"stats"`
 	ProcessedAt time.Time         `bson:"processed_at"`
@@ -99,6 +104,8 @@ func (r *PerfRollups) Setup(env cedar.Environment) {
 	r.env = env
 }
 
+// Add attempts to append a rollup to an existing set of rollups in a
+// performance result.
 func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 	if r.id == "" {
 		return errors.New("rollups missing id")
@@ -226,6 +233,8 @@ func (r *PerfRollups) MapFloat() map[string]float64 {
 	return result
 }
 
+// MergeRollups merges rollups to existing rollups in a performance result. The
+// environment should not be nil.
 func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []PerfRollupValue) error {
 	catcher := grip.NewBasicCatcher()
 
@@ -238,6 +247,27 @@ func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []PerfRoll
 
 	r.Rollups.ProcessedAt = time.Now()
 	r.Rollups.Valid = !catcher.HasErrors()
+
+	updateResult, err := r.env.GetDB().Collection(perfResultCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": r.ID},
+		bson.M{
+			"$set": bson.M{
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsProcessedAtKey): r.Rollups.ProcessedAt,
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsValidKey):       r.Rollups.Valid,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   perfResultCollection,
+		"id":           r.ID,
+		"updateResult": updateResult,
+		"rollups":      rollups,
+		"op":           "merge rollups",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		catcher.Add(errors.Errorf("could not find perf result record %s in the database", r.ID))
+	}
 
 	return catcher.Resolve()
 }

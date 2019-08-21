@@ -308,6 +308,7 @@ func TestCreateMetricSeries(t *testing.T) {
 }
 
 func TestAttachResultData(t *testing.T) {
+	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -320,56 +321,6 @@ func TestAttachResultData(t *testing.T) {
 		err          bool
 		checkRollups bool
 	}{
-		{
-			name: "TestAttachResultData",
-			save: true,
-			resultData: &ResultData{
-				Id: &ResultID{},
-			},
-			attachedData: &ResultData{
-				Id: &ResultID{},
-				Artifacts: []*ArtifactInfo{
-					{
-						Location:  5,
-						Bucket:    "testdata",
-						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
-					},
-				},
-				Rollups: []*RollupValue{},
-			},
-			expectedResp: &MetricsResponse{
-				Id:      (&model.PerformanceResultInfo{}).ID(),
-				Success: true,
-			},
-			checkRollups: true,
-		},
-		{
-			name: "TestAttachResultDataWithEmptyFields",
-			save: true,
-			resultData: &ResultData{
-				Id: &ResultID{},
-			},
-			attachedData: &ResultData{
-				Id: &ResultID{},
-			},
-			expectedResp: &MetricsResponse{
-				Id:      (&model.PerformanceResultInfo{}).ID(),
-				Success: true,
-			},
-		},
-		{
-			name:         "TestAttachResultDataInvalidData",
-			attachedData: &ResultData{},
-			err:          true,
-		},
-		{
-			name: "TestAttachResultDataDoesNotExist",
-			attachedData: &ResultData{
-				Id: &ResultID{},
-			},
-			err: true,
-		},
 		{
 			name: "TestAttachArtifacts",
 			save: true,
@@ -397,6 +348,14 @@ func TestAttachResultData(t *testing.T) {
 			name: "TestAttachArtifactsDoesNotExist",
 			attachedData: &ArtifactData{
 				Id: (&model.PerformanceResultInfo{}).ID(),
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamp.Timestamp{},
+					},
+				},
 			},
 			err: true,
 		},
@@ -433,11 +392,10 @@ func TestAttachResultData(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			port := getPort()
-			env := cedar.GetEnvironment()
 			defer func() {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
+			port := getPort()
 
 			require.NoError(t, startPerfService(ctx, env, port))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
@@ -450,8 +408,6 @@ func TestAttachResultData(t *testing.T) {
 
 			var resp *MetricsResponse
 			switch d := test.attachedData.(type) {
-			case *ResultData:
-				resp, err = client.AttachResultData(ctx, d)
 			case *ArtifactData:
 				resp, err = client.AttachArtifacts(ctx, d)
 			case *RollupData:

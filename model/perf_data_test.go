@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/stretchr/testify/suite"
@@ -350,5 +351,7 @@ func (s *perfRollupSuite) TestMergeRollups() {
 			}
 		}
 		s.Equal(2, count, "iter=%d", i)
+		s.True(time.Since(result.Rollups.ProcessedAt) <= time.Minute)
+		s.True(result.Rollups.Valid)
 	}
 }

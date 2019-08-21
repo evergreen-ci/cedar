@@ -97,7 +97,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
-	bucket, err := j.ArtifactInfo.Type.Create(j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "")
+	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "")
 	if err != nil {
 		err = errors.Wrap(err, "problem resolving bucket")
 		j.AddError(err)

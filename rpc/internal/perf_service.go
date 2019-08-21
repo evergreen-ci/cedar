@@ -10,17 +10,20 @@ import (
 	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 type perfService struct {
 	env cedar.Environment
 }
 
+// AttachPerfService attaches the perf service to the given gRPC server.
 func AttachPerfService(env cedar.Environment, s *grpc.Server) {
 	srv := &perfService{
 		env: env,
@@ -28,22 +31,23 @@ func AttachPerfService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarPerformanceMetricsServer(s, srv)
 }
 
+// CreateMetricSeries creates a new performance result record in the database.
 func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
 	if result.Id == nil {
-		return nil, errors.New("invalid data")
+		return nil, newRPCError(codes.InvalidArgument, errors.New("invalid data"))
 	}
 
 	record, err := result.Export()
 	if err != nil {
-		return nil, errors.Wrap(err, "problem exporting result")
+		return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem exporting result"))
 	}
 	record.Setup(srv.env)
 
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	if err := record.Save(); err != nil {
-		return resp, errors.Wrap(err, "problem saving record")
+	if err := record.SaveNew(ctx); err != nil {
+		return resp, newRPCError(codes.Internal, errors.Wrap(err, "problem saving record"))
 	}
 
 	if err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts); err != nil {
@@ -51,51 +55,19 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	}
 
 	resp.Success = true
-
 	return resp, nil
 }
 
-func (srv *perfService) AttachResultData(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
-	if result.Id == nil {
-		return nil, errors.New("invalid data")
-	}
-
-	record := &model.PerformanceResult{}
-	record.Setup(srv.env)
-	record.Info = result.Id.Export()
-	record.ID = record.Info.ID()
-
-	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for '%v'", result.Id)
-	}
-
-	resp := &MetricsResponse{}
-	resp.Id = record.ID
-
-	if err := srv.addArtifacts(ctx, record, result.Artifacts); err != nil {
-		return resp, err
-	}
-
-	record.Setup(srv.env)
-	if err := record.MergeRollups(ctx, ExportRollupValues(result.Rollups)); err != nil {
-		return nil, errors.Wrap(err, "problem attaching rollup data")
-	}
-
-	record.Setup(srv.env)
-	if err := record.Save(); err != nil {
-		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
-	}
-	resp.Success = true
-	return resp, nil
-}
-
+// AttachResultArtifacts attaches artifacts to an existing performance result.
 func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *ArtifactData) (*MetricsResponse, error) {
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = artifactData.Id
-
 	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for '%v'", artifactData.Id)
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding perf result record for '%s'", artifactData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -106,20 +78,24 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	}
 
 	record.Setup(srv.env)
-	if err := record.Save(); err != nil {
-		return resp, errors.Wrapf(err, "problem saving document '%s'", record.ID)
+	if err := record.AppendArtifacts(ctx, record.Artifacts); err != nil {
+		return resp, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending artifacts to perf result '%s'", record.ID))
 	}
+
 	resp.Success = true
 	return resp, nil
 }
 
+// AttachRollups attaches rollups to an existing performance result.
 func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupData) (*MetricsResponse, error) {
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = rollupData.Id
-
 	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for '%v'", rollupData.Id)
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding perf result record for '%s'", rollupData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -127,18 +103,14 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 
 	record.Setup(srv.env)
 	if err := record.MergeRollups(ctx, ExportRollupValues(rollupData.Rollups)); err != nil {
-		return nil, errors.Wrap(err, "problem attaching rollup data")
-	}
-
-	record.Setup(srv.env)
-	if err := record.Save(); err != nil {
-		return nil, errors.Wrapf(err, "problem saving document '%s'", record.ID)
+		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem attaching rollup data for perf result '%s'", record.ID))
 	}
 
 	resp.Success = true
 	return resp, nil
 }
 
+// SendMetrics streams time series data for a performance result.
 func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsServer) error {
 	// NOTE:
 	//   - will probably require leaving this connection open for
@@ -204,35 +176,37 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 	return catcher.Resolve()
 }
 
+// CloseLog "closes out" a performance result by setting the completed at
+// timestamp. This should be the last rcp call made on a performance result.
 func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd) (*MetricsResponse, error) {
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
-	record.ID = end.GetId()
+	record.ID = end.Id
 	if err := record.Find(); err != nil {
-		return nil, errors.Wrapf(err, "problem finding record for %s", record.ID)
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding perf result record for '%s'", end.Id))
 	}
-	record.Setup(srv.env)
 
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	if end.CompletedAt == nil {
-		record.CompletedAt = time.Now()
-	} else {
+	completedAt := time.Now()
+	if end.CompletedAt != nil {
 		ts, err := ptypes.Timestamp(end.CompletedAt)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem converting timestamp for completed at")
+			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem converting timestamp for completed at"))
 		}
-		record.CompletedAt = ts
+		completedAt = ts
 	}
 
 	record.Setup(srv.env)
-	if err := record.Save(); err != nil {
-		return nil, errors.Wrapf(err, "problem saving record %s", record.ID)
+	if err := record.Close(ctx, completedAt); err != nil {
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem closing perf result record '%s'", record.ID))
 	}
 
 	resp.Success = true
-
 	return resp, nil
 }
 
@@ -240,7 +214,7 @@ func (srv *perfService) addArtifacts(ctx context.Context, record *model.Performa
 	for _, a := range artifacts {
 		artifact, err := a.Export()
 		if err != nil {
-			return errors.Wrap(err, "problem exporting artifacts")
+			return newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem exporting artifacts"))
 		}
 
 		record.Artifacts = append(record.Artifacts, *artifact)
@@ -260,17 +234,17 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 
 		if hasEventData {
-			return errors.New("cannot have more than one raw events artifact")
+			return newRPCError(codes.InvalidArgument, errors.New("cannot have more than one raw events artifact"))
 		}
 		hasEventData = true
 
 		job, err := units.NewFTDCRollupsJob(id, &artifact, perf.DefaultRollupFactories(), false)
 		if err != nil {
-			return errors.WithStack(err)
+			return newRPCError(codes.InvalidArgument, errors.WithStack(err))
 		}
 
 		if err = q.Put(ctx, job); err != nil {
-			return errors.Wrap(err, "problem putting FTDC rollups job on the remote queue")
+			return newRPCError(codes.Internal, errors.Wrap(err, "problem putting FTDC rollups job on the remote queue"))
 		}
 	}
 

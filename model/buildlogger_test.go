@@ -34,7 +34,7 @@ func TestCreateLog(t *testing.T) {
 func TestBuildloggerFind(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
-	ctx, cancel := env.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
@@ -49,16 +49,16 @@ func TestBuildloggerFind(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		l := Log{ID: "DNE"}
 		l.Setup(env)
-		assert.Error(t, l.Find())
+		assert.Error(t, l.Find(ctx))
 	})
 	t.Run("NoEnv", func(t *testing.T) {
 		l := Log{ID: log1.ID}
-		assert.Error(t, l.Find())
+		assert.Error(t, l.Find(ctx))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		l := Log{ID: log1.ID}
 		l.Setup(env)
-		require.NoError(t, l.Find())
+		require.NoError(t, l.Find(ctx))
 		assert.Equal(t, log1.ID, l.ID)
 		assert.Equal(t, log1.Info, l.Info)
 		assert.Equal(t, log1.Artifact, l.Artifact)
@@ -67,7 +67,7 @@ func TestBuildloggerFind(t *testing.T) {
 	t.Run("WithoutID", func(t *testing.T) {
 		l := Log{Info: log2.Info}
 		l.Setup(env)
-		require.NoError(t, l.Find())
+		require.NoError(t, l.Find(ctx))
 		assert.Equal(t, log2.ID, l.ID)
 		assert.Equal(t, log2.Info, l.Info)
 		assert.Equal(t, log2.Artifact, l.Artifact)
@@ -79,7 +79,7 @@ func TestBuildloggerFind(t *testing.T) {
 func TestBuildloggerSaveNew(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
-	ctx, cancel := env.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
@@ -93,7 +93,7 @@ func TestBuildloggerSaveNew(t *testing.T) {
 			Artifact:  log1.Artifact,
 			populated: true,
 		}
-		assert.Error(t, l.SaveNew())
+		assert.Error(t, l.SaveNew(ctx))
 	})
 	t.Run("Unpopulated", func(t *testing.T) {
 		l := Log{
@@ -103,7 +103,7 @@ func TestBuildloggerSaveNew(t *testing.T) {
 			populated: false,
 		}
 		l.Setup(env)
-		assert.Error(t, l.SaveNew())
+		assert.Error(t, l.SaveNew(ctx))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		savedLog := &Log{}
@@ -116,7 +116,7 @@ func TestBuildloggerSaveNew(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		require.NoError(t, l.SaveNew())
+		require.NoError(t, l.SaveNew(ctx))
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(savedLog))
 		assert.Equal(t, log1.ID, savedLog.ID)
 		assert.Equal(t, log1.Info, savedLog.Info)
@@ -132,7 +132,7 @@ func TestBuildloggerSaveNew(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		require.NoError(t, l.SaveNew())
+		require.NoError(t, l.SaveNew(ctx))
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
 		assert.Equal(t, log2.ID, savedLog.ID)
 		assert.Equal(t, log2.Info, savedLog.Info)
@@ -147,14 +147,14 @@ func TestBuildloggerSaveNew(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		require.Error(t, l.SaveNew())
+		require.Error(t, l.SaveNew(ctx))
 	})
 }
 
 func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
-	ctx, cancel := env.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
@@ -168,7 +168,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := &Log{ID: log1.ID}
-		assert.Error(t, l.appendLogChunkInfo(LogChunkInfo{
+		assert.Error(t, l.appendLogChunkInfo(ctx, LogChunkInfo{
 			Key:      "key",
 			NumLines: 100,
 		}))
@@ -176,7 +176,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		l := &Log{ID: "DNE"}
 		l.Setup(env)
-		assert.Error(t, l.appendLogChunkInfo(LogChunkInfo{
+		assert.Error(t, l.appendLogChunkInfo(ctx, LogChunkInfo{
 			Key:      "key",
 			NumLines: 100,
 		}))
@@ -199,7 +199,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		l := &Log{ID: log1.ID}
 		l.Setup(env)
 
-		require.NoError(t, l.appendLogChunkInfo(chunks[0]))
+		require.NoError(t, l.appendLogChunkInfo(ctx, chunks[0]))
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
 		assert.Equal(t, log1.ID, updatedLog.ID)
@@ -209,7 +209,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		assert.Equal(t, chunks[:1], updatedLog.Artifact.Chunks)
 
 		l.Setup(env)
-		require.NoError(t, l.appendLogChunkInfo(chunks[1]))
+		require.NoError(t, l.appendLogChunkInfo(ctx, chunks[1]))
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
 		assert.Equal(t, log1.ID, updatedLog.ID)
 		assert.Equal(t, log1.Info, updatedLog.Info)
@@ -225,7 +225,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 		l := &Log{ID: log2.ID}
 		l.Setup(env)
 
-		require.NoError(t, l.appendLogChunkInfo(chunk))
+		require.NoError(t, l.appendLogChunkInfo(ctx, chunk))
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(updatedLog))
 		assert.Equal(t, log2.ID, updatedLog.ID)
@@ -240,7 +240,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 func TestBuildloggerRemove(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
-	ctx, cancel := env.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
@@ -255,20 +255,20 @@ func TestBuildloggerRemove(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		l := Log{ID: "DNE"}
 		l.Setup(env)
-		require.NoError(t, l.Remove())
+		require.NoError(t, l.Remove(ctx))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		l := Log{ID: log1.ID}
 		l.Setup(env)
-		require.NoError(t, l.Remove())
+		require.NoError(t, l.Remove(ctx))
 
 		savedLog := &Log{}
 		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(savedLog))
 	})
 	t.Run("WithoutID", func(t *testing.T) {
-		l := Log{ID: log2.ID}
+		l := Log{Info: log2.Info}
 		l.Setup(env)
-		require.NoError(t, l.Remove())
+		require.NoError(t, l.Remove(ctx))
 
 		savedLog := &Log{}
 		require.Error(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(savedLog))
@@ -278,7 +278,7 @@ func TestBuildloggerRemove(t *testing.T) {
 func TestBuildloggerAppend(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
-	ctx, cancel := env.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	tmpDir, err := ioutil.TempDir(".", "append-test")
 	require.NoError(t, err)
@@ -324,30 +324,25 @@ func TestBuildloggerAppend(t *testing.T) {
 	}
 
 	t.Run("NoEnv", func(t *testing.T) {
-		l := Log{populated: true}
-		assert.Error(t, l.Append(chunk1))
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		l := Log{}
-		l.Setup(env)
-		assert.Error(t, l.Append(chunk1))
+		l := Log{ID: log.ID}
+		assert.Error(t, l.Append(ctx, chunk1))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		log.Setup(env)
-		assert.Error(t, log.Append(chunk1))
+		assert.Error(t, log.Append(ctx, chunk1))
 	})
 	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log)
 	require.NoError(t, err)
 	t.Run("NoConfig", func(t *testing.T) {
 		log.Setup(env)
-		assert.Error(t, log.Append(chunk1))
+		assert.Error(t, log.Append(ctx, chunk1))
 	})
 	conf := &CedarConfig{populated: true}
 	conf.Setup(env)
 	require.NoError(t, conf.Save())
 	t.Run("ConfigWithoutBucket", func(t *testing.T) {
 		log.Setup(env)
-		assert.Error(t, log.Append(chunk1))
+		assert.Error(t, log.Append(ctx, chunk1))
 	})
 	conf.Setup(env)
 	require.NoError(t, conf.Find())
@@ -355,8 +350,8 @@ func TestBuildloggerAppend(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("AppendToBucketAndDB", func(t *testing.T) {
 		log.Setup(env)
-		require.NoError(t, log.Append(chunk1))
-		require.NoError(t, log.Append(chunk2))
+		require.NoError(t, log.Append(ctx, chunk1))
+		require.NoError(t, log.Append(ctx, chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
 			expectedData = append(expectedData, []byte(prependTimestamp(line.Timestamp, line.Data))...)
@@ -398,7 +393,7 @@ func TestBuildloggerAppend(t *testing.T) {
 func TestBuildloggerDownload(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
-	ctx, cancel := env.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
@@ -421,16 +416,9 @@ func TestBuildloggerDownload(t *testing.T) {
 			ID:        log1.ID,
 			populated: true,
 		}
-		it, err := l.Download(timeRange)
+		it, err := l.Download(ctx, timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		l := Log{ID: log1.ID}
-		l.Setup(env)
-		it, err := l.Download(timeRange)
-		assert.Nil(t, it)
-		assert.Error(t, err)
 	})
 	t.Run("NoConfig", func(t *testing.T) {
 		l := Log{
@@ -438,7 +426,7 @@ func TestBuildloggerDownload(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		it, err := l.Download(timeRange)
+		it, err := l.Download(ctx, timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
@@ -454,18 +442,19 @@ func TestBuildloggerDownload(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		it, err := l.Download(timeRange)
+		it, err := l.Download(ctx, timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
 	t.Run("WithID", func(t *testing.T) {
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download(timeRange)
+		it, err := log2.Download(ctx, timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
 		expectedBucket, err := log2.Artifact.Type.Create(
+			ctx,
 			log2.env,
 			conf.Bucket.BuildLogsBucket,
 			log2.Artifact.Prefix,
@@ -484,11 +473,12 @@ func TestBuildloggerDownload(t *testing.T) {
 		log2.ID = ""
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download(timeRange)
+		it, err := log2.Download(ctx, timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
 		expectedBucket, err := log2.Artifact.Type.Create(
+			ctx,
 			log2.env,
 			conf.Bucket.BuildLogsBucket,
 			log2.Artifact.Prefix,
@@ -584,7 +574,7 @@ func TestBuildloggerMerge(t *testing.T) {
 	})
 }
 
-func TestBuildloggerCloseLog(t *testing.T) {
+func TestBuildloggerClose(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
 	ctx, cancel := env.Context()
@@ -601,17 +591,12 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := &Log{ID: log1.ID, populated: true}
-		assert.Error(t, l.CloseLog(time.Now(), 0))
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		l := &Log{ID: log2.ID}
-		l.Setup(env)
-		assert.Error(t, l.CloseLog(time.Now(), 0))
+		assert.Error(t, l.Close(ctx, time.Now(), 0))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		l := &Log{ID: "DNE"}
 		l.Setup(env)
-		assert.Error(t, l.CloseLog(time.Now(), 0))
+		assert.Error(t, l.Close(ctx, time.Now(), 0))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		t1 := time.Now().Add(-15 * time.Minute)
@@ -619,7 +604,7 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 		l1 := &Log{ID: log1.ID, populated: true}
 		l1.Setup(env)
-		require.NoError(t, l1.CloseLog(t1, e1))
+		require.NoError(t, l1.Close(ctx, t1, e1))
 
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log1.ID}).Decode(updatedLog))
@@ -638,7 +623,7 @@ func TestBuildloggerCloseLog(t *testing.T) {
 
 		l2 := &Log{Info: log2.Info, populated: true}
 		l2.Setup(env)
-		require.NoError(t, l2.CloseLog(t2, e2))
+		require.NoError(t, l2.Close(ctx, t2, e2))
 
 		updatedLog := &Log{}
 		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": log2.ID}).Decode(updatedLog))

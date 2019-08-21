@@ -94,14 +94,14 @@ func TestCreateLog(t *testing.T) {
 
 				log := &model.Log{ID: info.ID()}
 				log.Setup(env)
-				assert.Error(t, log.Find())
+				assert.Error(t, log.Find(ctx))
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, info.ID(), resp.LogId)
 
 				log := &model.Log{ID: resp.LogId}
 				log.Setup(env)
-				require.NoError(t, log.Find())
+				require.NoError(t, log.Find(ctx))
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
 				assert.True(t, test.ts.Sub(log.CreatedAt) <= time.Second)
@@ -129,7 +129,7 @@ func TestAppendLogLines(t *testing.T) {
 
 	log := model.CreateLog(model.LogInfo{Project: "test"}, model.PailLocal)
 	log.Setup(env)
-	require.NoError(t, log.SaveNew())
+	require.NoError(t, log.SaveNew(ctx))
 
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
 		Path:   tempDir,
@@ -280,7 +280,7 @@ func TestAppendLogLines(t *testing.T) {
 
 				l := &model.Log{ID: resp.LogId}
 				l.Setup(env)
-				require.NoError(t, l.Find())
+				require.NoError(t, l.Find(ctx))
 				assert.Equal(t, log.ID, log.Info.ID())
 				assert.Len(t, l.Artifact.Chunks, 1)
 				_, err := bucket.Get(ctx, l.Artifact.Chunks[0].Key)
@@ -309,10 +309,10 @@ func TestStreamLogLines(t *testing.T) {
 
 	log := model.CreateLog(model.LogInfo{Project: "test"}, model.PailLocal)
 	log.Setup(env)
-	require.NoError(t, log.SaveNew())
+	require.NoError(t, log.SaveNew(ctx))
 	log2 := model.CreateLog(model.LogInfo{Project: "test2"}, model.PailLocal)
 	log2.Setup(env)
-	require.NoError(t, log2.SaveNew())
+	require.NoError(t, log2.SaveNew(ctx))
 
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
 		Path:   tempDir,
@@ -505,7 +505,7 @@ func TestStreamLogLines(t *testing.T) {
 
 				l := &model.Log{ID: resp.LogId}
 				l.Setup(env)
-				require.NoError(t, l.Find())
+				require.NoError(t, l.Find(ctx))
 				assert.Equal(t, log.ID, log.Info.ID())
 				assert.Len(t, l.Artifact.Chunks, len(test.lines))
 				for _, chunk := range l.Artifact.Chunks {
@@ -528,7 +528,7 @@ func TestCloseLog(t *testing.T) {
 
 	log := model.CreateLog(model.LogInfo{Project: "test"}, model.PailLocal)
 	log.Setup(env)
-	require.NoError(t, log.SaveNew())
+	require.NoError(t, log.SaveNew(ctx))
 
 	for _, test := range []struct {
 		name   string
@@ -592,7 +592,7 @@ func TestCloseLog(t *testing.T) {
 
 				l := &model.Log{ID: resp.LogId}
 				l.Setup(env)
-				require.NoError(t, l.Find())
+				require.NoError(t, l.Find(ctx))
 				assert.Equal(t, log.ID, l.Info.ID())
 				assert.Equal(t, log.Artifact, l.Artifact)
 				assert.Equal(t, int(test.info.ExitCode), l.Info.ExitCode)

@@ -67,12 +67,10 @@ func (l *Log) Setup(e cedar.Environment) { l.env = e }
 func (l *Log) IsNil() bool { return !l.populated }
 
 // Find searches the database for the log. The enviromemt should not be nil.
-func (l *Log) Find() error {
+func (l *Log) Find(ctx context.Context) error {
 	if l.env == nil {
 		return errors.New("cannot find with a nil environment")
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -90,18 +88,16 @@ func (l *Log) Find() error {
 	return nil
 }
 
-// SaveNewLog saves a new log to the database, if a log with the same ID
-// already exists an error is returned. The log should be populated and the
-// environment should not be nil.
-func (l *Log) SaveNew() error {
+// SaveNew saves a new log to the database, if a log with the same ID already
+// exists an error is returned. The log should be populated and the environment
+// should not be nil.
+func (l *Log) SaveNew(ctx context.Context) error {
 	if !l.populated {
 		return errors.New("cannot save unpopulated log")
 	}
 	if l.env == nil {
 		return errors.New("cannot save with a nil environment")
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -119,12 +115,10 @@ func (l *Log) SaveNew() error {
 }
 
 // Remove removes the log from the database. The environment should not be nil.
-func (l *Log) Remove() error {
+func (l *Log) Remove(ctx context.Context) error {
 	if l.env == nil {
 		return errors.New("cannot remove a log with a nil environment")
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -143,12 +137,8 @@ func (l *Log) Remove() error {
 
 // Append uploads a chunk of log lines to the offline blob storage bucket
 // configured for the log and updates the metadata in the database to reflect
-// the uploaded lines. The log should be populated and the environment should
-// not be nil.
-func (l *Log) Append(lines []LogLine) error {
-	if !l.populated {
-		return errors.New("cannot append log lines when log unpopulated")
-	}
+// the uploaded lines. The environment should not be nil.
+func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	if l.env == nil {
 		return errors.New("cannot not append log lines with a nil environment")
 	}
@@ -160,8 +150,6 @@ func (l *Log) Append(lines []LogLine) error {
 		})
 		return nil
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 	key := fmt.Sprint(util.UnixMilli(time.Now()))
 
 	linesCombined := ""
@@ -174,7 +162,13 @@ func (l *Log) Append(lines []LogLine) error {
 	if err := conf.Find(); err != nil {
 		return errors.Wrap(err, "problem getting application configuration")
 	}
-	bucket, err := l.Artifact.Type.Create(l.env, conf.Bucket.BuildLogsBucket, l.Artifact.Prefix, string(pail.S3PermissionsPrivate))
+	bucket, err := l.Artifact.Type.Create(
+		ctx,
+		l.env,
+		conf.Bucket.BuildLogsBucket,
+		l.Artifact.Prefix,
+		string(pail.S3PermissionsPrivate),
+	)
 	if err != nil {
 		return errors.Wrap(err, "problem creating bucket")
 	}
@@ -188,17 +182,15 @@ func (l *Log) Append(lines []LogLine) error {
 		Start:    lines[0].Timestamp,
 		End:      lines[len(lines)-1].Timestamp,
 	}
-	return errors.Wrap(l.appendLogChunkInfo(info), "problem updating log metadata during upload")
+	return errors.Wrap(l.appendLogChunkInfo(ctx, info), "problem updating log metadata during upload")
 }
 
 // appendLogChunkInfo adds a new log chunk to the log's chunks array in the
 // database. The environment should not be nil.
-func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
+func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) error {
 	if l.env == nil {
 		return errors.New("cannot append to a log with a nil environment")
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -227,17 +219,12 @@ func (l *Log) appendLogChunkInfo(logChunk LogChunkInfo) error {
 	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
 }
 
-// CloseLog "closes out" the log by populating the completed_at and
-// info.exit_code fields. It should be the last call made on a buildlogger log.
-func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
-	if !l.populated {
-		return errors.New("cannot close log when log unpopulated")
-	}
+// Close "closes out" the log by populating the completed_at and info.exit_code
+// fields. The environment should not be nil.
+func (l *Log) Close(ctx context.Context, completedAt time.Time, exitCode int) error {
 	if l.env == nil {
 		return errors.New("cannot close log with a nil environment")
 	}
-	ctx, cancel := l.env.Context()
-	defer cancel()
 
 	if l.ID == "" {
 		l.ID = l.Info.ID()
@@ -270,11 +257,8 @@ func (l *Log) CloseLog(completedAt time.Time, exitCode int) error {
 }
 
 // Download returns a LogIterator which iterates lines of the given log. The
-// log should be populated and the environment should not be nil.
-func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
-	if !l.populated {
-		return nil, errors.New("cannot downdload log when log unpopulated")
-	}
+// environment should not be nil.
+func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterator, error) {
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")
 	}
@@ -290,6 +274,7 @@ func (l *Log) Download(timeRange util.TimeRange) (LogIterator, error) {
 	}
 
 	bucket, err := l.Artifact.Type.Create(
+		ctx,
 		l.env,
 		conf.Bucket.BuildLogsBucket,
 		l.Artifact.Prefix,

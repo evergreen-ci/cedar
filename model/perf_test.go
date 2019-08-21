@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,30 +9,420 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type perfResultSuite struct {
+func TestPerfFind(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, result2 := getTestPerformanceResults()
+	result1.Rollups.id = result1.ID
+	result2.Rollups.id = result2.ID
+
+	_, err := db.Collection(perfResultCollection).InsertOne(ctx, result1)
+	require.NoError(t, err)
+	_, err = db.Collection(perfResultCollection).InsertOne(ctx, result2)
+	require.NoError(t, err)
+
+	t.Run("DNE", func(t *testing.T) {
+		r := PerformanceResult{ID: "DNE"}
+		r.Setup(env)
+		assert.Error(t, r.Find())
+	})
+	t.Run("NoEnv", func(t *testing.T) {
+		r := PerformanceResult{ID: result1.ID}
+		assert.Error(t, r.Find())
+	})
+	t.Run("WithID", func(t *testing.T) {
+		r := PerformanceResult{ID: result1.ID}
+		r.Setup(env)
+		require.NoError(t, r.Find())
+		assert.Equal(t, result1.ID, r.ID)
+		assert.Equal(t, result1.Info, r.Info)
+		assert.Equal(t, result1.Artifacts, r.Artifacts)
+		assert.Equal(t, result1.Rollups, r.Rollups)
+		assert.True(t, r.populated)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		r := PerformanceResult{Info: result2.Info}
+		r.Setup(env)
+		require.NoError(t, r.Find())
+		assert.Equal(t, result2.ID, r.ID)
+		assert.Equal(t, result2.Info, r.Info)
+		assert.Equal(t, result2.Artifacts, r.Artifacts)
+		assert.Equal(t, result2.Rollups, r.Rollups)
+		assert.True(t, r.populated)
+	})
+}
+
+func TestPerfSaveNew(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, result2 := getTestPerformanceResults()
+
+	t.Run("NoEnv", func(t *testing.T) {
+		r := PerformanceResult{
+			ID:        result1.ID,
+			Info:      result1.Info,
+			Artifacts: result1.Artifacts,
+			Rollups:   result1.Rollups,
+			populated: true,
+		}
+		assert.Error(t, r.SaveNew(ctx))
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		r := PerformanceResult{
+			ID:        result1.ID,
+			Info:      result1.Info,
+			Artifacts: result1.Artifacts,
+			Rollups:   result1.Rollups,
+			populated: false,
+		}
+		r.Setup(env)
+		assert.Error(t, r.SaveNew(ctx))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		savedResult := &PerformanceResult{}
+		require.Error(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+
+		r := PerformanceResult{
+			ID:        result1.ID,
+			Info:      result1.Info,
+			Artifacts: result1.Artifacts,
+			Rollups:   result1.Rollups,
+			populated: true,
+		}
+		r.Setup(env)
+		require.NoError(t, r.SaveNew(ctx))
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+		assert.Equal(t, result1.ID, savedResult.ID)
+		assert.Equal(t, result1.Info, savedResult.Info)
+		assert.Equal(t, result1.Artifacts, savedResult.Artifacts)
+		assert.Equal(t, result1.Rollups, savedResult.Rollups)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		savedResult := &PerformanceResult{}
+		require.Error(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result2.ID}).Decode(savedResult))
+
+		r := PerformanceResult{
+			Info:      result2.Info,
+			Artifacts: result2.Artifacts,
+			Rollups:   result2.Rollups,
+			populated: true,
+		}
+		r.Setup(env)
+		require.NoError(t, r.SaveNew(ctx))
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result2.ID}).Decode(savedResult))
+		assert.Equal(t, result2.ID, savedResult.ID)
+		assert.Equal(t, result2.Info, savedResult.Info)
+		assert.Equal(t, result2.Artifacts, savedResult.Artifacts)
+		assert.Equal(t, result2.Rollups, savedResult.Rollups)
+	})
+	t.Run("AlreadyExists", func(t *testing.T) {
+		_, err := db.Collection(perfResultCollection).ReplaceOne(ctx, bson.M{"_id": result2.ID}, result2, options.Replace().SetUpsert(true))
+		require.NoError(t, err)
+
+		r := PerformanceResult{
+			ID:        result2.ID,
+			populated: true,
+		}
+		r.Setup(env)
+		require.Error(t, r.SaveNew(ctx))
+	})
+}
+
+func TestPerfRemove(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, result2 := getTestPerformanceResults()
+
+	_, err := db.Collection(perfResultCollection).InsertOne(ctx, result1)
+	require.NoError(t, err)
+	_, err = db.Collection(perfResultCollection).InsertOne(ctx, result2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		r := PerformanceResult{ID: result1.ID}
+		n, err := r.Remove()
+		assert.Equal(t, -1, n)
+		assert.Error(t, err)
+
+		savedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+	})
+	t.Run("DNE", func(t *testing.T) {
+		r := PerformanceResult{ID: "DNE"}
+		r.Setup(env)
+		n, err := r.Remove()
+		assert.Zero(t, n)
+		require.NoError(t, err)
+	})
+	t.Run("WithID", func(t *testing.T) {
+		r := PerformanceResult{ID: result1.ID}
+		r.Setup(env)
+		n, err := r.Remove()
+		assert.Equal(t, 1, n)
+		require.NoError(t, err)
+
+		savedResult := &PerformanceResult{}
+		require.Error(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		r := PerformanceResult{Info: result2.Info}
+		r.Setup(env)
+		n, err := r.Remove()
+		assert.Equal(t, 1, n)
+		require.NoError(t, err)
+
+		savedResult := &PerformanceResult{}
+		require.Error(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result2.ID}).Decode(savedResult))
+	})
+}
+
+func TestPerfAppendArtifacts(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, result2 := getTestPerformanceResults()
+
+	_, err := db.Collection(perfResultCollection).InsertOne(ctx, result1)
+	require.NoError(t, err)
+	_, err = db.Collection(perfResultCollection).InsertOne(ctx, result2)
+	require.NoError(t, err)
+
+	artifacts := []ArtifactInfo{
+		{
+			Type:        PailS3,
+			Bucket:      "bucket",
+			Prefix:      "prefix",
+			Path:        "path/path",
+			Format:      FileFTDC,
+			Compression: FileUncompressed,
+			Schema:      SchemaRawEvents,
+			Tags:        []string{"tag1", "tag2"},
+			CreatedAt:   time.Now().UTC().Truncate(time.Millisecond),
+		},
+		{
+			Type:        PailLocal,
+			Bucket:      "local_bucket",
+			Prefix:      "local_prefix",
+			Path:        "local_path",
+			Format:      FileBSON,
+			Compression: FileGz,
+			Schema:      SchemaHistogram,
+			Tags:        []string{"tag1", "tag2"},
+			CreatedAt:   time.Now().Add(-24 * time.Hour).UTC().Truncate(time.Millisecond),
+		},
+	}
+
+	t.Run("NoEnv", func(t *testing.T) {
+		result := PerformanceResult{ID: result1.ID}
+		assert.Error(t, result.AppendArtifacts(ctx, artifacts))
+
+		savedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+		assert.NotEqual(t, append(result1.Artifacts, artifacts...), savedResult.Artifacts)
+	})
+	t.Run("DNE", func(t *testing.T) {
+		result := PerformanceResult{ID: "DNE"}
+		assert.Error(t, result.AppendArtifacts(ctx, artifacts))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		result := PerformanceResult{ID: result1.ID}
+		result.Setup(env)
+		assert.NoError(t, result.AppendArtifacts(ctx, artifacts))
+
+		savedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+		assert.Equal(t, result1.ID, savedResult.ID)
+		assert.Equal(t, result1.Info, savedResult.Info)
+		assert.Equal(t, append(result1.Artifacts, artifacts...), savedResult.Artifacts)
+		assert.Equal(t, result1.Rollups, savedResult.Rollups)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		result := PerformanceResult{ID: result2.ID}
+		result.Setup(env)
+		assert.NoError(t, result.AppendArtifacts(ctx, artifacts))
+
+		savedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result2.ID}).Decode(savedResult))
+		assert.Equal(t, result2.ID, savedResult.ID)
+		assert.Equal(t, result2.Info, savedResult.Info)
+		assert.Equal(t, append(result2.Artifacts, artifacts...), savedResult.Artifacts)
+		assert.Equal(t, result2.Rollups, savedResult.Rollups)
+	})
+}
+
+func TestPerfClose(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, result2 := getTestPerformanceResults()
+
+	_, err := db.Collection(perfResultCollection).InsertOne(ctx, result1)
+	require.NoError(t, err)
+	_, err = db.Collection(perfResultCollection).InsertOne(ctx, result2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		ts := time.Now().UTC().Truncate(time.Millisecond)
+		r := &PerformanceResult{ID: result1.ID}
+		assert.Error(t, r.Close(ctx, ts))
+
+		savedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+		assert.NotEqual(t, ts, savedResult.CompletedAt)
+	})
+	t.Run("DNE", func(t *testing.T) {
+		r := &PerformanceResult{ID: "DNE"}
+		r.Setup(env)
+		assert.Error(t, r.Close(ctx, time.Now()))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		ts := time.Now().Add(-15 * time.Minute).UTC().Truncate(time.Millisecond)
+		r := &PerformanceResult{ID: result1.ID}
+		r.Setup(env)
+		require.NoError(t, r.Close(ctx, ts))
+
+		updatedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(updatedResult))
+		assert.Equal(t, result1.ID, updatedResult.ID)
+		assert.Equal(t, result1.Info, updatedResult.Info)
+		assert.Equal(t, result1.CreatedAt, updatedResult.CreatedAt)
+		assert.Equal(t, ts, updatedResult.CompletedAt)
+		assert.Equal(t, result1.Artifacts, updatedResult.Artifacts)
+		assert.Equal(t, result1.Rollups, updatedResult.Rollups)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		ts := time.Now().UTC().Truncate(time.Millisecond)
+		r := &PerformanceResult{Info: result2.Info}
+		r.Setup(env)
+		require.NoError(t, r.Close(ctx, ts))
+
+		updatedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result2.ID}).Decode(updatedResult))
+		assert.Equal(t, result2.ID, updatedResult.ID)
+		assert.Equal(t, result2.Info, updatedResult.Info)
+		assert.Equal(t, result2.CreatedAt, updatedResult.CreatedAt)
+		assert.Equal(t, ts, updatedResult.CompletedAt)
+		assert.Equal(t, result2.Artifacts, updatedResult.Artifacts)
+		assert.Equal(t, result2.Rollups, updatedResult.Rollups)
+	})
+}
+
+func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
+	result1 := &PerformanceResult{
+		Info: PerformanceResultInfo{
+			Project:   "project1",
+			Version:   "version1",
+			Order:     500,
+			Variant:   "variant1",
+			TaskName:  "task_name1",
+			TaskID:    "task_id1",
+			Execution: 1,
+			TestName:  "test_name1",
+			Trial:     1,
+			Parent:    "parent",
+			Tags:      []string{"tag1", "tag2", "tag3"},
+			Arguments: map[string]int32{"threads": 64},
+			Mainline:  true,
+		},
+		CreatedAt:   time.Now().Add(-24 * time.Hour).UTC().Truncate(time.Millisecond),
+		CompletedAt: time.Now().Add(-23 * time.Hour).UTC().Truncate(time.Millisecond),
+		Artifacts: []ArtifactInfo{
+			{
+				Type:        PailLocal,
+				Bucket:      "bucket",
+				Prefix:      "prefix",
+				Path:        "path",
+				Format:      FileFTDC,
+				Compression: FileGz,
+				Schema:      SchemaRawEvents,
+				Tags:        []string{"artifacttag1", "artifacttag2"},
+				CreatedAt:   time.Now().UTC().Truncate(time.Millisecond),
+			},
+		},
+		Rollups: PerfRollups{
+			Stats: []PerfRollupValue{
+				{
+					Name:          "latency",
+					Value:         int32(1),
+					Version:       1,
+					MetricType:    MetricTypeLatency,
+					UserSubmitted: true,
+					Valid:         true,
+				},
+				{
+					Name:       "mean",
+					Value:      10.7,
+					Version:    3,
+					MetricType: MetricTypeMean,
+				},
+			},
+			ProcessedAt: time.Now().Add(-24 * time.Hour).UTC().Truncate(time.Millisecond),
+			Valid:       true,
+		},
+	}
+	result1.ID = result1.Info.ID()
+	result2 := &PerformanceResult{
+		Info: PerformanceResultInfo{
+			Project:  "project",
+			TestName: "test2",
+		},
+		CreatedAt:   time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Millisecond),
+		CompletedAt: time.Now().Add(-time.Hour).UTC().Truncate(time.Millisecond),
+		Artifacts:   []ArtifactInfo{},
+		Rollups:     PerfRollups{Stats: []PerfRollupValue{}},
+	}
+	result2.ID = result2.Info.ID()
+
+	return result1, result2
+}
+
+type perfResultsSuite struct {
 	r *PerformanceResults
 	suite.Suite
 }
 
-func TestPerfResultSuite(t *testing.T) {
-	suite.Run(t, new(perfResultSuite))
+func TestPerformanceResultsSuite(t *testing.T) {
+	suite.Run(t, new(perfResultsSuite))
 }
 
 func getTimeForTestingByDate(day int) time.Time {
 	return time.Date(2018, 10, day, 0, 0, 0, 0, time.Local)
 }
 
-func (s *perfResultSuite) SetupTest() {
+func (s *perfResultsSuite) SetupTest() {
 	env := cedar.GetEnvironment()
-
-	// ctx, cancel := env.Context()
-	// defer cancel()
-	// db, err := env.GetDB()
-	// s.Require().NoError(err)
-	// s.Require().NoError(db.Collection(perfResultCollection).Drop(ctx))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	s.r = new(PerformanceResults)
 	s.r.Setup(env)
@@ -54,7 +445,7 @@ func (s *perfResultSuite) SetupTest() {
 	result.CreatedAt = getTimeForTestingByDate(15)
 	result.Version = 1
 	s.True(result.CompletedAt.IsZero())
-	s.NoError(result.Save())
+	s.NoError(result.SaveNew(ctx))
 
 	info = PerformanceResultInfo{
 		Parent:   "234",
@@ -70,7 +461,7 @@ func (s *perfResultSuite) SetupTest() {
 	result2.CreatedAt = getTimeForTestingByDate(16)
 	result2.CompletedAt = getTimeForTestingByDate(18)
 	result2.Version = 2
-	s.NoError(result2.Save())
+	s.NoError(result2.SaveNew(ctx))
 
 	info = PerformanceResultInfo{
 		Version:  "1",
@@ -80,11 +471,10 @@ func (s *perfResultSuite) SetupTest() {
 	}
 	result3 := CreatePerformanceResult(info, source, nil)
 	result3.Setup(cedar.GetEnvironment())
-	s.NoError(result3.Save())
-
+	s.NoError(result3.SaveNew(ctx))
 }
 
-func (s *perfResultSuite) TearDownTest() {
+func (s *perfResultsSuite) TearDownTest() {
 	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
 	s.Require().NoError(err)
 	defer session.Close()
@@ -93,45 +483,7 @@ func (s *perfResultSuite) TearDownTest() {
 	s.Require().NoError(err)
 }
 
-func (s *perfResultSuite) TestSavePerfResult() {
-	info := PerformanceResultInfo{Parent: "345"}
-	source := []ArtifactInfo{}
-	result := CreatePerformanceResult(info, source, nil)
-	result.Setup(cedar.GetEnvironment())
-	result.CreatedAt = getTimeForTestingByDate(12)
-	s.NoError(result.Save())
-	s.NoError(result.Find())
-}
-
-func (s *perfResultSuite) TestRemovePerfResult() {
-	// save result
-	info := PerformanceResultInfo{Parent: "345"}
-	source := []ArtifactInfo{}
-	result := CreatePerformanceResult(info, source, nil)
-	result.Setup(cedar.GetEnvironment())
-	result.CreatedAt = getTimeForTestingByDate(12)
-	s.NoError(result.Save())
-	s.NoError(result.Find())
-
-	// remove
-	result.Setup(cedar.GetEnvironment())
-	numRemoved, err := result.Remove()
-	s.NoError(err)
-	s.Equal(1, numRemoved)
-
-	// check if exists
-	s.Error(result.Find())
-
-	// remove again should not return error
-	result = CreatePerformanceResult(info, source, nil)
-	result.Setup(cedar.GetEnvironment())
-	result.CreatedAt = getTimeForTestingByDate(12)
-	numRemoved, err = result.Remove()
-	s.NoError(err)
-	s.Equal(0, numRemoved)
-}
-
-func (s *perfResultSuite) TestFindResultsByTimeInterval() {
+func (s *perfResultsSuite) TestFindResultsByTimeInterval() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*48),
@@ -159,7 +511,7 @@ func (s *perfResultSuite) TestFindResultsByTimeInterval() {
 	s.Error(s.r.Find(options))
 }
 
-func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
+func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*72),
@@ -191,7 +543,7 @@ func (s *perfResultSuite) TestFindResultsWithOptionsInfo() {
 	s.Equal(s.r.Results[0].Info.Version, "1")
 }
 
-func (s *perfResultSuite) TestFindResultsWithSortAndLimit() {
+func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 	options := PerfFindOptions{
 		Interval: util.TimeRange{
 			StartAt: time.Time{},
@@ -222,7 +574,10 @@ func (s *perfResultSuite) TestFindResultsWithSortAndLimit() {
 	}
 }
 
-func (s *perfResultSuite) TestSearchResultsWithParent() {
+func (s *perfResultsSuite) TestSearchResultsWithParent() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// nodeA -> nodeB and nodeC, nodeB -> nodeD
 	s.r = new(PerformanceResults)
 	s.r.Setup(cedar.GetEnvironment())
@@ -232,7 +587,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	nodeA := CreatePerformanceResult(info, source, nil)
 	nodeA.Setup(cedar.GetEnvironment())
 	nodeA.CreatedAt = getTimeForTestingByDate(15)
-	s.NoError(nodeA.Save())
+	s.NoError(nodeA.SaveNew(ctx))
 
 	info = PerformanceResultInfo{
 		Parent: nodeA.ID,
@@ -241,13 +596,13 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	nodeB := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeB.Setup(cedar.GetEnvironment())
 	nodeB.CreatedAt = getTimeForTestingByDate(16)
-	s.NoError(nodeB.Save())
+	s.NoError(nodeB.SaveNew(ctx))
 
 	info.Version = "C"
 	nodeC := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeC.Setup(cedar.GetEnvironment())
 	nodeC.CreatedAt = getTimeForTestingByDate(16)
-	s.NoError(nodeC.Save())
+	s.NoError(nodeC.SaveNew(ctx))
 
 	info = PerformanceResultInfo{
 		Parent: nodeB.ID,
@@ -256,7 +611,7 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	nodeD := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeD.Setup(cedar.GetEnvironment())
 	nodeD.CreatedAt = getTimeForTestingByDate(17)
-	s.NoError(nodeD.Save())
+	s.NoError(nodeD.SaveNew(ctx))
 
 	// Without $graphLookup
 	options := PerfFindOptions{
@@ -386,7 +741,10 @@ func (s *perfResultSuite) TestSearchResultsWithParent() {
 	s.Len(s.r.Results, 0)
 }
 
-func (s *perfResultSuite) TestFindOutdated() {
+func (s *perfResultsSuite) TestFindOutdated() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.TearDownTest()
 	s.r = new(PerformanceResults)
 	s.r.Setup(cedar.GetEnvironment())
@@ -404,7 +762,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 	result := CreatePerformanceResult(noFTDCData, source[1:], nil)
 	result.CreatedAt = time.Now()
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.Save())
+	s.Require().NoError(result.SaveNew(ctx))
 
 	correctVersionValid := PerformanceResultInfo{Project: "CorrectVersionValid"}
 	result = CreatePerformanceResult(correctVersionValid, source, nil)
@@ -419,7 +777,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.Save())
+	s.Require().NoError(result.SaveNew(ctx))
 
 	correctVersionInvalid := PerformanceResultInfo{Project: "CorrectVersionInvalid"}
 	result = CreatePerformanceResult(correctVersionInvalid, source, nil)
@@ -433,7 +791,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.Save())
+	s.Require().NoError(result.SaveNew(ctx))
 
 	outdated := PerformanceResultInfo{Project: "Outdated"}
 	result = CreatePerformanceResult(outdated, source, nil)
@@ -448,7 +806,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.Save())
+	s.Require().NoError(result.SaveNew(ctx))
 
 	outdatedOld := PerformanceResultInfo{Project: "OutdatedOld"}
 	result = CreatePerformanceResult(outdatedOld, source, nil)
@@ -463,7 +821,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.Save())
+	s.Require().NoError(result.SaveNew(ctx))
 
 	s.Require().NoError(s.r.FindOutdatedRollups(rollupName, 2, time.Now().Add(-time.Hour)))
 	s.Require().Len(s.r.Results, 1)
@@ -481,7 +839,7 @@ func (s *perfResultSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.Save())
+	s.Require().NoError(result.SaveNew(ctx))
 
 	s.Require().NoError(s.r.FindOutdatedRollups("DNE", 1, time.Now().Add(-2*time.Hour)))
 	s.Require().Len(s.r.Results, 4)
