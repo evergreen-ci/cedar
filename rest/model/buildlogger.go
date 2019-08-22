@@ -14,6 +14,7 @@ type APILog struct {
 	Artifact    APILogArtifactInfo `json:"artifact"`
 }
 
+// Import transforms a Log object into an APILog object.
 func (apiResult *APILog) Import(i interface{}) error {
 	switch l := i.(type) {
 	case dbmodel.Log:

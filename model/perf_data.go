@@ -45,7 +45,7 @@ func (t MetricType) Validate() error {
 	}
 }
 
-// PerfRollupValue represents a single "rollup", see PerfRollups for more
+// PerfRollupValue describes a single "rollup", see PerfRollups for more
 // information.
 type PerfRollupValue struct {
 	Name          string      `bson:"name"`
@@ -64,7 +64,7 @@ var (
 	perfRollupValueUserSubmittedKey = bsonutil.MustHaveTag(PerfRollupValue{}, "UserSubmitted")
 )
 
-// PerfRollups represent the "rolled up", or calculated metrics from time
+// PerfRollups describes the "rolled up", or calculated metrics from time
 // series data collected in a given performance test, of a performance result.
 type PerfRollups struct {
 	Stats       []PerfRollupValue `bson:"stats"`
