@@ -40,6 +40,13 @@ lintArgs += --exclude="unused global variable \w+Key"
 lintArgs += --exclude=".*unused variable or constant \w+Key"
 # end linting configuration
 
+# benchmark setup targets
+$(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
+	@mkdir -p $(buildDir)
+	$(gobin) build -o $@ $<
+# end benchmark setup targets
+
+
 
 # start dependency installation tools
 #   implementation details for being able to lazily install dependencies
@@ -91,6 +98,9 @@ proto:
 lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 test:build $(buildDir)/output.test
 build:$(buildDir)/$(name)
+.PHONY: benchmark
+benchmark: $(buildDir)/run-benchmarks $(buildDir)/ .FORCE
+	./$(buildDir)/run-benchmarks
 coverage:build $(coverageOutput)
 coverage-html:build $(coverageHtmlOutput)
 list-tests:
@@ -220,6 +230,8 @@ $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
 #  targets to process and generate coverage reports
 # end test and coverage artifacts
+
+
 
 
 # clean and other utility targets
