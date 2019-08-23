@@ -1,7 +1,7 @@
 # start project configuration
 name := cedar
 buildDir := build
-packages := $(name) rest rest-data rest-model units operations cost model depgraph perf rpc rpc-internal
+packages := $(name) rest rest-data rest-model units operations cost model depgraph perf rpc rpc-internal benchmarks
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -43,7 +43,7 @@ lintArgs += --exclude=".*unused variable or constant \w+Key"
 # benchmark setup targets
 $(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
 	@mkdir -p $(buildDir)
-	$(gobin) build -o $@ $<
+	go build -o $@ $<
 # end benchmark setup targets
 
 
