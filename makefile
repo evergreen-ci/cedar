@@ -161,7 +161,7 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/evergreen-ci/gimlet/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/pkg/errors/
-	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/stretchr/
+	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/stretchr/testify/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/jpillora/backoff/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/grpc/
 	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/github.com/pkg/errors/
@@ -170,6 +170,16 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/go.mongodb.org/mongo-driver/
 	rm -rf vendor/github.com/evergreen-ci/certdepot/vendor/gopkg.in/mgo.v2/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/github.com/evergreen-ci/aviation/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/github.com/mongodb/grip/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/github.com/golang/protobuf/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/github.com/pkg/errors/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/github.com/stretchr/testify/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/golang.org/x/net/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/golang.org/x/sys/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/golang.org/x/text/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/google.golang.org/genproto/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/google.golang.org/grpc/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 phony += vendor-clean
 # end vendoring tooling configuration
