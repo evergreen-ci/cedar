@@ -5,6 +5,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// APIPerformanceResult describes a single result of a performance test from
+// Evergreen.
 type APIPerformanceResult struct {
 	Name        APIString                `json:"name"`
 	Info        APIPerformanceResultInfo `json:"info"`
@@ -14,6 +16,8 @@ type APIPerformanceResult struct {
 	Rollups     APIPerfRollups           `json:"rollups"`
 }
 
+// Import transforms a PerformanceResult object into an APIPerformanceResult
+// object.
 func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 	switch r := i.(type) {
 	case dbmodel.PerformanceResult:
@@ -38,6 +42,8 @@ func (apiResult *APIPerformanceResult) Export(i interface{}) (interface{}, error
 	return nil, errors.Errorf("Export is not implemented for APIPerformanceResult")
 }
 
+// APIPerformanceResultInfo describes information unique to a single
+// performance result.
 type APIPerformanceResultInfo struct {
 	Project   APIString        `json:"project"`
 	Version   APIString        `json:"version"`
@@ -70,6 +76,9 @@ func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceRes
 	}
 }
 
+// APIArtifactInfo is a type that describes an object in some kind of offline
+// storage, and is the bridge between pail-backed offline-storage and the
+// cedar-based metadata storage.
 type APIArtifactInfo struct {
 	Type        APIString `json:"type"`
 	Bucket      APIString `json:"bucket"`
@@ -98,12 +107,16 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 	}
 }
 
+// APIPerfRollups describes the "rolled up", or calculated metrics from time
+// series data collected in a given performance test, of a performance result.
 type APIPerfRollups struct {
 	Stats       []APIPerfRollupValue `json:"stats"`
 	ProcessedAt APITime              `json:"processed_at"`
 	Valid       bool                 `json:"valid"`
 }
 
+// APIPerfRollupValue describes a single "rollup", see APIPerfRollups for more
+// information.
 type APIPerfRollupValue struct {
 	Name          APIString   `json:"name"`
 	Value         interface{} `json:"val"`
