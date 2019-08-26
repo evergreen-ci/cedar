@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
@@ -11,6 +13,7 @@ type APILog struct {
 	Info        APILogInfo         `json:"info,omitempty"`
 	CreatedAt   APITime            `json:"created_at"`
 	CompletedAt APITime            `json:"completed_at"`
+	Duration    float64            `json:"duration"`
 	Artifact    APILogArtifactInfo `json:"artifact"`
 }
 
@@ -22,6 +25,7 @@ func (apiResult *APILog) Import(i interface{}) error {
 		apiResult.Info = getLogInfo(l.Info)
 		apiResult.CreatedAt = NewTime(l.CreatedAt)
 		apiResult.CompletedAt = NewTime(l.CompletedAt)
+		apiResult.Duration = float64(l.CompletedAt.Sub(l.CreatedAt)) / float64(time.Second)
 		apiResult.Artifact = getLogArtifactInfo(l.Artifact)
 	default:
 		return errors.New("incorrect type when fetching converting Log type")

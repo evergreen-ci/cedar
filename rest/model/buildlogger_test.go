@@ -72,6 +72,7 @@ func TestBuildloggerImport(t *testing.T) {
 			},
 			CreatedAt:   NewTime(log.CreatedAt),
 			CompletedAt: NewTime(log.CompletedAt),
+			Duration:    float64(log.CompletedAt.Sub(log.CreatedAt)) / float64(time.Second),
 			Artifact: APILogArtifactInfo{
 				Type:    ToAPIString(string(log.Artifact.Type)),
 				Prefix:  ToAPIString(log.Artifact.Prefix),
