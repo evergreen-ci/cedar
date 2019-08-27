@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const testDBName = "cedar_grpc_test"
+const testDBName = "cedar_rest_data_test"
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{

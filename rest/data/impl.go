@@ -22,4 +22,5 @@ func CreateNewDBConnector(env cedar.Environment) Connector {
 type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string
+	CachedLogs               map[string]model.Log
 }

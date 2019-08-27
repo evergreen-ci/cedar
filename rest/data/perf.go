@@ -11,8 +11,8 @@ import (
 	"github.com/evergreen-ci/gimlet"
 )
 
-// FindPerformanceResultById queries the database to find a given performance
-// result.
+// FindPerformanceResultById queries the database to find the performance
+// result with the given id.
 func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
 	result := model.PerformanceResult{}
 	result.Setup(dbc.env)
