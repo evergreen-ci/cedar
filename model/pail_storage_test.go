@@ -20,11 +20,13 @@ func TestGetDownloadURL(t *testing.T) {
 	s3Prefix := "perf-storage-test"
 	s3Opts := pail.S3Options{
 		Name:        s3Name,
-		Prefix:      s3Prefix,
 		Region:      "us-east-1",
 		Permissions: pail.S3PermissionsPublicRead,
 	}
-	s3Bucket, err := pail.NewS3Bucket(s3Opts)
+	s3BucketNoPrefix, err := pail.NewS3Bucket(s3Opts)
+	require.NoError(t, err)
+	s3Opts.Prefix = s3Prefix
+	s3BucketPrefix, err := pail.NewS3Bucket(s3Opts)
 	require.NoError(t, err)
 
 	for _, test := range []struct {
@@ -42,8 +44,19 @@ func TestGetDownloadURL(t *testing.T) {
 				Path:   path,
 			},
 			expectedURL: fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s3Name, s3Prefix+"/"+path),
-			bucket:      s3Bucket,
+			bucket:      s3BucketPrefix,
 		},
+		{
+			name: "S3URLNoPrefix",
+			artifact: ArtifactInfo{
+				Type:   PailS3,
+				Bucket: s3Name,
+				Path:   path,
+			},
+			expectedURL: fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s3Name, path),
+			bucket:      s3BucketNoPrefix,
+		},
+
 		{
 			name: "LocalURL",
 			artifact: ArtifactInfo{
