@@ -20,7 +20,7 @@ func CreateNewDBConnector(env cedar.Environment) Connector {
 }
 
 // MockConnector is a struct that implements the Connector interface backed by
-// the a mock cedar service layer.
+// a mock cedar service layer.
 type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string
