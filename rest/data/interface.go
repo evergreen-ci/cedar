@@ -8,7 +8,7 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 )
 
-// Connector abstracts the link between cedar's backend and API layers,
+// Connector abstracts the link between cedar's service and API layers,
 // allowing for changes in the service architecture without forcing changes to
 // the API.
 type Connector interface {

@@ -5,7 +5,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 )
 
-// DBConnector is a struct that implements all of the methods which connect to
+// DBConnector is a struct that implements the Connector interface backed by
 // the service layer of cedar.
 type DBConnector struct {
 	env cedar.Environment
@@ -19,8 +19,8 @@ func CreateNewDBConnector(env cedar.Environment) Connector {
 	}
 }
 
-// MockConnector is a struct that implements all of the methods which connect
-// to a mocked out service layer of cedar.
+// MockConnector is a struct that implements the Connector interface backed by
+// the a mock cedar service layer.
 type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string
