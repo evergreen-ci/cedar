@@ -596,7 +596,7 @@ func TestCloseLog(t *testing.T) {
 				assert.Equal(t, log.ID, l.Info.ID())
 				assert.Equal(t, log.Artifact, l.Artifact)
 				assert.Equal(t, int(test.info.ExitCode), l.Info.ExitCode)
-				assert.Equal(t, test.ts.Truncate(time.Minute), l.CompletedAt.Truncate(time.Minute))
+				assert.True(t, test.ts.Sub(l.CompletedAt) <= time.Second)
 			}
 		})
 	}
