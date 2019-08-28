@@ -2,10 +2,13 @@ package data
 
 import (
 	"context"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -29,7 +32,10 @@ func TestBuildloggerConnectorSuiteDB(t *testing.T) {
 func TestBuildloggerConnectorSuiteMock(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
 	s.setup()
-	s.sc = &MockConnector{CachedLogs: s.logs}
+	s.sc = &MockConnector{
+		CachedLogs: s.logs,
+		env:        cedar.GetEnvironment(),
+	}
 	suite.Run(t, s)
 }
 
@@ -72,11 +78,18 @@ func (s *buildloggerConnectorSuite) setup() {
 		},
 	}
 	for _, logInfo := range logs {
-		log := model.CreateLog(logInfo, model.PailS3)
+		log := model.CreateLog(logInfo, model.PailLocal)
 		log.Setup(s.env)
 		s.Require().NoError(log.SaveNew(s.ctx))
 		s.logs[log.ID] = *log
 	}
+
+	// setup config
+	wd, err := os.Getwd()
+	s.Require().NoError(err)
+	conf := model.NewCedarConfig(s.env)
+	conf.Bucket = model.BucketConfig{BuildLogsBucket: wd}
+	s.Require().NoError(conf.Save())
 }
 
 func (s *buildloggerConnectorSuite) TearDownSuite() {
@@ -85,15 +98,24 @@ func (s *buildloggerConnectorSuite) TearDownSuite() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogByIdExists() {
-	for id := range s.logs {
-		l, err := s.sc.FindLogById(s.ctx, id)
+	tr := util.TimeRange{
+		StartAt: time.Now().Add(-time.Hour),
+		EndAt:   time.Now(),
+	}
+	for id, log := range s.logs {
+		l, it, err := s.sc.FindLogById(s.ctx, id, tr)
 		s.Require().NoError(err)
 		s.Equal(id, *l.ID)
+
+		expectedIt, err := log.Download(s.ctx, tr)
+		s.Require().NoError(err)
+		s.Equal(expectedIt, it)
 	}
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogByIdDNE() {
-	l, err := s.sc.FindLogById(s.ctx, "DNE")
+	l, it, err := s.sc.FindLogById(s.ctx, "DNE", util.TimeRange{})
 	s.Error(err)
 	s.Nil(l)
+	s.Nil(it)
 }

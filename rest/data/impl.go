@@ -6,21 +6,25 @@ import (
 )
 
 // DBConnector is a struct that implements all of the methods which connect to
-// the service layer of cedar. These methods abstract the link between the
-// and the API layers, allowing for changes in the service architecture
-// without forcing changes to the API.
+// the service layer of cedar.
 type DBConnector struct {
 	env cedar.Environment
 }
 
+// CreateNewDBConnector is the entry point for creating a new Connector backed
+// by DBConnector.
 func CreateNewDBConnector(env cedar.Environment) Connector {
 	return &DBConnector{
 		env: env,
 	}
 }
 
+// MockConnector is a struct that implements all of the methods which connect
+// to a mocked out service layer of cedar.
 type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string
 	CachedLogs               map[string]model.Log
+
+	env cedar.Environment
 }

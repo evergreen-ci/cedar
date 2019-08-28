@@ -11,6 +11,10 @@ import (
 	"github.com/evergreen-ci/gimlet"
 )
 
+/////////////////////////////
+// DBConnector Implementation
+/////////////////////////////
+
 // FindPerformanceResultById queries the database to find the performance
 // result with the given id.
 func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
@@ -36,9 +40,9 @@ func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerf
 	return &apiResult, nil
 }
 
-// RemovePerformanceResultById removes the performance result with the given
-// id from the database. Note that this function deletes all children. No
-// error is returned if the id does not exist.
+// RemovePerformanceResultById removes the performance result with the given id
+// from the database. Note that this function deletes all children. No error is
+// returned if the id does not exist.
 func (dbc *DBConnector) RemovePerformanceResultById(id string) (int, error) {
 	result := model.PerformanceResult{}
 	result.Setup(dbc.env)
@@ -55,7 +59,8 @@ func (dbc *DBConnector) RemovePerformanceResultById(id string) (int, error) {
 }
 
 // FindPerformanceResultsByTaskId queries the database to find all performance
-// results with the given taskId, time inteval, and optional tags.
+// results with the given taskId and that fall within interval, filtered by
+// tags.
 func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
@@ -95,10 +100,10 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 	return apiResults, nil
 }
 
-// FindPerformanceResultsByTaskName queries the database to find all performance
-// results with the given taskName, time inteval, and optional tags. Results
-// are returned sorted (descending) by the Evergreen order.
-// If limit is greater than 0, the number of results returned will be no
+// FindPerformanceResultsByTaskName queries the database to find all
+// performance results with the given taskName and that fall within interval,
+// filtered by tags. Results are returned sorted (descending) by the Evergreen
+// order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
 func (dbc *DBConnector) FindPerformanceResultsByTaskName(project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
@@ -143,8 +148,9 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(project, taskName, vari
 	return apiResults, nil
 }
 
-// FindPerformanceResultsByTaskId queries the database to find all performance
-// results with the given version, time inteval, and optional tags.
+// FindPerformanceResultsByVersion queries the database to find all performance
+// results with the given version and that fall within interval, filtered by
+// tags.
 func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
@@ -184,9 +190,9 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval
 	return apiResults, nil
 }
 
-// FindPerformanceResultsByTaskId queries the database to find a performance
-// result, based on its id, and its children up to maxDepth and filtered by the
-// optional tags.
+// FindPerformanceResultWithChildren queries the database to find a performance
+// result with the given id and its children up to maxDepth and filtered by
+// tags. If maxDepth is less than 0, the child search is exhaustive.
 func (dbc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
@@ -226,8 +232,12 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth in
 	return apiResults, nil
 }
 
+///////////////////////////////
 // MockConnector Implementation
+///////////////////////////////
 
+// FindPerformanceResultById queries the mock cache to find the performance
+// result with the given id.
 func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
 	result, ok := mc.CachedPerformanceResults[id]
 	apiResult := dataModel.APIPerformanceResult{}
@@ -248,6 +258,9 @@ func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPer
 	return &apiResult, nil
 }
 
+// RemovePerformanceResultById removes the performance result with the given id
+// from the mock cache. Note that this function deletes all children. No error
+// is returned if the id does not exist.
 func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
 	_, ok := mc.CachedPerformanceResults[id]
 	if ok {
@@ -263,6 +276,9 @@ func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
 	return len(children) + 1, err
 }
 
+// FindPerformanceResultsByTaskId queries the mock cache to find all
+// performance results with the given taskId and that fall within interval,
+// filtered by tags.
 func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
@@ -289,6 +305,11 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval 
 	return results, nil
 }
 
+// FindPerformanceResultsByTaskName queries the mock cache to find all
+// performance results with the given taskName and that fall within interval,
+// filtered by tags. Results are returned sorted (descending) by the Evergreen
+// order. If limit is greater than 0, the number of results returned will be no
+// greater than limit.
 func (mc *MockConnector) FindPerformanceResultsByTaskName(project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
@@ -321,6 +342,9 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(project, taskName, var
 	return results, nil
 }
 
+// FindPerformanceResultsByVersion queries the mock cache to find all
+// performance results with the given version and that fall within interval,
+// filtered by tags.
 func (mc *MockConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
@@ -347,6 +371,10 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(version string, interva
 	return results, nil
 }
 
+// FindPerformanceResultWithChildren queries the mock cache to find a
+// performance result with the given id and its children up to maxDepth and
+// filtered by tags. If maxDepth is less than 0, the child search is
+// exhaustive.
 func (mc *MockConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 

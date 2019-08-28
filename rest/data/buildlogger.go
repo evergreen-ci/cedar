@@ -5,33 +5,48 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/evergreen-ci/cedar/model"
-	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	dbModel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/pkg/errors"
 )
 
-// FindLogById queries the database to find the buildlogger log with the given
-// id.
-func (dbc *DBConnector) FindLogById(ctx context.Context, id string) (*dataModel.APILog, error) {
-	log := model.Log{ID: id}
-	log.Setup(dbc.env)
+/////////////////////////////
+// DBConnector Implementation
+/////////////////////////////
 
+// FindLogById queries the database to find the buildlogger log with the given
+// id returning the metadata and a LogIterator with the corresponding time
+// range.
+func (dbc *DBConnector) FindLogById(ctx context.Context, id string, tr util.TimeRange) (*model.APILog, dbModel.LogIterator, error) {
+	log := dbModel.Log{ID: id}
+	log.Setup(dbc.env)
 	if err := log.Find(ctx); err != nil {
-		return nil, gimlet.ErrorResponse{
+		return nil, nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("log with id '%s' not found", id),
 		}
 	}
 
-	apiLog := &dataModel.APILog{}
+	apiLog := &model.APILog{}
 	if err := apiLog.Import(log); err != nil {
-		return nil, gimlet.ErrorResponse{
+		return nil, nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("corrupt data"),
+			Message:    "corrupt data",
 		}
 	}
 
-	return apiLog, nil
+	log.Setup(dbc.env)
+	it, err := log.Download(ctx, tr)
+	if err != nil {
+		return nil, nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+		}
+	}
+
+	return apiLog, it, nil
 }
 
 ///////////////////////////////
@@ -39,23 +54,33 @@ func (dbc *DBConnector) FindLogById(ctx context.Context, id string) (*dataModel.
 ///////////////////////////////
 
 // FindLogById queries the mock cache to find the buildlogger log with the
-// given id.
-func (mc MockConnector) FindLogById(_ context.Context, id string) (*dataModel.APILog, error) {
+// given id returning the metadata and a LogIterator with the corresponding
+// time range.
+func (mc MockConnector) FindLogById(ctx context.Context, id string, tr util.TimeRange) (*model.APILog, dbModel.LogIterator, error) {
 	log, ok := mc.CachedLogs[id]
 	if !ok {
-		return nil, gimlet.ErrorResponse{
+		return nil, nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("log with id '%s' not found", id),
 		}
 	}
 
-	apiLog := &dataModel.APILog{}
+	apiLog := &model.APILog{}
 	if err := apiLog.Import(log); err != nil {
-		return nil, gimlet.ErrorResponse{
+		return nil, nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("corrupt data"),
+			Message:    "corrupt data",
 		}
 	}
 
-	return apiLog, nil
+	log.Setup(mc.env)
+	it, err := log.Download(ctx, tr)
+	if err != nil {
+		return nil, nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+		}
+	}
+
+	return apiLog, it, nil
 }

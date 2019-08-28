@@ -34,11 +34,12 @@ type CedarConfig struct {
 
 func NewCedarConfig(env cedar.Environment) *CedarConfig {
 	return &CedarConfig{
-		ID:  cedarConfigurationID,
-		env: env,
+		ID: cedarConfigurationID,
 		Flags: OperationalFlags{
 			env: env,
 		},
+		env:       env,
+		populated: true,
 	}
 }
 
