@@ -227,6 +227,22 @@ func (s *perfRollupSuite) TestMaps() {
 	s.Equal(allInts["int"], int64(12))
 }
 
+func (s *perfRollupSuite) TestAddWithNilEnv() {
+	env := s.r.env
+	s.r.env = nil
+	defer func() {
+		s.r.env = env
+	}()
+	s.Error(s.r.Add(s.ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       4,
+		Value:         12.24,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
+}
+
 func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.r.id = "234"
 	c := s.r.env.GetDB().Collection(perfResultCollection)
@@ -318,4 +334,8 @@ func (s *perfRollupSuite) TestMergeRollups() {
 		s.True(time.Since(result.Rollups.ProcessedAt) <= time.Minute)
 		s.True(result.Rollups.Valid)
 	}
+
+	// nil env
+	result := &PerformanceResult{}
+	s.Error(result.MergeRollups(s.ctx, rollups))
 }

@@ -481,6 +481,20 @@ func (s *perfResultsSuite) TearDownTest() {
 	s.NoError(s.r.env.GetDB().Collection(perfResultCollection).Drop(s.ctx))
 }
 
+func (s *perfResultsSuite) TestFindWithNilEnv() {
+	env := s.r.env
+	defer func() {
+		s.r.env = env
+	}()
+	s.r.env = nil
+	start := getTimeForTestingByDate(15)
+	options := PerfFindOptions{
+		Interval: util.GetTimeRange(start, time.Hour*48),
+		MaxDepth: 5,
+	}
+	s.Error(s.r.Find(s.ctx, options))
+}
+
 func (s *perfResultsSuite) TestFindResultsByTimeInterval() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
@@ -837,4 +851,12 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	for _, result := range s.r.Results {
 		s.NotEqual(doesNotExist.ID(), result.Info.ID())
 	}
+
+	// nil env
+	env := s.r.env
+	defer func() {
+		s.r.env = env
+	}()
+	s.r.env = nil
+	s.Error(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour)))
 }
