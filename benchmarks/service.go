@@ -37,7 +37,7 @@ func setupBenchmark(ctx context.Context) error {
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(errors.WithStack(f.Close()))
 		catcher.Add(errors.Wrap(err, "problem writing conf to file"))
-		return errors.Resolve()
+		return catcher.Resolve()
 	} else if err = f.Close(); err != nil {
 		return errors.WithStack(err)
 	}

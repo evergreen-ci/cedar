@@ -43,7 +43,7 @@ func RunLogIteratorBenchmark(ctx context.Context) error {
 		return errors.Wrap(err, "problem creating top level directory")
 	}
 
-	logSizes := []int{1e5, 1e7, 1e8}
+	logSizes := []int{1e5}
 	var combinedReports string
 	for _, logSize := range logSizes {
 		id, err := uploadLog(ctx, logSize)
