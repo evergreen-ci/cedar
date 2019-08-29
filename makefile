@@ -38,6 +38,7 @@ lintArgs += --exclude="error return value not checked .defer.*"
 lintArgs += --exclude="\w+Key is unused.*"
 lintArgs += --exclude="unused global variable \w+Key"
 lintArgs += --exclude=".*unused variable or constant \w+Key"
+lintArgs += --exclude=".*composite literal uses unkeyed fields"
 # end linting configuration
 
 # benchmark setup targets

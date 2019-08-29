@@ -340,10 +340,7 @@ type PerformanceResults struct {
 }
 
 // SortKeys describes the key value pairs for the MongoDB sort option.
-type SortKeys []struct {
-	Key   string
-	Value interface{}
-}
+type SortKeys []bson.E
 
 // PerfFindOptions describe the search criteria for the Find function on
 // PerformanceResults.
@@ -387,11 +384,7 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 		findOpts.SetLimit(int64(opts.Limit))
 	}
 	if opts.Sort != nil {
-		keypairs := bson.D{}
-		for _, keypair := range opts.Sort {
-			keypairs = append(keypairs, keypair)
-		}
-		findOpts.SetSort(keypairs)
+		findOpts.SetSort(opts.Sort)
 	} else {
 		findOpts.SetSort(bson.D{{perfCreatedAtKey, -1}})
 	}
