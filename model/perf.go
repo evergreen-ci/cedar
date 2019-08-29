@@ -339,6 +339,12 @@ type PerformanceResults struct {
 	populated bool
 }
 
+// SortKeys describes the key value pairs for the MongoDB sort option.
+type SortKeys []struct {
+	Key   string
+	Value interface{}
+}
+
 // PerfFindOptions describe the search criteria for the Find function on
 // PerformanceResults.
 type PerfFindOptions struct {
@@ -348,7 +354,7 @@ type PerfFindOptions struct {
 	GraphLookup bool
 	Limit       int
 	Variant     string
-	Sort        map[string]interface{}
+	Sort        SortKeys
 }
 
 // Setup sets the environment for the performance results. The environment is
@@ -381,9 +387,13 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 		findOpts.SetLimit(int64(opts.Limit))
 	}
 	if opts.Sort != nil {
-		findOpts.SetSort(opts.Sort)
+		keypairs := bson.D{}
+		for _, keypair := range opts.Sort {
+			keypairs = append(keypairs, keypair)
+		}
+		findOpts.SetSort(keypairs)
 	} else {
-		findOpts.SetSort(bson.M{perfCreatedAtKey: -1})
+		findOpts.SetSort(bson.D{{perfCreatedAtKey, -1}})
 	}
 	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search, findOpts)
 	if db.ResultsNotFound(err) {

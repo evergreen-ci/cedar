@@ -120,7 +120,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, pr
 		MaxDepth: 0,
 		Limit:    limit,
 		Variant:  variant,
-		Sort:     map[string]interface{}{"info.order": -1},
+		Sort:     model.SortKeys{{"info.order", -1}},
 	}
 
 	if err := results.Find(ctx, options); err != nil {
