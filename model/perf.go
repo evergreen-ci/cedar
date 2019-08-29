@@ -17,6 +17,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const perfResultCollection = "perf_results"
@@ -87,19 +88,17 @@ func (result *PerformanceResult) IsNil() bool { return !result.populated }
 
 // Find searches the database for the performance result. The enviromemt should
 // not be nil.
-func (result *PerformanceResult) Find() error {
-	conf, session, err := cedar.GetSessionWithConfig(result.env)
-	if err != nil {
-		return errors.WithStack(err)
+func (result *PerformanceResult) Find(ctx context.Context) error {
+	if result.env == nil {
+		return errors.New("cannot find with a nil environment")
 	}
-	defer session.Close()
 
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 	}
 
 	result.populated = false
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).FindId(result.ID).One(result)
+	err := result.env.GetDB().Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result)
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find performance result record in the database")
 	} else if err != nil {
@@ -144,9 +143,11 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 	if result.env == nil {
 		return errors.New("cannot not append artifacts with a nil environment")
 	}
+
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 	}
+
 	if len(artifacts) == 0 {
 		grip.Warning(message.Fields{
 			"collection": perfResultCollection,
@@ -181,19 +182,17 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 
 // Remove removes the performance result from the database. The environment
 // should not be nil.
-func (result *PerformanceResult) Remove() (int, error) {
+func (result *PerformanceResult) Remove(ctx context.Context) (int, error) {
+	if result.env == nil {
+		return -1, errors.New("cannot remove a performance result with a nil environment")
+	}
+
 	if result.ID == "" {
 		result.ID = result.Info.ID()
 	}
 
-	conf, session, err := cedar.GetSessionWithConfig(result.env)
-	if err != nil {
-		return -1, errors.WithStack(err)
-	}
-	defer session.Close()
-
 	children := PerformanceResults{env: result.env}
-	if err = children.findAllChildrenGraphLookup(result.ID, -1, []string{}); err != nil {
+	if err := children.findAllChildrenGraphLookup(ctx, result.ID, -1, []string{}); err != nil {
 		return -1, errors.Wrap(err, "problem getting children to remove")
 	}
 
@@ -206,11 +205,17 @@ func (result *PerformanceResult) Remove() (int, error) {
 			"$in": ids,
 		},
 	}
-	changeInfo, err := session.DB(conf.DatabaseName).C(perfResultCollection).RemoveAll(query)
+	deleteResult, err := result.env.GetDB().Collection(perfResultCollection).DeleteMany(ctx, query)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   perfResultCollection,
+		"id":           result.ID,
+		"deleteResult": deleteResult,
+		"op":           "remove performance result",
+	})
 	if err != nil {
 		return -1, errors.Wrap(err, "problem removing performance results")
 	}
-	return changeInfo.Removed, nil
+	return int(deleteResult.DeletedCount), nil
 }
 
 // Close "closes out" the performance result by populating the completed_at
@@ -343,7 +348,7 @@ type PerfFindOptions struct {
 	GraphLookup bool
 	Limit       int
 	Variant     string
-	Sort        []string
+	Sort        map[string]interface{}
 }
 
 // Setup sets the environment for the performance results. The environment is
@@ -355,100 +360,103 @@ func (r *PerformanceResults) IsNil() bool { return r.Results == nil }
 
 // Find returns the performance results that are started/completed and matching
 // the given criteria.
-func (r *PerformanceResults) Find(options PerfFindOptions) error {
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
-	if err != nil {
-		return errors.WithStack(err)
+func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) error {
+	if r.env == nil {
+		return errors.New("cannot find with a nil env")
 	}
-	defer session.Close()
 
 	search := make(map[string]interface{})
-	if options.Info.Parent != "" { // this is the root node
-		search["_id"] = options.Info.Parent
+	if opts.Info.Parent != "" { // this is the root node
+		search["_id"] = opts.Info.Parent
 	} else {
-		if options.Interval.IsZero() || !options.Interval.IsValid() {
+		if opts.Interval.IsZero() || !opts.Interval.IsValid() {
 			return errors.New("invalid time range given")
 		}
-		search = r.createFindQuery(options)
+		search = r.createFindQuery(opts)
 	}
 
 	r.populated = false
-	query := session.DB(conf.DatabaseName).C(perfResultCollection).Find(search)
-	if options.Limit > 0 {
-		query = query.Limit(options.Limit)
+	findOpts := options.Find()
+	if opts.Limit > 0 {
+		findOpts.SetLimit(int64(opts.Limit))
 	}
-	if options.Sort != nil {
-		query = query.Sort(options.Sort...)
+	if opts.Sort != nil {
+		findOpts.SetSort(opts.Sort)
 	} else {
-		query = query.Sort("-" + perfCreatedAtKey)
+		findOpts.SetSort(bson.M{perfCreatedAtKey: -1})
 	}
-	err = query.All(&r.Results)
-	if err != nil {
-		return errors.WithStack(err)
-	}
+	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search, findOpts)
 	if db.ResultsNotFound(err) {
-		return nil
-	}
-	if options.Info.Parent != "" && len(r.Results) > 0 && options.MaxDepth != 0 {
-		// i.e. the parent fits the search criteria
-		if options.GraphLookup {
-			err = r.findAllChildrenGraphLookup(options.Info.Parent, options.MaxDepth-1, options.Info.Tags)
-		} else {
-			err = r.findAllChildren(options.Info.Parent, options.MaxDepth)
-		}
-	}
-	if err != nil {
+		return errors.WithStack(it.Close(ctx))
+	} else if err != nil {
 		return errors.WithStack(err)
 	}
-	if db.ResultsNotFound(errors.Cause(err)) {
-		return nil
+	if err = it.All(ctx, &r.Results); err != nil {
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(err))
+		catcher.Add(errors.WithStack(it.Close(ctx)))
+		return catcher.Resolve()
+	} else if err = it.Close(ctx); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if opts.Info.Parent != "" && len(r.Results) > 0 && opts.MaxDepth != 0 {
+		// i.e. the parent fits the search criteria
+		if opts.GraphLookup {
+			err = r.findAllChildrenGraphLookup(ctx, opts.Info.Parent, opts.MaxDepth-1, opts.Info.Tags)
+		} else {
+			err = r.findAllChildren(ctx, opts.Info.Parent, opts.MaxDepth)
+		}
+		if err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	r.populated = true
 
 	return nil
 }
 
-func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string]interface{} {
+func (r *PerformanceResults) createFindQuery(opts PerfFindOptions) map[string]interface{} {
 	search := bson.M{
-		"created_at":   bson.M{"$gte": options.Interval.StartAt},
-		"completed_at": bson.M{"$lte": options.Interval.EndAt},
+		"created_at":   bson.M{"$gte": opts.Interval.StartAt},
+		"completed_at": bson.M{"$lte": opts.Interval.EndAt},
 	}
 
-	if options.Info.Project != "" {
-		search[bsonutil.GetDottedKeyName("info", "project")] = options.Info.Project
+	if opts.Info.Project != "" {
+		search[bsonutil.GetDottedKeyName("info", "project")] = opts.Info.Project
 	}
-	if options.Info.Version != "" {
-		search[bsonutil.GetDottedKeyName("info", "version")] = options.Info.Version
+	if opts.Info.Version != "" {
+		search[bsonutil.GetDottedKeyName("info", "version")] = opts.Info.Version
 	}
-	if options.Info.TaskName != "" {
-		search[bsonutil.GetDottedKeyName("info", "task_name")] = options.Info.TaskName
+	if opts.Info.TaskName != "" {
+		search[bsonutil.GetDottedKeyName("info", "task_name")] = opts.Info.TaskName
 	}
-	if options.Info.TaskID != "" {
-		search[bsonutil.GetDottedKeyName("info", "task_id")] = options.Info.TaskID
+	if opts.Info.TaskID != "" {
+		search[bsonutil.GetDottedKeyName("info", "task_id")] = opts.Info.TaskID
 		delete(search, "created_at")
 		delete(search, "completed_at")
 	} else {
 		search[bsonutil.GetDottedKeyName("info", "mainline")] = true
 	}
-	if options.Info.Execution != 0 {
-		search[bsonutil.GetDottedKeyName("info", "execution")] = options.Info.Execution
+	if opts.Info.Execution != 0 {
+		search[bsonutil.GetDottedKeyName("info", "execution")] = opts.Info.Execution
 	}
-	if options.Info.TestName != "" {
-		search[bsonutil.GetDottedKeyName("info", "test_name")] = options.Info.TestName
+	if opts.Info.TestName != "" {
+		search[bsonutil.GetDottedKeyName("info", "test_name")] = opts.Info.TestName
 	}
-	if options.Info.Trial != 0 {
-		search[bsonutil.GetDottedKeyName("info", "trial")] = options.Info.Trial
+	if opts.Info.Trial != 0 {
+		search[bsonutil.GetDottedKeyName("info", "trial")] = opts.Info.Trial
 	}
-	if len(options.Info.Tags) > 0 {
-		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": options.Info.Tags}
+	if len(opts.Info.Tags) > 0 {
+		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": opts.Info.Tags}
 	}
-	if options.Variant != "" {
-		search[bsonutil.GetDottedKeyName("info", "variant")] = options.Variant
+	if opts.Variant != "" {
+		search[bsonutil.GetDottedKeyName("info", "variant")] = opts.Variant
 	}
 
-	if len(options.Info.Arguments) > 0 {
+	if len(opts.Info.Arguments) > 0 {
 		var args []bson.M
-		for key, val := range options.Info.Arguments {
+		for key, val := range opts.Info.Arguments {
 			args = append(args, bson.M{key: val})
 		}
 		search[bsonutil.GetDottedKeyName("info", "args")] = bson.M{"$in": args}
@@ -457,27 +465,35 @@ func (r *PerformanceResults) createFindQuery(options PerfFindOptions) map[string
 }
 
 // all children of parent are recursively added to r.Results
-func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
+func (r *PerformanceResults) findAllChildren(ctx context.Context, parent string, depth int) error {
+	if r.env == nil {
+		return errors.New("cannot find children with nil env")
+	}
+
 	if depth == 0 {
 		return nil
 	}
 
 	search := bson.M{bsonutil.GetDottedKeyName("info", "parent"): parent}
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
-	if err != nil {
+	temp := []PerformanceResult{}
+	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search)
+	if db.ResultsNotFound(err) {
+		return errors.WithStack(it.Close(ctx))
+	} else if err != nil {
 		return errors.WithStack(err)
 	}
-	defer session.Close()
-	temp := []PerformanceResult{}
-	err = session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&temp)
-	if err != nil {
-		return errors.WithStack(err)
+	if err = it.All(ctx, &temp); err != nil {
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(err))
+		catcher.Add(errors.WithStack(it.Close(ctx)))
+		return catcher.Resolve()
 	}
 
 	catcher := grip.NewCatcher()
+	catcher.Add(it.Close(ctx))
 	for _, result := range temp {
 		// look into that parent
-		catcher.Add(r.findAllChildren(result.ID, depth-1))
+		catcher.Add(r.findAllChildren(ctx, result.ID, depth-1))
 	}
 
 	r.Results = append(r.Results, temp...)
@@ -486,12 +502,10 @@ func (r *PerformanceResults) findAllChildren(parent string, depth int) error {
 }
 
 // all children of parent are added to r.Results using $graphLookup
-func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth int, tags []string) error {
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
-	if err != nil {
-		return errors.WithStack(err)
+func (r *PerformanceResults) findAllChildrenGraphLookup(ctx context.Context, parent string, maxDepth int, tags []string) error {
+	if r.env == nil {
+		return errors.New("cannot find children with nil env")
 	}
-	defer session.Close()
 
 	match := bson.M{"$match": bson.M{"_id": parent}}
 	graphLookup := bson.M{
@@ -534,30 +548,33 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(parent string, maxDepth 
 		graphLookup,
 		project,
 	}
-	pipe := session.DB(conf.DatabaseName).C(perfResultCollection).Pipe(pipeline)
-	iter := pipe.Iter()
-	defer iter.Close()
+	it, err := r.env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return errors.WithStack(err)
+	}
 
-	doc := struct {
+	docs := []struct {
 		Children []PerformanceResult `bson:"children,omitempty"`
 	}{}
-	for iter.Next(&doc) {
+	if err = it.All(ctx, &docs); err != nil {
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(err))
+		catcher.Add(errors.WithStack(it.Close(ctx)))
+		return catcher.Resolve()
+	}
+	for _, doc := range docs {
 		r.Results = append(r.Results, doc.Children...)
 	}
-	if err = iter.Err(); err != nil {
-		return errors.Wrap(err, "problem getting children")
-	}
-	return nil
+
+	return errors.WithStack(it.Close(ctx))
 }
 
 // FindOutdatedRollups returns performance results with missing or outdated
 // rollup information for the given `name` and `version`.
-func (r *PerformanceResults) FindOutdatedRollups(name string, version int, after time.Time) error {
-	conf, session, err := cedar.GetSessionWithConfig(r.env)
-	if err != nil {
-		return errors.WithStack(err)
+func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name string, version int, after time.Time) error {
+	if r.env == nil {
+		return errors.New("cannot find outdated rollups with a nil env")
 	}
-	defer session.Close()
 
 	search := bson.M{
 		perfCreatedAtKey: bson.M{"$gt": after},
@@ -576,7 +593,18 @@ func (r *PerformanceResults) FindOutdatedRollups(name string, version int, after
 			},
 		},
 	}
+	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search)
+	if db.ResultsNotFound(err) {
+		return errors.WithStack(it.Close(ctx))
+	} else if err != nil {
+		return errors.Wrapf(err, "problem finding performance results with outdated rollup %s, version %d", name, version)
+	}
+	if err = it.All(ctx, &r.Results); err != nil {
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(err))
+		catcher.Add(errors.WithStack(it.Close(ctx)))
+		return errors.Wrapf(catcher.Resolve(), "problem finding performance results with outdated rollup %s, version %d", name, version)
+	}
 
-	return errors.Wrapf(session.DB(conf.DatabaseName).C(perfResultCollection).Find(search).All(&r.Results),
-		"problem finding performance results with outdated rollup %s, version %d", name, version)
+	return errors.WithStack(it.Close(ctx))
 }

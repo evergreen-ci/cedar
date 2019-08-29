@@ -36,16 +36,16 @@ func TestPerfFind(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		r := PerformanceResult{ID: "DNE"}
 		r.Setup(env)
-		assert.Error(t, r.Find())
+		assert.Error(t, r.Find(ctx))
 	})
 	t.Run("NoEnv", func(t *testing.T) {
 		r := PerformanceResult{ID: result1.ID}
-		assert.Error(t, r.Find())
+		assert.Error(t, r.Find(ctx))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		r := PerformanceResult{ID: result1.ID}
 		r.Setup(env)
-		require.NoError(t, r.Find())
+		require.NoError(t, r.Find(ctx))
 		assert.Equal(t, result1.ID, r.ID)
 		assert.Equal(t, result1.Info, r.Info)
 		assert.Equal(t, result1.Artifacts, r.Artifacts)
@@ -55,7 +55,7 @@ func TestPerfFind(t *testing.T) {
 	t.Run("WithoutID", func(t *testing.T) {
 		r := PerformanceResult{Info: result2.Info}
 		r.Setup(env)
-		require.NoError(t, r.Find())
+		require.NoError(t, r.Find(ctx))
 		assert.Equal(t, result2.ID, r.ID)
 		assert.Equal(t, result2.Info, r.Info)
 		assert.Equal(t, result2.Artifacts, r.Artifacts)
@@ -162,7 +162,7 @@ func TestPerfRemove(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		r := PerformanceResult{ID: result1.ID}
-		n, err := r.Remove()
+		n, err := r.Remove(ctx)
 		assert.Equal(t, -1, n)
 		assert.Error(t, err)
 
@@ -172,14 +172,14 @@ func TestPerfRemove(t *testing.T) {
 	t.Run("DNE", func(t *testing.T) {
 		r := PerformanceResult{ID: "DNE"}
 		r.Setup(env)
-		n, err := r.Remove()
+		n, err := r.Remove(ctx)
 		assert.Zero(t, n)
 		require.NoError(t, err)
 	})
 	t.Run("WithID", func(t *testing.T) {
 		r := PerformanceResult{ID: result1.ID}
 		r.Setup(env)
-		n, err := r.Remove()
+		n, err := r.Remove(ctx)
 		assert.Equal(t, 1, n)
 		require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestPerfRemove(t *testing.T) {
 	t.Run("WithoutID", func(t *testing.T) {
 		r := PerformanceResult{Info: result2.Info}
 		r.Setup(env)
-		n, err := r.Remove()
+		n, err := r.Remove(ctx)
 		assert.Equal(t, 1, n)
 		require.NoError(t, err)
 
@@ -407,7 +407,10 @@ func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
 }
 
 type perfResultsSuite struct {
-	r *PerformanceResults
+	ctx    context.Context
+	cancel context.CancelFunc
+	r      *PerformanceResults
+
 	suite.Suite
 }
 
@@ -421,8 +424,7 @@ func getTimeForTestingByDate(day int) time.Time {
 
 func (s *perfResultsSuite) SetupTest() {
 	env := cedar.GetEnvironment()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	s.r = new(PerformanceResults)
 	s.r.Setup(env)
@@ -445,7 +447,7 @@ func (s *perfResultsSuite) SetupTest() {
 	result.CreatedAt = getTimeForTestingByDate(15)
 	result.Version = 1
 	s.True(result.CompletedAt.IsZero())
-	s.NoError(result.SaveNew(ctx))
+	s.NoError(result.SaveNew(s.ctx))
 
 	info = PerformanceResultInfo{
 		Parent:   "234",
@@ -461,7 +463,7 @@ func (s *perfResultsSuite) SetupTest() {
 	result2.CreatedAt = getTimeForTestingByDate(16)
 	result2.CompletedAt = getTimeForTestingByDate(18)
 	result2.Version = 2
-	s.NoError(result2.SaveNew(ctx))
+	s.NoError(result2.SaveNew(s.ctx))
 
 	info = PerformanceResultInfo{
 		Version:  "1",
@@ -471,16 +473,12 @@ func (s *perfResultsSuite) SetupTest() {
 	}
 	result3 := CreatePerformanceResult(info, source, nil)
 	result3.Setup(cedar.GetEnvironment())
-	s.NoError(result3.SaveNew(ctx))
+	s.NoError(result3.SaveNew(s.ctx))
 }
 
 func (s *perfResultsSuite) TearDownTest() {
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
-	s.Require().NoError(err)
-	defer session.Close()
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.DropCollection()
-	s.Require().NoError(err)
+	defer s.cancel()
+	s.NoError(s.r.env.GetDB().Collection(perfResultCollection).Drop(s.ctx))
 }
 
 func (s *perfResultsSuite) TestFindResultsByTimeInterval() {
@@ -489,26 +487,26 @@ func (s *perfResultsSuite) TestFindResultsByTimeInterval() {
 		Interval: util.GetTimeRange(start, time.Hour*48),
 		MaxDepth: 5,
 	}
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(1, s.r.Results[0].Version)
 
 	start = getTimeForTestingByDate(16)
 	options.Interval = util.GetTimeRange(start, time.Hour*48)
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(2, s.r.Results[0].Version)
 
 	start = getTimeForTestingByDate(15)
 	options.Interval = util.GetTimeRange(start, time.Hour*72)
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 2)
 	options.Limit = 1
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 1)
 
 	options.Interval = util.GetTimeRange(start, -time.Hour*24)
-	s.Error(s.r.Find(options))
+	s.Error(s.r.Find(s.ctx, options))
 }
 
 func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
@@ -518,15 +516,15 @@ func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 		MaxDepth: 5,
 	}
 	options.Info.Version = "1"
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 2)
 
 	options.Info.Tags = []string{"tag1", "tag2", "tag3"}
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 2)
 
 	options.Info.Project = "test"
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal("1", s.r.Results[0].Info.Version, "%+v", options)
 
@@ -538,7 +536,7 @@ func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 	options.Info.Arguments["timeout"] = 12
 	options.Info.Arguments["something"] = 24
 
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].Info.Version, "1")
 }
@@ -550,24 +548,24 @@ func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 			EndAt:   time.Now(),
 		},
 		Info: PerformanceResultInfo{TaskName: "task"},
-		Sort: []string{"-" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey)},
+		Sort: map[string]interface{}{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey): -1},
 	}
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 3)
 	for i := 1; i < len(s.r.Results); i++ {
 		s.True(s.r.Results[i-1].Info.Order >= s.r.Results[i].Info.Order)
 	}
 
 	options.Limit = 2
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 2)
 	for i := 1; i < len(s.r.Results); i++ {
 		s.True(s.r.Results[i-1].Info.Order >= s.r.Results[i].Info.Order)
 	}
 
-	options.Sort = []string{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey)}
+	options.Sort = map[string]interface{}{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey): 1}
 	options.Limit = 0
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 3)
 	for i := 1; i < len(s.r.Results); i++ {
 		s.True(s.r.Results[i-1].Info.Order <= s.r.Results[i].Info.Order)
@@ -575,9 +573,6 @@ func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 }
 
 func (s *perfResultsSuite) TestSearchResultsWithParent() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// nodeA -> nodeB and nodeC, nodeB -> nodeD
 	s.r = new(PerformanceResults)
 	s.r.Setup(cedar.GetEnvironment())
@@ -587,7 +582,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	nodeA := CreatePerformanceResult(info, source, nil)
 	nodeA.Setup(cedar.GetEnvironment())
 	nodeA.CreatedAt = getTimeForTestingByDate(15)
-	s.NoError(nodeA.SaveNew(ctx))
+	s.NoError(nodeA.SaveNew(s.ctx))
 
 	info = PerformanceResultInfo{
 		Parent: nodeA.ID,
@@ -596,13 +591,13 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	nodeB := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeB.Setup(cedar.GetEnvironment())
 	nodeB.CreatedAt = getTimeForTestingByDate(16)
-	s.NoError(nodeB.SaveNew(ctx))
+	s.NoError(nodeB.SaveNew(s.ctx))
 
 	info.Version = "C"
 	nodeC := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeC.Setup(cedar.GetEnvironment())
 	nodeC.CreatedAt = getTimeForTestingByDate(16)
-	s.NoError(nodeC.SaveNew(ctx))
+	s.NoError(nodeC.SaveNew(s.ctx))
 
 	info = PerformanceResultInfo{
 		Parent: nodeB.ID,
@@ -611,14 +606,14 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	nodeD := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeD.Setup(cedar.GetEnvironment())
 	nodeD.CreatedAt = getTimeForTestingByDate(17)
-	s.NoError(nodeD.SaveNew(ctx))
+	s.NoError(nodeD.SaveNew(s.ctx))
 
 	// Without $graphLookup
 	options := PerfFindOptions{
 		MaxDepth: 5,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
 
 	s.Equal(nodeA.ID, s.r.Results[0].ID)
@@ -636,7 +631,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		MaxDepth: 0,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 
@@ -644,7 +639,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		MaxDepth: 1,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 3)
 	grip.Notice(s.r.Results)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
@@ -655,7 +650,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		MaxDepth: -1,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
 
 	s.Equal(nodeA.ID, s.r.Results[0].ID)
@@ -674,7 +669,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].ID, nodeD.ID)
@@ -687,7 +682,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 
@@ -696,7 +691,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 3)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].Info.Parent, nodeA.ID)
@@ -707,7 +702,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].ID, nodeD.ID)
@@ -721,7 +716,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	}
 	options.Info.Parent = nodeA.ID
 	options.Info.Tags = []string{"tag1"}
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 2)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].ID, nodeD.ID)
@@ -729,7 +724,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	// Test remove removes all children
 	root := PerformanceResult{ID: nodeA.ID}
 	root.Setup(cedar.GetEnvironment())
-	numRemoved, err := root.Remove()
+	numRemoved, err := root.Remove(s.ctx)
 	s.NoError(err)
 	s.Equal(4, numRemoved)
 	options = PerfFindOptions{
@@ -737,15 +732,11 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
-	s.NoError(s.r.Find(options))
+	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 0)
 }
 
 func (s *perfResultsSuite) TestFindOutdated() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	s.TearDownTest()
 	s.r = new(PerformanceResults)
 	s.r.Setup(cedar.GetEnvironment())
 	source := []ArtifactInfo{
@@ -762,7 +753,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	result := CreatePerformanceResult(noFTDCData, source[1:], nil)
 	result.CreatedAt = time.Now()
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.SaveNew(ctx))
+	s.Require().NoError(result.SaveNew(s.ctx))
 
 	correctVersionValid := PerformanceResultInfo{Project: "CorrectVersionValid"}
 	result = CreatePerformanceResult(correctVersionValid, source, nil)
@@ -777,7 +768,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.SaveNew(ctx))
+	s.Require().NoError(result.SaveNew(s.ctx))
 
 	correctVersionInvalid := PerformanceResultInfo{Project: "CorrectVersionInvalid"}
 	result = CreatePerformanceResult(correctVersionInvalid, source, nil)
@@ -791,7 +782,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.SaveNew(ctx))
+	s.Require().NoError(result.SaveNew(s.ctx))
 
 	outdated := PerformanceResultInfo{Project: "Outdated"}
 	result = CreatePerformanceResult(outdated, source, nil)
@@ -806,7 +797,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.SaveNew(ctx))
+	s.Require().NoError(result.SaveNew(s.ctx))
 
 	outdatedOld := PerformanceResultInfo{Project: "OutdatedOld"}
 	result = CreatePerformanceResult(outdatedOld, source, nil)
@@ -821,9 +812,9 @@ func (s *perfResultsSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.SaveNew(ctx))
+	s.Require().NoError(result.SaveNew(s.ctx))
 
-	s.Require().NoError(s.r.FindOutdatedRollups(rollupName, 2, time.Now().Add(-time.Hour)))
+	s.Require().NoError(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour)))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(outdated.ID(), s.r.Results[0].Info.ID())
 
@@ -839,9 +830,9 @@ func (s *perfResultsSuite) TestFindOutdated() {
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
-	s.Require().NoError(result.SaveNew(ctx))
+	s.Require().NoError(result.SaveNew(s.ctx))
 
-	s.Require().NoError(s.r.FindOutdatedRollups("DNE", 1, time.Now().Add(-2*time.Hour)))
+	s.Require().NoError(s.r.FindOutdatedRollups(s.ctx, "DNE", 1, time.Now().Add(-2*time.Hour)))
 	s.Require().Len(s.r.Results, 4)
 	for _, result := range s.r.Results {
 		s.NotEqual(doesNotExist.ID(), result.Info.ID())

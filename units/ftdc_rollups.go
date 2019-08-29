@@ -132,7 +132,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 
 	result := &model.PerformanceResult{ID: j.PerfID}
 	result.Setup(j.env)
-	err = result.Find()
+	err = result.Find(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "problem running query")
 		j.AddError(err)

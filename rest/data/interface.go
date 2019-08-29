@@ -17,26 +17,26 @@ type Connector interface {
 	////////////////////
 	// FindPerformanceResultById returns the performance result with the
 	// given id.
-	FindPerformanceResultById(string) (*model.APIPerformanceResult, error)
+	FindPerformanceResultById(context.Context, string) (*model.APIPerformanceResult, error)
 	// RemovePerformanceResultById removes the performance result with the
 	// given id and its children.
-	RemovePerformanceResultById(string) (int, error)
+	RemovePerformanceResultById(context.Context, string) (int, error)
 	// FindPerformanceResultsByTaskId returns the performance results with
 	// the given task id and that fall within given time range, filtered by
 	// the optional tags.
-	FindPerformanceResultsByTaskId(string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultsByTaskId(context.Context, string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultsByTaskName returns the performance results
 	// with the given task name and that fall within given time range,
 	// filtered by the optional tags.
-	FindPerformanceResultsByTaskName(string, string, string, util.TimeRange, int, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultsByTaskName(context.Context, string, string, string, util.TimeRange, int, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultsByVersion returns the performance results with
 	// the given version and that fall within given time range, filtered by
 	// the optional tags.
-	FindPerformanceResultsByVersion(string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultsByVersion(context.Context, string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultWithChildren returns the the performance result
 	// with the given id and its children up to the given depth and
 	// filtered by the optional tags.
-	FindPerformanceResultWithChildren(string, int, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultWithChildren(context.Context, string, int, ...string) ([]model.APIPerformanceResult, error)
 
 	//////////////////
 	// Buildlogger Log

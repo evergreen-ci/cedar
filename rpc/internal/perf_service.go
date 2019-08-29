@@ -63,7 +63,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = artifactData.Id
-	if err := record.Find(); err != nil {
+	if err := record.Find(ctx); err != nil {
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
@@ -91,7 +91,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = rollupData.Id
-	if err := record.Find(); err != nil {
+	if err := record.Find(ctx); err != nil {
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
@@ -144,7 +144,7 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 
 			if record.IsNil() {
 				record.ID = point.Id
-				if err = record.Find(); err != nil {
+				if err = record.Find(ctx); err != nil {
 					catcher.Add(err)
 					return
 				}
@@ -182,7 +182,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	record := &model.PerformanceResult{}
 	record.Setup(srv.env)
 	record.ID = end.Id
-	if err := record.Find(); err != nil {
+	if err := record.Find(ctx); err != nil {
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
