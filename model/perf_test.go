@@ -483,10 +483,10 @@ func (s *perfResultsSuite) TearDownTest() {
 
 func (s *perfResultsSuite) TestFindWithNilEnv() {
 	env := s.r.env
+	s.r.env = nil
 	defer func() {
 		s.r.env = env
 	}()
-	s.r.env = nil
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
 		Interval: util.GetTimeRange(start, time.Hour*48),
@@ -854,9 +854,9 @@ func (s *perfResultsSuite) TestFindOutdated() {
 
 	// nil env
 	env := s.r.env
+	s.r.env = nil
 	defer func() {
 		s.r.env = env
 	}()
-	s.r.env = nil
 	s.Error(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour)))
 }
