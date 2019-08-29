@@ -34,7 +34,12 @@ func setupBenchmark(ctx context.Context) error {
 	defer f.Close()
 	_, err = f.Write(yaml)
 	if err != nil {
-		return errors.Wrap(err, "problem writing conf to file")
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(f.Close()))
+		catcher.Add(errors.Wrap(err, "problem writing conf to file"))
+		return errors.Resolve()
+	} else if err = f.Close(); err != nil {
+		return errors.WithStack(err)
 	}
 
 	args := []string{
