@@ -376,10 +376,10 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, vers
 // performance result with the given id and its children up to maxDepth and
 // filtered by tags. If maxDepth is less than 0, the child search is
 // exhaustive.
-func (mc *MockConnector) FindPerformanceResultWithChildren(_ context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 
-	result, err := mc.FindPerformanceResultById(nil, id)
+	result, err := mc.FindPerformanceResultById(ctx, id)
 	if err != nil {
 		return nil, err
 	}
