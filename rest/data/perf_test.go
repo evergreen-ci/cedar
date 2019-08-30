@@ -181,6 +181,8 @@ func (s *PerfConnectorSuite) getLineage(id string) map[string]bool {
 }
 
 type PerfConnectorSuite struct {
+	ctx      context.Context
+	cancel   context.CancelFunc
 	sc       Connector
 	env      cedar.Environment
 	results  testResults
@@ -191,6 +193,7 @@ type PerfConnectorSuite struct {
 }
 
 func (s *PerfConnectorSuite) setup() {
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
 	err := s.createPerformanceResults(s.env)
 	s.Require().NoError(err)
@@ -198,6 +201,7 @@ func (s *PerfConnectorSuite) setup() {
 }
 
 func (s *PerfConnectorSuite) TearDownSuite() {
+	defer s.cancel()
 	err := tearDownEnv(s.env)
 	s.Require().NoError(err)
 }
@@ -222,18 +226,18 @@ func TestPerfConnectorSuiteMock(t *testing.T) {
 func (s *PerfConnectorSuite) TestFindPerformanceResultById() {
 	expectedID := s.results[0].info.ID()
 
-	actualResult, err := s.sc.FindPerformanceResultById(expectedID)
+	actualResult, err := s.sc.FindPerformanceResultById(s.ctx, expectedID)
 	s.Require().NoError(err)
 	s.Equal(expectedID, *actualResult.Name)
 
-	actualResult, err = s.sc.FindPerformanceResultById(expectedID)
+	actualResult, err = s.sc.FindPerformanceResultById(s.ctx, expectedID)
 	s.Require().NoError(err)
 	s.Equal(expectedID, *actualResult.Name)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
 	var expectedResult *dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultById("doesNotExist")
+	actualResult, err := s.sc.FindPerformanceResultById(s.ctx, "doesNotExist")
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -242,13 +246,13 @@ func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
 	// check that exists
 	expectedIDs := []string{s.results[6].info.ID(), s.results[7].info.ID()}
 	for _, id := range expectedIDs {
-		actualResult, err := s.sc.FindPerformanceResultById(id)
+		actualResult, err := s.sc.FindPerformanceResultById(s.ctx, id)
 		s.Require().NoError(err)
 		s.Equal(id, *actualResult.Name)
 	}
 
 	// remove
-	numRemoved, err := s.sc.RemovePerformanceResultById(expectedIDs[0])
+	numRemoved, err := s.sc.RemovePerformanceResultById(s.ctx, expectedIDs[0])
 	s.NoError(err)
 	s.Equal(2, numRemoved)
 
@@ -256,13 +260,13 @@ func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
 	var expectedResult *dataModel.APIPerformanceResult
 	var actualResult *dataModel.APIPerformanceResult
 	for _, id := range expectedIDs {
-		actualResult, err = s.sc.FindPerformanceResultById(id)
+		actualResult, err = s.sc.FindPerformanceResultById(s.ctx, id)
 		s.Equal(expectedResult, actualResult)
 		s.Error(err)
 	}
 
 	// removing again should not return an error
-	numRemoved, err = s.sc.RemovePerformanceResultById(expectedIDs[0])
+	numRemoved, err = s.sc.RemovePerformanceResultById(s.ctx, expectedIDs[0])
 	s.NoError(err)
 	s.Equal(0, numRemoved)
 }
@@ -279,7 +283,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId(expectedTaskID, tr)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, expectedTaskID, tr)
 	s.Equal(expectedCount, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedTaskID, *result.Info.TaskID)
@@ -287,7 +291,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByTaskId(expectedTaskID, tr, "tag1", "tag2")
+	actualResult, err = s.sc.FindPerformanceResultsByTaskId(s.ctx, expectedTaskID, tr, "tag1", "tag2")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedTaskID, *result.Info.TaskID)
@@ -309,7 +313,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId("doesNotExist", tr)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, "doesNotExist", tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -322,7 +326,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdNarrowInterval() 
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.results[0].info.TaskID, tr)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, s.results[0].info.TaskID, tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -339,7 +343,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName("", expectedTaskName, "", tr, 0)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "", tr, 0)
 	s.Equal(expectedCount, len(actualResult))
 	previousOrder := actualResult[0].Info.Order
 	for _, result := range actualResult {
@@ -350,7 +354,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.NoError(err)
 
 	limit := 2
-	actualResult, err = s.sc.FindPerformanceResultsByTaskName("", expectedTaskName, "", tr, limit)
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "", tr, limit)
 	s.Equal(limit, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)
@@ -358,7 +362,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByTaskName("", expectedTaskName, "", tr, 0, "tag1", "tag2")
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "", tr, 0, "tag1", "tag2")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)
@@ -374,7 +378,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	s.NoError(err)
 
 	// search by variant
-	actualResult, err = s.sc.FindPerformanceResultsByTaskName("", expectedTaskName, "v", tr, 0)
+	actualResult, err = s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "v", tr, 0)
 	s.NoError(err)
 	s.Require().Len(actualResult, 1)
 	s.Equal(actualResult[0].Info.Variant, dataModel.ToAPIString("v"))
@@ -386,7 +390,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() 
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName("", "doesNotExist", "", tr, 0)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", "doesNotExist", "", tr, 0)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -397,7 +401,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameNarrowInterval(
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskName("", s.results[0].info.TaskName, "", tr, 0)
+	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", s.results[0].info.TaskName, "", tr, 0)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -414,7 +418,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	s.Require().NoError(err)
 	tr := util.GetTimeRange(time.Time{}, dur)
 
-	actualResult, err := s.sc.FindPerformanceResultsByVersion(expectedVersion, tr)
+	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, expectedVersion, tr)
 	s.Equal(expectedCount, len(actualResult))
 	for _, result := range actualResult {
 		s.Equal(expectedVersion, *result.Info.Version)
@@ -422,7 +426,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultsByVersion(expectedVersion, tr, "tag1")
+	actualResult, err = s.sc.FindPerformanceResultsByVersion(s.ctx, expectedVersion, tr, "tag1")
 	s.True(len(actualResult) < expectedCount)
 	for _, result := range actualResult {
 		s.Equal(expectedVersion, *result.Info.Version)
@@ -444,7 +448,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByVersion("doesNotExist", tr)
+	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, "doesNotExist", tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
@@ -455,14 +459,14 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionNarrowInterval()
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.results[0].info.Version, tr)
+	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, s.results[0].info.Version, tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
 	expectedLineage := s.getLineage(s.results[0].info.ID())
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.ctx, s.results[0].info.ID(), 5)
 	for _, result := range actualResult {
 		_, ok := expectedLineage[*result.Name]
 		s.True(ok)
@@ -470,7 +474,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
 	s.NoError(err)
 
 	// Now with tags
-	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 5, "tag3")
+	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.ctx, s.results[0].info.ID(), 5, "tag3")
 	for _, result := range actualResult {
 		_, ok := expectedLineage[*result.Name]
 		s.True(ok)
@@ -491,14 +495,14 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildren() {
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDoesNotExist() {
 	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultWithChildren("doesNotExist", 5)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.ctx, "doesNotExist", 5)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 	// no depth
-	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 0)
+	actualResult, err := s.sc.FindPerformanceResultWithChildren(s.ctx, s.results[0].info.ID(), 0)
 	s.NoError(err)
 	s.Require().Len(actualResult, 1)
 	s.Equal(s.results[0].info.ID(), *actualResult[0].Name)
@@ -508,7 +512,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 	for i := 0; i < 3; i++ {
 		expectedIds[s.results[i].info.ID()] = true
 	}
-	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.results[0].info.ID(), 1)
+	actualResult, err = s.sc.FindPerformanceResultWithChildren(s.ctx, s.results[0].info.ID(), 1)
 	s.NoError(err)
 	s.Require().Len(actualResult, 3)
 	for _, result := range actualResult {

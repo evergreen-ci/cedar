@@ -110,9 +110,12 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 	if r.id == "" {
 		return errors.New("rollups missing id")
 	}
+	if r.env == nil {
+		return errors.New("cannot add rollups with a nil env")
 
-	database := r.env.GetDB()
-	collection := database.Collection(perfResultCollection)
+	}
+
+	collection := r.env.GetDB().Collection(perfResultCollection)
 
 	updated, err := tryUpdate(ctx, collection, r.id, rollup)
 	if !updated {
@@ -236,6 +239,10 @@ func (r *PerfRollups) MapFloat() map[string]float64 {
 // MergeRollups merges rollups to existing rollups in a performance result. The
 // environment should not be nil.
 func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []PerfRollupValue) error {
+	if r.env == nil {
+		return errors.New("cannot merge rollups with a nil env")
+	}
+
 	catcher := grip.NewBasicCatcher()
 
 	r.Rollups.id = r.ID

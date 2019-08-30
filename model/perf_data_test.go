@@ -11,7 +11,9 @@ import (
 )
 
 type perfRollupSuite struct {
-	r *PerfRollups
+	ctx    context.Context
+	cancel context.CancelFunc
+	r      *PerfRollups
 	suite.Suite
 }
 
@@ -25,16 +27,15 @@ func (s *perfRollupSuite) SetupTest() {
 	s.r.Setup(cedar.GetEnvironment())
 	s.r.id = "123"
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
+	_, err := s.r.env.GetDB().Collection(perfResultCollection).InsertOne(
+		s.ctx,
+		PerformanceResult{ID: s.r.id, Rollups: PerfRollups{Stats: []PerfRollupValue{}}},
+	)
 	s.Require().NoError(err)
-	defer session.Close()
 
-	s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).Insert(PerformanceResult{ID: s.r.id, Rollups: PerfRollups{Stats: []PerfRollupValue{}}}))
-
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "float",
 		Value:         12.4,
 		Version:       1,
@@ -42,7 +43,7 @@ func (s *perfRollupSuite) SetupTest() {
 		UserSubmitted: true,
 		Valid:         true,
 	}))
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "int",
 		Version:       2,
 		Value:         12,
@@ -50,7 +51,7 @@ func (s *perfRollupSuite) SetupTest() {
 		UserSubmitted: true,
 		Valid:         true,
 	}))
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "int32",
 		Version:       3,
 		Value:         int32(32),
@@ -58,7 +59,7 @@ func (s *perfRollupSuite) SetupTest() {
 		UserSubmitted: true,
 		Valid:         true,
 	}))
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "long",
 		Version:       4,
 		Value:         int64(20216),
@@ -68,17 +69,17 @@ func (s *perfRollupSuite) SetupTest() {
 	}))
 }
 
-func (s *perfRollupSuite) TestSetupTestIsValid() {
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
-	s.Require().NoError(err)
-	defer session.Close()
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
+func (s *perfRollupSuite) TearDownTest() {
+	defer s.cancel()
+	s.NoError(s.r.env.GetDB().Collection(perfResultCollection).Drop(s.ctx))
+}
 
+func (s *perfRollupSuite) TestSetupTestIsValid() {
 	search := bson.M{
 		"_id": s.r.id,
 	}
 	out := PerformanceResult{}
-	err = c.Find(search).One(&out)
+	err := s.r.env.GetDB().Collection(perfResultCollection).FindOne(s.ctx, search).Decode(&out)
 	s.Require().NoError(err)
 	s.Require().NotNil(out.Rollups)
 
@@ -153,13 +154,10 @@ func (s *perfRollupSuite) TestLong() {
 }
 
 func (s *perfRollupSuite) TestAddPerfRollupValue() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	s.Len(s.r.Stats, 4)
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       1,
 		Value:         12.24,
@@ -174,18 +172,11 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 }
 
 func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	s.r.id = "invalid"
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
+	c := s.r.env.GetDB().Collection(perfResultCollection)
+	_, err := c.InsertOne(s.ctx, bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	defer session.Close()
-
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.Insert(bson.M{"_id": s.r.id})
-	s.Require().NoError(err)
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "invalid",
 		Version:       1,
 		Value:         nil,
@@ -199,7 +190,7 @@ func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
 	}
 
 	out := PerformanceResult{}
-	err = c.Find(search).One(&out)
+	err = c.FindOne(s.ctx, search).Decode(&out)
 	s.Require().NoError(err)
 	s.Require().Len(out.Rollups.Stats, 1)
 	s.Equal(out.Rollups.Stats[0].Name, "invalid")
@@ -210,10 +201,7 @@ func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
 }
 
 func (s *perfRollupSuite) TestMaps() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       1,
 		Value:         12.24,
@@ -239,19 +227,28 @@ func (s *perfRollupSuite) TestMaps() {
 	s.Equal(allInts["int"], int64(12))
 }
 
+func (s *perfRollupSuite) TestAddWithNilEnv() {
+	env := s.r.env
+	s.r.env = nil
+	defer func() {
+		s.r.env = env
+	}()
+	s.Error(s.r.Add(s.ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       4,
+		Value:         12.24,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+		Valid:         true,
+	}))
+}
+
 func (s *perfRollupSuite) TestUpdateExistingEntry() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	s.r.id = "234"
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
+	c := s.r.env.GetDB().Collection(perfResultCollection)
+	_, err := c.InsertOne(s.ctx, bson.M{"_id": s.r.id})
 	s.Require().NoError(err)
-	defer session.Close()
-
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.Insert(bson.M{"_id": s.r.id})
-	s.Require().NoError(err)
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       4,
 		Value:         12.24,
@@ -265,14 +262,14 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		"rollups.stats.name": "mean",
 	}
 	out := PerformanceResult{}
-	err = c.Find(search).One(&out)
+	err = c.FindOne(s.ctx, search).Decode(&out)
 	s.Require().NoError(err)
 	s.Require().Len(out.Rollups.Stats, 1)
 	s.Equal(out.Rollups.Stats[0].Version, 4)
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
-	s.Require().NoError(s.r.Add(ctx, PerfRollupValue{
+	s.Require().NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       3,
 		Value:         24.12,
@@ -280,13 +277,13 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		UserSubmitted: true,
 		Valid:         true,
 	}))
-	s.Require().NoError(c.Find(search).One(&out))
+	s.Require().NoError(c.FindOne(s.ctx, search).Decode(&out))
 	s.Require().Len(out.Rollups.Stats, 1)
 	s.Equal(out.Rollups.Stats[0].Version, 4)
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
-	s.NoError(s.r.Add(ctx, PerfRollupValue{
+	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       5,
 		Value:         24.12,
@@ -297,31 +294,14 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(24.12, val)
-	s.Require().NoError(c.Find(search).One(&out))
+	s.Require().NoError(c.FindOne(s.ctx, search).Decode(&out))
 	s.Require().Len(out.Rollups.Stats, 1)
 	s.Equal(5, out.Rollups.Stats[0].Version)
 	s.Equal(24.12, out.Rollups.Stats[0].Value)
 	s.Equal(false, out.Rollups.Stats[0].UserSubmitted)
 }
 
-func (s *perfRollupSuite) TearDownTest() {
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
-	s.Require().NoError(err)
-	defer session.Close()
-
-	c := session.DB(conf.DatabaseName).C(perfResultCollection)
-	err = c.DropCollection()
-	s.NoError(err)
-}
-
 func (s *perfRollupSuite) TestMergeRollups() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	conf, session, err := cedar.GetSessionWithConfig(s.r.env)
-	s.Require().NoError(err)
-	defer session.Close()
-
 	// without errors
 	rollups := []PerfRollupValue{
 		{
@@ -339,10 +319,10 @@ func (s *perfRollupSuite) TestMergeRollups() {
 
 	for i := 0; i < 3; i++ {
 		result := &PerformanceResult{}
-		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
+		s.Require().NoError(s.r.env.GetDB().Collection(perfResultCollection).FindOne(s.ctx, bson.M{"_id": s.r.id}).Decode(result))
 		result.Setup(s.r.env)
-		s.NoError(result.MergeRollups(ctx, rollups))
-		s.Require().NoError(session.DB(conf.DatabaseName).C(perfResultCollection).FindId(s.r.id).One(result))
+		s.NoError(result.MergeRollups(s.ctx, rollups))
+		s.Require().NoError(s.r.env.GetDB().Collection(perfResultCollection).FindOne(s.ctx, bson.M{"_id": s.r.id}).Decode(result))
 		count := 0
 		s.Require().NotNil(result.Rollups)
 		for _, rollup := range result.Rollups.Stats {
@@ -354,4 +334,8 @@ func (s *perfRollupSuite) TestMergeRollups() {
 		s.True(time.Since(result.Rollups.ProcessedAt) <= time.Minute)
 		s.True(result.Rollups.Valid)
 	}
+
+	// nil env
+	result := &PerformanceResult{}
+	s.Error(result.MergeRollups(s.ctx, rollups))
 }

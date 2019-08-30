@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sort"
@@ -17,12 +18,12 @@ import (
 
 // FindPerformanceResultById queries the database to find the performance
 // result with the given id.
-func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultById(ctx context.Context, id string) (*dataModel.APIPerformanceResult, error) {
 	result := model.PerformanceResult{}
 	result.Setup(dbc.env)
 	result.ID = id
 
-	if err := result.Find(); err != nil {
+	if err := result.Find(ctx); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
@@ -43,12 +44,12 @@ func (dbc *DBConnector) FindPerformanceResultById(id string) (*dataModel.APIPerf
 // RemovePerformanceResultById removes the performance result with the given id
 // from the database. Note that this function deletes all children. No error is
 // returned if the id does not exist.
-func (dbc *DBConnector) RemovePerformanceResultById(id string) (int, error) {
+func (dbc *DBConnector) RemovePerformanceResultById(ctx context.Context, id string) (int, error) {
 	result := model.PerformanceResult{}
 	result.Setup(dbc.env)
 	result.ID = id
 
-	numRemoved, err := result.Remove()
+	numRemoved, err := result.Remove(ctx)
 	if err != nil {
 		return numRemoved, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -61,7 +62,7 @@ func (dbc *DBConnector) RemovePerformanceResultById(id string) (int, error) {
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given taskId and that fall within interval, filtered by
 // tags.
-func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -74,7 +75,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 		MaxDepth: 0,
 	}
 
-	if err := results.Find(options); err != nil {
+	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
@@ -105,7 +106,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(taskId string, interval u
 // filtered by tags. Results are returned sorted (descending) by the Evergreen
 // order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -119,10 +120,10 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(project, taskName, vari
 		MaxDepth: 0,
 		Limit:    limit,
 		Variant:  variant,
-		Sort:     []string{"-info.order"},
+		Sort:     []string{"info.order"},
 	}
 
-	if err := results.Find(options); err != nil {
+	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
@@ -151,7 +152,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(project, taskName, vari
 // FindPerformanceResultsByVersion queries the database to find all performance
 // results with the given version and that fall within interval, filtered by
 // tags.
-func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByVersion(ctx context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -164,7 +165,7 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval
 		MaxDepth: 0,
 	}
 
-	if err := results.Find(options); err != nil {
+	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
@@ -193,7 +194,7 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(version string, interval
 // FindPerformanceResultWithChildren queries the database to find a performance
 // result with the given id and its children up to maxDepth and filtered by
 // tags. If maxDepth is less than 0, the child search is exhaustive.
-func (dbc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -206,7 +207,7 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth in
 		GraphLookup: true,
 	}
 
-	if err := results.Find(options); err != nil {
+	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
@@ -238,7 +239,7 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(id string, maxDepth in
 
 // FindPerformanceResultById queries the mock cache to find the performance
 // result with the given id.
-func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultById(_ context.Context, id string) (*dataModel.APIPerformanceResult, error) {
 	result, ok := mc.CachedPerformanceResults[id]
 	apiResult := dataModel.APIPerformanceResult{}
 	err := apiResult.Import(result)
@@ -261,7 +262,7 @@ func (mc *MockConnector) FindPerformanceResultById(id string) (*dataModel.APIPer
 // RemovePerformanceResultById removes the performance result with the given id
 // from the mock cache. Note that this function deletes all children. No error
 // is returned if the id does not exist.
-func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
+func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id string) (int, error) {
 	_, ok := mc.CachedPerformanceResults[id]
 	if ok {
 		delete(mc.CachedPerformanceResults, id)
@@ -279,7 +280,7 @@ func (mc *MockConnector) RemovePerformanceResultById(id string) (int, error) {
 // FindPerformanceResultsByTaskId queries the mock cache to find all
 // performance results with the given taskId and that fall within interval,
 // filtered by tags.
-func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) {
@@ -310,7 +311,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(taskId string, interval 
 // filtered by tags. Results are returned sorted (descending) by the Evergreen
 // order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
-func (mc *MockConnector) FindPerformanceResultsByTaskName(project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) &&
@@ -345,7 +346,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(project, taskName, var
 // FindPerformanceResultsByVersion queries the mock cache to find all
 // performance results with the given version and that fall within interval,
 // filtered by tags.
-func (mc *MockConnector) FindPerformanceResultsByVersion(version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) && result.Info.Mainline {
@@ -375,10 +376,10 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(version string, interva
 // performance result with the given id and its children up to maxDepth and
 // filtered by tags. If maxDepth is less than 0, the child search is
 // exhaustive.
-func (mc *MockConnector) FindPerformanceResultWithChildren(id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 
-	result, err := mc.FindPerformanceResultById(id)
+	result, err := mc.FindPerformanceResultById(ctx, id)
 	if err != nil {
 		return nil, err
 	}
