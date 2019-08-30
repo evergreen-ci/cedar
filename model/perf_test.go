@@ -562,7 +562,7 @@ func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 			EndAt:   time.Now(),
 		},
 		Info: PerformanceResultInfo{TaskName: "task"},
-		Sort: SortKeys{{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), -1}},
+		Sort: []string{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey)},
 	}
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 3)
@@ -575,14 +575,6 @@ func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 	s.Len(s.r.Results, 2)
 	for i := 1; i < len(s.r.Results); i++ {
 		s.True(s.r.Results[i-1].Info.Order >= s.r.Results[i].Info.Order)
-	}
-
-	options.Sort = SortKeys{{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), 1}}
-	options.Limit = 0
-	s.NoError(s.r.Find(s.ctx, options))
-	s.Len(s.r.Results, 3)
-	for i := 1; i < len(s.r.Results); i++ {
-		s.True(s.r.Results[i-1].Info.Order <= s.r.Results[i].Info.Order)
 	}
 }
 
