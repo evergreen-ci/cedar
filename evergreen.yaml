@@ -258,6 +258,7 @@ buildvariants:
       curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
     run_on:
       - archlinux-test
+      - archlinux-build
     tasks:
       - name: ".report"
 
@@ -269,6 +270,7 @@ buildvariants:
       curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
     run_on:
       - ubuntu1604-test
+      - ubuntu1604-build
     tasks:
       - name: ".test"
       - name: "dist"
@@ -281,6 +283,7 @@ buildvariants:
       curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-macos-latest.tar.gz
     run_on:
       - macos-1014
+      - macos-1014-i7
     tasks:
       - name: ".test"
       - name: "dist"
@@ -288,7 +291,12 @@ buildvariants:
   - name: windows
     display_name: Windows
     run_on:
+      - windows-64-vs2017-test
+      - windows-64-vs2017-compile
+      - windows-64-vs2015-test
+      - windows-64-vs2015-compile
       - windows-64-vs2015-small
+      - windows-64-vs2015-large
     expansions:
       mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
       build_env: "GOROOT=c:/golang/go1.11 PATH=/cygdrive/c/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
