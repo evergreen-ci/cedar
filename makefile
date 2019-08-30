@@ -100,8 +100,8 @@ lint:$(foreach target,$(packages),$(buildDir)/output.$(target).lint)
 test:build $(buildDir)/output.test
 build:$(buildDir)/$(name)
 .PHONY: benchmark
-benchmark: $(buildDir)/run-benchmarks $(buildDir)/ .FORCE
-	./$(buildDir)/run-benchmarks
+benchmark:$(buildDir)/run-benchmarks $(buildDir)/ .FORCE
+	./$(buildDir)/run-benchmarks $(run-benchmark)
 coverage:build $(coverageOutput)
 coverage-html:build $(coverageHtmlOutput)
 list-tests:
