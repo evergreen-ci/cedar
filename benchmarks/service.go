@@ -31,7 +31,6 @@ func setupBenchmark(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "problem creating new file")
 	}
-	defer f.Close()
 	_, err = f.Write(yaml)
 	if err != nil {
 		catcher := grip.NewBasicCatcher()
