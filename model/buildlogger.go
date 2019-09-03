@@ -532,15 +532,19 @@ func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 		return nil, errors.New("cannot merge with a nil environment")
 	}
 
-	var err error
-	iterators := make([]LogIterator, len(l.Logs))
+	iterators := []LogIterator{}
 	for i := range l.Logs {
 		l.Logs[i].Setup(l.env)
-		iterators[i], err = l.Logs[i].Download(ctx, l.timeRange)
+		it, err := l.Logs[i].Download(ctx, l.timeRange)
 		if err != nil {
-			// TODO: close open iterators
-			return nil, errors.Wrap(err, "problem downloading log")
+			catcher := grip.NewBasicCatcher()
+			for _, iterator := range iterators {
+				catcher.Add(iterator.Close())
+			}
+			catcher.Add(err)
+			return nil, errors.Wrap(catcher.Resolve(), "problem downloading log")
 		}
+		iterators = append(iterators, it)
 	}
 
 	return NewMergingIterator(ctx, iterators...), nil
