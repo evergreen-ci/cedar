@@ -31,12 +31,10 @@ func TestCreateLog(t *testing.T) {
 	}()
 
 	for _, test := range []struct {
-		name        string
-		data        *LogData
-		env         cedar.Environment
-		ts          time.Time
-		nilResponse bool
-		hasErr      bool
+		name   string
+		data   *LogData
+		env    cedar.Environment
+		hasErr bool
 	}{
 		{
 			name: "ValidData",
@@ -80,7 +78,7 @@ func TestCreateLog(t *testing.T) {
 				require.NoError(t, log.Find(ctx))
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
-				assert.True(t, time.Now().Sub(log.CreatedAt) <= time.Second)
+				assert.True(t, time.Since(log.CreatedAt) <= time.Second)
 			}
 		})
 	}
@@ -509,7 +507,6 @@ func TestCloseLog(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		info   *LogEndInfo
-		ts     time.Time
 		env    cedar.Environment
 		hasErr bool
 	}{
@@ -560,7 +557,7 @@ func TestCloseLog(t *testing.T) {
 				assert.Equal(t, log.ID, l.Info.ID())
 				assert.Equal(t, log.Artifact, l.Artifact)
 				assert.Equal(t, int(test.info.ExitCode), l.Info.ExitCode)
-				assert.True(t, time.Now().Sub(l.CompletedAt) <= time.Second)
+				assert.True(t, time.Since(l.CompletedAt) <= time.Second)
 			}
 		})
 	}
