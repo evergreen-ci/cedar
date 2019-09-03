@@ -20,6 +20,7 @@ const (
 	serialized   = "SerializedIterator"
 	batched      = "BatchedIterator"
 	parallelized = "ParallelizedIterator"
+	merging      = "MergingIterator"
 )
 
 func TestLogIterator(t *testing.T) {
@@ -58,6 +59,7 @@ func TestLogIterator(t *testing.T) {
 				serialized:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
 				batched:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
 				parallelized: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				merging:      NewMergingIterator(ctx, NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				assert.False(t, it.Next(ctx))
@@ -72,6 +74,7 @@ func TestLogIterator(t *testing.T) {
 				serialized:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
 				batched:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
 				parallelized: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -91,6 +94,7 @@ func TestLogIterator(t *testing.T) {
 				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange),
 				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange),
 				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange),
+				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -108,6 +112,7 @@ func TestLogIterator(t *testing.T) {
 				serialized:   NewSerializedLogIterator(bucket, chunks, partialTimeRange),
 				batched:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
 				parallelized: NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
+				merging:      NewMergingIterator(ctx, NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -130,6 +135,75 @@ func TestLogIterator(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMergeLogIterator(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
+	require.NoError(t, err)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	t.Run("SingleLog", func(t *testing.T) {
+		chunks, lines, err := createLog(ctx, bucket, 100, 10)
+		require.NoError(t, err)
+		timeRange := util.TimeRange{
+			StartAt: chunks[0].Start,
+			EndAt:   chunks[len(chunks)-1].End,
+		}
+		it := NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 100, timeRange))
+
+		count := 0
+		for it.Next(ctx) {
+			logLine := it.Item()
+			require.True(t, count < len(lines))
+			assert.Equal(t, lines[count], logLine)
+			count++
+		}
+		assert.Equal(t, len(lines), count)
+		assert.NoError(t, it.Err())
+		assert.NoError(t, it.Close())
+	})
+	t.Run("MultipleLogs", func(t *testing.T) {
+		numLogs := 10
+		its := make([]LogIterator, numLogs)
+		lineMap := map[string]bool{}
+		for i := 0; i < numLogs; i++ {
+			chunks, lines, err := createLog(ctx, bucket, 100, 10)
+			require.NoError(t, err)
+
+			timeRange := util.TimeRange{
+				StartAt: chunks[0].Start,
+				EndAt:   chunks[len(chunks)-1].End,
+			}
+			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+			for _, line := range lines {
+				lineMap[line.Data] = false
+			}
+		}
+		it := NewMergingIterator(ctx, its...)
+
+		count := 0
+		lastTime := time.Time{}
+		for it.Next(ctx) {
+			logLine := it.Item()
+
+			assert.True(t, lastTime.Before(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
+			lastTime = logLine.Timestamp
+			seen, ok := lineMap[logLine.Data]
+			require.True(t, ok)
+			assert.False(t, seen)
+			lineMap[logLine.Data] = true
+			count++
+		}
+		assert.Equal(t, len(lineMap), count)
+		assert.NoError(t, it.Err())
+		assert.NoError(t, it.Close())
+	})
 }
 
 func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]LogChunkInfo, []LogLine, error) {

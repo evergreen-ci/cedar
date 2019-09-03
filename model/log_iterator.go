@@ -296,6 +296,80 @@ func (i *batchedIterator) Close() error {
 }
 
 ///////////////////
+// Merging Iterator
+///////////////////
+
+type mergingIterator struct {
+	currentItem  LogLine
+	iteratorHeap *LogIteratorHeap
+	catcher      grip.Catcher
+}
+
+// NewMergeIterator returns a LogIterator thatmerges N buildlogger logs, passed
+// in as LogIterators, respecting the order of each line's timestamp.
+func NewMergingIterator(ctx context.Context, iterators ...LogIterator) LogIterator {
+	catcher := grip.NewBasicCatcher()
+	h := &LogIteratorHeap{}
+	heap.Init(h)
+
+	for i := range iterators {
+		if iterators[i].Next(ctx) {
+			h.SafePush(iterators[i])
+		}
+
+		// fail early
+		if iterators[i].Err() != nil {
+			catcher.Add(iterators[i].Err())
+			h = &LogIteratorHeap{}
+			break
+		}
+	}
+
+	return &mergingIterator{
+		iteratorHeap: h,
+		catcher:      catcher,
+	}
+}
+
+func (i *mergingIterator) Next(ctx context.Context) bool {
+	it := i.iteratorHeap.SafePop()
+	if it == nil {
+		return false
+	}
+	i.currentItem = it.Item()
+
+	if it.Next(ctx) {
+		i.iteratorHeap.SafePush(it)
+	} else {
+		i.catcher.Add(it.Err())
+		i.catcher.Add(it.Close())
+		if i.catcher.HasErrors() {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (i *mergingIterator) Err() error { return i.catcher.Resolve() }
+
+func (i *mergingIterator) Item() LogLine { return i.currentItem }
+
+func (i *mergingIterator) Close() error {
+	catcher := grip.NewBasicCatcher()
+
+	for {
+		it := i.iteratorHeap.SafePop()
+		if it == nil {
+			break
+		}
+		catcher.Add(it.Close())
+	}
+
+	return catcher.Resolve()
+}
+
+///////////////////
 // Helper functions
 ///////////////////
 

@@ -2,11 +2,9 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/jpillora/backoff"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -482,7 +481,9 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.Equal(t, expectedBucket, rawIt.bucket)
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
 		assert.Equal(t, timeRange, rawIt.timeRange)
-		assert.Equal(t, 100, rawIt.batchSize)
+		assert.Equal(t, 2, rawIt.batchSize)
+		assert.NoError(t, it.Err())
+		assert.NoError(t, it.Close())
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		log2.ID = ""
@@ -506,86 +507,9 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.Equal(t, expectedBucket, rawIt.bucket)
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
 		assert.Equal(t, timeRange, rawIt.timeRange)
-		assert.Equal(t, 100, rawIt.batchSize)
-	})
-}
-
-func TestBuildloggerMerge(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.RemoveAll(tmpDir)
-	}()
-	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
-	require.NoError(t, err)
-
-	t.Run("SingleLog", func(t *testing.T) {
-		chunks, lines, err := createLog(ctx, bucket, 100, 10)
-		require.NoError(t, err)
-		timeRange := util.TimeRange{
-			StartAt: chunks[0].Start,
-			EndAt:   chunks[len(chunks)-1].End,
-		}
-		it := NewBatchedLogIterator(bucket, chunks, 100, timeRange)
-		lineChan := MergeLogs(ctx, it)
-
-		count := 0
-		for {
-			line, more := <-lineChan
-			if more {
-				require.True(t, count < len(lines))
-				assert.Equal(t, fmt.Sprintf("%s %s", lines[count].Timestamp, lines[count].Data), line)
-				count++
-			} else {
-				break
-			}
-		}
-		assert.Equal(t, len(lines), count)
-	})
-	t.Run("MultipleLogs", func(t *testing.T) {
-		numLogs := 10
-		its := make([]LogIterator, numLogs)
-		lineMap := map[string]bool{}
-		for i := 0; i < numLogs; i++ {
-			chunks, lines, err := createLog(ctx, bucket, 100, 10)
-			require.NoError(t, err)
-
-			timeRange := util.TimeRange{
-				StartAt: chunks[0].Start,
-				EndAt:   chunks[len(chunks)-1].End,
-			}
-			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
-			for _, line := range lines {
-				lineMap[line.Data] = false
-			}
-		}
-		lineChan := MergeLogs(ctx, its...)
-
-		count := 0
-		lastTime := time.Time{}
-		for {
-			line, more := <-lineChan
-			if more {
-				split := strings.SplitAfterN(line, "UTC", 2)
-				require.Len(t, split, 2)
-				ts, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", split[0])
-				require.NoError(t, err)
-				data := split[1][1:]
-
-				assert.True(t, lastTime.Before(ts) || lastTime.Equal(ts))
-				lastTime = ts
-				seen, ok := lineMap[data]
-				require.True(t, ok)
-				assert.False(t, seen)
-				lineMap[data] = true
-				count++
-			} else {
-				break
-			}
-		}
-		assert.Equal(t, len(lineMap), count)
+		assert.Equal(t, 2, rawIt.batchSize)
+		assert.NoError(t, it.Err())
+		assert.NoError(t, it.Close())
 	})
 }
 
@@ -653,16 +577,267 @@ func TestBuildloggerClose(t *testing.T) {
 	})
 }
 
+func TestBuildloggerFindLogs(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+	}()
+	log1, log2 := getTestLogs()
+
+	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
+	require.NoError(t, err)
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		logs := Logs{}
+		opts := LogFindOptions{
+			TimeRange: util.TimeRange{
+				StartAt: time.Now().Add(-time.Hour),
+				EndAt:   time.Now(),
+			},
+			Info: LogInfo{Project: log1.Info.Project},
+		}
+		assert.Error(t, logs.Find(ctx, opts))
+		assert.Empty(t, logs.Logs)
+		assert.False(t, logs.populated)
+	})
+	t.Run("InvalidTimeRange", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: util.TimeRange{},
+			Info:      LogInfo{Project: log1.Info.Project},
+		}
+		assert.Error(t, logs.Find(ctx, opts))
+
+		opts.TimeRange = util.TimeRange{
+			StartAt: time.Now(),
+			EndAt:   time.Now().Add(-time.Hour),
+		}
+		assert.Error(t, logs.Find(ctx, opts))
+		assert.Empty(t, logs.Logs)
+		assert.False(t, logs.populated)
+	})
+	t.Run("DNE", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: util.TimeRange{
+				time.Now().Add(-48 * time.Hour),
+				time.Now(),
+			},
+			Info: LogInfo{Project: "DNE"},
+		}
+		assert.NoError(t, logs.Find(ctx, opts))
+		assert.Empty(t, logs.Logs)
+		assert.False(t, logs.populated)
+	})
+	t.Run("WithoutLimit", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: util.TimeRange{
+				time.Now().Add(-48 * time.Hour),
+				time.Now(),
+			},
+			Info: LogInfo{Project: log1.Info.Project},
+		}
+		require.NoError(t, logs.Find(ctx, opts))
+		require.Len(t, logs.Logs, 2)
+		assert.Equal(t, log2.ID, logs.Logs[0].ID)
+		assert.Equal(t, log1.ID, logs.Logs[1].ID)
+		assert.True(t, logs.populated)
+		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+	t.Run("WithLimit", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: util.TimeRange{
+				time.Now().Add(-48 * time.Hour),
+				time.Now(),
+			},
+			Info:  LogInfo{Project: log1.Info.Project},
+			Limit: 1,
+		}
+		require.NoError(t, logs.Find(ctx, opts))
+		require.Len(t, logs.Logs, 1)
+		assert.Equal(t, log2.ID, logs.Logs[0].ID)
+		assert.True(t, logs.populated)
+		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+}
+
+func TestBuildloggerCreateFindQuery(t *testing.T) {
+	opts := LogFindOptions{
+		TimeRange: util.TimeRange{
+			StartAt: time.Now().Add(-time.Hour),
+			EndAt:   time.Now(),
+		},
+		Info: LogInfo{
+			Project:     "test",
+			Version:     "0",
+			Variant:     "linux",
+			TaskName:    "task0",
+			TaskID:      "task1",
+			Execution:   1,
+			TestName:    "test0",
+			ProcessName: "mongod0",
+			Format:      LogFormatText,
+			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:    1,
+			Mainline:    true,
+		},
+	}
+
+	t.Run("WithTaskID", func(t *testing.T) {
+		search := createFindQuery(opts)
+		_, ok := search["$or"]
+		assert.False(t, ok)
+		_, ok = search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)]
+		assert.False(t, ok)
+		assert.Equal(t, opts.Info.Project, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)])
+		assert.Equal(t, opts.Info.Version, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)])
+		assert.Equal(t, opts.Info.Variant, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)])
+		assert.Equal(t, opts.Info.TaskName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)])
+		assert.Equal(t, opts.Info.TaskID, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)])
+		assert.Equal(t, opts.Info.Execution, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)])
+		assert.Equal(t, opts.Info.TestName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)])
+		assert.Equal(t, opts.Info.ProcessName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
+		assert.Equal(t, opts.Info.Format, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
+		assert.Equal(t, opts.Info.ExitCode, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)])
+		query, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)]
+		require.True(t, ok)
+		args := query.(bson.M)["$in"].([]bson.M)
+		for _, arg := range args {
+			count := 0
+			for key, val := range arg {
+				assert.Equal(t, opts.Info.Arguments[key], val)
+				assert.Zero(t, count)
+				count++
+			}
+		}
+		assert.Len(t, args, len(opts.Info.Arguments))
+	})
+	t.Run("WithoutTaskID", func(t *testing.T) {
+		opts.Info.TaskID = ""
+		search := createFindQuery(opts)
+		assert.Equal(t,
+			[]bson.M{
+				{logCreatedAtKey: bson.M{"$gte": opts.TimeRange.StartAt}},
+				{logCompletedAtKey: bson.M{"$lte": opts.TimeRange.EndAt}},
+			},
+			search["$or"],
+		)
+		_, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)]
+		assert.False(t, ok)
+		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
+	})
+	t.Run("EmptyInfo", func(t *testing.T) {
+		opts.Info = LogInfo{}
+		search := createFindQuery(opts)
+		assert.Equal(t,
+			[]bson.M{
+				{logCreatedAtKey: bson.M{"$gte": opts.TimeRange.StartAt}},
+				{logCompletedAtKey: bson.M{"$lte": opts.TimeRange.EndAt}},
+			},
+			search["$or"],
+		)
+		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
+		assert.Len(t, search, 2)
+	})
+}
+
+func TestBuildloggerMerge(t *testing.T) {
+	env := cedar.GetEnvironment()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	db := env.GetDB()
+	defer func() {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+	log1, log2 := getTestLogs()
+
+	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
+	require.NoError(t, err)
+	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	require.NoError(t, err)
+
+	timeRange := util.TimeRange{
+		StartAt: log2.Artifact.Chunks[0].Start,
+		EndAt:   log2.Artifact.Chunks[len(log2.Artifact.Chunks)-1].End,
+	}
+
+	t.Run("NoEnv", func(t *testing.T) {
+		logs := Logs{
+			Logs:      []Log{*log1, *log2},
+			populated: true,
+			timeRange: timeRange,
+		}
+		it, err := logs.Merge(ctx)
+		assert.Error(t, err)
+		assert.Nil(t, it)
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		logs := Logs{
+			Logs:      []Log{*log1, *log2},
+			timeRange: timeRange,
+		}
+		logs.Setup(env)
+		it, err := logs.Merge(ctx)
+		assert.Error(t, err)
+		assert.Nil(t, it)
+	})
+	t.Run("NoConfig", func(t *testing.T) {
+		logs := Logs{
+			Logs:      []Log{*log1, *log2},
+			timeRange: timeRange,
+			populated: true,
+		}
+		logs.Setup(env)
+		it, err := logs.Merge(ctx)
+		assert.Error(t, err)
+		assert.Nil(t, it)
+	})
+	conf := &CedarConfig{
+		populated: true,
+		Bucket:    BucketConfig{BuildLogsBucket: "."},
+	}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("MergeIterator", func(t *testing.T) {
+		logs := Logs{
+			Logs:      []Log{*log1, *log2},
+			timeRange: timeRange,
+			populated: true,
+		}
+		logs.Setup(env)
+		it, err := logs.Merge(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, it)
+
+		_, ok := it.(*mergingIterator)
+		require.True(t, ok)
+		assert.NoError(t, it.Close())
+	})
+}
+
 func getTestLogs() (*Log, *Log) {
 	log1 := &Log{
 		Info: LogInfo{
 			Project:  "project",
 			TestName: "test1",
+			Mainline: true,
 		},
 		CreatedAt:   time.Now().Add(-24 * time.Hour),
 		CompletedAt: time.Now().Add(-23 * time.Hour),
 		Artifact: LogArtifactInfo{
-			Type:    PailS3,
+			Type:    PailLocal,
 			Prefix:  "log1",
 			Version: 1,
 		},
@@ -672,12 +847,13 @@ func getTestLogs() (*Log, *Log) {
 		Info: LogInfo{
 			Project:  "project",
 			TestName: "test2",
+			Mainline: true,
 		},
 		CreatedAt:   time.Now().Add(-2 * time.Hour),
 		CompletedAt: time.Now().Add(-time.Hour),
 		Artifact: LogArtifactInfo{
 			Type:    PailLocal,
-			Prefix:  "log2",
+			Prefix:  "log1",
 			Version: 1,
 			Chunks: []LogChunkInfo{
 				{

@@ -21,6 +21,7 @@ import (
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const buildloggerCollection = "buildlogs"
@@ -284,7 +285,7 @@ func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterat
 		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 100, timeRange), nil
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange), nil
 }
 
 // MergeLogs merges N buildlogger logs, passed in as LogIterators, respecting
@@ -399,4 +400,143 @@ func (id *LogInfo) ID() string {
 type LogLine struct {
 	Timestamp time.Time
 	Data      string
+}
+
+// Logs describes a set of buildlogger logs, typically related by some
+// criteria.
+type Logs struct {
+	Logs      []Log `bson:"results"`
+	env       cedar.Environment
+	populated bool
+	timeRange util.TimeRange
+}
+
+// LogFindOptions describes the search criteria for the Find function on Logs.
+type LogFindOptions struct {
+	TimeRange util.TimeRange
+	Info      LogInfo
+	Limit     int
+}
+
+// Setup sets the environment for the logs. The environment is require for
+// functions on Logs.
+func (l *Logs) Setup(e cedar.Environment) { l.env = e }
+
+// IsNil returns if the logs are populated or not.
+func (l *Logs) IsNil() bool { return l.populated }
+
+// Find returns the logs matching the given search criteria. The environment
+// should not be nil.
+func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
+	if l.env == nil {
+		return errors.New("cannot find with a nil env")
+	}
+
+	if opts.TimeRange.IsZero() || !opts.TimeRange.IsValid() {
+		return errors.New("invalid time range given")
+	}
+
+	l.populated = false
+	findOpts := options.Find()
+	if opts.Limit > 0 {
+		findOpts.SetLimit(int64(opts.Limit))
+	}
+	findOpts.SetSort(bson.D{{logCreatedAtKey, -1}})
+	it, err := l.env.GetDB().Collection(buildloggerCollection).Find(ctx, createFindQuery(opts), findOpts)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if err = it.All(ctx, &l.Logs); err != nil {
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(err))
+		catcher.Add(errors.WithStack(it.Close(ctx)))
+		return catcher.Resolve()
+	} else if err = it.Close(ctx); err != nil {
+		return errors.WithStack(err)
+	}
+	if len(l.Logs) > 0 {
+		l.timeRange = opts.TimeRange
+		l.populated = true
+	}
+
+	return nil
+}
+
+func createFindQuery(opts LogFindOptions) map[string]interface{} {
+	search := bson.M{
+		"$or": []bson.M{
+			{logCreatedAtKey: bson.M{"$gte": opts.TimeRange.StartAt}},
+			{logCompletedAtKey: bson.M{"$lte": opts.TimeRange.EndAt}},
+		},
+	}
+	if opts.Info.Project != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)] = opts.Info.Project
+	}
+	if opts.Info.Version != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)] = opts.Info.Version
+	}
+	if opts.Info.Variant != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)] = opts.Info.Variant
+	}
+	if opts.Info.TaskName != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)] = opts.Info.TaskName
+	}
+	if opts.Info.TaskID != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)] = opts.Info.TaskID
+		delete(search, "$or")
+	} else {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)] = true
+	}
+	if opts.Info.Execution != 0 {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)] = opts.Info.Execution
+	}
+	if opts.Info.TestName != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)] = opts.Info.TestName
+	}
+	if opts.Info.Trial != 0 {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)] = opts.Info.Trial
+	}
+	if opts.Info.ProcessName != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)] = opts.Info.ProcessName
+	}
+	if opts.Info.Format != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = opts.Info.Format
+	}
+	if opts.Info.ExitCode != 0 {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)] = opts.Info.ExitCode
+	}
+	if len(opts.Info.Arguments) > 0 {
+		var args []bson.M
+		for key, val := range opts.Info.Arguments {
+			args = append(args, bson.M{key: val})
+		}
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)] = bson.M{"$in": args}
+	}
+
+	return search
+}
+
+// Merge merges the buildlogger logs, respecting the order of each line's
+// timestamp. The logs should be populated and the environment should not be
+// nil.
+func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
+	if !l.populated {
+		return nil, errors.New("cannot merge unpopulated logs")
+	}
+	if l.env == nil {
+		return nil, errors.New("cannot merge with a nil environment")
+	}
+
+	var err error
+	iterators := make([]LogIterator, len(l.Logs))
+	for i := range l.Logs {
+		l.Logs[i].Setup(l.env)
+		iterators[i], err = l.Logs[i].Download(ctx, l.timeRange)
+		if err != nil {
+			// TODO: close open iterators
+			return nil, errors.Wrap(err, "problem downloading log")
+		}
+	}
+
+	return NewMergingIterator(ctx, iterators...), nil
 }
