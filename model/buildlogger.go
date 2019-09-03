@@ -21,6 +21,7 @@ import (
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -29,8 +30,9 @@ const buildloggerCollection = "buildlogs"
 // CreateLog is the entry point for creating a buildlogger Log.
 func CreateLog(info LogInfo, artifactStorageType PailType) *Log {
 	return &Log{
-		ID:   info.ID(),
-		Info: info,
+		ID:        info.ID(),
+		Info:      info,
+		CreatedAt: time.Now(),
 		Artifact: LogArtifactInfo{
 			Type:    artifactStorageType,
 			Prefix:  info.ID(),
@@ -222,7 +224,7 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 
 // Close "closes out" the log by populating the completed_at and info.exit_code
 // fields. The environment should not be nil.
-func (l *Log) Close(ctx context.Context, completedAt time.Time, exitCode int) error {
+func (l *Log) Close(ctx context.Context, exitCode int) error {
 	if l.env == nil {
 		return errors.New("cannot close log with a nil environment")
 	}
@@ -231,6 +233,7 @@ func (l *Log) Close(ctx context.Context, completedAt time.Time, exitCode int) er
 		l.ID = l.Info.ID()
 	}
 
+	completedAt := time.Now()
 	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(
 		ctx,
 		bson.M{"_id": l.ID},
@@ -457,6 +460,8 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	if len(l.Logs) > 0 {
 		l.timeRange = opts.TimeRange
 		l.populated = true
+	} else {
+		return mongo.ErrNoDocuments
 	}
 
 	return nil

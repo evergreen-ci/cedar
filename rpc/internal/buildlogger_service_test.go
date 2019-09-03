@@ -41,40 +41,16 @@ func TestCreateLog(t *testing.T) {
 		{
 			name: "ValidData",
 			data: &LogData{
-				Info:      &LogInfo{Project: "test"},
-				Storage:   LogStorage_LOG_STORAGE_S3,
-				CreatedAt: &timestamp.Timestamp{Seconds: 253402300799},
+				Info:    &LogInfo{Project: "test"},
+				Storage: LogStorage_LOG_STORAGE_S3,
 			},
-			ts:  time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC),
 			env: env,
-		},
-		{
-			name: "DefaultTimestamp",
-			data: &LogData{
-				Info:      &LogInfo{Project: "test2"},
-				Storage:   LogStorage_LOG_STORAGE_LOCAL,
-				CreatedAt: nil,
-			},
-			ts:  time.Now().UTC(),
-			env: env,
-		},
-		{
-			name: "InvalidTimestamp",
-			data: &LogData{
-				Info:      &LogInfo{Project: "test3"},
-				Storage:   LogStorage_LOG_STORAGE_GRIDFS,
-				CreatedAt: &timestamp.Timestamp{Seconds: 253402300800},
-			},
-			env:         env,
-			nilResponse: true,
-			hasErr:      true,
 		},
 		{
 			name: "InvalidEnv",
 			data: &LogData{
-				Info:      &LogInfo{Project: "test3"},
-				Storage:   LogStorage_LOG_STORAGE_GRIDFS,
-				CreatedAt: &timestamp.Timestamp{},
+				Info:    &LogInfo{Project: "test3"},
+				Storage: LogStorage_LOG_STORAGE_GRIDFS,
 			},
 			env:    nil,
 			hasErr: true,
@@ -104,7 +80,7 @@ func TestCreateLog(t *testing.T) {
 				require.NoError(t, log.Find(ctx))
 				assert.Equal(t, info, log.Info)
 				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
-				assert.True(t, test.ts.Sub(log.CreatedAt) <= time.Second)
+				assert.True(t, time.Now().Sub(log.CreatedAt) <= time.Second)
 			}
 		})
 	}
@@ -540,31 +516,19 @@ func TestCloseLog(t *testing.T) {
 		{
 			name: "ValidData",
 			info: &LogEndInfo{
-				LogId:       log.ID,
-				ExitCode:    1,
-				CompletedAt: &timestamp.Timestamp{Seconds: 253402300799},
+				LogId:    log.ID,
+				ExitCode: 1,
 			},
-			ts:  time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC),
 			env: env,
 		},
 		{
 			name: "DefaultData",
 			info: &LogEndInfo{LogId: log.ID},
-			ts:   time.Now().UTC(),
 			env:  env,
 		},
 		{
 			name:   "LogDNE",
 			info:   &LogEndInfo{LogId: "DNE"},
-			env:    env,
-			hasErr: true,
-		},
-		{
-			name: "InvalidTimestamp",
-			info: &LogEndInfo{
-				LogId:       log.ID,
-				CompletedAt: &timestamp.Timestamp{Seconds: 253402300800},
-			},
 			env:    env,
 			hasErr: true,
 		},
@@ -596,7 +560,7 @@ func TestCloseLog(t *testing.T) {
 				assert.Equal(t, log.ID, l.Info.ID())
 				assert.Equal(t, log.Artifact, l.Artifact)
 				assert.Equal(t, int(test.info.ExitCode), l.Info.ExitCode)
-				assert.True(t, test.ts.Sub(l.CompletedAt) <= time.Second)
+				assert.True(t, time.Now().Sub(l.CompletedAt) <= time.Second)
 			}
 		})
 	}
