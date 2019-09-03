@@ -305,8 +305,8 @@ type mergingIterator struct {
 	catcher      grip.Catcher
 }
 
-// NewMergeIterator returns a LogIterator thatmerges N buildlogger logs, passed
-// in as LogIterators, respecting the order of each line's timestamp.
+// NewMergeIterator returns a LogIterator that merges N buildlogger logs,
+// passed in as LogIterators, respecting the order of each line's timestamp.
 func NewMergingIterator(ctx context.Context, iterators ...LogIterator) LogIterator {
 	catcher := grip.NewBasicCatcher()
 	h := &LogIteratorHeap{}

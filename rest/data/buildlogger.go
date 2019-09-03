@@ -11,6 +11,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
@@ -163,16 +164,19 @@ func (mc *MockConnector) FindLogById(ctx context.Context, id string, tr util.Tim
 		}
 	}
 
-	log.Setup(mc.env)
-	it, err := log.Download(ctx, tr)
+	opts := pail.LocalOptions{
+		Path:   mc.Bucket,
+		Prefix: log.Artifact.Prefix,
+	}
+	bucket, err := pail.NewLocalBucket(opts)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
 		}
 	}
 
-	return it, nil
+	return dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr), nil
 }
 
 // FindLogMetadataById queries the mock cache to find the buildlogger log with
@@ -222,14 +226,11 @@ func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr
 
 	its := make([]dbModel.LogIterator, len(logs))
 	for i, log := range logs {
-		log.Setup(mc.env)
-		bucket, err := log.Artifact.Type.Create(
-			ctx,
-			mc.env,
-			mc.Bucket,
-			log.Artifact.Prefix,
-			"",
-		)
+		opts := pail.LocalOptions{
+			Path:   mc.Bucket,
+			Prefix: log.Artifact.Prefix,
+		}
+		bucket, err := pail.NewLocalBucket(opts)
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,

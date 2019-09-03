@@ -32,10 +32,12 @@ func TestBuildloggerConnectorSuiteDB(t *testing.T) {
 func TestBuildloggerConnectorSuiteMock(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
 	s.setup()
+	wd, err := os.Getwd()
+	s.Require().NoError(err)
 	s.sc = &MockConnector{
 		CachedLogs: s.logs,
 		env:        cedar.GetEnvironment(),
-		Bucket:     ".",
+		Bucket:     wd,
 	}
 	suite.Run(t, s)
 }
