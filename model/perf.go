@@ -390,9 +390,7 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 		findOpts.SetSort(bson.D{{perfCreatedAtKey, -1}})
 	}
 	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search, findOpts)
-	if db.ResultsNotFound(err) {
-		return errors.WithStack(it.Close(ctx))
-	} else if err != nil {
+	if err != nil {
 		return errors.WithStack(err)
 	}
 	if err = it.All(ctx, &r.Results); err != nil {

@@ -3,11 +3,9 @@ package internal
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -30,16 +28,6 @@ func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 // CreateLog creates a new buildlogger log record in the database.
 func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*BuildloggerResponse, error) {
 	log := model.CreateLog(data.Info.Export(), data.Storage.Export())
-	log.CreatedAt = time.Now()
-
-	if data.CreatedAt != nil {
-		var err error
-		log.CreatedAt, err = ptypes.Timestamp(data.CreatedAt)
-		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem converting timestamp value artifact"))
-		}
-	}
-
 	log.Setup(s.env)
 	return &BuildloggerResponse{LogId: log.ID}, newRPCError(codes.Internal, errors.Wrap(log.SaveNew(ctx), "problem saving log record"))
 }
@@ -115,15 +103,6 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding log record for '%s'", info.LogId))
 	}
 
-	completedAt := time.Now()
-	if info.CompletedAt != nil {
-		var err error
-		completedAt, err = ptypes.Timestamp(info.CompletedAt)
-		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem converting completed_at timestamp"))
-		}
-	}
-
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.Close(ctx, completedAt, int(info.ExitCode)), "problem closing log with id %s", log.ID))
+		newRPCError(codes.Internal, errors.Wrapf(log.Close(ctx, int(info.ExitCode)), "problem closing log with id %s", log.ID))
 }

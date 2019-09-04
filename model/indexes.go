@@ -17,7 +17,7 @@ type SystemIndexes struct {
 	Collection string
 }
 
-// GetRequiredIndexes  returns required indexes for the Cedar database.
+// GetRequiredIndexes returns required indexes for the Cedar database.
 func GetRequiredIndexes() []SystemIndexes {
 	return []SystemIndexes{
 		{
@@ -76,6 +76,14 @@ func GetRequiredIndexes() []SystemIndexes {
 		{
 			Keys:       bson.D{{dbUserAPIKeyKey, 1}},
 			Collection: userCollection,
+		},
+		{
+			Keys:       bson.D{{logCreatedAtKey, 1}},
+			Collection: buildloggerCollection,
+		},
+		{
+			Keys:       bson.D{{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1}},
+			Collection: buildloggerCollection,
 		},
 	}
 }
