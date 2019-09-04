@@ -81,7 +81,7 @@ func (dbc *DBConnector) FindLogMetadataById(ctx context.Context, id string) (*mo
 // given task id returning the merged logs via a LogIterator with the
 // corresponding time range. The number of logs is limited by limit if and only
 // if limit is greater than 0.
-func (dbc *DBConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr util.TimeRange, limit int) (dbModel.LogIterator, error) {
+func (dbc *DBConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr util.TimeRange, limit int64) (dbModel.LogIterator, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
 		Info:      dbModel.LogInfo{TaskID: taskId},
@@ -116,7 +116,7 @@ func (dbc *DBConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr 
 // FindLogMetadataByTaskId queries the database to find the buildlogger logs
 // that have given task id, returning only the metadata for those logs. The
 // number of logs is limited by limit if and only if limit is greater than 0.
-func (dbc *DBConnector) FindLogMetadataByTaskId(ctx context.Context, taskId string, limit int) ([]model.APILog, error) {
+func (dbc *DBConnector) FindLogMetadataByTaskId(ctx context.Context, taskId string, limit int64) ([]model.APILog, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: util.TimeRange{EndAt: time.Now()},
 		Info:      dbModel.LogInfo{TaskID: taskId},
@@ -205,7 +205,7 @@ func (mc *MockConnector) FindLogMetadataById(ctx context.Context, id string) (*m
 // the given task id returning the merged logs via a LogIterator with the
 // corresponding time range. The number of logs is limited by limit if and only
 // if limit is greater than 0.
-func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr util.TimeRange, limit int) (dbModel.LogIterator, error) {
+func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr util.TimeRange, limit int64) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskId {
@@ -220,7 +220,7 @@ func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr
 	}
 
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
-	if limit > 0 && limit < len(logs) {
+	if limit > 0 && limit < int64(len(logs)) {
 		logs = logs[:limit]
 	}
 
@@ -247,7 +247,7 @@ func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr
 // FindLogsByTaskId queries the mock cache to find the buildlogger logs that
 // have the given task id, returning only the metadata for those logs. The
 // number of logs is limited by limit if and only if limit is greater than 0.
-func (mc *MockConnector) FindLogMetadataByTaskId(ctx context.Context, taskId string, limit int) ([]model.APILog, error) {
+func (mc *MockConnector) FindLogMetadataByTaskId(ctx context.Context, taskId string, limit int64) ([]model.APILog, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskId {
@@ -262,7 +262,7 @@ func (mc *MockConnector) FindLogMetadataByTaskId(ctx context.Context, taskId str
 	}
 
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
-	if limit > 0 && limit < len(logs) {
+	if limit > 0 && limit < int64(len(logs)) {
 		logs = logs[:limit]
 	}
 

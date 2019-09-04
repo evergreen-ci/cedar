@@ -49,8 +49,8 @@ type Connector interface {
 	FindLogMetadataById(context.Context, string) (*model.APILog, error)
 	// FindLogsByTaskId returns the buildlogger logs with the given task id
 	// merged via a LogIterator with the corresponding time range.
-	FindLogsByTaskId(context.Context, string, util.TimeRange, int) (dbModel.LogIterator, error)
+	FindLogsByTaskId(context.Context, string, util.TimeRange, int64) (dbModel.LogIterator, error)
 	// FindLogsByTaskId returns the buildlogger logs' metadata with the
 	// given task id.
-	FindLogMetadataByTaskId(context.Context, string, int) ([]model.APILog, error)
+	FindLogMetadataByTaskId(context.Context, string, int64) ([]model.APILog, error)
 }

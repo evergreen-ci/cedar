@@ -150,7 +150,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIdExists() {
 				EndAt:   time.Now(),
 			},
 			Info:  model.LogInfo{TaskID: "task1"},
-			Limit: i,
+			Limit: int64(i),
 		}
 		logs := model.Logs{}
 		logs.Setup(s.env)

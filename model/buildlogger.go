@@ -418,7 +418,7 @@ type Logs struct {
 type LogFindOptions struct {
 	TimeRange util.TimeRange
 	Info      LogInfo
-	Limit     int
+	Limit     int64
 }
 
 // Setup sets the environment for the logs. The environment is require for
@@ -442,7 +442,7 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	l.populated = false
 	findOpts := options.Find()
 	if opts.Limit > 0 {
-		findOpts.SetLimit(int64(opts.Limit))
+		findOpts.SetLimit(opts.Limit)
 	}
 	findOpts.SetSort(bson.D{{logCreatedAtKey, -1}})
 	it, err := l.env.GetDB().Collection(buildloggerCollection).Find(ctx, createFindQuery(opts), findOpts)
