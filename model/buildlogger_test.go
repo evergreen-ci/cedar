@@ -630,7 +630,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 			},
 			Info: LogInfo{Project: "DNE"},
 		}
-		assert.Error(t, logs.Find(ctx, opts))
+		assert.Equal(t, mongo.ErrNoDocuments, logs.Find(ctx, opts))
 		assert.Empty(t, logs.Logs)
 		assert.False(t, logs.populated)
 	})
