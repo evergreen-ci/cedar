@@ -230,4 +230,6 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/perf/task_name/{task_name}").Version(1).Get().RouteHandler(makeGetPerfByTaskName(s.sc))
 	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
 	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))
+
+	s.app.AddRoute("/log/{id}").Version(1).Get().RouteHandler(makeGetLogByID(s.sc))
 }
