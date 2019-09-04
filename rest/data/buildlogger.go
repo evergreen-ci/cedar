@@ -20,9 +20,9 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-// FindLogById queries the database to find the buildlogger log with the given
+// FindLogByID queries the database to find the buildlogger log with the given
 // id returning a LogIterator with the corresponding time range.
-func (dbc *DBConnector) FindLogById(ctx context.Context, id string, tr util.TimeRange) (dbModel.LogIterator, error) {
+func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (dbModel.LogIterator, error) {
 	log := dbModel.Log{ID: id}
 	log.Setup(dbc.env)
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
@@ -49,9 +49,9 @@ func (dbc *DBConnector) FindLogById(ctx context.Context, id string, tr util.Time
 	return it, nil
 }
 
-// FindLogMetadataById queries the database to find the buildlogger log with
+// FindLogMetadataByID queries the database to find the buildlogger log with
 // the given id returning its metadata only.
-func (dbc *DBConnector) FindLogMetadataById(ctx context.Context, id string) (*model.APILog, error) {
+func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
 	log := dbModel.Log{ID: id}
 	log.Setup(dbc.env)
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
@@ -153,9 +153,9 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID stri
 // MockConnector Implementation
 ///////////////////////////////
 
-// FindLogById queries the mock cache to find the buildlogger log with the
+// FindLogByID queries the mock cache to find the buildlogger log with the
 // given id returning a LogIterator with the corresponding time range.
-func (mc *MockConnector) FindLogById(ctx context.Context, id string, tr util.TimeRange) (dbModel.LogIterator, error) {
+func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (dbModel.LogIterator, error) {
 	log, ok := mc.CachedLogs[id]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
@@ -179,9 +179,9 @@ func (mc *MockConnector) FindLogById(ctx context.Context, id string, tr util.Tim
 	return dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr), nil
 }
 
-// FindLogMetadataById queries the mock cache to find the buildlogger log with
+// FindLogMetadataByID queries the mock cache to find the buildlogger log with
 // the given id returning its metadata only.
-func (mc *MockConnector) FindLogMetadataById(ctx context.Context, id string) (*model.APILog, error) {
+func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
 	log, ok := mc.CachedLogs[id]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
