@@ -230,7 +230,7 @@ func TestLogIteratorReader(t *testing.T) {
 	}
 
 	t.Run("LeftOver", func(t *testing.T) {
-		r := NewReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 22)
@@ -262,7 +262,7 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
-		r := NewReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -281,7 +281,7 @@ func TestLogIteratorReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)

@@ -467,7 +467,7 @@ type logIteratorReader struct {
 	leftOver []byte
 }
 
-func NewReader(ctx context.Context, it LogIterator) io.Reader {
+func NewLogIteratorReader(ctx context.Context, it LogIterator) io.Reader {
 	return &logIteratorReader{
 		ctx: ctx,
 		it:  it,
