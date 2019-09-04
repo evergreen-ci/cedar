@@ -77,14 +77,14 @@ func (dbc *DBConnector) FindLogMetadataById(ctx context.Context, id string) (*mo
 	return apiLog, nil
 }
 
-// FindLogsByTaskId queries the database to find the buildlogger logs with the
+// FindLogsByTaskID queries the database to find the buildlogger logs with the
 // given task id returning the merged logs via a LogIterator with the
 // corresponding time range. The number of logs is limited by limit if and only
 // if limit is greater than 0.
-func (dbc *DBConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr util.TimeRange, limit int64) (dbModel.LogIterator, error) {
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, limit int64) (dbModel.LogIterator, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
-		Info:      dbModel.LogInfo{TaskID: taskId},
+		Info:      dbModel.LogInfo{TaskID: taskID},
 		Limit:     limit,
 	}
 	logs := dbModel.Logs{}
@@ -92,7 +92,7 @@ func (dbc *DBConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr 
 	if err := logs.Find(ctx, opts); db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", taskId),
+			Message:    fmt.Sprintf("logs with task id '%s' not found", taskID),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
@@ -113,13 +113,13 @@ func (dbc *DBConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr 
 	return it, nil
 }
 
-// FindLogMetadataByTaskId queries the database to find the buildlogger logs
+// FindLogMetadataByTaskID queries the database to find the buildlogger logs
 // that have given task id, returning only the metadata for those logs. The
 // number of logs is limited by limit if and only if limit is greater than 0.
-func (dbc *DBConnector) FindLogMetadataByTaskId(ctx context.Context, taskId string, limit int64) ([]model.APILog, error) {
+func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string, limit int64) ([]model.APILog, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: util.TimeRange{EndAt: time.Now()},
-		Info:      dbModel.LogInfo{TaskID: taskId},
+		Info:      dbModel.LogInfo{TaskID: taskID},
 		Limit:     limit,
 	}
 	logs := dbModel.Logs{}
@@ -127,7 +127,7 @@ func (dbc *DBConnector) FindLogMetadataByTaskId(ctx context.Context, taskId stri
 	if err := logs.Find(ctx, opts); db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", taskId),
+			Message:    fmt.Sprintf("logs with task id '%s' not found", taskID),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
@@ -201,21 +201,21 @@ func (mc *MockConnector) FindLogMetadataById(ctx context.Context, id string) (*m
 	return apiLog, nil
 }
 
-// FindLogsByTaskId queries the mock cache to find the buildlogger logs with
+// FindLogsByTaskID queries the mock cache to find the buildlogger logs with
 // the given task id returning the merged logs via a LogIterator with the
 // corresponding time range. The number of logs is limited by limit if and only
 // if limit is greater than 0.
-func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr util.TimeRange, limit int64) (dbModel.LogIterator, error) {
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, limit int64) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
-		if log.Info.TaskID == taskId {
+		if log.Info.TaskID == taskID {
 			logs = append(logs, log)
 		}
 	}
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", taskId),
+			Message:    fmt.Sprintf("logs with task id '%s' not found", taskID),
 		}
 	}
 
@@ -244,20 +244,20 @@ func (mc *MockConnector) FindLogsByTaskId(ctx context.Context, taskId string, tr
 	return dbModel.NewMergingIterator(ctx, its...), nil
 }
 
-// FindLogsByTaskId queries the mock cache to find the buildlogger logs that
+// FindLogsByTaskID queries the mock cache to find the buildlogger logs that
 // have the given task id, returning only the metadata for those logs. The
 // number of logs is limited by limit if and only if limit is greater than 0.
-func (mc *MockConnector) FindLogMetadataByTaskId(ctx context.Context, taskId string, limit int64) ([]model.APILog, error) {
+func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string, limit int64) ([]model.APILog, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
-		if log.Info.TaskID == taskId {
+		if log.Info.TaskID == taskID {
 			logs = append(logs, log)
 		}
 	}
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", taskId),
+			Message:    fmt.Sprintf("logs with task id '%s' not found", taskID),
 		}
 	}
 
