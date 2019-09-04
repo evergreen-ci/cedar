@@ -277,6 +277,16 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Zero(t, n)
 		assert.Error(t, err)
 	})
+	t.Run("ContextError", func(t *testing.T) {
+		errCtx, errCancel := context.WithCancel(context.Background())
+		errCancel()
+
+		r := NewReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		p := make([]byte, 101)
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
 }
 
 func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]LogChunkInfo, []LogLine, error) {
