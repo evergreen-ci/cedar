@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -638,8 +639,8 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs.Setup(env)
 		opts := LogFindOptions{
 			TimeRange: util.TimeRange{
-				time.Now().Add(-48 * time.Hour),
-				time.Now(),
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now(),
 			},
 			Info: LogInfo{Project: log1.Info.Project},
 		}
@@ -655,8 +656,8 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs.Setup(env)
 		opts := LogFindOptions{
 			TimeRange: util.TimeRange{
-				time.Now().Add(-48 * time.Hour),
-				time.Now(),
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now(),
 			},
 			Info:  LogInfo{Project: log1.Info.Project},
 			Limit: 1,
@@ -666,6 +667,24 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		assert.Equal(t, log2.ID, logs.Logs[0].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+	t.Run("OutsideOfTimeRange", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: util.TimeRange{
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now().Add(-25 * time.Hour),
+			},
+			Info: LogInfo{TestName: log1.Info.TestName},
+		}
+		require.Equal(t, mongo.ErrNoDocuments, logs.Find(ctx, opts))
+
+		opts.TimeRange = util.TimeRange{
+			StartAt: time.Now().Add(-22 * time.Hour),
+			EndAt:   time.Now(),
+		}
+		require.Equal(t, mongo.ErrNoDocuments, logs.Find(ctx, opts))
 	})
 }
 
@@ -723,13 +742,8 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 	t.Run("WithoutTaskID", func(t *testing.T) {
 		opts.Info.TaskID = ""
 		search := createFindQuery(opts)
-		assert.Equal(t,
-			[]bson.M{
-				{logCreatedAtKey: bson.M{"$gte": opts.TimeRange.StartAt}},
-				{logCompletedAtKey: bson.M{"$lte": opts.TimeRange.EndAt}},
-			},
-			search["$or"],
-		)
+		assert.Equal(t, search[logCreatedAtKey], bson.M{"$lte": opts.TimeRange.EndAt})
+		assert.Equal(t, search[logCompletedAtKey], bson.M{"$gte": opts.TimeRange.StartAt})
 		_, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)]
 		assert.False(t, ok)
 		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
@@ -737,15 +751,10 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 	t.Run("EmptyInfo", func(t *testing.T) {
 		opts.Info = LogInfo{}
 		search := createFindQuery(opts)
-		assert.Equal(t,
-			[]bson.M{
-				{logCreatedAtKey: bson.M{"$gte": opts.TimeRange.StartAt}},
-				{logCompletedAtKey: bson.M{"$lte": opts.TimeRange.EndAt}},
-			},
-			search["$or"],
-		)
+		assert.Equal(t, search[logCreatedAtKey], bson.M{"$lte": opts.TimeRange.EndAt})
+		assert.Equal(t, search[logCompletedAtKey], bson.M{"$gte": opts.TimeRange.StartAt})
 		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
-		assert.Len(t, search, 2)
+		assert.Len(t, search, 3)
 	})
 }
 

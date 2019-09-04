@@ -421,8 +421,8 @@ type LogFindOptions struct {
 	Limit     int64
 }
 
-// Setup sets the environment for the logs. The environment is require for
-// functions on Logs.
+// Setup sets the environment for the logs. The environment is required for
+// numerous methods on Logs.
 func (l *Logs) Setup(e cedar.Environment) { l.env = e }
 
 // IsNil returns if the logs are populated or not.
@@ -469,10 +469,8 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 
 func createFindQuery(opts LogFindOptions) map[string]interface{} {
 	search := bson.M{
-		"$or": []bson.M{
-			{logCreatedAtKey: bson.M{"$gte": opts.TimeRange.StartAt}},
-			{logCompletedAtKey: bson.M{"$lte": opts.TimeRange.EndAt}},
-		},
+		logCreatedAtKey:   bson.M{"$lte": opts.TimeRange.EndAt},
+		logCompletedAtKey: bson.M{"$gte": opts.TimeRange.StartAt},
 	}
 	if opts.Info.Project != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)] = opts.Info.Project
@@ -488,7 +486,8 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 	}
 	if opts.Info.TaskID != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)] = opts.Info.TaskID
-		delete(search, "$or")
+		delete(search, logCreatedAtKey)
+		delete(search, logCompletedAtKey)
 	} else {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)] = true
 	}
