@@ -355,10 +355,10 @@ func (s *PerfHandlerSuite) testParseValid(handler, urlString string, limit bool)
 	rh := s.rh[handler]
 
 	err := rh.Parse(ctx, req)
-	s.Equal(expectedInterval, getInterval(rh, handler))
-	s.Equal(expectedTags, getTags(rh, handler))
+	s.Equal(expectedInterval, getPerfInterval(rh, handler))
+	s.Equal(expectedTags, getPerfTags(rh, handler))
 	if limit {
-		s.Equal(5, getLimit(rh, handler))
+		s.Equal(5, getPerfLimit(rh, handler))
 	}
 	s.NoError(err)
 }
@@ -383,28 +383,20 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, limit bo
 	ctx := context.Background()
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
-	lessThanTime := time.Now()
-	// sleep to combat window's low time resolution
-	time.Sleep(time.Second)
 	rh := s.rh[handler]
 
 	err := rh.Parse(ctx, req)
-	interval := getInterval(rh, handler)
+	interval := getPerfInterval(rh, handler)
 	s.Equal(time.Time{}, interval.StartAt)
-	// ensure default EndAt time is within the time period in which the function
-	// has been called
-	s.True(interval.EndAt.After(lessThanTime))
-	// sleep to combat window's low time resolution
-	time.Sleep(time.Second)
-	s.True(interval.EndAt.Before(time.Now()))
-	s.Nil(getTags(rh, handler))
+	s.True(time.Since(interval.EndAt) <= time.Second)
+	s.Nil(getPerfTags(rh, handler))
 	if limit {
-		s.Zero(getLimit(rh, handler))
+		s.Zero(getPerfLimit(rh, handler))
 	}
 	s.NoError(err)
 }
 
-func getInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
+func getPerfInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
 	switch handler {
 	case "task_id":
 		return rh.(*perfGetByTaskIdHandler).interval
@@ -417,7 +409,7 @@ func getInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
 	}
 }
 
-func getTags(rh gimlet.RouteHandler, handler string) []string {
+func getPerfTags(rh gimlet.RouteHandler, handler string) []string {
 	switch handler {
 	case "task_id":
 		return rh.(*perfGetByTaskIdHandler).tags
@@ -430,7 +422,7 @@ func getTags(rh gimlet.RouteHandler, handler string) []string {
 	}
 }
 
-func getLimit(rh gimlet.RouteHandler, handler string) int {
+func getPerfLimit(rh gimlet.RouteHandler, handler string) int {
 	switch handler {
 	case "task_name":
 		return rh.(*perfGetByTaskNameHandler).limit

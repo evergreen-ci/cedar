@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -78,10 +79,10 @@ func (s *LogHandlerSuite) setup() {
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":         makeGetLogByID(&s.sc),
-		"metaID":     makeGetLogMetaByID(&s.sc),
-		"taskID":     makeGetLogByTaskID(&s.sc),
-		"metaTaskID": makeGetLogMetaByTaskID(&s.sc),
+		"id":           makeGetLogByID(&s.sc),
+		"meta_id":      makeGetLogMetaByID(&s.sc),
+		"task_id":      makeGetLogByTaskID(&s.sc),
+		"meta_task_id": makeGetLogMetaByTaskID(&s.sc),
 	}
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
@@ -157,7 +158,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerCtxErr() {
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerFound() {
-	rh := s.rh["metaID"]
+	rh := s.rh["meta_id"]
 	rh.(*logMetaGetByIDHandler).id = "abc"
 	expected := s.apiResults["abc"]
 
@@ -169,7 +170,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerFound() {
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerNotFound() {
-	rh := s.rh["metaID"]
+	rh := s.rh["meta_id"]
 	rh.(*logMetaGetByIDHandler).id = "DNE"
 
 	resp := rh.Run(context.TODO())
@@ -180,7 +181,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerNotFound() {
 func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := s.rh["metaID"]
+	rh := s.rh["meta_id"]
 	rh.(*logMetaGetByIDHandler).id = "abc"
 
 	resp := rh.Run(ctx)
@@ -189,7 +190,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerCtxErr() {
 }
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
-	rh := s.rh["taskID"]
+	rh := s.rh["task_id"]
 	rh.(*logGetByTaskIDHandler).id = "task_id1"
 	rh.(*logGetByTaskIDHandler).tr = util.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
@@ -220,7 +221,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 }
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
-	rh := s.rh["taskID"]
+	rh := s.rh["task_id"]
 	rh.(*logGetByTaskIDHandler).id = "DNE"
 	rh.(*logGetByTaskIDHandler).tr = util.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
@@ -235,7 +236,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := s.rh["taskID"]
+	rh := s.rh["task_id"]
 	rh.(*logGetByTaskIDHandler).id = "task_id1"
 	rh.(*logGetByTaskIDHandler).tr = util.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
@@ -248,7 +249,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerCtxErr() {
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
-	rh := s.rh["metaTaskID"]
+	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "task_id1"
 	expected := []model.APILog{s.apiResults["abc"], s.apiResults["def"]}
 
@@ -260,7 +261,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerNotFound() {
-	rh := s.rh["metaTaskID"]
+	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "DNE"
 
 	resp := rh.Run(context.TODO())
@@ -271,10 +272,88 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerNotFound() {
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := s.rh["metaTaskID"]
+	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "task1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestParse() {
+	for _, test := range []struct {
+		urlString string
+		handler   string
+	}{
+		{
+			handler:   "id",
+			urlString: "http://cedar.mongodb.com/log/id1",
+		},
+		{
+			handler:   "task_id",
+			urlString: "http://cedar.mongodb.com/log/task_id/task_id1",
+		},
+	} {
+		s.testParseValid(test.handler, test.urlString)
+		s.testParseInvalid(test.handler, test.urlString)
+		s.testParseDefaults(test.handler, test.urlString)
+	}
+}
+
+func (s *LogHandlerSuite) testParseValid(handler, urlString string) {
+	ctx := context.Background()
+	urlString += "?start=2012-11-01T22:08:00%2B00:00"
+	urlString += "&end=2013-11-01T22:08:00%2B00:00"
+	urlString += "&limit=5"
+	req := &http.Request{Method: "GET"}
+	req.URL, _ = url.Parse(urlString)
+	expectedTr := util.TimeRange{
+		StartAt: time.Date(2012, time.November, 1, 22, 8, 0, 0, time.UTC),
+		EndAt:   time.Date(2013, time.November, 1, 22, 8, 0, 0, time.UTC),
+	}
+	rh := s.rh[handler]
+
+	err := rh.Parse(ctx, req)
+	s.Equal(expectedTr, getLogTimeRange(rh, handler))
+	s.NoError(err)
+}
+
+func (s *LogHandlerSuite) testParseInvalid(handler, urlString string) {
+	ctx := context.Background()
+	invalidStart := "?start=hello"
+	invalidEnd := "?end=world"
+	req := &http.Request{Method: "GET"}
+	rh := s.rh[handler]
+
+	req.URL, _ = url.Parse(urlString + invalidStart)
+	err := rh.Parse(ctx, req)
+	s.Error(err)
+
+	req.URL, _ = url.Parse(urlString + invalidEnd)
+	err = rh.Parse(ctx, req)
+	s.Error(err)
+}
+
+func (s *LogHandlerSuite) testParseDefaults(handler, urlString string) {
+	ctx := context.Background()
+	req := &http.Request{Method: "GET"}
+	req.URL, _ = url.Parse(urlString)
+	rh := s.rh[handler]
+
+	err := rh.Parse(ctx, req)
+	s.Require().NoError(err)
+	tr := getLogTimeRange(rh, handler)
+	s.Equal(time.Time{}, tr.StartAt)
+	s.True(time.Since(tr.EndAt) <= time.Second)
+}
+
+func getLogTimeRange(rh gimlet.RouteHandler, handler string) util.TimeRange {
+	switch handler {
+	case "id":
+		return rh.(*logGetByIDHandler).tr
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).tr
+	default:
+		return util.TimeRange{}
+	}
 }

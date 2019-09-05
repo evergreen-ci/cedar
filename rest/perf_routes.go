@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+)
+
+const (
+	perfStartAt = "started_after"
+	perfEndAt   = "finished_before"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,7 +124,7 @@ func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	var err error
-	h.interval, err = parseInterval(vals)
+	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
 	return err
 }
 
@@ -171,7 +174,7 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	h.project = vals.Get("project")
 	var err error
 	catcher := grip.NewBasicCatcher()
-	h.interval, err = parseInterval(vals)
+	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
 	catcher.Add(err)
 	limit := vals.Get("limit")
 	if limit != "" {
@@ -223,7 +226,7 @@ func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) erro
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	var err error
-	h.interval, err = parseInterval(vals)
+	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
 	return err
 }
 
@@ -279,33 +282,4 @@ func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance result and children by id '%s'", h.id))
 	}
 	return gimlet.NewJSONResponse(perfResults)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// Helper functions
-
-func parseInterval(vals url.Values) (util.TimeRange, error) {
-	interval := util.TimeRange{}
-	startedAfter := vals.Get("started_after")
-	finishedBefore := vals.Get("finished_before")
-
-	if startedAfter != "" {
-		start, err := time.ParseInLocation(time.RFC3339, startedAfter, time.UTC)
-		if err != nil {
-			return util.TimeRange{}, errors.Errorf("problem parsing start time '%s'", startedAfter)
-		}
-		interval.StartAt = start
-	}
-
-	if finishedBefore != "" {
-		end, err := time.ParseInLocation(time.RFC3339, finishedBefore, time.UTC)
-		if err != nil {
-			return util.TimeRange{}, errors.Errorf("problem parsing end time '%s'", finishedBefore)
-		}
-		interval.EndAt = end
-	} else {
-		interval.EndAt = time.Now()
-	}
-	return interval, nil
 }

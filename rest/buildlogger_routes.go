@@ -11,6 +11,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	logStartAt = "start"
+	logEndAt   = "end"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // GET /log/{id}
@@ -40,7 +45,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 	vals := r.URL.Query()
 	var err error
-	h.tr, err = parseInterval(vals)
+	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
 }
@@ -122,7 +127,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
-	h.tr, err = parseInterval(vals)
+	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
 }
