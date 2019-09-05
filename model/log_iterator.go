@@ -511,7 +511,7 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 	m := len(data)
 	if n+m > len(buffer) {
 		m = len(buffer) - n
-		r.leftOver = data[m:len(data)]
+		r.leftOver = data[m:]
 	}
 	_ = copy(buffer[n:n+m], data[:m])
 
