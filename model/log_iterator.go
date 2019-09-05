@@ -467,6 +467,8 @@ type logIteratorReader struct {
 	leftOver []byte
 }
 
+// NewLogIteratorReader returns an io.Reader that reads the log lines from the
+// log iterator.
 func NewLogIteratorReader(ctx context.Context, it LogIterator) io.Reader {
 	return &logIteratorReader{
 		ctx: ctx,
