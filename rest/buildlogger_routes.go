@@ -136,7 +136,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	it, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr)
 	if err != nil {
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by task id '%s'", h.id))
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
 
 	return gimlet.NewTextResponse(model.NewLogIteratorReader(ctx, it))
@@ -164,18 +164,18 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id and time range from the http request.
+// Parse fetches the id from the http request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 
 	return nil
 }
 
-// Run calls FindLogsByTaskID and returns the merged logs.
+// Run calls FindLogMetadataByTaskID and returns the merged logs.
 func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id)
 	if err != nil {
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by task id '%s'", h.id))
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
 
 	return gimlet.NewJSONResponse(apiLogs)
