@@ -97,21 +97,23 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
-	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "")
-	if err != nil {
-		j.AddError(errors.Wrap(err, "problem resolving bucket"))
+	inc := func() {
 		result := &model.PerformanceResult{ID: j.PerfID}
 		result.Setup(j.env)
 		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
+	}
+
+	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "")
+	if err != nil {
+		j.AddError(errors.Wrap(err, "problem resolving bucket"))
+		inc()
 		return
 	}
 
 	data, err := bucket.Get(ctx, j.ArtifactInfo.Path)
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem fetching artifact"))
-		result := &model.PerformanceResult{ID: j.PerfID}
-		result.Setup(j.env)
-		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
+		inc()
 		return
 	}
 	iter := ftdc.ReadChunks(ctx, data)
@@ -119,9 +121,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	perfStats, err := perf.CreatePerformanceStats(iter)
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem computing performance statistics from raw data"))
-		result := &model.PerformanceResult{ID: j.PerfID}
-		result.Setup(j.env)
-		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
+		inc()
 		return
 	}
 

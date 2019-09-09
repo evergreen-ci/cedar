@@ -186,7 +186,7 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 // The environment should not be nil.
 func (result *PerformanceResult) IncFailedRollupAttempts(ctx context.Context) error {
 	if result.env == nil {
-		return errors.New("cannot not append artifacts with a nil environment")
+		return errors.New("cannot not increment failed rollup attempts with a nil environment")
 	}
 
 	if result.ID == "" {
