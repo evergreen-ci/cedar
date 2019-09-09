@@ -97,25 +97,31 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
+	inc := func() {
+		result := &model.PerformanceResult{ID: j.PerfID}
+		result.Setup(j.env)
+		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
+	}
+
 	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "")
 	if err != nil {
-		err = errors.Wrap(err, "problem resolving bucket")
-		j.AddError(err)
+		j.AddError(errors.Wrap(err, "problem resolving bucket"))
+		inc()
 		return
 	}
 
 	data, err := bucket.Get(ctx, j.ArtifactInfo.Path)
 	if err != nil {
-		err = errors.Wrap(err, "problem fetching artifact")
-		j.AddError(err)
+		j.AddError(errors.Wrap(err, "problem fetching artifact"))
+		inc()
 		return
 	}
 	iter := ftdc.ReadChunks(ctx, data)
 
 	perfStats, err := perf.CreatePerformanceStats(iter)
 	if err != nil {
-		err = errors.Wrap(err, "problem computing performance statistics from raw data")
-		j.AddError(err)
+		j.AddError(errors.Wrap(err, "problem computing performance statistics from raw data"))
+		inc()
 		return
 	}
 
@@ -123,8 +129,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	for _, t := range j.RollupTypes {
 		factory := perf.RollupFactoryFromType(t)
 		if factory == nil {
-			err = errors.Errorf("problem resolving rollup factory type %s", t)
-			j.AddError(err)
+			j.AddError(errors.Errorf("problem resolving rollup factory type %s", t))
 			continue
 		}
 		rollups = append(rollups, factory.Calc(perfStats, j.UserSubmitted)...)
@@ -134,8 +139,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	result.Setup(j.env)
 	err = result.Find(ctx)
 	if err != nil {
-		err = errors.Wrap(err, "problem running query")
-		j.AddError(err)
+		j.AddError(errors.Wrap(err, "problem running query"))
 		return
 	}
 
@@ -143,8 +147,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	for _, r := range rollups {
 		err = result.Rollups.Add(ctx, r)
 		if err != nil {
-			err = errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID)
-			j.AddError(err)
+			j.AddError(errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
 	}
 }

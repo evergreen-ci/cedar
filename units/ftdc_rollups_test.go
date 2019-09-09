@@ -98,6 +98,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			assert.NoError(t, res.Decode(result))
 			require.NotNil(t, result.Rollups)
 			assert.True(t, len(j.RollupTypes) <= len(result.Rollups.Stats))
+			assert.Zero(t, result.FailedRollupAttempts)
 			for _, stats := range result.Rollups.Stats {
 				assert.Equal(t, user, stats.UserSubmitted)
 			}
@@ -119,6 +120,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		require.NoError(t, res.Err())
 		assert.NoError(t, res.Decode(result))
 		require.NotNil(t, result.Rollups)
+		assert.Zero(t, result.FailedRollupAttempts)
 		assert.True(t, len(j.RollupTypes)-1 <= len(result.Rollups.Stats))
 	})
 	t.Run("InvalidData", func(t *testing.T) {
@@ -131,6 +133,12 @@ func TestFTDCRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
+
+		result := &model.PerformanceResult{}
+		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": invalidResult.ID})
+		require.NoError(t, res.Err())
+		assert.NoError(t, res.Decode(result))
+		assert.Equal(t, 1, result.FailedRollupAttempts)
 	})
 	t.Run("InvalidID", func(t *testing.T) {
 		j := &ftdcRollupsJob{
@@ -180,6 +188,12 @@ func TestFTDCRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Equal(t, 1, j.ErrorCount())
+
+		result := &model.PerformanceResult{}
+		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
+		require.NoError(t, res.Err())
+		assert.NoError(t, res.Decode(result))
+		assert.Equal(t, 1, result.FailedRollupAttempts)
 	})
 	t.Run("PublicFunction", func(t *testing.T) {
 		for _, user := range []bool{true, false} {

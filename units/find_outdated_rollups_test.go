@@ -86,6 +86,13 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 	updatedResult.Setup(env)
 	assert.NoError(t, updatedResult.SaveNew(ctx))
 
+	resultInfo = model.PerformanceResultInfo{Project: "TooManyFailures"}
+	tooManyFailuresResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
+	tooManyFailuresResult.CreatedAt = time.Now()
+	tooManyFailuresResult.FailedRollupAttempts = 4
+	tooManyFailuresResult.Setup(env)
+	assert.NoError(t, tooManyFailuresResult.SaveNew(ctx))
+
 	resultInfo = model.PerformanceResultInfo{Project: "NoFTDCData"}
 	noFTDCResult := model.CreatePerformanceResult(resultInfo, nil, nil)
 	noFTDCResult.CreatedAt = time.Now()
