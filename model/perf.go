@@ -40,7 +40,8 @@ type PerformanceResult struct {
 	// the data (e.g. raw, results,) format (e.g. bson/ftdc/json),
 	// and tags to describe the source (e.g. user submitted,
 	// generated.)
-	Artifacts []ArtifactInfo `bson:"artifacts"`
+	Artifacts            []ArtifactInfo `bson:"artifacts"`
+	FailedRollupAttempts int            `bson:"failed_rollup_attempts"`
 
 	Rollups PerfRollups `bson:"rollups"`
 
@@ -49,13 +50,14 @@ type PerformanceResult struct {
 }
 
 var (
-	perfIDKey          = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
-	perfInfoKey        = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
-	perfCreatedAtKey   = bsonutil.MustHaveTag(PerformanceResult{}, "CreatedAt")
-	perfCompletedAtKey = bsonutil.MustHaveTag(PerformanceResult{}, "CompletedAt")
-	perfArtifactsKey   = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
-	perfRollupsKey     = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
-	perfVersionlKey    = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
+	perfIDKey                = bsonutil.MustHaveTag(PerformanceResult{}, "ID")
+	perfInfoKey              = bsonutil.MustHaveTag(PerformanceResult{}, "Info")
+	perfCreatedAtKey         = bsonutil.MustHaveTag(PerformanceResult{}, "CreatedAt")
+	perfCompletedAtKey       = bsonutil.MustHaveTag(PerformanceResult{}, "CompletedAt")
+	perfArtifactsKey         = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
+	perfFailedRollupAttempts = bsonutil.MustHaveTag(PerformanceResult{}, "FailedRollupAttempts")
+	perfRollupsKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfVersionlKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
 // CreatePerformanceResult is the entry point for creating a performance
@@ -178,6 +180,29 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 	}
 
 	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+}
+
+// IncFailedRollupAttempts increments the failed_rollup_attempts field by 1.
+// The environment should not be nil.
+func (result *PerformanceResult) IncFailedRollupAttempts(ctx context.Context) error {
+	if result.env == nil {
+		return errors.New("cannot not append artifacts with a nil environment")
+	}
+
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+	}
+
+	updateResult, err := result.env.GetDB().Collection(perfResultCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": result.ID},
+		bson.M{"$inc": bson.M{perfFailedRollupAttempts: 1}},
+	)
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
+	}
+
+	return errors.Wrapf(err, "problem incrementing failed rollup attemps for performance result with id %s", result.ID)
 }
 
 // Remove removes the performance result from the database. The environment
@@ -573,7 +598,7 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(ctx context.Context, par
 
 // FindOutdatedRollups returns performance results with missing or outdated
 // rollup information for the given `name` and `version`.
-func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name string, version int, after time.Time) error {
+func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name string, version int, after time.Time, failureLimit int) error {
 	if r.env == nil {
 		return errors.New("cannot find outdated rollups with a nil env")
 	}
@@ -581,6 +606,7 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 	search := bson.M{
 		perfCreatedAtKey: bson.M{"$gt": after},
 		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey): FileFTDC,
+		perfFailedRollupAttempts: bson.M{"$lt": failureLimit},
 		"$or": []bson.M{
 			{
 				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey): bson.M{

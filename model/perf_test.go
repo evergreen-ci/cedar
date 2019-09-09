@@ -276,6 +276,66 @@ func TestPerfAppendArtifacts(t *testing.T) {
 	})
 }
 
+func TestPerfIncFailedRollupAttempts(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	lastCount := 0
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, _ := getTestPerformanceResults()
+
+	_, err := db.Collection(perfResultCollection).InsertOne(ctx, result1)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		r := &PerformanceResult{ID: result1.ID}
+		assert.Error(t, r.IncFailedRollupAttempts(ctx))
+
+		savedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(savedResult))
+		assert.Zero(t, savedResult.FailedRollupAttempts)
+	})
+	t.Run("DNE", func(t *testing.T) {
+		r := &PerformanceResult{ID: "DNE"}
+		r.Setup(env)
+		assert.Error(t, r.IncFailedRollupAttempts(ctx))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		r := &PerformanceResult{ID: result1.ID}
+		r.Setup(env)
+		require.NoError(t, r.IncFailedRollupAttempts(ctx))
+
+		updatedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(updatedResult))
+		assert.Equal(t, result1.ID, updatedResult.ID)
+		assert.Equal(t, result1.Info, updatedResult.Info)
+		assert.Equal(t, result1.CreatedAt, updatedResult.CreatedAt)
+		assert.Equal(t, result1.CompletedAt, updatedResult.CompletedAt)
+		assert.Equal(t, result1.Artifacts, updatedResult.Artifacts)
+		assert.Equal(t, lastCount+1, updatedResult.FailedRollupAttempts)
+		assert.Equal(t, result1.Rollups, updatedResult.Rollups)
+		lastCount = 1
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		r := &PerformanceResult{Info: result1.Info}
+		r.Setup(env)
+		require.NoError(t, r.IncFailedRollupAttempts(ctx))
+
+		updatedResult := &PerformanceResult{}
+		require.NoError(t, db.Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result1.ID}).Decode(updatedResult))
+		assert.Equal(t, result1.ID, updatedResult.ID)
+		assert.Equal(t, result1.Info, updatedResult.Info)
+		assert.Equal(t, result1.CreatedAt, updatedResult.CreatedAt)
+		assert.Equal(t, result1.CompletedAt, updatedResult.CompletedAt)
+		assert.Equal(t, result1.Artifacts, updatedResult.Artifacts)
+		assert.Equal(t, lastCount+1, updatedResult.FailedRollupAttempts)
+		assert.Equal(t, result1.Rollups, updatedResult.Rollups)
+	})
+}
+
 func TestPerfClose(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -793,6 +853,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	outdated := PerformanceResultInfo{Project: "Outdated"}
 	result = CreatePerformanceResult(outdated, source, nil)
 	result.CreatedAt = time.Now()
+	result.FailedRollupAttempts = 2
 	result.Rollups.Stats = append(
 		result.Rollups.Stats,
 		PerfRollupValue{
@@ -820,7 +881,14 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	result.Setup(cedar.GetEnvironment())
 	s.Require().NoError(result.SaveNew(s.ctx))
 
-	s.Require().NoError(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour)))
+	failedTooManyTimes := PerformanceResultInfo{Project: "FailedTooManyTimes"}
+	result = CreatePerformanceResult(failedTooManyTimes, source, nil)
+	result.CreatedAt = time.Now()
+	result.FailedRollupAttempts = 3
+	result.Setup(cedar.GetEnvironment())
+	s.Require().NoError(result.SaveNew(s.ctx))
+
+	s.Require().NoError(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour), 3))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(outdated.ID(), s.r.Results[0].Info.ID())
 
@@ -838,7 +906,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	result.Setup(cedar.GetEnvironment())
 	s.Require().NoError(result.SaveNew(s.ctx))
 
-	s.Require().NoError(s.r.FindOutdatedRollups(s.ctx, "DNE", 1, time.Now().Add(-2*time.Hour)))
+	s.Require().NoError(s.r.FindOutdatedRollups(s.ctx, "DNE", 1, time.Now().Add(-2*time.Hour), 3))
 	s.Require().Len(s.r.Results, 4)
 	for _, result := range s.r.Results {
 		s.NotEqual(doesNotExist.ID(), result.Info.ID())
@@ -850,5 +918,5 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	defer func() {
 		s.r.env = env
 	}()
-	s.Error(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour)))
+	s.Error(s.r.FindOutdatedRollups(s.ctx, rollupName, 2, time.Now().Add(-time.Hour), 3))
 }
