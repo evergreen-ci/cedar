@@ -18,7 +18,7 @@ const (
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /log/{id}
+// GET /buildlogger/{id}
 
 type logGetByIDHandler struct {
 	id string
@@ -62,7 +62,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /log/meta/{id}
+// GET /buildlogger/meta/{id}
 
 type logMetaGetByIDHandler struct {
 	id string
@@ -100,7 +100,7 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /log/task_id/{task_id}
+// GET /buildlogger/task_id/{task_id}
 
 type logGetByTaskIDHandler struct {
 	id string
@@ -144,7 +144,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /log/meta/task_id/{task_id}
+// GET /buildlogger/meta/task_id/{task_id}
 
 type logMetaGetByTaskIDHandler struct {
 	id string

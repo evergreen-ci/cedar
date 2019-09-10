@@ -231,8 +231,8 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
 	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))
 
-	s.app.AddRoute("/log/{id}").Version(1).Get().RouteHandler(makeGetLogByID(s.sc))
-	s.app.AddRoute("/log/meta/{id}").Version(1).Get().RouteHandler(makeGetLogMetaByID(s.sc))
-	s.app.AddRoute("/log/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogByTaskID(s.sc))
-	s.app.AddRoute("/log/meta/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogMetaByTaskID(s.sc))
+	s.app.AddRoute("/buildlogger/{id}").Version(1).Get().RouteHandler(makeGetLogByID(s.sc))
+	s.app.AddRoute("/buildlogger/meta/{id}").Version(1).Get().RouteHandler(makeGetLogMetaByID(s.sc))
+	s.app.AddRoute("/buildlogger/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogByTaskID(s.sc))
+	s.app.AddRoute("/buildlogger/meta/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogMetaByTaskID(s.sc))
 }
