@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -203,6 +204,88 @@ func TestMergeLogIterator(t *testing.T) {
 		assert.Equal(t, len(lineMap), count)
 		assert.NoError(t, it.Err())
 		assert.NoError(t, it.Close())
+	})
+}
+
+func TestLogIteratorReader(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
+	require.NoError(t, err)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	chunks, lines, err := createLog(ctx, bucket, 100, 10)
+	require.NoError(t, err)
+	expectedSize := 0
+	for _, line := range lines {
+		expectedSize += len(line.Data)
+	}
+	timeRange := util.TimeRange{
+		StartAt: chunks[0].Start,
+		EndAt:   chunks[len(chunks)-1].End,
+	}
+
+	t.Run("LeftOver", func(t *testing.T) {
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		nTotal := 0
+		readData := []byte{}
+		p := make([]byte, 22)
+		for {
+			n, err := r.Read(p)
+			nTotal += n
+			readData = append(readData, p[:n]...)
+			assert.True(t, n >= 0)
+			assert.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		assert.Equal(t, expectedSize, nTotal)
+
+		current := 0
+		readLines := strings.Split(string(readData), "\n")
+		assert.Equal(t, "", readLines[len(readLines)-1])
+		for _, line := range readLines[:len(readLines)-1] {
+			require.True(t, current < len(lines))
+			assert.Equal(t, lines[current].Data, line+"\n")
+			current++
+		}
+		assert.Equal(t, len(lines), current)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+	t.Run("EmptyBuffer", func(t *testing.T) {
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		p := make([]byte, 0)
+		for {
+			n, err := r.Read(p)
+			assert.Zero(t, n)
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+	t.Run("ContextError", func(t *testing.T) {
+		errCtx, errCancel := context.WithCancel(context.Background())
+		errCancel()
+
+		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		p := make([]byte, 101)
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
 	})
 }
 

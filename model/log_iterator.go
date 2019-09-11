@@ -456,3 +456,66 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 	it := i.(LogIterator)
 	return it
 }
+
+////////////////////////
+// Reader Implementation
+////////////////////////
+
+type logIteratorReader struct {
+	ctx      context.Context
+	it       LogIterator
+	leftOver []byte
+}
+
+// NewLogIteratorReader returns an io.Reader that reads the log lines from the
+// log iterator.
+func NewLogIteratorReader(ctx context.Context, it LogIterator) io.Reader {
+	return &logIteratorReader{
+		ctx: ctx,
+		it:  it,
+	}
+}
+
+func (r *logIteratorReader) Read(p []byte) (int, error) {
+	n := 0
+
+	if r.leftOver != nil {
+		data := r.leftOver
+		r.leftOver = nil
+		n = r.writeToBuffer(data, p, n)
+		if n == len(p) {
+			return n, nil
+		}
+	}
+
+	for r.it.Next(r.ctx) {
+		n = r.writeToBuffer([]byte(r.it.Item().Data), p, n)
+		if n == len(p) {
+			return n, nil
+		}
+	}
+
+	catcher := grip.NewBasicCatcher()
+	catcher.Add(r.it.Err())
+	catcher.Add(r.it.Close())
+	if catcher.HasErrors() {
+		return n, catcher.Resolve()
+	}
+
+	return n, io.EOF
+}
+
+func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
+	if len(buffer) == 0 {
+		return 0
+	}
+
+	m := len(data)
+	if n+m > len(buffer) {
+		m = len(buffer) - n
+		r.leftOver = data[m:]
+	}
+	_ = copy(buffer[n:n+m], data[:m])
+
+	return n + m
+}
