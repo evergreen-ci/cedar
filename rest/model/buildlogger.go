@@ -45,7 +45,7 @@ type APILogInfo struct {
 	Format      APIString         `json:"format,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Arguments   map[string]string `json:"args,omitempty"`
-	ExitCode    int               `json:"exit_code, omitempty"`
+	ExitCode    int               `json:"exit_code,omitempty"`
 }
 
 func getLogInfo(l dbmodel.LogInfo) APILogInfo {
