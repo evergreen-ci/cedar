@@ -22,8 +22,9 @@ message LogInfo{
   int32 trial = 8;
   string proc_name = 9;
   LogFormat format = 10;
-  map<string, string> arguments = 11;
-  bool mainline = 12;
+  repeated string tags = 11;
+  map<string, string> arguments = 12;
+  bool mainline = 13;
 }
 
 enum LogStorage {

@@ -33,18 +33,19 @@ func (apiResult *APILog) Import(i interface{}) error {
 
 // APILogInfo describes information unique to a single buildlogger log.
 type APILogInfo struct {
-	Project     APIString         `bson:"project,omitempty"`
-	Version     APIString         `bson:"version,omitempty"`
-	Variant     APIString         `bson:"variant,omitempty"`
-	TaskName    APIString         `bson:"task_name,omitempty"`
-	TaskID      APIString         `bson:"task_id,omitempty"`
-	Execution   int               `bson:"execution"`
-	TestName    APIString         `bson:"test_name,omitempty"`
-	Trial       int               `bson:"trial"`
-	ProcessName APIString         `bson:"proc_name,omitempty"`
-	Format      APIString         `bson:"format,omitempty"`
-	Arguments   map[string]string `bson:"args,omitempty"`
-	ExitCode    int               `bson:"exit_code, omitempty"`
+	Project     APIString         `json:"project,omitempty"`
+	Version     APIString         `json:"version,omitempty"`
+	Variant     APIString         `json:"variant,omitempty"`
+	TaskName    APIString         `json:"task_name,omitempty"`
+	TaskID      APIString         `json:"task_id,omitempty"`
+	Execution   int               `json:"execution"`
+	TestName    APIString         `json:"test_name,omitempty"`
+	Trial       int               `json:"trial"`
+	ProcessName APIString         `json:"proc_name,omitempty"`
+	Format      APIString         `json:"format,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
+	Arguments   map[string]string `json:"args,omitempty"`
+	ExitCode    int               `json:"exit_code, omitempty"`
 }
 
 func getLogInfo(l dbmodel.LogInfo) APILogInfo {
@@ -59,6 +60,7 @@ func getLogInfo(l dbmodel.LogInfo) APILogInfo {
 		Trial:       l.Trial,
 		ProcessName: ToAPIString(l.ProcessName),
 		Format:      ToAPIString(string(l.Format)),
+		Tags:        l.Tags,
 		Arguments:   l.Arguments,
 		ExitCode:    l.ExitCode,
 	}
@@ -69,10 +71,10 @@ func getLogInfo(l dbmodel.LogInfo) APILogInfo {
 // the cedar-based log metadata storage. The prefix field indicates the name of
 // the "sub-bucket".
 type APILogArtifactInfo struct {
-	Type    APIString         `bson:"type"`
-	Prefix  APIString         `bson:"prefix"`
-	Version int               `bson:"version"`
-	Chunks  []APILogChunkInfo `bson:"chunks,omitempty"`
+	Type    APIString         `json:"type"`
+	Prefix  APIString         `json:"prefix"`
+	Version int               `json:"version"`
+	Chunks  []APILogChunkInfo `json:"chunks,omitempty"`
 }
 
 func getLogArtifactInfo(l dbmodel.LogArtifactInfo) APILogArtifactInfo {
@@ -92,10 +94,10 @@ func getLogArtifactInfo(l dbmodel.LogArtifactInfo) APILogArtifactInfo {
 // APILogChunkInfo describes a chunk of log lines stored in pail-backed offline
 // storage.
 type APILogChunkInfo struct {
-	Key      APIString `bson:"key"`
-	NumLines int       `bson:"num_lines"`
-	Start    APITime   `bson:"start"`
-	End      APITime   `bson:"end"`
+	Key      APIString `json:"key"`
+	NumLines int       `json:"num_lines"`
+	Start    APITime   `json:"start"`
+	End      APITime   `json:"end"`
 }
 
 func getLogChunkInfo(l dbmodel.LogChunkInfo) APILogChunkInfo {

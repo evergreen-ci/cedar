@@ -704,6 +704,7 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 			TestName:    "test0",
 			ProcessName: "mongod0",
 			Format:      LogFormatText,
+			Tags:        []string{"tag1", "tag2"},
 			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
 			ExitCode:    1,
 			Mainline:    true,
@@ -725,6 +726,7 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		assert.Equal(t, opts.Info.TestName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)])
 		assert.Equal(t, opts.Info.ProcessName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
 		assert.Equal(t, opts.Info.Format, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
+		assert.Equal(t, bson.M{"$in": opts.Info.Tags}, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)])
 		assert.Equal(t, opts.Info.ExitCode, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)])
 		query, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)]
 		require.True(t, ok)

@@ -339,6 +339,7 @@ type LogInfo struct {
 	Trial       int               `bson:"trial"`
 	ProcessName string            `bson:"proc_name,omitempty"`
 	Format      LogFormat         `bson:"format,omitempty"`
+	Tags        []string          `bson:"tags,omitempty"`
 	Arguments   map[string]string `bson:"args,omitempty"`
 	ExitCode    int               `bson:"exit_code, omitempty"`
 	Mainline    bool              `bson:"mainline"`
@@ -356,6 +357,7 @@ var (
 	logInfoTrialKey       = bsonutil.MustHaveTag(LogInfo{}, "Trial")
 	logInfoProcessNameKey = bsonutil.MustHaveTag(LogInfo{}, "ProcessName")
 	logInfoFormatKey      = bsonutil.MustHaveTag(LogInfo{}, "Format")
+	logInfoTagsKey        = bsonutil.MustHaveTag(LogInfo{}, "Tags")
 	logInfoArgumentsKey   = bsonutil.MustHaveTag(LogInfo{}, "Arguments")
 	logInfoExitCodeKey    = bsonutil.MustHaveTag(LogInfo{}, "ExitCode")
 	logInfoMainlineKey    = bsonutil.MustHaveTag(LogInfo{}, "Mainline")
@@ -378,6 +380,11 @@ func (id *LogInfo) ID() string {
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Trial))
 		_, _ = io.WriteString(hash, id.ProcessName)
 		_, _ = io.WriteString(hash, string(id.Format))
+
+		sort.Strings(id.Tags)
+		for _, str := range id.Tags {
+			_, _ = io.WriteString(hash, str)
+		}
 
 		if len(id.Arguments) > 0 {
 			args := []string{}
@@ -505,6 +512,9 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 	}
 	if opts.Info.Format != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = opts.Info.Format
+	}
+	if len(opts.Info.Tags) > 0 {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": opts.Info.Tags}
 	}
 	if opts.Info.ExitCode != 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)] = opts.Info.ExitCode
