@@ -114,6 +114,7 @@ func TestLogInfoExport(t *testing.T) {
 		Trial:     2,
 		ProcName:  "process_name",
 		Format:    LogFormat_LOG_FORMAT_TEXT,
+		Tags:      []string{"tag1", "tag2", "tag3"},
 		Arguments: map[string]string{"hello": "world", "goodbye": "world"},
 		Mainline:  true,
 	}

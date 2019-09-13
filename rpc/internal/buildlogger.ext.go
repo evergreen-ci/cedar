@@ -66,6 +66,7 @@ func (l LogInfo) Export() model.LogInfo {
 		Trial:       int(l.Trial),
 		ProcessName: l.ProcName,
 		Format:      l.Format.Export(),
+		Tags:        l.Tags,
 		Arguments:   l.Arguments,
 		Mainline:    l.Mainline,
 	}
