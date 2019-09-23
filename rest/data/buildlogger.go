@@ -80,10 +80,13 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 // FindLogsByTaskID queries the database to find the buildlogger logs with the
 // given task id returning the merged logs via a LogIterator with the
 // corresponding time range.
-func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange) (dbModel.LogIterator, error) {
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
-		Info:      dbModel.LogInfo{TaskID: taskID},
+		Info: dbModel.LogInfo{
+			TaskID: taskID,
+			Tags:   tags,
+		},
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -113,10 +116,13 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 
 // FindLogMetadataByTaskID queries the database to find the buildlogger logs
 // that have given task id, returning only the metadata for those logs.
-func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string) ([]model.APILog, error) {
+func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string, tags ...string) ([]model.APILog, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: util.TimeRange{EndAt: time.Now()},
-		Info:      dbModel.LogInfo{TaskID: taskID},
+		Info: dbModel.LogInfo{
+			TaskID: taskID,
+			Tags:   tags,
+		},
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -200,7 +206,7 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs with
 // the given task id returning the merged logs via a LogIterator with the
 // corresponding time range.
-func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange) (dbModel.LogIterator, error) {
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskID {
@@ -216,8 +222,12 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
 
-	its := make([]dbModel.LogIterator, len(logs))
-	for i, log := range logs {
+	its := []dbModel.LogIterator{}
+	for _, log := range logs {
+		if tags != nil && !containsTags(tags, log.Info.Tags) {
+			continue
+		}
+
 		opts := pail.LocalOptions{
 			Path:   mc.Bucket,
 			Prefix: log.Artifact.Prefix,
@@ -230,7 +240,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 			}
 		}
 
-		its[i] = dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr)
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
 	}
 
 	return dbModel.NewMergingIterator(ctx, its...), ctx.Err()
@@ -238,7 +248,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs that
 // have the given task id, returning only the metadata for those logs.
-func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string) ([]model.APILog, error) {
+func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string, tags ...string) ([]model.APILog, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskID {
@@ -254,9 +264,14 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID str
 
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
 
-	apiLogs := make([]model.APILog, len(logs))
-	for i, log := range logs {
-		if err := apiLogs[i].Import(log); err != nil {
+	apiLogs := []model.APILog{}
+	for _, log := range logs {
+		if tags != nil && !containsTags(tags, log.Info.Tags) {
+			continue
+		}
+
+		apiLogs = append(apiLogs, model.APILog{})
+		if err := apiLogs[len(apiLogs)-1].Import(log); err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
 				Message:    "corrupt data",
@@ -265,4 +280,20 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID str
 	}
 
 	return apiLogs, ctx.Err()
+}
+
+func containsTags(subset, tags []string) bool {
+	tagMap := map[string]bool{}
+
+	for _, tag := range tags {
+		tagMap[tag] = true
+	}
+
+	for _, tag := range subset {
+		if tagMap[tag] == true {
+			return true
+		}
+	}
+
+	return false
 }

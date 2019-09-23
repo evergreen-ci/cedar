@@ -61,6 +61,7 @@ func (s *buildloggerConnectorSuite) setup() {
 			TestName:    "test0",
 			ProcessName: "mongod0",
 			Format:      model.LogFormatText,
+			Tags:        []string{"tag1", "tag2", "tag3"},
 			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
 			ExitCode:    1,
 			Mainline:    true,
@@ -75,6 +76,7 @@ func (s *buildloggerConnectorSuite) setup() {
 			TestName:    "test0",
 			ProcessName: "mongod1",
 			Format:      model.LogFormatText,
+			Tags:        []string{"tag1", "tag2"},
 			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
 			ExitCode:    1,
 			Mainline:    true,
@@ -143,24 +145,49 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDDNE() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
-	for i := 0; i < 2; i++ {
-		opts := model.LogFindOptions{
-			TimeRange: util.TimeRange{
-				StartAt: time.Now().Add(-time.Hour),
-				EndAt:   time.Now(),
-			},
-			Info: model.LogInfo{TaskID: "task1"},
-		}
-		logs := model.Logs{}
-		logs.Setup(s.env)
-		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err := logs.Merge(s.ctx)
-		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+	opts := model.LogFindOptions{
+		TimeRange: util.TimeRange{
+			StartAt: time.Now().Add(-time.Hour),
+			EndAt:   time.Now(),
+		},
+		Info: model.LogInfo{TaskID: "task1"},
+	}
+	logs := model.Logs{}
+	logs.Setup(s.env)
+	s.Require().NoError(logs.Find(s.ctx, opts))
+	expectedIt, err := logs.Merge(s.ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(expectedIt)
 
-		it, err := s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange)
-		s.Require().NoError(err)
-		s.Equal(expectedIt, it)
+	it, err := s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange)
+	s.Require().NoError(err)
+	s.Equal(expectedIt, it)
+
+	apiLogs, err := s.sc.FindLogMetadataByTaskID(s.ctx, opts.Info.TaskID)
+	s.Require().NoError(err)
+	s.Len(apiLogs, 2)
+	for _, apiLog := range apiLogs {
+		s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
+	}
+
+	// with tags
+	opts.Info.Tags = []string{"tag3"}
+	logs = model.Logs{}
+	logs.Setup(s.env)
+	s.Require().NoError(logs.Find(s.ctx, opts))
+	expectedIt, err = logs.Merge(s.ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(expectedIt)
+
+	it, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, opts.Info.Tags...)
+	s.Require().NoError(err)
+	s.Equal(expectedIt, it)
+
+	apiLogs, err = s.sc.FindLogMetadataByTaskID(s.ctx, opts.Info.TaskID, opts.Info.Tags...)
+	s.Require().NoError(err)
+	s.Len(apiLogs, 1)
+	for _, apiLog := range apiLogs {
+		s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 	}
 }
 

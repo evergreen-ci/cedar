@@ -37,6 +37,7 @@ func (s *LogHandlerSuite) setup() {
 					Project:  "project",
 					TaskID:   "task_id1",
 					TestName: "test1",
+					Tags:     []string{"tag1"},
 					Mainline: true,
 				},
 				CreatedAt:   time.Now().Add(-24 * time.Hour),
@@ -218,6 +219,19 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	// with tags
+	rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
+	expected = dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(context.TODO(), it1),
+	)
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
 }
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
@@ -258,6 +272,14 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	// with tags
+	rh.(*logMetaGetByTaskIDHandler).tags = []string{"tag1"}
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected[:1], resp.Data())
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerNotFound() {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/evergreen-ci/cedar/model"
+	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
@@ -57,7 +57,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(model.NewLogIteratorReader(ctx, it))
+	return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it))
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -103,9 +103,10 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/task_id/{task_id}
 
 type logGetByTaskIDHandler struct {
-	id string
-	tr util.TimeRange
-	sc data.Connector
+	id   string
+	tags []string
+	tr   util.TimeRange
+	sc   data.Connector
 }
 
 func makeGetLogByTaskID(sc data.Connector) gimlet.RouteHandler {
@@ -127,6 +128,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
+	h.tags = vals["tags"]
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
@@ -134,12 +136,12 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 // Run calls FindLogsByTaskID and returns the merged logs.
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	it, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr)
+	it, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(model.NewLogIteratorReader(ctx, it))
+	return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it))
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,8 +149,9 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/meta/task_id/{task_id}
 
 type logMetaGetByTaskIDHandler struct {
-	id string
-	sc data.Connector
+	id   string
+	tags []string
+	sc   data.Connector
 }
 
 func makeGetLogMetaByTaskID(sc data.Connector) gimlet.RouteHandler {
@@ -167,13 +170,15 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the id from the http request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
+	vals := r.URL.Query()
+	h.tags = vals["tags"]
 
 	return nil
 }
 
 // Run calls FindLogMetadataByTaskID and returns the merged logs.
 func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id)
+	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
