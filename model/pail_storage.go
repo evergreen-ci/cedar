@@ -25,7 +25,7 @@ const (
 )
 
 // Create returns a pail Bucket backed by PailType.
-func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, prefix, permissions string) (pail.Bucket, error) {
+func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, prefix, permissions string, compress bool) (pail.Bucket, error) {
 	var b pail.Bucket
 	var err error
 
@@ -44,6 +44,7 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 			Permissions: pail.S3Permissions(permissions),
 			Credentials: pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
 			MaxRetries:  10,
+			Compress:    compress,
 		}
 		b, err = pail.NewS3Bucket(opts)
 		if err != nil {
