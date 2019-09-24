@@ -421,7 +421,6 @@ type Logs struct {
 	timeRange util.TimeRange
 }
 
-// TODO: fix this
 // EmptyLogInfo allows querying of null or missing fields.
 type EmptyLogInfo struct {
 	Project     bool
