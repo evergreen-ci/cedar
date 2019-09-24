@@ -235,4 +235,6 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/buildlogger/meta/{id}").Version(1).Get().RouteHandler(makeGetLogMetaByID(s.sc))
 	s.app.AddRoute("/buildlogger/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogByTaskID(s.sc))
 	s.app.AddRoute("/buildlogger/meta/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogMetaByTaskID(s.sc))
+	s.app.AddRoute("/buildlogger/task_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetLogByTaskID(s.sc))
+	s.app.AddRoute("/buildlogger/meta/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetLogMetaByTaskID(s.sc))
 }

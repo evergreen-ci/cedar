@@ -3,6 +3,8 @@ package rest
 import (
 	"context"
 	"net/http"
+	"strings"
+	"time"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
@@ -184,4 +186,127 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	}
 
 	return gimlet.NewJSONResponse(apiLogs)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /buildlogger/test_name/{task_id}/{test_name}
+
+type logGetByTestNameHandler struct {
+	id   string
+	name string
+	tags []string
+	tr   util.TimeRange
+	sc   data.Connector
+}
+
+func makeGetLogByTestName(sc data.Connector) gimlet.RouteHandler {
+	return &logGetByTestNameHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new logGetByTestNameHandler.
+func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
+	return &logGetByTestNameHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the id, name, time range, and tags from the http request.
+func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+
+	h.id = gimlet.GetVars(r)["id"]
+	h.name = gimlet.GetVars(r)["name"]
+	vals := r.URL.Query()
+	h.tags = vals["tags"]
+	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
+		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
+	}
+
+	return err
+}
+
+// Run calls FindLogsByTestName and returns the merged logs.
+func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
+	its := []dbModel.LogIterator{}
+
+	if h.tr.IsZero() {
+		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, h.tags...)
+		if err != nil {
+			return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
+		}
+
+		for _, log := range testLogs {
+			if h.tr.StartAt.After(time.Time(log.CreatedAt)) || h.tr.StartAt.IsZero() {
+				h.tr.StartAt = time.Time(log.CreatedAt)
+			}
+			if h.tr.EndAt.Before(time.Time(log.CompletedAt)) {
+				h.tr.EndAt = time.Time(log.CompletedAt)
+			}
+		}
+	}
+
+	it, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.tags...)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
+	}
+	its = append(its, it)
+
+	it, err = h.sc.FindLogsByTestName(ctx, h.id, "", h.tr, h.tags...)
+	if err == nil {
+		its = append(its, it)
+	} else if !strings.Contains(err.Error(), http.StatusText(http.StatusNotFound)) {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
+	}
+
+	return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(ctx, its...)))
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /buildlogger/meta/test_name/{task_id}/{test_name}
+
+type logMetaGetByTestNameHandler struct {
+	id   string
+	name string
+	tags []string
+	sc   data.Connector
+}
+
+func makeGetLogMetaByTestName(sc data.Connector) gimlet.RouteHandler {
+	return &logMetaGetByTestNameHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new logMetaGetByTestNameHandler.
+func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
+	return &logMetaGetByTestNameHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the id, name, and tags from the http request.
+func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
+	h.id = gimlet.GetVars(r)["id"]
+	vals := r.URL.Query()
+	h.tags = vals["tags"]
+
+	return nil
+}
+
+// Run calls FindLogMetadataByTestName and returns the merged logs.
+func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
+	testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, h.tags...)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
+	}
+	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, "", h.tags...)
+	if err != nil && !strings.Contains(err.Error(), http.StatusText(http.StatusNotFound)) {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
+	}
+
+	return gimlet.NewJSONResponse(append(testLogs, globalLogs...))
 }
