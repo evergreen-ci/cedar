@@ -78,8 +78,8 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 }
 
 // FindLogsByTaskID queries the database to find the buildlogger logs with the
-// given task id returning the merged logs via a LogIterator with the
-// corresponding time range.
+// given task id and optional tags, returning the merged logs via a LogIterator
+// with the corresponding time range.
 func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
@@ -115,7 +115,8 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 }
 
 // FindLogMetadataByTaskID queries the database to find the buildlogger logs
-// that have given task id, returning only the metadata for those logs.
+// that have given task id and optional tags, returning only the metadata for
+// those logs.
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string, tags ...string) ([]model.APILog, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: util.TimeRange{EndAt: time.Now()},
@@ -130,6 +131,91 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID stri
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("logs with task id '%s' not found", taskID),
+		}
+	} else if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+
+	apiLogs := make([]model.APILog, len(logs.Logs))
+	for i, log := range logs.Logs {
+		if err := apiLogs[i].Import(log); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "corrupt data",
+			}
+		}
+	}
+
+	return apiLogs, nil
+}
+
+// FindLogsByTestName queries the database to find the buildlogger logs with
+// the given task id, test name, and optional tags, returning the merged logs
+// via a LogIterator with the corresponding time range.
+func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
+	opts := dbModel.LogFindOptions{
+		TimeRange: tr,
+		Info: dbModel.LogInfo{
+			TaskID: taskID,
+			Tags:   tags,
+		},
+	}
+	if testName != "" {
+		opts.Info.TestName = testName
+	} else {
+		opts.Empty = dbModel.EmptyLogInfo{TestName: true}
+	}
+	logs := dbModel.Logs{}
+	logs.Setup(dbc.env)
+	if err := logs.Find(ctx, opts); db.ResultsNotFound(err) {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
+		}
+	} else if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+
+	logs.Setup(dbc.env)
+	it, err := logs.Merge(ctx)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+		}
+	}
+
+	return it, nil
+}
+
+// FindLogMetadataByTestName queries the database to find the buildlogger logs
+// the given task id, test name, and optional tags, returning only the metadata
+// for those logs.
+func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, taskID, testName string, tags ...string) ([]model.APILog, error) {
+	opts := dbModel.LogFindOptions{
+		TimeRange: util.TimeRange{EndAt: time.Now()},
+		Info: dbModel.LogInfo{
+			TaskID: taskID,
+			Tags:   tags,
+		},
+	}
+	if testName != "" {
+		opts.Info.TestName = testName
+	} else {
+		opts.Empty = dbModel.EmptyLogInfo{TestName: true}
+	}
+	logs := dbModel.Logs{}
+	logs.Setup(dbc.env)
+	if err := logs.Find(ctx, opts); db.ResultsNotFound(err) {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
@@ -204,8 +290,8 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 }
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs with
-// the given task id returning the merged logs via a LogIterator with the
-// corresponding time range.
+// the given task id and optional tags, returning the merged logs via a
+// LogIterator with the corresponding time range.
 func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
@@ -247,7 +333,8 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 }
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs that
-// have the given task id, returning only the metadata for those logs.
+// have the given task id and optional tags, returning only the metadata for
+// those logs.
 func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID string, tags ...string) ([]model.APILog, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
@@ -277,6 +364,87 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID str
 				Message:    "corrupt data",
 			}
 		}
+	}
+
+	return apiLogs, ctx.Err()
+}
+
+// FindLogsByTestName queries the mock cache to find the buildlogger logs with
+// the given task id, test name, and optional tags, returning the merged logs
+// via a LogIterator with the corresponding time range.
+func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
+	logs := []dbModel.Log{}
+	for _, log := range mc.CachedLogs {
+		if log.Info.TaskID == taskID && log.Info.TestName == testName {
+			logs = append(logs, log)
+		}
+	}
+	if len(logs) == 0 {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
+		}
+	}
+
+	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
+
+	its := []dbModel.LogIterator{}
+	for _, log := range logs {
+		if tags != nil && !containsTags(tags, log.Info.Tags) {
+			continue
+		}
+
+		opts := pail.LocalOptions{
+			Path:   mc.Bucket,
+			Prefix: log.Artifact.Prefix,
+		}
+		bucket, err := pail.NewLocalBucket(opts)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
+			}
+		}
+
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
+	}
+
+	return dbModel.NewMergingIterator(ctx, its...), ctx.Err()
+}
+
+// FindLogMetadataByTestName queries the mock cache to find the buildlogger
+// logs the given task id, test name, and optional tags, returning only the
+// metadata for those logs.
+func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, testName string, tags ...string) ([]model.APILog, error) {
+	logs := []dbModel.Log{}
+	for _, log := range mc.CachedLogs {
+		if log.Info.TaskID == taskID && log.Info.TestName == testName {
+			logs = append(logs, log)
+		}
+	}
+	if len(logs) == 0 {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
+		}
+	}
+
+	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
+
+	apiLogs := []model.APILog{}
+	for _, log := range logs {
+		if tags != nil && !containsTags(tags, log.Info.Tags) {
+			continue
+		}
+
+		apiLogs = append(apiLogs, model.APILog{})
+		if err := apiLogs[len(apiLogs)-1].Import(log); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "corrupt data",
+			}
+		}
+
 	}
 
 	return apiLogs, ctx.Err()
