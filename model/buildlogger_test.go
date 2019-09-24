@@ -702,6 +702,7 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 			TaskID:      "task1",
 			Execution:   1,
 			TestName:    "test0",
+			Trial:       3,
 			ProcessName: "mongod0",
 			Format:      LogFormatText,
 			Tags:        []string{"tag1", "tag2"},
@@ -713,9 +714,7 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 
 	t.Run("WithTaskID", func(t *testing.T) {
 		search := createFindQuery(opts)
-		_, ok := search["$or"]
-		assert.False(t, ok)
-		_, ok = search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)]
+		_, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)]
 		assert.False(t, ok)
 		assert.Equal(t, opts.Info.Project, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)])
 		assert.Equal(t, opts.Info.Version, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)])
@@ -724,6 +723,7 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		assert.Equal(t, opts.Info.TaskID, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)])
 		assert.Equal(t, opts.Info.Execution, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)])
 		assert.Equal(t, opts.Info.TestName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)])
+		assert.Equal(t, opts.Info.Trial, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)])
 		assert.Equal(t, opts.Info.ProcessName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
 		assert.Equal(t, opts.Info.Format, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
 		assert.Equal(t, bson.M{"$in": opts.Info.Tags}, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)])
@@ -757,6 +757,41 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		assert.Equal(t, search[logCompletedAtKey], bson.M{"$gte": opts.TimeRange.StartAt})
 		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
 		assert.Len(t, search, 3)
+	})
+	t.Run("EmptyFields", func(t *testing.T) {
+		opts.Info = LogInfo{}
+		opts.Empty = EmptyLogInfo{
+			Project:     true,
+			Version:     true,
+			Variant:     true,
+			TaskName:    true,
+			TaskID:      true,
+			Execution:   true,
+			TestName:    true,
+			Trial:       true,
+			ProcessName: true,
+			Format:      true,
+			Tags:        true,
+			Arguments:   true,
+			ExitCode:    true,
+		}
+		search := createFindQuery(opts)
+		assert.Equal(t, search[logCreatedAtKey], bson.M{"$lte": opts.TimeRange.EndAt})
+		assert.Equal(t, search[logCompletedAtKey], bson.M{"$gte": opts.TimeRange.StartAt})
+		_, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)]
+		assert.False(t, ok)
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)])
+		assert.Equal(t, 0, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)])
+		assert.Equal(t, 0, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)])
 	})
 }
 

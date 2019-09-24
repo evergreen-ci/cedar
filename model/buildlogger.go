@@ -421,10 +421,29 @@ type Logs struct {
 	timeRange util.TimeRange
 }
 
+// TODO: fix this
+// EmptyLogInfo allows querying of null or missing fields.
+type EmptyLogInfo struct {
+	Project     bool
+	Version     bool
+	Variant     bool
+	TaskName    bool
+	TaskID      bool
+	Execution   bool
+	TestName    bool
+	Trial       bool
+	ProcessName bool
+	Format      bool
+	Tags        bool
+	Arguments   bool
+	ExitCode    bool
+}
+
 // LogFindOptions describes the search criteria for the Find function on Logs.
 type LogFindOptions struct {
 	TimeRange util.TimeRange
 	Info      LogInfo
+	Empty     EmptyLogInfo
 	Limit     int64
 }
 
@@ -481,43 +500,67 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 	}
 	if opts.Info.Project != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)] = opts.Info.Project
+	} else if opts.Empty.Project {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)] = nil
 	}
 	if opts.Info.Version != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)] = opts.Info.Version
+	} else if opts.Empty.Version {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)] = nil
 	}
 	if opts.Info.Variant != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)] = opts.Info.Variant
+	} else if opts.Empty.Variant {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)] = nil
 	}
 	if opts.Info.TaskName != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)] = opts.Info.TaskName
+	} else if opts.Empty.TaskName {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)] = nil
 	}
 	if opts.Info.TaskID != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)] = opts.Info.TaskID
 		delete(search, logCreatedAtKey)
 		delete(search, logCompletedAtKey)
+	} else if opts.Empty.TaskID {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)] = nil
 	} else {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)] = true
 	}
 	if opts.Info.Execution != 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)] = opts.Info.Execution
+	} else if opts.Empty.Execution {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)] = 0
 	}
 	if opts.Info.TestName != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)] = opts.Info.TestName
+	} else if opts.Empty.TestName {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)] = nil
 	}
 	if opts.Info.Trial != 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)] = opts.Info.Trial
+	} else if opts.Empty.Trial {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)] = 0
 	}
 	if opts.Info.ProcessName != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)] = opts.Info.ProcessName
+	} else if opts.Empty.ProcessName {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)] = nil
 	}
 	if opts.Info.Format != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = opts.Info.Format
+	} else if opts.Empty.Format {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = nil
 	}
 	if len(opts.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": opts.Info.Tags}
+	} else if opts.Empty.Tags {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = nil
 	}
 	if opts.Info.ExitCode != 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)] = opts.Info.ExitCode
+	} else if opts.Empty.ExitCode {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)] = nil
 	}
 	if len(opts.Info.Arguments) > 0 {
 		var args []bson.M
@@ -525,6 +568,8 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 			args = append(args, bson.M{key: val})
 		}
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)] = bson.M{"$in": args}
+	} else if opts.Empty.Arguments {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)] = nil
 	}
 
 	return search
