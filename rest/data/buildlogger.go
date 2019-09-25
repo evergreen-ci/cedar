@@ -458,7 +458,7 @@ func containsTags(subset, tags []string) bool {
 	}
 
 	for _, tag := range subset {
-		if tagMap[tag] == true {
+		if tagMap[tag] {
 			return true
 		}
 	}
