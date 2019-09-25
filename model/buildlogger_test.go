@@ -475,6 +475,7 @@ func TestBuildloggerDownload(t *testing.T) {
 			conf.Bucket.BuildLogsBucket,
 			log2.Artifact.Prefix,
 			string(pail.S3PermissionsPrivate),
+			false,
 		)
 		require.NoError(t, err)
 
@@ -501,6 +502,7 @@ func TestBuildloggerDownload(t *testing.T) {
 			conf.Bucket.BuildLogsBucket,
 			log2.Artifact.Prefix,
 			string(pail.S3PermissionsPrivate),
+			false,
 		)
 		require.NoError(t, err)
 

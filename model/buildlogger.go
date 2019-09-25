@@ -171,6 +171,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 		conf.Bucket.BuildLogsBucket,
 		l.Artifact.Prefix,
 		string(pail.S3PermissionsPrivate),
+		true,
 	)
 	if err != nil {
 		return errors.Wrap(err, "problem creating bucket")
@@ -283,6 +284,7 @@ func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterat
 		conf.Bucket.BuildLogsBucket,
 		l.Artifact.Prefix,
 		string(pail.S3PermissionsPrivate),
+		false,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem creating bucket")

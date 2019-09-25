@@ -103,7 +103,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
 	}
 
-	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "")
+	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "", false)
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem resolving bucket"))
 		inc()
