@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -55,6 +54,7 @@ func (s *LogHandlerSuite) setup() {
 					Project:  "project",
 					TaskID:   "task_id1",
 					TestName: "test2",
+					Tags:     []string{"tag3"},
 					Mainline: true,
 				},
 				CreatedAt:   time.Now().Add(-25 * time.Hour),
@@ -292,7 +292,6 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
-	fmt.Println(expected, resp.Data())
 
 	// with tags
 	rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
@@ -419,6 +418,27 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	// only tests
+	rh.(*logGetByTestNameHandler).name = "test2"
+	rh.(*logGetByTestNameHandler).tags = []string{"tag3"}
+	it := dbModel.NewBatchedLogIterator(
+		s.buckets["def"],
+		s.sc.CachedLogs["def"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGetByTestNameHandler).tr,
+	)
+	expected = dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(context.TODO(), it),
+	)
+
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
 }
 
 func (s *LogHandlerSuite) TestLogGetByTestNameHandlerNotFound() {
@@ -465,6 +485,17 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
 	}
 
 	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+	// only tests
+	rh.(*logMetaGetByTestNameHandler).name = "test2"
+	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag3"}
+	expected = []model.APILog{s.apiResults["def"]}
+
+	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())

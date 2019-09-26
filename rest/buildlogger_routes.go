@@ -3,7 +3,6 @@ package rest
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
@@ -257,7 +256,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	it, err = h.sc.FindLogsByTestName(ctx, h.id, "", h.tr, h.tags...)
 	if err == nil {
 		its = append(its, it)
-	} else if !strings.Contains(err.Error(), http.StatusText(http.StatusNotFound)) {
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
 	}
 
@@ -304,7 +303,8 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 	}
 	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, "", h.tags...)
-	if err != nil && !strings.Contains(err.Error(), http.StatusText(http.StatusNotFound)) {
+	errResp, ok := err.(gimlet.ErrorResponse)
+	if err != nil && (!ok || errResp.StatusCode == http.StatusNotFound) {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 	}
 

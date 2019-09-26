@@ -310,7 +310,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 
 	its := []dbModel.LogIterator{}
 	for _, log := range logs {
-		if tags != nil && !containsTags(tags, log.Info.Tags) {
+		if !containsTags(tags, log.Info.Tags) {
 			continue
 		}
 
@@ -353,7 +353,7 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID str
 
 	apiLogs := []model.APILog{}
 	for _, log := range logs {
-		if tags != nil && !containsTags(tags, log.Info.Tags) {
+		if !containsTags(tags, log.Info.Tags) {
 			continue
 		}
 
@@ -390,7 +390,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testNam
 
 	its := []dbModel.LogIterator{}
 	for _, log := range logs {
-		if tags != nil && !containsTags(tags, log.Info.Tags) {
+		if !containsTags(tags, log.Info.Tags) {
 			continue
 		}
 
@@ -433,7 +433,7 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, 
 
 	apiLogs := []model.APILog{}
 	for _, log := range logs {
-		if tags != nil && !containsTags(tags, log.Info.Tags) {
+		if !containsTags(tags, log.Info.Tags) {
 			continue
 		}
 
@@ -448,20 +448,4 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, 
 	}
 
 	return apiLogs, ctx.Err()
-}
-
-func containsTags(subset, tags []string) bool {
-	tagMap := map[string]bool{}
-
-	for _, tag := range tags {
-		tagMap[tag] = true
-	}
-
-	for _, tag := range subset {
-		if tagMap[tag] {
-			return true
-		}
-	}
-
-	return false
 }
