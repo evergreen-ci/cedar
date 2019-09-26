@@ -45,7 +45,7 @@ func (s *ClientSuite) SetupSuite() {
 
 	s.env = cedar.GetEnvironment()
 	s.service.Environment = s.env
-	require.NoError(s.env.SetRemoteQueue(queue.NewLocalUnordered(3)))
+	require.NoError(s.env.SetRemoteQueue(queue.NewLocalLimitedSize(3, 1024)))
 	require.NoError(s.service.Validate())
 
 	app := s.service.app
