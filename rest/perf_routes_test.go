@@ -72,7 +72,7 @@ func (s *PerfHandlerSuite) setup() {
 					Order:    4,
 					TaskID:   "123",
 					TaskName: "taskname0",
-					Tags:     []string{"a", "b", "c"},
+					Tags:     []string{"a", "b", "c", "d"},
 					Mainline: true,
 				},
 			},
@@ -174,7 +174,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
-	rh.(*perfGetByTaskIdHandler).tags = []string{"a", "b"}
+	rh.(*perfGetByTaskIdHandler).tags = []string{"d"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
@@ -204,8 +204,11 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
-	rh.(*perfGetByTaskNameHandler).tags = []string{"a", "b"}
-	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
+	rh.(*perfGetByTaskNameHandler).tags = []string{"b"}
+	expected := []datamodel.APIPerformanceResult{
+		s.apiResults["jkl"],
+		s.apiResults["ghi"],
+	}
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
@@ -263,7 +266,7 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
-	rh.(*perfGetByVersionHandler).tags = []string{"a", "b"}
+	rh.(*perfGetByVersionHandler).tags = []string{"d"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
