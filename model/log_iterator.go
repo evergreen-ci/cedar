@@ -38,33 +38,42 @@ type LogIterator interface {
 // Serialized Iterator
 //////////////////////
 type serializedIterator struct {
-	bucket            pail.Bucket
-	chunks            []LogChunkInfo
-	timeRange         util.TimeRange
-	lineCount         int
-	keyIndex          int
-	currentReadCloser io.ReadCloser
-	currentReader     *bufio.Reader
-	currentItem       LogLine
-	catcher           grip.Catcher
+	bucket               pail.Bucket
+	chunks               []LogChunkInfo
+	timeRange            util.TimeRange
+	reverse              bool
+	lineCount            int
+	keyIndex             int
+	currentReadCloser    io.ReadCloser
+	currentReverseReader *reverseLineReader
+	currentReader        *bufio.Reader
+	currentItem          LogLine
+	catcher              grip.Catcher
 }
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
 // chunks from blob storage while iterating over lines of a buildlogger log.
-func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange, reverse bool) LogIterator {
 	chunks = filterChunks(timeRange, chunks)
+
+	if reverse {
+		for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
+			chunks[i], chunks[j] = chunks[j], chunks[i]
+		}
+	}
 
 	return &serializedIterator{
 		bucket:    bucket,
 		chunks:    chunks,
 		timeRange: timeRange,
+		reverse:   reverse,
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
 
 func (i *serializedIterator) Next(ctx context.Context) bool {
 	for {
-		if i.currentReader == nil {
+		if i.currentReader == nil && i.currentReverseReader == nil {
 			if i.keyIndex >= len(i.chunks) {
 				return false
 			}
@@ -75,10 +84,20 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 				i.catcher.Add(errors.Wrap(err, "problem downloading log artifact"))
 				return false
 			}
-			i.currentReader = bufio.NewReader(i.currentReadCloser)
+			if i.reverse {
+				i.currentReverseReader = newReverseLineReader(i.currentReadCloser)
+			} else {
+				i.currentReader = bufio.NewReader(i.currentReadCloser)
+			}
 		}
 
-		data, err := i.currentReader.ReadString('\n')
+		var data string
+		var err error
+		if i.reverse {
+			data, err = i.currentReverseReader.ReadLine()
+		} else {
+			data, err = i.currentReader.ReadString('\n')
+		}
 		if err == io.EOF {
 			if i.lineCount != i.chunks[i.keyIndex].NumLines {
 				i.catcher.Add(errors.New("corrupt data"))
@@ -86,6 +105,7 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 
 			i.catcher.Add(errors.Wrap(i.currentReadCloser.Close(), "problem closing ReadCloser"))
 			i.currentReadCloser = nil
+			i.currentReverseReader = nil
 			i.currentReader = nil
 			i.lineCount = 0
 			i.keyIndex++
@@ -132,30 +152,39 @@ func (i *serializedIterator) Close() error {
 // Batched Iterator
 ///////////////////
 type batchedIterator struct {
-	bucket        pail.Bucket
-	batchSize     int
-	chunks        []LogChunkInfo
-	chunkIndex    int
-	timeRange     util.TimeRange
-	lineCount     int
-	keyIndex      int
-	readers       map[string]io.ReadCloser
-	currentReader *bufio.Reader
-	currentItem   LogLine
-	catcher       grip.Catcher
+	bucket               pail.Bucket
+	batchSize            int
+	chunks               []LogChunkInfo
+	chunkIndex           int
+	timeRange            util.TimeRange
+	reverse              bool
+	lineCount            int
+	keyIndex             int
+	readers              map[string]io.ReadCloser
+	currentReverseReader *reverseLineReader
+	currentReader        *bufio.Reader
+	currentItem          LogLine
+	catcher              grip.Catcher
 }
 
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
 // caller) of chunks from blob storage in parallel while iterating over lines
-// of a buildlogger log.
-func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange) LogIterator {
+// of a buildReverseReader.
+func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange, reverse bool) LogIterator {
 	chunks = filterChunks(timeRange, chunks)
+
+	if reverse {
+		for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
+			chunks[i], chunks[j] = chunks[j], chunks[i]
+		}
+	}
 
 	return &batchedIterator{
 		bucket:    bucket,
 		batchSize: batchSize,
 		chunks:    chunks,
 		timeRange: timeRange,
+		reverse:   reverse,
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
@@ -163,14 +192,21 @@ func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize 
 // NewParallelizedLogIterator returns a LogIterator that fetches all chunks
 // from blob storage in parallel while iterating over lines of a buildlogger
 // log.
-func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange, reverse bool) LogIterator {
 	chunks = filterChunks(timeRange, chunks)
+
+	if reverse {
+		for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
+			chunks[i], chunks[j] = chunks[j], chunks[i]
+		}
+	}
 
 	return &batchedIterator{
 		bucket:    bucket,
 		batchSize: len(chunks),
 		chunks:    chunks,
 		timeRange: timeRange,
+		reverse:   reverse,
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
@@ -229,7 +265,7 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 
 func (i *batchedIterator) Next(ctx context.Context) bool {
 	for {
-		if i.currentReader == nil {
+		if i.currentReader == nil && i.currentReverseReader == nil {
 			if i.keyIndex >= len(i.chunks) {
 				return false
 			}
@@ -243,10 +279,20 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 				continue
 			}
 
-			i.currentReader = bufio.NewReader(reader)
+			if i.reverse {
+				i.currentReverseReader = newReverseLineReader(reader)
+			} else {
+				i.currentReader = bufio.NewReader(reader)
+			}
 		}
 
-		data, err := i.currentReader.ReadString('\n')
+		var data string
+		var err error
+		if i.reverse {
+			data, err = i.currentReverseReader.ReadLine()
+		} else {
+			data, err = i.currentReader.ReadString('\n')
+		}
 		if err == io.EOF {
 			if i.lineCount != i.chunks[i.keyIndex].NumLines {
 				i.catcher.Add(errors.New("corrupt data"))
@@ -457,9 +503,9 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 	return it
 }
 
-////////////////////////
-// Reader Implementation
-////////////////////////
+/////////////////////////
+// Reader Implementations
+/////////////////////////
 
 type logIteratorReader struct {
 	ctx      context.Context
@@ -518,4 +564,45 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 	_ = copy(buffer[n:n+m], data[:m])
 
 	return n + m
+}
+
+type reverseLineReader struct {
+	r     *bufio.Reader
+	lines []string
+	i     int
+}
+
+func newReverseLineReader(r io.Reader) *reverseLineReader {
+	return &reverseLineReader{r: bufio.NewReader(r)}
+}
+
+func (r *reverseLineReader) ReadLine() (string, error) {
+	if r.lines == nil {
+		if err := r.getLines(); err != nil {
+			return "", errors.Wrap(err, "problem reading lines")
+		}
+	}
+	if r.i == len(r.lines) {
+		return "", io.EOF
+	}
+
+	return r.lines[r.i], nil
+}
+
+func (r *reverseLineReader) getLines() error {
+	r.lines = []string{}
+
+	for {
+		p, err := r.r.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		r.lines = append(r.lines, p)
+	}
+
+	return nil
 }

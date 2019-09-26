@@ -290,7 +290,7 @@ func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterat
 		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange), nil
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange, false), nil
 }
 
 // MergeLogs merges N buildlogger logs, passed in as LogIterators, respecting
