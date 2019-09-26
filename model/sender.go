@@ -212,7 +212,7 @@ func (s *mongoDBSender) Send(m message.Composer) {
 		e.Component = s.Name()
 
 		if err := e.sendLog(s.collection); err != nil {
-			s.ErrorHandler(err, m)
+			s.ErrorHandler()(err, m)
 		}
 	}
 }

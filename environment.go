@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/pool"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
+	"github.com/mongodb/jasper"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -91,18 +93,28 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 
 	if !conf.DisableRemoteQueue {
 		opts := conf.GetQueueOptions()
-		q := queue.NewRemoteUnordered(conf.NumWorkers)
 
-		mongoDriver, err := queue.OpenNewMongoDriver(ctx, conf.QueueName, opts, env.client)
+		args := queue.MongoDBQueueCreationOptions{
+			Size:    conf.NumWorkers,
+			Name:    conf.QueueName,
+			Ordered: false,
+			Client:  env.client,
+			MDB:     opts,
+		}
+
+		rq, err := queue.NewMongoDBQueue(ctx, args)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem opening db queue")
+			return nil, errors.Wrap(err, "problem setting main queue backend")
 		}
 
-		if err = q.SetDriver(mongoDriver); err != nil {
-			return nil, errors.Wrap(err, "problem configuring driver")
+		if err = rq.SetRunner(pool.NewAbortablePool(conf.NumWorkers, rq)); err != nil {
+			return nil, errors.Wrap(err, "problem configuring worker pool for main remote queue")
 		}
-
-		env.remoteQueue = q
+		env.remoteQueue = rq
+		env.RegisterCloser("application-queue", func(ctx context.Context) error {
+			env.remoteQueue.Runner().Close(ctx)
+			return nil
+		})
 
 		grip.Info(message.Fields{
 			"message":  "configured a remote mongodb-backed queue",
@@ -121,13 +133,18 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		if err != nil {
 			return nil, errors.Wrap(err, "problem starting wrapper")
 		}
-
-		env.RegisterCloser("remote-queue", func(ctx context.Context) error {
-			env.localQueue.Runner().Close(ctx)
-			return nil
-		})
-
 	}
+
+	jpm, err := jasper.NewLocalManager(true)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	env.jpm = jpm
+
+	env.RegisterCloser("jasper-manager", func(ctx context.Context) error {
+		return errors.WithStack(jpm.Close(ctx))
+	})
 
 	var capturedCtxCancel context.CancelFunc
 	env.ctx, capturedCtxCancel = context.WithCancel(ctx)
@@ -157,6 +174,7 @@ type Environment interface {
 	GetSession() db.Session
 	GetClient() *mongo.Client
 	GetDB() *mongo.Database
+	Jasper() jasper.Manager
 
 	GetServerCertVersion() int
 	SetServerCertVersion(i int)
@@ -198,6 +216,7 @@ type envState struct {
 	ctx               context.Context
 	client            *mongo.Client
 	conf              *Configuration
+	jpm               jasper.Manager
 	serverCertVersion int
 	closers           []closerOp
 	mutex             sync.RWMutex
@@ -334,6 +353,13 @@ func (c *envState) RegisterCloser(name string, op CloserFunc) {
 	defer c.mutex.Unlock()
 
 	c.closers = append(c.closers, closerOp{name: name, closer: op})
+}
+
+func (c *envState) Jasper() jasper.Manager {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.jpm
 }
 
 func (c *envState) Close(ctx context.Context) error {

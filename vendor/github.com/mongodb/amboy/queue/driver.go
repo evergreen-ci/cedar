@@ -7,9 +7,9 @@ import (
 	"github.com/mongodb/amboy"
 )
 
-// Driver describes the interface between a queue and an out of
+// remoteQueueDriver describes the interface between a queue and an out of
 // process persistence layer, like a database.
-type Driver interface {
+type remoteQueueDriver interface {
 	ID() string
 	Open(context.Context) error
 	Close()
@@ -17,29 +17,32 @@ type Driver interface {
 	Get(context.Context, string) (amboy.Job, error)
 	Put(context.Context, amboy.Job) error
 	Save(context.Context, amboy.Job) error
-	SaveStatus(context.Context, amboy.Job, amboy.JobStatusInfo) error
 
 	Jobs(context.Context) <-chan amboy.Job
 	Next(context.Context) amboy.Job
 
 	Stats(context.Context) amboy.QueueStats
 	JobStats(context.Context) <-chan amboy.JobStatusInfo
-
-	LockManager
 }
 
-// MongoDBOptions is a struct passed to the NewMgo constructor to
+// MongoDBOptions is a struct passed to the NewMongo constructor to
 // communicate mgoDriver specific settings about the driver's behavior
 // and operation.
 type MongoDBOptions struct {
 	URI             string
 	DB              string
+	GroupName       string
+	UseGroups       bool
 	Priority        bool
 	CheckWaitUntil  bool
+	CheckDispatchBy bool
 	SkipIndexBuilds bool
 	Format          amboy.Format
 	WaitInterval    time.Duration
-	TTL             time.Duration
+	// TTL sets the number of seconds for a TTL index on the "info.created"
+	// field. If set to zero, the TTL index will not be created and
+	// and documents may live forever in the database.
+	TTL time.Duration
 }
 
 // DefaultMongoDBOptions constructs a new options object with default
@@ -50,10 +53,10 @@ func DefaultMongoDBOptions() MongoDBOptions {
 		URI:             "mongodb://localhost:27017",
 		DB:              "amboy",
 		Priority:        false,
+		UseGroups:       false,
 		CheckWaitUntil:  true,
 		SkipIndexBuilds: false,
 		WaitInterval:    time.Second,
 		Format:          amboy.BSON,
-		TTL:             90 * 24 * time.Hour,
 	}
 }

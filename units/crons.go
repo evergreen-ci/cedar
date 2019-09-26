@@ -56,6 +56,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(queue.Put(ctx, NewSysInfoStatsCollector(fmt.Sprintf("sys-info-stats-%s", ts))))
 		catcher.Add(queue.Put(ctx, NewLocalAmboyStatsCollector(env, ts)))
+		catcher.Add(queue.Put(ctx, NewJasperManagerCleanup(ts, env)))
 		return catcher.Resolve()
 	})
 	amboy.IntervalQueueOperation(ctx, remote, time.Minute, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
