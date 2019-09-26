@@ -344,7 +344,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	tr := util.GetTimeRange(time.Time{}, dur)
 
 	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "", tr, 0)
-	s.Equal(expectedCount, len(actualResult))
+	s.Require().Equal(expectedCount, len(actualResult))
 	previousOrder := actualResult[0].Info.Order
 	for _, result := range actualResult {
 		s.Equal(expectedTaskName, *result.Info.TaskName)

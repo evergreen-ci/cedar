@@ -34,10 +34,12 @@ func (s *LogHandlerSuite) setup() {
 			"abc": dbModel.Log{
 				ID: "abc",
 				Info: dbModel.LogInfo{
-					Project:  "project",
-					TaskID:   "task_id1",
-					TestName: "test1",
-					Mainline: true,
+					Project:     "project",
+					TaskID:      "task_id1",
+					TestName:    "test1",
+					ProcessName: "mongod0",
+					Tags:        []string{"tag1"},
+					Mainline:    true,
 				},
 				CreatedAt:   time.Now().Add(-24 * time.Hour),
 				CompletedAt: time.Now().Add(-23 * time.Hour),
@@ -52,6 +54,7 @@ func (s *LogHandlerSuite) setup() {
 					Project:  "project",
 					TaskID:   "task_id1",
 					TestName: "test2",
+					Tags:     []string{"tag3"},
 					Mainline: true,
 				},
 				CreatedAt:   time.Now().Add(-25 * time.Hour),
@@ -76,13 +79,64 @@ func (s *LogHandlerSuite) setup() {
 					Prefix: "ghi",
 				},
 			},
+			"jkl": dbModel.Log{
+				ID: "jkl",
+				Info: dbModel.LogInfo{
+					Project:     "project",
+					TaskID:      "task_id1",
+					TestName:    "test1",
+					ProcessName: "mongod1",
+					Tags:        []string{"tag1"},
+					Mainline:    true,
+				},
+				CreatedAt:   time.Now().Add(-26 * time.Hour),
+				CompletedAt: time.Now(),
+				Artifact: dbModel.LogArtifactInfo{
+					Type:   dbModel.PailLocal,
+					Prefix: "jkl",
+				},
+			},
+			"mno": dbModel.Log{
+				ID: "mno",
+				Info: dbModel.LogInfo{
+					Project:     "project",
+					TaskID:      "task_id1",
+					ProcessName: "sys",
+					Tags:        []string{"tag1"},
+					Mainline:    true,
+				},
+				CreatedAt:   time.Now().Add(-27 * time.Hour),
+				CompletedAt: time.Now(),
+				Artifact: dbModel.LogArtifactInfo{
+					Type:   dbModel.PailLocal,
+					Prefix: "mno",
+				},
+			},
+			"pqr": dbModel.Log{
+				ID: "pqr",
+				Info: dbModel.LogInfo{
+					Project:     "project",
+					TaskID:      "task_id1",
+					ProcessName: "sys",
+					Tags:        []string{"tag2"},
+					Mainline:    true,
+				},
+				CreatedAt:   time.Now().Add(-28 * time.Hour),
+				CompletedAt: time.Now(),
+				Artifact: dbModel.LogArtifactInfo{
+					Type:   dbModel.PailLocal,
+					Prefix: "pqr",
+				},
+			},
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":           makeGetLogByID(&s.sc),
-		"meta_id":      makeGetLogMetaByID(&s.sc),
-		"task_id":      makeGetLogByTaskID(&s.sc),
-		"meta_task_id": makeGetLogMetaByTaskID(&s.sc),
+		"id":             makeGetLogByID(&s.sc),
+		"meta_id":        makeGetLogMetaByID(&s.sc),
+		"task_id":        makeGetLogByTaskID(&s.sc),
+		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc),
+		"test_name":      makeGetLogByTestName(&s.sc),
+		"meta_test_name": makeGetLogMetaByTestName(&s.sc),
 	}
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
@@ -196,21 +250,41 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
-	it1 := dbModel.NewBatchedLogIterator(
-		s.buckets["abc"],
-		s.sc.CachedLogs["abc"].Artifact.Chunks,
-		batchSize,
-		rh.(*logGetByTaskIDHandler).tr,
-	)
-	it2 := dbModel.NewBatchedLogIterator(
-		s.buckets["def"],
-		s.sc.CachedLogs["def"].Artifact.Chunks,
-		batchSize,
-		rh.(*logGetByTaskIDHandler).tr,
-	)
+	its := []dbModel.LogIterator{
+		dbModel.NewBatchedLogIterator(
+			s.buckets["abc"],
+			s.sc.CachedLogs["abc"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
+		dbModel.NewBatchedLogIterator(
+			s.buckets["def"],
+			s.sc.CachedLogs["def"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
+		dbModel.NewBatchedLogIterator(
+			s.buckets["jkl"],
+			s.sc.CachedLogs["jkl"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
+		dbModel.NewBatchedLogIterator(
+			s.buckets["mno"],
+			s.sc.CachedLogs["mno"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
+		dbModel.NewBatchedLogIterator(
+			s.buckets["pqr"],
+			s.sc.CachedLogs["pqr"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
+	}
 	expected := dbModel.NewLogIteratorReader(
 		context.TODO(),
-		dbModel.NewMergingIterator(context.TODO(), it1, it2),
+		dbModel.NewMergingIterator(context.TODO(), its...),
 	)
 
 	resp := rh.Run(context.TODO())
@@ -218,6 +292,19 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	// with tags
+	rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
+	expected = dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(context.TODO(), append(its[:1], its[2:4]...)...),
+	)
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
 }
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
@@ -251,13 +338,27 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerCtxErr() {
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "task_id1"
-	expected := []model.APILog{s.apiResults["abc"], s.apiResults["def"]}
+	expected := []model.APILog{
+		s.apiResults["abc"],
+		s.apiResults["def"],
+		s.apiResults["jkl"],
+		s.apiResults["mno"],
+		s.apiResults["pqr"],
+	}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	// with tags
+	rh.(*logMetaGetByTaskIDHandler).tags = []string{"tag1"}
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(append(expected[:1], expected[2:4]...), resp.Data())
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerNotFound() {
@@ -280,10 +381,156 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerCtxErr() {
 	s.NotEqual(http.StatusOK, resp.Status())
 }
 
+func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
+	rh := s.rh["test_name"]
+	rh.(*logGetByTestNameHandler).id = "task_id1"
+	rh.(*logGetByTestNameHandler).name = "test1"
+	rh.(*logGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logGetByTestNameHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+	it1 := dbModel.NewBatchedLogIterator(
+		s.buckets["abc"],
+		s.sc.CachedLogs["abc"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGetByTestNameHandler).tr,
+	)
+	it2 := dbModel.NewBatchedLogIterator(
+		s.buckets["jkl"],
+		s.sc.CachedLogs["jkl"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGetByTestNameHandler).tr,
+	)
+	it3 := dbModel.NewBatchedLogIterator(
+		s.buckets["mno"],
+		s.sc.CachedLogs["mno"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGetByTestNameHandler).tr,
+	)
+	expected := dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(context.TODO(), it1, it2, it3),
+	)
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+	// only tests
+	rh.(*logGetByTestNameHandler).name = "test2"
+	rh.(*logGetByTestNameHandler).tags = []string{"tag3"}
+	it := dbModel.NewBatchedLogIterator(
+		s.buckets["def"],
+		s.sc.CachedLogs["def"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGetByTestNameHandler).tr,
+	)
+	expected = dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(context.TODO(), it),
+	)
+
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+}
+
+func (s *LogHandlerSuite) TestLogGetByTestNameHandlerNotFound() {
+	rh := s.rh["test_name"]
+	rh.(*logGetByTestNameHandler).id = "task_id1"
+	rh.(*logGetByTestNameHandler).id = "DNE"
+	rh.(*logGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logGetByTestNameHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogGetByTestNameHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["test_name"]
+	rh.(*logGetByTestNameHandler).id = "task_id1"
+	rh.(*logGetByTestNameHandler).name = "test1"
+	rh.(*logGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logGetByTestNameHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
+	rh := s.rh["meta_test_name"]
+	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
+	rh.(*logMetaGetByTestNameHandler).name = "test1"
+	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+	expected := []model.APILog{
+		s.apiResults["abc"],
+		s.apiResults["jkl"],
+		s.apiResults["mno"],
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+	// only tests
+	rh.(*logMetaGetByTestNameHandler).name = "test2"
+	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag3"}
+	expected = []model.APILog{s.apiResults["def"]}
+
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+}
+
+func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerNotFound() {
+	rh := s.rh["meta_test_name"]
+	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
+	rh.(*logMetaGetByTestNameHandler).id = "DNE"
+	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["meta_test_name"]
+	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
+	rh.(*logMetaGetByTestNameHandler).name = "test1"
+	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
 func (s *LogHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
 		handler   string
+		tags      bool
 	}{
 		{
 			handler:   "id",
@@ -292,30 +539,41 @@ func (s *LogHandlerSuite) TestParse() {
 		{
 			handler:   "task_id",
 			urlString: "http://cedar.mongodb.com/log/task_id/task_id1",
+			tags:      true,
+		},
+		{
+			handler:   "test_name",
+			urlString: "http://cedar.mongodb.com/log/task_id/task_id1",
+			tags:      true,
 		},
 	} {
-		s.testParseValid(test.handler, test.urlString)
+		s.testParseValid(test.handler, test.urlString, test.tags)
 		s.testParseInvalid(test.handler, test.urlString)
-		s.testParseDefaults(test.handler, test.urlString)
+		s.testParseDefaults(test.handler, test.urlString, test.tags)
 	}
 }
 
-func (s *LogHandlerSuite) testParseValid(handler, urlString string) {
+func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	ctx := context.Background()
 	urlString += "?start=2012-11-01T22:08:00%2B00:00"
 	urlString += "&end=2013-11-01T22:08:00%2B00:00"
-	urlString += "&limit=5"
+	urlString += "&tags=hello&tags=world"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	expectedTr := util.TimeRange{
 		StartAt: time.Date(2012, time.November, 1, 22, 8, 0, 0, time.UTC),
 		EndAt:   time.Date(2013, time.November, 1, 22, 8, 0, 0, time.UTC),
 	}
+	expectedTags := []string{"hello", "world"}
 	rh := s.rh[handler]
 
 	err := rh.Parse(ctx, req)
-	s.Equal(expectedTr, getLogTimeRange(rh, handler))
+	tr, _ := getLogTimeRange(rh, handler)
+	s.Equal(expectedTr, tr)
 	s.NoError(err)
+	if tags {
+		s.Equal(expectedTags, getLogTags(rh, handler))
+	}
 }
 
 func (s *LogHandlerSuite) testParseInvalid(handler, urlString string) {
@@ -334,7 +592,7 @@ func (s *LogHandlerSuite) testParseInvalid(handler, urlString string) {
 	s.Error(err)
 }
 
-func (s *LogHandlerSuite) testParseDefaults(handler, urlString string) {
+func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool) {
 	ctx := context.Background()
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
@@ -342,18 +600,34 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string) {
 
 	err := rh.Parse(ctx, req)
 	s.Require().NoError(err)
-	tr := getLogTimeRange(rh, handler)
-	s.Equal(time.Time{}, tr.StartAt)
-	s.True(time.Since(tr.EndAt) <= time.Second)
+	tr, expectedDefault := getLogTimeRange(rh, handler)
+	s.Equal(expectedDefault.StartAt, tr.StartAt)
+	s.True(tr.EndAt.Sub(expectedDefault.EndAt) <= time.Second)
+	if tags {
+		s.Nil(getLogTags(rh, handler))
+	}
 }
 
-func getLogTimeRange(rh gimlet.RouteHandler, handler string) util.TimeRange {
+func getLogTimeRange(rh gimlet.RouteHandler, handler string) (util.TimeRange, util.TimeRange) {
 	switch handler {
 	case "id":
-		return rh.(*logGetByIDHandler).tr
+		return rh.(*logGetByIDHandler).tr, util.TimeRange{EndAt: time.Now()}
 	case "task_id":
-		return rh.(*logGetByTaskIDHandler).tr
+		return rh.(*logGetByTaskIDHandler).tr, util.TimeRange{EndAt: time.Now()}
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).tr, util.TimeRange{}
 	default:
-		return util.TimeRange{}
+		return util.TimeRange{}, util.TimeRange{}
+	}
+}
+
+func getLogTags(rh gimlet.RouteHandler, handler string) []string {
+	switch handler {
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).tags
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).tags
+	default:
+		return []string{}
 	}
 }

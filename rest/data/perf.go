@@ -283,7 +283,7 @@ func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id strin
 func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) {
+		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) {
 			apiResult := dataModel.APIPerformanceResult{}
 			err := apiResult.Import(result)
 			if err != nil {
@@ -314,7 +314,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskI
 func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) &&
+		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) &&
 			result.Info.Mainline && (variant == "" || result.Info.Variant == variant) {
 			apiResult := dataModel.APIPerformanceResult{}
 			err := apiResult.Import(result)
@@ -349,7 +349,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && mc.checkTags(result.ID, tags) && result.Info.Mainline {
+		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) && result.Info.Mainline {
 			apiResult := dataModel.APIPerformanceResult{}
 			err := apiResult.Import(result)
 			if err != nil {
@@ -397,22 +397,6 @@ func (mc *MockConnector) checkInterval(id string, interval util.TimeRange) bool 
 		(interval.EndAt.After(completedAt) || interval.EndAt.Equal(completedAt))
 }
 
-func (mc *MockConnector) checkTags(id string, tags []string) bool {
-	result := mc.CachedPerformanceResults[id]
-	tagMap := make(map[string]bool)
-	for _, tag := range result.Info.Tags {
-		tagMap[tag] = true
-	}
-
-	for _, tag := range tags {
-		_, ok := tagMap[tag]
-		if !ok {
-			return false
-		}
-	}
-	return true
-}
-
 func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([]dataModel.APIPerformanceResult, error) {
 	if maxDepth == 0 {
 		return []dataModel.APIPerformanceResult{}, nil
@@ -433,7 +417,7 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 		for _, child := range children {
 			seen[child] = seen[next] + 1
 			result, ok := mc.CachedPerformanceResults[child]
-			if ok && mc.checkTags(child, tags) {
+			if ok && containsTags(tags, result.Info.Tags) {
 				apiResult := dataModel.APIPerformanceResult{}
 				err := apiResult.Import(result)
 				if err != nil {
