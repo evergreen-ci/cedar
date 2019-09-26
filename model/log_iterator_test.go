@@ -18,10 +18,13 @@ import (
 )
 
 const (
-	serialized   = "SerializedIterator"
-	batched      = "BatchedIterator"
-	parallelized = "ParallelizedIterator"
-	merging      = "MergingIterator"
+	serialized    = "SerializedIterator"
+	serializedR   = "ReversedSerializedIterator"
+	batched       = "BatchedIterator"
+	batchedR      = "ReversedBatchedIterator"
+	parallelized  = "ParallelizedIterator"
+	parallelizedR = "ReversedParallelizedIterator"
+	merging       = "MergingIterator"
 )
 
 func TestLogIterator(t *testing.T) {
@@ -57,10 +60,13 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "EmptyIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
-				batched:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
-				parallelized: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
-				merging:      NewMergingIterator(ctx, NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
+				serialized:    NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, false),
+				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true),
+				batched:       NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange, false),
+				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange, true),
+				parallelized:  NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, false),
+				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true),
+				merging:       NewMergingIterator(ctx, NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, false)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				assert.False(t, it.Next(ctx))
@@ -72,10 +78,13 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ExhaustedIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
-				batched:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
-				parallelized: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
-				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+				serialized:    NewSerializedLogIterator(bucket, chunks, completeTimeRange, false),
+				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true),
+				batched:       NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange, false),
+				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange, true),
+				parallelized:  NewParallelizedLogIterator(bucket, chunks, completeTimeRange, false),
+				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true),
+				merging:       NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange, false)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -92,10 +101,10 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ErroredIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange),
-				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange),
-				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange),
-				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
+				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange, false),
+				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange, false),
+				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange, false),
+				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange, false)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -110,10 +119,10 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "LimitedTimeRange",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, chunks, partialTimeRange),
-				batched:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
-				parallelized: NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
-				merging:      NewMergingIterator(ctx, NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
+				serialized:   NewSerializedLogIterator(bucket, chunks, partialTimeRange, false),
+				batched:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange, false),
+				parallelized: NewParallelizedLogIterator(bucket, chunks, partialTimeRange, false),
+				merging:      NewMergingIterator(ctx, NewParallelizedLogIterator(bucket, chunks, partialTimeRange, false)),
 			},
 			test: func(t *testing.T, it LogIterator) {
 				count := 0
@@ -156,7 +165,7 @@ func TestMergeLogIterator(t *testing.T) {
 			StartAt: chunks[0].Start,
 			EndAt:   chunks[len(chunks)-1].End,
 		}
-		it := NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 100, timeRange))
+		it := NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 100, timeRange, false))
 
 		count := 0
 		for it.Next(ctx) {
@@ -181,7 +190,7 @@ func TestMergeLogIterator(t *testing.T) {
 				StartAt: chunks[0].Start,
 				EndAt:   chunks[len(chunks)-1].End,
 			}
-			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange, false)
 			for _, line := range lines {
 				lineMap[line.Data] = false
 			}
@@ -230,7 +239,7 @@ func TestLogIteratorReader(t *testing.T) {
 	}
 
 	t.Run("LeftOver", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, false))
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 22)
@@ -262,7 +271,7 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, false))
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -281,7 +290,7 @@ func TestLogIteratorReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, false))
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
