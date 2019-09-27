@@ -1,7 +1,6 @@
 package model
 
 import (
-	"container/heap"
 	"context"
 	"crypto/sha1"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -262,8 +260,9 @@ func (l *Log) Close(ctx context.Context, exitCode int) error {
 }
 
 // Download returns a LogIterator which iterates lines of the given log. The
-// environment should not be nil.
-func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterator, error) {
+// environment should not be nil. When reverse is true, the log lines are
+// returned in reverse order.
+func (l *Log) Download(ctx context.Context, timeRange util.TimeRange, reverse bool) (LogIterator, error) {
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")
 	}
@@ -290,43 +289,7 @@ func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterat
 		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange, false), nil
-}
-
-// MergeLogs merges N buildlogger logs, passed in as LogIterators, respecting
-// the order of each line's timestamp. Note that once all lines are merged, the
-// returned string channel is closed.
-func MergeLogs(ctx context.Context, iterators ...LogIterator) chan string {
-	h := &LogIteratorHeap{}
-	heap.Init(h)
-	lines := make(chan string, len(iterators))
-
-	for _, it := range iterators {
-		if it.Next(ctx) {
-			h.SafePush(it)
-		}
-	}
-
-	go func() {
-		defer recovery.LogStackTraceAndContinue("merging buildlogger logs")
-		defer close(lines)
-		for h.Len() > 0 {
-			if ctx.Err() != nil {
-				return
-			}
-
-			it := h.SafePop()
-
-			line := fmt.Sprintf("%s %s", it.Item().Timestamp, it.Item().Data)
-			lines <- line
-
-			if it.Next(ctx) {
-				h.SafePush(it)
-			}
-		}
-	}()
-
-	return lines
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange, reverse), nil
 }
 
 // LogInfo describes information unique to a single buildlogger log.
@@ -578,8 +541,8 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 
 // Merge merges the buildlogger logs, respecting the order of each line's
 // timestamp. The logs should be populated and the environment should not be
-// nil.
-func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
+// nil. When reverse is true, the log lines are returned in reverse order.
+func (l *Logs) Merge(ctx context.Context, reverse bool) (LogIterator, error) {
 	if !l.populated {
 		return nil, errors.New("cannot merge unpopulated logs")
 	}
@@ -590,7 +553,7 @@ func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 	iterators := []LogIterator{}
 	for i := range l.Logs {
 		l.Logs[i].Setup(l.env)
-		it, err := l.Logs[i].Download(ctx, l.timeRange)
+		it, err := l.Logs[i].Download(ctx, l.timeRange, reverse)
 		if err != nil {
 			catcher := grip.NewBasicCatcher()
 			for _, iterator := range iterators {

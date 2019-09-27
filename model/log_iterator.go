@@ -456,12 +456,6 @@ func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo, reverse bool)
 	return filteredChunks
 }
 
-func reverseChunks(chunks []LogChunkInfo) {
-	for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
-		chunks[i], chunks[j] = chunks[j], chunks[i]
-	}
-}
-
 // LogIteratorHeap is a min-heap of LogIterator items.
 type LogIteratorHeap []LogIterator
 
