@@ -565,5 +565,5 @@ func (l *Logs) Merge(ctx context.Context, reverse bool) (LogIterator, error) {
 		iterators = append(iterators, it)
 	}
 
-	return NewMergingIterator(ctx, iterators...), nil
+	return NewMergingIterator(ctx, reverse, iterators...), nil
 }

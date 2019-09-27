@@ -349,9 +349,10 @@ type mergingIterator struct {
 
 // NewMergeIterator returns a LogIterator that merges N buildlogger logs,
 // passed in as LogIterators, respecting the order of each line's timestamp.
-func NewMergingIterator(ctx context.Context, iterators ...LogIterator) LogIterator {
+func NewMergingIterator(ctx context.Context, reverse bool, iterators ...LogIterator) LogIterator {
 	catcher := grip.NewBasicCatcher()
-	h := &LogIteratorHeap{}
+
+	h := &LogIteratorHeap{min: !reverse}
 	heap.Init(h)
 
 	for i := range iterators {
@@ -456,20 +457,28 @@ func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo, reverse bool)
 	return filteredChunks
 }
 
-// LogIteratorHeap is a min-heap of LogIterator items.
-type LogIteratorHeap []LogIterator
+// LogIteratorHeap is a heap of LogIterator items.
+type LogIteratorHeap struct {
+	its []LogIterator
+	min bool
+}
 
 // Len returns the size of the heap.
-func (h LogIteratorHeap) Len() int { return len(h) }
+func (h LogIteratorHeap) Len() int { return len(h.its) }
 
 // Less returns true if the object at index i is less than the object at index
-// j in the heap, false otherwise.
+// j in the heap, false otherwise, when min is true. When min is false, the
+// opposite is returned.
 func (h LogIteratorHeap) Less(i, j int) bool {
-	return h[i].Item().Timestamp.Before(h[j].Item().Timestamp)
+	if h.min {
+		return h.its[i].Item().Timestamp.Before(h.its[j].Item().Timestamp)
+	} else {
+		return h.its[i].Item().Timestamp.After(h.its[j].Item().Timestamp)
+	}
 }
 
 // Swap swaps the objects at indexes i and j.
-func (h LogIteratorHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h LogIteratorHeap) Swap(i, j int) { h.its[i], h.its[j] = h.its[j], h.its[i] }
 
 // Push appends a new object of type LogIterator to the heap. Note that if x is
 // not a LogIterator nothing happens.
@@ -479,16 +488,16 @@ func (h *LogIteratorHeap) Push(x interface{}) {
 		return
 	}
 
-	*h = append(*h, it)
+	h.its = append(h.its, it)
 }
 
-// Pop returns the minimum object (as an empty interface) from the heap. Note
-// that if the heap is empty this will panic.
+// Pop returns the next object (as an empty interface) from the heap. Note that
+// if the heap is empty this will panic.
 func (h *LogIteratorHeap) Pop() interface{} {
-	old := *h
+	old := h.its
 	n := len(old)
 	x := old[n-1]
-	*h = old[0 : n-1]
+	h.its = old[0 : n-1]
 	return x
 }
 
@@ -571,6 +580,52 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 	_ = copy(buffer[n:n+m], data[:m])
 
 	return n + m
+}
+
+type logIteratorTailReader struct {
+	ctx context.Context
+	it  LogIterator
+	n   int
+	r   io.Reader
+}
+
+// NewLogIteratorTailReader returns an io.Reader that reads up to n log lines
+// from the *reversed* log iterator.
+func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int) io.Reader {
+	return &logIteratorTailReader{
+		ctx: ctx,
+		it:  it,
+		n:   n,
+	}
+}
+
+func (r *logIteratorTailReader) Read(p []byte) (int, error) {
+	if r.r == nil {
+		if err := r.getReader(); err != nil {
+			return 0, errors.Wrap(err, "problem reading data")
+		}
+	}
+
+	if len(p) == 0 {
+		return 0, io.EOF
+	}
+
+	return r.r.Read(p)
+}
+
+func (r *logIteratorTailReader) getReader() error {
+	var lines string
+	for i := 0; i < r.n && r.it.Next(r.ctx); i++ {
+		lines = r.it.Item().Data + lines
+	}
+
+	catcher := grip.NewBasicCatcher()
+	catcher.Add(r.it.Err())
+	catcher.Add(r.it.Close())
+
+	r.r = strings.NewReader(lines)
+
+	return catcher.Resolve()
 }
 
 type reverseLineReader struct {
