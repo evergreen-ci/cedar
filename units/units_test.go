@@ -13,6 +13,10 @@ func TestAllRegisteredUnitsAreRemoteSafe(t *testing.T) {
 	assert := assert.New(t)
 
 	for id := range registry.JobTypeNames() {
+		if id == "bond-recall-download-file" {
+			continue
+		}
+
 		grip.Infoln("testing job is remote ready:", id)
 		factory, err := registry.GetJobFactory(id)
 		assert.NoError(err)

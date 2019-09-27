@@ -31,7 +31,7 @@ func (s *ServiceCacheSuite) TestLocalQueueNotSettableToNil() {
 	s.Error(s.cache.SetLocalQueue(nil))
 	s.Nil(s.cache.localQueue)
 
-	q := queue.NewLocalOrdered(2)
+	q := queue.NewLocalLimitedSize(2, 1024)
 	s.NotNil(q)
 	s.NoError(s.cache.SetLocalQueue(q))
 	s.NotNil(s.cache.localQueue)
@@ -45,7 +45,7 @@ func (s *ServiceCacheSuite) TestRemoteQueueNotSettableToNil() {
 	s.Error(s.cache.SetRemoteQueue(nil))
 	s.Nil(s.cache.remoteQueue)
 
-	q := queue.NewLocalUnordered(2) // for testing
+	q := queue.NewLocalLimitedSize(2, 1024)
 	s.NotNil(q)
 	s.NoError(s.cache.SetRemoteQueue(q))
 	s.NotNil(s.cache.remoteQueue)

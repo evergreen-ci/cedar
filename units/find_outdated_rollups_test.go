@@ -158,7 +158,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.Equal(t, 1, j.ErrorCount())
+		assert.Error(t, j.Error())
 		time.Sleep(time.Second)
 
 		result := &model.PerformanceResult{}
