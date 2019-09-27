@@ -53,14 +53,10 @@ type serializedIterator struct {
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
 // chunks from blob storage while iterating over lines of a buildlogger log.
+// When reverse is true, this iterator will return the log lines in reverse
+// order.
 func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange, reverse bool) LogIterator {
-	chunks = filterChunks(timeRange, chunks)
-
-	if reverse {
-		for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
-			chunks[i], chunks[j] = chunks[j], chunks[i]
-		}
-	}
+	chunks = filterChunks(timeRange, chunks, reverse)
 
 	return &serializedIterator{
 		bucket:    bucket,
@@ -117,18 +113,23 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 			return false
 		}
 
-		i.currentItem, err = parseLogLineString(data)
+		item, err := parseLogLineString(data)
 		if err != nil {
 			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
 			return false
 		}
 		i.lineCount++
 
-		if i.currentItem.Timestamp.After(i.timeRange.EndAt) {
+		if item.Timestamp.After(i.timeRange.EndAt) && !i.reverse {
 			return false
 		}
-		if i.currentItem.Timestamp.After(i.timeRange.StartAt) ||
-			i.currentItem.Timestamp.Equal(i.timeRange.StartAt) {
+		if item.Timestamp.Before(i.timeRange.StartAt) && i.reverse {
+			return false
+		}
+
+		if (item.Timestamp.After(i.timeRange.StartAt) || item.Timestamp.Equal(i.timeRange.StartAt)) &&
+			(item.Timestamp.Before(i.timeRange.EndAt) || item.Timestamp.Equal(i.timeRange.EndAt)) {
+			i.currentItem = item
 			break
 		}
 	}
@@ -169,15 +170,10 @@ type batchedIterator struct {
 
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
 // caller) of chunks from blob storage in parallel while iterating over lines
-// of a buildReverseReader.
+// of a buildlogger log. When reverse is true, this iterator will return the
+// log lines in reverse order.
 func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange, reverse bool) LogIterator {
-	chunks = filterChunks(timeRange, chunks)
-
-	if reverse {
-		for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
-			chunks[i], chunks[j] = chunks[j], chunks[i]
-		}
-	}
+	chunks = filterChunks(timeRange, chunks, reverse)
 
 	return &batchedIterator{
 		bucket:    bucket,
@@ -191,15 +187,10 @@ func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize 
 
 // NewParallelizedLogIterator returns a LogIterator that fetches all chunks
 // from blob storage in parallel while iterating over lines of a buildlogger
-// log.
+// log. When reverse is true, this iterator will return the log lines in
+// reverse order.
 func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange, reverse bool) LogIterator {
-	chunks = filterChunks(timeRange, chunks)
-
-	if reverse {
-		for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
-			chunks[i], chunks[j] = chunks[j], chunks[i]
-		}
-	}
+	chunks = filterChunks(timeRange, chunks, reverse)
 
 	return &batchedIterator{
 		bucket:    bucket,
@@ -298,6 +289,7 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 				i.catcher.Add(errors.New("corrupt data"))
 			}
 
+			i.currentReverseReader = nil
 			i.currentReader = nil
 			i.lineCount = 0
 			i.keyIndex++
@@ -308,18 +300,22 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 			return false
 		}
 
-		i.currentItem, err = parseLogLineString(data)
+		item, err := parseLogLineString(data)
 		if err != nil {
 			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
 			return false
 		}
 		i.lineCount++
 
-		if i.currentItem.Timestamp.After(i.timeRange.EndAt) {
+		if item.Timestamp.After(i.timeRange.EndAt) && !i.reverse {
 			return false
 		}
-		if i.currentItem.Timestamp.After(i.timeRange.StartAt) ||
-			i.currentItem.Timestamp.Equal(i.timeRange.StartAt) {
+		if item.Timestamp.Before(i.timeRange.StartAt) && i.reverse {
+			return false
+		}
+		if (item.Timestamp.After(i.timeRange.StartAt) || item.Timestamp.Equal(i.timeRange.StartAt)) &&
+			(item.Timestamp.Before(i.timeRange.EndAt) || item.Timestamp.Equal(i.timeRange.EndAt)) {
+			i.currentItem = item
 			break
 		}
 	}
@@ -438,15 +434,32 @@ func prependTimestamp(t time.Time, data string) string {
 	return fmt.Sprintf("%s%s\n", ts, data)
 }
 
-func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
+func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo, reverse bool) []LogChunkInfo {
 	filteredChunks := []LogChunkInfo{}
-	for _, chunk := range chunks {
-		if timeRange.Check(chunk.Start) || timeRange.Check(chunk.End) {
-			filteredChunks = append(filteredChunks, chunk)
+
+	var it int
+	var inc int
+	if reverse {
+		it = len(chunks) - 1
+		inc = -1
+	} else {
+		it = 0
+		inc = 1
+	}
+	for it >= 0 && it < len(chunks) {
+		if timeRange.Check(chunks[it].Start) || timeRange.Check(chunks[it].End) {
+			filteredChunks = append(filteredChunks, chunks[it])
 		}
+		it += inc
 	}
 
 	return filteredChunks
+}
+
+func reverseChunks(chunks []LogChunkInfo) {
+	for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
+		chunks[i], chunks[j] = chunks[j], chunks[i]
+	}
 }
 
 // LogIteratorHeap is a min-heap of LogIterator items.
@@ -582,7 +595,9 @@ func (r *reverseLineReader) ReadLine() (string, error) {
 			return "", errors.Wrap(err, "problem reading lines")
 		}
 	}
-	if r.i == len(r.lines) {
+
+	r.i--
+	if r.i < 0 {
 		return "", io.EOF
 	}
 
@@ -603,6 +618,8 @@ func (r *reverseLineReader) getLines() error {
 
 		r.lines = append(r.lines, p)
 	}
+
+	r.i = len(r.lines)
 
 	return nil
 }
