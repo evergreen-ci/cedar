@@ -38,7 +38,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.Time
 	}
 
 	log.Setup(dbc.env)
-	it, err := log.Download(ctx, tr)
+	it, err := log.Download(ctx, tr, false)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -103,7 +103,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 	}
 
 	logs.Setup(dbc.env)
-	it, err := logs.Merge(ctx)
+	it, err := logs.Merge(ctx, false)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -183,7 +183,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, taskID, testName
 	}
 
 	logs.Setup(dbc.env)
-	it, err := logs.Merge(ctx)
+	it, err := logs.Merge(ctx, false)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -264,7 +264,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.Tim
 		}
 	}
 
-	return dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr), ctx.Err()
+	return dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false), ctx.Err()
 }
 
 // FindLogMetadataByID queries the mock cache to find the buildlogger log with
@@ -326,7 +326,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 			}
 		}
 
-		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
 	}
 
 	return dbModel.NewMergingIterator(ctx, its...), ctx.Err()
@@ -406,7 +406,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testNam
 			}
 		}
 
-		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
 	}
 
 	return dbModel.NewMergingIterator(ctx, its...), ctx.Err()

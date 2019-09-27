@@ -155,7 +155,7 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 	for id, log := range s.logs {
 		it, err := s.sc.FindLogByID(s.ctx, id, tr)
 		s.Require().NoError(err)
-		expectedIt, err := log.Download(s.ctx, tr)
+		expectedIt, err := log.Download(s.ctx, tr, false)
 		s.Require().NoError(err)
 		s.Equal(expectedIt, it)
 
@@ -186,7 +186,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	logs := model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err := logs.Merge(s.ctx)
+	expectedIt, err := logs.Merge(s.ctx, false)
 	s.Require().NoError(err)
 	s.Require().NotNil(expectedIt)
 
@@ -206,7 +206,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	logs = model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err = logs.Merge(s.ctx)
+	expectedIt, err = logs.Merge(s.ctx, false)
 	s.Require().NoError(err)
 	s.Require().NotNil(expectedIt)
 
@@ -251,7 +251,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 	logs := model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err := logs.Merge(s.ctx)
+	expectedIt, err := logs.Merge(s.ctx, false)
 	s.Require().NoError(err)
 	s.Require().NotNil(expectedIt)
 
@@ -272,7 +272,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 	logs = model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err = logs.Merge(s.ctx)
+	expectedIt, err = logs.Merge(s.ctx, false)
 	s.Require().NoError(err)
 	s.Require().NotNil(expectedIt)
 
@@ -301,7 +301,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	logs := model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err := logs.Merge(s.ctx)
+	expectedIt, err := logs.Merge(s.ctx, false)
 	s.Require().NoError(err)
 	s.Require().NotNil(expectedIt)
 
@@ -322,7 +322,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	logs = model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err = logs.Merge(s.ctx)
+	expectedIt, err = logs.Merge(s.ctx, false)
 	s.Require().NoError(err)
 	s.Require().NotNil(expectedIt)
 
