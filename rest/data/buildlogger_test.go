@@ -239,6 +239,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	r, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 100)
 	s.Require().NoError(err)
 	expectedIt, err = logs.Merge(s.ctx, true)
+	s.Require().NoError(err)
 	s.Equal(model.NewLogIteratorTailReader(s.ctx, expectedIt, 100), r)
 }
 

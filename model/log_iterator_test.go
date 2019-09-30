@@ -366,7 +366,7 @@ func TestLogIteratorReader(t *testing.T) {
 func TestLogIteratorTailReader(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
+	tmpDir, err := ioutil.TempDir("", "merge-logs-test")
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
@@ -487,10 +487,4 @@ func newRandCharSetString(length int) string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
-}
-
-func reverseLines(lines []string) {
-	for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
-		lines[i], lines[j] = lines[j], lines[i]
-	}
 }
