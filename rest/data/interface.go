@@ -2,8 +2,8 @@ package data
 
 import (
 	"context"
+	"io"
 
-	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
 )
@@ -43,21 +43,25 @@ type Connector interface {
 	//////////////////
 	// FindLogByID returns the buildlogger log with the given id as a
 	// LogIterator with the corresponding time range.
-	FindLogByID(context.Context, string, util.TimeRange) (dbModel.LogIterator, error)
+	FindLogByID(context.Context, string, util.TimeRange) (io.Reader, error)
 	// FindLogMetadataByID returns the metadata for the buildlogger log
 	// with the given id.
 	FindLogMetadataByID(context.Context, string) (*model.APILog, error)
 	// FindLogsByTaskID returns the buildlogger logs with the given task id
 	// and optional tags merged via a LogIterator with the corresponding
 	// time range.
-	FindLogsByTaskID(context.Context, string, util.TimeRange, ...string) (dbModel.LogIterator, error)
+	FindLogsByTaskID(context.Context, string, util.TimeRange, int, ...string) (io.Reader, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
 	// the given task id and optional tags.
 	FindLogMetadataByTaskID(context.Context, string, ...string) ([]model.APILog, error)
 	// FindLogsByTestName returns the buildlogger logs with the given task
 	// id, test name, and optional tags.
-	FindLogsByTestName(context.Context, string, string, util.TimeRange, ...string) (dbModel.LogIterator, error)
+	FindLogsByTestName(context.Context, string, string, util.TimeRange, ...string) (io.Reader, error)
 	// FindLogsByTestName returns the metadata for the buildlogger logs
 	// with the given task id, test name, and optional tags.
 	FindLogMetadataByTestName(context.Context, string, string, ...string) ([]model.APILog, error)
+	// FindResmokeLogs is a special function for resmoke test logs that
+	// returns logs based on the given task id, test name, time range,
+	// "group id", and optional tags.
+	FindResmokeLogs(context.Context, string, string, string, util.TimeRange, ...string) (io.Reader, error)
 }

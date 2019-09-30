@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"time"
@@ -21,8 +22,8 @@ import (
 /////////////////////////////
 
 // FindLogByID queries the database to find the buildlogger log with the given
-// id returning a LogIterator with the corresponding time range.
-func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (dbModel.LogIterator, error) {
+// id returning a LogIterator reader with the corresponding time range.
+func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (io.Reader, error) {
 	log := dbModel.Log{ID: id}
 	log.Setup(dbc.env)
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
@@ -46,7 +47,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.Time
 		}
 	}
 
-	return it, nil
+	return dbModel.NewLogIteratorReader(ctx, it), nil
 }
 
 // FindLogMetadataByID queries the database to find the buildlogger log with
@@ -79,8 +80,9 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 
 // FindLogsByTaskID queries the database to find the buildlogger logs with the
 // given task id and optional tags, returning the merged logs via a LogIterator
-// with the corresponding time range.
-func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
+// reader with the corresponding time range. If n is greater than 0, the reader
+// will contain the last n lines within the given time range.
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, tags ...string) (io.Reader, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
 		Info: dbModel.LogInfo{
@@ -103,7 +105,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 	}
 
 	logs.Setup(dbc.env)
-	it, err := logs.Merge(ctx, false)
+	it, err := logs.Merge(ctx, n > 0)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -111,7 +113,11 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 		}
 	}
 
-	return it, nil
+	if n > 0 {
+		return dbModel.NewLogIteratorTailReader(ctx, it, n), nil
+	} else {
+		return dbModel.NewLogIteratorReader(ctx, it), nil
+	}
 }
 
 // FindLogMetadataByTaskID queries the database to find the buildlogger logs
@@ -154,44 +160,13 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID stri
 
 // FindLogsByTestName queries the database to find the buildlogger logs with
 // the given task id, test name, and optional tags, returning the merged logs
-// via a LogIterator with the corresponding time range.
-func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
-	opts := dbModel.LogFindOptions{
-		TimeRange: tr,
-		Info: dbModel.LogInfo{
-			TaskID: taskID,
-			Tags:   tags,
-		},
-	}
-	if testName != "" {
-		opts.Info.TestName = testName
-	} else {
-		opts.Empty = dbModel.EmptyLogInfo{TestName: true}
-	}
-	logs := dbModel.Logs{}
-	logs.Setup(dbc.env)
-	if err := logs.Find(ctx, opts); db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
-		}
-	} else if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
-		}
-	}
-
-	logs.Setup(dbc.env)
-	it, err := logs.Merge(ctx, false)
+// via a LogIterator reader with the corresponding time range.
+func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+	it, err := dbc.findLogsByTestName(ctx, taskID, testName, tr, tags...)
 	if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
-		}
+		return nil, err
 	}
-
-	return it, nil
+	return dbModel.NewLogIteratorReader(ctx, it), nil
 }
 
 // FindLogMetadataByTestName queries the database to find the buildlogger logs
@@ -237,13 +212,73 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, taskID, t
 	return apiLogs, nil
 }
 
+// FindResmokeLogs is a special function for resmoke test logs that queries the
+// database to find logs based on the given task id, test name, time range,
+// "group id", and optional tags.
+func (dbc *DBConnector) FindResmokeLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+	its := []dbModel.LogIterator{}
+	it, err := dbc.findLogsByTestName(ctx, taskID, testName, tr, append(tags, groupID)...)
+	if err != nil {
+		return nil, err
+	}
+	its = append(its, it)
+
+	it, err = dbc.findLogsByTestName(ctx, taskID, "", tr, append(tags, groupID)...)
+	if err == nil {
+		its = append(its, it)
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
+		return nil, err
+	}
+
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(ctx, false, its...)), nil
+}
+
+func (dbc *DBConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
+	opts := dbModel.LogFindOptions{
+		TimeRange: tr,
+		Info: dbModel.LogInfo{
+			TaskID: taskID,
+			Tags:   tags,
+		},
+	}
+	if testName != "" {
+		opts.Info.TestName = testName
+	} else {
+		opts.Empty = dbModel.EmptyLogInfo{TestName: true}
+	}
+	logs := dbModel.Logs{}
+	logs.Setup(dbc.env)
+	if err := logs.Find(ctx, opts); db.ResultsNotFound(err) {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
+		}
+	} else if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+
+	logs.Setup(dbc.env)
+	it, err := logs.Merge(ctx, false)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+		}
+	}
+
+	return it, nil
+}
+
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
 
 // FindLogByID queries the mock cache to find the buildlogger log with the
-// given id returning a LogIterator with the corresponding time range.
-func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (dbModel.LogIterator, error) {
+// given id returning a LogIterator reader with the corresponding time range.
+func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (io.Reader, error) {
 	log, ok := mc.CachedLogs[id]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
@@ -264,7 +299,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.Tim
 		}
 	}
 
-	return dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false), ctx.Err()
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false)), ctx.Err()
 }
 
 // FindLogMetadataByID queries the mock cache to find the buildlogger log with
@@ -291,8 +326,9 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs with
 // the given task id and optional tags, returning the merged logs via a
-// LogIterator with the corresponding time range.
-func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
+// LogIterator redaer with the corresponding time range. If n is greater than
+// 0, the reader will contain the last n lines within the given time range.
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, tags ...string) (io.Reader, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskID {
@@ -329,7 +365,12 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
 	}
 
-	return dbModel.NewMergingIterator(ctx, its...), ctx.Err()
+	it := dbModel.NewMergingIterator(ctx, n > 0, its...)
+	if n > 0 {
+		return dbModel.NewLogIteratorTailReader(ctx, it, n), ctx.Err()
+	} else {
+		return dbModel.NewLogIteratorReader(ctx, it), ctx.Err()
+	}
 }
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs that
@@ -371,45 +412,13 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID str
 
 // FindLogsByTestName queries the mock cache to find the buildlogger logs with
 // the given task id, test name, and optional tags, returning the merged logs
-// via a LogIterator with the corresponding time range.
-func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
-	logs := []dbModel.Log{}
-	for _, log := range mc.CachedLogs {
-		if log.Info.TaskID == taskID && log.Info.TestName == testName {
-			logs = append(logs, log)
-		}
+// via a LogIterator reader with the corresponding time range.
+func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+	it, err := mc.findLogsByTestName(ctx, taskID, testName, tr, tags...)
+	if err != nil {
+		return nil, err
 	}
-	if len(logs) == 0 {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
-		}
-	}
-
-	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
-
-	its := []dbModel.LogIterator{}
-	for _, log := range logs {
-		if !containsTags(tags, log.Info.Tags) {
-			continue
-		}
-
-		opts := pail.LocalOptions{
-			Path:   mc.Bucket,
-			Prefix: log.Artifact.Prefix,
-		}
-		bucket, err := pail.NewLocalBucket(opts)
-		if err != nil {
-			return nil, gimlet.ErrorResponse{
-				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
-			}
-		}
-
-		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
-	}
-
-	return dbModel.NewMergingIterator(ctx, its...), ctx.Err()
+	return dbModel.NewLogIteratorReader(ctx, it), nil
 }
 
 // FindLogMetadataByTestName queries the mock cache to find the buildlogger
@@ -448,4 +457,65 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, 
 	}
 
 	return apiLogs, ctx.Err()
+}
+
+// FindResmokeLogs is a special function for resmoke test logs that queries the
+// mock cache to find logs based on the given task id, test name, time range,
+// "group id", and optional tags.
+func (mc *MockConnector) FindResmokeLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+	its := []dbModel.LogIterator{}
+	it, err := mc.findLogsByTestName(ctx, taskID, testName, tr, append(tags, groupID)...)
+	if err != nil {
+		return nil, err
+	}
+	its = append(its, it)
+
+	it, err = mc.findLogsByTestName(ctx, taskID, "", tr, append(tags, groupID)...)
+	if err == nil {
+		its = append(its, it)
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
+		return nil, err
+	}
+
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(ctx, false, its...)), ctx.Err()
+}
+
+func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
+	logs := []dbModel.Log{}
+	for _, log := range mc.CachedLogs {
+		if log.Info.TaskID == taskID && log.Info.TestName == testName {
+			logs = append(logs, log)
+		}
+	}
+	if len(logs) == 0 {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", taskID, testName),
+		}
+	}
+
+	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
+
+	its := []dbModel.LogIterator{}
+	for _, log := range logs {
+		if !containsTags(tags, log.Info.Tags) {
+			continue
+		}
+
+		opts := pail.LocalOptions{
+			Path:   mc.Bucket,
+			Prefix: log.Artifact.Prefix,
+		}
+		bucket, err := pail.NewLocalBucket(opts)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
+			}
+		}
+
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
+	}
+
+	return dbModel.NewMergingIterator(ctx, false, its...), ctx.Err()
 }

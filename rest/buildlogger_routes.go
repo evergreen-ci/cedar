@@ -3,12 +3,13 @@ package rest
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
-	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -53,12 +54,12 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 // Run calls FindLogByID and returns the log.
 func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
-	it, err := h.sc.FindLogByID(ctx, h.id, h.tr)
+	r, err := h.sc.FindLogByID(ctx, h.id, h.tr)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it))
+	return gimlet.NewTextResponse(r)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -107,6 +108,7 @@ type logGetByTaskIDHandler struct {
 	id   string
 	tags []string
 	tr   util.TimeRange
+	n    int
 	sc   data.Connector
 }
 
@@ -126,23 +128,29 @@ func (h *logGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the id and time range from the http request.
 func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
+	catcher := grip.NewBasicCatcher()
 
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
+	catcher.Add(err)
+	if len(vals["n"]) > 0 {
+		h.n, err = strconv.Atoi(vals["n"][0])
+		catcher.Add(err)
+	}
 
-	return err
+	return catcher.Resolve()
 }
 
 // Run calls FindLogsByTaskID and returns the merged logs.
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	it, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.tags...)
+	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it))
+	return gimlet.NewTextResponse(r)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -220,47 +228,19 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.name = gimlet.GetVars(r)["name"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
-	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
-		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
-	}
+	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
 }
 
 // Run calls FindLogsByTestName and returns the merged logs.
 func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	its := []dbModel.LogIterator{}
-
-	if h.tr.IsZero() {
-		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, h.tags...)
-		if err != nil {
-			return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
-		}
-
-		for _, log := range testLogs {
-			if h.tr.StartAt.After(time.Time(log.CreatedAt)) || h.tr.StartAt.IsZero() {
-				h.tr.StartAt = time.Time(log.CreatedAt)
-			}
-			if h.tr.EndAt.Before(time.Time(log.CompletedAt)) {
-				h.tr.EndAt = time.Time(log.CompletedAt)
-			}
-		}
-	}
-
-	it, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.tags...)
+	r, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
 	}
-	its = append(its, it)
 
-	it, err = h.sc.FindLogsByTestName(ctx, h.id, "", h.tr, h.tags...)
-	if err == nil {
-		its = append(its, it)
-	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
-	}
-
-	return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(ctx, its...)))
+	return gimlet.NewTextResponse(r)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -309,4 +289,73 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	}
 
 	return gimlet.NewJSONResponse(append(testLogs, globalLogs...))
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /buildlogger/resmoke/{task_id}/{test_name}/{group_id}
+
+type logResmokeHandler struct {
+	id      string
+	name    string
+	groupID string
+	tags    []string
+	tr      util.TimeRange
+	sc      data.Connector
+}
+
+func makeGetLogResmoke(sc data.Connector) gimlet.RouteHandler {
+	return &logResmokeHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new logGetByTestNameHandler.
+func (h *logResmokeHandler) Factory() gimlet.RouteHandler {
+	return &logGetByTestNameHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the id, name, time range, and tags from the http request.
+func (h *logResmokeHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+
+	h.id = gimlet.GetVars(r)["id"]
+	h.name = gimlet.GetVars(r)["name"]
+	h.groupID = gimlet.GetVars(r)["group_id"]
+	vals := r.URL.Query()
+	h.tags = vals["tags"]
+	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
+		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
+	}
+
+	return err
+}
+
+// Run calls FindResmokeLogs and returns the merged logs.
+func (h *logResmokeHandler) Run(ctx context.Context) gimlet.Responder {
+	if h.tr.IsZero() {
+		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, append(h.tags, h.groupID)...)
+		if err != nil {
+			return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
+		}
+
+		for _, log := range testLogs {
+			if h.tr.StartAt.After(time.Time(log.CreatedAt)) || h.tr.StartAt.IsZero() {
+				h.tr.StartAt = time.Time(log.CreatedAt)
+			}
+			if h.tr.EndAt.Before(time.Time(log.CompletedAt)) {
+				h.tr.EndAt = time.Time(log.CompletedAt)
+			}
+		}
+	}
+
+	r, err := h.sc.FindResmokeLogs(ctx, h.id, h.name, h.groupID, h.tr, h.tags...)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err,
+			"Error getting resmoke logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
+	}
+
+	return gimlet.NewTextResponse(r)
 }
