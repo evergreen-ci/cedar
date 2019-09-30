@@ -35,7 +35,7 @@ func TestLogIterator(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "log-iterator-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestMergeLogIterator(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -287,7 +287,7 @@ func TestLogIteratorReader(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
