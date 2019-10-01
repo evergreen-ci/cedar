@@ -29,6 +29,11 @@ type LogIterator interface {
 	Err() error
 	// Item returns the current LogLine item held by the iterator.
 	Item() LogLine
+	// Reverse returns a reversed copy of the iterator.
+	Reverse() LogIterator
+	// IsReversed returns true if the iterator is in reverse order and
+	// false otherwise.
+	IsReversed() bool
 	// Close closes the iterator, this function should be called once the
 	// iterator is no longer needed.
 	Close() error
@@ -38,15 +43,17 @@ type LogIterator interface {
 // Serialized Iterator
 //////////////////////
 type serializedIterator struct {
-	bucket            pail.Bucket
-	chunks            []LogChunkInfo
-	timeRange         util.TimeRange
-	lineCount         int
-	keyIndex          int
-	currentReadCloser io.ReadCloser
-	currentReader     *bufio.Reader
-	currentItem       LogLine
-	catcher           grip.Catcher
+	bucket               pail.Bucket
+	chunks               []LogChunkInfo
+	timeRange            util.TimeRange
+	reverse              bool
+	lineCount            int
+	keyIndex             int
+	currentReadCloser    io.ReadCloser
+	currentReverseReader *reverseLineReader
+	currentReader        *bufio.Reader
+	currentItem          LogLine
+	catcher              grip.Catcher
 }
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
@@ -62,9 +69,25 @@ func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRan
 	}
 }
 
+func (i *serializedIterator) Reverse() LogIterator {
+	chunks := make([]LogChunkInfo, len(i.chunks))
+	_ = copy(chunks, i.chunks)
+	reverseChunks(chunks)
+
+	return &serializedIterator{
+		bucket:    i.bucket,
+		chunks:    chunks,
+		timeRange: i.timeRange,
+		reverse:   !i.reverse,
+		catcher:   grip.NewBasicCatcher(),
+	}
+}
+
+func (i *serializedIterator) IsReversed() bool { return i.reverse }
+
 func (i *serializedIterator) Next(ctx context.Context) bool {
 	for {
-		if i.currentReader == nil {
+		if i.currentReader == nil && i.currentReverseReader == nil {
 			if i.keyIndex >= len(i.chunks) {
 				return false
 			}
@@ -75,10 +98,20 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 				i.catcher.Add(errors.Wrap(err, "problem downloading log artifact"))
 				return false
 			}
-			i.currentReader = bufio.NewReader(i.currentReadCloser)
+			if i.reverse {
+				i.currentReverseReader = newReverseLineReader(i.currentReadCloser)
+			} else {
+				i.currentReader = bufio.NewReader(i.currentReadCloser)
+			}
 		}
 
-		data, err := i.currentReader.ReadString('\n')
+		var data string
+		var err error
+		if i.reverse {
+			data, err = i.currentReverseReader.ReadLine()
+		} else {
+			data, err = i.currentReader.ReadString('\n')
+		}
 		if err == io.EOF {
 			if i.lineCount != i.chunks[i.keyIndex].NumLines {
 				i.catcher.Add(errors.New("corrupt data"))
@@ -86,6 +119,7 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 
 			i.catcher.Add(errors.Wrap(i.currentReadCloser.Close(), "problem closing ReadCloser"))
 			i.currentReadCloser = nil
+			i.currentReverseReader = nil
 			i.currentReader = nil
 			i.lineCount = 0
 			i.keyIndex++
@@ -97,18 +131,23 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 			return false
 		}
 
-		i.currentItem, err = parseLogLineString(data)
+		item, err := parseLogLineString(data)
 		if err != nil {
 			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
 			return false
 		}
 		i.lineCount++
 
-		if i.currentItem.Timestamp.After(i.timeRange.EndAt) {
+		if item.Timestamp.After(i.timeRange.EndAt) && !i.reverse {
 			return false
 		}
-		if i.currentItem.Timestamp.After(i.timeRange.StartAt) ||
-			i.currentItem.Timestamp.Equal(i.timeRange.StartAt) {
+		if item.Timestamp.Before(i.timeRange.StartAt) && i.reverse {
+			return false
+		}
+
+		if (item.Timestamp.After(i.timeRange.StartAt) || item.Timestamp.Equal(i.timeRange.StartAt)) &&
+			(item.Timestamp.Before(i.timeRange.EndAt) || item.Timestamp.Equal(i.timeRange.EndAt)) {
+			i.currentItem = item
 			break
 		}
 	}
@@ -132,17 +171,19 @@ func (i *serializedIterator) Close() error {
 // Batched Iterator
 ///////////////////
 type batchedIterator struct {
-	bucket        pail.Bucket
-	batchSize     int
-	chunks        []LogChunkInfo
-	chunkIndex    int
-	timeRange     util.TimeRange
-	lineCount     int
-	keyIndex      int
-	readers       map[string]io.ReadCloser
-	currentReader *bufio.Reader
-	currentItem   LogLine
-	catcher       grip.Catcher
+	bucket               pail.Bucket
+	batchSize            int
+	chunks               []LogChunkInfo
+	chunkIndex           int
+	timeRange            util.TimeRange
+	reverse              bool
+	lineCount            int
+	keyIndex             int
+	readers              map[string]io.ReadCloser
+	currentReverseReader *reverseLineReader
+	currentReader        *bufio.Reader
+	currentItem          LogLine
+	catcher              grip.Catcher
 }
 
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
@@ -174,6 +215,23 @@ func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeR
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
+
+func (i *batchedIterator) Reverse() LogIterator {
+	chunks := make([]LogChunkInfo, len(i.chunks))
+	_ = copy(chunks, i.chunks)
+	reverseChunks(chunks)
+
+	return &batchedIterator{
+		bucket:    i.bucket,
+		batchSize: i.batchSize,
+		chunks:    chunks,
+		timeRange: i.timeRange,
+		reverse:   !i.reverse,
+		catcher:   grip.NewBasicCatcher(),
+	}
+}
+
+func (i *batchedIterator) IsReversed() bool { return i.reverse }
 
 func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 	if err := i.Close(); err != nil {
@@ -229,7 +287,7 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 
 func (i *batchedIterator) Next(ctx context.Context) bool {
 	for {
-		if i.currentReader == nil {
+		if i.currentReader == nil && i.currentReverseReader == nil {
 			if i.keyIndex >= len(i.chunks) {
 				return false
 			}
@@ -243,15 +301,26 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 				continue
 			}
 
-			i.currentReader = bufio.NewReader(reader)
+			if i.reverse {
+				i.currentReverseReader = newReverseLineReader(reader)
+			} else {
+				i.currentReader = bufio.NewReader(reader)
+			}
 		}
 
-		data, err := i.currentReader.ReadString('\n')
+		var data string
+		var err error
+		if i.reverse {
+			data, err = i.currentReverseReader.ReadLine()
+		} else {
+			data, err = i.currentReader.ReadString('\n')
+		}
 		if err == io.EOF {
 			if i.lineCount != i.chunks[i.keyIndex].NumLines {
 				i.catcher.Add(errors.New("corrupt data"))
 			}
 
+			i.currentReverseReader = nil
 			i.currentReader = nil
 			i.lineCount = 0
 			i.keyIndex++
@@ -262,18 +331,22 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 			return false
 		}
 
-		i.currentItem, err = parseLogLineString(data)
+		item, err := parseLogLineString(data)
 		if err != nil {
 			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
 			return false
 		}
 		i.lineCount++
 
-		if i.currentItem.Timestamp.After(i.timeRange.EndAt) {
+		if item.Timestamp.After(i.timeRange.EndAt) && !i.reverse {
 			return false
 		}
-		if i.currentItem.Timestamp.After(i.timeRange.StartAt) ||
-			i.currentItem.Timestamp.Equal(i.timeRange.StartAt) {
+		if item.Timestamp.Before(i.timeRange.StartAt) && i.reverse {
+			return false
+		}
+		if (item.Timestamp.After(i.timeRange.StartAt) || item.Timestamp.Equal(i.timeRange.StartAt)) &&
+			(item.Timestamp.Before(i.timeRange.EndAt) || item.Timestamp.Equal(i.timeRange.EndAt)) {
+			i.currentItem = item
 			break
 		}
 	}
@@ -300,38 +373,44 @@ func (i *batchedIterator) Close() error {
 ///////////////////
 
 type mergingIterator struct {
-	currentItem  LogLine
+	iterators    []LogIterator
 	iteratorHeap *LogIteratorHeap
+	currentItem  LogLine
 	catcher      grip.Catcher
+	started      bool
 }
 
 // NewMergeIterator returns a LogIterator that merges N buildlogger logs,
 // passed in as LogIterators, respecting the order of each line's timestamp.
-func NewMergingIterator(ctx context.Context, iterators ...LogIterator) LogIterator {
-	catcher := grip.NewBasicCatcher()
-	h := &LogIteratorHeap{}
-	heap.Init(h)
+func NewMergingIterator(iterators ...LogIterator) LogIterator {
+	return &mergingIterator{
+		iterators:    iterators,
+		iteratorHeap: &LogIteratorHeap{min: true},
+		catcher:      grip.NewBasicCatcher(),
+	}
+}
 
-	for i := range iterators {
-		if iterators[i].Next(ctx) {
-			h.SafePush(iterators[i])
-		}
-
-		// fail early
-		if iterators[i].Err() != nil {
-			catcher.Add(iterators[i].Err())
-			h = &LogIteratorHeap{}
-			break
+func (i *mergingIterator) Reverse() LogIterator {
+	for j := range i.iterators {
+		if !i.iterators[j].IsReversed() {
+			i.iterators[j] = i.iterators[j].Reverse()
 		}
 	}
 
 	return &mergingIterator{
-		iteratorHeap: h,
-		catcher:      catcher,
+		iterators:    i.iterators,
+		iteratorHeap: &LogIteratorHeap{min: false},
+		catcher:      grip.NewBasicCatcher(),
 	}
 }
 
+func (i *mergingIterator) IsReversed() bool { return !i.iteratorHeap.min }
+
 func (i *mergingIterator) Next(ctx context.Context) bool {
+	if !i.started {
+		i.init(ctx)
+	}
+
 	it := i.iteratorHeap.SafePop()
 	if it == nil {
 		return false
@@ -349,6 +428,25 @@ func (i *mergingIterator) Next(ctx context.Context) bool {
 	}
 
 	return true
+}
+
+func (i *mergingIterator) init(ctx context.Context) {
+	heap.Init(i.iteratorHeap)
+
+	for j := range i.iterators {
+		if i.iterators[j].Next(ctx) {
+			i.iteratorHeap.SafePush(i.iterators[j])
+		}
+
+		// fail early
+		if i.iterators[j].Err() != nil {
+			i.catcher.Add(i.iterators[j].Err())
+			i.iteratorHeap = &LogIteratorHeap{}
+			break
+		}
+	}
+
+	i.started = true
 }
 
 func (i *mergingIterator) Err() error { return i.catcher.Resolve() }
@@ -394,29 +492,43 @@ func prependTimestamp(t time.Time, data string) string {
 
 func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
 	filteredChunks := []LogChunkInfo{}
-	for _, chunk := range chunks {
-		if timeRange.Check(chunk.Start) || timeRange.Check(chunk.End) {
-			filteredChunks = append(filteredChunks, chunk)
+	for i := 0; i < len(chunks); i++ {
+		if timeRange.Check(chunks[i].Start) || timeRange.Check(chunks[i].End) {
+			filteredChunks = append(filteredChunks, chunks[i])
 		}
 	}
 
 	return filteredChunks
 }
 
-// LogIteratorHeap is a min-heap of LogIterator items.
-type LogIteratorHeap []LogIterator
+func reverseChunks(chunks []LogChunkInfo) {
+	for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
+		chunks[i], chunks[j] = chunks[j], chunks[i]
+	}
+}
+
+// LogIteratorHeap is a heap of LogIterator items.
+type LogIteratorHeap struct {
+	its []LogIterator
+	min bool
+}
 
 // Len returns the size of the heap.
-func (h LogIteratorHeap) Len() int { return len(h) }
+func (h LogIteratorHeap) Len() int { return len(h.its) }
 
 // Less returns true if the object at index i is less than the object at index
-// j in the heap, false otherwise.
+// j in the heap, false otherwise, when min is true. When min is false, the
+// opposite is returned.
 func (h LogIteratorHeap) Less(i, j int) bool {
-	return h[i].Item().Timestamp.Before(h[j].Item().Timestamp)
+	if h.min {
+		return h.its[i].Item().Timestamp.Before(h.its[j].Item().Timestamp)
+	} else {
+		return h.its[i].Item().Timestamp.After(h.its[j].Item().Timestamp)
+	}
 }
 
 // Swap swaps the objects at indexes i and j.
-func (h LogIteratorHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h LogIteratorHeap) Swap(i, j int) { h.its[i], h.its[j] = h.its[j], h.its[i] }
 
 // Push appends a new object of type LogIterator to the heap. Note that if x is
 // not a LogIterator nothing happens.
@@ -426,16 +538,16 @@ func (h *LogIteratorHeap) Push(x interface{}) {
 		return
 	}
 
-	*h = append(*h, it)
+	h.its = append(h.its, it)
 }
 
-// Pop returns the minimum object (as an empty interface) from the heap. Note
-// that if the heap is empty this will panic.
+// Pop returns the next object (as an empty interface) from the heap. Note that
+// if the heap is empty this will panic.
 func (h *LogIteratorHeap) Pop() interface{} {
-	old := *h
+	old := h.its
 	n := len(old)
 	x := old[n-1]
-	*h = old[0 : n-1]
+	h.its = old[0 : n-1]
 	return x
 }
 
@@ -457,9 +569,9 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 	return it
 }
 
-////////////////////////
-// Reader Implementation
-////////////////////////
+/////////////////////////
+// Reader Implementations
+/////////////////////////
 
 type logIteratorReader struct {
 	ctx      context.Context
@@ -518,4 +630,99 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 	_ = copy(buffer[n:n+m], data[:m])
 
 	return n + m
+}
+
+type logIteratorTailReader struct {
+	ctx context.Context
+	it  LogIterator
+	n   int
+	r   io.Reader
+}
+
+// NewLogIteratorTailReader returns an io.Reader that reads up to n log lines
+// from the *reversed* log iterator.
+func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int) io.Reader {
+	if !it.IsReversed() {
+		it = it.Reverse()
+	}
+
+	return &logIteratorTailReader{
+		ctx: ctx,
+		it:  it,
+		n:   n,
+	}
+}
+
+func (r *logIteratorTailReader) Read(p []byte) (int, error) {
+	if r.r == nil {
+		if err := r.getReader(); err != nil {
+			return 0, errors.Wrap(err, "problem reading data")
+		}
+	}
+
+	if len(p) == 0 {
+		return 0, io.EOF
+	}
+
+	return r.r.Read(p)
+}
+
+func (r *logIteratorTailReader) getReader() error {
+	var lines string
+	for i := 0; i < r.n && r.it.Next(r.ctx); i++ {
+		lines = r.it.Item().Data + lines
+	}
+
+	catcher := grip.NewBasicCatcher()
+	catcher.Add(r.it.Err())
+	catcher.Add(r.it.Close())
+
+	r.r = strings.NewReader(lines)
+
+	return catcher.Resolve()
+}
+
+type reverseLineReader struct {
+	r     *bufio.Reader
+	lines []string
+	i     int
+}
+
+func newReverseLineReader(r io.Reader) *reverseLineReader {
+	return &reverseLineReader{r: bufio.NewReader(r)}
+}
+
+func (r *reverseLineReader) ReadLine() (string, error) {
+	if r.lines == nil {
+		if err := r.getLines(); err != nil {
+			return "", errors.Wrap(err, "problem reading lines")
+		}
+	}
+
+	r.i--
+	if r.i < 0 {
+		return "", io.EOF
+	}
+
+	return r.lines[r.i], nil
+}
+
+func (r *reverseLineReader) getLines() error {
+	r.lines = []string{}
+
+	for {
+		p, err := r.r.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		r.lines = append(r.lines, p)
+	}
+
+	r.i = len(r.lines)
+
+	return nil
 }

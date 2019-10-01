@@ -137,6 +137,7 @@ func (s *LogHandlerSuite) setup() {
 		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc),
 		"test_name":      makeGetLogByTestName(&s.sc),
 		"meta_test_name": makeGetLogMetaByTestName(&s.sc),
+		"group":          makeGetLogGroup(&s.sc),
 	}
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
@@ -284,7 +285,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	}
 	expected := dbModel.NewLogIteratorReader(
 		context.TODO(),
-		dbModel.NewMergingIterator(context.TODO(), its...),
+		dbModel.NewMergingIterator(its...),
 	)
 
 	resp := rh.Run(context.TODO())
@@ -297,7 +298,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
 	expected = dbModel.NewLogIteratorReader(
 		context.TODO(),
-		dbModel.NewMergingIterator(context.TODO(), append(its[:1], its[2:4]...)...),
+		dbModel.NewMergingIterator(append(its[:1], its[2:4]...)...),
 	)
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -305,6 +306,29 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
+	// tail
+	rh.(*logGetByTaskIDHandler).id = "task_id2"
+	rh.(*logGetByTaskIDHandler).tags = []string{}
+	rh.(*logGetByTaskIDHandler).n = 100
+	expectedIt := dbModel.NewMergingIterator(
+		dbModel.NewBatchedLogIterator(
+			s.buckets["ghi"],
+			s.sc.CachedLogs["ghi"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
+	)
+	expected = dbModel.NewLogIteratorTailReader(
+		context.TODO(),
+		expectedIt,
+		rh.(*logGetByTaskIDHandler).n,
+	)
+
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
 }
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
@@ -402,15 +426,9 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		batchSize,
 		rh.(*logGetByTestNameHandler).tr,
 	)
-	it3 := dbModel.NewBatchedLogIterator(
-		s.buckets["mno"],
-		s.sc.CachedLogs["mno"].Artifact.Chunks,
-		batchSize,
-		rh.(*logGetByTestNameHandler).tr,
-	)
 	expected := dbModel.NewLogIteratorReader(
 		context.TODO(),
-		dbModel.NewMergingIterator(context.TODO(), it1, it2, it3),
+		dbModel.NewMergingIterator(it1, it2),
 	)
 
 	resp := rh.Run(context.TODO())
@@ -418,27 +436,6 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
-
-	// only tests
-	rh.(*logGetByTestNameHandler).name = "test2"
-	rh.(*logGetByTestNameHandler).tags = []string{"tag3"}
-	it := dbModel.NewBatchedLogIterator(
-		s.buckets["def"],
-		s.sc.CachedLogs["def"].Artifact.Chunks,
-		batchSize,
-		rh.(*logGetByTestNameHandler).tr,
-	)
-	expected = dbModel.NewLogIteratorReader(
-		context.TODO(),
-		dbModel.NewMergingIterator(context.TODO(), it),
-	)
-
-	resp = rh.Run(context.TODO())
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusOK, resp.Status())
-	s.Require().NotNil(resp.Data())
-	s.Equal(expected, resp.Data())
-
 }
 
 func (s *LogHandlerSuite) TestLogGetByTestNameHandlerNotFound() {
@@ -526,6 +523,98 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerCtxErr() {
 	s.NotEqual(http.StatusOK, resp.Status())
 }
 
+func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
+	rh := s.rh["group"]
+	rh.(*logGroupHandler).id = "task_id1"
+	rh.(*logGroupHandler).name = "test1"
+	rh.(*logGroupHandler).groupID = "tag1"
+	rh.(*logGroupHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+	it1 := dbModel.NewBatchedLogIterator(
+		s.buckets["abc"],
+		s.sc.CachedLogs["abc"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGroupHandler).tr,
+	)
+	it2 := dbModel.NewBatchedLogIterator(
+		s.buckets["jkl"],
+		s.sc.CachedLogs["jkl"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGroupHandler).tr,
+	)
+	it3 := dbModel.NewBatchedLogIterator(
+		s.buckets["mno"],
+		s.sc.CachedLogs["mno"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGroupHandler).tr,
+	)
+	expected := dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3)),
+	)
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+	// only tests
+	rh.(*logGroupHandler).name = "test2"
+	rh.(*logGroupHandler).groupID = "tag3"
+	it := dbModel.NewBatchedLogIterator(
+		s.buckets["def"],
+		s.sc.CachedLogs["def"].Artifact.Chunks,
+		batchSize,
+		rh.(*logGroupHandler).tr,
+	)
+	expected = dbModel.NewLogIteratorReader(
+		context.TODO(),
+		dbModel.NewMergingIterator(dbModel.NewMergingIterator(it)),
+	)
+
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+
+}
+
+func (s *LogHandlerSuite) TestLogGroupHandlerNotFound() {
+	rh := s.rh["group"]
+	rh.(*logGroupHandler).id = "task_id1"
+	rh.(*logGroupHandler).id = "DNE"
+	rh.(*logGroupHandler).groupID = "tag1"
+	rh.(*logGroupHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogGroupHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["group"]
+	rh.(*logGroupHandler).id = "task_id1"
+	rh.(*logGroupHandler).name = "test1"
+	rh.(*logGroupHandler).groupID = "tag1"
+	rh.(*logGroupHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
 func (s *LogHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
@@ -534,16 +623,21 @@ func (s *LogHandlerSuite) TestParse() {
 	}{
 		{
 			handler:   "id",
-			urlString: "http://cedar.mongodb.com/log/id1",
+			urlString: "http://cedar.mongodb.com/buildlogger/id1",
 		},
 		{
 			handler:   "task_id",
-			urlString: "http://cedar.mongodb.com/log/task_id/task_id1",
+			urlString: "http://cedar.mongodb.com/buildlogger/task_id/task_id1",
 			tags:      true,
 		},
 		{
 			handler:   "test_name",
-			urlString: "http://cedar.mongodb.com/log/task_id/task_id1",
+			urlString: "http://cedar.mongodb.com/buildlogger/test_name/task_id1/test0",
+			tags:      true,
+		},
+		{
+			handler:   "group",
+			urlString: "http://cedar.mongodb.com/buildlogger/test_name/task_id1/test0/group/group0",
 			tags:      true,
 		},
 	} {
@@ -615,7 +709,9 @@ func getLogTimeRange(rh gimlet.RouteHandler, handler string) (util.TimeRange, ut
 	case "task_id":
 		return rh.(*logGetByTaskIDHandler).tr, util.TimeRange{EndAt: time.Now()}
 	case "test_name":
-		return rh.(*logGetByTestNameHandler).tr, util.TimeRange{}
+		return rh.(*logGetByTestNameHandler).tr, util.TimeRange{EndAt: time.Now()}
+	case "group":
+		return rh.(*logGroupHandler).tr, util.TimeRange{}
 	default:
 		return util.TimeRange{}, util.TimeRange{}
 	}
@@ -627,6 +723,8 @@ func getLogTags(rh gimlet.RouteHandler, handler string) []string {
 		return rh.(*logGetByTaskIDHandler).tags
 	case "test_name":
 		return rh.(*logGetByTestNameHandler).tags
+	case "group":
+		return rh.(*logGroupHandler).tags
 	default:
 		return []string{}
 	}

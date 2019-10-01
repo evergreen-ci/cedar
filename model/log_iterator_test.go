@@ -18,10 +18,14 @@ import (
 )
 
 const (
-	serialized   = "SerializedIterator"
-	batched      = "BatchedIterator"
-	parallelized = "ParallelizedIterator"
-	merging      = "MergingIterator"
+	serialized    = "SerializedIterator"
+	serializedR   = "ReversedSerializedIterator"
+	batched       = "BatchedIterator"
+	batchedR      = "ReversedBatchedIterator"
+	parallelized  = "ParallelizedIterator"
+	parallelizedR = "ReversedParallelizedIterator"
+	merging       = "MergingIterator"
+	mergingR      = "ReversedMergingIterator"
 )
 
 func TestLogIterator(t *testing.T) {
@@ -31,7 +35,7 @@ func TestLogIterator(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "log-iterator-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -52,17 +56,21 @@ func TestLogIterator(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		iterators map[string]LogIterator
-		test      func(*testing.T, LogIterator)
+		test      func(*testing.T, string, LogIterator)
 	}{
 		{
 			name: "EmptyIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
-				batched:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
-				parallelized: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
-				merging:      NewMergingIterator(ctx, NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
+				serialized:    NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange).Reverse(),
+				batched:       NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange).Reverse(),
+				parallelized:  NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange).Reverse(),
+				merging:       NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
+				mergingR:      NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)).Reverse(),
 			},
-			test: func(t *testing.T, it LogIterator) {
+			test: func(t *testing.T, _ string, it LogIterator) {
 				assert.False(t, it.Next(ctx))
 				assert.NoError(t, it.Err())
 				assert.Zero(t, it.Item())
@@ -72,16 +80,31 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ExhaustedIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
-				batched:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
-				parallelized: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
-				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+				serialized:    NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, chunks, completeTimeRange).Reverse(),
+				batched:       NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange).Reverse(),
+				parallelized:  NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, chunks, completeTimeRange).Reverse(),
+				merging:       NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+				mergingR:      NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)).Reverse(),
 			},
-			test: func(t *testing.T, it LogIterator) {
-				count := 0
+			test: func(t *testing.T, name string, it LogIterator) {
+				var count int
+				var i int
+				var inc int
+				if strings.HasPrefix(name, "Reversed") {
+					i = len(lines) - 1
+					inc = -1
+				} else {
+					i = 0
+					inc = 1
+				}
+
 				for it.Next(ctx) {
-					require.True(t, count < len(lines))
-					assert.Equal(t, lines[count], it.Item())
+					require.True(t, i < len(lines) && i >= 0)
+					require.Equal(t, lines[i], it.Item())
+					i += inc
 					count++
 				}
 				assert.Equal(t, len(lines), count)
@@ -95,9 +118,9 @@ func TestLogIterator(t *testing.T) {
 				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange),
 				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange),
 				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange),
-				merging:      NewMergingIterator(ctx, NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
+				merging:      NewMergingIterator(NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
 			},
-			test: func(t *testing.T, it LogIterator) {
+			test: func(t *testing.T, _ string, it LogIterator) {
 				count := 0
 				for it.Next(ctx) {
 					count++
@@ -110,16 +133,31 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "LimitedTimeRange",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(bucket, chunks, partialTimeRange),
-				batched:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
-				parallelized: NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
-				merging:      NewMergingIterator(ctx, NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
+				serialized:    NewSerializedLogIterator(bucket, chunks, partialTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, chunks, partialTimeRange).Reverse(),
+				batched:       NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange).Reverse(),
+				parallelized:  NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, chunks, partialTimeRange).Reverse(),
+				merging:       NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
+				mergingR:      NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)).Reverse(),
 			},
-			test: func(t *testing.T, it LogIterator) {
-				count := 0
+			test: func(t *testing.T, name string, it LogIterator) {
+				var count int
+				var i int
+				var inc int
+				if strings.HasPrefix(name, "Reversed") {
+					i = offset + partialLinesLen - 1
+					inc = -1
+				} else {
+					i = offset
+					inc = 1
+				}
+
 				for it.Next(ctx) {
-					require.True(t, offset+count < len(lines))
-					assert.Equal(t, lines[offset+count], it.Item())
+					require.True(t, i < len(lines) && i >= 0)
+					require.Equal(t, lines[i], it.Item())
+					i += inc
 					count++
 				}
 				assert.Equal(t, partialLinesLen, count)
@@ -127,11 +165,24 @@ func TestLogIterator(t *testing.T) {
 				assert.NoError(t, it.Close())
 			},
 		},
+		{
+			name: "ReverseAlreadyUsedIterator",
+			iterators: map[string]LogIterator{
+				serialized:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				batched:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				parallelized: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				merging:      NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+			},
+			test: func(t *testing.T, name string, it LogIterator) {
+				_ = it.Next(ctx)
+				assert.NoError(t, it.Close())
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			for impl, it := range test.iterators {
 				t.Run(impl, func(t *testing.T) {
-					test.test(t, it)
+					test.test(t, impl, it)
 				})
 			}
 		})
@@ -144,7 +195,7 @@ func TestMergeLogIterator(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -156,7 +207,7 @@ func TestMergeLogIterator(t *testing.T) {
 			StartAt: chunks[0].Start,
 			EndAt:   chunks[len(chunks)-1].End,
 		}
-		it := NewMergingIterator(ctx, NewBatchedLogIterator(bucket, chunks, 100, timeRange))
+		it := NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 100, timeRange))
 
 		count := 0
 		for it.Next(ctx) {
@@ -186,7 +237,7 @@ func TestMergeLogIterator(t *testing.T) {
 				lineMap[line.Data] = false
 			}
 		}
-		it := NewMergingIterator(ctx, its...)
+		it := NewMergingIterator(its...)
 
 		count := 0
 		lastTime := time.Time{}
@@ -194,6 +245,41 @@ func TestMergeLogIterator(t *testing.T) {
 			logLine := it.Item()
 
 			assert.True(t, lastTime.Before(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
+			lastTime = logLine.Timestamp
+			seen, ok := lineMap[logLine.Data]
+			require.True(t, ok)
+			assert.False(t, seen)
+			lineMap[logLine.Data] = true
+			count++
+		}
+		assert.Equal(t, len(lineMap), count)
+		assert.NoError(t, it.Err())
+		assert.NoError(t, it.Close())
+	})
+	t.Run("MultipleLogsReverse", func(t *testing.T) {
+		numLogs := 2
+		its := make([]LogIterator, numLogs)
+		lineMap := map[string]bool{}
+		for i := 0; i < numLogs; i++ {
+			chunks, lines, err := createLog(ctx, bucket, 100, 10)
+			require.NoError(t, err)
+
+			timeRange := util.TimeRange{
+				StartAt: chunks[0].Start,
+				EndAt:   chunks[len(chunks)-1].End,
+			}
+			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+			for _, line := range lines {
+				lineMap[line.Data] = false
+			}
+		}
+		it := NewMergingIterator(its...).Reverse()
+
+		count := 0
+		lastTime := time.Now().Add(365 * 24 * time.Hour)
+		for it.Next(ctx) {
+			logLine := it.Item()
+			assert.True(t, lastTime.After(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
 			lastTime = logLine.Timestamp
 			seen, ok := lineMap[logLine.Data]
 			require.True(t, ok)
@@ -213,7 +299,7 @@ func TestLogIteratorReader(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
 	require.NoError(t, err)
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		assert.NoError(t, os.RemoveAll(tmpDir))
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -282,6 +368,84 @@ func TestLogIteratorReader(t *testing.T) {
 		errCancel()
 
 		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		p := make([]byte, 101)
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+}
+
+func TestLogIteratorTailReader(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir("", "merge-logs-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+	}()
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	chunks, lines, err := createLog(ctx, bucket, 100, 10)
+	require.NoError(t, err)
+	timeRange := util.TimeRange{
+		StartAt: chunks[0].Start,
+		EndAt:   chunks[len(chunks)-1].End,
+	}
+
+	t.Run("NLines", func(t *testing.T) {
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		r := NewLogIteratorTailReader(ctx, it, 42)
+		readData := []byte{}
+		p := make([]byte, 4096)
+		for {
+			n, err := r.Read(p)
+			readData = append(readData, p[:n]...)
+			assert.True(t, n >= 0)
+			assert.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+
+		current := 58
+		readLines := strings.Split(string(readData), "\n")
+		assert.Equal(t, "", readLines[len(readLines)-1])
+		for _, line := range readLines[:len(readLines)-1] {
+			require.True(t, current < len(lines))
+			assert.Equal(t, lines[current].Data, line+"\n")
+			current++
+		}
+		assert.Equal(t, len(lines), current)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+	t.Run("EmptyBuffer", func(t *testing.T) {
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		r := NewLogIteratorTailReader(ctx, it, 42)
+		p := make([]byte, 0)
+		for {
+			n, err := r.Read(p)
+			assert.Zero(t, n)
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+	t.Run("ContextError", func(t *testing.T) {
+		errCtx, errCancel := context.WithCancel(context.Background())
+		errCancel()
+
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		r := NewLogIteratorTailReader(errCtx, it, 10)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)

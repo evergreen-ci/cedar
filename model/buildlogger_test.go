@@ -485,6 +485,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
 		assert.Equal(t, timeRange, rawIt.timeRange)
 		assert.Equal(t, 2, rawIt.batchSize)
+		assert.False(t, rawIt.reverse)
 		assert.NoError(t, it.Err())
 		assert.NoError(t, it.Close())
 	})
@@ -512,6 +513,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
 		assert.Equal(t, timeRange, rawIt.timeRange)
 		assert.Equal(t, 2, rawIt.batchSize)
+		assert.False(t, rawIt.reverse)
 		assert.NoError(t, it.Err())
 		assert.NoError(t, it.Close())
 	})
@@ -861,13 +863,20 @@ func TestBuildloggerMerge(t *testing.T) {
 			timeRange: timeRange,
 			populated: true,
 		}
+		log1.Setup(env)
+		it1, err := log1.Download(ctx, timeRange)
+		require.NoError(t, err)
+		require.NotNil(t, it1)
+		log2.Setup(env)
+		it2, err := log2.Download(ctx, timeRange)
+		require.NoError(t, err)
+		require.NotNil(t, it2)
 		logs.Setup(env)
 		it, err := logs.Merge(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
-		_, ok := it.(*mergingIterator)
-		require.True(t, ok)
+		assert.Equal(t, NewMergingIterator(it1, it2), it)
 		assert.NoError(t, it.Close())
 	})
 }
