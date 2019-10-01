@@ -293,9 +293,9 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /buildlogger/resmoke/{task_id}/{test_name}/{group_id}
+// GET /buildlogger/group/{task_id}/{test_name}/{group_id}
 
-type logResmokeHandler struct {
+type logGroupHandler struct {
 	id      string
 	name    string
 	groupID string
@@ -304,21 +304,21 @@ type logResmokeHandler struct {
 	sc      data.Connector
 }
 
-func makeGetLogResmoke(sc data.Connector) gimlet.RouteHandler {
-	return &logResmokeHandler{
+func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
+	return &logGroupHandler{
 		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logGetByTestNameHandler.
-func (h *logResmokeHandler) Factory() gimlet.RouteHandler {
+func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 	return &logGetByTestNameHandler{
 		sc: h.sc,
 	}
 }
 
 // Parse fetches the id, name, time range, and tags from the http request.
-func (h *logResmokeHandler) Parse(_ context.Context, r *http.Request) error {
+func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
 	h.id = gimlet.GetVars(r)["id"]
@@ -333,8 +333,8 @@ func (h *logResmokeHandler) Parse(_ context.Context, r *http.Request) error {
 	return err
 }
 
-// Run calls FindResmokeLogs and returns the merged logs.
-func (h *logResmokeHandler) Run(ctx context.Context) gimlet.Responder {
+// Run calls FindGroupedLogs and returns the merged logs.
+func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 	if h.tr.IsZero() {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, append(h.tags, h.groupID)...)
 		if err != nil {
@@ -351,10 +351,10 @@ func (h *logResmokeHandler) Run(ctx context.Context) gimlet.Responder {
 		}
 	}
 
-	r, err := h.sc.FindResmokeLogs(ctx, h.id, h.name, h.groupID, h.tr, h.tags...)
+	r, err := h.sc.FindGroupedLogs(ctx, h.id, h.name, h.groupID, h.tr, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err,
-			"Error getting resmoke logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
+			"Error getting Group logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
 	}
 
 	return gimlet.NewTextResponse(r)

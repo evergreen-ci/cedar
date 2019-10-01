@@ -496,10 +496,11 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, taskID, testName, 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
-		if log.Info.TaskID == taskID && log.Info.TestName == testName {
+		if log.Info.TaskID == taskID && log.Info.TestName == testName && containsTags(tags, log.Info.Tags) {
 			logs = append(logs, log)
 		}
 	}
+
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -511,10 +512,6 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testNam
 
 	its := []dbModel.LogIterator{}
 	for _, log := range logs {
-		if !containsTags(tags, log.Info.Tags) {
-			continue
-		}
-
 		opts := pail.LocalOptions{
 			Path:   mc.Bucket,
 			Prefix: log.Artifact.Prefix,
@@ -527,7 +524,6 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testNam
 			}
 		}
 
-		fmt.Println(tr)
 		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
 	}
 
