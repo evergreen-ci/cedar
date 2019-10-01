@@ -262,7 +262,7 @@ func (l *Log) Close(ctx context.Context, exitCode int) error {
 // Download returns a LogIterator which iterates lines of the given log. The
 // environment should not be nil. When reverse is true, the log lines are
 // returned in reverse order.
-func (l *Log) Download(ctx context.Context, timeRange util.TimeRange, reverse bool) (LogIterator, error) {
+func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterator, error) {
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")
 	}
@@ -289,7 +289,7 @@ func (l *Log) Download(ctx context.Context, timeRange util.TimeRange, reverse bo
 		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange, reverse), nil
+	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange), nil
 }
 
 // LogInfo describes information unique to a single buildlogger log.
@@ -384,6 +384,7 @@ type Logs struct {
 	env       cedar.Environment
 	populated bool
 	timeRange util.TimeRange
+	reverse   bool
 }
 
 // EmptyLogInfo allows querying of null or missing fields.
@@ -409,6 +410,7 @@ type LogFindOptions struct {
 	Info      LogInfo
 	Empty     EmptyLogInfo
 	Limit     int64
+	Reverse   bool
 }
 
 // Setup sets the environment for the logs. The environment is required for
@@ -449,6 +451,7 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	}
 	if len(l.Logs) > 0 {
 		l.timeRange = opts.TimeRange
+		l.reverse = opts.Reverse
 		l.populated = true
 	} else {
 		return mongo.ErrNoDocuments
@@ -542,7 +545,7 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 // Merge merges the buildlogger logs, respecting the order of each line's
 // timestamp. The logs should be populated and the environment should not be
 // nil. When reverse is true, the log lines are returned in reverse order.
-func (l *Logs) Merge(ctx context.Context, reverse bool) (LogIterator, error) {
+func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 	if !l.populated {
 		return nil, errors.New("cannot merge unpopulated logs")
 	}
@@ -553,7 +556,7 @@ func (l *Logs) Merge(ctx context.Context, reverse bool) (LogIterator, error) {
 	iterators := []LogIterator{}
 	for i := range l.Logs {
 		l.Logs[i].Setup(l.env)
-		it, err := l.Logs[i].Download(ctx, l.timeRange, reverse)
+		it, err := l.Logs[i].Download(ctx, l.timeRange)
 		if err != nil {
 			catcher := grip.NewBasicCatcher()
 			for _, iterator := range iterators {
@@ -562,8 +565,18 @@ func (l *Logs) Merge(ctx context.Context, reverse bool) (LogIterator, error) {
 			catcher.Add(err)
 			return nil, errors.Wrap(catcher.Resolve(), "problem downloading log")
 		}
+		if l.reverse {
+			err := it.Reverse()
+			if err != nil {
+				return nil, errors.Wrap(err, "problem reversing iterator")
+			}
+		}
 		iterators = append(iterators, it)
 	}
 
-	return NewMergingIterator(ctx, reverse, iterators...), nil
+	it := NewMergingIterator(iterators...)
+	if l.reverse {
+		return it, errors.Wrap(it.Reverse(), "problem reversing iterator")
+	}
+	return it, nil
 }

@@ -29,6 +29,8 @@ type LogIterator interface {
 	Err() error
 	// Item returns the current LogLine item held by the iterator.
 	Item() LogLine
+	// Reverse reverses the iterator.
+	Reverse() error
 	// Close closes the iterator, this function should be called once the
 	// iterator is no longer needed.
 	Close() error
@@ -53,18 +55,25 @@ type serializedIterator struct {
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
 // chunks from blob storage while iterating over lines of a buildlogger log.
-// When reverse is true, this iterator will return the log lines in reverse
-// order.
-func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange, reverse bool) LogIterator {
-	chunks = filterChunks(timeRange, chunks, reverse)
+func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+	chunks = filterChunks(timeRange, chunks)
 
 	return &serializedIterator{
 		bucket:    bucket,
 		chunks:    chunks,
 		timeRange: timeRange,
-		reverse:   reverse,
 		catcher:   grip.NewBasicCatcher(),
 	}
+}
+
+func (i *serializedIterator) Reverse() error {
+	if i.keyIndex > 0 || i.currentReadCloser != nil {
+		return errors.New("cannot reverse an iterator that is already in use")
+	}
+
+	reverseChunks(i.chunks)
+	i.reverse = !i.reverse
+	return nil
 }
 
 func (i *serializedIterator) Next(ctx context.Context) bool {
@@ -170,36 +179,42 @@ type batchedIterator struct {
 
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
 // caller) of chunks from blob storage in parallel while iterating over lines
-// of a buildlogger log. When reverse is true, this iterator will return the
-// log lines in reverse order.
-func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange, reverse bool) LogIterator {
-	chunks = filterChunks(timeRange, chunks, reverse)
+// of a buildlogger log.
+func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange) LogIterator {
+	chunks = filterChunks(timeRange, chunks)
 
 	return &batchedIterator{
 		bucket:    bucket,
 		batchSize: batchSize,
 		chunks:    chunks,
 		timeRange: timeRange,
-		reverse:   reverse,
 		catcher:   grip.NewBasicCatcher(),
 	}
 }
 
 // NewParallelizedLogIterator returns a LogIterator that fetches all chunks
 // from blob storage in parallel while iterating over lines of a buildlogger
-// log. When reverse is true, this iterator will return the log lines in
-// reverse order.
-func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange, reverse bool) LogIterator {
-	chunks = filterChunks(timeRange, chunks, reverse)
+// log.
+func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+	chunks = filterChunks(timeRange, chunks)
 
 	return &batchedIterator{
 		bucket:    bucket,
 		batchSize: len(chunks),
 		chunks:    chunks,
 		timeRange: timeRange,
-		reverse:   reverse,
 		catcher:   grip.NewBasicCatcher(),
 	}
+}
+
+func (i *batchedIterator) Reverse() error {
+	if i.keyIndex > 0 || len(i.readers) > 0 {
+		return errors.New("cannot reverse an iterator that is already in use")
+	}
+
+	reverseChunks(i.chunks)
+	i.reverse = !i.reverse
+	return nil
 }
 
 func (i *batchedIterator) getNextBatch(ctx context.Context) error {
@@ -342,39 +357,53 @@ func (i *batchedIterator) Close() error {
 ///////////////////
 
 type mergingIterator struct {
-	currentItem  LogLine
+	iterators    []LogIterator
 	iteratorHeap *LogIteratorHeap
+	currentItem  LogLine
 	catcher      grip.Catcher
 }
 
 // NewMergeIterator returns a LogIterator that merges N buildlogger logs,
 // passed in as LogIterators, respecting the order of each line's timestamp.
-func NewMergingIterator(ctx context.Context, reverse bool, iterators ...LogIterator) LogIterator {
-	catcher := grip.NewBasicCatcher()
-
-	h := &LogIteratorHeap{min: !reverse}
-	heap.Init(h)
-
-	for i := range iterators {
-		if iterators[i].Next(ctx) {
-			h.SafePush(iterators[i])
-		}
-
-		// fail early
-		if iterators[i].Err() != nil {
-			catcher.Add(iterators[i].Err())
-			h = &LogIteratorHeap{}
-			break
-		}
-	}
-
+func NewMergingIterator(iterators ...LogIterator) LogIterator {
 	return &mergingIterator{
-		iteratorHeap: h,
-		catcher:      catcher,
+		iterators:    iterators,
+		iteratorHeap: &LogIteratorHeap{min: true},
+		catcher:      grip.NewBasicCatcher(),
 	}
 }
 
+func (i *mergingIterator) Reverse() error {
+	if i.iterators == nil {
+		return errors.New("cannot reverse an iterator that is already in use")
+	}
+
+	i.iteratorHeap.min = false
+	return nil
+}
+
+func (i *mergingIterator) init(ctx context.Context) {
+	heap.Init(i.iteratorHeap)
+	for j := range i.iterators {
+		if i.iterators[j].Next(ctx) {
+			i.iteratorHeap.SafePush(i.iterators[j])
+		}
+
+		// fail early
+		if i.iterators[j].Err() != nil {
+			i.catcher.Add(i.iterators[j].Err())
+			i.iteratorHeap = &LogIteratorHeap{}
+			break
+		}
+	}
+	i.iterators = nil
+}
+
 func (i *mergingIterator) Next(ctx context.Context) bool {
+	if i.iterators != nil {
+		i.init(ctx)
+	}
+
 	it := i.iteratorHeap.SafePop()
 	if it == nil {
 		return false
@@ -435,26 +464,21 @@ func prependTimestamp(t time.Time, data string) string {
 	return fmt.Sprintf("%s%s\n", ts, data)
 }
 
-func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo, reverse bool) []LogChunkInfo {
+func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
 	filteredChunks := []LogChunkInfo{}
-
-	var it int
-	var inc int
-	if reverse {
-		it = len(chunks) - 1
-		inc = -1
-	} else {
-		it = 0
-		inc = 1
-	}
-	for it >= 0 && it < len(chunks) {
-		if timeRange.Check(chunks[it].Start) || timeRange.Check(chunks[it].End) {
-			filteredChunks = append(filteredChunks, chunks[it])
+	for i := 0; i < len(chunks); i++ {
+		if timeRange.Check(chunks[i].Start) || timeRange.Check(chunks[i].End) {
+			filteredChunks = append(filteredChunks, chunks[i])
 		}
-		it += inc
 	}
 
 	return filteredChunks
+}
+
+func reverseChunks(chunks []LogChunkInfo) {
+	for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
+		chunks[i], chunks[j] = chunks[j], chunks[i]
+	}
 }
 
 // LogIteratorHeap is a heap of LogIterator items.

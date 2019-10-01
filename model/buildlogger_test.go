@@ -432,7 +432,7 @@ func TestBuildloggerDownload(t *testing.T) {
 			ID:        log1.ID,
 			populated: true,
 		}
-		it, err := l.Download(ctx, timeRange, false)
+		it, err := l.Download(ctx, timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
@@ -442,7 +442,7 @@ func TestBuildloggerDownload(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		it, err := l.Download(ctx, timeRange, false)
+		it, err := l.Download(ctx, timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
@@ -458,14 +458,14 @@ func TestBuildloggerDownload(t *testing.T) {
 			populated: true,
 		}
 		l.Setup(env)
-		it, err := l.Download(ctx, timeRange, false)
+		it, err := l.Download(ctx, timeRange)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
 	t.Run("WithID", func(t *testing.T) {
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download(ctx, timeRange, false)
+		it, err := log2.Download(ctx, timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
@@ -493,7 +493,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		log2.ID = ""
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download(ctx, timeRange, false)
+		it, err := log2.Download(ctx, timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
@@ -521,9 +521,10 @@ func TestBuildloggerDownload(t *testing.T) {
 		log2.ID = ""
 		log2.populated = true
 		log2.Setup(env)
-		it, err := log2.Download(ctx, timeRange, true)
+		it, err := log2.Download(ctx, timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
+		require.NoError(t, it.Reverse())
 		reverseChunks(log2.Artifact.Chunks)
 		defer reverseChunks(log2.Artifact.Chunks)
 
@@ -857,7 +858,7 @@ func TestBuildloggerMerge(t *testing.T) {
 			populated: true,
 			timeRange: timeRange,
 		}
-		it, err := logs.Merge(ctx, false)
+		it, err := logs.Merge(ctx)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
@@ -867,7 +868,7 @@ func TestBuildloggerMerge(t *testing.T) {
 			timeRange: timeRange,
 		}
 		logs.Setup(env)
-		it, err := logs.Merge(ctx, false)
+		it, err := logs.Merge(ctx)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
@@ -878,7 +879,7 @@ func TestBuildloggerMerge(t *testing.T) {
 			populated: true,
 		}
 		logs.Setup(env)
-		it, err := logs.Merge(ctx, false)
+		it, err := logs.Merge(ctx)
 		assert.Error(t, err)
 		assert.Nil(t, it)
 	})
@@ -895,14 +896,33 @@ func TestBuildloggerMerge(t *testing.T) {
 			populated: true,
 		}
 		logs.Setup(env)
-		it, err := logs.Merge(ctx, false)
+		it, err := logs.Merge(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
-		_, ok := it.(*mergingIterator)
+		rawIt, ok := it.(*mergingIterator)
 		require.True(t, ok)
+		require.True(t, rawIt.iteratorHeap.min)
 		assert.NoError(t, it.Close())
 	})
+	t.Run("ReverseMergeIterator", func(t *testing.T) {
+		logs := Logs{
+			Logs:      []Log{*log1, *log2},
+			timeRange: timeRange,
+			populated: true,
+			reverse:   true,
+		}
+		logs.Setup(env)
+		it, err := logs.Merge(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, it)
+
+		rawIt, ok := it.(*mergingIterator)
+		require.True(t, ok)
+		require.False(t, rawIt.iteratorHeap.min)
+		assert.NoError(t, it.Close())
+	})
+
 }
 
 func getTestLogs() (*Log, *Log) {
@@ -952,10 +972,4 @@ func getTestLogs() (*Log, *Log) {
 	log2.ID = log2.Info.ID()
 
 	return log1, log2
-}
-
-func reverseChunks(chunks []LogChunkInfo) {
-	for i, j := 0, len(chunks)-1; i < j; i, j = i+1, j-1 {
-		chunks[i], chunks[j] = chunks[j], chunks[i]
-	}
 }

@@ -61,16 +61,19 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "EmptyIterator",
 			iterators: map[string]LogIterator{
-				serialized:    NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, false),
-				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true),
-				batched:       NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange, false),
-				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange, true),
-				parallelized:  NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, false),
-				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true),
-				merging:       NewMergingIterator(ctx, false, NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, false)),
-				mergingR:      NewMergingIterator(ctx, true, NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange, true)),
+				serialized:    NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				batched:       NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
+				parallelized:  NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				merging:       NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
+				mergingR:      NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
 			},
-			test: func(t *testing.T, _ string, it LogIterator) {
+			test: func(t *testing.T, name string, it LogIterator) {
+				if strings.HasPrefix(name, "Reversed") {
+					require.NoError(t, reverseIt(it))
+				}
 				assert.False(t, it.Next(ctx))
 				assert.NoError(t, it.Err())
 				assert.Zero(t, it.Item())
@@ -80,14 +83,14 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ExhaustedIterator",
 			iterators: map[string]LogIterator{
-				serialized:    NewSerializedLogIterator(bucket, chunks, completeTimeRange, false),
-				serializedR:   NewSerializedLogIterator(bucket, chunks, completeTimeRange, true),
-				batched:       NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange, false),
-				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange, true),
-				parallelized:  NewParallelizedLogIterator(bucket, chunks, completeTimeRange, false),
-				parallelizedR: NewParallelizedLogIterator(bucket, chunks, completeTimeRange, true),
-				merging:       NewMergingIterator(ctx, false, NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange, false)),
-				mergingR:      NewMergingIterator(ctx, true, NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange, true)),
+				serialized:    NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				batched:       NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				parallelized:  NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				merging:       NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+				mergingR:      NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
 			},
 			test: func(t *testing.T, name string, it LogIterator) {
 				var count int
@@ -96,6 +99,7 @@ func TestLogIterator(t *testing.T) {
 				if strings.HasPrefix(name, "Reversed") {
 					i = len(lines) - 1
 					inc = -1
+					require.NoError(t, reverseIt(it))
 				} else {
 					i = 0
 					inc = 1
@@ -115,13 +119,17 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "ErroredIterator",
 			iterators: map[string]LogIterator{
-				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange, false),
-				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange, false),
-				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange, false),
-				merging:      NewMergingIterator(ctx, false, NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange, false)),
-				mergingR:     NewMergingIterator(ctx, true, NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange, true)),
+				serialized:   NewSerializedLogIterator(badBucket, chunks, completeTimeRange),
+				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange),
+				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange),
+				merging:      NewMergingIterator(NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
+				mergingR:     NewMergingIterator(NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
 			},
-			test: func(t *testing.T, _ string, it LogIterator) {
+			test: func(t *testing.T, name string, it LogIterator) {
+				if strings.HasPrefix(name, "Reversed") {
+					require.NoError(t, reverseIt(it))
+				}
+
 				count := 0
 				for it.Next(ctx) {
 					count++
@@ -134,14 +142,14 @@ func TestLogIterator(t *testing.T) {
 		{
 			name: "LimitedTimeRange",
 			iterators: map[string]LogIterator{
-				serialized:    NewSerializedLogIterator(bucket, chunks, partialTimeRange, false),
-				serializedR:   NewSerializedLogIterator(bucket, chunks, partialTimeRange, true),
-				batched:       NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange, false),
-				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange, true),
-				parallelized:  NewParallelizedLogIterator(bucket, chunks, partialTimeRange, false),
-				parallelizedR: NewParallelizedLogIterator(bucket, chunks, partialTimeRange, true),
-				merging:       NewMergingIterator(ctx, false, NewParallelizedLogIterator(bucket, chunks, partialTimeRange, false)),
-				mergingR:      NewMergingIterator(ctx, true, NewParallelizedLogIterator(bucket, chunks, partialTimeRange, true)),
+				serialized:    NewSerializedLogIterator(bucket, chunks, partialTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, chunks, partialTimeRange),
+				batched:       NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
+				parallelized:  NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
+				merging:       NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
+				mergingR:      NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
 			},
 			test: func(t *testing.T, name string, it LogIterator) {
 				var count int
@@ -150,6 +158,7 @@ func TestLogIterator(t *testing.T) {
 				if strings.HasPrefix(name, "Reversed") {
 					i = offset + partialLinesLen - 1
 					inc = -1
+					require.NoError(t, reverseIt(it))
 				} else {
 					i = offset
 					inc = 1
@@ -163,6 +172,20 @@ func TestLogIterator(t *testing.T) {
 				}
 				assert.Equal(t, partialLinesLen, count)
 				assert.NoError(t, it.Err())
+				assert.NoError(t, it.Close())
+			},
+		},
+		{
+			name: "ReverseAlreadyUsedIterator",
+			iterators: map[string]LogIterator{
+				serialized:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				batched:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				parallelized: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				merging:      NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+			},
+			test: func(t *testing.T, name string, it LogIterator) {
+				_ = it.Next(ctx)
+				assert.Error(t, it.Reverse())
 				assert.NoError(t, it.Close())
 			},
 		},
@@ -195,7 +218,7 @@ func TestMergeLogIterator(t *testing.T) {
 			StartAt: chunks[0].Start,
 			EndAt:   chunks[len(chunks)-1].End,
 		}
-		it := NewMergingIterator(ctx, false, NewBatchedLogIterator(bucket, chunks, 100, timeRange, false))
+		it := NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 100, timeRange))
 
 		count := 0
 		for it.Next(ctx) {
@@ -220,12 +243,12 @@ func TestMergeLogIterator(t *testing.T) {
 				StartAt: chunks[0].Start,
 				EndAt:   chunks[len(chunks)-1].End,
 			}
-			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange, false)
+			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
 			for _, line := range lines {
 				lineMap[line.Data] = false
 			}
 		}
-		it := NewMergingIterator(ctx, false, its...)
+		it := NewMergingIterator(its...)
 
 		count := 0
 		lastTime := time.Time{}
@@ -256,12 +279,14 @@ func TestMergeLogIterator(t *testing.T) {
 				StartAt: chunks[0].Start,
 				EndAt:   chunks[len(chunks)-1].End,
 			}
-			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange, true)
+			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+			require.NoError(t, its[i].Reverse())
 			for _, line := range lines {
 				lineMap[line.Data] = false
 			}
 		}
-		it := NewMergingIterator(ctx, true, its...)
+		it := NewMergingIterator(its...)
+		require.NoError(t, it.Reverse())
 
 		count := 0
 		lastTime := time.Now().Add(365 * 24 * time.Hour)
@@ -304,7 +329,7 @@ func TestLogIteratorReader(t *testing.T) {
 	}
 
 	t.Run("LeftOver", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, false))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 22)
@@ -336,7 +361,7 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, false))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -355,7 +380,7 @@ func TestLogIteratorReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, false))
+		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
@@ -382,7 +407,9 @@ func TestLogIteratorTailReader(t *testing.T) {
 	}
 
 	t.Run("NLines", func(t *testing.T) {
-		r := NewLogIteratorTailReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, true), 42)
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		require.NoError(t, it.Reverse())
+		r := NewLogIteratorTailReader(ctx, it, 42)
 		readData := []byte{}
 		p := make([]byte, 4096)
 		for {
@@ -411,7 +438,9 @@ func TestLogIteratorTailReader(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
-		r := NewLogIteratorTailReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, true), 42)
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		require.NoError(t, it.Reverse())
+		r := NewLogIteratorTailReader(ctx, it, 42)
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -430,7 +459,9 @@ func TestLogIteratorTailReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewLogIteratorTailReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange, true), 10)
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		require.NoError(t, it.Reverse())
+		r := NewLogIteratorTailReader(errCtx, it, 10)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
@@ -487,4 +518,19 @@ func newRandCharSetString(length int) string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+func reverseIt(it LogIterator) error {
+	if err := it.Reverse(); err != nil {
+		return err
+	}
+	if rawIt, ok := it.(*mergingIterator); ok {
+		for i := range rawIt.iterators {
+			if err := rawIt.iterators[i].Reverse(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
