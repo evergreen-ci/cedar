@@ -310,9 +310,10 @@ func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
-// Factory returns a pointer to a new logGetByTestNameHandler.
+
+// Factory returns a pointer to a new logGetByGroupHandler.
 func (h *logGroupHandler) Factory() gimlet.RouteHandler {
-	return &logGetByTestNameHandler{
+	return &logGroupHandler{
 		sc: h.sc,
 	}
 }
@@ -354,7 +355,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 	r, err := h.sc.FindGroupedLogs(ctx, h.id, h.name, h.groupID, h.tr, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err,
-			"Error getting Group logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
+			"Error getting grouped logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
 	}
 
 	return gimlet.NewTextResponse(r)
