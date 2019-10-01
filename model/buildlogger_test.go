@@ -517,38 +517,6 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.NoError(t, it.Err())
 		assert.NoError(t, it.Close())
 	})
-	t.Run("Reversed", func(t *testing.T) {
-		log2.ID = ""
-		log2.populated = true
-		log2.Setup(env)
-		it, err := log2.Download(ctx, timeRange)
-		require.NoError(t, err)
-		require.NotNil(t, it)
-		it = it.Reverse()
-		reverseChunks(log2.Artifact.Chunks)
-		defer reverseChunks(log2.Artifact.Chunks)
-
-		expectedBucket, err := log2.Artifact.Type.Create(
-			ctx,
-			log2.env,
-			conf.Bucket.BuildLogsBucket,
-			log2.Artifact.Prefix,
-			string(pail.S3PermissionsPrivate),
-			false,
-		)
-		require.NoError(t, err)
-
-		rawIt, ok := it.(*batchedIterator)
-		require.True(t, ok)
-		assert.Equal(t, expectedBucket, rawIt.bucket)
-		assert.Equal(t, log2.Artifact.Chunks, rawIt.chunks)
-		assert.Equal(t, timeRange, rawIt.timeRange)
-		assert.Equal(t, 2, rawIt.batchSize)
-		assert.True(t, rawIt.reverse)
-		assert.NoError(t, it.Err())
-		assert.NoError(t, it.Close())
-	})
-
 }
 
 func TestBuildloggerClose(t *testing.T) {
