@@ -64,7 +64,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /buildlogger/meta/{id}
+// GET /buildlogger/{id}/meta
 
 type logMetaGetByIDHandler struct {
 	id string
@@ -155,7 +155,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /buildlogger/meta/task_id/{task_id}
+// GET /buildlogger/task_id/{task_id}/meta
 
 type logMetaGetByTaskIDHandler struct {
 	id   string
@@ -245,7 +245,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /buildlogger/meta/test_name/{task_id}/{test_name}
+// GET /buildlogger/test_name/{task_id}/{test_name}/meta
 
 type logMetaGetByTestNameHandler struct {
 	id   string
@@ -293,7 +293,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /buildlogger/group/{task_id}/{test_name}/{group_id}
+// GET /buildlogger/test_name/{task_id}/{test_name}/group/{group_id}
 
 type logGroupHandler struct {
 	id      string

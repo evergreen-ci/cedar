@@ -238,7 +238,6 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	}
 
 	// tail
-	opts.Reverse = true
 	logs = model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))

@@ -310,18 +310,17 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	rh.(*logGetByTaskIDHandler).id = "task_id2"
 	rh.(*logGetByTaskIDHandler).tags = []string{}
 	rh.(*logGetByTaskIDHandler).n = 100
-	expectedIt := dbModel.NewBatchedLogIterator(
-		s.buckets["ghi"],
-		s.sc.CachedLogs["ghi"].Artifact.Chunks,
-		batchSize,
-		rh.(*logGetByTaskIDHandler).tr,
+	expectedIt := dbModel.NewMergingIterator(
+		dbModel.NewBatchedLogIterator(
+			s.buckets["ghi"],
+			s.sc.CachedLogs["ghi"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGetByTaskIDHandler).tr,
+		),
 	)
-	s.Require().NoError(expectedIt.Reverse())
-	it := dbModel.NewMergingIterator(expectedIt)
-	s.Require().NoError(it.Reverse())
 	expected = dbModel.NewLogIteratorTailReader(
 		context.TODO(),
-		it,
+		expectedIt,
 		rh.(*logGetByTaskIDHandler).n,
 	)
 
@@ -638,7 +637,7 @@ func (s *LogHandlerSuite) TestParse() {
 		},
 		{
 			handler:   "group",
-			urlString: "http://cedar.mongodb.com/buildlogger/group/task_id1/test0",
+			urlString: "http://cedar.mongodb.com/buildlogger/test_name/task_id1/test0/group/group0",
 			tags:      true,
 		},
 	} {

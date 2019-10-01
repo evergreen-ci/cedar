@@ -89,7 +89,6 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 			TaskID: taskID,
 			Tags:   tags,
 		},
-		Reverse: n > 0,
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -363,24 +362,10 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 		}
 
 		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
-		if n > 0 {
-			if err = its[len(its)-1].Reverse(); err != nil {
-				return nil, gimlet.ErrorResponse{
-					StatusCode: http.StatusInternalServerError,
-					Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem reversing iterator")),
-				}
-			}
-		}
 	}
 
 	it := dbModel.NewMergingIterator(its...)
 	if n > 0 {
-		if err := it.Reverse(); err != nil {
-			return nil, gimlet.ErrorResponse{
-				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem reversing iterator")),
-			}
-		}
 		return dbModel.NewLogIteratorTailReader(ctx, it, n), ctx.Err()
 	} else {
 		return dbModel.NewLogIteratorReader(ctx, it), ctx.Err()
