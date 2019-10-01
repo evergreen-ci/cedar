@@ -114,7 +114,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.Equal(t, 1, j.ErrorCount())
+		assert.Error(t, j.Error())
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
 		require.NoError(t, res.Err())
@@ -132,7 +132,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.NoError(t, j.validate())
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.Equal(t, 1, j.ErrorCount())
+		assert.Error(t, j.Error())
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": invalidResult.ID})
@@ -149,7 +149,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.NoError(t, j.validate())
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.Equal(t, 1, j.ErrorCount())
+		assert.Error(t, j.Error())
 	})
 	t.Run("InvalidSetup", func(t *testing.T) {
 		j := &ftdcRollupsJob{
@@ -187,7 +187,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.NoError(t, j.validate())
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.Equal(t, 1, j.ErrorCount())
+		assert.Error(t, j.Error())
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})

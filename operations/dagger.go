@@ -91,7 +91,7 @@ func loadGraphToDB() cli.Command {
 			}
 
 			if graph.BuildID == "" {
-				graph.BuildID = uuid.NewV4().String()
+				graph.BuildID = uuid.Must(uuid.NewV4()).String()
 			}
 
 			gdb := &model.GraphMetadata{

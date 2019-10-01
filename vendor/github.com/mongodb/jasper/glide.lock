@@ -1,0 +1,65 @@
+hash: ""
+updated: 2016-10-20T16:48:42.872025812-04:00
+imports:
+  - name: github.com/satori/go.uuid
+    version: 36e9d2ebbde5e3f13ab2e25625fd453271d6522e
+  - name: github.com/pkg/errors
+    version: 2b3a18b5f0fb6b4f9190549597d3f962c02bc5eb
+  - name: github.com/stretchr/testify
+    version: 890a5c3458b43e6104ff5da8dfa139d013d77544
+  - name: github.com/mongodb/grip
+    version: b1dabf523db900adb1bce209a0df2a459eae1f7f
+  - name: github.com/evergreen-ci/gimlet
+    version: 8a317d725d0315a97c5d0c08ec04921f3ba498d5
+  - name: github.com/tychoish/bond
+    version: f64dbbe9148d8a2fb93ff2bbe02d7234109947b6
+  - name: github.com/tychoish/lru
+    version: f77a748d12a924cfbfcf396426dd58de5aa3a9e2
+  - name: github.com/mholt/archiver
+    version: de0d89e255e17c8d75a40122055763e743ab0593
+  - name: github.com/montanaflynn/stats
+    version: db72e6cae808b936b0c01fd330ff1fcd2c86c95e
+  - name: github.com/mongodb/amboy
+    version: fd4248208c6bd99bc3793b02c8b338dd4fb560cc
+  - name: github.com/google/shlex
+    version: 6f45313302b9c56850fc17f99e40caebce98c716
+  - name: github.com/urfave/cli
+    version: 693af58b4d51b8fcc7f9d89576da170765980581
+  - name: github.com/kardianos/service
+    version: fffe6c52ed0fd8653543bbe72432dbf6ea02f300
+  - name: github.com/cheynewallace/tabby
+    version: b7224f6123093cc04ce961170a360e1d22e214a5
+  - name: github.com/evergreen-ci/aviation
+    version: b5b1a9f93a1d0bd95769b3106971aaeca615a7b2
+  - name: github.com/mongodb/ftdc
+    version: 8e1b763add73034cb803b88f1fdd17438e2b7891
+  - name: github.com/tychoish/mongorpc
+    version: 3c204a3ee0bd5ba72fdcd8ab0baa779adf879951
+
+  # cgroup requirements
+  - name: github.com/containerd/cgroups
+    version: dbea6f2bd41658b84b00417ceefa416b979cbf10
+  - name: github.com/opencontainers/runtime-spec
+    version: ad53dcdc39f1f7f7472b10aa0a45648fe4865496
+  - name: github.com/docker/go-units
+    version: 2fb04c6466a548a03cb009c5569ee1ab1e35398e
+  - name: github.com/coreos/go-systemd
+    version: 95778dfbb74eb7e4dbaf43bf7d71809650ef8076
+  - name: github.com/godbus/dbus
+    version: f93dedc6ceb4596891d18bae4a2adf9258f0acfb
+  - name: github.com/gogo/protobuf
+    version: 382325bbbb4d1c850eec1f3ec92a1a16f502d68b
+
+  # grpc and dependencies
+  - name: google.golang.org/grpc
+    version: 2773c7bbcf81cf358d3f0038b1469b2d44062acb
+  - name: golang.org/x/net
+    version: 3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898
+  - name: golang.org/x/sys
+    version: a9d3bda3a223baa6bba6ef412cb273f0fd163c05
+  - name: golang.org/x/text
+    version: 6c92c7dc7f53607809182301b96e4cc1975143f1
+  - name: google.golang.org/genproto
+    version: 082222b4a5c572e33e82ee9162d1352c7cf38682
+  - name: github.com/golang/protobuf
+    version: c823c79ea1570fb5ff454033735a8e68575d1d0f

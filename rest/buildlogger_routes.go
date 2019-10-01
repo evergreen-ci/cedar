@@ -310,6 +310,7 @@ func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
+
 // Factory returns a pointer to a new logGetByGroupHandler.
 func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 	return &logGroupHandler{

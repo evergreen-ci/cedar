@@ -135,6 +135,21 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pmezard/go-difflib/
 	rm -rf vendor/github.com/mongodb/grip/vendor/golang.org/x/net/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/pkg/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/mongodb/amboy
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/mongodb/grip
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/urfave/cli
+	rm -rf vendor/github.com/mongodb/jasper/vendor/golang.org/x/net/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/golang.org/x/sys/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/golang.org/x/text/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/google.golang.org/genproto/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/google.golang.org/grpc/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/stretchr/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/pkg/errors/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/satori/go.uuid
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/mongodb/ftdc/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/golang/protobuf
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/gimlet
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/aviation/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/davecgh/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pmezard/

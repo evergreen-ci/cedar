@@ -21,11 +21,13 @@ imports:
   version: 792786c7400a136282c1664665ae0a8db921c6c2
 
 - name: github.com/mongodb/amboy
-  version: 9f483fa4b1b425037caec31f04c5c81699803163
+  version: 671a697140546fa83533232c867350c8b5e0d9f5
 - name: github.com/mongodb/grip
-  version: 9d25e1f074f259c00ff62d6690943ce61666b626
+  version: b1dabf523db900adb1bce209a0df2a459eae1f7f
 - name: github.com/mongodb/anser
   version: 1fb43a6d9968b19ddfd66e6a77373f9e4c54adeb
+- name: github.com/mongodb/jasper
+  version: ce1141cc55da34810602787dd426960a0d4285af
 - name: github.com/evergreen-ci/gimlet
   version: 2180fc22266fe2030e026816640a5e395abffd33
 - name: github.com/mongodb/ftdc
@@ -63,7 +65,7 @@ imports:
 - name: github.com/tychoish/tarjan
   version: fcd3f3321826209eac4a6f41c0108624d948e499
 - name: github.com/satori/go.uuid
-  version: 879c5887cd475cd7864858769793b2ceb0d44feb
+  version: 36e9d2ebbde5e3f13ab2e25625fd453271d6522e
 - name: github.com/mitchellh/go-homedir
   version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
 - name: github.com/aclements/go-moremath
