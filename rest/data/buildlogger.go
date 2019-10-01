@@ -39,7 +39,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.Time
 	}
 
 	log.Setup(dbc.env)
-	it, err := log.Download(ctx, tr, false)
+	it, err := log.Download(ctx, tr)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -89,6 +89,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 			TaskID: taskID,
 			Tags:   tags,
 		},
+		Reverse: n > 0,
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -105,7 +106,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 	}
 
 	logs.Setup(dbc.env)
-	it, err := logs.Merge(ctx, n > 0)
+	it, err := logs.Merge(ctx)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -212,10 +213,9 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, taskID, t
 	return apiLogs, nil
 }
 
-// FindResmokeLogs is a special function for resmoke test logs that queries the
-// database to find logs based on the given task id, test name, time range,
-// "group id", and optional tags.
-func (dbc *DBConnector) FindResmokeLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+// FindGroupedLogs queries the database to find logs based on the given task
+// id, test name (or empty test name), time range, group id, and optional tags.
+func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
 	its := []dbModel.LogIterator{}
 	it, err := dbc.findLogsByTestName(ctx, taskID, testName, tr, append(tags, groupID)...)
 	if err != nil {
@@ -230,7 +230,7 @@ func (dbc *DBConnector) FindResmokeLogs(ctx context.Context, taskID, testName, g
 		return nil, err
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(ctx, false, its...)), nil
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...)), nil
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
@@ -261,7 +261,7 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, taskID, testName
 	}
 
 	logs.Setup(dbc.env)
-	it, err := logs.Merge(ctx, false)
+	it, err := logs.Merge(ctx)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -299,7 +299,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.Tim
 		}
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false)), ctx.Err()
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr)), ctx.Err()
 }
 
 // FindLogMetadataByID queries the mock cache to find the buildlogger log with
@@ -362,11 +362,25 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 			}
 		}
 
-		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
+		if n > 0 {
+			if err = its[len(its)-1].Reverse(); err != nil {
+				return nil, gimlet.ErrorResponse{
+					StatusCode: http.StatusInternalServerError,
+					Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem reversing iterator")),
+				}
+			}
+		}
 	}
 
-	it := dbModel.NewMergingIterator(ctx, n > 0, its...)
+	it := dbModel.NewMergingIterator(its...)
 	if n > 0 {
+		if err := it.Reverse(); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem reversing iterator")),
+			}
+		}
 		return dbModel.NewLogIteratorTailReader(ctx, it, n), ctx.Err()
 	} else {
 		return dbModel.NewLogIteratorReader(ctx, it), ctx.Err()
@@ -459,10 +473,9 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, 
 	return apiLogs, ctx.Err()
 }
 
-// FindResmokeLogs is a special function for resmoke test logs that queries the
-// mock cache to find logs based on the given task id, test name, time range,
-// "group id", and optional tags.
-func (mc *MockConnector) FindResmokeLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+// FindGroupedLogs queries the mock cache to find logs based on the given task
+// id, test name (or empty test name), time range, group id, and optional tags.
+func (mc *MockConnector) FindGroupedLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
 	its := []dbModel.LogIterator{}
 	it, err := mc.findLogsByTestName(ctx, taskID, testName, tr, append(tags, groupID)...)
 	if err != nil {
@@ -477,7 +490,7 @@ func (mc *MockConnector) FindResmokeLogs(ctx context.Context, taskID, testName, 
 		return nil, err
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(ctx, false, its...)), ctx.Err()
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...)), ctx.Err()
 }
 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
@@ -514,8 +527,9 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testNam
 			}
 		}
 
-		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr, false))
+		fmt.Println(tr)
+		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr))
 	}
 
-	return dbModel.NewMergingIterator(ctx, false, its...), ctx.Err()
+	return dbModel.NewMergingIterator(its...), ctx.Err()
 }

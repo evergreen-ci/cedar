@@ -60,8 +60,9 @@ type Connector interface {
 	// FindLogsByTestName returns the metadata for the buildlogger logs
 	// with the given task id, test name, and optional tags.
 	FindLogMetadataByTestName(context.Context, string, string, ...string) ([]model.APILog, error)
-	// FindResmokeLogs is a special function for resmoke test logs that
-	// returns logs based on the given task id, test name, time range,
-	// "group id", and optional tags.
-	FindResmokeLogs(context.Context, string, string, string, util.TimeRange, ...string) (io.Reader, error)
+	// FindGroupedLogs finds logs that are grouped via a "group id" held in
+	// the tags field. These groups have a hierarchy of test level and task
+	// level. This function returns logs with the given task id, test name
+	// (or empty test name), group id, time range, and optional tags.
+	FindGroupedLogs(context.Context, string, string, string, util.TimeRange, ...string) (io.Reader, error)
 }
