@@ -863,14 +863,20 @@ func TestBuildloggerMerge(t *testing.T) {
 			timeRange: timeRange,
 			populated: true,
 		}
+		log1.Setup(env)
+		it1, err := log1.Download(ctx, timeRange)
+		require.NoError(t, err)
+		require.NotNil(t, it1)
+		log2.Setup(env)
+		it2, err := log2.Download(ctx, timeRange)
+		require.NoError(t, err)
+		require.NotNil(t, it2)
 		logs.Setup(env)
 		it, err := logs.Merge(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, it)
 
-		rawIt, ok := it.(*mergingIterator)
-		require.True(t, ok)
-		require.True(t, rawIt.iteratorHeap.min)
+		assert.Equal(t, NewMergingIterator(it1, it2), it)
 		assert.NoError(t, it.Close())
 	})
 }
