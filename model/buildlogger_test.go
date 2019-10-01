@@ -524,7 +524,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		it, err := log2.Download(ctx, timeRange)
 		require.NoError(t, err)
 		require.NotNil(t, it)
-		require.NoError(t, it.Reverse())
+		it = it.Reverse()
 		reverseChunks(log2.Artifact.Chunks)
 		defer reverseChunks(log2.Artifact.Chunks)
 

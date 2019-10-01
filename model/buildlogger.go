@@ -565,18 +565,12 @@ func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 			catcher.Add(err)
 			return nil, errors.Wrap(catcher.Resolve(), "problem downloading log")
 		}
-		if l.reverse {
-			err := it.Reverse()
-			if err != nil {
-				return nil, errors.Wrap(err, "problem reversing iterator")
-			}
-		}
 		iterators = append(iterators, it)
 	}
 
 	it := NewMergingIterator(iterators...)
 	if l.reverse {
-		return it, errors.Wrap(it.Reverse(), "problem reversing iterator")
+		it = it.Reverse()
 	}
 	return it, nil
 }

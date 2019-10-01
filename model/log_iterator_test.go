@@ -62,18 +62,15 @@ func TestLogIterator(t *testing.T) {
 			name: "EmptyIterator",
 			iterators: map[string]LogIterator{
 				serialized:    NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
-				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange).Reverse(),
 				batched:       NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
-				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, []LogChunkInfo{}, 2, completeTimeRange).Reverse(),
 				parallelized:  NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
-				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange).Reverse(),
 				merging:       NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
-				mergingR:      NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)),
+				mergingR:      NewMergingIterator(NewSerializedLogIterator(bucket, []LogChunkInfo{}, completeTimeRange)).Reverse(),
 			},
-			test: func(t *testing.T, name string, it LogIterator) {
-				if strings.HasPrefix(name, "Reversed") {
-					require.NoError(t, reverseIt(it))
-				}
+			test: func(t *testing.T, _ string, it LogIterator) {
 				assert.False(t, it.Next(ctx))
 				assert.NoError(t, it.Err())
 				assert.Zero(t, it.Item())
@@ -84,13 +81,13 @@ func TestLogIterator(t *testing.T) {
 			name: "ExhaustedIterator",
 			iterators: map[string]LogIterator{
 				serialized:    NewSerializedLogIterator(bucket, chunks, completeTimeRange),
-				serializedR:   NewSerializedLogIterator(bucket, chunks, completeTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, chunks, completeTimeRange).Reverse(),
 				batched:       NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
-				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange).Reverse(),
 				parallelized:  NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
-				parallelizedR: NewParallelizedLogIterator(bucket, chunks, completeTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, chunks, completeTimeRange).Reverse(),
 				merging:       NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
-				mergingR:      NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)),
+				mergingR:      NewMergingIterator(NewBatchedLogIterator(bucket, chunks, 2, completeTimeRange)).Reverse(),
 			},
 			test: func(t *testing.T, name string, it LogIterator) {
 				var count int
@@ -99,7 +96,6 @@ func TestLogIterator(t *testing.T) {
 				if strings.HasPrefix(name, "Reversed") {
 					i = len(lines) - 1
 					inc = -1
-					require.NoError(t, reverseIt(it))
 				} else {
 					i = 0
 					inc = 1
@@ -123,13 +119,8 @@ func TestLogIterator(t *testing.T) {
 				batched:      NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange),
 				parallelized: NewParallelizedLogIterator(badBucket, chunks, completeTimeRange),
 				merging:      NewMergingIterator(NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
-				mergingR:     NewMergingIterator(NewBatchedLogIterator(badBucket, chunks, 2, completeTimeRange)),
 			},
-			test: func(t *testing.T, name string, it LogIterator) {
-				if strings.HasPrefix(name, "Reversed") {
-					require.NoError(t, reverseIt(it))
-				}
-
+			test: func(t *testing.T, _ string, it LogIterator) {
 				count := 0
 				for it.Next(ctx) {
 					count++
@@ -143,13 +134,13 @@ func TestLogIterator(t *testing.T) {
 			name: "LimitedTimeRange",
 			iterators: map[string]LogIterator{
 				serialized:    NewSerializedLogIterator(bucket, chunks, partialTimeRange),
-				serializedR:   NewSerializedLogIterator(bucket, chunks, partialTimeRange),
+				serializedR:   NewSerializedLogIterator(bucket, chunks, partialTimeRange).Reverse(),
 				batched:       NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
-				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange),
+				batchedR:      NewBatchedLogIterator(bucket, chunks, 2, partialTimeRange).Reverse(),
 				parallelized:  NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
-				parallelizedR: NewParallelizedLogIterator(bucket, chunks, partialTimeRange),
+				parallelizedR: NewParallelizedLogIterator(bucket, chunks, partialTimeRange).Reverse(),
 				merging:       NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
-				mergingR:      NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)),
+				mergingR:      NewMergingIterator(NewParallelizedLogIterator(bucket, chunks, partialTimeRange)).Reverse(),
 			},
 			test: func(t *testing.T, name string, it LogIterator) {
 				var count int
@@ -158,7 +149,6 @@ func TestLogIterator(t *testing.T) {
 				if strings.HasPrefix(name, "Reversed") {
 					i = offset + partialLinesLen - 1
 					inc = -1
-					require.NoError(t, reverseIt(it))
 				} else {
 					i = offset
 					inc = 1
@@ -185,7 +175,6 @@ func TestLogIterator(t *testing.T) {
 			},
 			test: func(t *testing.T, name string, it LogIterator) {
 				_ = it.Next(ctx)
-				assert.Error(t, it.Reverse())
 				assert.NoError(t, it.Close())
 			},
 		},
@@ -280,13 +269,11 @@ func TestMergeLogIterator(t *testing.T) {
 				EndAt:   chunks[len(chunks)-1].End,
 			}
 			its[i] = NewBatchedLogIterator(bucket, chunks, 100, timeRange)
-			require.NoError(t, its[i].Reverse())
 			for _, line := range lines {
 				lineMap[line.Data] = false
 			}
 		}
-		it := NewMergingIterator(its...)
-		require.NoError(t, it.Reverse())
+		it := NewMergingIterator(its...).Reverse()
 
 		count := 0
 		lastTime := time.Now().Add(365 * 24 * time.Hour)
@@ -408,7 +395,6 @@ func TestLogIteratorTailReader(t *testing.T) {
 
 	t.Run("NLines", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		require.NoError(t, it.Reverse())
 		r := NewLogIteratorTailReader(ctx, it, 42)
 		readData := []byte{}
 		p := make([]byte, 4096)
@@ -439,7 +425,6 @@ func TestLogIteratorTailReader(t *testing.T) {
 	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		require.NoError(t, it.Reverse())
 		r := NewLogIteratorTailReader(ctx, it, 42)
 		p := make([]byte, 0)
 		for {
@@ -460,7 +445,6 @@ func TestLogIteratorTailReader(t *testing.T) {
 		errCancel()
 
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		require.NoError(t, it.Reverse())
 		r := NewLogIteratorTailReader(errCtx, it, 10)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
@@ -518,19 +502,4 @@ func newRandCharSetString(length int) string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
-}
-
-func reverseIt(it LogIterator) error {
-	if err := it.Reverse(); err != nil {
-		return err
-	}
-	if rawIt, ok := it.(*mergingIterator); ok {
-		for i := range rawIt.iterators {
-			if err := rawIt.iterators[i].Reverse(); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }

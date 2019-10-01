@@ -29,8 +29,11 @@ type LogIterator interface {
 	Err() error
 	// Item returns the current LogLine item held by the iterator.
 	Item() LogLine
-	// Reverse reverses the iterator.
-	Reverse() error
+	// Reverse returns a reversed copy of the iterator.
+	Reverse() LogIterator
+	// IsReversed returns true if the iterator is in reverse order and
+	// false otherwise.
+	IsReversed() bool
 	// Close closes the iterator, this function should be called once the
 	// iterator is no longer needed.
 	Close() error
@@ -66,15 +69,21 @@ func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRan
 	}
 }
 
-func (i *serializedIterator) Reverse() error {
-	if i.keyIndex > 0 || i.currentReadCloser != nil {
-		return errors.New("cannot reverse an iterator that is already in use")
-	}
+func (i *serializedIterator) Reverse() LogIterator {
+	chunks := make([]LogChunkInfo, len(i.chunks))
+	_ = copy(chunks, i.chunks)
+	reverseChunks(chunks)
 
-	reverseChunks(i.chunks)
-	i.reverse = !i.reverse
-	return nil
+	return &serializedIterator{
+		bucket:    i.bucket,
+		chunks:    chunks,
+		timeRange: i.timeRange,
+		reverse:   !i.reverse,
+		catcher:   grip.NewBasicCatcher(),
+	}
 }
+
+func (i *serializedIterator) IsReversed() bool { return i.reverse }
 
 func (i *serializedIterator) Next(ctx context.Context) bool {
 	for {
@@ -207,15 +216,22 @@ func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeR
 	}
 }
 
-func (i *batchedIterator) Reverse() error {
-	if i.keyIndex > 0 || len(i.readers) > 0 {
-		return errors.New("cannot reverse an iterator that is already in use")
-	}
+func (i *batchedIterator) Reverse() LogIterator {
+	chunks := make([]LogChunkInfo, len(i.chunks))
+	_ = copy(chunks, i.chunks)
+	reverseChunks(chunks)
 
-	reverseChunks(i.chunks)
-	i.reverse = !i.reverse
-	return nil
+	return &batchedIterator{
+		bucket:    i.bucket,
+		batchSize: i.batchSize,
+		chunks:    chunks,
+		timeRange: i.timeRange,
+		reverse:   !i.reverse,
+		catcher:   grip.NewBasicCatcher(),
+	}
 }
+
+func (i *batchedIterator) IsReversed() bool { return i.reverse }
 
 func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 	if err := i.Close(); err != nil {
@@ -361,6 +377,7 @@ type mergingIterator struct {
 	iteratorHeap *LogIteratorHeap
 	currentItem  LogLine
 	catcher      grip.Catcher
+	started      bool
 }
 
 // NewMergeIterator returns a LogIterator that merges N buildlogger logs,
@@ -373,34 +390,24 @@ func NewMergingIterator(iterators ...LogIterator) LogIterator {
 	}
 }
 
-func (i *mergingIterator) Reverse() error {
-	if i.iterators == nil {
-		return errors.New("cannot reverse an iterator that is already in use")
-	}
-
-	i.iteratorHeap.min = false
-	return nil
-}
-
-func (i *mergingIterator) init(ctx context.Context) {
-	heap.Init(i.iteratorHeap)
+func (i *mergingIterator) Reverse() LogIterator {
 	for j := range i.iterators {
-		if i.iterators[j].Next(ctx) {
-			i.iteratorHeap.SafePush(i.iterators[j])
-		}
-
-		// fail early
-		if i.iterators[j].Err() != nil {
-			i.catcher.Add(i.iterators[j].Err())
-			i.iteratorHeap = &LogIteratorHeap{}
-			break
+		if !i.iterators[j].IsReversed() {
+			i.iterators[j] = i.iterators[j].Reverse()
 		}
 	}
-	i.iterators = nil
+
+	return &mergingIterator{
+		iterators:    i.iterators,
+		iteratorHeap: &LogIteratorHeap{min: false},
+		catcher:      grip.NewBasicCatcher(),
+	}
 }
+
+func (i *mergingIterator) IsReversed() bool { return !i.iteratorHeap.min }
 
 func (i *mergingIterator) Next(ctx context.Context) bool {
-	if i.iterators != nil {
+	if !i.started {
 		i.init(ctx)
 	}
 
@@ -421,6 +428,25 @@ func (i *mergingIterator) Next(ctx context.Context) bool {
 	}
 
 	return true
+}
+
+func (i *mergingIterator) init(ctx context.Context) {
+	heap.Init(i.iteratorHeap)
+
+	for j := range i.iterators {
+		if i.iterators[j].Next(ctx) {
+			i.iteratorHeap.SafePush(i.iterators[j])
+		}
+
+		// fail early
+		if i.iterators[j].Err() != nil {
+			i.catcher.Add(i.iterators[j].Err())
+			i.iteratorHeap = &LogIteratorHeap{}
+			break
+		}
+	}
+
+	i.started = true
 }
 
 func (i *mergingIterator) Err() error { return i.catcher.Resolve() }
@@ -616,6 +642,10 @@ type logIteratorTailReader struct {
 // NewLogIteratorTailReader returns an io.Reader that reads up to n log lines
 // from the *reversed* log iterator.
 func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int) io.Reader {
+	if !it.IsReversed() {
+		it = it.Reverse()
+	}
+
 	return &logIteratorTailReader{
 		ctx: ctx,
 		it:  it,
