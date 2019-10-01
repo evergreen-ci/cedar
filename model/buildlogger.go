@@ -384,7 +384,6 @@ type Logs struct {
 	env       cedar.Environment
 	populated bool
 	timeRange util.TimeRange
-	reverse   bool
 }
 
 // EmptyLogInfo allows querying of null or missing fields.
@@ -410,7 +409,6 @@ type LogFindOptions struct {
 	Info      LogInfo
 	Empty     EmptyLogInfo
 	Limit     int64
-	Reverse   bool
 }
 
 // Setup sets the environment for the logs. The environment is required for
@@ -451,7 +449,6 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	}
 	if len(l.Logs) > 0 {
 		l.timeRange = opts.TimeRange
-		l.reverse = opts.Reverse
 		l.populated = true
 	} else {
 		return mongo.ErrNoDocuments
@@ -568,9 +565,5 @@ func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 		iterators = append(iterators, it)
 	}
 
-	it := NewMergingIterator(iterators...)
-	if l.reverse {
-		it = it.Reverse()
-	}
-	return it, nil
+	return NewMergingIterator(iterators...), nil
 }

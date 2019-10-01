@@ -905,24 +905,6 @@ func TestBuildloggerMerge(t *testing.T) {
 		require.True(t, rawIt.iteratorHeap.min)
 		assert.NoError(t, it.Close())
 	})
-	t.Run("ReverseMergeIterator", func(t *testing.T) {
-		logs := Logs{
-			Logs:      []Log{*log1, *log2},
-			timeRange: timeRange,
-			populated: true,
-			reverse:   true,
-		}
-		logs.Setup(env)
-		it, err := logs.Merge(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, it)
-
-		rawIt, ok := it.(*mergingIterator)
-		require.True(t, ok)
-		require.False(t, rawIt.iteratorHeap.min)
-		assert.NoError(t, it.Close())
-	})
-
 }
 
 func getTestLogs() (*Log, *Log) {
