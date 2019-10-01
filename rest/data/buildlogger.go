@@ -436,8 +436,8 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testNam
 }
 
 // FindLogMetadataByTestName queries the mock cache to find the buildlogger
-// logs the given task id, test name, and optional tags, returning only the
-// metadata for those logs.
+// logs with the given task id, test name, and optional tags, returning only
+// the metadata for those logs.
 func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, testName string, tags ...string) ([]model.APILog, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
