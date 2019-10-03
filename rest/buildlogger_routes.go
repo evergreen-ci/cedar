@@ -130,7 +130,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 	var err error
 	catcher := grip.NewBasicCatcher()
 
-	h.id = gimlet.GetVars(r)["id"]
+	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
@@ -178,7 +178,7 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id from the http request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
-	h.id = gimlet.GetVars(r)["id"]
+	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 
@@ -224,8 +224,8 @@ func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
-	h.id = gimlet.GetVars(r)["id"]
-	h.name = gimlet.GetVars(r)["name"]
+	h.id = gimlet.GetVars(r)["task_id"]
+	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
@@ -269,7 +269,8 @@ func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id, name, and tags from the http request.
 func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
-	h.id = gimlet.GetVars(r)["id"]
+	h.id = gimlet.GetVars(r)["task_id"]
+	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
 
@@ -310,7 +311,6 @@ func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
-
 // Factory returns a pointer to a new logGetByGroupHandler.
 func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 	return &logGroupHandler{
@@ -322,8 +322,8 @@ func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
-	h.id = gimlet.GetVars(r)["id"]
-	h.name = gimlet.GetVars(r)["name"]
+	h.id = gimlet.GetVars(r)["task_id"]
+	h.name = gimlet.GetVars(r)["test_name"]
 	h.groupID = gimlet.GetVars(r)["group_id"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
