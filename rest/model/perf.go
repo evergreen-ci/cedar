@@ -112,7 +112,6 @@ func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 type APIPerfRollups struct {
 	Stats       []APIPerfRollupValue `json:"stats"`
 	ProcessedAt APITime              `json:"processed_at"`
-	Valid       bool                 `json:"valid"`
 }
 
 // APIPerfRollupValue describes a single "rollup", see APIPerfRollups for more
@@ -127,7 +126,6 @@ type APIPerfRollupValue struct {
 func getPerfRollups(r dbmodel.PerfRollups) APIPerfRollups {
 	rollups := APIPerfRollups{
 		ProcessedAt: NewTime(r.ProcessedAt),
-		Valid:       r.Valid,
 	}
 
 	var apiStats []APIPerfRollupValue

@@ -81,7 +81,6 @@ func (f *latencyAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfR
 
 	if s.counters.operationsTotal > 0 {
 		rollup.Value = float64(s.timers.durationTotal) / float64(s.counters.operationsTotal)
-		rollup.Valid = true
 	}
 
 	return []model.PerfRollupValue{rollup}
@@ -107,7 +106,6 @@ func (f *sizeAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 
 	if s.counters.operationsTotal > 0 {
 		rollup.Value = float64(s.counters.sizeTotal) / float64(s.counters.operationsTotal)
-		rollup.Valid = true
 	}
 
 	return []model.PerfRollupValue{rollup}
@@ -136,7 +134,6 @@ func (f *operationThroughput) Calc(s *PerformanceStatistics, user bool) []model.
 
 	if s.timers.totalWallTime > 0 {
 		rollup.Value = float64(s.counters.operationsTotal) / s.timers.totalWallTime.Seconds()
-		rollup.Valid = true
 	}
 
 	return []model.PerfRollupValue{rollup}
@@ -161,7 +158,6 @@ func (f *sizeThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfR
 	}
 	if s.timers.totalWallTime > 0 {
 		rollup.Value = float64(s.counters.sizeTotal) / s.timers.totalWallTime.Seconds()
-		rollup.Valid = true
 	}
 
 	return []model.PerfRollupValue{rollup}
@@ -187,7 +183,6 @@ func (f *errorThroughput) Calc(s *PerformanceStatistics, user bool) []model.Perf
 
 	if s.timers.totalWallTime > 0 {
 		rollup.Value = float64(s.counters.errorsTotal) / s.timers.totalWallTime.Seconds()
-		rollup.Valid = true
 	}
 
 	return []model.PerfRollupValue{rollup}
@@ -260,15 +255,10 @@ func (f *latencyPercentile) Calc(s *PerformanceStatistics, user bool) []model.Pe
 			Sorted: true,
 		}
 		p50.Value = latencySample.Quantile(0.5)
-		p50.Valid = true
 		p80.Value = latencySample.Quantile(0.8)
-		p80.Valid = true
 		p90.Value = latencySample.Quantile(0.9)
-		p90.Valid = true
 		p95.Value = latencySample.Quantile(0.95)
-		p95.Valid = true
 		p99.Value = latencySample.Quantile(0.99)
-		p99.Valid = true
 	}
 
 	return []model.PerfRollupValue{p50, p80, p90, p95, p99}
@@ -304,8 +294,6 @@ func (f *workersBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 	}
 	if len(s.gauges.workers) > 0 {
 		min.Value, max.Value = stats.Sample{Xs: s.gauges.workers}.Bounds()
-		min.Valid = true
-		max.Valid = true
 	}
 
 	return []model.PerfRollupValue{min, max}
@@ -339,8 +327,6 @@ func (f *latencyBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 
 	if len(s.timers.extractedDurations) > 0 {
 		min.Value, max.Value = stats.Sample{Xs: s.timers.extractedDurations}.Bounds()
-		min.Valid = true
-		max.Valid = true
 	}
 
 	return []model.PerfRollupValue{min, max}
@@ -367,7 +353,6 @@ func (f *durationSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 			Version:       durationSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
-			Valid:         true,
 		},
 	}
 }
@@ -390,7 +375,6 @@ func (f *errorsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollup
 			Version:       errorsSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
-			Valid:         true,
 		},
 	}
 }
@@ -413,7 +397,6 @@ func (f *operationsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 			Version:       operationsSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
-			Valid:         true,
 		},
 	}
 }
@@ -436,7 +419,6 @@ func (f *sizeSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupVa
 			Version:       sizeSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
-			Valid:         true,
 		},
 	}
 }
@@ -459,7 +441,6 @@ func (f *overheadSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 			Version:       overheadSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
-			Valid:         true,
 		},
 	}
 }

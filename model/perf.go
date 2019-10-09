@@ -74,8 +74,9 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 		Info:      info,
 		Artifacts: source,
 		Rollups: PerfRollups{
-			id:    info.ID(),
-			Stats: append([]PerfRollupValue{}, rollups...),
+			id:          info.ID(),
+			Stats:       append([]PerfRollupValue{}, rollups...),
+			ProcessedAt: createdAt,
 		},
 		populated: true,
 	}

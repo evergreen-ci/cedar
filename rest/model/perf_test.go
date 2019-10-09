@@ -115,7 +115,6 @@ func TestImportHelperFunctions(t *testing.T) {
 					},
 				},
 				ProcessedAt: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-				Valid:       true,
 			},
 			expectedOutput: APIPerfRollups{
 				Stats: []APIPerfRollupValue{
@@ -137,7 +136,6 @@ func TestImportHelperFunctions(t *testing.T) {
 					},
 				},
 				ProcessedAt: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-				Valid:       true,
 			},
 		},
 	} {
@@ -248,7 +246,6 @@ func TestImport(t *testing.T) {
 						},
 					},
 					ProcessedAt: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
-					Valid:       true,
 				},
 			},
 			expected: APIPerformanceResult{
@@ -327,7 +324,6 @@ func TestImport(t *testing.T) {
 						},
 					},
 					ProcessedAt: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
-					Valid:       true,
 				},
 			},
 		},

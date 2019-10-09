@@ -16,6 +16,26 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+func TestCreatePerformanceResult(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(perfResultCollection).Drop(ctx))
+	}()
+	result1, _ := getTestPerformanceResults()
+
+	result := CreatePerformanceResult(result1.Info, result1.Artifacts, result1.Rollups.Stats)
+	assert.Equal(t, result1.ID, result.ID)
+	assert.Equal(t, result1.Info, result.Info)
+	assert.Equal(t, result1.Artifacts, result.Artifacts)
+	assert.Equal(t, result1.ID, result.Rollups.id)
+	assert.Equal(t, result1.Rollups.Stats, result.Rollups.Stats)
+	assert.True(t, time.Since(result.Rollups.ProcessedAt) <= time.Minute)
+	assert.True(t, result.populated)
+}
+
 func TestPerfFind(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -437,7 +457,6 @@ func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
 					Version:       1,
 					MetricType:    MetricTypeLatency,
 					UserSubmitted: true,
-					Valid:         true,
 				},
 				{
 					Name:       "mean",
@@ -446,8 +465,6 @@ func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
 					MetricType: MetricTypeMean,
 				},
 			},
-			ProcessedAt: time.Now().Add(-24 * time.Hour).UTC().Truncate(time.Millisecond),
-			Valid:       true,
 		},
 	}
 	result1.ID = result1.Info.ID()
@@ -830,7 +847,6 @@ func (s *perfResultsSuite) TestFindOutdated() {
 			Name:    rollupName,
 			Value:   1,
 			Version: 2,
-			Valid:   true,
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
@@ -844,7 +860,6 @@ func (s *perfResultsSuite) TestFindOutdated() {
 		PerfRollupValue{
 			Name:    rollupName,
 			Version: 2,
-			Valid:   false,
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
@@ -860,7 +875,6 @@ func (s *perfResultsSuite) TestFindOutdated() {
 			Name:    rollupName,
 			Value:   1.01,
 			Version: 1,
-			Valid:   true,
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
@@ -875,7 +889,6 @@ func (s *perfResultsSuite) TestFindOutdated() {
 			Name:    rollupName,
 			Value:   1.01,
 			Version: 1,
-			Valid:   true,
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
@@ -900,7 +913,6 @@ func (s *perfResultsSuite) TestFindOutdated() {
 			Name:    "DNE",
 			Value:   1.01,
 			Version: 1,
-			Valid:   true,
 		},
 	)
 	result.Setup(cedar.GetEnvironment())
