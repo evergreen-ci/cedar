@@ -181,7 +181,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	s.Equal(out.Rollups.Stats[4].Version, 1)
 	s.Equal(out.Rollups.Stats[4].Value, 12.24)
 	s.Equal(out.Rollups.Stats[4].UserSubmitted, false)
-	s.Equal(out.Rollups.ProcessedAt, s.r.ProcessedAt.UTC().Round(time.Millisecond))
+	s.Equal(out.Rollups.ProcessedAt, s.r.ProcessedAt.UTC().Truncate(time.Millisecond))
 }
 
 func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
