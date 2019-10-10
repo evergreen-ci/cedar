@@ -287,7 +287,6 @@ func TestCalcFunctions(t *testing.T) {
 							assert.Equal(t, test.expectedValues[i], rollup.Value)
 							assert.Equal(t, test.expectedMetricTypes[i], rollup.MetricType)
 							assert.Equal(t, user, rollup.UserSubmitted)
-							assert.True(t, rollup.Valid)
 						}
 					})
 
@@ -299,7 +298,6 @@ func TestCalcFunctions(t *testing.T) {
 								assert.Nil(t, rollup.Value)
 								assert.Equal(t, test.expectedMetricTypes[i], rollup.MetricType)
 								assert.Equal(t, user, rollup.UserSubmitted)
-								assert.False(t, rollup.Valid)
 							}
 						})
 					}

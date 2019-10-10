@@ -7,7 +7,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -53,7 +52,6 @@ type PerfRollupValue struct {
 	Version       int         `bson:"version"`
 	MetricType    MetricType  `bson:"type"`
 	UserSubmitted bool        `bson:"user"`
-	Valid         bool        `bson:"valid"`
 }
 
 var (
@@ -69,7 +67,6 @@ var (
 type PerfRollups struct {
 	Stats       []PerfRollupValue `bson:"stats"`
 	ProcessedAt time.Time         `bson:"processed_at"`
-	Valid       bool              `bson:"valid"`
 
 	dirty bool // nolint
 	id    string
@@ -79,7 +76,6 @@ type PerfRollups struct {
 var (
 	perfRollupsStatsKey       = bsonutil.MustHaveTag(PerfRollups{}, "Stats")
 	perfRollupsProcessedAtKey = bsonutil.MustHaveTag(PerfRollups{}, "ProcessedAt")
-	perfRollupsValidKey       = bsonutil.MustHaveTag(PerfRollups{}, "Valid")
 )
 
 func (v *PerfRollupValue) getIntLong() (int64, error) {
@@ -116,14 +112,17 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 	}
 
 	collection := r.env.GetDB().Collection(perfResultCollection)
-
-	updated, err := tryUpdate(ctx, collection, r.id, rollup)
+	processedAt := time.Now()
+	updated, err := tryUpdate(ctx, collection, r.id, rollup, processedAt)
 	if !updated {
 		_, err = collection.UpdateOne(ctx,
 			bson.M{perfIDKey: r.id},
 			bson.M{
 				"$push": bson.M{
 					bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey): rollup,
+				},
+				"$set": bson.M{
+					bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsProcessedAtKey): processedAt,
 				},
 			})
 	}
@@ -138,15 +137,15 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 			r.Stats[i].Value = rollup.Value
 			r.Stats[i].UserSubmitted = rollup.UserSubmitted
 			r.Stats[i].MetricType = rollup.MetricType
-			r.Stats[i].Valid = rollup.Valid
 			return nil
 		}
 	}
 	r.Stats = append(r.Stats, rollup)
+	r.ProcessedAt = processedAt
 	return nil
 }
 
-func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r PerfRollupValue) (bool, error) {
+func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r PerfRollupValue, processedAt time.Time) (bool, error) {
 	res, err := collection.UpdateOne(ctx,
 		bson.M{
 			perfIDKey: id,
@@ -156,6 +155,7 @@ func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r P
 		bson.M{
 			"$set": bson.M{
 				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, "$[elem]"): r,
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsProcessedAtKey):      processedAt,
 			},
 		}, options.Update().SetArrayFilters(options.ArrayFilters{
 			Filters: []interface{}{
@@ -250,30 +250,6 @@ func (r *PerformanceResult) MergeRollups(ctx context.Context, rollups []PerfRoll
 
 	for _, rollup := range rollups {
 		catcher.Add(r.Rollups.Add(ctx, rollup))
-	}
-
-	r.Rollups.ProcessedAt = time.Now()
-	r.Rollups.Valid = !catcher.HasErrors()
-
-	updateResult, err := r.env.GetDB().Collection(perfResultCollection).UpdateOne(
-		ctx,
-		bson.M{"_id": r.ID},
-		bson.M{
-			"$set": bson.M{
-				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsProcessedAtKey): r.Rollups.ProcessedAt,
-				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsValidKey):       r.Rollups.Valid,
-			},
-		},
-	)
-	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   perfResultCollection,
-		"id":           r.ID,
-		"updateResult": updateResult,
-		"rollups":      rollups,
-		"op":           "merge rollups",
-	})
-	if err == nil && updateResult.MatchedCount == 0 {
-		catcher.Add(errors.Errorf("could not find perf result record %s in the database", r.ID))
 	}
 
 	return catcher.Resolve()

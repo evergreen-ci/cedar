@@ -41,7 +41,6 @@ func (s *perfRollupSuite) SetupTest() {
 		Version:       1,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "int",
@@ -49,7 +48,6 @@ func (s *perfRollupSuite) SetupTest() {
 		Value:         12,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "int32",
@@ -57,7 +55,6 @@ func (s *perfRollupSuite) SetupTest() {
 		Value:         int32(32),
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "long",
@@ -65,7 +62,6 @@ func (s *perfRollupSuite) SetupTest() {
 		Value:         int64(20216),
 		MetricType:    MetricTypeMax,
 		UserSubmitted: false,
-		Valid:         true,
 	}))
 }
 
@@ -155,6 +151,7 @@ func (s *perfRollupSuite) TestLong() {
 
 func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	s.Len(s.r.Stats, 4)
+	prevProcessedAt := s.r.ProcessedAt
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
 	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
@@ -163,12 +160,28 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 		Value:         12.24,
 		MetricType:    MetricTypeMean,
 		UserSubmitted: false,
-		Valid:         true,
 	}))
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
 	s.Equal(12.24, val)
 	s.Len(s.r.Stats, 5)
+	s.True(s.r.ProcessedAt.After(prevProcessedAt))
+
+	search := bson.M{
+		"_id":                s.r.id,
+		"rollups.stats.name": "mean",
+	}
+
+	out := PerformanceResult{}
+	c := s.r.env.GetDB().Collection(perfResultCollection)
+	err = c.FindOne(s.ctx, search).Decode(&out)
+	s.Require().NoError(err)
+	s.Require().Len(out.Rollups.Stats, 5)
+	s.Equal(out.Rollups.Stats[4].Name, "mean")
+	s.Equal(out.Rollups.Stats[4].Version, 1)
+	s.Equal(out.Rollups.Stats[4].Value, 12.24)
+	s.Equal(out.Rollups.Stats[4].UserSubmitted, false)
+	s.Equal(out.Rollups.ProcessedAt, s.r.ProcessedAt.UTC().Truncate(time.Millisecond))
 }
 
 func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
@@ -182,7 +195,6 @@ func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
 		Value:         nil,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         false,
 	}))
 	search := bson.M{
 		"_id":                s.r.id,
@@ -197,7 +209,6 @@ func (s *perfRollupSuite) TestAddInvalidPerfRollupValue() {
 	s.Equal(out.Rollups.Stats[0].Version, 1)
 	s.Equal(out.Rollups.Stats[0].Value, nil)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
-	s.Equal(out.Rollups.Stats[0].Valid, false)
 }
 
 func (s *perfRollupSuite) TestMaps() {
@@ -207,7 +218,6 @@ func (s *perfRollupSuite) TestMaps() {
 		Value:         12.24,
 		MetricType:    MetricTypeMean,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 
 	allFloats := s.r.MapFloat()
@@ -239,7 +249,6 @@ func (s *perfRollupSuite) TestAddWithNilEnv() {
 		Value:         12.24,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 }
 
@@ -254,7 +263,6 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		Value:         12.24,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 
 	search := bson.M{
@@ -275,7 +283,6 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		Value:         24.12,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: true,
-		Valid:         true,
 	}))
 	s.Require().NoError(c.FindOne(s.ctx, search).Decode(&out))
 	s.Require().Len(out.Rollups.Stats, 1)
@@ -289,7 +296,6 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 		Value:         24.12,
 		MetricType:    MetricTypeMax,
 		UserSubmitted: false,
-		Valid:         true,
 	}))
 	val, err := s.r.GetFloat("mean")
 	s.NoError(err)
@@ -332,7 +338,6 @@ func (s *perfRollupSuite) TestMergeRollups() {
 		}
 		s.Equal(2, count, "iter=%d", i)
 		s.True(time.Since(result.Rollups.ProcessedAt) <= time.Minute)
-		s.True(result.Rollups.Valid)
 	}
 
 	// nil env
