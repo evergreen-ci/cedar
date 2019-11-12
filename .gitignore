@@ -13,3 +13,6 @@ cost-reports
 !.elasticbeanstalk/*.global.yml
 fabfile.py*
 cedar
+
+# IDE
+.idea/

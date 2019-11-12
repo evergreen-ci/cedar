@@ -15,6 +15,8 @@ type Configuration struct {
 	DatabaseName       string
 	QueueName          string
 	MongoDBURI         string
+	SignalProcessingURI string
+	SignalProcessingToken string
 	MongoDBDialTimeout time.Duration
 	SocketTimeout      time.Duration
 	DisableLocalQueue  bool
