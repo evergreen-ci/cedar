@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-type Detector interface {
+type ChangeDetector interface {
 	DetectChanges([]float64) ([]ChangePoint, error)
 }
 
@@ -28,11 +28,11 @@ type signalProcessingClient struct {
 }
 
 
-func NewDefaultDetector() Detector {
+func NewDefaultDetector() ChangeDetector {
 	return NewDetector(http.DefaultClient.Do, http.NewRequest, cedar.GetEnvironment().GetConf().SignalProcessingURI, cedar.GetEnvironment().GetConf().SignalProcessingToken)
 }
 
-func NewDetector(requestExecutor func(req *http.Request) (*http.Response, error), requestMaker func(method, url string, body io.Reader) (*http.Request, error), baseURL string, token string) Detector {
+func NewDetector(requestExecutor func(req *http.Request) (*http.Response, error), requestMaker func(method, url string, body io.Reader) (*http.Request, error), baseURL string, token string) ChangeDetector {
 	executor := func(method, url string, body io.Reader) (*http.Response, error) {
 		req, err := requestMaker("POST", baseURL+"/change_points/detect", body)
 		if err != nil {
@@ -43,7 +43,7 @@ func NewDetector(requestExecutor func(req *http.Request) (*http.Response, error)
 		return requestExecutor(req)
 	}
 
-	return signalProcessingClient{
+	return &signalProcessingClient{
 		execute: executor,
 	}
 }
@@ -52,7 +52,7 @@ type detectChangesResponse struct {
 	ChangePoints []ChangePoint
 }
 
-func (client signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
+func (client *signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
 	body, err := json.Marshal(series)
 	if err != nil {
 		return nil, err
