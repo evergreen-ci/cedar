@@ -3,8 +3,8 @@ package perf
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/evergreen-ci/cedar"
-	"io"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/pkg/errors"
 	"net/http"
 )
 
@@ -20,55 +20,52 @@ type ChangePoint struct {
 type Algorithm struct {
 	Name          string
 	Version       string
-	Configuration map[string]interface{}
+	Configuration map[string]float64
 }
 
 type signalProcessingClient struct {
-	execute    func(method, url string, body io.Reader) (*http.Response, error)
+	token string
+	baseURL string
+	client *http.Client
 }
 
-
-func NewDefaultDetector() ChangeDetector {
-	return NewDetector(http.DefaultClient.Do, http.NewRequest, cedar.GetEnvironment().GetConf().SignalProcessingURI, cedar.GetEnvironment().GetConf().SignalProcessingToken)
+func NewChangeDetector(client *http.Client, baseURL, token string) ChangeDetector {
+	return &signalProcessingClient{client: client, token: token, baseURL: baseURL}
 }
 
-func NewDetector(requestExecutor func(req *http.Request) (*http.Response, error), requestMaker func(method, url string, body io.Reader) (*http.Request, error), baseURL string, token string) ChangeDetector {
-	executor := func(method, url string, body io.Reader) (*http.Response, error) {
-		req, err := requestMaker("POST", baseURL+"/change_points/detect", body)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Add("Authorization", "Bearer "+token)
-		req.Header.Add("Content-Type", "application/json")
-		return requestExecutor(req)
+func (spc *signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
+	changePoints := &struct {
+		ChangePoints []ChangePoint `json:"changePoints"`
+	}{}
+
+	if err := spc.doRequest(http.MethodPost, "change_points/detect", series, changePoints); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	return &signalProcessingClient{
-		execute: executor,
-	}
+	return changePoints.ChangePoints, nil
 }
 
-type detectChangesResponse struct {
-	ChangePoints []ChangePoint
-}
+func (spc *signalProcessingClient) doRequest(method, route string, in, out interface{}) error {
+	body, err := json.Marshal(in)
+	if err != nil {
+		return errors.WithStack(err)
+	}
 
-func (client *signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
-	body, err := json.Marshal(series)
+	req, err := http.NewRequest(method, route, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, err
+		return errors.WithStack(err)
 	}
-	resp, err := client.execute("POST", "/change_points/detect", bytes.NewReader(body))
+	req.Header.Add("Authorization", "Bearer "+spc.token)
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := spc.client.Do(req)
 	if err != nil {
-		return nil, err
+		return errors.WithStack(err)
 	}
-	var decoded detectChangesResponse
-	err = json.NewDecoder(resp.Body).Decode(&decoded)
-	if err != nil {
-		return nil, err
+	defer resp.Body.Close()
+
+	if err = gimlet.GetJSON(resp.Body, out); err != nil {
+		return errors.WithStack(err)
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-	return decoded.ChangePoints, nil
+	return nil
 }
