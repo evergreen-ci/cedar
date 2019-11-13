@@ -4,59 +4,71 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/evergreen-ci/cedar"
+	"io"
 	"net/http"
-	"time"
 )
 
 type Detector interface {
-	DetectChanges([]float64) []ChangePoint
+	DetectChanges([]float64) ([]ChangePoint, error)
 }
 
 type ChangePoint struct {
 	Index     int
 	Algorithm Algorithm
-	CreatedAt time.Time
 }
 
 type Algorithm struct {
 	Name          string
-	Version       int
-	Configuration map[string]string
+	Version       string
+	Configuration map[string]interface{}
 }
 
 type signalProcessingClient struct {
-	endpoint string
-	token    string
+	execute    func(method, url string, body io.Reader) (*http.Response, error)
 }
 
-func NewDetector() Detector {
+
+func NewDefaultDetector() Detector {
+	return NewDetector(http.DefaultClient.Do, http.NewRequest, cedar.GetEnvironment().GetConf().SignalProcessingURI, cedar.GetEnvironment().GetConf().SignalProcessingToken)
+}
+
+func NewDetector(requestExecutor func(req *http.Request) (*http.Response, error), requestMaker func(method, url string, body io.Reader) (*http.Request, error), baseURL string, token string) Detector {
+	executor := func(method, url string, body io.Reader) (*http.Response, error) {
+		req, err := requestMaker("POST", baseURL+"/change_points/detect", body)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("Authorization", "Bearer "+token)
+		req.Header.Add("Content-Type", "application/json")
+		return requestExecutor(req)
+	}
+
 	return signalProcessingClient{
-		endpoint: cedar.GetEnvironment().GetConf().SignalProcessingURI,
-		token:    cedar.GetEnvironment().GetConf().SignalProcessingToken,
+		execute: executor,
 	}
 }
 
 type detectChangesResponse struct {
-	changePoints []ChangePoint
+	ChangePoints []ChangePoint
 }
 
-func (client signalProcessingClient) DetectChanges(series []float64) []ChangePoint {
-	body, _ := json.Marshal(series)
-	req, _ := http.NewRequest("POST", client.endpoint+"/change_points/detect", bytes.NewReader(body))
-	req.Header.Add("Authorization", "Bearer "+client.token)
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+func (client signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
+	body, err := json.Marshal(series)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	var response detectChangesResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	resp, err := client.execute("POST", "/change_points/detect", bytes.NewReader(body))
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+	var decoded detectChangesResponse
+	err = json.NewDecoder(resp.Body).Decode(&decoded)
+	if err != nil {
+		return nil, err
 	}
 	err = resp.Body.Close()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return response.changePoints
+	return decoded.ChangePoints, nil
 }
