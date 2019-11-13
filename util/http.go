@@ -16,8 +16,15 @@ func init() {
 	httpClientPool = &sync.Pool{
 		New: func() interface{} { return newBaseConfiguredHttpClient() },
 	}
-
 }
+
+func newBaseConfiguredHttpClient() *http.Client {
+	return &http.Client{
+		Timeout:   httpClientTimeout,
+		Transport: newConfiguredBaseTransport(),
+	}
+}
+
 func newConfiguredBaseTransport() *http.Transport {
 	return &http.Transport{
 		TLSClientConfig:     &tls.Config{},
