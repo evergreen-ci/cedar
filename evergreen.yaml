@@ -283,7 +283,6 @@ buildvariants:
       curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-macos-latest.tar.gz
     run_on:
       - macos-1014
-      - macos-1014-i7
     tasks:
       - name: ".test"
       - name: "dist"
