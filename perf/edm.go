@@ -31,9 +31,9 @@ type edmDetector struct {
 
 func (d edmDetector) eDivisiveWithMedians(series []float64) []int {
 	n := len(series)
-	prev := make([]int, n+1, n+1)
-	number := make([]int, n+1, n+1)
-	F := make([]float64, n+1, n+1)
+	prev := make([]int, n+1)
+	number := make([]int, n+1)
+	F := make([]float64, n+1)
 	for i := range F {
 		// Jim, why is this -3?
 		F[i] = -3.0

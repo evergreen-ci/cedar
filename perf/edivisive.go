@@ -46,6 +46,10 @@ func NewQHatDetector(pvalue float64, permutations int, seed int64) ChangeDetecto
 					Name:  "permutations",
 					Value: permutations,
 				},
+				{
+					Name:  "seed",
+					Value: seed,
+				},
 			},
 		},
 	}
@@ -53,7 +57,7 @@ func NewQHatDetector(pvalue float64, permutations int, seed int64) ChangeDetecto
 
 func (qhatDetector) calculateDiffs(series []float64) []float64 {
 	length := len(series)
-	diffs := make([]float64, length*length, length*length)
+	diffs := make([]float64, length*length)
 	for row := 0; row < length; row++ {
 		for column := row; column < length; column++ {
 			delta := math.Abs(series[row] - series[column])

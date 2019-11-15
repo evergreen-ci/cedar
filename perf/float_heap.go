@@ -22,7 +22,7 @@ func (s *sortedList) Insert(floats ...float64) {
 			copy((*s)[index+1:], (*s)[index:])
 			(*s)[index] = f
 		}
-		length += 1
+		length++
 	}
 	// note: the lines above are about 3 times faster than inserting and then sorting
 	//*s = append(*s, floats...)
@@ -48,7 +48,7 @@ func (s *sortedList) Remove(f float64) {
 // Calculate the median, assuming the list is sorted.
 func (s *sortedList) Median() float64 {
 	length := len(*s)
-	center := int(length / 2)
+	center := length / 2
 	if length%2 != 0 {
 		return (*s)[center]
 	}
