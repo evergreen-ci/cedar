@@ -99,7 +99,7 @@ functions:
       params:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
-        remote_file: build/curator/curator-dist-ubuntu1604-${curator_release|latest}.tar.gz
+        remote_file: build/curator/curator-dist-${curator_build}-${curator_release|latest}.tar.gz
         extract_to: gopath/src/github.com/evergreen-ci/cedar/rpc/internal/
         bucket: boxes.10gen.com
 
@@ -130,7 +130,7 @@ tasks:
     tags: ["test"]
     name: test-rpc-internal
   - <<: *run-build
-    tags: ["test"]
+    tags: ["test]"ever
     name: test-operations
   - <<: *run-build
     tags: ["test"]
@@ -247,6 +247,7 @@ buildvariants:
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.0.13.tgz
       GO_BIN_PATH: /opt/golang/go1.12/bin/go
       GOROOT: /opt/golang/go1.12
+      curator_build: ubuntu1604
     run_on:
       - archlinux-test
     tasks: [ "testGroup" ]
@@ -264,6 +265,7 @@ buildvariants:
       GO_BIN_PATH: /opt/golang/go1.9/bin/go
       GOROOT: /opt/golang/go1.9
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-4.0.13.tgz
+      curator_build: ubuntu1604
     run_on:
       - ubuntu1604-test
     tasks: [ "dist", "testGroup" ]
@@ -275,6 +277,7 @@ buildvariants:
       GO_BIN_PATH: /opt/golang/go1.12/bin/go
       GOROOT: /opt/golang/go1.12
       MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.13.tgz
+      curator_build: macos
     run_on:
       - macos-1014
     tasks: [ "testGroup" ]
@@ -293,4 +296,5 @@ buildvariants:
       DISABLE_COVERAGE: true
       GO_BIN_PATH: "C:\\golang\\go1.9\\bin\\go"
       GOROOT: "C:\\golang\\go1.9"
+      curator_build: windows-64
     tasks: [ "testGroup" ]
