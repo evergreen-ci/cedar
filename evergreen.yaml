@@ -147,6 +147,9 @@ tasks:
     name: lint-rpc-internal
   - <<: *run-build
     tags: ["lint"]
+    name: lint-rpc
+  - <<: *run-build
+    tags: ["lint"]
     name: lint-operations
   - <<: *run-build
     tags: ["lint"]
@@ -262,11 +265,10 @@ buildvariants:
       - windows-64-vs2015-compile
       - windows-64-vs2015-large
     expansions:
-      mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
-      build_env: "GOROOT=c:/golang/go1.11 PATH=/cygdrive/c/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
-      extension: ".exe"
-      archiveExt: ".zip"
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-windows-64-latest.tar.gz
+      MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
+      DISABLE_COVERAGE: true
+      GOBIN: "C:\\golang\\go1.9\\bin\\go"
+      GOROOT: "C:\\golang\\go1.9"
     tasks:
       - name: ".test"
       - name: "dist"
