@@ -29,7 +29,7 @@ functions:
     params:
       files:
         - "gopath/src/github.com/evergreen-ci/cedar/build/output.*"
-  setup-credentials:
+  set-up-credentials:
     command: shell.exec
     type: setup
     params:
@@ -221,11 +221,17 @@ task_groups:
       - func: get-project
       - func: set-up-mongodb
       - func: set-up-curator
+      - func: set-up-credentials
     setup_task:
       - func: run-make
         vars: { target: "clean-results" }
     teardown_task:
       - func: parse-results
+    teardown_group:
+      - command: shell.exec
+        type: setup
+        params:
+          script: "rm -rf ~/.aws"
 
 #######################################
 #           Buildvariants             #
