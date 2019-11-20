@@ -80,18 +80,24 @@ functions:
         background: true
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
+        env:
+          DECOMPRESS: ${decompress}
         command: make start-mongod
     - command: subprocess.exec
       type: setup
       params:
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
+        env:
+          DECOMPRESS: ${decompress}
         command: make check-mongod
     - command: subprocess.exec
       type: setup
       params:
         add_expansions_to_env: true
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        env:
+          DECOMPRESS: ${decompress}
         command: make init-rs
   set-up-curator:
     - command: s3.get
