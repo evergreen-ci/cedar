@@ -20,10 +20,6 @@ endif
 goos := $(shell $(gobin) env GOOS)
 goarch := $(shell $(gobin) env GOARCH)
 gopath := $(GOPATH)
-ifeq (,$(gopath))
-  gopath := $(shell $(gobin) env GOPATH)
-endif
-
 ifeq ($(OS),Windows_NT)
   gopath := $(shell cygpath -m $(gopath))
   gobin := $(shell cygpath -m $(gobin))
