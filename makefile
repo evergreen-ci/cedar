@@ -267,6 +267,8 @@ endif
 ifneq (,$(RACE_DETECTOR))
 testArgs += -race
 endif
+# extra dependencies
+test-rpc-internal:cedar
 # test execution and output handlers
 $(buildDir)/:
 	mkdir -p $@
