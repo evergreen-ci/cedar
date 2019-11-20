@@ -95,8 +95,8 @@ functions:
     - command: s3.get
       type: setup
       params:
-        aws_key: ${curator_aws_key}
-        aws_secret: ${curator_aws_secret}
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
         remote_file: build/curator/curator-dist-ubuntu1604-${curator_release|latest}.tar.gz
         extract_to: gopath/src/github.com/evergreen-ci/cedar/rpc/internal/
         bucket: boxes.10gen.com
