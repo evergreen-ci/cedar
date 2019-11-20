@@ -134,9 +134,6 @@ tasks:
     name: test-model
   - <<: *run-build
     tags: ["test"]
-    name: test-model
-  - <<: *run-build
-    tags: ["test"]
     name: test-cost
   - <<: *run-build
     tags: ["test"]
@@ -172,9 +169,6 @@ tasks:
   - <<: *run-build
     tags: ["lint"]
     name: lint-operations
-  - <<: *run-build
-    tags: ["lint"]
-    name: lint-model
   - <<: *run-build
     tags: ["lint"]
     name: lint-model
