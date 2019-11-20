@@ -295,6 +295,8 @@ check-mongod:mongodb/.get-mongodb
 clean:
 	rm *.pb.go
 	rm -rf $(lintDeps) $(buildDir)/coverage.* $(name) $(buildDir)/$(name)
+clean-results:
+	rm -rf $(buildDir)/output.*
 phony += clean
 # end dependency targets
 
