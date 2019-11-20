@@ -225,6 +225,8 @@ task_groups:
       - func: set-up-mongodb
       - func: set-up-curator
       - func: set-up-credentials
+      - func: run-make
+        vars: { target: "cedar" }
     setup_task:
       - func: run-make
         vars: { target: "clean-results" }
