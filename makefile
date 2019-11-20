@@ -292,10 +292,10 @@ $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 
 
 # mongodb utility targets
-ifneq (,$(DECOMPRESS))
-decompress := $(DECOMPRESS)
-else
-decompress := tar -zxvf
+ifeq ($(OS),Windows_NT)
+  decompress := 7z.exe x
+else 
+  decompress := tar -zxvf
 endif
 mongodb/.get-mongodb:
 	rm -rf mongodb
