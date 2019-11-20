@@ -235,7 +235,7 @@ buildvariants:
     display_name: Race Detector (Arch Linux)
     expansions:
       RACE_DETECTOR: true
-      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.0.13.tgz
       GO_BIN_PATH: /opt/golang/go1.12/bin/go
       GOROOT: /opt/golang/go1.12
     run_on:
@@ -254,7 +254,7 @@ buildvariants:
       DISABLE_COVERAGE: true
       GO_BIN_PATH: /opt/golang/go1.9/bin/go
       GOROOT: /opt/golang/go1.9
-      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-4.0.13.tgz
     run_on:
       - ubuntu1604-test
     tasks: [ "dist", "testGroup" ]
@@ -265,7 +265,7 @@ buildvariants:
       DISABLE_COVERAGE: true
       GO_BIN_PATH: /opt/golang/go1.9/bin/go
       GOROOT: /opt/golang/go1.9
-      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-osx-x86_64-4.0.1.tgz
+      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.13.tgz
     run_on:
       - macos-1014
     tasks: [ "testGroup" ]
@@ -280,7 +280,7 @@ buildvariants:
       - windows-64-vs2015-compile
       - windows-64-vs2015-large
     expansions:
-      MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
+      MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.13.zip
       DISABLE_COVERAGE: true
       GOBIN: "C:\\golang\\go1.9\\bin\\go"
       GOROOT: "C:\\golang\\go1.9"
