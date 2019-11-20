@@ -130,7 +130,7 @@ tasks:
     tags: ["test"]
     name: test-rpc-internal
   - <<: *run-build
-    tags: ["test]"ever
+    tags: ["test"]
     name: test-operations
   - <<: *run-build
     tags: ["test"]
