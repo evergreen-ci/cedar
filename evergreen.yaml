@@ -109,6 +109,7 @@ tasks:
   - name: dist
     tags: ["dist"]
     commands: 
+      - func: get-project
       - func: run-make
         vars: { target: "${task_name}" }
       - command: s3.put
