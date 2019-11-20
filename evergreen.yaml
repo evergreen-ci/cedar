@@ -71,6 +71,8 @@ functions:
       params:
         add_expansions_to_env: true
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        env:
+          DECOMPRESS: ${decompress}
         command: make get-mongodb
     - command: subprocess.exec
       type: setup

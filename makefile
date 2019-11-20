@@ -292,10 +292,15 @@ $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 
 
 # mongodb utility targets
+ifneq (,$(DECOMPRESS))
+decompress := $(DECOMPRESS)
+else
+decompress := tar -zxvf
+endif
 mongodb/.get-mongodb:
 	rm -rf mongodb
 	mkdir -p mongodb
-	cd mongodb && curl "$(MONGODB_URL)" -o mongodb.tgz && $(DECOMPRESS) mongodb.tgz && chmod +x ./mongodb-*/bin/*
+	cd mongodb && curl "$(MONGODB_URL)" -o mongodb.tgz && $(decompress) mongodb.tgz && chmod +x ./mongodb-*/bin/*
 	cd mongodb && mv ./mongodb-*/bin/* . && rm -rf db_files && rm -rf db_logs && mkdir -p db_files && mkdir -p db_logs
 get-mongodb:mongodb/.get-mongodb
 	@touch $<
