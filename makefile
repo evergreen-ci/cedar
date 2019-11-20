@@ -7,6 +7,25 @@ projectPath := $(orgPath)/$(name)
 # end project configuration
 
 
+# start environment setup
+ifneq (,$(GO_BIN_PATH))
+ gobin := $(GO_BIN_PATH)
+else
+ gobin := $(shell if [ -x /opt/golang/go1.9/bin/go ]; then echo /opt/golang/go1.9/bin/go; fi)
+ ifeq (,$(gobin))
+   gobin := go
+ endif
+endif
+
+goos := $(shell $(gobin) env GOOS)
+goarch := $(shell $(gobin) env GOARCH)
+gopath := $(GOPATH)
+ifeq ($(OS),Windows_NT)
+  gopath := $(shell cygpath -m $(gopath))
+  gobin := $(shell cygpath -m $(gobin))
+endif
+# end environment setup
+
 # start linting configuration
 #   package, testing, and linter dependencies specified
 #   separately. This is a temporary solution: eventually we should
@@ -44,14 +63,12 @@ lintArgs += --exclude=".*composite literal uses unkeyed fields"
 # benchmark setup targets
 $(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
 	@mkdir -p $(buildDir)
-	go build -o $@ $<
+	$(gobin) build -o $@ $<
 # end benchmark setup targets
-
 
 
 # start dependency installation tools
 #   implementation details for being able to lazily install dependencies
-gopath := $(shell go env GOPATH)
 lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "*\#*")
 distContents := $(buildDir)/$(name)
@@ -59,9 +76,9 @@ coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).cove
 coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
-	go get $(subst $(gopath)/src/,,$@)
+	$(gobin) get $(subst $(gopath)/src/,,$@)
 $(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup
-	 go build -o $@ $<
+	 $(gobin) build -o $@ $<
 $(buildDir)/.lintSetup:$(lintDeps)
 	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
@@ -72,15 +89,15 @@ $(buildDir)/.lintSetup:$(lintDeps)
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	go build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+	GOPATH=$(gopath) $(gobin) build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
-	go build -o $@ $<
+	GOPATH=$(gopath) $(gobin) build -o $@ $<
 generate-points:$(buildDir)/generate-points
 	./$<
 $(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
 	@mkdir -p $(buildDir)
-	@GOOS="" GOARCH="" go build -o $@ $<
-	@echo go build -o $@ $<
+	@GOOS="" GOARCH="" GOPATH=$(gopath) $(gobin) build -o $@ $<
+	@echo $(gobin) build -o $@ $<
 # end dependency installation tools
 
 
@@ -234,6 +251,7 @@ lint-%:$(buildDir)/output.%.lint
 #    rerun as expected.)
 testTimeout := -timeout=20m
 testArgs := -v $(testTimeout)
+testRunEnv := GOPATH=$(gopath)
 ifneq (,$(RUN_TEST))
 testArgs += -run='$(RUN_TEST)'
 endif
@@ -249,20 +267,21 @@ endif
 ifneq (,$(RACE_DETECTOR))
 testArgs += -race
 endif
+# extra dependencies
 # test execution and output handlers
 $(buildDir)/:
 	mkdir -p $@
 $(buildDir)/output.%.test:$(buildDir)/ .FORCE
-	go test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
+	$(testRunEnv) $(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
 	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.test:$(buildDir)/ .FORCE
-	go test $(testArgs) ./... | tee $@
+	$(testRunEnv) $(gobin) test $(testArgs) ./... | tee $@
 	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.%.coverage:$(buildDir)/ .FORCE
-	go test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
-	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
+	$(testRunEnv) $(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
+	@-[ -f $@ ] && $(testRunEnv) $(gobin) tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
-	go tool cover -html=$< -o $@
+	$(gobin) tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
@@ -272,12 +291,36 @@ $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 # end test and coverage artifacts
 
 
+# mongodb utility targets
+ifeq ($(OS),Windows_NT)
+  decompress := 7z.exe x
+else 
+  decompress := tar -zxvf
+endif
+mongodb/.get-mongodb:
+	rm -rf mongodb
+	mkdir -p mongodb
+	cd mongodb && curl "$(MONGODB_URL)" -o mongodb.tgz && $(decompress) mongodb.tgz && chmod +x ./mongodb-*/bin/*
+	cd mongodb && mv ./mongodb-*/bin/* . && rm -rf db_files && rm -rf db_logs && mkdir -p db_files && mkdir -p db_logs
+get-mongodb:mongodb/.get-mongodb
+	@touch $<
+start-mongod:mongodb/.get-mongodb
+	./mongodb/mongod --dbpath ./mongodb/db_files --port 27017 --replSet evg --smallfiles --oplogSize 10
+	@echo "waiting for mongod to start up"
+init-rs:mongodb/.get-mongodb
+	./mongodb/mongo --eval 'rs.initiate()'
+check-mongod:mongodb/.get-mongodb
+	./mongodb/mongo --nodb --eval "assert.soon(function(x){try{var d = new Mongo(\"localhost:27017\"); return true}catch(e){return false}}, \"timed out connecting\")"
+	@echo "mongod is up"
+# end mongodb targets
 
 
 # clean and other utility targets
 clean:
 	rm *.pb.go
 	rm -rf $(lintDeps) $(buildDir)/coverage.* $(name) $(buildDir)/$(name)
+clean-results:
+	rm -rf $(buildDir)/output.*
 phony += clean
 # end dependency targets
 

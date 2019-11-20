@@ -451,6 +451,7 @@ func TestCuratorSend(t *testing.T) {
 		[]model.ArtifactInfo{},
 		[]model.PerfRollupValue{},
 	)
+
 	curatorPath, err := filepath.Abs("curator")
 	require.NoError(t, err)
 	restClient, err := setupAuthRestClient(ctx, "https://cedar.mongodb.com", 443)

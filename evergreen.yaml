@@ -1,16 +1,6 @@
 stepback: false
-loggers:
-  task:
-    - type: splunk
-      splunk_server: https://http-inputs-mongodb.splunkcloud.com
-      splunk_token: ${splunk_token}
-    - type: evergreen
-  agent:
-    - type: evergreen
-  system:
-    - type: evergreen
-ignore:
-    - "*.rst"
+ignore: 
+  - "*.rst"
 
 #######################################
 #         YAML Templates              #
@@ -21,46 +11,25 @@ variables:
     # correspond to a make target for the build operation.
     name: test
     commands:
-      - command: git.get_project
-        type: system
-        params:
-          directory: gopath/src/github.com/evergreen-ci/cedar
       - func: run-make
         vars: { target: "${task_name}" }
-      - command: s3.put
-        type: system
-        params:
-          optional: true
-          aws_key: ${aws_key}
-          aws_secret: ${aws_secret}
-          local_file: gopath/src/github.com/evergreen-ci/cedar/build/${task_name}.tar.gz
-          remote_file: sink/${build_id}/cedar-${task_name}-${revision}.tar.gz
-          bucket: mciuploads
-          content_type: application/x-gzip
-          permissions: public-read
-          display_name: dist.tar.gz (standard)
-
-  - &run-build-with-mongodb
-    # runs a make target above, but only on systems that have a
-    # running mongod started for testing.
-    name: test
-    commands:
-      - command: git.get_project
-        type: system
-        params:
-          directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: setup-mongodb
-      - func: setup-credentials
-      - func: setup-curator
-      - func: run-make
-        vars: { target: "${task_name}" }
-
 
 #######################################
 #              Functions              #
 #######################################
 functions:
-  setup-credentials:
+  get-project:
+    command: git.get_project
+    type: setup
+    params:
+      directory: gopath/src/github.com/evergreen-ci/cedar
+  parse-results:
+    command: gotest.parse_files
+    type: setup
+    params:
+      files:
+        - "gopath/src/github.com/evergreen-ci/cedar/build/output.*"
+  set-up-credentials:
     command: shell.exec
     type: setup
     params:
@@ -82,159 +51,190 @@ functions:
         aws_access_key_id = ${aws_key}
         aws_secret_access_key = ${aws_secret}
         EOF
-
   run-make:
-    command: shell.exec
+    command: subprocess.exec
     type: test
     params:
-       silent: true
-       script: |
-         set -o errexit
-
-         # Configure a local go path for this build.
-         export GOPATH=`pwd`/gopath
-
-         # Export ldap user and password for testing.
-         export LDAP_USER=${ldap_user}
-         export LDAP_PASSWORD=${ldap_password}
-
-         # on windows we need to turn the slashes the other way
-         if [ "Windows_NT" == "$OS" ]; then
-           export USERPROFILE=C:\\Users\\$USER
-           export GOPATH=$(cygpath -m $GOPATH)
-         fi
-
-         cd gopath/src/github.com/evergreen-ci/cedar
-
-         # Run make, called with proper environment variables set,
-         # running the target.
-         ${build_env|} make -k ${target}
-  setup-mongodb:
-    - command: shell.exec
+      working_dir: gopath/src/github.com/evergreen-ci/cedar/
+      binary: make
+      args: ["${make_args|}", "${target}"]
+      add_expansions_to_env: true
+      env:
+        LDAP_USER: ${ldap_user}
+        LDAP_PASSWORD: ${ldap_password}
+        GOPATH: ${workdir}/gopath
+        VENDOR_PKG: "github.com/${trigger_repo_owner}/${trigger_repo_name}"
+        VENDOR_REVISION: ${trigger_revision}
+  set-up-mongodb:
+    - command: subprocess.exec
       type: setup
       params:
-        script: |
-          set -o errexit
-          set -o verbose
-
-          rm -rf mongodb
-          mkdir mongodb
-          cd mongodb
-          curl ${mongodb_url} -o mongodb${archiveExt|.tgz}
-
-          ${decompress} mongodb${archiveExt|.tgz}
-          chmod +x ./mongodb-*/bin/*
-          mv ./mongodb-*/bin/* .
-          rm -rf db_files
-          rm -rf db_logs
-          mkdir db_files
-          mkdir db_logs
-    - command: shell.exec
+        add_expansions_to_env: true
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        command: make get-mongodb
+    - command: subprocess.exec
       type: setup
       params:
         background: true
-        script: |
-          set -o errexit
-          set -o verbose
-
-          cd mongodb
-          echo "starting mongod..."
-          ./mongod${extension|} --dbpath ./db_files &
-          echo "waiting for mongod to start up"
-    - command: shell.exec
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
+        command: make start-mongod
+    - command: subprocess.exec
       type: setup
       params:
-        script: |
-          set -o errexit
-          set -o verbose
-
-          cd mongodb
-          ./mongo${extension|} --nodb --eval 'assert.soon(function(x){try{var d = new Mongo("localhost:27017"); return true}catch(e){return false}}, "timed out connecting")'
-          echo "mongod is up."
-  setup-curator:
-    - command: shell.exec
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
+        command: make check-mongod
+    - command: subprocess.exec
       type: setup
       params:
-        script: |
-          set -o errexit
-          set -o verbose
-
-          curl ${curator_url} -o curator.tgz
-          tar zxvf curator.tgz
-          mv curator gopath/src/github.com/evergreen-ci/cedar/rpc/internal
+        add_expansions_to_env: true
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        command: make init-rs
+  set-up-curator:
+    - command: s3.get
+      type: setup
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        remote_file: build/curator/curator-dist-${curator_build}-${curator_release|latest}.tar.gz
+        extract_to: gopath/src/github.com/evergreen-ci/cedar/rpc/internal/
+        bucket: boxes.10gen.com
 
 #######################################
 #                Tasks                #
 #######################################
-post:
-  - command: gotest.parse_files
-    type: setup
-    params:
-      files:
-        - "gopath/src/github.com/evergreen-ci/cedar/build/output.*"
-        - "gopath/src/github.com/evergreen-ci/cedar/build/test.*.out"
-  - command: shell.exec
-    type: setup
-    params:
-      script:
-        rm -rf ~/.aws
-  - command: s3.put
-    type: system
-    params:
-      aws_key: ${aws_key}
-      aws_secret: ${aws_secret}
-      local_files_include_filter: ["gopath/src/github.com/evergreen-ci/cedar/build/output.*.coverage.html"]
-      remote_file: sink/${task_id}/
-      bucket: mciuploads
-      content_type: text/html
-      permissions: public-read
-      display_name: "(html) coverage:"
-  - command: s3.put
-    type: system
-    params:
-      aws_key: ${aws_key}
-      aws_secret: ${aws_secret}
-      local_files_include_filter: ["gopath/src/github.com/evergreen-ci/cedar/build/output.*.coverage"]
-      remote_file: sink/${task_id}/
-      bucket: mciuploads
-      content_type: text/plain
-      permissions: public-read
-      display_name: "(txt) coverage:"
 
 tasks:
-  # the build (with and without the race detector) and lint tasks use
-  # a template that does not include test result parsing.
-  - name: lint
-    tags: ["report"]
-    commands:
-      - command: git.get_project
+  - name: dist
+    tags: ["dist"]
+    commands: 
+      - func: get-project
+      - func: run-make
+        vars: { target: "${task_name}" }
+      - command: s3.put
         type: system
         params:
-          directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: run-make
-        vars: { target: "lint" }
-
-  - name: coverage
-    tags: ["report"]
-    commands:
-      - command: git.get_project
-        type: system
-        params:
-          directory: gopath/src/github.com/evergreen-ci/cedar
-      - func: setup-mongodb
-      - func: setup-credentials
-      - func: setup-curator
-      - func: run-make
-        vars:
-          target: "coverage-html"
+          aws_key: ${aws_key}
+          aws_secret: ${aws_secret}
+          local_file: gopath/src/github.com/evergreen-ci/cedar/build/${task_name}.tar.gz
+          remote_file: sink/${build_id}/cedar-${task_name}-${revision}.tar.gz
+          bucket: mciuploads
+          content_type: application/x-gzip
+          permissions: public-read
+          display_name: dist.tar.gz (standard)
 
   - <<: *run-build
-    tags: ["dist"]
-    name: dist
-
-  - <<: *run-build-with-mongodb
     tags: ["test"]
-    name: test
+    name: test-rpc-internal
+  - <<: *run-build
+    tags: ["test"]
+    name: test-operations
+  - <<: *run-build
+    tags: ["test"]
+    name: test-model
+  - <<: *run-build
+    tags: ["test"]
+    name: test-cost
+  - <<: *run-build
+    tags: ["test"]
+    name: test-rest-model
+  - <<: *run-build
+    tags: ["test"]
+    name: test-rest-data
+  - <<: *run-build
+    tags: ["test"]
+    name: test-rest
+  - <<: *run-build
+    tags: ["test"]
+    name: test-util
+  - <<: *run-build
+    tags: ["test"]
+    name: test-units
+  - <<: *run-build
+    tags: ["test"]
+    name: test-cedar
+  - <<: *run-build
+    tags: ["test"]
+    name: test-perf
+  - <<: *run-build
+    tags: ["test"]
+    name: test-depgraph
+
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-rpc-internal
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-rpc
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-operations
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-model
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-cost
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-rest-model
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-rest-data
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-rest
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-util
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-units
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-cedar
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-perf
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-depgraph
+
+
+task_groups:
+  - name: lintGroup
+    tasks: [ ".lint"]
+    max_hosts: 2
+    setup_group:
+      - func: get-project
+    setup_task:
+      - func: run-make
+        vars: { target: "clean-results" }
+    teardown_task:
+      - func: parse-results
+  - name: testGroup
+    tasks: [ ".test"]
+    max_hosts: 2
+    setup_group_can_fail_task: true
+    share_processes: true
+    setup_group:
+      - func: get-project
+      - func: set-up-mongodb
+      - func: set-up-curator
+      - func: set-up-credentials
+      - func: run-make
+        vars: { target: "cedar" }
+    setup_task:
+      - func: run-make
+        vars: { target: "clean-results" }
+    teardown_task:
+      - func: parse-results
+    teardown_group:
+      - command: shell.exec
+        type: setup
+        params:
+          script: "rm -rf ~/.aws"
 
 #######################################
 #           Buildvariants             #
@@ -243,65 +243,58 @@ buildvariants:
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     expansions:
-      build_env: "RACE_DETECTOR=true"
-      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
+      RACE_DETECTOR: true
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.0.13.tgz
+      GO_BIN_PATH: /opt/golang/go1.12/bin/go
+      GOROOT: /opt/golang/go1.12
+      curator_build: ubuntu1604
     run_on:
       - archlinux-test
-    tasks:
-      - name: ".test"
+    tasks: [ "testGroup" ]
 
-  - name: coverage
-    display_name: Coverage (Arch Linux)
-    expansions:
-      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
+  - name: lint
+    display_name: Lint (Arch Linux)
     run_on:
       - archlinux-test
-      - archlinux-build
-    tasks:
-      - name: ".report"
+    tasks: [ "lintGroup" ]
 
   - name: ubuntu1604
     display_name: Ubuntu 16.04
     expansions:
-      mongodb_url: http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-4.0.1.tgz
-      build_env: "GOROOT=/opt/golang/go1.11 PATH=/opt/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-ubuntu1604-latest.tar.gz
+      DISABLE_COVERAGE: true
+      GO_BIN_PATH: /opt/golang/go1.9/bin/go
+      GOROOT: /opt/golang/go1.9
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-4.0.13.tgz
+      curator_build: ubuntu1604
     run_on:
       - ubuntu1604-test
-      - ubuntu1604-build
-    tasks:
-      - name: ".test"
-      - name: "dist"
+    tasks: [ "dist", "testGroup" ]
 
   - name: macos
-    display_name: macOS 10.14
+    display_name: macOS
     expansions:
-      mongodb_url: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.1.tgz
-      build_env: "GOROOT=/opt/golang/go1.13 PATH=/opt/golang/go1.13/bin:$PATH DISABLE_COVERAGE=true"
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-macos-latest.tar.gz
+      DISABLE_COVERAGE: true
+      GO_BIN_PATH: /opt/golang/go1.12/bin/go
+      GOROOT: /opt/golang/go1.12
+      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.13.tgz
+      curator_build: macos
     run_on:
       - macos-1014
-    tasks:
-      - name: ".test"
-      - name: "dist"
+    tasks: [ "testGroup" ]
 
   - name: windows
     display_name: Windows
     run_on:
       - windows-64-vs2017-test
-      - windows-64-vs2017-compile
       - windows-64-vs2015-test
-      - windows-64-vs2015-compile
       - windows-64-vs2015-small
+      - windows-64-vs2017-compile
+      - windows-64-vs2015-compile
       - windows-64-vs2015-large
     expansions:
-      mongodb_url: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.1.zip
-      build_env: "GOROOT=c:/golang/go1.11 PATH=/cygdrive/c/golang/go1.11/bin:$PATH DISABLE_COVERAGE=true"
-      extension: ".exe"
-      archiveExt: ".zip"
-      curator_url: https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-windows-64-latest.tar.gz
-    tasks:
-      - name: ".test"
-      - name: "dist"
+      MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.13.zip
+      DISABLE_COVERAGE: true
+      GO_BIN_PATH: "C:\\golang\\go1.9\\bin\\go"
+      GOROOT: "C:\\golang\\go1.9"
+      curator_build: windows-64
+    tasks: [ "testGroup" ]
