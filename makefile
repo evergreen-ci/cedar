@@ -7,6 +7,27 @@ projectPath := $(orgPath)/$(name)
 # end project configuration
 
 
+# start environment setup
+ifneq (,$(GO_BIN_PATH))
+ gobin := $(GO_BIN_PATH)
+else
+ gobin := $(shell if [ -x /opt/golang/go1.9/bin/go ]; then echo /opt/golang/go1.9/bin/go; fi)
+ ifeq (,$(gobin))
+   gobin := go
+ endif
+endif
+
+goos := $(shell $(gobin) env GOOS)
+goarch := $(shell $(gobin) env GOARCH)
+gopath := $(GOPATH)
+ifeq (,$(gopath))
+  gopath := $(shell $(gobin) env GOPATH)
+endif
+ifeq ($(OS),Windows_NT)
+  gopath := $(shell cygpath -m $(gopath))
+endif
+# end environment setup
+
 # start linting configuration
 #   package, testing, and linter dependencies specified
 #   separately. This is a temporary solution: eventually we should
@@ -44,14 +65,12 @@ lintArgs += --exclude=".*composite literal uses unkeyed fields"
 # benchmark setup targets
 $(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
 	@mkdir -p $(buildDir)
-	go build -o $@ $<
+	$(gobin) build -o $@ $<
 # end benchmark setup targets
-
 
 
 # start dependency installation tools
 #   implementation details for being able to lazily install dependencies
-gopath := $(shell go env GOPATH)
 lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
 srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "*\#*")
 distContents := $(buildDir)/$(name)
@@ -59,9 +78,9 @@ coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).cove
 coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
 $(gopath)/src/%:
 	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
-	go get $(subst $(gopath)/src/,,$@)
+	$(gobin) get $(subst $(gopath)/src/,,$@)
 $(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup
-	 go build -o $@ $<
+	 $(gobin) build -o $@ $<
 $(buildDir)/.lintSetup:$(lintDeps)
 	@-$(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
@@ -72,15 +91,15 @@ $(buildDir)/.lintSetup:$(lintDeps)
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	go build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+	$(gobin) build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
-	go build -o $@ $<
+	$(gobin) build -o $@ $<
 generate-points:$(buildDir)/generate-points
 	./$<
 $(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
 	@mkdir -p $(buildDir)
-	@GOOS="" GOARCH="" go build -o $@ $<
-	@echo go build -o $@ $<
+	@GOOS="" GOARCH="" $(gobin) build -o $@ $<
+	@echo $(gobin) build -o $@ $<
 # end dependency installation tools
 
 
@@ -253,16 +272,16 @@ endif
 $(buildDir)/:
 	mkdir -p $@
 $(buildDir)/output.%.test:$(buildDir)/ .FORCE
-	go test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
+	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
 	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.test:$(buildDir)/ .FORCE
-	go test $(testArgs) ./... | tee $@
+	$(gobin) test $(testArgs) ./... | tee $@
 	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.%.coverage:$(buildDir)/ .FORCE
-	go test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
-	@-[ -f $@ ] && go tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
+	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
+	@-[ -f $@ ] && $(gobin) tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
-	go tool cover -html=$< -o $@
+	$(gobin) tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 	@./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
