@@ -89,14 +89,14 @@ $(buildDir)/.lintSetup:$(lintDeps)
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):$(srcFiles)
-	$(gobin) build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+	GOPATH=$(gopath) $(gobin) build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
-	$(gobin) build -o $@ $<
+	GOPATH=$(gopath) $(gobin) build -o $@ $<
 generate-points:$(buildDir)/generate-points
 	./$<
 $(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
 	@mkdir -p $(buildDir)
-	@GOOS="" GOARCH="" $(gobin) build -o $@ $<
+	@GOOS="" GOARCH="" GOPATH=$(gopath) $(gobin) build -o $@ $<
 	@echo $(gobin) build -o $@ $<
 # end dependency installation tools
 
