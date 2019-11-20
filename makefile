@@ -251,6 +251,7 @@ lint-%:$(buildDir)/output.%.lint
 #    rerun as expected.)
 testTimeout := -timeout=20m
 testArgs := -v $(testTimeout)
+testRunEnv := GOPATH=$(gopath)
 ifneq (,$(RUN_TEST))
 testArgs += -run='$(RUN_TEST)'
 endif
@@ -270,14 +271,14 @@ endif
 $(buildDir)/:
 	mkdir -p $@
 $(buildDir)/output.%.test:$(buildDir)/ .FORCE
-	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
+	$(testRunEnv) $(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
 	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.test:$(buildDir)/ .FORCE
-	$(gobin) test $(testArgs) ./... | tee $@
+	$(testRunEnv) $(gobin) test $(testArgs) ./... | tee $@
 	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
 $(buildDir)/output.%.coverage:$(buildDir)/ .FORCE
-	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
-	@-[ -f $@ ] && $(gobin) tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
+	$(testRunEnv) $(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
+	@-[ -f $@ ] && $(testRunEnv) $(gobin) tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
 $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
 	$(gobin) tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
