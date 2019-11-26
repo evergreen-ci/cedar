@@ -65,9 +65,15 @@ func (spc *signalProcessingClient) doRequest(method, route string, in, out inter
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return errors.New("Failed to detect changes in metric data, status: "+string(resp.StatusCode))
+	}
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return errors.WithStack(err)
 	}
+
 	return nil
 }
