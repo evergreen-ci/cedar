@@ -3,6 +3,7 @@ package perf
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/pkg/errors"
 	"net/http"
@@ -26,11 +27,10 @@ type Algorithm struct {
 type signalProcessingClient struct {
 	token   string
 	baseURL string
-	client  *http.Client
 }
 
-func NewChangeDetector(client *http.Client, baseURL, token string) ChangeDetector {
-	return &signalProcessingClient{client: client, token: token, baseURL: baseURL}
+func NewChangeDetector(baseURL, token string) ChangeDetector {
+	return &signalProcessingClient{token: token, baseURL: baseURL}
 }
 
 func (spc *signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
@@ -51,6 +51,9 @@ func (spc *signalProcessingClient) doRequest(method, route string, in, out inter
 		return errors.WithStack(err)
 	}
 
+	client := util.GetHTTPClient()
+	defer util.PutHTTPClient(client)
+
 	req, err := http.NewRequest(method, route, bytes.NewBuffer(body))
 	if err != nil {
 		return errors.WithStack(err)
@@ -58,11 +61,10 @@ func (spc *signalProcessingClient) doRequest(method, route string, in, out inter
 	req.Header.Add("Authorization", "Bearer "+spc.token)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := spc.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	defer resp.Body.Close()
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return errors.WithStack(err)
