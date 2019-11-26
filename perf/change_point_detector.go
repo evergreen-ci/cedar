@@ -24,9 +24,9 @@ type Algorithm struct {
 }
 
 type signalProcessingClient struct {
-	token string
+	token   string
 	baseURL string
-	client *http.Client
+	client  *http.Client
 }
 
 func NewChangeDetector(client *http.Client, baseURL, token string) ChangeDetector {
