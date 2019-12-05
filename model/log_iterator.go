@@ -630,8 +630,8 @@ func (r *logIteratorReader) Read(p []byte) (int, error) {
 	for r.it.Next(r.ctx) {
 		data := r.it.Item().Data
 		if r.printTime {
-			formattedTime := r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000")
-			data = fmt.Sprintf("[%s] %s", formattedTime, data)
+			data = fmt.Sprintf("[%s] %s",
+				r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000"), data)
 		}
 		n = r.writeToBuffer([]byte(data), p, n)
 		if n == len(p) {
@@ -691,8 +691,8 @@ func (r *logIteratorTailReader) getReader() error {
 	for i := 0; i < r.n && r.it.Next(r.ctx); i++ {
 		data := r.it.Item().Data
 		if r.printTime {
-			formattedTime := r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000")
-			data = fmt.Sprintf("[%s] %s", formattedTime, data)
+			data = fmt.Sprintf("[%s] %s",
+				r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000"), data)
 		}
 		lines = data + lines
 	}
