@@ -2,15 +2,17 @@ package perf
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/pkg/errors"
-	"net/http"
 )
 
 type ChangeDetector interface {
-	DetectChanges([]float64) ([]ChangePoint, error)
+	DetectChanges([]float64, context.Context) ([]ChangePoint, error)
 }
 
 type ChangePoint struct {
@@ -20,8 +22,8 @@ type ChangePoint struct {
 
 type Algorithm struct {
 	Name          string
-	Version       string
-	Configuration map[string]float64
+	Version       int
+	Configuration map[string]interface{}
 }
 
 type signalProcessingClient struct {
@@ -29,23 +31,23 @@ type signalProcessingClient struct {
 	baseURL string
 }
 
-func NewChangeDetector(baseURL, token string) ChangeDetector {
+func NewMicroServiceChangeDetector(baseURL, token string) ChangeDetector {
 	return &signalProcessingClient{token: token, baseURL: baseURL}
 }
 
-func (spc *signalProcessingClient) DetectChanges(series []float64) ([]ChangePoint, error) {
+func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
 	changePoints := &struct {
 		ChangePoints []ChangePoint `json:"changePoints"`
 	}{}
 
-	if err := spc.doRequest(http.MethodPost, "change_points/detect", series, changePoints); err != nil {
+	if err := spc.doRequest(http.MethodPost, "change_points/detect", ctx, series, changePoints); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	return changePoints.ChangePoints, nil
 }
 
-func (spc *signalProcessingClient) doRequest(method, route string, in, out interface{}) error {
+func (spc *signalProcessingClient) doRequest(method, route string, ctx context.Context, in, out interface{}) error {
 	body, err := json.Marshal(in)
 	if err != nil {
 		return errors.WithStack(err)
@@ -58,6 +60,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, in, out inter
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	req.WithContext(ctx)
 	req.Header.Add("Authorization", "Bearer "+spc.token)
 	req.Header.Add("Content-Type", "application/json")
 
@@ -68,7 +71,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, in, out inter
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return errors.New("Failed to detect changes in metric data, status: "+string(resp.StatusCode))
+		return errors.Errorf("Failed to detect changes in metric data, status: %q", http.StatusText(resp.StatusCode))
 	}
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
