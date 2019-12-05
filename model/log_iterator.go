@@ -573,21 +573,46 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 // Reader Implementations
 /////////////////////////
 
+// LogIteratorReaderOptions describes the options for creating a
+// LogIteratorReader.
+type LogIteratorReaderOptions struct {
+	// TailN is the number of lines to read from the tail of the log. If
+	// equal to 0, the reader returned will read log lines in normal order.
+	TailN int
+	// PrintTime, when true, prints the timestamp of each log line along
+	// with the line in the following format:
+	// 		[2006/01/02 15:04:05.000] This is a long line.
+	PrintTime bool
+}
+
+// NewLogIteratorReader returns an io.Reader that reads the log lines from the
+// log iterator.
+func NewLogIteratorReader(ctx context.Context, it LogIterator, opts LogIteratorReaderOptions) io.Reader {
+	if opts.TailN > 0 {
+		if !it.IsReversed() {
+			it = it.Reverse()
+		}
+
+		return &logIteratorTailReader{
+			ctx:       ctx,
+			it:        it,
+			n:         opts.TailN,
+			printTime: opts.PrintTime,
+		}
+	}
+
+	return &logIteratorReader{
+		ctx:       ctx,
+		it:        it,
+		printTime: opts.PrintTime,
+	}
+}
+
 type logIteratorReader struct {
 	ctx       context.Context
 	it        LogIterator
 	leftOver  []byte
 	printTime bool
-}
-
-// NewLogIteratorReader returns an io.Reader that reads the log lines from the
-// log iterator.
-func NewLogIteratorReader(ctx context.Context, it LogIterator, printTime bool) io.Reader {
-	return &logIteratorReader{
-		ctx:       ctx,
-		it:        it,
-		printTime: printTime,
-	}
 }
 
 func (r *logIteratorReader) Read(p []byte) (int, error) {
@@ -645,21 +670,6 @@ type logIteratorTailReader struct {
 	n         int
 	printTime bool
 	r         io.Reader
-}
-
-// NewLogIteratorTailReader returns an io.Reader that reads up to n log lines
-// from the *reversed* log iterator.
-func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int, printTime bool) io.Reader {
-	if !it.IsReversed() {
-		it = it.Reverse()
-	}
-
-	return &logIteratorTailReader{
-		ctx:       ctx,
-		it:        it,
-		n:         n,
-		printTime: printTime,
-	}
 }
 
 func (r *logIteratorTailReader) Read(p []byte) (int, error) {

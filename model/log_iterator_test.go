@@ -321,7 +321,8 @@ func TestLogIteratorReader(t *testing.T) {
 	}
 
 	t.Run("LeftOver", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), false)
+		opts := LogIteratorReaderOptions{}
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 22)
@@ -353,7 +354,8 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("WithTime", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), true)
+		opts := LogIteratorReaderOptions{PrintTime: true}
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 22)
@@ -388,7 +390,8 @@ func TestLogIteratorReader(t *testing.T) {
 	})
 
 	t.Run("EmptyBuffer", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), false)
+		opts := LogIteratorReaderOptions{}
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -407,7 +410,8 @@ func TestLogIteratorReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), false)
+		opts := LogIteratorReaderOptions{}
+		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
@@ -435,7 +439,8 @@ func TestLogIteratorTailReader(t *testing.T) {
 
 	t.Run("NLines", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(ctx, it, 42, false)
+		opts := LogIteratorReaderOptions{TailN: 42}
+		r := NewLogIteratorReader(ctx, it, opts)
 		readData := []byte{}
 		p := make([]byte, 4096)
 		for {
@@ -465,7 +470,8 @@ func TestLogIteratorTailReader(t *testing.T) {
 	})
 	t.Run("WithTime", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(ctx, it, 42, true)
+		opts := LogIteratorReaderOptions{TailN: 42, PrintTime: true}
+		r := NewLogIteratorReader(ctx, it, opts)
 		readData := []byte{}
 		p := make([]byte, 4096)
 		for {
@@ -497,8 +503,9 @@ func TestLogIteratorTailReader(t *testing.T) {
 	})
 
 	t.Run("EmptyBuffer", func(t *testing.T) {
+		opts := LogIteratorReaderOptions{TailN: 42}
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(ctx, it, 42, false)
+		r := NewLogIteratorReader(ctx, it, opts)
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -517,8 +524,9 @@ func TestLogIteratorTailReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
+		opts := LogIteratorReaderOptions{TailN: 10}
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(errCtx, it, 10, false)
+		r := NewLogIteratorReader(errCtx, it, opts)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
