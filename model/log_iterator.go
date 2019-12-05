@@ -574,17 +574,19 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 /////////////////////////
 
 type logIteratorReader struct {
-	ctx      context.Context
-	it       LogIterator
-	leftOver []byte
+	ctx       context.Context
+	it        LogIterator
+	leftOver  []byte
+	printTime bool
 }
 
 // NewLogIteratorReader returns an io.Reader that reads the log lines from the
 // log iterator.
-func NewLogIteratorReader(ctx context.Context, it LogIterator) io.Reader {
+func NewLogIteratorReader(ctx context.Context, it LogIterator, printTime bool) io.Reader {
 	return &logIteratorReader{
-		ctx: ctx,
-		it:  it,
+		ctx:       ctx,
+		it:        it,
+		printTime: printTime,
 	}
 }
 
@@ -601,7 +603,12 @@ func (r *logIteratorReader) Read(p []byte) (int, error) {
 	}
 
 	for r.it.Next(r.ctx) {
-		n = r.writeToBuffer([]byte(r.it.Item().Data), p, n)
+		data := r.it.Item().Data
+		if r.printTime {
+			formattedTime := r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000")
+			data = fmt.Sprintf("[%s] %s", formattedTime, data)
+		}
+		n = r.writeToBuffer([]byte(data), p, n)
 		if n == len(p) {
 			return n, nil
 		}
@@ -633,23 +640,25 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 }
 
 type logIteratorTailReader struct {
-	ctx context.Context
-	it  LogIterator
-	n   int
-	r   io.Reader
+	ctx       context.Context
+	it        LogIterator
+	n         int
+	printTime bool
+	r         io.Reader
 }
 
 // NewLogIteratorTailReader returns an io.Reader that reads up to n log lines
 // from the *reversed* log iterator.
-func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int) io.Reader {
+func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int, printTime bool) io.Reader {
 	if !it.IsReversed() {
 		it = it.Reverse()
 	}
 
 	return &logIteratorTailReader{
-		ctx: ctx,
-		it:  it,
-		n:   n,
+		ctx:       ctx,
+		it:        it,
+		n:         n,
+		printTime: printTime,
 	}
 }
 
@@ -670,7 +679,12 @@ func (r *logIteratorTailReader) Read(p []byte) (int, error) {
 func (r *logIteratorTailReader) getReader() error {
 	var lines string
 	for i := 0; i < r.n && r.it.Next(r.ctx); i++ {
-		lines = r.it.Item().Data + lines
+		data := r.it.Item().Data
+		if r.printTime {
+			formattedTime := r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000")
+			data = fmt.Sprintf("[%s] %s", formattedTime, data)
+		}
+		lines = data + lines
 	}
 
 	catcher := grip.NewBasicCatcher()

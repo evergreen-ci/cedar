@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -307,8 +308,12 @@ func TestLogIteratorReader(t *testing.T) {
 	chunks, lines, err := createLog(ctx, bucket, 100, 10)
 	require.NoError(t, err)
 	expectedSize := 0
+	expectedSizeWithTime := 0
 	for _, line := range lines {
 		expectedSize += len(line.Data)
+		formattedTime := line.Timestamp.Format("2006/01/02 15:04:05.000")
+		expectedLine := fmt.Sprintf("[%s] %s", formattedTime, line.Data)
+		expectedSizeWithTime += len(expectedLine)
 	}
 	timeRange := util.TimeRange{
 		StartAt: chunks[0].Start,
@@ -316,7 +321,7 @@ func TestLogIteratorReader(t *testing.T) {
 	}
 
 	t.Run("LeftOver", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), false)
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 22)
@@ -347,8 +352,43 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Zero(t, n)
 		assert.Error(t, err)
 	})
+	t.Run("WithTime", func(t *testing.T) {
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), true)
+		nTotal := 0
+		readData := []byte{}
+		p := make([]byte, 22)
+		for {
+			n, err := r.Read(p)
+			nTotal += n
+			readData = append(readData, p[:n]...)
+			assert.True(t, n >= 0)
+			assert.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		assert.Equal(t, expectedSizeWithTime, nTotal)
+
+		current := 0
+		readLines := strings.Split(string(readData), "\n")
+		assert.Equal(t, "", readLines[len(readLines)-1])
+		for _, line := range readLines[:len(readLines)-1] {
+			require.True(t, current < len(lines))
+			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
+			expectedLine := fmt.Sprintf("[%s] %s", formattedTime, lines[current].Data)
+			assert.Equal(t, expectedLine, line+"\n")
+			current++
+		}
+		assert.Equal(t, len(lines), current)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+
 	t.Run("EmptyBuffer", func(t *testing.T) {
-		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), false)
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -367,7 +407,7 @@ func TestLogIteratorReader(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange))
+		r := NewLogIteratorReader(errCtx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), false)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
@@ -395,7 +435,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 
 	t.Run("NLines", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(ctx, it, 42)
+		r := NewLogIteratorTailReader(ctx, it, 42, false)
 		readData := []byte{}
 		p := make([]byte, 4096)
 		for {
@@ -423,9 +463,42 @@ func TestLogIteratorTailReader(t *testing.T) {
 		assert.Zero(t, n)
 		assert.Error(t, err)
 	})
+	t.Run("WithTime", func(t *testing.T) {
+		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
+		r := NewLogIteratorTailReader(ctx, it, 42, true)
+		readData := []byte{}
+		p := make([]byte, 4096)
+		for {
+			n, err := r.Read(p)
+			readData = append(readData, p[:n]...)
+			assert.True(t, n >= 0)
+			assert.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+
+		current := 58
+		readLines := strings.Split(string(readData), "\n")
+		assert.Equal(t, "", readLines[len(readLines)-1])
+		for _, line := range readLines[:len(readLines)-1] {
+			require.True(t, current < len(lines))
+			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
+			expectedLine := fmt.Sprintf("[%s] %s", formattedTime, lines[current].Data)
+			assert.Equal(t, expectedLine, line+"\n")
+			current++
+		}
+		assert.Equal(t, len(lines), current)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+
 	t.Run("EmptyBuffer", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(ctx, it, 42)
+		r := NewLogIteratorTailReader(ctx, it, 42, false)
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
@@ -445,7 +518,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 		errCancel()
 
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		r := NewLogIteratorTailReader(errCtx, it, 10)
+		r := NewLogIteratorTailReader(errCtx, it, 10, false)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
