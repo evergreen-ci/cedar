@@ -42,20 +42,23 @@ type Connector interface {
 	// Buildlogger Log
 	//////////////////
 	// FindLogByID returns the buildlogger log with the given id as a
-	// LogIterator with the corresponding time range.
+	// LogIterator with the corresponding time range. If the bool is set to
+	// true, the log lines should be concatenated with their timestamps.
 	FindLogByID(context.Context, string, util.TimeRange, bool) (io.Reader, error)
 	// FindLogMetadataByID returns the metadata for the buildlogger log
 	// with the given id.
 	FindLogMetadataByID(context.Context, string) (*model.APILog, error)
 	// FindLogsByTaskID returns the buildlogger logs with the given task id
 	// and optional tags merged via a LogIterator with the corresponding
-	// time range.
+	// time range. If the bool is set to true, the log lines should be
+	// concatenated with their timestamps.
 	FindLogsByTaskID(context.Context, string, util.TimeRange, int, bool, ...string) (io.Reader, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
 	// the given task id and optional tags.
 	FindLogMetadataByTaskID(context.Context, string, ...string) ([]model.APILog, error)
 	// FindLogsByTestName returns the buildlogger logs with the given task
-	// id, test name, and optional tags.
+	// id, test name, and optional tags. If the bool is set to true, the
+	// log lines should be concatenated with their timestamps.
 	FindLogsByTestName(context.Context, string, string, util.TimeRange, bool, ...string) (io.Reader, error)
 	// FindLogsByTestName returns the metadata for the buildlogger logs
 	// with the given task id, test name, and optional tags.
@@ -63,6 +66,8 @@ type Connector interface {
 	// FindGroupedLogs finds logs that are grouped via a "group id" held in
 	// the tags field. These groups have a hierarchy of test level and task
 	// level. This function returns logs with the given task id, test name
-	// (or empty test name), group id, time range, and optional tags.
+	// (or empty test name), group id, time range, and optional tags. If
+	// the bool is set to true, the log lines should be concatenated with
+	// their timestamps.
 	FindGroupedLogs(context.Context, string, string, string, util.TimeRange, bool, ...string) (io.Reader, error)
 }
