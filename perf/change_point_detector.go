@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/mongodb/grip"
 	"net/http"
 
 	"github.com/evergreen-ci/cedar/util"
@@ -52,11 +53,13 @@ func NewMicroServiceChangeDetector(baseURL, token string) ChangeDetector {
 }
 
 func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
+	grip.Debug(`Detecting change points.`)
+
 	jsonChangePoints := &struct {
 		ChangePoints []jsonChangePoint `json:"changePoints"`
 	}{}
 
-	if err := spc.doRequest(http.MethodPost, "change_points/detect", ctx, series, jsonChangePoints); err != nil {
+	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/change_points/detect", ctx, series, jsonChangePoints); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -67,7 +70,6 @@ func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.C
 			Info: AlgorithmInfo{
 				Name:    point.Algorithm.Name,
 				Version: point.Algorithm.Version,
-				Options: nil,
 			},
 		}
 
@@ -81,6 +83,8 @@ func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.C
 
 		result = append(result, mapped)
 	}
+
+	grip.Debug(`Change point detection completed.`)
 
 	return result, nil
 }
@@ -102,6 +106,8 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	req.Header.Add("Authorization", "Bearer "+spc.token)
 	req.Header.Add("Content-Type", "application/json")
 
+	grip.Debugf(`Requesting change points from %q.`, route)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return errors.WithStack(err)
@@ -115,6 +121,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return errors.WithStack(err)
 	}
+	grip.Debugf(`Received change points from %q.`, route)
 
 	return nil
 }

@@ -20,7 +20,6 @@ type Configuration struct {
 	DisableLocalQueue         bool
 	DisableRemoteQueue        bool
 	NumWorkers                int
-	SignalProcessingIsEnabled bool
 }
 
 func (c *Configuration) Validate() error {
