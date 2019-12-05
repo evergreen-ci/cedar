@@ -56,10 +56,9 @@ var (
 )
 
 type ChangeDetectorConfig struct {
-	ImplementationName string `bson:"implementation_name" json:"implementation_name" yaml:"implementation_name"`
+	Implementation string `bson:"implementation" json:"implementation" yaml:"implementation"`
 	URI                string `bson:"uri" json:"uri" yaml:"uri"`
 	Token              string `bson:"token" json:"token" yaml:"token"`
-	IsEnabled          bool   `bson:"is_enabled" json:"is_enabled" yaml:"is_enabled"`
 }
 
 var (

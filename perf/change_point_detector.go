@@ -15,15 +15,31 @@ type ChangeDetector interface {
 	DetectChanges([]float64, context.Context) ([]ChangePoint, error)
 }
 
-type ChangePoint struct {
+type jsonChangePoint struct {
 	Index     int
-	Algorithm Algorithm
+	Algorithm jsonAlgorithm
 }
 
-type Algorithm struct {
+type jsonAlgorithm struct {
 	Name          string
 	Version       int
 	Configuration map[string]interface{}
+}
+
+type ChangePoint struct {
+	Index int           `bson:"index" json:"index" yaml:"index"`
+	Info  AlgorithmInfo `bson:"info" json:"info" yaml:"info"`
+}
+
+type AlgorithmInfo struct {
+	Name    string            `bson:"name" json:"name" yaml:"name"`
+	Version int               `bson:"version" json:"version" yaml:"version"`
+	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
+}
+
+type AlgorithmOption struct {
+	Name  string      `bson:"name" json:"name" yaml:"name"`
+	Value interface{} `bson:"value" json:"value" yaml:"value"`
 }
 
 type signalProcessingClient struct {
@@ -36,15 +52,37 @@ func NewMicroServiceChangeDetector(baseURL, token string) ChangeDetector {
 }
 
 func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
-	changePoints := &struct {
-		ChangePoints []ChangePoint `json:"changePoints"`
+	jsonChangePoints := &struct {
+		ChangePoints []jsonChangePoint `json:"changePoints"`
 	}{}
 
-	if err := spc.doRequest(http.MethodPost, "change_points/detect", ctx, series, changePoints); err != nil {
+	if err := spc.doRequest(http.MethodPost, "change_points/detect", ctx, series, jsonChangePoints); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	return changePoints.ChangePoints, nil
+	var result []ChangePoint
+	for _, point := range jsonChangePoints.ChangePoints {
+		mapped := ChangePoint{
+			Index: point.Index,
+			Info: AlgorithmInfo{
+				Name:    point.Algorithm.Name,
+				Version: point.Algorithm.Version,
+				Options: nil,
+			},
+		}
+
+		for k, v := range point.Algorithm.Configuration {
+			additionalOption := AlgorithmOption{
+				Name:  k,
+				Value: v,
+			}
+			mapped.Info.Options = append(mapped.Info.Options, additionalOption)
+		}
+
+		result = append(result, mapped)
+	}
+
+	return result, nil
 }
 
 func (spc *signalProcessingClient) doRequest(method, route string, ctx context.Context, in, out interface{}) error {
