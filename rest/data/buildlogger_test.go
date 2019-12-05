@@ -145,8 +145,7 @@ func (s *buildloggerConnectorSuite) setup() {
 	for _, logInfo := range logs {
 		log := model.CreateLog(logInfo, model.PailLocal)
 		log.Setup(s.env)
-		err := log.SaveNew(s.ctx)
-		s.Require().NoError(err)
+		s.Require().NoError(log.SaveNew(s.ctx))
 		s.logs[log.ID] = *log
 		time.Sleep(time.Second)
 	}
