@@ -16,3 +16,5 @@ cedar
 
 # IDE
 .idea/
+
+change_point_detector_test.go

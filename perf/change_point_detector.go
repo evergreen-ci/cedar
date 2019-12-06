@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/mongodb/grip"
+	"fmt"
 	"net/http"
+
+	"github.com/mongodb/grip"
 
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
@@ -44,12 +46,13 @@ type AlgorithmOption struct {
 }
 
 type signalProcessingClient struct {
+	user    string
 	token   string
 	baseURL string
 }
 
-func NewMicroServiceChangeDetector(baseURL, token string) ChangeDetector {
-	return &signalProcessingClient{token: token, baseURL: baseURL}
+func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDetector {
+	return &signalProcessingClient{user: user, token: token, baseURL: baseURL}
 }
 
 func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
@@ -59,7 +62,13 @@ func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.C
 		ChangePoints []jsonChangePoint `json:"changePoints"`
 	}{}
 
-	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/change_points/detect", ctx, series, jsonChangePoints); err != nil {
+	request := &struct {
+		Series []float64 `json:"series"`
+	}{
+		Series: series,
+	}
+
+	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/change_points/detect", ctx, request, jsonChangePoints); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -103,7 +112,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 		return errors.WithStack(err)
 	}
 	req.WithContext(ctx)
-	req.Header.Add("Authorization", "Bearer "+spc.token)
+	req.Header.Add("Cookie", fmt.Sprintf("auth_user=%v;auth_token=%v", spc.user, spc.token))
 	req.Header.Add("Content-Type", "application/json")
 
 	grip.Debugf(`Requesting change points from %q.`, route)
