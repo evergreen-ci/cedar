@@ -573,19 +573,46 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 // Reader Implementations
 /////////////////////////
 
-type logIteratorReader struct {
-	ctx      context.Context
-	it       LogIterator
-	leftOver []byte
+// LogIteratorReaderOptions describes the options for creating a
+// LogIteratorReader.
+type LogIteratorReaderOptions struct {
+	// TailN is the number of lines to read from the tail of the log. If
+	// equal to 0, the reader returned will read log lines in normal order.
+	TailN int
+	// PrintTime, when true, prints the timestamp of each log line along
+	// with the line in the following format:
+	// 		[2006/01/02 15:04:05.000] This is a long line.
+	PrintTime bool
 }
 
 // NewLogIteratorReader returns an io.Reader that reads the log lines from the
 // log iterator.
-func NewLogIteratorReader(ctx context.Context, it LogIterator) io.Reader {
-	return &logIteratorReader{
-		ctx: ctx,
-		it:  it,
+func NewLogIteratorReader(ctx context.Context, it LogIterator, opts LogIteratorReaderOptions) io.Reader {
+	if opts.TailN > 0 {
+		if !it.IsReversed() {
+			it = it.Reverse()
+		}
+
+		return &logIteratorTailReader{
+			ctx:       ctx,
+			it:        it,
+			n:         opts.TailN,
+			printTime: opts.PrintTime,
+		}
 	}
+
+	return &logIteratorReader{
+		ctx:       ctx,
+		it:        it,
+		printTime: opts.PrintTime,
+	}
+}
+
+type logIteratorReader struct {
+	ctx       context.Context
+	it        LogIterator
+	leftOver  []byte
+	printTime bool
 }
 
 func (r *logIteratorReader) Read(p []byte) (int, error) {
@@ -601,7 +628,12 @@ func (r *logIteratorReader) Read(p []byte) (int, error) {
 	}
 
 	for r.it.Next(r.ctx) {
-		n = r.writeToBuffer([]byte(r.it.Item().Data), p, n)
+		data := r.it.Item().Data
+		if r.printTime {
+			data = fmt.Sprintf("[%s] %s",
+				r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000"), data)
+		}
+		n = r.writeToBuffer([]byte(data), p, n)
 		if n == len(p) {
 			return n, nil
 		}
@@ -633,24 +665,11 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 }
 
 type logIteratorTailReader struct {
-	ctx context.Context
-	it  LogIterator
-	n   int
-	r   io.Reader
-}
-
-// NewLogIteratorTailReader returns an io.Reader that reads up to n log lines
-// from the *reversed* log iterator.
-func NewLogIteratorTailReader(ctx context.Context, it LogIterator, n int) io.Reader {
-	if !it.IsReversed() {
-		it = it.Reverse()
-	}
-
-	return &logIteratorTailReader{
-		ctx: ctx,
-		it:  it,
-		n:   n,
-	}
+	ctx       context.Context
+	it        LogIterator
+	n         int
+	printTime bool
+	r         io.Reader
 }
 
 func (r *logIteratorTailReader) Read(p []byte) (int, error) {
@@ -670,7 +689,12 @@ func (r *logIteratorTailReader) Read(p []byte) (int, error) {
 func (r *logIteratorTailReader) getReader() error {
 	var lines string
 	for i := 0; i < r.n && r.it.Next(r.ctx); i++ {
-		lines = r.it.Item().Data + lines
+		data := r.it.Item().Data
+		if r.printTime {
+			data = fmt.Sprintf("[%s] %s",
+				r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000"), data)
+		}
+		lines = data + lines
 	}
 
 	catcher := grip.NewBasicCatcher()

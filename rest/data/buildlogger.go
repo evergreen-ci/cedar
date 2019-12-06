@@ -23,7 +23,7 @@ import (
 
 // FindLogByID queries the database to find the buildlogger log with the given
 // id returning a LogIterator reader with the corresponding time range.
-func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (io.Reader, error) {
+func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange, printTime bool) (io.Reader, error) {
 	log := dbModel.Log{ID: id}
 	log.Setup(dbc.env)
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
@@ -47,7 +47,8 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, id string, tr util.Time
 		}
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, it), nil
+	opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, it, opts), nil
 }
 
 // FindLogMetadataByID queries the database to find the buildlogger log with
@@ -82,7 +83,7 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 // given task id and optional tags, returning the merged logs via a LogIterator
 // reader with the corresponding time range. If n is greater than 0, the reader
 // will contain the last n lines within the given time range.
-func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, tags ...string) (io.Reader, error) {
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, printTime bool, tags ...string) (io.Reader, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
 		Info: dbModel.LogInfo{
@@ -113,11 +114,8 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr 
 		}
 	}
 
-	if n > 0 {
-		return dbModel.NewLogIteratorTailReader(ctx, it, n), nil
-	} else {
-		return dbModel.NewLogIteratorReader(ctx, it), nil
-	}
+	readerOpts := dbModel.LogIteratorReaderOptions{TailN: n, PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
 }
 
 // FindLogMetadataByTaskID queries the database to find the buildlogger logs
@@ -161,12 +159,13 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, taskID stri
 // FindLogsByTestName queries the database to find the buildlogger logs with
 // the given task id, test name, and optional tags, returning the merged logs
 // via a LogIterator reader with the corresponding time range.
-func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, printTime bool, tags ...string) (io.Reader, error) {
 	it, err := dbc.findLogsByTestName(ctx, taskID, testName, tr, tags...)
 	if err != nil {
 		return nil, err
 	}
-	return dbModel.NewLogIteratorReader(ctx, it), nil
+	opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, it, opts), nil
 }
 
 // FindLogMetadataByTestName queries the database to find the buildlogger logs
@@ -214,7 +213,7 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, taskID, t
 
 // FindGroupedLogs queries the database to find logs based on the given task
 // id, test name (or empty test name), time range, group id, and optional tags.
-func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, printTime bool, tags ...string) (io.Reader, error) {
 	its := []dbModel.LogIterator{}
 	it, err := dbc.findLogsByTestName(ctx, taskID, testName, tr, append(tags, groupID)...)
 	if err != nil {
@@ -229,7 +228,8 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, taskID, testName, g
 		return nil, err
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...)), nil
+	opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...), opts), nil
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
@@ -277,7 +277,7 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, taskID, testName
 
 // FindLogByID queries the mock cache to find the buildlogger log with the
 // given id returning a LogIterator reader with the corresponding time range.
-func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange) (io.Reader, error) {
+func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.TimeRange, printTime bool) (io.Reader, error) {
 	log, ok := mc.CachedLogs[id]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
@@ -298,7 +298,8 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, id string, tr util.Tim
 		}
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr)), ctx.Err()
+	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, tr), readerOpts), ctx.Err()
 }
 
 // FindLogMetadataByID queries the mock cache to find the buildlogger log with
@@ -327,7 +328,7 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 // the given task id and optional tags, returning the merged logs via a
 // LogIterator redaer with the corresponding time range. If n is greater than
 // 0, the reader will contain the last n lines within the given time range.
-func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, tags ...string) (io.Reader, error) {
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, printTime bool, tags ...string) (io.Reader, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskID {
@@ -365,11 +366,8 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 	}
 
 	it := dbModel.NewMergingIterator(its...)
-	if n > 0 {
-		return dbModel.NewLogIteratorTailReader(ctx, it, n), ctx.Err()
-	} else {
-		return dbModel.NewLogIteratorReader(ctx, it), ctx.Err()
-	}
+	readerOpts := dbModel.LogIteratorReaderOptions{TailN: n, PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), ctx.Err()
 }
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs that
@@ -412,12 +410,13 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, taskID str
 // FindLogsByTestName queries the mock cache to find the buildlogger logs with
 // the given task id, test name, and optional tags, returning the merged logs
 // via a LogIterator reader with the corresponding time range.
-func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+func (mc *MockConnector) FindLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, printTime bool, tags ...string) (io.Reader, error) {
 	it, err := mc.findLogsByTestName(ctx, taskID, testName, tr, tags...)
 	if err != nil {
 		return nil, err
 	}
-	return dbModel.NewLogIteratorReader(ctx, it), nil
+	opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, it, opts), nil
 }
 
 // FindLogMetadataByTestName queries the mock cache to find the buildlogger
@@ -460,7 +459,7 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, taskID, 
 
 // FindGroupedLogs queries the mock cache to find logs based on the given task
 // id, test name (or empty test name), time range, group id, and optional tags.
-func (mc *MockConnector) FindGroupedLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, tags ...string) (io.Reader, error) {
+func (mc *MockConnector) FindGroupedLogs(ctx context.Context, taskID, testName, groupID string, tr util.TimeRange, printTime bool, tags ...string) (io.Reader, error) {
 	its := []dbModel.LogIterator{}
 	it, err := mc.findLogsByTestName(ctx, taskID, testName, tr, append(tags, groupID)...)
 	if err != nil {
@@ -475,7 +474,8 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, taskID, testName, 
 		return nil, err
 	}
 
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...)), ctx.Err()
+	opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...), opts), ctx.Err()
 }
 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, taskID, testName string, tr util.TimeRange, tags ...string) (dbModel.LogIterator, error) {
