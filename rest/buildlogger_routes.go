@@ -16,6 +16,8 @@ import (
 const (
 	logStartAt = "start"
 	logEndAt   = "end"
+	tags       = "tags"
+	printTime  = "printTime"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,7 +50,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 	vals := r.URL.Query()
 	var err error
-	h.printTime = vals.Get("printTime") == "true"
+	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
@@ -135,8 +137,8 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
-	h.printTime = vals.Get("printTime") == "true"
+	h.tags = vals[tags]
+	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals["n"]) > 0 {
@@ -184,7 +186,7 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
 
 	return nil
 }
@@ -232,8 +234,8 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
-	h.printTime = vals.Get("printTime") == "true"
+	h.tags = vals[tags]
+	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
@@ -278,7 +280,7 @@ func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) 
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
 
 	return nil
 }
@@ -333,8 +335,8 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.name = gimlet.GetVars(r)["test_name"]
 	h.groupID = gimlet.GetVars(r)["group_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
-	h.printTime = vals.Get("printTime") == "true"
+	h.tags = vals[tags]
+	h.printTime = vals.Get(printTime) == "true"
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	}
