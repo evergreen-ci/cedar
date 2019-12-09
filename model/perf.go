@@ -89,7 +89,7 @@ func (result *PerformanceResult) Setup(e cedar.Environment) { result.env = e }
 // IsNil returns if the performance result is populated or not.
 func (result *PerformanceResult) IsNil() bool { return !result.populated }
 
-// Find searches the database for the performance result. The enviromemt should
+// Find searches the database for the performance result. The environment should
 // not be nil.
 func (result *PerformanceResult) Find(ctx context.Context) error {
 	if result.env == nil {

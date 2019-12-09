@@ -298,21 +298,17 @@ func makePerfSignalProcessingRecalculate(sc data.Connector) gimlet.RouteHandler 
 	}
 }
 
-// Factory returns a pointer to a new perfGetChildrenHandler.
 func (h *perfSignalProcessingRecalculateHandler) Factory() gimlet.RouteHandler {
 	return &perfSignalProcessingRecalculateHandler{
 		sc: h.sc,
 	}
 }
 
-// Parse fetches the id from the http request.
 func (h *perfSignalProcessingRecalculateHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	return errors.Wrap(err, "failed to parse request")
 }
 
-// Run calls the data FindPerformanceResultWithChildren function and returns
-// the PerformanceResults from the provider.
 func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet.Responder {
 	err := h.sc.ScheduleSignalProcessingRecalculateJobs(ctx)
 	if err != nil {
@@ -321,7 +317,7 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 	response := &struct {
 		message string
 	}{
-		message: "Recalculation job scheduled",
+		message: "Recalculation jobs scheduled",
 	}
 	return gimlet.NewJSONResponse(response)
 }

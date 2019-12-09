@@ -521,3 +521,8 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 		delete(expectedIds, *result.Name)
 	}
 }
+
+func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
+	err := s.sc.ScheduleSignalProcessingRecalculateJobs(s.ctx)
+	s.NoError(err)
+}

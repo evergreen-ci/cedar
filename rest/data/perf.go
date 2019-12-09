@@ -3,6 +3,8 @@ package data
 import (
 	"context"
 	"fmt"
+	"github.com/mongodb/grip"
+	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
 	"sort"
 
@@ -233,6 +235,54 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 	return apiResults, nil
 }
 
+// ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
+// each project/version/task/test combination
+func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
+	db := dbc.env.GetDB()
+	pipeline := bson.A{
+		bson.M{
+			"$match": bson.M{
+				"info.order": bson.M{
+					"$exists": true,
+				},
+				"info.mainline":  true,
+				"info.project":   bson.M{"$exists": true},
+				"info.variant":   bson.M{"$exists": true},
+				"info.task_name": bson.M{"$exists": true},
+				"info.test_name": bson.M{"$exists": true},
+			},
+		},
+		bson.M{
+			"$group": bson.M{
+				"_id": bson.M{
+					"task":    "$info.task_name",
+					"variant": "$info.variant",
+					"project": "$info.project",
+					"test":    "$info.test_name",
+				},
+			},
+		},
+	}
+	cur, err := db.Collection("perf_results").Aggregate(ctx, pipeline)
+	defer cur.Close(ctx)
+	if err != nil {
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}
+	}
+	err = db.Collection("recalculation_queue").Drop(ctx)
+	if err != nil {
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Unable to reset recalculation queue")}
+	}
+	for cur.Next(ctx) {
+		var result interface{}
+		err := cur.Decode(result)
+		_, err = db.Collection("recalculation_queue").InsertOne(ctx, result)
+		if err != nil {
+			grip.Errorf("Unable to schedule recalculation for %q/%q/%q/%q", result)
+		}
+	}
+	return nil
+}
+
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
@@ -432,4 +482,52 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 		}
 	}
 	return results, nil
+}
+
+// ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
+// each project/version/task/test combination
+func (mc *MockConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
+	db := mc.env.GetDB()
+	pipeline := bson.A{
+		bson.M{
+			"$match": bson.M{
+				"info.order": bson.M{
+					"$exists": true,
+				},
+				"info.mainline":  true,
+				"info.project":   bson.M{"$exists": true},
+				"info.variant":   bson.M{"$exists": true},
+				"info.task_name": bson.M{"$exists": true},
+				"info.test_name": bson.M{"$exists": true},
+			},
+		},
+		bson.M{
+			"$group": bson.M{
+				"_id": bson.M{
+					"task":    "$info.task_name",
+					"variant": "$info.variant",
+					"project": "$info.project",
+					"test":    "$info.test_name",
+				},
+			},
+		},
+	}
+	cur, err := db.Collection("perf_results").Aggregate(ctx, pipeline)
+	defer cur.Close(ctx)
+	if err != nil {
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}
+	}
+	err = db.Collection("recalculation_queue").Drop(ctx)
+	if err != nil {
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Unable to reset recalculation queue")}
+	}
+	for cur.Next(ctx) {
+		var result interface{}
+		err := cur.Decode(result)
+		_, err = db.Collection("recalculation_queue").InsertOne(ctx, result)
+		if err != nil {
+			grip.Errorf("Unable to schedule recalculation for %q/%q/%q/%q", result)
+		}
+	}
+	return nil
 }
