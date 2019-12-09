@@ -37,6 +37,9 @@ type Connector interface {
 	// with the given id and its children up to the given depth and
 	// filtered by the optional tags.
 	FindPerformanceResultWithChildren(context.Context, string, int, ...string) ([]model.APIPerformanceResult, error)
+	// ScheduleSignalProcessingRecalculateJobs returns once a signal processing recalculation
+	// job has been scheduled for each type of test (project/variant/task/test combo)
+	ScheduleSignalProcessingRecalculateJobs(context.Context) error
 
 	//////////////////
 	// Buildlogger Log
