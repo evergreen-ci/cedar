@@ -73,8 +73,7 @@ func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken
 ///////////////////////////////
 
 func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, _, resourceId string) gimlet.Responder {
-	users, ok := mc.Permissions[resourceId]
-	if !ok || !users[userToken] {
+	if !mc.Users[userToken] {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
 			Message:    fmt.Sprintf("unauthorized to read logs from project '%s'", resourceId),

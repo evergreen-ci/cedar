@@ -129,15 +129,16 @@ func (s *LogHandlerSuite) setup() {
 				},
 			},
 		},
+		Users: map[string]bool{"user1": true},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":             makeGetLogByID(&s.sc),
-		"meta_id":        makeGetLogMetaByID(&s.sc),
-		"task_id":        makeGetLogByTaskID(&s.sc),
-		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc),
-		"test_name":      makeGetLogByTestName(&s.sc),
-		"meta_test_name": makeGetLogMetaByTestName(&s.sc),
-		"group":          makeGetLogGroup(&s.sc),
+		"id":             makeGetLogByID(&s.sc, ""),
+		"meta_id":        makeGetLogMetaByID(&s.sc, ""),
+		"task_id":        makeGetLogByTaskID(&s.sc, ""),
+		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc, ""),
+		"test_name":      makeGetLogByTestName(&s.sc, ""),
+		"meta_test_name": makeGetLogMetaByTestName(&s.sc, ""),
+		"group":          makeGetLogGroup(&s.sc, ""),
 	}
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
@@ -171,6 +172,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByIDHandler).printTime = printTime
+		rh.(*logGetByIDHandler).userToken = "user1"
 		it := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
 			s.sc.CachedLogs["abc"].Artifact.Chunks,
@@ -195,6 +197,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerNotFound() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGetByIDHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -210,15 +213,31 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerCtxErr() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGetByIDHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
 }
 
+func (s *LogHandlerSuite) TestLogGetByIDHandlerUnauthedUser() {
+	rh := s.rh["id"]
+	rh.(*logGetByIDHandler).id = "abc"
+	rh.(*logGetByIDHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+	rh.(*logGetByIDHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
+}
+
 func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerFound() {
 	rh := s.rh["meta_id"]
 	rh.(*logMetaGetByIDHandler).id = "abc"
+	rh.(*logMetaGetByIDHandler).userToken = "user1"
 	expected := s.apiResults["abc"]
 
 	resp := rh.Run(context.TODO())
@@ -231,6 +250,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerFound() {
 func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerNotFound() {
 	rh := s.rh["meta_id"]
 	rh.(*logMetaGetByIDHandler).id = "DNE"
+	rh.(*logMetaGetByIDHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -242,10 +262,21 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerCtxErr() {
 	cancel()
 	rh := s.rh["meta_id"]
 	rh.(*logMetaGetByIDHandler).id = "abc"
+	rh.(*logMetaGetByIDHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerUnauthedUser() {
+	rh := s.rh["meta_id"]
+	rh.(*logMetaGetByIDHandler).id = "abc"
+	rh.(*logMetaGetByIDHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
 }
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
@@ -260,6 +291,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		}
 		rh.(*logGetByTaskIDHandler).n = 0
 		rh.(*logGetByTaskIDHandler).printTime = printTime
+		rh.(*logGetByTaskIDHandler).userToken = "user1"
 		its := []dbModel.LogIterator{
 			dbModel.NewBatchedLogIterator(
 				s.buckets["abc"],
@@ -351,6 +383,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGetByTaskIDHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -366,15 +399,31 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerCtxErr() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGetByTaskIDHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
 }
 
+func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerUnauthedUser() {
+	rh := s.rh["task_id"]
+	rh.(*logGetByTaskIDHandler).id = "task_id1"
+	rh.(*logGetByTaskIDHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+	rh.(*logGetByTaskIDHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
+}
+
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "task_id1"
+	rh.(*logMetaGetByTaskIDHandler).userToken = "user1"
 	expected := []model.APILog{
 		s.apiResults["abc"],
 		s.apiResults["def"],
@@ -401,6 +450,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerNotFound() {
 	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "DNE"
+	rh.(*logMetaGetByTaskIDHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -412,10 +462,21 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerCtxErr() {
 	cancel()
 	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).id = "task1"
+	rh.(*logMetaGetByTaskIDHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerUnauthedUser() {
+	rh := s.rh["meta_task_id"]
+	rh.(*logMetaGetByTaskIDHandler).id = "task_id1"
+	rh.(*logMetaGetByTaskIDHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
 }
 
 func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
@@ -429,6 +490,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByTestNameHandler).printTime = printTime
+		rh.(*logGetByTestNameHandler).userToken = "user1"
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
 			s.sc.CachedLogs["abc"].Artifact.Chunks,
@@ -464,6 +526,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerNotFound() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGetByTestNameHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -481,10 +544,27 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerCtxErr() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGetByTestNameHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogGetByTestNameHandlerUnauthedUser() {
+	rh := s.rh["test_name"]
+	rh.(*logGetByTestNameHandler).id = "task_id1"
+	rh.(*logGetByTestNameHandler).name = "test1"
+	rh.(*logGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logGetByTestNameHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+	rh.(*logGetByTestNameHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
@@ -492,6 +572,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
 	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
 	rh.(*logMetaGetByTestNameHandler).name = "test1"
 	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logMetaGetByTestNameHandler).userToken = "user1"
 	expected := []model.APILog{
 		s.apiResults["abc"],
 		s.apiResults["jkl"],
@@ -521,6 +602,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerNotFound() {
 	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
 	rh.(*logMetaGetByTestNameHandler).id = "DNE"
 	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logMetaGetByTestNameHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -534,10 +616,23 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerCtxErr() {
 	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
 	rh.(*logMetaGetByTestNameHandler).name = "test1"
 	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logMetaGetByTestNameHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerUnauthedUser() {
+	rh := s.rh["meta_test_name"]
+	rh.(*logMetaGetByTestNameHandler).id = "task_id1"
+	rh.(*logMetaGetByTestNameHandler).name = "test1"
+	rh.(*logMetaGetByTestNameHandler).tags = []string{"tag1"}
+	rh.(*logMetaGetByTestNameHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
 }
 
 func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
@@ -553,6 +648,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGroupHandler).printTime = printTime
+		rh.(*logGroupHandler).userToken = "user1"
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
 			s.sc.CachedLogs["abc"].Artifact.Chunks,
@@ -615,6 +711,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerNotFound() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGroupHandler).userToken = "user1"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -632,10 +729,27 @@ func (s *LogHandlerSuite) TestLogGroupHandlerCtxErr() {
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
+	rh.(*logGroupHandler).userToken = "user1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *LogHandlerSuite) TestLogGroupHandlerUnauthedUser() {
+	rh := s.rh["group"]
+	rh.(*logGroupHandler).id = "task_id1"
+	rh.(*logGroupHandler).name = "test1"
+	rh.(*logGroupHandler).groupID = "tag1"
+	rh.(*logGroupHandler).tr = util.TimeRange{
+		StartAt: time.Now().Add(-24 * time.Hour),
+		EndAt:   time.Now(),
+	}
+	rh.(*logGroupHandler).userToken = "user2"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusUnauthorized, resp.Status())
 }
 
 func (s *LogHandlerSuite) TestParse() {
