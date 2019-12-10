@@ -25,6 +25,7 @@ type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string
 	CachedLogs               map[string]model.Log
+	Permissions              map[string]map[string]bool
 	Bucket                   string
 
 	env cedar.Environment

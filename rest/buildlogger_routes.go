@@ -68,7 +68,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by id '%s'", h.id))
 	}
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLog.Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLog.Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -121,7 +121,7 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by id '%s'", h.id))
 	}
 
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLog.Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLog.Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -185,7 +185,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -242,7 +242,7 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
 
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -301,7 +301,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -360,7 +360,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 	}
 
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *testLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *testLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -451,7 +451,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		}
 		project = *apiLogs[0].Info.Project
 	}
-	resp := evergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, project)
 	if resp != nil {
 		return resp
 	}

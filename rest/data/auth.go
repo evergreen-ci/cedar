@@ -1,4 +1,4 @@
-package rest
+package data
 
 import (
 	"context"
@@ -13,7 +13,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func evergreenProxyAuthLogRead(ctx context.Context, userToken, baseURL, resourceId string) gimlet.Responder {
+/////////////////////////////
+// DBConnector Implementation
+/////////////////////////////
+
+func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, baseURL, resourceId string) gimlet.Responder {
 	urlString := fmt.Sprintf("%s?resource=%s&resource_type=project&permission=project_logs&required_level=10", baseURL, resourceId)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
 	if err != nil {
@@ -62,4 +66,20 @@ func evergreenProxyAuthLogRead(ctx context.Context, userToken, baseURL, resource
 	}
 
 	return responder
+}
+
+///////////////////////////////
+// MockConnector Implementation
+///////////////////////////////
+
+func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, _, resourceId string) gimlet.Responder {
+	users, ok := mc.Permissions[resourceId]
+	if !ok || !users[userToken] {
+		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
+			StatusCode: http.StatusUnauthorized,
+			Message:    fmt.Sprintf("unauthorized to read logs from project '%s'", resourceId),
+		})
+	}
+
+	return nil
 }
