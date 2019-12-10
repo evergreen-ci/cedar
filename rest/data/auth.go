@@ -17,6 +17,10 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
+// EvergreenProxyAuthLogRead sends a http request to Evergreen to check if the
+// given user is authorized to read the log belonging to the given project. If
+// the user is authorized, nil is returned, otherwise a gimlet.Responder with
+// the appropriate http error code is returned.
 func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, baseURL, resourceId string) gimlet.Responder {
 	urlString := fmt.Sprintf("%s?resource=%s&resource_type=project&permission=project_logs&required_level=10", baseURL, resourceId)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
@@ -72,6 +76,9 @@ func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken
 // MockConnector Implementation
 ///////////////////////////////
 
+// EvergreenProxyAuthLogRead checks if the given user exists in the mock
+// connector, returning nil if they do and a gimlet.Responder with
+// http.StatusUnauthorized otherwise.
 func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, _, resourceId string) gimlet.Responder {
 	if !mc.Users[userToken] {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
