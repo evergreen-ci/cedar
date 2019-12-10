@@ -79,7 +79,7 @@ func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken
 // EvergreenProxyAuthLogRead checks if the given user exists in the mock
 // connector, returning nil if they do and a gimlet.Responder with
 // http.StatusUnauthorized otherwise.
-func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, _, resourceId string) gimlet.Responder {
+func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, _, _ string) gimlet.Responder {
 	if !mc.Users[userToken] {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
