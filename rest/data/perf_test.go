@@ -53,8 +53,10 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		{
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
+				Variant: "Variant1",
 				Version:  "0",
 				Order:    1,
+				TestName: "Test1",
 				TaskName: "task0",
 				TaskID:   "task1",
 				Tags:     []string{"tag1", "tag2"},
