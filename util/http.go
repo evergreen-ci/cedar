@@ -56,6 +56,7 @@ func PutHTTPClient(c *http.Client) {
 		c.Transport = transport
 	case *rehttp.Transport:
 		c.Transport = transport.RoundTripper
+		PutHTTPClient(c)
 	default:
 		c.Transport = newConfiguredBaseTransport()
 	}
