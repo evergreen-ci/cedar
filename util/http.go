@@ -102,20 +102,21 @@ func NewDefaultHTTPRetryConf() HTTPRetryConfiguration {
 func GetHTTPRetryableClient(conf HTTPRetryConfiguration) *http.Client {
 	client := GetHTTPClient()
 
-	retryFns := []rehttp.RetryFn{}
-
+	statusRetries := []rehttp.RetryFn{}
 	if len(conf.Statuses) > 0 {
-		retryFns = append(retryFns, rehttp.RetryStatuses(conf.Statuses...))
+		statusRetries = append(statusRetries, rehttp.RetryStatuses(conf.Statuses...))
 	} else {
 		conf.TemporaryErrors = true
 	}
 
-	if len(conf.Methods) > 0 {
-		retryFns = append(retryFns, rehttp.RetryHTTPMethods(conf.Methods...))
+	if conf.TemporaryErrors {
+		statusRetries = append(statusRetries, rehttp.RetryTemporaryErr())
 	}
 
-	if conf.TemporaryErrors {
-		retryFns = append(retryFns, rehttp.RetryTemporaryErr())
+	retryFns := []rehttp.RetryFn{rehttp.RetyryAny(statusRetries...)}
+
+	if len(conf.Methods) > 0 {
+		retryFns = append(retryFns, rehttp.RetryHTTPMethods(conf.Methods...))
 	}
 
 	if conf.MaxRetries > 0 {
