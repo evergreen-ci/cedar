@@ -273,6 +273,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Unable to reset recalculation queue")}
 	}
+	var results []interface{}
 	for cur.Next(ctx) {
 		var result struct {
 			Id struct {
@@ -283,11 +284,13 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 			} `bson:"_id"`
 		}
 		err := cur.Decode(&result)
-		_, err = db.Collection("recalculation_queue").InsertOne(ctx, result)
 		if err != nil {
-			grip.Errorf("Unable to schedule recalculation for %q/%q/%q/%q; error:%q", result.Id.Project, result.Id.Variant, result.Id.Task, result.Id.Test, err)
+			grip.Errorf("Unable to to decode aggregation result; error:%q", result.Id.Project, result.Id.Variant, result.Id.Task, result.Id.Test, err)
 		}
+		results = append(results, result)
 	}
+	_, err = db.Collection("recalculation_queue").InsertMany(ctx, results)
+
 	grip.Info("Signal processing recalculation jobs scheduling completed.")
 	return nil
 }

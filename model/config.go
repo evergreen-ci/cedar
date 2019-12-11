@@ -56,9 +56,10 @@ var (
 )
 
 type ChangeDetectorConfig struct {
-	Implementation string `bson:"implementation" json:"implementation" yaml:"implementation"`
-	URI                string `bson:"uri" json:"uri" yaml:"uri"`
-	Token              string `bson:"token" json:"token" yaml:"token"`
+	Implementation                     string `bson:"implementation" json:"implementation" yaml:"implementation"`
+	URI                                string `bson:"uri" json:"uri" yaml:"uri"`
+	Token                              string `bson:"token" json:"token" yaml:"token"`
+	MaximumConcurrentDetectionRequests int    `bson:"maximum_concurrent_detection_requests" json:"maximum_concurrent_detection_requests" yaml:"maximum_concurrent_detection_requests"`
 }
 
 var (
