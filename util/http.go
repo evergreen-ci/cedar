@@ -94,6 +94,7 @@ func NewDefaultHTTPRetryConf() HTTPRetryConfiguration {
 			http.StatusConflict,
 			http.StatusRequestTimeout,
 			http.StatusPreconditionFailed,
+			http.StatusExpectationFailed,
 		},
 	}
 }
