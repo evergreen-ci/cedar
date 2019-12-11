@@ -10,6 +10,7 @@ import (
 type OperationalFlags struct {
 	DisableCostReportingJob         bool `bson:"disable_cost_reporting" json:"disable_cost_reporting" yaml:"disable_cost_reporting"`
 	DisableInternalMetricsReporting bool `bson:"disable_internal_metrics_reporting" json:"disable_internal_metrics_reporting" yaml:"disable_internal_metrics_reporting"`
+	DisableSignalProcessing         bool `bson:"disable_signal_processing" json:"disable_signal_processing" yaml:"disable_signal_processing"`
 
 	env cedar.Environment
 }
@@ -17,6 +18,7 @@ type OperationalFlags struct {
 var (
 	opsFlagsDisableCostReporting            = bsonutil.MustHaveTag(OperationalFlags{}, "DisableCostReportingJob")
 	opsFlagsDisableInternalMetricsReporting = bsonutil.MustHaveTag(OperationalFlags{}, "DisableInternalMetricsReporting")
+	opsFlagsDisableSignalProcessing         = bsonutil.MustHaveTag(OperationalFlags{}, "DisableSignalProcessing")
 )
 
 func (f *OperationalFlags) findAndSet(name string, v bool) error {
@@ -25,6 +27,8 @@ func (f *OperationalFlags) findAndSet(name string, v bool) error {
 		return f.SetDisableCostReportingJob(v)
 	case "disable_internal_metrics_reporting":
 		return f.SetDisableInternalMetricsReporting(v)
+	case "disable_signal_processing":
+		return f.SetDisableSignalProcessing(v)
 	default:
 		return errors.Errorf("%s is not a known feature flag name", name)
 	}
@@ -51,6 +55,15 @@ func (f *OperationalFlags) SetDisableInternalMetricsReporting(v bool) error {
 		return errors.WithStack(err)
 	}
 	f.DisableInternalMetricsReporting = v
+	return nil
+
+}
+
+func (f *OperationalFlags) SetDisableSignalProcessing(v bool) error {
+	if err := f.update(opsFlagsDisableSignalProcessing, v); err != nil {
+		return errors.WithStack(err)
+	}
+	f.DisableSignalProcessing = v
 	return nil
 
 }
