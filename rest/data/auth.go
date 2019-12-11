@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/jpillora/backoff"
@@ -21,14 +22,14 @@ import (
 // given user is authorized to read the log belonging to the given project. If
 // the user is authorized, nil is returned, otherwise a gimlet.Responder with
 // the appropriate http error code is returned.
-func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, baseURL, resourceId string) gimlet.Responder {
-	urlString := fmt.Sprintf("%s?resource=%s&resource_type=project&permission=project_logs&required_level=10", baseURL, resourceId)
+func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, evgConf *model.EvergreenConfig, userToken, resourceId string) gimlet.Responder {
+	urlString := fmt.Sprintf("%s?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceId)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
 	if err != nil {
 		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
 	}
 	req = req.WithContext(ctx)
-	req.Header = map[string][]string{"mci-token": {userToken}}
+	req.Header.Add(evgConf.AuthTokenCookie, userToken)
 
 	client := util.GetHTTPClient()
 	defer util.PutHTTPClient(client)
@@ -79,7 +80,7 @@ func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken
 // EvergreenProxyAuthLogRead checks if the given user exists in the mock
 // connector, returning nil if they do and a gimlet.Responder with
 // http.StatusUnauthorized otherwise.
-func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, userToken, _, resourceId string) gimlet.Responder {
+func (mc *MockConnector) EvergreenProxyAuthLogRead(ctx context.Context, _ *model.EvergreenConfig, userToken, resourceId string) gimlet.Responder {
 	if !mc.Users[userToken] {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
@@ -78,5 +79,5 @@ type Connector interface {
 	// EvergreenProxyAuthLogRead uses Evergreen as a proxy for
 	// authenticating and authorizing a user attempting to read a log or
 	// log metadata.
-	EvergreenProxyAuthLogRead(context.Context, string, string, string) gimlet.Responder
+	EvergreenProxyAuthLogRead(context.Context, *dbModel.EvergreenConfig, string, string) gimlet.Responder
 }

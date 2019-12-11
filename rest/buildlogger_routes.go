@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
@@ -31,21 +32,21 @@ type logGetByIDHandler struct {
 	printTime bool
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogByID(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogByID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logGetByIDHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logGetByIDHandler.
 func (h *logGetByIDHandler) Factory() gimlet.RouteHandler {
 	return &logGetByIDHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -68,7 +69,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by id '%s'", h.id))
 	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLog.Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLog.Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -89,21 +90,21 @@ type logMetaGetByIDHandler struct {
 	id        string
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogMetaByID(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogMetaByID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logMetaGetByIDHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logMetaGetByIDHandler.
 func (h *logMetaGetByIDHandler) Factory() gimlet.RouteHandler {
 	return &logMetaGetByIDHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -121,7 +122,7 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by id '%s'", h.id))
 	}
 
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLog.Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLog.Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -141,21 +142,21 @@ type logGetByTaskIDHandler struct {
 	printTime bool
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogByTaskID(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogByTaskID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logGetByTaskIDHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logGetByTaskIDHandler.
 func (h *logGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	return &logGetByTaskIDHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -185,7 +186,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -207,21 +208,21 @@ type logMetaGetByTaskIDHandler struct {
 	tags      []string
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogMetaByTaskID(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogMetaByTaskID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logMetaGetByTaskIDHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logMetaGetByTaskIDHandler.
 func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	return &logMetaGetByTaskIDHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -242,7 +243,7 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
 
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -262,21 +263,21 @@ type logGetByTestNameHandler struct {
 	printTime bool
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogByTestName(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogByTestName(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logGetByTestNameHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logGetByTestNameHandler.
 func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	return &logGetByTestNameHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -301,7 +302,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *apiLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -324,21 +325,21 @@ type logMetaGetByTestNameHandler struct {
 	tags      []string
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogMetaByTestName(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogMetaByTestName(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logMetaGetByTestNameHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logMetaGetByTestNameHandler.
 func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	return &logMetaGetByTestNameHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -360,7 +361,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 	}
 
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, *testLogs[0].Info.Project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *testLogs[0].Info.Project)
 	if resp != nil {
 		return resp
 	}
@@ -387,21 +388,21 @@ type logGroupHandler struct {
 	printTime bool
 	sc        data.Connector
 	userToken string
-	evgURL    string
+	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogGroup(sc data.Connector, evgURL string) gimlet.RouteHandler {
+func makeGetLogGroup(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
 	return &logGroupHandler{
-		sc:     sc,
-		evgURL: evgURL,
+		sc:      sc,
+		evgConf: evgConf,
 	}
 }
 
 // Factory returns a pointer to a new logGetByGroupHandler.
 func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 	return &logGroupHandler{
-		sc:     h.sc,
-		evgURL: h.evgURL,
+		sc:      h.sc,
+		evgConf: h.evgConf,
 	}
 }
 
@@ -451,7 +452,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		}
 		project = *apiLogs[0].Info.Project
 	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.userToken, h.evgURL, project)
+	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, project)
 	if resp != nil {
 		return resp
 	}

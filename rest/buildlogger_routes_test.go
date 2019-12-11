@@ -131,14 +131,15 @@ func (s *LogHandlerSuite) setup() {
 		},
 		Users: map[string]bool{"user1": true},
 	}
+	evgConf := &dbModel.EvergreenConfig{AuthTokenCookie: "mci-token"}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":             makeGetLogByID(&s.sc, ""),
-		"meta_id":        makeGetLogMetaByID(&s.sc, ""),
-		"task_id":        makeGetLogByTaskID(&s.sc, ""),
-		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc, ""),
-		"test_name":      makeGetLogByTestName(&s.sc, ""),
-		"meta_test_name": makeGetLogMetaByTestName(&s.sc, ""),
-		"group":          makeGetLogGroup(&s.sc, ""),
+		"id":             makeGetLogByID(&s.sc, evgConf),
+		"meta_id":        makeGetLogMetaByID(&s.sc, evgConf),
+		"task_id":        makeGetLogByTaskID(&s.sc, evgConf),
+		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc, evgConf),
+		"test_name":      makeGetLogByTestName(&s.sc, evgConf),
+		"meta_test_name": makeGetLogMetaByTestName(&s.sc, evgConf),
+		"group":          makeGetLogGroup(&s.sc, evgConf),
 	}
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
