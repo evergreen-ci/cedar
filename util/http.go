@@ -130,6 +130,6 @@ func GetHTTPRetryableClient(conf HTTPRetryConfiguration) *http.Client {
 	return client
 }
 
-func GetDefultHTTPRetryableClient() *http.Client {
+func GetDefaultHTTPRetryableClient() *http.Client {
 	return GetHTTPRetryableClient(NewDefaultHTTPRetryConf())
 }
