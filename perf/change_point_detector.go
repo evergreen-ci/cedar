@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/mongodb/grip"
 
@@ -56,7 +57,7 @@ func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDet
 }
 
 func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
-	grip.Debug(`Detecting change points.`)
+	startAt := time.Now()
 
 	jsonChangePoints := &struct {
 		ChangePoints []jsonChangePoint `json:"changePoints"`
@@ -93,7 +94,13 @@ func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.C
 		result = append(result, mapped)
 	}
 
-	grip.Debug(`Change point detection completed.`)
+	grip.Debug(map[string]interface{}{
+		"message":        "change point detection completed",
+		"num_points":     len(series),
+		"cp_detected":    len(result),
+		"duration_secs":  time.Since(startAt).Seconds(),
+		"implementation": "MicroServiceChangePointDetector",
+	})
 
 	return result, nil
 }
@@ -115,8 +122,6 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	req.Header.Add("Cookie", fmt.Sprintf("auth_user=%v;auth_token=%v", spc.user, spc.token))
 	req.Header.Add("Content-Type", "application/json")
 
-	grip.Debugf(`Requesting change points from %q.`, route)
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return errors.WithStack(err)
@@ -130,7 +135,6 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
 		return errors.WithStack(err)
 	}
-	grip.Debugf(`Received change points from %q.`, route)
 
 	return nil
 }
