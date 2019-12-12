@@ -18,16 +18,16 @@ import (
 const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
-	ID        string                    `bson:"_id" json:"id" yaml:"id"`
-	Evergreen EvergreenConfig           `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
-	Splunk    send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
-	Slack     SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
-	LDAP      LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
-	NaiveAuth NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
-	CA        CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
-	Bucket    BucketConfig              `bson:"bucket" json:"bucket" yaml:"bucket"`
-	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
-	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ID             string                    `bson:"_id" json:"id" yaml:"id"`
+	Evergreen      EvergreenConfig           `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
+	Splunk         send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
+	Slack          SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
+	LDAP           LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	NaiveAuth      NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
+	CA             CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
+	Bucket         BucketConfig              `bson:"bucket" json:"bucket" yaml:"bucket"`
+	Flags          OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
+	Service        ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 	ChangeDetector ChangeDetectorConfig      `bson:"change_detector" json:"change_detector" yaml:"change_detector"`
 
 	populated bool
@@ -46,15 +46,15 @@ func NewCedarConfig(env cedar.Environment) *CedarConfig {
 }
 
 var (
-	cedarConfigurationIDKey        = bsonutil.MustHaveTag(CedarConfig{}, "ID")
-	cedarConfigurationEvergreenKey = bsonutil.MustHaveTag(CedarConfig{}, "Evergreen")
-	cedarConfigurationSplunkKey    = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
-	cedarConfigurationSlackKey     = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
-	cedarConfigurationLDAPKey      = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
-	cedarConfigurationCAKey        = bsonutil.MustHaveTag(CedarConfig{}, "CA")
-	cedarConfigurationFlagsKey     = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
-	cedarConfigurationServiceKey   = bsonutil.MustHaveTag(CedarConfig{}, "Service")
-  cedarConfigurationChangeDetectorKey = bsonutil.MustHaveTag(CedarConfig{}, "ChangeDetector")
+	cedarConfigurationIDKey             = bsonutil.MustHaveTag(CedarConfig{}, "ID")
+	cedarConfigurationEvergreenKey      = bsonutil.MustHaveTag(CedarConfig{}, "Evergreen")
+	cedarConfigurationSplunkKey         = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
+	cedarConfigurationSlackKey          = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
+	cedarConfigurationLDAPKey           = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
+	cedarConfigurationCAKey             = bsonutil.MustHaveTag(CedarConfig{}, "CA")
+	cedarConfigurationFlagsKey          = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
+	cedarConfigurationServiceKey        = bsonutil.MustHaveTag(CedarConfig{}, "Service")
+	cedarConfigurationChangeDetectorKey = bsonutil.MustHaveTag(CedarConfig{}, "ChangeDetector")
 )
 
 type EvergreenConfig struct {
