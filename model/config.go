@@ -28,6 +28,7 @@ type CedarConfig struct {
 	Bucket    BucketConfig              `bson:"bucket" json:"bucket" yaml:"bucket"`
 	Flags     OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 	Service   ServiceConfig             `bson:"service" json:"service" yaml:"service"`
+	ChangeDetector ChangeDetectorConfig      `bson:"change_detector" json:"change_detector" yaml:"change_detector"`
 
 	populated bool
 	env       cedar.Environment
@@ -53,6 +54,7 @@ var (
 	cedarConfigurationCAKey        = bsonutil.MustHaveTag(CedarConfig{}, "CA")
 	cedarConfigurationFlagsKey     = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
 	cedarConfigurationServiceKey   = bsonutil.MustHaveTag(CedarConfig{}, "Service")
+  cedarConfigurationChangeDetectorKey = bsonutil.MustHaveTag(CedarConfig{}, "ChangeDetector")
 )
 
 type EvergreenConfig struct {
@@ -63,6 +65,17 @@ type EvergreenConfig struct {
 var (
 	cedarEvergreenConfigURLKey             = bsonutil.MustHaveTag(EvergreenConfig{}, "URL")
 	cedarEvergreenConfigAuthTokenCookieKey = bsonutil.MustHaveTag(EvergreenConfig{}, "AuthTokenCookie")
+)
+
+type ChangeDetectorConfig struct {
+	Implementation string `bson:"implementation" json:"implementation" yaml:"implementation"`
+	URI            string `bson:"uri" json:"uri" yaml:"uri"`
+	Token          string `bson:"token" json:"token" yaml:"token"`
+}
+
+var (
+	cedarChangeDetectorConfigURIKey   = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "URI")
+	cedarChangeDetectorConfigTokenKey = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "Token")
 )
 
 type SlackConfig struct {
