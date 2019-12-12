@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/mongodb/grip"
 	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
@@ -238,7 +239,6 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 // ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
 // each project/version/task/test combination
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
-	grip.Info("Scheduling signal processing recalculation jobs.")
 	db := dbc.env.GetDB()
 	pipeline := bson.A{
 		bson.M{
@@ -269,29 +269,28 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}
 	}
-	err = db.Collection("recalculation_queue").Drop(ctx)
-	if err != nil {
-		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Unable to reset recalculation queue")}
-	}
-	var results []interface{}
 	for cur.Next(ctx) {
-		var result struct {
-			Id struct {
-				Project string
-				Variant string
-				Task    string
-				Test    string
-			} `bson:"_id"`
-		}
+		var result units.MetricGrouping
 		err := cur.Decode(&result)
 		if err != nil {
-			grip.Errorf("Unable to to decode aggregation result; error:%q", result.Id.Project, result.Id.Variant, result.Id.Task, result.Id.Test, err)
+			grip.Error(map[string]interface{}{
+				"message": "Unable to to decode aggregation result",
+				"error":   err,
+			})
 		}
-		results = append(results, result)
-	}
-	_, err = db.Collection("recalculation_queue").InsertMany(ctx, results)
 
-	grip.Info("Signal processing recalculation jobs scheduling completed.")
+		job := units.NewRecalculateChangePointsJob(result)
+		err = dbc.env.GetRemoteQueue().Put(ctx, job)
+		if err != nil {
+			grip.Error(map[string]interface{}{
+				"message": "Unable to enqueue recalculation job for metric",
+				"project": result.Id.Project,
+				"variant": result.Id.Variant,
+				"task":    result.Id.Task,
+				"test":    result.Id.Test,
+			})
+		}
+	}
 	return nil
 }
 
@@ -343,7 +342,7 @@ func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id strin
 // performance results with the given taskId and that fall within interval,
 // filtered by tags.
 func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
+	var results []dataModel.APIPerformanceResult
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) {
 			apiResult := dataModel.APIPerformanceResult{}
@@ -374,7 +373,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskI
 // order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
 func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
+	var results []dataModel.APIPerformanceResult
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) &&
 			result.Info.Mainline && (variant == "" || result.Info.Variant == variant) {
@@ -409,7 +408,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 // performance results with the given version and that fall within interval,
 // filtered by tags.
 func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
+	var results []dataModel.APIPerformanceResult
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) && result.Info.Mainline {
 			apiResult := dataModel.APIPerformanceResult{}
@@ -439,7 +438,7 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, vers
 // filtered by tags. If maxDepth is less than 0, the child search is
 // exhaustive.
 func (mc *MockConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
+	var results []dataModel.APIPerformanceResult
 
 	result, err := mc.FindPerformanceResultById(ctx, id)
 	if err != nil {
@@ -464,7 +463,7 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 		return []dataModel.APIPerformanceResult{}, nil
 	}
 
-	results := []dataModel.APIPerformanceResult{}
+	var results []dataModel.APIPerformanceResult
 	seen := map[string]int{id: 1}
 	queue := []string{id}
 

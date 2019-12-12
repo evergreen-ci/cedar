@@ -16,7 +16,7 @@ import (
 )
 
 type ChangeDetector interface {
-	DetectChanges([]float64, context.Context) ([]ChangePoint, error)
+	DetectChanges(context.Context, []float64) ([]ChangePoint, error)
 }
 
 type jsonChangePoint struct {
@@ -56,7 +56,7 @@ func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDet
 	return &signalProcessingClient{user: user, token: token, baseURL: baseURL}
 }
 
-func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
+func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]ChangePoint, error) {
 	startAt := time.Now()
 
 	jsonChangePoints := &struct {
