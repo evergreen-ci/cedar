@@ -26,7 +26,7 @@ type recalculateChangePointsJob struct {
 }
 
 func init() {
-	registry.AddJobType("hello-world", helloWorldJobFactory)
+	registry.AddJobType("recalculate-change-points", helloWorldJobFactory)
 }
 
 func recalculateChangePointsJobFactory() *recalculateChangePointsJob {
