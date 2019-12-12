@@ -23,11 +23,17 @@ type LogHandlerSuite struct {
 	rh         map[string]gimlet.RouteHandler
 	apiResults map[string]model.APILog
 	buckets    map[string]pail.Bucket
+	evgConf    *dbModel.EvergreenConfig
 
 	suite.Suite
 }
 
-func (s *LogHandlerSuite) setup() {
+func TestLogHandlerSuite(t *testing.T) {
+	s := new(LogHandlerSuite)
+	suite.Run(t, s)
+}
+
+func (s *LogHandlerSuite) SetupSuite() {
 	s.sc = data.MockConnector{
 		Bucket: ".",
 		CachedLogs: map[string]dbModel.Log{
@@ -131,16 +137,7 @@ func (s *LogHandlerSuite) setup() {
 		},
 		Users: map[string]bool{"user1": true},
 	}
-	evgConf := &dbModel.EvergreenConfig{AuthTokenCookie: "mci-token"}
-	s.rh = map[string]gimlet.RouteHandler{
-		"id":             makeGetLogByID(&s.sc, evgConf),
-		"meta_id":        makeGetLogMetaByID(&s.sc, evgConf),
-		"task_id":        makeGetLogByTaskID(&s.sc, evgConf),
-		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc, evgConf),
-		"test_name":      makeGetLogByTestName(&s.sc, evgConf),
-		"meta_test_name": makeGetLogMetaByTestName(&s.sc, evgConf),
-		"group":          makeGetLogGroup(&s.sc, evgConf),
-	}
+	s.evgConf = &dbModel.EvergreenConfig{AuthTokenCookie: "mci-token"}
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
 	for key, val := range s.sc.CachedLogs {
@@ -158,10 +155,16 @@ func (s *LogHandlerSuite) setup() {
 	}
 }
 
-func TestLogHandlerSuite(t *testing.T) {
-	s := new(LogHandlerSuite)
-	s.setup()
-	suite.Run(t, s)
+func (s *LogHandlerSuite) SetupTest() {
+	s.rh = map[string]gimlet.RouteHandler{
+		"id":             makeGetLogByID(&s.sc, s.evgConf),
+		"meta_id":        makeGetLogMetaByID(&s.sc, s.evgConf),
+		"task_id":        makeGetLogByTaskID(&s.sc, s.evgConf),
+		"meta_task_id":   makeGetLogMetaByTaskID(&s.sc, s.evgConf),
+		"test_name":      makeGetLogByTestName(&s.sc, s.evgConf),
+		"meta_test_name": makeGetLogMetaByTestName(&s.sc, s.evgConf),
+		"group":          makeGetLogGroup(&s.sc, s.evgConf),
+	}
 }
 
 func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
@@ -781,7 +784,9 @@ func (s *LogHandlerSuite) TestParse() {
 		},
 	} {
 		s.testParseValid(test.handler, test.urlString, test.tags)
+		s.SetupTest()
 		s.testParseInvalid(test.handler, test.urlString)
+		s.SetupTest()
 		s.testParseDefaults(test.handler, test.urlString, test.tags)
 	}
 }
@@ -792,8 +797,10 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "&end=2013-11-01T22:08:00%2B00:00"
 	urlString += "&tags=hello&tags=world"
 	urlString += "&printTime=true"
-	req := &http.Request{Method: "GET"}
+	req, err := http.NewRequest(http.MethodGet, "", nil)
+	s.Require().NoError(err)
 	req.URL, _ = url.Parse(urlString)
+	req.AddCookie(&http.Cookie{Name: "mci-token", Value: "cookie"})
 	expectedTr := util.TimeRange{
 		StartAt: time.Date(2012, time.November, 1, 22, 8, 0, 0, time.UTC),
 		EndAt:   time.Date(2013, time.November, 1, 22, 8, 0, 0, time.UTC),
@@ -801,7 +808,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	expectedTags := []string{"hello", "world"}
 	rh := s.rh[handler]
 
-	err := rh.Parse(ctx, req)
+	err = rh.Parse(ctx, req)
 	tr, _ := getLogTimeRange(rh, handler)
 	s.Equal(expectedTr, tr)
 	s.NoError(err)
@@ -809,6 +816,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 		s.Equal(expectedTags, getLogTags(rh, handler))
 	}
 	s.True(getLogPrintTime(rh, handler))
+	s.Equal("cookie", getUserToken(rh, handler))
 }
 
 func (s *LogHandlerSuite) testParseInvalid(handler, urlString string) {
@@ -842,6 +850,7 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool
 		s.Nil(getLogTags(rh, handler))
 	}
 	s.False(getLogPrintTime(rh, handler))
+	s.Equal("", getUserToken(rh, handler))
 }
 
 func getLogTimeRange(rh gimlet.RouteHandler, handler string) (util.TimeRange, util.TimeRange) {
@@ -884,5 +893,20 @@ func getLogPrintTime(rh gimlet.RouteHandler, handler string) bool {
 		return rh.(*logGroupHandler).printTime
 	default:
 		return false
+	}
+}
+
+func getUserToken(rh gimlet.RouteHandler, handler string) string {
+	switch handler {
+	case "id":
+		return rh.(*logGetByIDHandler).userToken
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).userToken
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).userToken
+	case "group":
+		return rh.(*logGroupHandler).userToken
+	default:
+		return ""
 	}
 }

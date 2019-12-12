@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
@@ -53,10 +52,15 @@ func (h *logGetByIDHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the id and time range from the http request.
 func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	var cookie *http.Cookie
+	var err error
+	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	}
 
 	vals := r.URL.Query()
-	var err error
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
@@ -111,7 +115,12 @@ func (h *logMetaGetByIDHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the id from the http request.
 func (h *logMetaGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	cookie, err := r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	}
+
 	return nil
 }
 
@@ -162,11 +171,16 @@ func (h *logGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id and time range from the http request.
 func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
-	catcher := grip.NewBasicCatcher()
-
 	h.id = gimlet.GetVars(r)["task_id"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	var cookie *http.Cookie
+	var err error
+	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	}
+
+	catcher := grip.NewBasicCatcher()
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
@@ -229,7 +243,12 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the id from the http request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	cookie, err := r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	}
+
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 
@@ -283,11 +302,16 @@ func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id, name, time range, and tags from the http request.
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
-
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	var cookie *http.Cookie
+	var err error
+	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	}
+
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
@@ -347,7 +371,12 @@ func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	cookie, err := r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	}
+
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 
@@ -408,12 +437,19 @@ func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id, name, time range, and tags from the http request.
 func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
-
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	h.groupID = gimlet.GetVars(r)["group_id"]
-	h.userToken = r.Header.Get(cedar.AuthTokenCookie)
+
+	var cookie *http.Cookie
+	var err error
+	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
+	if err == nil {
+		h.userToken = cookie.Value
+	} else {
+		err = nil
+	}
+
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"

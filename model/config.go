@@ -60,6 +60,7 @@ var (
 type EvergreenConfig struct {
 	URL             string `bson:"url" json:"url" yaml:"url"`
 	AuthTokenCookie string `bson:"auth_token_cookie" json:"auth_token_cookie" yaml:"auth_token_cookie"`
+	Domain          string `bson:"domain" json:"domain" yaml:"domain"`
 }
 
 var (

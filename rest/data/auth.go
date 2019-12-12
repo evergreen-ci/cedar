@@ -27,7 +27,11 @@ func (dbc *DBConnector) EvergreenProxyAuthLogRead(ctx context.Context, evgConf *
 		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
 	}
 	req = req.WithContext(ctx)
-	req.Header.Add(evgConf.AuthTokenCookie, userToken)
+	req.AddCookie(&http.Cookie{
+		Name:   evgConf.AuthTokenCookie,
+		Value:  userToken,
+		Domain: evgConf.Domain,
+	})
 
 	client := util.GetDefaultHTTPRetryableClient()
 	defer util.PutHTTPClient(client)
