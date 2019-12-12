@@ -121,7 +121,7 @@ func NewCostReportSummary(r *CostReport) *CostReportSummary {
 }
 
 func (r *CostReportSummary) Setup(e cedar.Environment) { r.env = e }
-func (r *CostReportSummary) IsNil() bool              { return !r.populated }
+func (r *CostReportSummary) IsNil() bool               { return !r.populated }
 func (r *CostReportSummary) Save() error {
 	if !r.populated {
 		return errors.New("cannot save unpopulated report")

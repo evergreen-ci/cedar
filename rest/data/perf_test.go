@@ -53,7 +53,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		{
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
-				Variant: "Variant1",
+				Variant:  "Variant1",
 				Version:  "0",
 				Order:    1,
 				TestName: "Test1",

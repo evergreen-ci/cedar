@@ -29,7 +29,7 @@ type GraphEdge struct {
 }
 
 func (e *GraphEdge) Setup(env cedar.Environment) { e.env = env }
-func (e *GraphEdge) IsNil() bool                { return !e.populated }
+func (e *GraphEdge) IsNil() bool                 { return !e.populated }
 func (e *GraphEdge) Save() error {
 	if !e.populated {
 		return errors.New("cannot insert non-populated document")

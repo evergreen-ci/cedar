@@ -11,15 +11,15 @@ import (
 
 // Configuration defines
 type Configuration struct {
-	BucketName                string
-	DatabaseName              string
-	QueueName                 string
-	MongoDBURI                string
-	MongoDBDialTimeout        time.Duration
-	SocketTimeout             time.Duration
-	DisableLocalQueue         bool
-	DisableRemoteQueue        bool
-	NumWorkers                int
+	BucketName         string
+	DatabaseName       string
+	QueueName          string
+	MongoDBURI         string
+	MongoDBDialTimeout time.Duration
+	SocketTimeout      time.Duration
+	DisableLocalQueue  bool
+	DisableRemoteQueue bool
+	NumWorkers         int
 }
 
 func (c *Configuration) Validate() error {
