@@ -49,7 +49,8 @@ func (h *logGetByIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id and time range from the http request.
+// Parse fetches the id, auth token cookie, time range, and print time flag
+// from the http request.
 func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 
@@ -112,7 +113,7 @@ func (h *logMetaGetByIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the id and auth token cookie from the http request.
 func (h *logMetaGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 
@@ -169,7 +170,8 @@ func (h *logGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id and time range from the http request.
+// Parse fetches the id, auth token cookie, time range, tags, print time flag,
+// and number of tail lines from the http request.
 func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 
@@ -240,7 +242,7 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the id and auth token cookie from the http request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 
@@ -300,7 +302,8 @@ func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, time range, and tags from the http request.
+// Parse fetches the id, name, auth token cookie, time range, tags, and print
+// time flag from the http request.
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
@@ -367,7 +370,8 @@ func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, and tags from the http request.
+// Parse fetches the id, name, auth token cookie, and tags from the http
+// request.
 func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
@@ -435,7 +439,8 @@ func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, time range, and tags from the http request.
+// Parse fetches the id, name, auth token cookie, time range, tags, and print
+// time flag from the http request.
 func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
