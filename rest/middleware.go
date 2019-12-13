@@ -13,23 +13,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-type evgAuthLogReadByIDMiddleware struct {
+type evgAuthReadLogByIDMiddleware struct {
 	sc      data.Connector
 	evgConf *model.EvergreenConfig
 }
 
-// NewEvgAuthLogReadByIDMiddlware returns an implementation of
+// NewEvgAuthReadLogByIDMiddlware returns an implementation of
 // gimlet.Middleware that sends a http request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given ID.
-func NewEvgAuthLogReadByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
-	return &evgAuthLogReadByIDMiddleware{
+func NewEvgAuthReadLogByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
+	return &evgAuthReadLogByIDMiddleware{
 		sc:      sc,
 		evgConf: evgConf,
 	}
 }
 
-func (m *evgAuthLogReadByIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func (m *evgAuthReadLogByIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	ctx := r.Context()
 
 	id := gimlet.GetVars(r)["id"]
@@ -39,7 +39,7 @@ func (m *evgAuthLogReadByIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *http
 		return
 	}
 
-	if resp := evgAuthLogRead(ctx, r, m.evgConf, *apiLog.Info.Project); resp != nil {
+	if resp := evgAuthReadLog(ctx, r, m.evgConf, *apiLog.Info.Project); resp != nil {
 		gimlet.WriteResponse(rw, resp)
 		return
 	}
@@ -47,23 +47,23 @@ func (m *evgAuthLogReadByIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *http
 	next(rw, r)
 }
 
-type evgAuthLogReadByTaskIDMiddleware struct {
+type evgAuthReadLogByTaskIDMiddleware struct {
 	sc      data.Connector
 	evgConf *model.EvergreenConfig
 }
 
-// NewEvgAuthLogReadByTaskIDMiddlware returns an implementation of
+// NewEvgAuthReadLogByTaskIDMiddlware returns an implementation of
 // gimlet.Middleware that sends a http request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given task ID.
-func NewEvgAuthLogReadByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
-	return &evgAuthLogReadByTaskIDMiddleware{
+func NewEvgAuthReadLogByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
+	return &evgAuthReadLogByTaskIDMiddleware{
 		sc:      sc,
 		evgConf: evgConf,
 	}
 }
 
-func (m *evgAuthLogReadByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func (m *evgAuthReadLogByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	ctx := r.Context()
 
 	taskID := gimlet.GetVars(r)["task_id"]
@@ -73,7 +73,7 @@ func (m *evgAuthLogReadByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *
 		return
 	}
 
-	if resp := evgAuthLogRead(ctx, r, m.evgConf, *apiLogs[0].Info.Project); resp != nil {
+	if resp := evgAuthReadLog(ctx, r, m.evgConf, *apiLogs[0].Info.Project); resp != nil {
 		gimlet.WriteResponse(rw, resp)
 		return
 	}
@@ -81,7 +81,7 @@ func (m *evgAuthLogReadByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *
 	next(rw, r)
 }
 
-func evgAuthLogRead(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceId string) gimlet.Responder {
+func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceId string) gimlet.Responder {
 	cookie, err := r.Cookie(evgConf.AuthTokenCookie)
 	if err != nil {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
