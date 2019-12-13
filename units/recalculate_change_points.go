@@ -26,10 +26,10 @@ type recalculateChangePointsJob struct {
 }
 
 func init() {
-	registry.AddJobType("recalculate-change-points", helloWorldJobFactory)
+	registry.AddJobType("recalculate-change-points", func() amboy.Job { return makeChangePointsJob() })
 }
 
-func recalculateChangePointsJobFactory() *recalculateChangePointsJob {
+func makeChangePointsJob() *recalculateChangePointsJob {
 	j := &recalculateChangePointsJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
@@ -43,7 +43,7 @@ func recalculateChangePointsJobFactory() *recalculateChangePointsJob {
 }
 
 func NewRecalculateChangePointsJob(metricGrouping MetricGrouping) amboy.Job {
-	j := recalculateChangePointsJobFactory()
+	j := makeChangePointsJob()
 	// Every ten minutes at most
 	timestamp := util.RoundPartOfHour(10)
 	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, metricGrouping.Id.Project, metricGrouping.Id.Variant, metricGrouping.Id.Task, metricGrouping.Id.Test, timestamp))
