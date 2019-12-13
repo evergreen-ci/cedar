@@ -18,6 +18,10 @@ type evgAuthLogReadByIDMiddleware struct {
 	evgConf *model.EvergreenConfig
 }
 
+// NewEvgAuthLogReadByIDMiddlware returns an implementation of
+// gimlet.Middleware that sends a http request to Evergreen to check if the
+// user is authorized to read the log they are trying to access based on the
+// given ID.
 func NewEvgAuthLogReadByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
 	return &evgAuthLogReadByIDMiddleware{
 		sc:      sc,
@@ -48,6 +52,10 @@ type evgAuthLogReadByTaskIDMiddleware struct {
 	evgConf *model.EvergreenConfig
 }
 
+// NewEvgAuthLogReadByTaskIDMiddlware returns an implementation of
+// gimlet.Middleware that sends a http request to Evergreen to check if the
+// user is authorized to read the log they are trying to access based on the
+// given task ID.
 func NewEvgAuthLogReadByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
 	return &evgAuthLogReadByTaskIDMiddleware{
 		sc:      sc,
