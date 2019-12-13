@@ -4,10 +4,8 @@ import (
 	"context"
 	"io"
 
-	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
-	"github.com/evergreen-ci/gimlet"
 )
 
 // Connector abstracts the link between cedar's service and API layers,
@@ -72,12 +70,4 @@ type Connector interface {
 	// the bool is set to true, the log lines should be concatenated with
 	// their timestamps.
 	FindGroupedLogs(context.Context, string, string, string, util.TimeRange, bool, ...string) (io.Reader, error)
-
-	///////////////////////
-	// Evergreen Proxy Auth
-	///////////////////////
-	// EvergreenProxyAuthLogRead uses Evergreen as a proxy for
-	// authenticating and authorizing a user attempting to read a log or
-	// log metadata.
-	EvergreenProxyAuthLogRead(context.Context, *dbModel.EvergreenConfig, string, string) gimlet.Responder
 }
