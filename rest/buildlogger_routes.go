@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
@@ -30,38 +29,27 @@ type logGetByIDHandler struct {
 	tr        util.TimeRange
 	printTime bool
 	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogByID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogByID(sc data.Connector) gimlet.RouteHandler {
 	return &logGetByIDHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logGetByIDHandler.
 func (h *logGetByIDHandler) Factory() gimlet.RouteHandler {
 	return &logGetByIDHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id, auth token cookie, time range, and print time flag
-// from the http request.
+// Parse fetches the id and time range from the http request.
 func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 
-	var cookie *http.Cookie
-	var err error
-	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	}
-
 	vals := r.URL.Query()
+	var err error
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
@@ -70,15 +58,6 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 // Run calls FindLogByID and returns the log.
 func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
-	apiLog, err := h.sc.FindLogMetadataByID(ctx, h.id)
-	if err != nil {
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by id '%s'", h.id))
-	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLog.Info.Project)
-	if resp != nil {
-		return resp
-	}
-
 	r, err := h.sc.FindLogByID(ctx, h.id, h.tr, h.printTime)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
@@ -92,36 +71,26 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/{id}/meta
 
 type logMetaGetByIDHandler struct {
-	id        string
-	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
+	id string
+	sc data.Connector
 }
 
-func makeGetLogMetaByID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogMetaByID(sc data.Connector) gimlet.RouteHandler {
 	return &logMetaGetByIDHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logMetaGetByIDHandler.
 func (h *logMetaGetByIDHandler) Factory() gimlet.RouteHandler {
 	return &logMetaGetByIDHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id and auth token cookie from the http request.
+// Parse fetches the id from the http request.
 func (h *logMetaGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
-
-	cookie, err := r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	}
-
 	return nil
 }
 
@@ -130,11 +99,6 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLog, err := h.sc.FindLogMetadataByID(ctx, h.id)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by id '%s'", h.id))
-	}
-
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLog.Info.Project)
-	if resp != nil {
-		return resp
 	}
 
 	return gimlet.NewJSONResponse(apiLog)
@@ -151,38 +115,27 @@ type logGetByTaskIDHandler struct {
 	n         int
 	printTime bool
 	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogByTaskID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogByTaskID(sc data.Connector) gimlet.RouteHandler {
 	return &logGetByTaskIDHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logGetByTaskIDHandler.
 func (h *logGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	return &logGetByTaskIDHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id, auth token cookie, time range, tags, print time flag,
-// and number of tail lines from the http request.
+// Parse fetches the id and time range from the http request.
 func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
-	h.id = gimlet.GetVars(r)["task_id"]
-
-	var cookie *http.Cookie
 	var err error
-	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	}
-
 	catcher := grip.NewBasicCatcher()
+
+	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
@@ -198,15 +151,6 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 // Run calls FindLogsByTaskID and returns the merged logs.
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id)
-	if err != nil {
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
-	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLogs[0].Info.Project)
-	if resp != nil {
-		return resp
-	}
-
 	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.printTime, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
@@ -220,37 +164,27 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/task_id/{task_id}/meta
 
 type logMetaGetByTaskIDHandler struct {
-	id        string
-	tags      []string
-	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
+	id   string
+	tags []string
+	sc   data.Connector
 }
 
-func makeGetLogMetaByTaskID(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogMetaByTaskID(sc data.Connector) gimlet.RouteHandler {
 	return &logMetaGetByTaskIDHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logMetaGetByTaskIDHandler.
 func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	return &logMetaGetByTaskIDHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id and auth token cookie from the http request.
+// Parse fetches the id from the http request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
-
-	cookie, err := r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	}
-
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 
@@ -262,11 +196,6 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
-	}
-
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLogs[0].Info.Project)
-	if resp != nil {
-		return resp
 	}
 
 	return gimlet.NewJSONResponse(apiLogs)
@@ -283,38 +212,27 @@ type logGetByTestNameHandler struct {
 	tr        util.TimeRange
 	printTime bool
 	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogByTestName(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogByTestName(sc data.Connector) gimlet.RouteHandler {
 	return &logGetByTestNameHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logGetByTestNameHandler.
 func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	return &logGetByTestNameHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id, name, auth token cookie, time range, tags, and print
-// time flag from the http request.
+// Parse fetches the id, name, time range, and tags from the http request.
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
-
-	var cookie *http.Cookie
-	var err error
-	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	}
-
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
@@ -325,15 +243,6 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 
 // Run calls FindLogsByTestName and returns the merged logs.
 func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id)
-	if err != nil {
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
-	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *apiLogs[0].Info.Project)
-	if resp != nil {
-		return resp
-	}
-
 	r, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.printTime, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
@@ -347,40 +256,29 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/test_name/{task_id}/{test_name}/meta
 
 type logMetaGetByTestNameHandler struct {
-	id        string
-	name      string
-	tags      []string
-	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
+	id   string
+	name string
+	tags []string
+	sc   data.Connector
 }
 
-func makeGetLogMetaByTestName(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogMetaByTestName(sc data.Connector) gimlet.RouteHandler {
 	return &logMetaGetByTestNameHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logMetaGetByTestNameHandler.
 func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	return &logMetaGetByTestNameHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id, name, auth token cookie, and tags from the http
-// request.
+// Parse fetches the id, name, and tags from the http request.
 func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
-
-	cookie, err := r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	}
-
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 
@@ -393,12 +291,6 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 	}
-
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, *testLogs[0].Info.Project)
-	if resp != nil {
-		return resp
-	}
-
 	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, "", h.tags...)
 	errResp, ok := err.(gimlet.ErrorResponse)
 	if err != nil && (!ok || errResp.StatusCode == http.StatusNotFound) {
@@ -420,41 +312,28 @@ type logGroupHandler struct {
 	tr        util.TimeRange
 	printTime bool
 	sc        data.Connector
-	userToken string
-	evgConf   *model.EvergreenConfig
 }
 
-func makeGetLogGroup(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.RouteHandler {
+func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
 	return &logGroupHandler{
-		sc:      sc,
-		evgConf: evgConf,
+		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logGetByGroupHandler.
 func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 	return &logGroupHandler{
-		sc:      h.sc,
-		evgConf: h.evgConf,
+		sc: h.sc,
 	}
 }
 
-// Parse fetches the id, name, auth token cookie, time range, tags, and print
-// time flag from the http request.
+// Parse fetches the id, name, time range, and tags from the http request.
 func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	h.groupID = gimlet.GetVars(r)["group_id"]
-
-	var cookie *http.Cookie
-	var err error
-	cookie, err = r.Cookie(h.evgConf.AuthTokenCookie)
-	if err == nil {
-		h.userToken = cookie.Value
-	} else {
-		err = nil
-	}
-
 	vals := r.URL.Query()
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
@@ -467,7 +346,6 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 
 // Run calls FindGroupedLogs and returns the merged logs.
 func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
-	var project string
 	if h.tr.IsZero() {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, append(h.tags, h.groupID)...)
 		if err != nil {
@@ -482,20 +360,6 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 				h.tr.EndAt = time.Time(log.CompletedAt)
 			}
 		}
-
-		project = *testLogs[0].Info.Project
-	}
-
-	if project == "" {
-		apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id)
-		if err != nil {
-			return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
-		}
-		project = *apiLogs[0].Info.Project
-	}
-	resp := h.sc.EvergreenProxyAuthLogRead(ctx, h.evgConf, h.userToken, project)
-	if resp != nil {
-		return resp
 	}
 
 	r, err := h.sc.FindGroupedLogs(ctx, h.id, h.name, h.groupID, h.tr, h.printTime, h.tags...)
