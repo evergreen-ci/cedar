@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"github.com/mongodb/amboy"
 	"testing"
 	"time"
 
@@ -15,6 +16,63 @@ import (
 
 const testDBName = "cedar_rest_data_test"
 
+type MockQueue struct {
+	Jobs []amboy.Job
+}
+
+func (m *MockQueue) Put(ctx context.Context, j amboy.Job) error {
+	m.Jobs = append(m.Jobs, j)
+	return nil
+}
+
+func (m *MockQueue) ID() string {
+	panic("implement me")
+}
+
+func (m *MockQueue) Get(context.Context, string) (amboy.Job, bool) {
+	panic("implement me")
+}
+
+func (m *MockQueue) Next(context.Context) amboy.Job {
+	panic("implement me")
+}
+
+func (m *MockQueue) Started() bool {
+	panic("implement me")
+}
+
+func (m *MockQueue) Complete(context.Context, amboy.Job) {
+	panic("implement me")
+}
+
+func (m *MockQueue) Save(context.Context, amboy.Job) error {
+	panic("implement me")
+}
+
+func (m MockQueue) Results(context.Context) <-chan amboy.Job {
+	panic("implement me")
+}
+
+func (m *MockQueue) JobStats(context.Context) <-chan amboy.JobStatusInfo {
+	panic("implement me")
+}
+
+func (m *MockQueue) Stats(context.Context) amboy.QueueStats {
+	panic("implement me")
+}
+
+func (m *MockQueue) Runner() amboy.Runner {
+	panic("implement me")
+}
+
+func (m *MockQueue) SetRunner(amboy.Runner) error {
+	panic("implement me")
+}
+
+func (m *MockQueue) Start(context.Context) error {
+	panic("implement me")
+}
+
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:         "mongodb://localhost:27017",
@@ -26,7 +84,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
+	queue := MockQueue{}
+	err = env.SetRemoteQueue(&queue)
+	if err != nil {
+		panic(err)
+	}
 	cedar.SetEnvironment(env)
 }
 
@@ -527,4 +589,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 	err := s.sc.ScheduleSignalProcessingRecalculateJobs(s.ctx)
 	s.NoError(err)
+	queue := s.env.GetRemoteQueue()
+	mockQueue := queue.(*MockQueue)
+	s.Require().Len(mockQueue.Jobs, 1)
 }

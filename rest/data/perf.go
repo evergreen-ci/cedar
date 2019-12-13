@@ -280,7 +280,8 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		}
 
 		job := units.NewRecalculateChangePointsJob(result)
-		err = dbc.env.GetRemoteQueue().Put(ctx, job)
+		queue := dbc.env.GetRemoteQueue()
+		err = queue.Put(ctx, job)
 		if err != nil {
 			grip.Error(map[string]interface{}{
 				"message": "Unable to enqueue recalculation job for metric",
