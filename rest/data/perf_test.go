@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"github.com/mongodb/amboy"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 )

@@ -3,26 +3,26 @@ package units
 import (
 	"context"
 	"fmt"
-	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/perf"
-	"github.com/mongodb/grip"
 	"sort"
 	"time"
 
-	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/mongodb/grip/message"
 
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type recalculateChangePointsJob struct {
 	*job.Base      `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env            cedar.Environment
-	metricGrouping MetricGrouping
+	MetricGrouping MetricGrouping
 }
 
 func init() {
@@ -47,7 +47,7 @@ func NewRecalculateChangePointsJob(metricGrouping MetricGrouping) amboy.Job {
 	// Every ten minutes at most
 	timestamp := util.RoundPartOfHour(10)
 	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, metricGrouping.Id.Project, metricGrouping.Id.Variant, metricGrouping.Id.Task, metricGrouping.Id.Test, timestamp))
-	j.metricGrouping = metricGrouping
+	j.MetricGrouping = metricGrouping
 	return j
 }
 
@@ -135,24 +135,23 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	conf := model.NewCedarConfig(j.env)
 	err := conf.Find()
 	if err != nil {
-		grip.Error(errorMsg{
+		message.WrapError(err, message.Fields{
 			"message": "Unable to get cedar configuration",
-			"error":   err,
 		})
+		return
 	}
 	detector := perf.NewMicroServiceChangeDetector(conf.ChangeDetector.URI, conf.ChangeDetector.User, conf.ChangeDetector.Token)
 	collection := j.env.GetDB().Collection("perf_results")
-	timeSeriesAggregator := makeTimeSeriesPipeline(j.metricGrouping)
+	timeSeriesAggregator := makeTimeSeriesPipeline(j.MetricGrouping)
 	cur, err := collection.Aggregate(ctx, timeSeriesAggregator)
 	defer cur.Close(ctx)
 	if err != nil {
-		grip.Error(errorMsg{
+		message.WrapError(err, message.Fields{
 			"message": "Unable to aggregate time series",
-			"project": j.metricGrouping.Id.Project,
-			"variant": j.metricGrouping.Id.Variant,
-			"task":    j.metricGrouping.Id.Task,
-			"test":    j.metricGrouping.Id.Test,
-			"error":   err,
+			"project": j.MetricGrouping.Id.Project,
+			"variant": j.MetricGrouping.Id.Variant,
+			"task":    j.MetricGrouping.Id.Task,
+			"test":    j.MetricGrouping.Id.Test,
 		})
 		return
 	}
@@ -161,15 +160,14 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		err = cur.Decode(result)
 		if err != nil {
-			grip.Error(errorMsg{
+			message.WrapError(err, message.Fields{
 				"message": "Unable to decode aggregated time series",
-				"project": j.metricGrouping.Id.Project,
-				"variant": j.metricGrouping.Id.Variant,
-				"task":    j.metricGrouping.Id.Task,
-				"test":    j.metricGrouping.Id.Test,
-				"error":   err,
+				"project": j.MetricGrouping.Id.Project,
+				"variant": j.MetricGrouping.Id.Variant,
+				"task":    j.MetricGrouping.Id.Task,
+				"test":    j.MetricGrouping.Id.Test,
 			})
-			continue
+			break
 		}
 
 		sort.Slice(result.TimeSeries, func(i, j int) bool {
@@ -184,19 +182,18 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		changePoints, err := detector.DetectChanges(ctx, series)
 		if err != nil {
-			grip.Error(errorMsg{
+			message.WrapError(err, message.Fields{
 				"message":     "Unable to detect change points in time series",
-				"project":     j.metricGrouping.Id.Project,
-				"variant":     j.metricGrouping.Id.Variant,
-				"task":        j.metricGrouping.Id.Task,
-				"test":        j.metricGrouping.Id.Test,
+				"project":     j.MetricGrouping.Id.Project,
+				"variant":     j.MetricGrouping.Id.Variant,
+				"task":        j.MetricGrouping.Id.Task,
+				"test":        j.MetricGrouping.Id.Test,
 				"measurement": result.Measurement,
-				"error":       err,
 			})
 			continue
 		}
 
-		seriesFilter := makeSeriesFilter(j.metricGrouping)
+		seriesFilter := makeSeriesFilter(j.MetricGrouping)
 		pullUpdate := bson.M{
 			"$pull": bson.M{
 				"change_points": bson.M{
@@ -206,15 +203,15 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		}
 		_, err = collection.UpdateMany(ctx, seriesFilter, pullUpdate)
 		if err != nil {
-			grip.Error(errorMsg{
+			message.WrapError(err, message.Fields{
 				"message":     "Unable to clear change points for measurement",
-				"project":     j.metricGrouping.Id.Project,
-				"variant":     j.metricGrouping.Id.Variant,
-				"task":        j.metricGrouping.Id.Task,
-				"test":        j.metricGrouping.Id.Test,
+				"project":     j.MetricGrouping.Id.Project,
+				"variant":     j.MetricGrouping.Id.Variant,
+				"task":        j.MetricGrouping.Id.Task,
+				"test":        j.MetricGrouping.Id.Test,
 				"measurement": result.Measurement,
-				"error":       err,
 			})
+			continue
 		}
 
 		for _, cp := range changePoints {
@@ -232,7 +229,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			}
 			_, err := collection.UpdateOne(ctx, filter, update)
 			if err != nil {
-				grip.Error(errorMsg{
+				message.WrapError(err, message.Fields{
 					"message":        "Failed to update performance result with change point",
 					"perf_result_id": perfResultId,
 					"change_point":   newChangePoint,

@@ -3,11 +3,12 @@ package data
 import (
 	"context"
 	"fmt"
-	"github.com/evergreen-ci/cedar/units"
-	"github.com/mongodb/grip"
-	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
 	"sort"
+
+	"github.com/evergreen-ci/cedar/units"
+	"github.com/mongodb/grip/message"
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -240,6 +241,8 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 // each project/version/task/test combination
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	db := dbc.env.GetDB()
+	queue := dbc.env.GetRemoteQueue()
+	var result units.MetricGrouping
 	pipeline := bson.A{
 		bson.M{
 			"$match": bson.M{
@@ -270,20 +273,18 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}
 	}
 	for cur.Next(ctx) {
-		var result units.MetricGrouping
 		err := cur.Decode(&result)
 		if err != nil {
-			grip.Error(map[string]interface{}{
+			message.WrapError(err, message.Fields{
 				"message": "Unable to to decode aggregation result",
-				"error":   err,
 			})
+			continue
 		}
 
 		job := units.NewRecalculateChangePointsJob(result)
-		queue := dbc.env.GetRemoteQueue()
 		err = queue.Put(ctx, job)
 		if err != nil {
-			grip.Error(map[string]interface{}{
+			message.WrapError(err, message.Fields{
 				"message": "Unable to enqueue recalculation job for metric",
 				"project": result.Id.Project,
 				"variant": result.Id.Variant,
