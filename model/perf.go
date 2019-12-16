@@ -17,6 +17,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -636,4 +637,139 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 	}
 
 	return errors.WithStack(it.Close(ctx))
+}
+
+func GetMetricGroupings(ctx context.Context, db *mongo.Database) (*mongo.Cursor, error) {
+	pipeline := bson.A{
+		bson.M{
+			"$match": bson.M{
+				"info.order": bson.M{
+					"$exists": true,
+				},
+				"info.mainline":  true,
+				"info.project":   bson.M{"$exists": true},
+				"info.variant":   bson.M{"$exists": true},
+				"info.task_name": bson.M{"$exists": true},
+				"info.test_name": bson.M{"$exists": true},
+			},
+		},
+		bson.M{
+			"$group": bson.M{
+				"_id": bson.M{
+					"task":    "$info.task_name",
+					"variant": "$info.variant",
+					"project": "$info.project",
+					"test":    "$info.test_name",
+				},
+			},
+		},
+	}
+	return db.Collection(perfResultCollection).Aggregate(ctx, pipeline)
+}
+
+type MetricGrouping struct {
+	Id struct {
+		Project string `bson:"project"`
+		Variant string `bson:"variant"`
+		Task    string `bson:"task"`
+		Test    string `bson:"test"`
+	} `bson:"_id"`
+}
+
+type TimeSeriesElement struct {
+	PerfResultID string `bson:"id"`
+	Value        float64
+	Order        int
+}
+
+type MeasurementTimeSeries struct {
+	Measurement string              `bson:"_id"`
+	TimeSeries  []TimeSeriesElement `bson:"times_series"`
+}
+
+func makeSeriesFilter(grouping MetricGrouping) bson.M {
+	return bson.M{
+		"info.project":   grouping.Id.Project,
+		"info.variant":   grouping.Id.Variant,
+		"info.task_name": grouping.Id.Task,
+		"info.test_name": grouping.Id.Test,
+	}
+
+}
+
+func makeTimeSeriesPipeline(grouping MetricGrouping) []bson.M {
+	var pipeline []bson.M
+
+	pipeline = append(pipeline, bson.M{
+		"match": makeSeriesFilter(grouping),
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$match": bson.M{
+			"info.order": bson.M{
+				"$exists": true,
+			},
+			"info.mainline": true,
+		},
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$unwind": "$rollups.stats",
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"measurement": "$rollups.stats.name",
+			"value":       "$rollups.stats.val",
+			"order":       "$info.order",
+		},
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id": "$measurement",
+			"time_series": bson.M{
+				"$push": bson.M{
+					"id":    "$_id",
+					"value": "$value",
+					"order": "$order",
+				},
+			},
+		},
+	})
+
+	return pipeline
+}
+func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping MetricGrouping) (*mongo.Cursor, error) {
+	timeSeriesAggregator := makeTimeSeriesPipeline(metricGrouping)
+	return db.Collection(perfResultCollection).Aggregate(ctx, timeSeriesAggregator)
+}
+
+func ClearChangePoints(ctx context.Context, db *mongo.Database, grouping MetricGrouping, measurement string) error {
+	seriesFilter := makeSeriesFilter(grouping)
+	pullUpdate := bson.M{
+		"$pull": bson.M{
+			"change_points": bson.M{
+				"measurement": measurement,
+			},
+		},
+	}
+	_, err := db.Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, pullUpdate)
+	return err
+}
+
+func CreateChangePoint(ctx context.Context, db *mongo.Database, resultToUpdate string, measurement string, algorithm interface{}) error {
+	filter := bson.M{"_id": resultToUpdate}
+	newChangePoint := bson.M{
+		"measurement":   measurement,
+		"algorithm":     algorithm,
+		"calculated_at": time.Now(),
+	}
+	update := bson.M{
+		"$push": bson.M{
+			"change_points": newChangePoint,
+		},
+	}
+	_, err := db.Collection(perfResultCollection).UpdateOne(ctx, filter, update)
+	return err
 }

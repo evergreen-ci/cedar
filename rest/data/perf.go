@@ -8,7 +8,6 @@ import (
 
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/mongodb/grip/message"
-	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -242,32 +241,8 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	db := dbc.env.GetDB()
 	queue := dbc.env.GetRemoteQueue()
-	var result units.MetricGrouping
-	pipeline := bson.A{
-		bson.M{
-			"$match": bson.M{
-				"info.order": bson.M{
-					"$exists": true,
-				},
-				"info.mainline":  true,
-				"info.project":   bson.M{"$exists": true},
-				"info.variant":   bson.M{"$exists": true},
-				"info.task_name": bson.M{"$exists": true},
-				"info.test_name": bson.M{"$exists": true},
-			},
-		},
-		bson.M{
-			"$group": bson.M{
-				"_id": bson.M{
-					"task":    "$info.task_name",
-					"variant": "$info.variant",
-					"project": "$info.project",
-					"test":    "$info.test_name",
-				},
-			},
-		},
-	}
-	cur, err := db.Collection("perf_results").Aggregate(ctx, pipeline)
+	var result model.MetricGrouping
+	cur, err := model.GetMetricGroupings(ctx, db)
 	defer cur.Close(ctx)
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}

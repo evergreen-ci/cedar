@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/mongodb/grip/message"
 
@@ -16,13 +15,12 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type recalculateChangePointsJob struct {
 	*job.Base      `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env            cedar.Environment
-	MetricGrouping MetricGrouping
+	MetricGrouping model.MetricGrouping
 }
 
 func init() {
@@ -42,7 +40,7 @@ func makeChangePointsJob() *recalculateChangePointsJob {
 	return j
 }
 
-func NewRecalculateChangePointsJob(metricGrouping MetricGrouping) amboy.Job {
+func NewRecalculateChangePointsJob(metricGrouping model.MetricGrouping) amboy.Job {
 	j := makeChangePointsJob()
 	// Every ten minutes at most
 	timestamp := util.RoundPartOfHour(10)
@@ -51,87 +49,12 @@ func NewRecalculateChangePointsJob(metricGrouping MetricGrouping) amboy.Job {
 	return j
 }
 
-type MetricGrouping struct {
-	Id struct {
-		Project string `bson:"project"`
-		Variant string `bson:"variant"`
-		Task    string `bson:"task"`
-		Test    string `bson:"test"`
-	} `bson:"_id"`
-}
-
-func makeSeriesFilter(grouping MetricGrouping) bson.M {
-	return bson.M{
-		"info.project":   grouping.Id.Project,
-		"info.variant":   grouping.Id.Variant,
-		"info.task_name": grouping.Id.Task,
-		"info.test_name": grouping.Id.Test,
-	}
-
-}
-
-func makeTimeSeriesPipeline(grouping MetricGrouping) []bson.M {
-	var pipeline []bson.M
-
-	pipeline = append(pipeline, bson.M{
-		"match": makeSeriesFilter(grouping),
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$match": bson.M{
-			"info.order": bson.M{
-				"$exists": true,
-			},
-			"info.mainline": true,
-		},
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$unwind": "$rollups.stats",
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$project": bson.M{
-			"measurement": "$rollups.stats.name",
-			"value":       "$rollups.stats.val",
-			"order":       "$info.order",
-		},
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$group": bson.M{
-			"_id": "$measurement",
-			"time_series": bson.M{
-				"$push": bson.M{
-					"id":    "$_id",
-					"value": "$value",
-					"order": "$order",
-				},
-			},
-		},
-	})
-
-	return pipeline
-}
-
-type errorMsg = map[string]interface{}
-
-type timeSeriesElement struct {
-	PerfResultID string `bson:"id"`
-	Value        float64
-	Order        int
-}
-
-type measurementTimeSeries struct {
-	Measurement string              `bson:"_id"`
-	TimeSeries  []timeSeriesElement `bson:"times_series"`
-}
-
 func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
+	db := j.env.GetDB()
 	conf := model.NewCedarConfig(j.env)
 	err := conf.Find()
 	if err != nil {
@@ -141,9 +64,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		return
 	}
 	detector := perf.NewMicroServiceChangeDetector(conf.ChangeDetector.URI, conf.ChangeDetector.User, conf.ChangeDetector.Token)
-	collection := j.env.GetDB().Collection("perf_results")
-	timeSeriesAggregator := makeTimeSeriesPipeline(j.MetricGrouping)
-	cur, err := collection.Aggregate(ctx, timeSeriesAggregator)
+	cur, err := model.GetTimeSeries(ctx, db, j.MetricGrouping)
 	defer cur.Close(ctx)
 	if err != nil {
 		message.WrapError(err, message.Fields{
@@ -156,8 +77,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		return
 	}
 	for cur.Next(ctx) {
-		var result measurementTimeSeries
-
+		var result model.MeasurementTimeSeries
 		err = cur.Decode(result)
 		if err != nil {
 			message.WrapError(err, message.Fields{
@@ -193,15 +113,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			continue
 		}
 
-		seriesFilter := makeSeriesFilter(j.MetricGrouping)
-		pullUpdate := bson.M{
-			"$pull": bson.M{
-				"change_points": bson.M{
-					"measurement": result.Measurement,
-				},
-			},
-		}
-		_, err = collection.UpdateMany(ctx, seriesFilter, pullUpdate)
+		err = model.ClearChangePoints(ctx, db, j.MetricGrouping, result.Measurement)
 		if err != nil {
 			message.WrapError(err, message.Fields{
 				"message":     "Unable to clear change points for measurement",
@@ -216,23 +128,12 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		for _, cp := range changePoints {
 			perfResultId := result.TimeSeries[cp.Index].PerfResultID
-			filter := bson.M{"_id": perfResultId}
-			newChangePoint := bson.M{
-				"measurement":   result.Measurement,
-				"algorithm":     cp.Info,
-				"calculated_at": time.Now(),
-			}
-			update := bson.M{
-				"$push": bson.M{
-					"change_points": newChangePoint,
-				},
-			}
-			_, err := collection.UpdateOne(ctx, filter, update)
+			err = model.CreateChangePoint(ctx, db, perfResultId, result.Measurement, cp.Info)
 			if err != nil {
 				message.WrapError(err, message.Fields{
 					"message":        "Failed to update performance result with change point",
 					"perf_result_id": perfResultId,
-					"change_point":   newChangePoint,
+					"change_point":   cp,
 				})
 			}
 		}
