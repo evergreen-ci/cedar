@@ -106,6 +106,11 @@ type testResults []struct {
 	parent int
 }
 
+type testResultsAndRollups []struct {
+	info    *model.PerformanceResultInfo
+	rollups []model.PerfRollupValue
+}
+
 func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -210,6 +215,93 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		}
 		s.idMap[performanceResult.ID] = *performanceResult
 	}
+
+	rollups := testResultsAndRollups{
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "project1",
+				Variant:  "variant1",
+				Version:  "0",
+				Order:    1,
+				TestName: "test1",
+				TaskName: "task1",
+				TaskID:   "task1",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "OverheadTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      100,
+				},
+				{
+					Name:       "OperationsTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      10000,
+				},
+			},
+		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "project2",
+				Variant:  "variant1",
+				Version:  "0",
+				Order:    1,
+				TestName: "test1",
+				TaskName: "task1",
+				TaskID:   "task1",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "OperationsTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      10000,
+				},
+			},
+		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "project1",
+				Variant:  "variant1",
+				Version:  "1",
+				Order:    2,
+				TestName: "test1",
+				TaskName: "task1",
+				TaskID:   "task1",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "OverheadTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      100,
+				},
+				{
+					Name:       "OperationsTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      10000,
+				},
+			},
+		},
+	}
+
+	for _, result := range rollups {
+		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
+		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
+		performanceResult.Setup(env)
+		err := performanceResult.SaveNew(ctx)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		s.idMap[performanceResult.ID] = *performanceResult
+	}
+
 	s.results = results
 	return nil
 }
@@ -591,5 +683,5 @@ func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 	s.NoError(err)
 	queue := s.env.GetRemoteQueue()
 	mockQueue := queue.(*MockQueue)
-	s.Require().Len(mockQueue.Jobs, 1)
+	s.Require().Len(mockQueue.Jobs, 3)
 }
