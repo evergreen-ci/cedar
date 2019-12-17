@@ -49,10 +49,11 @@ func TestCedarConfig(t *testing.T) {
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CedarConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
-				NumWorkers:         2,
-				DisableRemoteQueue: true,
+				MongoDBURI:              "mongodb://localhost:27017",
+				DatabaseName:            "\"", // intentionally invalid
+				NumWorkers:              2,
+				DisableRemoteQueue:      true,
+				DisableRemoteQueueGroup: true,
 			})
 			require.NoError(t, err)
 
@@ -71,10 +72,11 @@ func TestCedarConfig(t *testing.T) {
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CedarConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
-				NumWorkers:         2,
-				DisableRemoteQueue: true,
+				MongoDBURI:              "mongodb://localhost:27017",
+				DatabaseName:            "\"", // intentionally invalid
+				NumWorkers:              2,
+				DisableRemoteQueue:      true,
+				DisableRemoteQueueGroup: true,
 			})
 			require.NoError(t, err)
 
