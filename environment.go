@@ -9,6 +9,7 @@ import (
 	"github.com/mongodb/amboy/pool"
 	"github.com/mongodb/amboy/queue"
 	"github.com/mongodb/amboy/reporting"
+	"github.com/mongodb/anser/apm"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -55,7 +56,8 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		env.client, err = mongo.NewClient(options.Client().ApplyURI(conf.MongoDBURI).
 			SetConnectTimeout(conf.MongoDBDialTimeout).
 			SetSocketTimeout(conf.SocketTimeout).
-			SetServerSelectionTimeout(conf.SocketTimeout))
+			SetServerSelectionTimeout(conf.SocketTimeout).
+			SetMonitor(apm.NewLoggingMonitor(ctx, time.Minute, apm.NewBasicMonitor(&apm.MonitorConfig{AllTags: true})).DriverAPM()))
 		if err != nil {
 			return nil, errors.Wrap(err, "problem constructing mongodb client")
 		}

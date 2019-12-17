@@ -43,7 +43,7 @@ func generatorDependency(env Environment, o model.GeneratorOptions) dependency.M
 	// dependency.Manager implementation.
 	dep := env.NewDependencyManager(o.JobID)
 	for _, edge := range o.DependsOn {
-		dep.AddEdge(edge)
+		grip.Warning(dep.AddEdge(edge))
 	}
 	return dep
 }
@@ -69,7 +69,7 @@ func addMigrationJobs(ctx context.Context, q amboy.Queue, dryRun bool, limit int
 			if limit > 0 && count >= limit {
 				return count, catcher.Resolve()
 			}
-			catcher.Add(q.Put(j))
+			catcher.Add(q.Put(ctx, j))
 			count++
 		}
 	}

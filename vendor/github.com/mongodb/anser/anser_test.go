@@ -79,10 +79,13 @@ func (s *ApplicationSuite) TestRunErrorsWithCanceledContext() {
 }
 
 func (s *ApplicationSuite) TestRunDoesNotErrorWithDryRun() {
-	s.env.Queue = queue.NewLocalUnordered(2)
+	s.env.Queue = queue.NewLocalLimitedSize(2, 128)
+
 	s.NoError(s.app.Setup(s.env))
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.NoError(s.env.Queue.Start(ctx))
 	s.app.Options.DryRun = true
 	s.NoError(s.app.Run(ctx))
 }
@@ -105,21 +108,21 @@ func (s *ApplicationSuite) TestLimitIsRespected() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s.env.Queue = queue.NewLocalUnordered(2)
+	s.env.Queue = queue.NewLocalLimitedSize(2, 128)
 	s.env.Network = mock.NewDependencyNetwork()
 
 	s.NoError(s.env.Queue.Start(ctx))
-	s.NoError(s.env.Queue.Put(job))
-	s.Equal(1, s.env.Queue.Stats().Total)
-	amboy.WaitCtxInterval(ctx, s.env.Queue, 10*time.Millisecond)
+	s.NoError(s.env.Queue.Put(ctx, job))
+	s.Equal(1, s.env.Queue.Stats(ctx).Total)
+	amboy.WaitInterval(ctx, s.env.Queue, 10*time.Millisecond)
 
 	num, err := addMigrationJobs(ctx, s.env.Queue, false, 2)
 	s.NoError(err)
-	amboy.WaitCtxInterval(ctx, s.env.Queue, 100*time.Millisecond)
+	amboy.WaitInterval(ctx, s.env.Queue, 100*time.Millisecond)
 
 	// two is the limit:
 	s.Equal(2, num)
 	// one generator plus two jobs:
-	s.Equal(3, s.env.Queue.Stats().Total)
+	s.Equal(3, s.env.Queue.Stats(ctx).Total)
 
 }

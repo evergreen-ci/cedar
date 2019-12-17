@@ -16,6 +16,8 @@ import (
 const (
 	logStartAt = "start"
 	logEndAt   = "end"
+	tags       = "tags"
+	printTime  = "printTime"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -23,9 +25,10 @@ const (
 // GET /buildlogger/{id}
 
 type logGetByIDHandler struct {
-	id string
-	tr util.TimeRange
-	sc data.Connector
+	id        string
+	tr        util.TimeRange
+	printTime bool
+	sc        data.Connector
 }
 
 func makeGetLogByID(sc data.Connector) gimlet.RouteHandler {
@@ -47,6 +50,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 	vals := r.URL.Query()
 	var err error
+	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
@@ -54,7 +58,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 // Run calls FindLogByID and returns the log.
 func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogByID(ctx, h.id, h.tr)
+	r, err := h.sc.FindLogByID(ctx, h.id, h.tr, h.printTime)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
 	}
@@ -105,11 +109,12 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/task_id/{task_id}
 
 type logGetByTaskIDHandler struct {
-	id   string
-	tags []string
-	tr   util.TimeRange
-	n    int
-	sc   data.Connector
+	id        string
+	tags      []string
+	tr        util.TimeRange
+	n         int
+	printTime bool
+	sc        data.Connector
 }
 
 func makeGetLogByTaskID(sc data.Connector) gimlet.RouteHandler {
@@ -132,7 +137,8 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
+	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals["n"]) > 0 {
@@ -145,7 +151,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 // Run calls FindLogsByTaskID and returns the merged logs.
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.tags...)
+	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.printTime, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
@@ -180,7 +186,7 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
 
 	return nil
 }
@@ -200,11 +206,12 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /buildlogger/test_name/{task_id}/{test_name}
 
 type logGetByTestNameHandler struct {
-	id   string
-	name string
-	tags []string
-	tr   util.TimeRange
-	sc   data.Connector
+	id        string
+	name      string
+	tags      []string
+	tr        util.TimeRange
+	printTime bool
+	sc        data.Connector
 }
 
 func makeGetLogByTestName(sc data.Connector) gimlet.RouteHandler {
@@ -227,7 +234,8 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
+	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 
 	return err
@@ -235,7 +243,7 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 
 // Run calls FindLogsByTestName and returns the merged logs.
 func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.tags...)
+	r, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.printTime, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
 	}
@@ -272,7 +280,7 @@ func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) 
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
 
 	return nil
 }
@@ -297,12 +305,13 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 // GET /buildlogger/test_name/{task_id}/{test_name}/group/{group_id}
 
 type logGroupHandler struct {
-	id      string
-	name    string
-	groupID string
-	tags    []string
-	tr      util.TimeRange
-	sc      data.Connector
+	id        string
+	name      string
+	groupID   string
+	tags      []string
+	tr        util.TimeRange
+	printTime bool
+	sc        data.Connector
 }
 
 func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
@@ -326,7 +335,8 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.name = gimlet.GetVars(r)["test_name"]
 	h.groupID = gimlet.GetVars(r)["group_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
+	h.printTime = vals.Get(printTime) == "true"
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	}
@@ -352,7 +362,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		}
 	}
 
-	r, err := h.sc.FindGroupedLogs(ctx, h.id, h.name, h.groupID, h.tr, h.tags...)
+	r, err := h.sc.FindGroupedLogs(ctx, h.id, h.name, h.groupID, h.tr, h.printTime, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err,
 			"Error getting grouped logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
