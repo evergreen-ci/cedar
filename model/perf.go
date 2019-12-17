@@ -639,7 +639,7 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 	return errors.WithStack(it.Close(ctx))
 }
 
-func GetMetricGroupings(ctx context.Context, db *mongo.Database) (*mongo.Cursor, error) {
+func GetTimeSeriesIds(ctx context.Context, db *mongo.Database) (*mongo.Cursor, error) {
 	pipeline := bson.A{
 		bson.M{
 			"$match": bson.M{
@@ -654,12 +654,16 @@ func GetMetricGroupings(ctx context.Context, db *mongo.Database) (*mongo.Cursor,
 			},
 		},
 		bson.M{
+			"$unwind": "$rollups.stats",
+		},
+		bson.M{
 			"$group": bson.M{
 				"_id": bson.M{
-					"task":    "$info.task_name",
-					"variant": "$info.variant",
-					"project": "$info.project",
-					"test":    "$info.test_name",
+					"task":        "$info.task_name",
+					"variant":     "$info.variant",
+					"project":     "$info.project",
+					"test":        "$info.test_name",
+					"measurement": "$rollups.stats.name",
 				},
 			},
 		},
@@ -667,41 +671,37 @@ func GetMetricGroupings(ctx context.Context, db *mongo.Database) (*mongo.Cursor,
 	return db.Collection(perfResultCollection).Aggregate(ctx, pipeline)
 }
 
-type MetricGrouping struct {
+type TimeSeriesId struct {
 	Id struct {
-		Project string `bson:"project"`
-		Variant string `bson:"variant"`
-		Task    string `bson:"task"`
-		Test    string `bson:"test"`
+		Project     string `bson:"project"`
+		Variant     string `bson:"variant"`
+		Task        string `bson:"task"`
+		Test        string `bson:"test"`
+		Measurement string `bson:"measurement"`
 	} `bson:"_id"`
 }
 
-type TimeSeriesElement struct {
+type TimeSeriesEntry struct {
 	PerfResultID string `bson:"id"`
 	Value        float64
 	Order        int
 }
 
-type MeasurementTimeSeries struct {
-	Measurement string              `bson:"_id"`
-	TimeSeries  []TimeSeriesElement `bson:"times_series"`
+type TimeSeries struct {
+	TimeSeriesId TimeSeriesId      `bson:"_id"`
+	Data         []TimeSeriesEntry `bson:"times_series"`
 }
 
-func makeSeriesFilter(grouping MetricGrouping) bson.M {
-	return bson.M{
-		"info.project":   grouping.Id.Project,
-		"info.variant":   grouping.Id.Variant,
-		"info.task_name": grouping.Id.Task,
-		"info.test_name": grouping.Id.Test,
-	}
-
-}
-
-func makeTimeSeriesPipeline(grouping MetricGrouping) []bson.M {
+func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
 	var pipeline []bson.M
 
 	pipeline = append(pipeline, bson.M{
-		"match": makeSeriesFilter(grouping),
+		"$match": bson.M{
+			"info.project":   timeSeriesId.Id.Project,
+			"info.variant":   timeSeriesId.Id.Variant,
+			"info.task_name": timeSeriesId.Id.Task,
+			"info.test_name": timeSeriesId.Id.Test,
+		},
 	})
 
 	pipeline = append(pipeline, bson.M{
@@ -715,6 +715,12 @@ func makeTimeSeriesPipeline(grouping MetricGrouping) []bson.M {
 
 	pipeline = append(pipeline, bson.M{
 		"$unwind": "$rollups.stats",
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$match": bson.M{
+			"rollups.stats.name": timeSeriesId.Id.Measurement,
+		},
 	})
 
 	pipeline = append(pipeline, bson.M{
@@ -740,17 +746,24 @@ func makeTimeSeriesPipeline(grouping MetricGrouping) []bson.M {
 
 	return pipeline
 }
-func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping MetricGrouping) (*mongo.Cursor, error) {
+func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping TimeSeriesId) (*mongo.Cursor, error) {
 	timeSeriesAggregator := makeTimeSeriesPipeline(metricGrouping)
 	return db.Collection(perfResultCollection).Aggregate(ctx, timeSeriesAggregator)
 }
 
-func ClearChangePoints(ctx context.Context, db *mongo.Database, grouping MetricGrouping, measurement string) error {
-	seriesFilter := makeSeriesFilter(grouping)
+func ClearChangePoints(ctx context.Context, db *mongo.Database, timeSeriesId TimeSeriesId) error {
+	seriesFilter := bson.M{
+		"$match": bson.M{
+			"info.project":   timeSeriesId.Id.Project,
+			"info.variant":   timeSeriesId.Id.Variant,
+			"info.task_name": timeSeriesId.Id.Task,
+			"info.test_name": timeSeriesId.Id.Test,
+		},
+	}
 	pullUpdate := bson.M{
 		"$pull": bson.M{
 			"change_points": bson.M{
-				"measurement": measurement,
+				"measurement": timeSeriesId.Id.Measurement,
 			},
 		},
 	}

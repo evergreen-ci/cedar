@@ -241,8 +241,8 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	db := dbc.env.GetDB()
 	queue := dbc.env.GetRemoteQueue()
-	var result model.MetricGrouping
-	cur, err := model.GetMetricGroupings(ctx, db)
+	var result model.TimeSeriesId
+	cur, err := model.GetTimeSeriesIds(ctx, db)
 	defer cur.Close(ctx)
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}
@@ -260,11 +260,12 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		err = queue.Put(ctx, job)
 		if err != nil {
 			message.WrapError(err, message.Fields{
-				"message": "Unable to enqueue recalculation job for metric",
-				"project": result.Id.Project,
-				"variant": result.Id.Variant,
-				"task":    result.Id.Task,
-				"test":    result.Id.Test,
+				"message":     "Unable to enqueue recalculation job for metric",
+				"project":     result.Id.Project,
+				"variant":     result.Id.Variant,
+				"task":        result.Id.Task,
+				"test":        result.Id.Test,
+				"measurement": result.Id.Measurement,
 			})
 		}
 	}
