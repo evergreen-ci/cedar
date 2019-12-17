@@ -26,6 +26,7 @@ type ftdcRollupsJob struct {
 	ArtifactInfo  *model.ArtifactInfo `bson:"artifact" json:"artifact" yaml:"artifact"`
 	RollupTypes   []string            `bson:"rollup_types" json:"rollup_types" yaml:"rollup_types"`
 	UserSubmitted bool                `bson:"user" json:"user" yaml:"user"`
+	queue         amboy.Queue
 
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env      cedar.Environment
@@ -96,7 +97,9 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-
+	if j.queue == nil {
+		j.queue = j.env.GetRemoteQueue()
+	}
 	inc := func() {
 		result := &model.PerformanceResult{ID: j.PerfID}
 		result.Setup(j.env)
@@ -149,5 +152,29 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
+		j.createSignalProcessingJob(ctx, result, r)
+	}
+}
+
+func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *model.PerformanceResult, rollup model.PerfRollupValue) {
+	id := model.TimeSeriesId{
+		Id: struct {
+			Project     string `bson:"project"`
+			Variant     string `bson:"variant"`
+			Task        string `bson:"task"`
+			Test        string `bson:"test"`
+			Measurement string `bson:"measurement"`
+		}{
+			Project:     result.Info.Project,
+			Variant:     result.Info.Variant,
+			Task:        result.Info.TaskName,
+			Test:        result.Info.TestName,
+			Measurement: rollup.Name,
+		},
+	}
+	processingJob := NewRecalculateChangePointsJob(id)
+	if err := j.queue.Put(ctx, processingJob); err != nil {
+		j.AddError(errors.Wrapf(err, "problem putting signal processing job %s on remote queue", j.ID()))
+		return
 	}
 }
