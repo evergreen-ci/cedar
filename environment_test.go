@@ -88,6 +88,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 		},
 		"ValidConfigUsesLocalConfig": func(t *testing.T, conf *Configuration) {
 			conf.DisableRemoteQueue = true
+			conf.DisableRemoteQueueGroup = true
 
 			env, err := NewEnvironment(ctx, ename, conf)
 			require.NoError(t, err)

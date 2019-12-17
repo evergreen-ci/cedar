@@ -133,8 +133,29 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 		env.remoteReporter, err = reporting.MakeDBQueueState(ctx, reporterOpts, env.client)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem starting wrapper")
+			return nil, errors.Wrap(err, "problem starting remote reporter")
 		}
+	}
+
+	if !conf.DisableRemoteQueueGroup {
+		opts := conf.GetQueueGroupOptions()
+		args := queue.MongoDBQueueGroupOptions{
+			Prefix:                    conf.QueueName,
+			DefaultWorkers:            conf.NumWorkers,
+			Ordered:                   false,
+			BackgroundCreateFrequency: 10 * time.Minute,
+			PruneFrequency:            10 * time.Minute,
+			TTL:                       time.Minute,
+		}
+
+		env.remoteQueueGroup, err = queue.NewMongoDBSingleQueueGroup(ctx, args, env.client, opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "problem starting remote queue group")
+		}
+
+		env.RegisterCloser("remote-queue-group", func(ctx context.Context) error {
+			return errors.Wrap(env.remoteQueueGroup.Close(ctx), "problem waiting for remote queue group to close")
+		})
 	}
 
 	jpm, err := jasper.NewLocalManager(true)
@@ -172,6 +193,8 @@ type Environment interface {
 	GetRemoteReporter() reporting.Reporter
 	GetLocalQueue() amboy.Queue
 	SetLocalQueue(amboy.Queue) error
+
+	GetRemoteQueueGroup() amboy.QueueGroup
 
 	GetSession() db.Session
 	GetClient() *mongo.Client
@@ -214,6 +237,7 @@ type envState struct {
 	name              string
 	remoteQueue       amboy.Queue
 	localQueue        amboy.Queue
+	remoteQueueGroup  amboy.QueueGroup
 	remoteReporter    reporting.Reporter
 	ctx               context.Context
 	client            *mongo.Client
@@ -253,6 +277,13 @@ func (c *envState) GetRemoteQueue() amboy.Queue {
 	defer c.mutex.RUnlock()
 
 	return c.remoteQueue
+}
+
+func (c *envState) GetRemoteQueueGroup() amboy.QueueGroup {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.remoteQueueGroup
 }
 
 func (c *envState) GetRemoteReporter() reporting.Reporter {

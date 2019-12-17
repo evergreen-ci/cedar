@@ -11,15 +11,16 @@ import (
 
 // Configuration defines
 type Configuration struct {
-	BucketName         string
-	DatabaseName       string
-	QueueName          string
-	MongoDBURI         string
-	MongoDBDialTimeout time.Duration
-	SocketTimeout      time.Duration
-	DisableLocalQueue  bool
-	DisableRemoteQueue bool
-	NumWorkers         int
+	BucketName              string
+	DatabaseName            string
+	QueueName               string
+	MongoDBURI              string
+	MongoDBDialTimeout      time.Duration
+	SocketTimeout           time.Duration
+	DisableLocalQueue       bool
+	DisableRemoteQueue      bool
+	DisableRemoteQueueGroup bool
+	NumWorkers              int
 }
 
 func (c *Configuration) Validate() error {
@@ -53,4 +54,11 @@ func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 		Format:         amboy.BSON2,
 		WaitInterval:   time.Second,
 	}
+}
+
+func (c *Configuration) GetQueueGroupOptions() queue.MongoDBOptions {
+	opts := c.GetQueueOptions()
+	opts.UseGroups = true
+	opts.GroupName = c.QueueName
+	return opts
 }
