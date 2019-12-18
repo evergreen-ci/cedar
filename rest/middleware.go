@@ -90,7 +90,7 @@ func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.Evergre
 		})
 	}
 
-	urlString := fmt.Sprintf("%s?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceId)
+	urlString := fmt.Sprintf("%s/rest/v2/auth?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceId)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
 	if err != nil {
 		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
