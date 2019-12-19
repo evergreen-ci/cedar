@@ -240,7 +240,9 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	db := dbc.env.GetDB()
 	queue := dbc.env.GetRemoteQueue()
-	var result model.TimeSeriesId
+	var result struct {
+		Id model.TimeSeriesId `bson:"_id"`
+	}
 	cur, err := model.GetTimeSeriesIds(ctx, db)
 	defer cur.Close(ctx)
 	if err != nil {
@@ -255,7 +257,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 			continue
 		}
 
-		job := units.NewRecalculateChangePointsJob(result)
+		job := units.NewRecalculateChangePointsJob(result.Id)
 		err = queue.Put(ctx, job)
 		if err != nil {
 			message.WrapError(err, message.Fields{

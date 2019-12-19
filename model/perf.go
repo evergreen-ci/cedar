@@ -672,13 +672,11 @@ func GetTimeSeriesIds(ctx context.Context, db *mongo.Database) (*mongo.Cursor, e
 }
 
 type TimeSeriesId struct {
-	Id struct {
-		Project     string `bson:"project"`
-		Variant     string `bson:"variant"`
-		Task        string `bson:"task"`
-		Test        string `bson:"test"`
-		Measurement string `bson:"measurement"`
-	} `bson:"_id"`
+	Project     string `bson:"project"`
+	Variant     string `bson:"variant"`
+	Task        string `bson:"task"`
+	Test        string `bson:"test"`
+	Measurement string `bson:"measurement"`
 }
 
 type TimeSeriesEntry struct {
@@ -696,10 +694,10 @@ func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
 	return []bson.M{
 		{
 			"$match": bson.M{
-				"info.project":   timeSeriesId.Id.Project,
-				"info.variant":   timeSeriesId.Id.Variant,
-				"info.task_name": timeSeriesId.Id.Task,
-				"info.test_name": timeSeriesId.Id.Test,
+				"info.project":   timeSeriesId.Project,
+				"info.variant":   timeSeriesId.Variant,
+				"info.task_name": timeSeriesId.Task,
+				"info.test_name": timeSeriesId.Test,
 			},
 		},
 		{
@@ -715,7 +713,7 @@ func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
 		},
 		{
 			"$match": bson.M{
-				"rollups.stats.name": timeSeriesId.Id.Measurement,
+				"rollups.stats.name": timeSeriesId.Measurement,
 			},
 		},
 		{
@@ -746,17 +744,17 @@ func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping TimeS
 
 func ClearChangePoints(ctx context.Context, db *mongo.Database, timeSeriesId TimeSeriesId) error {
 	seriesFilter := bson.M{
-		"info.project":              timeSeriesId.Id.Project,
-		"info.variant":              timeSeriesId.Id.Variant,
-		"info.task_name":            timeSeriesId.Id.Task,
-		"info.test_name":            timeSeriesId.Id.Test,
-		"rollups.stats.name":        timeSeriesId.Id.Measurement,
-		"change_points.measurement": timeSeriesId.Id.Measurement,
+		"info.project":              timeSeriesId.Project,
+		"info.variant":              timeSeriesId.Variant,
+		"info.task_name":            timeSeriesId.Task,
+		"info.test_name":            timeSeriesId.Test,
+		"rollups.stats.name":        timeSeriesId.Measurement,
+		"change_points.measurement": timeSeriesId.Measurement,
 	}
 	pullUpdate := bson.M{
 		"$pull": bson.M{
 			"change_points": bson.M{
-				"measurement": timeSeriesId.Id.Measurement,
+				"measurement": timeSeriesId.Measurement,
 			},
 		},
 	}

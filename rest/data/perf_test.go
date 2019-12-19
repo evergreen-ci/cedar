@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/cedar/units"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -18,6 +20,7 @@ const testDBName = "cedar_rest_data_test"
 
 type MockQueue struct {
 	Jobs []amboy.Job
+	i    int
 }
 
 func (m *MockQueue) Put(ctx context.Context, j amboy.Job) error {
@@ -34,7 +37,9 @@ func (m *MockQueue) Get(context.Context, string) (amboy.Job, bool) {
 }
 
 func (m *MockQueue) Next(context.Context) amboy.Job {
-	panic("implement me")
+	job := m.Jobs[m.i]
+	m.i++
+	return job
 }
 
 func (m *MockQueue) Started() bool {
@@ -84,7 +89,9 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	queue := MockQueue{}
+	queue := MockQueue{
+		i: 0,
+	}
 	err = env.SetRemoteQueue(&queue)
 	if err != nil {
 		panic(err)
@@ -684,4 +691,29 @@ func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 	queue := s.env.GetRemoteQueue()
 	mockQueue := queue.(*MockQueue)
 	s.Require().Len(mockQueue.Jobs, 3)
+	var ids []model.TimeSeriesId
+	for _, item := range mockQueue.Jobs {
+		ids = append(ids, item.(*units.RecalculateChangePointsJob).TimeSeriesId)
+	}
+	s.Require().Contains(ids, model.TimeSeriesId{
+		Project:     "project2",
+		Variant:     "variant1",
+		Task:        "task1",
+		Test:        "test1",
+		Measurement: "OperationsTotal",
+	})
+	s.Require().Contains(ids, model.TimeSeriesId{
+		Project:     "project1",
+		Variant:     "variant1",
+		Task:        "task1",
+		Test:        "test1",
+		Measurement: "OverheadTotal",
+	})
+	s.Require().Contains(ids, model.TimeSeriesId{
+		Project:     "project1",
+		Variant:     "variant1",
+		Task:        "task1",
+		Test:        "test1",
+		Measurement: "OperationsTotal",
+	})
 }

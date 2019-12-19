@@ -19,7 +19,7 @@ import (
 	"github.com/mongodb/amboy/registry"
 )
 
-type recalculateChangePointsJob struct {
+type RecalculateChangePointsJob struct {
 	*job.Base    `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env          cedar.Environment
 	TimeSeriesId model.TimeSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
@@ -29,8 +29,8 @@ func init() {
 	registry.AddJobType("recalculate-change-points", func() amboy.Job { return makeChangePointsJob() })
 }
 
-func makeChangePointsJob() *recalculateChangePointsJob {
-	j := &recalculateChangePointsJob{
+func makeChangePointsJob() *RecalculateChangePointsJob {
+	j := &RecalculateChangePointsJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
 				Name:    "recalculate-change-points",
@@ -46,7 +46,7 @@ func NewRecalculateChangePointsJob(timeSeriesId model.TimeSeriesId) amboy.Job {
 	j := makeChangePointsJob()
 	// Every ten minutes at most
 	timestamp := util.RoundPartOfHour(10)
-	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Id.Project, timeSeriesId.Id.Variant, timeSeriesId.Id.Task, timeSeriesId.Id.Test, timeSeriesId.Id.Measurement, timestamp))
+	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timeSeriesId.Measurement, timestamp))
 	j.TimeSeriesId = timeSeriesId
 	return j
 }
@@ -54,14 +54,14 @@ func NewRecalculateChangePointsJob(timeSeriesId model.TimeSeriesId) amboy.Job {
 func makeMessage(msg string, id model.TimeSeriesId) message.Fields {
 	return message.Fields{
 		"message": msg,
-		"project": id.Id.Project,
-		"variant": id.Id.Variant,
-		"task":    id.Id.Task,
-		"test":    id.Id.Test,
+		"project": id.Project,
+		"variant": id.Variant,
+		"task":    id.Task,
+		"test":    id.Test,
 	}
 }
 
-func (j *recalculateChangePointsJob) Run(ctx context.Context) {
+func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 	conf := model.NewCedarConfig(j.env)
 	err := conf.Find()
@@ -118,7 +118,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		for _, cp := range changePoints {
 			perfResultId := result.Data[cp.Index].PerfResultID
-			err = model.CreateChangePoint(ctx, db, perfResultId, j.TimeSeriesId.Id.Measurement, cp.Info)
+			err = model.CreateChangePoint(ctx, db, perfResultId, j.TimeSeriesId.Measurement, cp.Info)
 			if err != nil {
 				grip.Error(message.WrapError(err, message.Fields{
 					"message":        "Failed to update performance result with change point",
