@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/evergreen-ci/cedar/units"
-	"github.com/mongodb/grip/message"
-
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip/message"
 )
 
 /////////////////////////////

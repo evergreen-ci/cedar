@@ -640,8 +640,8 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 }
 
 func GetTimeSeriesIds(ctx context.Context, db *mongo.Database) (*mongo.Cursor, error) {
-	pipeline := bson.A{
-		bson.M{
+	pipeline := []bson.M{
+		{
 			"$match": bson.M{
 				"info.order": bson.M{
 					"$exists": true,
@@ -653,10 +653,10 @@ func GetTimeSeriesIds(ctx context.Context, db *mongo.Database) (*mongo.Cursor, e
 				"info.test_name": bson.M{"$exists": true},
 			},
 		},
-		bson.M{
+		{
 			"$unwind": "$rollups.stats",
 		},
-		bson.M{
+		{
 			"$group": bson.M{
 				"_id": bson.M{
 					"task":        "$info.task_name",
@@ -693,58 +693,51 @@ type TimeSeries struct {
 }
 
 func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
-	var pipeline []bson.M
-
-	pipeline = append(pipeline, bson.M{
-		"$match": bson.M{
-			"info.project":   timeSeriesId.Id.Project,
-			"info.variant":   timeSeriesId.Id.Variant,
-			"info.task_name": timeSeriesId.Id.Task,
-			"info.test_name": timeSeriesId.Id.Test,
-		},
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$match": bson.M{
-			"info.order": bson.M{
-				"$exists": true,
+	return []bson.M{
+		{
+			"$match": bson.M{
+				"info.project":   timeSeriesId.Id.Project,
+				"info.variant":   timeSeriesId.Id.Variant,
+				"info.task_name": timeSeriesId.Id.Task,
+				"info.test_name": timeSeriesId.Id.Test,
 			},
-			"info.mainline": true,
 		},
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$unwind": "$rollups.stats",
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$match": bson.M{
-			"rollups.stats.name": timeSeriesId.Id.Measurement,
+		{
+			"$match": bson.M{
+				"info.order": bson.M{
+					"$exists": true,
+				},
+				"info.mainline": true,
+			},
 		},
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$project": bson.M{
-			"measurement": "$rollups.stats.name",
-			"value":       "$rollups.stats.val",
-			"order":       "$info.order",
+		{
+			"$unwind": "$rollups.stats",
 		},
-	})
-
-	pipeline = append(pipeline, bson.M{
-		"$group": bson.M{
-			"_id": "$measurement",
-			"time_series": bson.M{
-				"$push": bson.M{
-					"id":    "$_id",
-					"value": "$value",
-					"order": "$order",
+		{
+			"$match": bson.M{
+				"rollups.stats.name": timeSeriesId.Id.Measurement,
+			},
+		},
+		{
+			"$project": bson.M{
+				"measurement": "$rollups.stats.name",
+				"value":       "$rollups.stats.val",
+				"order":       "$info.order",
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "$measurement",
+				"time_series": bson.M{
+					"$push": bson.M{
+						"id":    "$_id",
+						"value": "$value",
+						"order": "$order",
+					},
 				},
 			},
 		},
-	})
-
-	return pipeline
+	}
 }
 func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping TimeSeriesId) (*mongo.Cursor, error) {
 	timeSeriesAggregator := makeTimeSeriesPipeline(metricGrouping)
@@ -753,12 +746,12 @@ func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping TimeS
 
 func ClearChangePoints(ctx context.Context, db *mongo.Database, timeSeriesId TimeSeriesId) error {
 	seriesFilter := bson.M{
-		"$match": bson.M{
-			"info.project":   timeSeriesId.Id.Project,
-			"info.variant":   timeSeriesId.Id.Variant,
-			"info.task_name": timeSeriesId.Id.Task,
-			"info.test_name": timeSeriesId.Id.Test,
-		},
+		"info.project":              timeSeriesId.Id.Project,
+		"info.variant":              timeSeriesId.Id.Variant,
+		"info.task_name":            timeSeriesId.Id.Task,
+		"info.test_name":            timeSeriesId.Id.Test,
+		"rollups.stats.name":        timeSeriesId.Id.Measurement,
+		"change_points.measurement": timeSeriesId.Id.Measurement,
 	}
 	pullUpdate := bson.M{
 		"$pull": bson.M{
@@ -768,21 +761,20 @@ func ClearChangePoints(ctx context.Context, db *mongo.Database, timeSeriesId Tim
 		},
 	}
 	_, err := db.Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, pullUpdate)
-	return err
+	return errors.Wrap(err, "Unable to clear change points")
 }
 
 func CreateChangePoint(ctx context.Context, db *mongo.Database, resultToUpdate string, measurement string, algorithm interface{}) error {
 	filter := bson.M{"_id": resultToUpdate}
-	newChangePoint := bson.M{
-		"measurement":   measurement,
-		"algorithm":     algorithm,
-		"calculated_at": time.Now(),
-	}
 	update := bson.M{
 		"$push": bson.M{
-			"change_points": newChangePoint,
+			"change_points": bson.M{
+				"measurement":   measurement,
+				"algorithm":     algorithm,
+				"calculated_at": time.Now(),
+			},
 		},
 	}
 	_, err := db.Collection(perfResultCollection).UpdateOne(ctx, filter, update)
-	return err
+	return errors.Wrap(err, "Unable to create change point")
 }

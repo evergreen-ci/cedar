@@ -66,9 +66,9 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	conf := model.NewCedarConfig(j.env)
 	err := conf.Find()
 	if err != nil {
-		message.WrapError(err, message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message": "Unable to get cedar configuration",
-		})
+		}))
 		return
 	}
 	if conf.Flags.DisableSignalProcessing == true {
@@ -81,16 +81,16 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	db := j.env.GetDB()
 	detector := perf.NewMicroServiceChangeDetector(conf.ChangeDetector.URI, conf.ChangeDetector.User, conf.ChangeDetector.Token)
 	cur, err := model.GetTimeSeries(ctx, db, j.TimeSeriesId)
-	defer cur.Close(ctx)
 	if err != nil {
-		message.WrapError(err, makeMessage("Unable to aggregate time series", j.TimeSeriesId))
+		grip.Error(message.WrapError(err, makeMessage("Unable to aggregate time series", j.TimeSeriesId)))
 		return
 	}
+	defer cur.Close(ctx)
 	for cur.Next(ctx) {
 		var result model.TimeSeries
 		err = cur.Decode(result)
 		if err != nil {
-			message.WrapError(err, makeMessage("Unable to decode aggregated time series", j.TimeSeriesId))
+			grip.Error(message.WrapError(err, makeMessage("Unable to decode aggregated time series", j.TimeSeriesId)))
 			break
 		}
 
@@ -106,13 +106,13 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		changePoints, err := detector.DetectChanges(ctx, series)
 		if err != nil {
-			message.WrapError(err, makeMessage("Unable to detect change points in time series", j.TimeSeriesId))
+			grip.Error(message.WrapError(err, makeMessage("Unable to detect change points in time series", j.TimeSeriesId)))
 			continue
 		}
 
 		err = model.ClearChangePoints(ctx, db, j.TimeSeriesId)
 		if err != nil {
-			message.WrapError(err, makeMessage("Unable to clear change points for measurement", j.TimeSeriesId))
+			grip.Error(message.WrapError(err, makeMessage("Unable to clear change points for measurement", j.TimeSeriesId)))
 			continue
 		}
 
@@ -120,11 +120,11 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			perfResultId := result.Data[cp.Index].PerfResultID
 			err = model.CreateChangePoint(ctx, db, perfResultId, j.TimeSeriesId.Id.Measurement, cp.Info)
 			if err != nil {
-				message.WrapError(err, message.Fields{
+				grip.Error(message.WrapError(err, message.Fields{
 					"message":        "Failed to update performance result with change point",
 					"perf_result_id": perfResultId,
 					"change_point":   cp,
-				})
+				}))
 			}
 		}
 	}
