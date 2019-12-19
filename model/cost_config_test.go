@@ -52,10 +52,11 @@ func TestCostConfig(t *testing.T) {
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CostConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
-				NumWorkers:         2,
-				DisableRemoteQueue: true,
+				MongoDBURI:              "mongodb://localhost:27017",
+				DatabaseName:            "\"", // intentionally invalid
+				NumWorkers:              2,
+				DisableRemoteQueue:      true,
+				DisableRemoteQueueGroup: true,
 			})
 			require.NoError(t, err)
 
@@ -76,10 +77,11 @@ func TestCostConfig(t *testing.T) {
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CostConfig) {
 			conf.PopulateMock()
 			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
-				NumWorkers:         2,
-				DisableRemoteQueue: true,
+				MongoDBURI:              "mongodb://localhost:27017",
+				DatabaseName:            "\"", // intentionally invalid
+				NumWorkers:              2,
+				DisableRemoteQueue:      true,
+				DisableRemoteQueueGroup: true,
 			})
 			require.NoError(t, err)
 

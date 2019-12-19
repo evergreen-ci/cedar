@@ -19,6 +19,7 @@ const cedarConfigurationID = "cedar-system-configuration"
 
 type CedarConfig struct {
 	ID             string                    `bson:"_id" json:"id" yaml:"id"`
+	Evergreen      EvergreenConfig           `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
 	Splunk         send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
 	Slack          SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
 	LDAP           LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
@@ -46,6 +47,7 @@ func NewCedarConfig(env cedar.Environment) *CedarConfig {
 
 var (
 	cedarConfigurationIDKey             = bsonutil.MustHaveTag(CedarConfig{}, "ID")
+	cedarConfigurationEvergreenKey      = bsonutil.MustHaveTag(CedarConfig{}, "Evergreen")
 	cedarConfigurationSplunkKey         = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
 	cedarConfigurationSlackKey          = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
 	cedarConfigurationLDAPKey           = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
@@ -53,6 +55,17 @@ var (
 	cedarConfigurationFlagsKey          = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
 	cedarConfigurationServiceKey        = bsonutil.MustHaveTag(CedarConfig{}, "Service")
 	cedarConfigurationChangeDetectorKey = bsonutil.MustHaveTag(CedarConfig{}, "ChangeDetector")
+)
+
+type EvergreenConfig struct {
+	URL             string `bson:"url" json:"url" yaml:"url"`
+	AuthTokenCookie string `bson:"auth_token_cookie" json:"auth_token_cookie" yaml:"auth_token_cookie"`
+	Domain          string `bson:"domain" json:"domain" yaml:"domain"`
+}
+
+var (
+	cedarEvergreenConfigURLKey             = bsonutil.MustHaveTag(EvergreenConfig{}, "URL")
+	cedarEvergreenConfigAuthTokenCookieKey = bsonutil.MustHaveTag(EvergreenConfig{}, "AuthTokenCookie")
 )
 
 type ChangeDetectorConfig struct {

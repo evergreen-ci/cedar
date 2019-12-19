@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -14,6 +15,10 @@ import (
 )
 
 func TestGetDownloadURL(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("windows hits a timeout, fix reported in MAKE-1062")
+	}
+
 	ctx := context.TODO()
 	path := "download-test.txt"
 	s3Name := "build-test-curator"

@@ -199,6 +199,8 @@ func (s *Service) addMiddleware() {
 
 func (s *Service) addRoutes() {
 	checkUser := gimlet.NewRequireAuthHandler()
+	evgAuthReadLogByID := NewEvgAuthReadLogByIDMiddleware(s.sc, &s.Conf.Evergreen)
+	evgAuthReadLogByTaskID := NewEvgAuthReadLogByTaskIDMiddleware(s.sc, &s.Conf.Evergreen)
 
 	s.app.AddRoute("/admin/status").Version(1).Get().Handler(s.statusHandler)
 	s.app.AddRoute("/admin/status/event/{id}").Version(1).Get().Wrap(checkUser).Handler(s.getSystemEvent)
@@ -232,11 +234,11 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))
 	s.app.AddRoute("/perf/change_points").Version(1).Post().RouteHandler(makePerfSignalProcessingRecalculate(s.sc))
 
-	s.app.AddRoute("/buildlogger/{id}").Version(1).Get().RouteHandler(makeGetLogByID(s.sc))
-	s.app.AddRoute("/buildlogger/{id}/meta").Version(1).Get().RouteHandler(makeGetLogMetaByID(s.sc))
-	s.app.AddRoute("/buildlogger/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetLogByTaskID(s.sc))
-	s.app.AddRoute("/buildlogger/task_id/{task_id}/meta").Version(1).Get().RouteHandler(makeGetLogMetaByTaskID(s.sc))
-	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetLogByTestName(s.sc))
-	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/meta").Version(1).Get().RouteHandler(makeGetLogMetaByTestName(s.sc))
-	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}").Version(1).Get().RouteHandler(makeGetLogGroup(s.sc))
+	s.app.AddRoute("/buildlogger/{id}").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogByID(s.sc))
+	s.app.AddRoute("/buildlogger/{id}/meta").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogMetaByID(s.sc))
+	s.app.AddRoute("/buildlogger/task_id/{task_id}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogByTaskID(s.sc))
+	s.app.AddRoute("/buildlogger/task_id/{task_id}/meta").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogMetaByTaskID(s.sc))
+	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}").Version(1).Wrap(evgAuthReadLogByTaskID).Get().RouteHandler(makeGetLogByTestName(s.sc))
+	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/meta").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogMetaByTestName(s.sc))
+	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogGroup(s.sc))
 }

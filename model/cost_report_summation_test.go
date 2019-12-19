@@ -39,15 +39,17 @@ func TestCostReportSummary(t *testing.T) {
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, report *CostReportSummary) {
 			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
-				NumWorkers:         2,
-				DisableRemoteQueue: true,
+				MongoDBURI:              "mongodb://localhost:27017",
+				DatabaseName:            "\"", // intentionally invalid
+				NumWorkers:              2,
+				DisableRemoteQueue:      true,
+				DisableRemoteQueueGroup: true,
 			})
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			report.Setup(env)
 			err = report.Find()
+
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "problem finding")
 		},
@@ -60,10 +62,11 @@ func TestCostReportSummary(t *testing.T) {
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, _ cedar.Environment, report *CostReportSummary) {
 			env, err := cedar.NewEnvironment(ctx, "broken", &cedar.Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				DatabaseName:       "\"", // intentionally invalid
-				NumWorkers:         2,
-				DisableRemoteQueue: true,
+				MongoDBURI:              "mongodb://localhost:27017",
+				DatabaseName:            "\"", // intentionally invalid
+				NumWorkers:              2,
+				DisableRemoteQueue:      true,
+				DisableRemoteQueueGroup: true,
 			})
 			require.NoError(t, err)
 

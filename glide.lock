@@ -10,6 +10,8 @@ imports:
   version: 01857ac33766ce0c93856370626f9799281c14f4
 - name: github.com/jpillora/backoff
   version: 06c7a16c845dc8e0bf575fafeeca0f5462f5eb4d
+- name: github.com/PuerkitoBio/rehttp
+  version: 11cf6ea5d3e9afda34846e1db511aa218049471c
 
 - name: github.com/davecgh/go-spew
   version: adab96458c51a58dc1783b3335dcce5461522e75
