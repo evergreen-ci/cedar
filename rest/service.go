@@ -232,7 +232,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/perf/task_name/{task_name}").Version(1).Get().RouteHandler(makeGetPerfByTaskName(s.sc))
 	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
 	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))
-	s.app.AddRoute("/perf/change_points").Version(1).Post().RouteHandler(makePerfSignalProcessingRecalculate(s.sc))
+	s.app.AddRoute("/perf/change_points").Version(1).Post().Wrap(checkUser).RouteHandler(makePerfSignalProcessingRecalculate(s.sc))
 
 	s.app.AddRoute("/buildlogger/{id}").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogByID(s.sc))
 	s.app.AddRoute("/buildlogger/{id}/meta").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogMetaByID(s.sc))

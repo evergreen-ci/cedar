@@ -305,8 +305,7 @@ func (h *perfSignalProcessingRecalculateHandler) Factory() gimlet.RouteHandler {
 }
 
 func (h *perfSignalProcessingRecalculateHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
-	return errors.Wrap(err, "failed to parse request")
+	return nil
 }
 
 func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet.Responder {
@@ -314,10 +313,5 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error scheduling signal processing recalculation jobs"))
 	}
-	response := &struct {
-		message string
-	}{
-		message: "Recalculation jobs scheduled",
-	}
-	return gimlet.NewJSONResponse(response)
+	return gimlet.NewJSONResponse(struct{}{})
 }

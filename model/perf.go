@@ -737,12 +737,23 @@ func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
 		},
 	}
 }
-func GetTimeSeries(ctx context.Context, db *mongo.Database, metricGrouping TimeSeriesId) (*mongo.Cursor, error) {
+
+func GetTimeSeries(ctx context.Context, env cedar.Environment, metricGrouping TimeSeriesId) (*TimeSeries, error) {
 	timeSeriesAggregator := makeTimeSeriesPipeline(metricGrouping)
-	return db.Collection(perfResultCollection).Aggregate(ctx, timeSeriesAggregator)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, timeSeriesAggregator)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot aggregate time series")
+	}
+	defer cur.Close(ctx)
+	var res TimeSeries
+	err = cur.Decode(&res)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode time series")
+	}
+	return &res, nil
 }
 
-func ClearChangePoints(ctx context.Context, db *mongo.Database, timeSeriesId TimeSeriesId) error {
+func ClearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) error {
 	seriesFilter := bson.M{
 		"info.project":              timeSeriesId.Project,
 		"info.variant":              timeSeriesId.Variant,
@@ -758,11 +769,11 @@ func ClearChangePoints(ctx context.Context, db *mongo.Database, timeSeriesId Tim
 			},
 		},
 	}
-	_, err := db.Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, pullUpdate)
+	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, pullUpdate)
 	return errors.Wrap(err, "Unable to clear change points")
 }
 
-func CreateChangePoint(ctx context.Context, db *mongo.Database, resultToUpdate string, measurement string, algorithm interface{}) error {
+func CreateChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm interface{}) error {
 	filter := bson.M{"_id": resultToUpdate}
 	update := bson.M{
 		"$push": bson.M{
@@ -773,6 +784,6 @@ func CreateChangePoint(ctx context.Context, db *mongo.Database, resultToUpdate s
 			},
 		},
 	}
-	_, err := db.Collection(perfResultCollection).UpdateOne(ctx, filter, update)
+	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
 	return errors.Wrap(err, "Unable to create change point")
 }

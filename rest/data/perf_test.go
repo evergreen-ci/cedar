@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/cedar/units"
-
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/amboy"
 	"github.com/pkg/errors"
@@ -113,7 +112,7 @@ type testResults []struct {
 	parent int
 }
 
-type testResultsAndRollups []struct {
+type TestResultsAndRollups []struct {
 	info    *model.PerformanceResultInfo
 	rollups []model.PerfRollupValue
 }
@@ -223,7 +222,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		s.idMap[performanceResult.ID] = *performanceResult
 	}
 
-	rollups := testResultsAndRollups{
+	rollups := TestResultsAndRollups{
 		{
 			info: &model.PerformanceResultInfo{
 				Project:  "project1",

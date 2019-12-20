@@ -20,9 +20,10 @@ import (
 )
 
 type RecalculateChangePointsJob struct {
-	*job.Base    `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env          cedar.Environment
-	TimeSeriesId model.TimeSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
+	*job.Base           `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env                 cedar.Environment
+	TimeSeriesId        model.TimeSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
+	ChangePointDetector perf.ChangeDetector
 }
 
 func init() {
@@ -78,54 +79,43 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-	db := j.env.GetDB()
-	detector := perf.NewMicroServiceChangeDetector(conf.ChangeDetector.URI, conf.ChangeDetector.User, conf.ChangeDetector.Token)
-	cur, err := model.GetTimeSeries(ctx, db, j.TimeSeriesId)
+	if j.ChangePointDetector == nil {
+		j.ChangePointDetector = perf.NewMicroServiceChangeDetector(conf.ChangeDetector.URI, conf.ChangeDetector.User, conf.ChangeDetector.Token)
+	}
+	timeSeries, err := model.GetTimeSeries(ctx, j.env, j.TimeSeriesId)
 	if err != nil {
 		grip.Error(message.WrapError(err, makeMessage("Unable to aggregate time series", j.TimeSeriesId)))
 		return
 	}
-	defer cur.Close(ctx)
-	for cur.Next(ctx) {
-		var result model.TimeSeries
-		err = cur.Decode(result)
+	sort.Slice(timeSeries.Data, func(i, j int) bool {
+		return timeSeries.Data[i].Order < timeSeries.Data[j].Order
+	})
+
+	var series []float64
+	for _, item := range timeSeries.Data {
+		series = append(series, item.Value)
+	}
+
+	changePoints, err := j.ChangePointDetector.DetectChanges(ctx, series)
+	if err != nil {
+		grip.Error(message.WrapError(err, makeMessage("Unable to detect change points in time series", j.TimeSeriesId)))
+		return
+	}
+
+	err = model.ClearChangePoints(ctx, j.env, j.TimeSeriesId)
+	if err != nil {
+		grip.Error(message.WrapError(err, makeMessage("Unable to clear change points for measurement", j.TimeSeriesId)))
+		return
+	}
+	for _, cp := range changePoints {
+		perfResultId := timeSeries.Data[cp.Index].PerfResultID
+		err = model.CreateChangePoint(ctx, j.env, perfResultId, j.TimeSeriesId.Measurement, cp.Info)
 		if err != nil {
-			grip.Error(message.WrapError(err, makeMessage("Unable to decode aggregated time series", j.TimeSeriesId)))
-			break
-		}
-
-		sort.Slice(result.Data, func(i, j int) bool {
-			return result.Data[i].Order < result.Data[j].Order
-		})
-
-		var series []float64
-
-		for _, item := range result.Data {
-			series = append(series, item.Value)
-		}
-
-		changePoints, err := detector.DetectChanges(ctx, series)
-		if err != nil {
-			grip.Error(message.WrapError(err, makeMessage("Unable to detect change points in time series", j.TimeSeriesId)))
-			continue
-		}
-
-		err = model.ClearChangePoints(ctx, db, j.TimeSeriesId)
-		if err != nil {
-			grip.Error(message.WrapError(err, makeMessage("Unable to clear change points for measurement", j.TimeSeriesId)))
-			continue
-		}
-
-		for _, cp := range changePoints {
-			perfResultId := result.Data[cp.Index].PerfResultID
-			err = model.CreateChangePoint(ctx, db, perfResultId, j.TimeSeriesId.Measurement, cp.Info)
-			if err != nil {
-				grip.Error(message.WrapError(err, message.Fields{
-					"message":        "Failed to update performance result with change point",
-					"perf_result_id": perfResultId,
-					"change_point":   cp,
-				}))
-			}
+			grip.Error(message.WrapError(err, message.Fields{
+				"message":        "Failed to update performance result with change point",
+				"perf_result_id": perfResultId,
+				"change_point":   cp,
+			}))
 		}
 	}
 }
