@@ -22,6 +22,7 @@ import (
 type RecalculateChangePointsJob struct {
 	*job.Base           `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env                 cedar.Environment
+	conf                *model.CedarConfig
 	TimeSeriesId        model.TimeSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
 	ChangePointDetector perf.ChangeDetector
 }
@@ -38,6 +39,7 @@ func makeChangePointsJob() *RecalculateChangePointsJob {
 				Version: 1,
 			},
 		},
+		env: cedar.GetEnvironment(),
 	}
 	j.SetDependency(dependency.NewAlways())
 	return j
@@ -64,15 +66,10 @@ func makeMessage(msg string, id model.TimeSeriesId) message.Fields {
 
 func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
-	conf := model.NewCedarConfig(j.env)
-	err := conf.Find()
-	if err != nil {
-		grip.Error(message.WrapError(err, message.Fields{
-			"message": "Unable to get cedar configuration",
-		}))
-		return
+	if j.conf == nil {
+		j.conf = model.NewCedarConfig(j.env)
 	}
-	if conf.Flags.DisableSignalProcessing == true {
+	if j.conf.Flags.DisableSignalProcessing == true {
 		grip.Info(makeMessage("signal processing is disabled, skipping processing", j.TimeSeriesId))
 		return
 	}
@@ -80,7 +77,14 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 	if j.ChangePointDetector == nil {
-		j.ChangePointDetector = perf.NewMicroServiceChangeDetector(conf.ChangeDetector.URI, conf.ChangeDetector.User, conf.ChangeDetector.Token)
+		err := j.conf.Find()
+		if err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "Unable to get cedar configuration",
+			}))
+			return
+		}
+		j.ChangePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
 	timeSeries, err := model.GetTimeSeries(ctx, j.env, j.TimeSeriesId)
 	if err != nil {
@@ -109,7 +113,7 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 	}
 	for _, cp := range changePoints {
 		perfResultId := timeSeries.Data[cp.Index].PerfResultID
-		err = model.CreateChangePoint(ctx, j.env, perfResultId, j.TimeSeriesId.Measurement, cp.Info)
+		err = model.CreateChangePoint(ctx, j.env, perfResultId, j.TimeSeriesId.Measurement, cp.Algorithm)
 		if err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
 				"message":        "Failed to update performance result with change point",

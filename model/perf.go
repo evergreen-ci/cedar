@@ -23,6 +23,23 @@ import (
 
 const perfResultCollection = "perf_results"
 
+type ChangePoint struct {
+	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
+	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
+	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+}
+
+type AlgorithmInfo struct {
+	Name    string            `bson:"name" json:"name" yaml:"name"`
+	Version int               `bson:"version" json:"version" yaml:"version"`
+	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
+}
+
+type AlgorithmOption struct {
+	Name  string      `bson:"name" json:"name" yaml:"name"`
+	Value interface{} `bson:"value" json:"value" yaml:"value"`
+}
+
 // PerformanceResult describes a single result of a performance test from
 // Evergreen.
 type PerformanceResult struct {
@@ -44,7 +61,8 @@ type PerformanceResult struct {
 	Artifacts            []ArtifactInfo `bson:"artifacts"`
 	FailedRollupAttempts int            `bson:"failed_rollup_attempts"`
 
-	Rollups PerfRollups `bson:"rollups"`
+	Rollups      PerfRollups   `bson:"rollups"`
+	ChangePoints []ChangePoint `bson:"change_points"`
 
 	env       cedar.Environment
 	populated bool
@@ -79,7 +97,8 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 			Stats:       append([]PerfRollupValue{}, rollups...),
 			ProcessedAt: createdAt,
 		},
-		populated: true,
+		populated:    true,
+		ChangePoints: []ChangePoint{},
 	}
 }
 
@@ -680,9 +699,9 @@ type TimeSeriesId struct {
 }
 
 type TimeSeriesEntry struct {
-	PerfResultID string `bson:"id"`
-	Value        float64
-	Order        int
+	PerfResultID string  `bson:"_id"`
+	Value        float64 `bson:"value"`
+	Order        int     `bson:"order"`
 }
 
 type TimeSeries struct {
@@ -718,39 +737,29 @@ func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
 		},
 		{
 			"$project": bson.M{
-				"measurement": "$rollups.stats.name",
-				"value":       "$rollups.stats.val",
-				"order":       "$info.order",
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id": "$measurement",
-				"time_series": bson.M{
-					"$push": bson.M{
-						"id":    "$_id",
-						"value": "$value",
-						"order": "$order",
-					},
-				},
+				"value": "$rollups.stats.val",
+				"order": "$info.order",
 			},
 		},
 	}
 }
 
-func GetTimeSeries(ctx context.Context, env cedar.Environment, metricGrouping TimeSeriesId) (*TimeSeries, error) {
-	timeSeriesAggregator := makeTimeSeriesPipeline(metricGrouping)
+func GetTimeSeries(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) (*TimeSeries, error) {
+	timeSeriesAggregator := makeTimeSeriesPipeline(timeSeriesId)
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, timeSeriesAggregator)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate time series")
 	}
 	defer cur.Close(ctx)
-	var res TimeSeries
-	err = cur.Decode(&res)
+	var res []TimeSeriesEntry
+	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not decode time series")
 	}
-	return &res, nil
+	return &TimeSeries{
+		TimeSeriesId: timeSeriesId,
+		Data:         res,
+	}, nil
 }
 
 func ClearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) error {
@@ -773,14 +782,14 @@ func ClearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId 
 	return errors.Wrap(err, "Unable to clear change points")
 }
 
-func CreateChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm interface{}) error {
+func CreateChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm AlgorithmInfo) error {
 	filter := bson.M{"_id": resultToUpdate}
 	update := bson.M{
 		"$push": bson.M{
-			"change_points": bson.M{
-				"measurement":   measurement,
-				"algorithm":     algorithm,
-				"calculated_at": time.Now(),
+			"change_points": ChangePoint{
+				Measurement:  measurement,
+				Algorithm:    algorithm,
+				CalculatedOn: time.Now(),
 			},
 		},
 	}

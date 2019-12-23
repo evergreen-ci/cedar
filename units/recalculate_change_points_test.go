@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,9 +18,49 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-type TestResultsAndRollups []struct {
+type TestResultsAndRollups struct {
 	info    *model.PerformanceResultInfo
 	rollups []model.PerfRollupValue
+}
+
+func makePerfResults(length int, breakpoint int, unique string) []TestResultsAndRollups {
+	var rollups []TestResultsAndRollups
+	i := 0
+	for i < length {
+		newRollup := TestResultsAndRollups{
+			info: &model.PerformanceResultInfo{
+				Project:  "project" + unique,
+				Variant:  "variant",
+				Version:  "version" + strconv.Itoa(i+1),
+				Order:    i + 1,
+				TestName: "test",
+				TaskName: "task",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "measurement",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+				},
+				{
+					Name:       "measurement_another",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+				},
+			},
+		}
+		if i < breakpoint {
+			newRollup.rollups[0].Value = float64(100)
+			newRollup.rollups[1].Value = float64(100)
+		} else {
+			newRollup.rollups[0].Value = float64(1000)
+			newRollup.rollups[1].Value = float64(1000)
+		}
+		rollups = append(rollups, newRollup)
+		i++
+	}
+	return rollups
 }
 
 func init() {
@@ -33,93 +74,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	ctx := context.Background()
 	cedar.SetEnvironment(env)
-
-	rollups := TestResultsAndRollups{
-		{
-			info: &model.PerformanceResultInfo{
-				Project:  "project1",
-				Variant:  "variant1",
-				Version:  "0",
-				Order:    1,
-				TestName: "test1",
-				TaskName: "task1",
-				TaskID:   "task1",
-				Mainline: true,
-			},
-			rollups: []model.PerfRollupValue{
-				{
-					Name:       "OverheadTotal",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-					Value:      100,
-				},
-				{
-					Name:       "OperationsTotal",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-					Value:      10000,
-				},
-			},
-		},
-		{
-			info: &model.PerformanceResultInfo{
-				Project:  "project2",
-				Variant:  "variant1",
-				Version:  "0",
-				Order:    1,
-				TestName: "test1",
-				TaskName: "task1",
-				TaskID:   "task1",
-				Mainline: true,
-			},
-			rollups: []model.PerfRollupValue{
-				{
-					Name:       "OperationsTotal",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-					Value:      10000,
-				},
-			},
-		},
-		{
-			info: &model.PerformanceResultInfo{
-				Project:  "project1",
-				Variant:  "variant1",
-				Version:  "1",
-				Order:    2,
-				TestName: "test1",
-				TaskName: "task1",
-				TaskID:   "task1",
-				Mainline: true,
-			},
-			rollups: []model.PerfRollupValue{
-				{
-					Name:       "OverheadTotal",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-					Value:      100,
-				},
-				{
-					Name:       "OperationsTotal",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-					Value:      10000,
-				},
-			},
-		},
-	}
-
-	for _, result := range rollups {
-		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
-		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
-		performanceResult.Setup(env)
-		err := performanceResult.SaveNew(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}
 }
 
 func tearDown(env cedar.Environment) error {
@@ -135,11 +90,42 @@ type MockDetector struct {
 	Calls [][]float64
 }
 
-func (m *MockDetector) DetectChanges(context.Context, []float64) ([]perf.ChangePoint, error) {
-	panic("implement me")
+func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]perf.ChangePoint, error) {
+	m.Calls = append(m.Calls, series)
+	last := series[0]
+	var cps []int
+	for idx, i := range series {
+		if i != last {
+			last = i
+			cps = append(cps, idx)
+		}
+	}
+	var changePoints []perf.ChangePoint
+	for _, cp := range cps {
+		changePoints = append(changePoints, perf.ChangePoint{
+			Index: cp,
+			Algorithm: model.AlgorithmInfo{
+				Name:    "some_algorithm",
+				Version: 1,
+				Options: []model.AlgorithmOption{
+					{
+						Name:  "some_option",
+						Value: 5,
+					},
+					{
+						Name:  "another_option",
+						Value: 0.05,
+					},
+				},
+			},
+		})
+	}
+
+	return changePoints, nil
 }
 
 func TestRecalculateChangePointsJob(t *testing.T) {
+
 	if runtime.GOOS == "darwin" && os.Getenv("EVR_TASK_ID") != "" {
 		t.Skip("avoid less relevant failing test in evergreen")
 	}
@@ -148,30 +134,80 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	_ = env.GetDB().Drop(ctx)
+
+	rollups := makePerfResults(100, 50, "a")
+	for _, x := range makePerfResults(100, 50, "b") {
+		rollups = append(rollups, x)
+	}
+
+	for _, result := range rollups {
+		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
+		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
+		performanceResult.Setup(env)
+		err := performanceResult.SaveNew(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}
 	defer func() {
 		assert.NoError(t, tearDown(env))
 	}()
 
-	t.Run("ValidData", func(t *testing.T) {
+	t.Run("Recalculates", func(t *testing.T) {
 		j := NewRecalculateChangePointsJob(model.TimeSeriesId{
-			Project:     "",
-			Variant:     "",
-			Task:        "",
-			Test:        "",
-			Measurement: "",
+			Project:     "projecta",
+			Variant:     "variant",
+			Task:        "task",
+			Test:        "test",
+			Measurement: "measurement",
 		})
-		j.(*RecalculateChangePointsJob).ChangePointDetector = &MockDetector{}
+		mockDetector := &MockDetector{}
+		j.(*RecalculateChangePointsJob).ChangePointDetector = mockDetector
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		result := &model.PerformanceResult{}
-		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
-		require.NoError(t, res.Err())
-		assert.NoError(t, res.Decode(result))
-		require.NotNil(t, result.Rollups)
-		assert.True(t, len(j.RollupTypes) <= len(result.Rollups.Stats))
-		assert.Zero(t, result.FailedRollupAttempts)
-		for _, stats := range result.Rollups.Stats {
-			assert.Equal(t, user, stats.UserSubmitted)
+		assert.Len(t, mockDetector.Calls, 1)
+		var result []model.PerformanceResult
+		filter := bson.M{
+			"change_points": bson.M{"$ne": []struct{}{}},
 		}
+		res, err := env.GetDB().Collection("perf_results").Find(ctx, filter)
+		require.NoError(t, err)
+		assert.NoError(t, res.All(ctx, &result))
+		require.Len(t, result, 1)
+		require.Len(t, result[0].ChangePoints, 1)
+		require.Equal(t, result[0].ChangePoints[0].Measurement, "measurement")
+		require.Equal(t, result[0].ChangePoints[0].Algorithm, model.AlgorithmInfo{
+			Name:    "some_algorithm",
+			Version: 1,
+			Options: []model.AlgorithmOption{
+				{
+					Name:  "some_option",
+					Value: int32(5),
+				},
+				{
+					Name:  "another_option",
+					Value: 0.05,
+				},
+			},
+		})
+	})
+
+	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
+		j := NewRecalculateChangePointsJob(model.TimeSeriesId{
+			Project:     "projecta",
+			Variant:     "variant",
+			Task:        "task",
+			Test:        "test",
+			Measurement: "measurement",
+		})
+		mockDetector := &MockDetector{}
+		job := j.(*RecalculateChangePointsJob)
+		job.ChangePointDetector = mockDetector
+		job.conf = model.NewCedarConfig(env)
+		job.conf.Flags.DisableSignalProcessing = true
+		j.Run(ctx)
+		assert.True(t, j.Status().Completed)
+		assert.Len(t, mockDetector.Calls, 0)
 	})
 }

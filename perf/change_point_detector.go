@@ -8,15 +8,21 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mongodb/grip"
+	"github.com/evergreen-ci/cedar/model"
 
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
 type ChangeDetector interface {
 	DetectChanges(context.Context, []float64) ([]ChangePoint, error)
+}
+
+type ChangePoint struct {
+	Index     int
+	Algorithm model.AlgorithmInfo
 }
 
 type jsonChangePoint struct {
@@ -28,22 +34,6 @@ type jsonAlgorithm struct {
 	Name          string
 	Version       int
 	Configuration map[string]interface{}
-}
-
-type ChangePoint struct {
-	Index int           `bson:"index" json:"index" yaml:"index"`
-	Info  AlgorithmInfo `bson:"info" json:"info" yaml:"info"`
-}
-
-type AlgorithmInfo struct {
-	Name    string            `bson:"name" json:"name" yaml:"name"`
-	Version int               `bson:"version" json:"version" yaml:"version"`
-	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
-}
-
-type AlgorithmOption struct {
-	Name  string      `bson:"name" json:"name" yaml:"name"`
-	Value interface{} `bson:"value" json:"value" yaml:"value"`
 }
 
 type signalProcessingClient struct {
@@ -77,18 +67,18 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 	for _, point := range jsonChangePoints.ChangePoints {
 		mapped := ChangePoint{
 			Index: point.Index,
-			Info: AlgorithmInfo{
+			Algorithm: model.AlgorithmInfo{
 				Name:    point.Algorithm.Name,
 				Version: point.Algorithm.Version,
 			},
 		}
 
 		for k, v := range point.Algorithm.Configuration {
-			additionalOption := AlgorithmOption{
+			additionalOption := model.AlgorithmOption{
 				Name:  k,
 				Value: v,
 			}
-			mapped.Info.Options = append(mapped.Info.Options, additionalOption)
+			mapped.Algorithm.Options = append(mapped.Algorithm.Options, additionalOption)
 		}
 
 		result = append(result, mapped)
