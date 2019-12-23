@@ -322,9 +322,8 @@ func (s *PerfHandlerSuite) TestPerfSignalProcessingRecalculateHandlerFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	response := resp.Data().(*struct{ message string })
+	response := resp.Data().(struct{})
 	s.Require().NotNil(response)
-	s.Require().Equal("Recalculation jobs scheduled", response.message)
 }
 
 func (s *PerfHandlerSuite) TestParse() {

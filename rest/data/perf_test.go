@@ -126,10 +126,8 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		{
 			info: &model.PerformanceResultInfo{
 				Project:  "test",
-				Variant:  "Variant1",
 				Version:  "0",
 				Order:    1,
-				TestName: "Test1",
 				TaskName: "task0",
 				TaskID:   "task1",
 				Tags:     []string{"tag1", "tag2"},
@@ -222,16 +220,18 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		s.idMap[performanceResult.ID] = *performanceResult
 	}
 
+	s.results = results
+
 	rollups := TestResultsAndRollups{
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "project1",
-				Variant:  "variant1",
-				Version:  "0",
+				Project:  "rollup1",
+				Variant:  "rollup1",
+				Version:  "0r",
 				Order:    1,
-				TestName: "test1",
-				TaskName: "task1",
-				TaskID:   "task1",
+				TestName: "rollup1",
+				TaskName: "rollup1",
+				TaskID:   "rollup1",
 				Mainline: true,
 			},
 			rollups: []model.PerfRollupValue{
@@ -251,13 +251,13 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		},
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "project2",
-				Variant:  "variant1",
-				Version:  "0",
+				Project:  "rollup2",
+				Variant:  "rollup2",
+				Version:  "0r",
 				Order:    1,
-				TestName: "test1",
-				TaskName: "task1",
-				TaskID:   "task1",
+				TestName: "rollup2",
+				TaskName: "rollup2",
+				TaskID:   "rollup2",
 				Mainline: true,
 			},
 			rollups: []model.PerfRollupValue{
@@ -271,13 +271,13 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		},
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "project1",
-				Variant:  "variant1",
-				Version:  "1",
+				Project:  "rollup1",
+				Variant:  "rollup1",
+				Version:  "1r",
 				Order:    2,
-				TestName: "test1",
-				TaskName: "task1",
-				TaskID:   "task1",
+				TestName: "rollup1",
+				TaskName: "rollup1",
+				TaskID:   "rollup1",
 				Mainline: true,
 			},
 			rollups: []model.PerfRollupValue{
@@ -305,10 +305,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		s.idMap[performanceResult.ID] = *performanceResult
 	}
-
-	s.results = results
 	return nil
 }
 
@@ -695,24 +692,24 @@ func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 		ids = append(ids, item.(*units.RecalculateChangePointsJob).TimeSeriesId)
 	}
 	s.Require().Contains(ids, model.TimeSeriesId{
-		Project:     "project2",
-		Variant:     "variant1",
-		Task:        "task1",
-		Test:        "test1",
+		Project:     "rollup2",
+		Variant:     "rollup2",
+		Task:        "rollup2",
+		Test:        "rollup2",
 		Measurement: "OperationsTotal",
 	})
 	s.Require().Contains(ids, model.TimeSeriesId{
-		Project:     "project1",
-		Variant:     "variant1",
-		Task:        "task1",
-		Test:        "test1",
+		Project:     "rollup1",
+		Variant:     "rollup1",
+		Task:        "rollup1",
+		Test:        "rollup1",
 		Measurement: "OverheadTotal",
 	})
 	s.Require().Contains(ids, model.TimeSeriesId{
-		Project:     "project1",
-		Variant:     "variant1",
-		Task:        "task1",
-		Test:        "test1",
+		Project:     "rollup1",
+		Variant:     "rollup1",
+		Task:        "rollup1",
+		Test:        "rollup1",
 		Measurement: "OperationsTotal",
 	})
 }
