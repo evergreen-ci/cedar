@@ -2,8 +2,6 @@ package units
 
 import (
 	"context"
-	"os"
-	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -64,7 +62,7 @@ func makePerfResults(length int, breakpoint int, unique string) []TestResultsAnd
 }
 
 func init() {
-	dbName := "cedar_signal_processing"
+	dbName := "test_cedar_signal_processing"
 	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  dbName,
@@ -125,11 +123,6 @@ func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]p
 }
 
 func TestRecalculateChangePointsJob(t *testing.T) {
-
-	if runtime.GOOS == "darwin" && os.Getenv("EVR_TASK_ID") != "" {
-		t.Skip("avoid less relevant failing test in evergreen")
-	}
-
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

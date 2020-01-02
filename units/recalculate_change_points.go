@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/mongodb/grip/sometimes"
+
+	"github.com/pkg/errors"
+
 	"github.com/mongodb/grip"
 
 	"github.com/mongodb/grip/message"
@@ -69,8 +73,8 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 	if j.conf == nil {
 		j.conf = model.NewCedarConfig(j.env)
 	}
-	if j.conf.Flags.DisableSignalProcessing == true {
-		grip.Info(makeMessage("signal processing is disabled, skipping processing", j.TimeSeriesId))
+	if j.conf.Flags.DisableSignalProcessing {
+		grip.InfoWhen(sometimes.Percent(10), makeMessage("signal processing is disabled, skipping processing", j.TimeSeriesId))
 		return
 	}
 	if j.env == nil {
@@ -79,16 +83,14 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 	if j.ChangePointDetector == nil {
 		err := j.conf.Find()
 		if err != nil {
-			grip.Error(message.WrapError(err, message.Fields{
-				"message": "Unable to get cedar configuration",
-			}))
+			j.AddError(errors.Wrap(err, "Unable to get cedar configuration"))
 			return
 		}
 		j.ChangePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
 	timeSeries, err := model.GetTimeSeries(ctx, j.env, j.TimeSeriesId)
 	if err != nil {
-		grip.Error(message.WrapError(err, makeMessage("Unable to aggregate time series", j.TimeSeriesId)))
+		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.TimeSeriesId))
 		return
 	}
 	sort.Slice(timeSeries.Data, func(i, j int) bool {
@@ -102,24 +104,20 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 
 	changePoints, err := j.ChangePointDetector.DetectChanges(ctx, series)
 	if err != nil {
-		grip.Error(message.WrapError(err, makeMessage("Unable to detect change points in time series", j.TimeSeriesId)))
+		j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.TimeSeriesId))
 		return
 	}
 
 	err = model.ClearChangePoints(ctx, j.env, j.TimeSeriesId)
 	if err != nil {
-		grip.Error(message.WrapError(err, makeMessage("Unable to clear change points for measurement", j.TimeSeriesId)))
+		j.AddError(errors.Wrapf(err, "Unable to clear change points for measurement %s", j.TimeSeriesId))
 		return
 	}
 	for _, cp := range changePoints {
 		perfResultId := timeSeries.Data[cp.Index].PerfResultID
 		err = model.CreateChangePoint(ctx, j.env, perfResultId, j.TimeSeriesId.Measurement, cp.Algorithm)
 		if err != nil {
-			grip.Error(message.WrapError(err, message.Fields{
-				"message":        "Failed to update performance result with change point",
-				"perf_result_id": perfResultId,
-				"change_point":   cp,
-			}))
+			j.AddError(errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
 		}
 	}
 }
