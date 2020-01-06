@@ -5,14 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/mongodb/grip/sometimes"
-
-	"github.com/pkg/errors"
-
-	"github.com/mongodb/grip"
-
-	"github.com/mongodb/grip/message"
-
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
@@ -21,6 +13,10 @@ import (
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/sometimes"
+	"github.com/pkg/errors"
 )
 
 type RecalculateChangePointsJob struct {

@@ -17,7 +17,6 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -658,7 +657,7 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 	return errors.WithStack(it.Close(ctx))
 }
 
-func GetTimeSeriesIds(ctx context.Context, db *mongo.Database) (*mongo.Cursor, error) {
+func GetTimeSeriesIds(ctx context.Context, env cedar.Environment) ([]TimeSeriesId, error) {
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{
@@ -686,8 +685,23 @@ func GetTimeSeriesIds(ctx context.Context, db *mongo.Database) (*mongo.Cursor, e
 				},
 			},
 		},
+		{
+			"$replaceRoot": bson.M{
+				"newRoot": "$_id",
+			},
+		},
 	}
-	return db.Collection(perfResultCollection).Aggregate(ctx, pipeline)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot aggregate time series ids")
+	}
+	defer cur.Close(ctx)
+	var res []TimeSeriesId
+	err = cur.All(ctx, &res)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode time series ids")
+	}
+	return res, nil
 }
 
 type TimeSeriesId struct {

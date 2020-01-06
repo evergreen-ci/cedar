@@ -238,35 +238,22 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 // ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
 // each project/version/task/test combination
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
-	db := dbc.env.GetDB()
 	queue := dbc.env.GetRemoteQueue()
-	var result struct {
-		Id model.TimeSeriesId `bson:"_id"`
-	}
-	cur, err := model.GetTimeSeriesIds(ctx, db)
-	defer cur.Close(ctx)
+	ids, err := model.GetTimeSeriesIds(ctx, dbc.env)
 	if err != nil {
-		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to aggregate recalculation metrics")}
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
 	}
-	for cur.Next(ctx) {
-		err := cur.Decode(&result)
-		if err != nil {
-			message.WrapError(err, message.Fields{
-				"message": "Unable to to decode aggregation result",
-			})
-			continue
-		}
-
-		job := units.NewRecalculateChangePointsJob(result.Id)
+	for _, id := range ids {
+		job := units.NewRecalculateChangePointsJob(id)
 		err = queue.Put(ctx, job)
 		if err != nil {
 			message.WrapError(err, message.Fields{
 				"message":     "Unable to enqueue recalculation job for metric",
-				"project":     result.Id.Project,
-				"variant":     result.Id.Variant,
-				"task":        result.Id.Task,
-				"test":        result.Id.Test,
-				"measurement": result.Id.Measurement,
+				"project":     id.Project,
+				"variant":     id.Variant,
+				"task":        id.Task,
+				"test":        id.Test,
+				"measurement": id.Measurement,
 			})
 		}
 	}
