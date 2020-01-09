@@ -308,7 +308,7 @@ func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id strin
 // performance results with the given taskId and that fall within interval,
 // filtered by tags.
 func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	var results []dataModel.APIPerformanceResult
+	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) {
 			apiResult := dataModel.APIPerformanceResult{}
@@ -339,7 +339,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskI
 // order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
 func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	var results []dataModel.APIPerformanceResult
+	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) &&
 			result.Info.Mainline && (variant == "" || result.Info.Variant == variant) {
@@ -374,7 +374,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 // performance results with the given version and that fall within interval,
 // filtered by tags.
 func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	var results []dataModel.APIPerformanceResult
+	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) && result.Info.Mainline {
 			apiResult := dataModel.APIPerformanceResult{}
@@ -404,7 +404,7 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, vers
 // filtered by tags. If maxDepth is less than 0, the child search is
 // exhaustive.
 func (mc *MockConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	var results []dataModel.APIPerformanceResult
+	results := []dataModel.APIPerformanceResult{}
 
 	result, err := mc.FindPerformanceResultById(ctx, id)
 	if err != nil {
@@ -429,7 +429,7 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 		return []dataModel.APIPerformanceResult{}, nil
 	}
 
-	var results []dataModel.APIPerformanceResult
+	results := []dataModel.APIPerformanceResult{}
 	seen := map[string]int{id: 1}
 	queue := []string{id}
 
