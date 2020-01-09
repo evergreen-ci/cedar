@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
@@ -17,14 +16,8 @@ import (
 )
 
 type ChangeDetector interface {
-	DetectChanges(context.Context, []float64) ([]ChangePoint, error)
+	DetectChanges(context.Context, []float64) ([]model.ChangePoint, error)
 }
-
-type ChangePoint struct {
-	Index     int
-	Algorithm model.AlgorithmInfo
-}
-
 type jsonChangePoint struct {
 	Index     int
 	Algorithm jsonAlgorithm
@@ -46,7 +39,7 @@ func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDet
 	return &signalProcessingClient{user: user, token: token, baseURL: baseURL}
 }
 
-func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]ChangePoint, error) {
+func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
 	startAt := time.Now()
 
 	jsonChangePoints := &struct {
@@ -63,9 +56,9 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 		return nil, errors.WithStack(err)
 	}
 
-	var result []ChangePoint
+	var result []model.ChangePoint
 	for _, point := range jsonChangePoints.ChangePoints {
-		mapped := ChangePoint{
+		mapped := model.ChangePoint{
 			Index: point.Index,
 			Algorithm: model.AlgorithmInfo{
 				Name:    point.Algorithm.Name,

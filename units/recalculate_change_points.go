@@ -54,8 +54,9 @@ func NewRecalculateChangePointsJob(timeSeriesId model.TimeSeriesId) amboy.Job {
 	return j
 }
 
-func makeMessage(msg string, id model.TimeSeriesId) message.Fields {
+func (j *RecalculateChangePointsJob) makeMessage(msg string, id model.TimeSeriesId) message.Fields {
 	return message.Fields{
+		"job_id":  j.ID(),
 		"message": msg,
 		"project": id.Project,
 		"variant": id.Variant,
@@ -70,7 +71,7 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 		j.conf = model.NewCedarConfig(j.env)
 	}
 	if j.conf.Flags.DisableSignalProcessing {
-		grip.InfoWhen(sometimes.Percent(10), makeMessage("signal processing is disabled, skipping processing", j.TimeSeriesId))
+		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.TimeSeriesId))
 		return
 	}
 	if j.env == nil {
@@ -104,16 +105,8 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 		return
 	}
 
-	err = model.ClearChangePoints(ctx, j.env, j.TimeSeriesId)
-	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to clear change points for measurement %s", j.TimeSeriesId))
-		return
-	}
-	for _, cp := range changePoints {
-		perfResultId := timeSeries.Data[cp.Index].PerfResultID
-		err = model.CreateChangePoint(ctx, j.env, perfResultId, j.TimeSeriesId.Measurement, cp.Algorithm)
-		if err != nil {
-			j.AddError(errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
-		}
+	errs := model.ReplaceChangePoints(ctx, j.env, timeSeries, changePoints)
+	for _, err := range errs {
+		j.AddError(err)
 	}
 }

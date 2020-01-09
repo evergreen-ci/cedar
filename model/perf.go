@@ -23,17 +23,16 @@ import (
 const perfResultCollection = "perf_results"
 
 type ChangePoint struct {
+	Index        int
 	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
 	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
 	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
 }
-
 type AlgorithmInfo struct {
 	Name    string            `bson:"name" json:"name" yaml:"name"`
 	Version int               `bson:"version" json:"version" yaml:"version"`
 	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
 }
-
 type AlgorithmOption struct {
 	Name  string      `bson:"name" json:"name" yaml:"name"`
 	Value interface{} `bson:"value" json:"value" yaml:"value"`
@@ -774,6 +773,23 @@ func GetTimeSeries(ctx context.Context, env cedar.Environment, timeSeriesId Time
 		TimeSeriesId: timeSeriesId,
 		Data:         res,
 	}, nil
+}
+
+func ReplaceChangePoints(ctx context.Context, env cedar.Environment, timeSeries *TimeSeries, changePoints []ChangePoint) []error {
+	errs := []error{}
+	err := ClearChangePoints(ctx, env, timeSeries.TimeSeriesId)
+	if err != nil {
+		errs = append(errs, errors.Wrapf(err, "Unable to clear change points for measurement %s", timeSeries.TimeSeriesId))
+		return errs
+	}
+	for _, cp := range changePoints {
+		perfResultId := timeSeries.Data[cp.Index].PerfResultID
+		err = CreateChangePoint(ctx, env, perfResultId, timeSeries.TimeSeriesId.Measurement, cp.Algorithm)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
+		}
+	}
+	return errs
 }
 
 func ClearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) error {

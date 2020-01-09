@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/units"
@@ -247,14 +249,14 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		job := units.NewRecalculateChangePointsJob(id)
 		err = queue.Put(ctx, job)
 		if err != nil {
-			message.WrapError(err, message.Fields{
+			return errors.Wrap(err, message.WrapError(err, message.Fields{
 				"message":     "Unable to enqueue recalculation job for metric",
 				"project":     id.Project,
 				"variant":     id.Variant,
 				"task":        id.Task,
 				"test":        id.Test,
 				"measurement": id.Measurement,
-			})
+			}).String())
 		}
 	}
 	return nil

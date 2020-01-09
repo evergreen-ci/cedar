@@ -8,74 +8,13 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/cedar/util"
-	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/queue"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 )
 
 const testDBName = "cedar_rest_data_test"
-
-type MockQueue struct {
-	Jobs []amboy.Job
-	i    int
-}
-
-func (m *MockQueue) Put(ctx context.Context, j amboy.Job) error {
-	m.Jobs = append(m.Jobs, j)
-	return nil
-}
-
-func (m *MockQueue) ID() string {
-	panic("implement me")
-}
-
-func (m *MockQueue) Get(context.Context, string) (amboy.Job, bool) {
-	panic("implement me")
-}
-
-func (m *MockQueue) Next(context.Context) amboy.Job {
-	job := m.Jobs[m.i]
-	m.i++
-	return job
-}
-
-func (m *MockQueue) Started() bool {
-	panic("implement me")
-}
-
-func (m *MockQueue) Complete(context.Context, amboy.Job) {
-	panic("implement me")
-}
-
-func (m *MockQueue) Save(context.Context, amboy.Job) error {
-	panic("implement me")
-}
-
-func (m MockQueue) Results(context.Context) <-chan amboy.Job {
-	panic("implement me")
-}
-
-func (m *MockQueue) JobStats(context.Context) <-chan amboy.JobStatusInfo {
-	panic("implement me")
-}
-
-func (m *MockQueue) Stats(context.Context) amboy.QueueStats {
-	panic("implement me")
-}
-
-func (m *MockQueue) Runner() amboy.Runner {
-	panic("implement me")
-}
-
-func (m *MockQueue) SetRunner(amboy.Runner) error {
-	panic("implement me")
-}
-
-func (m *MockQueue) Start(context.Context) error {
-	panic("implement me")
-}
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
@@ -88,10 +27,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	queue := MockQueue{
-		i: 0,
-	}
-	err = env.SetRemoteQueue(&queue)
+	queue := queue.NewLocalLimitedSize(1, 100)
+	err = env.SetRemoteQueue(queue)
 	if err != nil {
 		panic(err)
 	}
@@ -685,31 +622,5 @@ func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 	err := s.sc.ScheduleSignalProcessingRecalculateJobs(s.ctx)
 	s.NoError(err)
 	queue := s.env.GetRemoteQueue()
-	mockQueue := queue.(*MockQueue)
-	s.Require().Len(mockQueue.Jobs, 3)
-	var ids []model.TimeSeriesId
-	for _, item := range mockQueue.Jobs {
-		ids = append(ids, item.(*units.RecalculateChangePointsJob).TimeSeriesId)
-	}
-	s.Require().Contains(ids, model.TimeSeriesId{
-		Project:     "rollup2",
-		Variant:     "rollup2",
-		Task:        "rollup2",
-		Test:        "rollup2",
-		Measurement: "OperationsTotal",
-	})
-	s.Require().Contains(ids, model.TimeSeriesId{
-		Project:     "rollup1",
-		Variant:     "rollup1",
-		Task:        "rollup1",
-		Test:        "rollup1",
-		Measurement: "OverheadTotal",
-	})
-	s.Require().Contains(ids, model.TimeSeriesId{
-		Project:     "rollup1",
-		Variant:     "rollup1",
-		Task:        "rollup1",
-		Test:        "rollup1",
-		Measurement: "OperationsTotal",
-	})
+	s.Require().Equal(queue.Stats(s.ctx).Total, 3)
 }

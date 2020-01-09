@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/cedar/perf"
-
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
@@ -88,7 +86,7 @@ type MockDetector struct {
 	Calls [][]float64
 }
 
-func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]perf.ChangePoint, error) {
+func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
 	m.Calls = append(m.Calls, series)
 	last := series[0]
 	var cps []int
@@ -98,9 +96,9 @@ func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]p
 			cps = append(cps, idx)
 		}
 	}
-	var changePoints []perf.ChangePoint
+	var changePoints []model.ChangePoint
 	for _, cp := range cps {
-		changePoints = append(changePoints, perf.ChangePoint{
+		changePoints = append(changePoints, model.ChangePoint{
 			Index: cp,
 			Algorithm: model.AlgorithmInfo{
 				Name:    "some_algorithm",
