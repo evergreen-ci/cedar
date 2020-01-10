@@ -162,13 +162,13 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 	rollups := TestResultsAndRollups{
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "rollup1",
-				Variant:  "rollup1",
+				Project:  "rollup1project",
+				Variant:  "rollup1variant",
 				Version:  "0r",
 				Order:    1,
-				TestName: "rollup1",
-				TaskName: "rollup1",
-				TaskID:   "rollup1",
+				TestName: "rollup1test",
+				TaskName: "rollup1task",
+				TaskID:   "rollup1task",
 				Mainline: true,
 			},
 			rollups: []model.PerfRollupValue{
@@ -188,13 +188,13 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		},
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "rollup2",
-				Variant:  "rollup2",
+				Project:  "rollup2project",
+				Variant:  "rollup2variant",
 				Version:  "0r",
 				Order:    1,
-				TestName: "rollup2",
-				TaskName: "rollup2",
-				TaskID:   "rollup2",
+				TestName: "rollup2test",
+				TaskName: "rollup2task",
+				TaskID:   "rollup2task",
 				Mainline: true,
 			},
 			rollups: []model.PerfRollupValue{
@@ -208,13 +208,13 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		},
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "rollup1",
-				Variant:  "rollup1",
+				Project:  "rollup1project",
+				Variant:  "rollup1variant",
 				Version:  "1r",
 				Order:    2,
-				TestName: "rollup1",
-				TaskName: "rollup1",
-				TaskID:   "rollup1",
+				TestName: "rollup1test",
+				TaskName: "rollup1task",
+				TaskID:   "rollup1task",
 				Mainline: true,
 			},
 			rollups: []model.PerfRollupValue{
