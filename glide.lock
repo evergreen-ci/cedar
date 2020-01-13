@@ -23,9 +23,9 @@ imports:
   version: 792786c7400a136282c1664665ae0a8db921c6c2
 
 - name: github.com/mongodb/amboy
-  version: 671a697140546fa83533232c867350c8b5e0d9f5
+  version: a323bf090a252d61da5944938fc464a2538cc3dd
 - name: github.com/mongodb/grip
-  version: e78519fadff49ae1fd719a10d124755089615238
+  version: 584e10f183651989291528fc432824587903b6fd
 - name: github.com/mongodb/anser
   version: 7bbd5aaa06da173f9e56462f685dbedb1b18518c
 - name: github.com/mongodb/jasper
