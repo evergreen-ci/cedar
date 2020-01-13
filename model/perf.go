@@ -775,24 +775,23 @@ func GetTimeSeries(ctx context.Context, env cedar.Environment, timeSeriesId Time
 	}, nil
 }
 
-func ReplaceChangePoints(ctx context.Context, env cedar.Environment, timeSeries *TimeSeries, changePoints []ChangePoint) []error {
-	errs := []error{}
-	err := ClearChangePoints(ctx, env, timeSeries.TimeSeriesId)
+func ReplaceChangePoints(ctx context.Context, env cedar.Environment, timeSeries *TimeSeries, changePoints []ChangePoint) error {
+	err := clearChangePoints(ctx, env, timeSeries.TimeSeriesId)
 	if err != nil {
-		errs = append(errs, errors.Wrapf(err, "Unable to clear change points for measurement %s", timeSeries.TimeSeriesId))
-		return errs
+		return errors.Wrapf(err, "Unable to clear change points for measurement %s", timeSeries.TimeSeriesId)
 	}
+	catcher := grip.NewBasicCatcher()
 	for _, cp := range changePoints {
 		perfResultId := timeSeries.Data[cp.Index].PerfResultID
-		err = CreateChangePoint(ctx, env, perfResultId, timeSeries.TimeSeriesId.Measurement, cp.Algorithm)
+		err = createChangePoint(ctx, env, perfResultId, timeSeries.TimeSeriesId.Measurement, cp.Algorithm)
 		if err != nil {
-			errs = append(errs, errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
+			catcher.Add(errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
 		}
 	}
-	return errs
+	return catcher.Resolve()
 }
 
-func ClearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) error {
+func clearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) error {
 	seriesFilter := bson.M{
 		"info.project":              timeSeriesId.Project,
 		"info.variant":              timeSeriesId.Variant,
@@ -812,7 +811,7 @@ func ClearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId 
 	return errors.Wrap(err, "Unable to clear change points")
 }
 
-func CreateChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm AlgorithmInfo) error {
+func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm AlgorithmInfo) error {
 	filter := bson.M{"_id": resultToUpdate}
 	update := bson.M{
 		"$push": bson.M{

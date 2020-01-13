@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/mongodb/grip"
+
 	"github.com/pkg/errors"
 
 	"github.com/evergreen-ci/cedar/model"
@@ -245,21 +247,24 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
 	}
+
+	catcher := grip.NewBasicCatcher()
+
 	for _, id := range ids {
 		job := units.NewRecalculateChangePointsJob(id)
 		err = queue.Put(ctx, job)
 		if err != nil {
-			return errors.Wrap(err, message.WrapError(err, message.Fields{
+			catcher.Add(errors.New(message.WrapError(err, message.Fields{
 				"message":     "Unable to enqueue recalculation job for metric",
 				"project":     id.Project,
 				"variant":     id.Variant,
 				"task":        id.Task,
 				"test":        id.Test,
 				"measurement": id.Measurement,
-			}).String())
+			}).String()))
 		}
 	}
-	return nil
+	return catcher.Resolve()
 }
 
 ///////////////////////////////

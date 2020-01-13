@@ -105,8 +105,8 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 		return
 	}
 
-	errs := model.ReplaceChangePoints(ctx, j.env, timeSeries, changePoints)
-	for _, err := range errs {
+	err = model.ReplaceChangePoints(ctx, j.env, timeSeries, changePoints)
+	if err != nil {
 		j.AddError(err)
 	}
 }
