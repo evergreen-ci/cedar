@@ -283,3 +283,35 @@ func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
 	}
 	return gimlet.NewJSONResponse(perfResults)
 }
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// POST /perf/signal_processing/recalculate
+
+type perfSignalProcessingRecalculateHandler struct {
+	sc data.Connector
+}
+
+func makePerfSignalProcessingRecalculate(sc data.Connector) gimlet.RouteHandler {
+	return &perfSignalProcessingRecalculateHandler{
+		sc: sc,
+	}
+}
+
+func (h *perfSignalProcessingRecalculateHandler) Factory() gimlet.RouteHandler {
+	return &perfSignalProcessingRecalculateHandler{
+		sc: h.sc,
+	}
+}
+
+func (h *perfSignalProcessingRecalculateHandler) Parse(_ context.Context, r *http.Request) error {
+	return nil
+}
+
+func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet.Responder {
+	err := h.sc.ScheduleSignalProcessingRecalculateJobs(ctx)
+	if err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error scheduling signal processing recalculation jobs"))
+	}
+	return gimlet.NewJSONResponse(struct{}{})
+}

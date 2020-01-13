@@ -8,17 +8,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mongodb/grip"
-
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
 type ChangeDetector interface {
-	DetectChanges([]float64, context.Context) ([]ChangePoint, error)
+	DetectChanges(context.Context, []float64) ([]model.ChangePoint, error)
 }
-
 type jsonChangePoint struct {
 	Index     int
 	Algorithm jsonAlgorithm
@@ -28,22 +27,6 @@ type jsonAlgorithm struct {
 	Name          string
 	Version       int
 	Configuration map[string]interface{}
-}
-
-type ChangePoint struct {
-	Index int           `bson:"index" json:"index" yaml:"index"`
-	Info  AlgorithmInfo `bson:"info" json:"info" yaml:"info"`
-}
-
-type AlgorithmInfo struct {
-	Name    string            `bson:"name" json:"name" yaml:"name"`
-	Version int               `bson:"version" json:"version" yaml:"version"`
-	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
-}
-
-type AlgorithmOption struct {
-	Name  string      `bson:"name" json:"name" yaml:"name"`
-	Value interface{} `bson:"value" json:"value" yaml:"value"`
 }
 
 type signalProcessingClient struct {
@@ -56,7 +39,7 @@ func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDet
 	return &signalProcessingClient{user: user, token: token, baseURL: baseURL}
 }
 
-func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.Context) ([]ChangePoint, error) {
+func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
 	startAt := time.Now()
 
 	jsonChangePoints := &struct {
@@ -73,22 +56,22 @@ func (spc *signalProcessingClient) DetectChanges(series []float64, ctx context.C
 		return nil, errors.WithStack(err)
 	}
 
-	var result []ChangePoint
+	var result []model.ChangePoint
 	for _, point := range jsonChangePoints.ChangePoints {
-		mapped := ChangePoint{
+		mapped := model.ChangePoint{
 			Index: point.Index,
-			Info: AlgorithmInfo{
+			Algorithm: model.AlgorithmInfo{
 				Name:    point.Algorithm.Name,
 				Version: point.Algorithm.Version,
 			},
 		}
 
 		for k, v := range point.Algorithm.Configuration {
-			additionalOption := AlgorithmOption{
+			additionalOption := model.AlgorithmOption{
 				Name:  k,
 				Value: v,
 			}
-			mapped.Info.Options = append(mapped.Info.Options, additionalOption)
+			mapped.Algorithm.Options = append(mapped.Algorithm.Options, additionalOption)
 		}
 
 		result = append(result, mapped)

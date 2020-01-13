@@ -71,6 +71,7 @@ var (
 type ChangeDetectorConfig struct {
 	Implementation string `bson:"implementation" json:"implementation" yaml:"implementation"`
 	URI            string `bson:"uri" json:"uri" yaml:"uri"`
+	User           string `bson:"user" json:"user" yaml:"user"`
 	Token          string `bson:"token" json:"token" yaml:"token"`
 }
 

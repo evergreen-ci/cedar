@@ -26,7 +26,7 @@ type GraphNode struct {
 }
 
 func (n *GraphNode) Setup(e cedar.Environment) { n.env = e }
-func (n *GraphNode) IsNil() bool              { return n.populated }
+func (n *GraphNode) IsNil() bool               { return n.populated }
 func (n *GraphNode) Insert() error {
 	if !n.populated {
 		return errors.New("cannot insert non-populated document")

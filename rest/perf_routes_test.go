@@ -107,12 +107,13 @@ func (s *PerfHandlerSuite) setup() {
 		"def": []string{"jkl"},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":        makeGetPerfById(&s.sc),
-		"remove":    makeRemovePerfById(&s.sc),
-		"task_id":   makeGetPerfByTaskId(&s.sc),
-		"task_name": makeGetPerfByTaskName(&s.sc),
-		"version":   makeGetPerfByVersion(&s.sc),
-		"children":  makeGetPerfChildren(&s.sc),
+		"id":            makeGetPerfById(&s.sc),
+		"remove":        makeRemovePerfById(&s.sc),
+		"task_id":       makeGetPerfByTaskId(&s.sc),
+		"task_name":     makeGetPerfByTaskName(&s.sc),
+		"version":       makeGetPerfByVersion(&s.sc),
+		"children":      makeGetPerfChildren(&s.sc),
+		"change_points": makePerfSignalProcessingRecalculate(&s.sc),
 	}
 	s.apiResults = map[string]datamodel.APIPerformanceResult{}
 	for key, val := range s.sc.CachedPerformanceResults {
@@ -314,6 +315,15 @@ func (s *PerfHandlerSuite) TestPerfGetChildrenHandlerNotFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfSignalProcessingRecalculateHandlerFound() {
+	rh := s.rh["change_points"]
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	response := resp.Data().(struct{})
+	s.Require().NotNil(response)
 }
 
 func (s *PerfHandlerSuite) TestParse() {

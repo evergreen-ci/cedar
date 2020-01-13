@@ -50,7 +50,7 @@ var (
 )
 
 func (c *CostConfig) Setup(e cedar.Environment) { c.env = e }
-func (c *CostConfig) IsNil() bool              { return !c.populated }
+func (c *CostConfig) IsNil() bool               { return !c.populated }
 func (c *CostConfig) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {

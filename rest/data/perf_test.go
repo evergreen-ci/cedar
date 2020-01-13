@@ -9,6 +9,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/mongodb/amboy/queue"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 )
@@ -26,7 +27,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
+	queue := queue.NewLocalLimitedSize(1, 100)
+	err = env.SetRemoteQueue(queue)
+	if err != nil {
+		panic(err)
+	}
 	cedar.SetEnvironment(env)
 }
 
@@ -42,6 +47,11 @@ func tearDownEnv(env cedar.Environment) error {
 type testResults []struct {
 	info   *model.PerformanceResultInfo
 	parent int
+}
+
+type TestResultsAndRollups []struct {
+	info    *model.PerformanceResultInfo
+	rollups []model.PerfRollupValue
 }
 
 func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) error {
@@ -146,7 +156,93 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		}
 		s.idMap[performanceResult.ID] = *performanceResult
 	}
+
 	s.results = results
+
+	rollups := TestResultsAndRollups{
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "rollup1project",
+				Variant:  "rollup1variant",
+				Version:  "0r",
+				Order:    1,
+				TestName: "rollup1test",
+				TaskName: "rollup1task",
+				TaskID:   "rollup1task",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "OverheadTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      100,
+				},
+				{
+					Name:       "OperationsTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      10000,
+				},
+			},
+		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "rollup2project",
+				Variant:  "rollup2variant",
+				Version:  "0r",
+				Order:    1,
+				TestName: "rollup2test",
+				TaskName: "rollup2task",
+				TaskID:   "rollup2task",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "OperationsTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      10000,
+				},
+			},
+		},
+		{
+			info: &model.PerformanceResultInfo{
+				Project:  "rollup1project",
+				Variant:  "rollup1variant",
+				Version:  "1r",
+				Order:    2,
+				TestName: "rollup1test",
+				TaskName: "rollup1task",
+				TaskID:   "rollup1task",
+				Mainline: true,
+			},
+			rollups: []model.PerfRollupValue{
+				{
+					Name:       "OverheadTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      100,
+				},
+				{
+					Name:       "OperationsTotal",
+					MetricType: model.MetricTypeSum,
+					Version:    0,
+					Value:      10000,
+				},
+			},
+		},
+	}
+
+	for _, result := range rollups {
+		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
+		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
+		performanceResult.Setup(env)
+		err := performanceResult.SaveNew(ctx)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+	}
 	return nil
 }
 
@@ -520,4 +616,12 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 		s.Require().True(ok)
 		delete(expectedIds, *result.Name)
 	}
+}
+
+func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
+	theQueue := s.env.GetRemoteQueue()
+	theQueue.Start(s.ctx)
+	err := s.sc.ScheduleSignalProcessingRecalculateJobs(s.ctx)
+	s.NoError(err)
+	s.Require().Equal(theQueue.Stats(s.ctx).Total, 3)
 }

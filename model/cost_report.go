@@ -48,7 +48,7 @@ func (r *CostReport) String() string {
 }
 
 func (r *CostReport) Setup(e cedar.Environment) { r.env = e; r.refresh() }
-func (r *CostReport) IsNil() bool              { return !r.populated }
+func (r *CostReport) IsNil() bool               { return !r.populated }
 func (r *CostReport) Find() error {
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {

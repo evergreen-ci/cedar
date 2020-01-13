@@ -6,10 +6,16 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/mongodb/grip"
+
+	"github.com/pkg/errors"
+
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip/message"
 )
 
 /////////////////////////////
@@ -233,6 +239,34 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 	return apiResults, nil
 }
 
+// ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
+// each project/version/task/test combination
+func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
+	queue := dbc.env.GetRemoteQueue()
+	ids, err := model.GetTimeSeriesIds(ctx, dbc.env)
+	if err != nil {
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
+	}
+
+	catcher := grip.NewBasicCatcher()
+
+	for _, id := range ids {
+		job := units.NewRecalculateChangePointsJob(id)
+		err = queue.Put(ctx, job)
+		if err != nil {
+			catcher.Add(errors.New(message.WrapError(err, message.Fields{
+				"message":     "Unable to enqueue recalculation job for metric",
+				"project":     id.Project,
+				"variant":     id.Variant,
+				"task":        id.Task,
+				"test":        id.Test,
+				"measurement": id.Measurement,
+			}).String()))
+		}
+	}
+	return catcher.Resolve()
+}
+
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
@@ -432,4 +466,10 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 		}
 	}
 	return results, nil
+}
+
+// ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
+// each project/version/task/test combination
+func (mc *MockConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
+	return nil
 }
