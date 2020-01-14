@@ -94,7 +94,30 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 		return errors.WithStack(err)
 	}
 
-	client := util.GetHTTPClient()
+	conf := util.HTTPRetryConfiguration{
+		MaxRetries:      10,
+		TemporaryErrors: true,
+		MaxDelay:        5 * time.Second,
+		BaseDelay:       50 * time.Millisecond,
+		Methods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodDelete,
+			http.MethodPatch,
+		},
+		Statuses: []int{
+			http.StatusBadGateway,
+			http.StatusServiceUnavailable,
+			http.StatusGatewayTimeout,
+			http.StatusInsufficientStorage,
+			http.StatusConflict,
+			http.StatusRequestTimeout,
+			http.StatusPreconditionFailed,
+			http.StatusExpectationFailed,
+		},
+	}
+	client := util.GetHTTPRetryableClient(conf)
 	defer util.PutHTTPClient(client)
 
 	req, err := http.NewRequest(method, route, bytes.NewBuffer(body))
