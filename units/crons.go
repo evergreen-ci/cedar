@@ -79,6 +79,10 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 
 		return queue.Put(ctx, job)
 	})
+	amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
+		job := NewPeriodicChangePointJob()
+		return queue.Put(ctx, job)
+	})
 
 	if rpcTLS {
 		amboy.IntervalQueueOperation(ctx, remote, 24*time.Hour, time.Now().Add(12*time.Hour), opts, func(ctx context.Context, queue amboy.Queue) error {

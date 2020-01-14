@@ -21,6 +21,7 @@ import (
 )
 
 const perfResultCollection = "perf_results"
+const metricMetadataCollection = "metric_metadata"
 
 type ChangePoint struct {
 	Index        int
@@ -656,13 +657,90 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 	return errors.WithStack(it.Close(ctx))
 }
 
-func GetTimeSeriesIds(ctx context.Context, env cedar.Environment) ([]TimeSeriesId, error) {
-	pipeline := []bson.M{
+func createTimeStamp(ctx context.Context, env cedar.Environment, id TimeSeriesId, field string) error {
+	_, err := env.GetDB().Collection(metricMetadataCollection).UpdateOne(ctx, id, bson.M{
+		"$currentDate": bson.M{
+			field: true,
+		},
+	})
+	if err != nil {
+		return errors.Wrapf(err, "Unable to create timestamp")
+	}
+	return nil
+}
+
+func MarkMetricAsUpdated(ctx context.Context, env cedar.Environment, id TimeSeriesId) error {
+	err := createTimeStamp(ctx, env, id, "lastTimeSeriesUpdate")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to mark metric as updated")
+	}
+	return nil
+}
+
+func MarkMetricAsAnalyzed(ctx context.Context, env cedar.Environment, id TimeSeriesId) error {
+	err := createTimeStamp(ctx, env, id, "lastChangePointDetection")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to mark metric as analyzed for change points")
+	}
+	return nil
+}
+
+func GetMetricsNeedingChangePointDetection(ctx context.Context, env cedar.Environment) ([]TimeSeriesId, error) {
+	cur, err := env.GetDB().Collection(metricMetadataCollection).Find(ctx, bson.M{
+		"$expr": bson.M{
+			"$lt": []string{
+				"$lastChangePointDetection",
+				"$lastTimeSeriesUpdate",
+			},
+		},
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to get metrics needing change point detection")
+	}
+	defer cur.Close(ctx)
+	var res []struct {
+		Id                       TimeSeriesId `bson:"_id"`
+		LastChangePointDetection time.Time    `bson:"lastChangePointDetection"`
+		LastTimeSeriesUpdate     time.Time    `bson:"lastTimeSeriesUpdate"`
+	}
+	err = cur.All(ctx, &res)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to decode metrics needing change results")
+	}
+	result := []TimeSeriesId{}
+	for _, val := range res {
+		result = append(result, val.Id)
+	}
+	return result, nil
+}
+
+func AddNewMetricMetadata(ctx context.Context, env cedar.Environment) error {
+	pipeline := timeSeriesIdPipelineNoRootReplacement()
+	pipeline = append(pipeline, bson.M{
+		"$addFields": bson.M{
+			"lastTimeSeriesUpdate":     time.Now(),
+			"lastChangePointDetection": nil,
+		},
+	})
+	pipeline = append(pipeline, bson.M{
+		"$merge": bson.M{
+			"into":           "metric_metadata",
+			"whenMatched":    "keepExisting",
+			"whenNotMatched": "insert",
+		},
+	})
+	_, err := env.GetDB().Collection(metricMetadataCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to add new metric metadata.")
+	}
+	return nil
+}
+
+func timeSeriesIdPipelineNoRootReplacement() []bson.M {
+	return []bson.M{
 		{
 			"$match": bson.M{
-				"info.order": bson.M{
-					"$exists": true,
-				},
+				"info.order":     bson.M{"$exists": true},
 				"info.mainline":  true,
 				"info.project":   bson.M{"$exists": true},
 				"info.variant":   bson.M{"$exists": true},
@@ -684,12 +762,20 @@ func GetTimeSeriesIds(ctx context.Context, env cedar.Environment) ([]TimeSeriesI
 				},
 			},
 		},
-		{
+	}
+}
+
+func timeSeriesIdPipeline() []bson.M {
+	return append(timeSeriesIdPipelineNoRootReplacement(),
+		bson.M{
 			"$replaceRoot": bson.M{
 				"newRoot": "$_id",
 			},
-		},
-	}
+		})
+}
+
+func GetTimeSeriesIds(ctx context.Context, env cedar.Environment) ([]TimeSeriesId, error) {
+	pipeline := timeSeriesIdPipeline()
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate time series ids")

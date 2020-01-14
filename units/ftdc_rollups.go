@@ -149,5 +149,17 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
+		j.markTimeSeriesAsUpdated(ctx, result, r)
 	}
+}
+
+func (j *ftdcRollupsJob) markTimeSeriesAsUpdated(ctx context.Context, result *model.PerformanceResult, rollup model.PerfRollupValue) {
+	id := model.TimeSeriesId{
+		Project:     result.Info.Project,
+		Variant:     result.Info.Variant,
+		Task:        result.Info.TaskName,
+		Test:        result.Info.TestName,
+		Measurement: rollup.Name,
+	}
+	j.AddError(errors.Wrapf(model.MarkMetricAsUpdated(ctx, j.env, id), "problem marking time series as updated"))
 }
