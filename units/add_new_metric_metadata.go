@@ -58,12 +58,7 @@ func (j *PeriodicChangePointJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-	err := model.AddNewMetricMetadata(ctx, j.env)
-	if err != nil {
-		j.AddError(errors.Wrapf(err, "Job to add new metric metadata has failed"))
-		return
-	}
-	needUpdates, err := model.GetMetricsNeedingChangePointDetection(ctx, j.env)
+	needUpdates, err := model.GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx, j.env)
 	if err != nil {
 		j.AddError(errors.Wrapf(err, "Unable to get metrics needing change point detection"))
 	}
