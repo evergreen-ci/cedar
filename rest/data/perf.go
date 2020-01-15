@@ -243,7 +243,7 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 // each project/version/task/test combination
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	queue := dbc.env.GetRemoteQueue()
-	ids, err := model.GetPerformanceResultSeriesIds(ctx, dbc.env)
+	ids, err := model.GetPerformanceResultSeriesIDs(ctx, dbc.env)
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
 	}

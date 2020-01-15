@@ -22,22 +22,6 @@ import (
 
 const perfResultCollection = "perf_results"
 
-type ChangePoint struct {
-	Index        int
-	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
-	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
-	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
-}
-type AlgorithmInfo struct {
-	Name    string            `bson:"name" json:"name" yaml:"name"`
-	Version int               `bson:"version" json:"version" yaml:"version"`
-	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
-}
-type AlgorithmOption struct {
-	Name  string      `bson:"name" json:"name" yaml:"name"`
-	Value interface{} `bson:"value" json:"value" yaml:"value"`
-}
-
 // PerformanceResult describes a single result of a performance test from
 // Evergreen.
 type PerformanceResult struct {
@@ -59,8 +43,8 @@ type PerformanceResult struct {
 	Artifacts            []ArtifactInfo `bson:"artifacts"`
 	FailedRollupAttempts int            `bson:"failed_rollup_attempts"`
 
-	Rollups      PerfRollups   `bson:"rollups"`
-	ChangePoints []ChangePoint `bson:"change_points"`
+	Rollups  PerfRollups  `bson:"rollups"`
+	Analysis PerfAnalysis `bson:"analysis"`
 
 	env       cedar.Environment
 	populated bool
@@ -74,6 +58,7 @@ var (
 	perfArtifactsKey         = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
 	perfFailedRollupAttempts = bsonutil.MustHaveTag(PerformanceResult{}, "FailedRollupAttempts")
 	perfRollupsKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfAnalysisKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Analysis")
 	perfVersionlKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
@@ -329,6 +314,7 @@ var (
 	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Parent")
 	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Tags")
 	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Arguments")
+	perfResultInfoMainlineKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Mainline")
 	perfResultInfoSchemaKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
 )
 

@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type RecalculateChangePointsJob struct {
+type recalculateChangePointsJob struct {
 	*job.Base           `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env                 cedar.Environment
 	conf                *model.CedarConfig
@@ -31,8 +31,8 @@ func init() {
 	registry.AddJobType("recalculate-change-points", func() amboy.Job { return makeChangePointsJob() })
 }
 
-func makeChangePointsJob() *RecalculateChangePointsJob {
-	j := &RecalculateChangePointsJob{
+func makeChangePointsJob() *recalculateChangePointsJob {
+	j := &recalculateChangePointsJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
 				Name:    "recalculate-change-points",
@@ -54,7 +54,7 @@ func NewRecalculateChangePointsJob(timeSeriesId model.PerformanceResultSeriesId)
 	return j
 }
 
-func (j *RecalculateChangePointsJob) makeMessage(msg string, id model.PerformanceResultSeriesId) message.Fields {
+func (j *recalculateChangePointsJob) makeMessage(msg string, id model.PerformanceResultSeriesId) message.Fields {
 	return message.Fields{
 		"job_id":  j.ID(),
 		"message": msg,
@@ -65,7 +65,7 @@ func (j *RecalculateChangePointsJob) makeMessage(msg string, id model.Performanc
 	}
 }
 
-func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
+func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 	if j.conf == nil {
 		j.conf = model.NewCedarConfig(j.env)

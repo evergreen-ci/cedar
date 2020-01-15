@@ -4,10 +4,57 @@ import (
 	"context"
 	"time"
 
-	"github.com/evergreen-ci/cedar"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+
+	"github.com/evergreen-ci/cedar"
+)
+
+type PerfAnalysis struct {
+	ChangePoints []ChangePoint `bson:"change_points"`
+	ProcessedAt  time.Time     `bson:"processed_at"`
+}
+
+var (
+	perfAnalysisChangePointsKey = bsonutil.MustHaveTag(PerfAnalysis{}, "ChangePoints")
+	perfAnalysisProcessedAtKey  = bsonutil.MustHaveTag(PerfAnalysis{}, "ProcessedAt")
+)
+
+type ChangePoint struct {
+	Index        int
+	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
+	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
+	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+}
+
+var (
+	perfChangePointMeasurementKey  = bsonutil.MustHaveTag(ChangePoint{}, "Measurement")
+	perfChangePointCalculatedOnKey = bsonutil.MustHaveTag(ChangePoint{}, "CalculatedOn")
+	perfChangePointAlgorithmKey    = bsonutil.MustHaveTag(ChangePoint{}, "Algorithm")
+)
+
+type AlgorithmInfo struct {
+	Name    string            `bson:"name" json:"name" yaml:"name"`
+	Version int               `bson:"version" json:"version" yaml:"version"`
+	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
+}
+
+var (
+	perfAlgorithmNameKey    = bsonutil.MustHaveTag(AlgorithmInfo{}, "Name")
+	perfAlgorithmVersionKey = bsonutil.MustHaveTag(AlgorithmInfo{}, "Version")
+	perfAlgorithmOptionsKey = bsonutil.MustHaveTag(AlgorithmInfo{}, "Options")
+)
+
+type AlgorithmOption struct {
+	Name  string      `bson:"name" json:"name" yaml:"name"`
+	Value interface{} `bson:"value" json:"value" yaml:"value"`
+}
+
+var (
+	perfAlgorithmOptionNameKey  = bsonutil.MustHaveTag(AlgorithmOption{}, "Name")
+	perfAlgorithmOptionValueKey = bsonutil.MustHaveTag(AlgorithmOption{}, "Value")
 )
 
 type PerformanceResultSeriesId struct {
@@ -36,7 +83,7 @@ type PerformanceData struct {
 func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, id PerformanceResultSeriesId) error {
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, id, bson.M{
 		"$currentDate": bson.M{
-			"change_points_detected_at": true,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisProcessedAtKey): true,
 		},
 	})
 	if err != nil {
@@ -49,20 +96,20 @@ func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Contex
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				"info.order":     bson.M{"$exists": true},
-				"info.mainline":  true,
-				"info.project":   bson.M{"$exists": true},
-				"info.variant":   bson.M{"$exists": true},
-				"info.task_name": bson.M{"$exists": true},
-				"info.test_name": bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
 			},
 		},
 		{
 			"$match": bson.M{
 				"$expr": bson.M{
 					"$lt": []string{
-						"$rollups.change_points_detected_at",
-						"$rollups.processed_at",
+						"$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisProcessedAtKey),
+						"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsProcessedAtKey),
 					},
 				},
 			},
@@ -70,10 +117,10 @@ func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Contex
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"task":    "$info.task_name",
-					"variant": "$info.variant",
-					"project": "$info.project",
-					"test":    "$info.test_name",
+					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 				},
 			},
 		},
@@ -95,28 +142,28 @@ func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Contex
 	return res, nil
 }
 
-func GetPerformanceResultSeriesIds(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesId, error) {
+func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesId, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				"info.order":     bson.M{"$exists": true},
-				"info.mainline":  true,
-				"info.project":   bson.M{"$exists": true},
-				"info.variant":   bson.M{"$exists": true},
-				"info.task_name": bson.M{"$exists": true},
-				"info.test_name": bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
 			},
 		},
 		{
-			"$unwind": "$rollups.stats",
+			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
 		},
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"task":    "$info.task_name",
-					"variant": "$info.variant",
-					"project": "$info.project",
-					"test":    "$info.test_name",
+					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 				},
 			},
 		},
@@ -141,32 +188,30 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				"info.order": bson.M{
-					"$exists": true,
-				},
-				"info.mainline":  true,
-				"info.project":   performanceResultId.Project,
-				"info.variant":   performanceResultId.Variant,
-				"info.task_name": performanceResultId.Task,
-				"info.test_name": performanceResultId.Test,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
 			},
 		},
 		{
-			"$unwind": "$rollups.stats",
+			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
 		},
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"task":        "$info.task_name",
-					"variant":     "$info.variant",
-					"project":     "$info.project",
-					"test":        "$info.test_name",
-					"measurement": "$rollups.stats.name",
+					"project":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					"variant":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					"task":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					"test":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					"measurement": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
 				},
 				"time_series": bson.M{
 					"$push": bson.M{
-						"value":          "$rollups.stats.val",
-						"order":          "$info.order",
+						"value":          "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
+						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
 						"perf_result_id": "$_id",
 					},
 				},
@@ -222,14 +267,14 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 
 func clearChangePoints(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesId) error {
 	seriesFilter := bson.M{
-		"info.project":   performanceResultId.Project,
-		"info.variant":   performanceResultId.Variant,
-		"info.task_name": performanceResultId.Task,
-		"info.test_name": performanceResultId.Test,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
 	}
 	clearingUpdate := bson.M{
 		"set": bson.M{
-			"change_points": bson.A{},
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.A{},
 		},
 	}
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, clearingUpdate)
@@ -240,7 +285,7 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	filter := bson.M{"_id": resultToUpdate}
 	update := bson.M{
 		"$push": bson.M{
-			"change_points": ChangePoint{
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): ChangePoint{
 				Measurement:  measurement,
 				Algorithm:    algorithm,
 				CalculatedOn: time.Now(),

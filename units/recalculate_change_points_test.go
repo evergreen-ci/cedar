@@ -154,7 +154,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			Measurement: "measurement",
 		})
 		mockDetector := &MockDetector{}
-		j.(*RecalculateChangePointsJob).ChangePointDetector = mockDetector
+		j.(*recalculateChangePointsJob).ChangePointDetector = mockDetector
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Len(t, mockDetector.Calls, 1)
@@ -193,7 +193,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			Measurement: "measurement",
 		})
 		mockDetector := &MockDetector{}
-		job := j.(*RecalculateChangePointsJob)
+		job := j.(*recalculateChangePointsJob)
 		job.ChangePointDetector = mockDetector
 		job.conf = model.NewCedarConfig(env)
 		job.conf.Flags.DisableSignalProcessing = true
