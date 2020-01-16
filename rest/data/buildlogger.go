@@ -83,12 +83,13 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 // given task id and optional tags, returning the merged logs via a LogIterator
 // reader with the corresponding time range. If n is greater than 0, the reader
 // will contain the last n lines within the given time range.
-func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, printTime bool, tags ...string) (io.Reader, error) {
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, printTime bool, procName string, tags ...string) (io.Reader, error) {
 	opts := dbModel.LogFindOptions{
 		TimeRange: tr,
 		Info: dbModel.LogInfo{
-			TaskID: taskID,
-			Tags:   tags,
+			TaskID:      taskID,
+			ProcessName: procName,
+			Tags:        tags,
 		},
 	}
 	logs := dbModel.Logs{}
@@ -325,10 +326,11 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 }
 
 // FindLogsByTaskID queries the mock cache to find the buildlogger logs with
-// the given task id and optional tags, returning the merged logs via a
-// LogIterator redaer with the corresponding time range. If n is greater than
-// 0, the reader will contain the last n lines within the given time range.
-func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, printTime bool, tags ...string) (io.Reader, error) {
+// the given task id, process name, and optional tags, returning the merged
+// logs via a LogIterator redaer with the corresponding time range. If n is
+// greater than 0, the reader will contain the last n lines within the given
+// time range.
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr util.TimeRange, n int, printTime bool, procName string, tags ...string) (io.Reader, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == taskID {
@@ -346,6 +348,9 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, taskID string, tr
 
 	its := []dbModel.LogIterator{}
 	for _, log := range logs {
+		if procName != "" && procName != log.Info.ProcessName {
+			continue
+		}
 		if !containsTags(tags, log.Info.Tags) {
 			continue
 		}

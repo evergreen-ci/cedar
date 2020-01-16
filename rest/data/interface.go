@@ -51,11 +51,11 @@ type Connector interface {
 	// FindLogMetadataByID returns the metadata for the buildlogger log
 	// with the given id.
 	FindLogMetadataByID(context.Context, string) (*model.APILog, error)
-	// FindLogsByTaskID returns the buildlogger logs with the given task id
-	// and optional tags merged via a LogIterator with the corresponding
-	// time range. If the bool is set to true, the log lines should be
-	// concatenated with their timestamps.
-	FindLogsByTaskID(context.Context, string, util.TimeRange, int, bool, ...string) (io.Reader, error)
+	// FindLogsByTaskID returns the buildlogger logs with the given task
+	// id process name (can be left empty), and optional tags merged via a
+	// LogIterator with the corresponding time range. If the bool is set to
+	// true, the log lines should be concatenated with their timestamps.
+	FindLogsByTaskID(context.Context, string, util.TimeRange, int, bool, string, ...string) (io.Reader, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
 	// the given task id and optional tags.
 	FindLogMetadataByTaskID(context.Context, string, ...string) ([]model.APILog, error)

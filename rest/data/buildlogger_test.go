@@ -212,7 +212,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NoError(err)
 		s.Require().NotNil(expectedIt)
 
-		r, err := s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 0, printTime)
+		r, err := s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 0, printTime, "")
 		s.Require().NoError(err)
 		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
 
@@ -232,7 +232,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NoError(err)
 		s.Require().NotNil(expectedIt)
 
-		r, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 0, printTime, opts.Info.Tags...)
+		r, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 0, printTime, "", opts.Info.Tags...)
 		s.Require().NoError(err)
 		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
 
@@ -243,6 +243,19 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 		}
 
+		// with process name
+		opts.Info.ProcessName = "mongod0"
+		logs = model.Logs{}
+		logs.Setup(s.env)
+		s.Require().NoError(logs.Find(s.ctx, opts))
+		expectedIt, err = logs.Merge(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(expectedIt)
+
+		r, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 0, printTime, opts.Info.ProcessName, opts.Info.Tags...)
+		s.Require().NoError(err)
+		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
+
 		// tail
 		logs = model.Logs{}
 		logs.Setup(s.env)
@@ -252,7 +265,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NoError(err)
 		s.Require().NotNil(expectedIt)
 
-		r, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 100, printTime, opts.Info.Tags...)
+		r, err = s.sc.FindLogsByTaskID(s.ctx, opts.Info.TaskID, opts.TimeRange, 100, printTime, "", opts.Info.Tags...)
 		s.Require().NoError(err)
 		readerOpts.TailN = 100
 		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
@@ -265,7 +278,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDDNE() {
 		EndAt:   time.Now(),
 	}
 
-	r, err := s.sc.FindLogsByTaskID(s.ctx, "DNE", tr, 0, false)
+	r, err := s.sc.FindLogsByTaskID(s.ctx, "DNE", tr, 0, false, "")
 	s.Error(err)
 	s.Nil(r)
 

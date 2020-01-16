@@ -16,6 +16,7 @@ import (
 const (
 	logStartAt = "start"
 	logEndAt   = "end"
+	procName   = "proc_name"
 	tags       = "tags"
 	printTime  = "printTime"
 )
@@ -110,6 +111,7 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 type logGetByTaskIDHandler struct {
 	id        string
+	procName  string
 	tags      []string
 	tr        util.TimeRange
 	n         int
@@ -137,6 +139,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
+	h.procName = vals[procName]
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
@@ -151,7 +154,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 // Run calls FindLogsByTaskID and returns the merged logs.
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.printTime, h.tags...)
+	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.printTime, h.procName, h.tags...)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
