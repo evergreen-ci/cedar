@@ -80,12 +80,20 @@ type PerformanceData struct {
 	Data                []MeasurementData         `bson:"data"`
 }
 
-func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, id PerformanceResultSeriesId) error {
-	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, id, bson.M{
+func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesId) error {
+	filter := bson.M{
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
+	}
+
+	update := bson.M{
 		"$currentDate": bson.M{
 			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisProcessedAtKey): true,
 		},
-	})
+	}
+	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, filter, update)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to mark performance results as analyzed for change points")
 	}
@@ -185,15 +193,15 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 	return res, nil
 }
 func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesId) (*PerformanceData, error) {
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
+	pipe := []bson.M{
 		{
 			"$match": bson.M{
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
 			},
 		},
 		{
@@ -225,7 +233,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 					"task":    "$_id.task",
 					"test":    "$_id.test",
 				},
-				"measurements": bson.M{
+				"data": bson.M{
 					"$push": bson.M{
 						"measurement": "$_id.measurement",
 						"time_series": "$time_series",
@@ -233,17 +241,18 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 				},
 			},
 		},
-	})
+	}
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate time series")
 	}
 	defer cur.Close(ctx)
-	var res PerformanceData
+	var res []PerformanceData
 	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not decode time series")
 	}
-	return &res, nil
+	return &res[0], nil
 }
 
 func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performanceData *PerformanceData, mappedChangePoints map[string][]ChangePoint) error {
@@ -273,8 +282,8 @@ func clearChangePoints(ctx context.Context, env cedar.Environment, performanceRe
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
 	}
 	clearingUpdate := bson.M{
-		"set": bson.M{
-			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.A{},
+		"$set": bson.M{
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): []bson.M{},
 		},
 	}
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, clearingUpdate)

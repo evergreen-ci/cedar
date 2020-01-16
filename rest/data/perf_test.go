@@ -623,5 +623,5 @@ func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 	theQueue.Start(s.ctx)
 	err := s.sc.ScheduleSignalProcessingRecalculateJobs(s.ctx)
 	s.NoError(err)
-	s.Require().Equal(theQueue.Stats(s.ctx).Total, 3)
+	s.Require().Equal(theQueue.Stats(s.ctx).Total, 2)
 }

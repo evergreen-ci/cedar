@@ -80,8 +80,11 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 			Stats:       append([]PerfRollupValue{}, rollups...),
 			ProcessedAt: createdAt,
 		},
-		populated:    true,
-		ChangePoints: []ChangePoint{},
+		populated: true,
+		Analysis: PerfAnalysis{
+			ChangePoints: []ChangePoint{},
+			ProcessedAt:  time.Time{},
+		},
 	}
 }
 
