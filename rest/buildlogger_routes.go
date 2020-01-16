@@ -139,7 +139,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
-	h.procName = vals[procName]
+	h.procName = vals.Get(procName)
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
