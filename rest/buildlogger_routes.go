@@ -16,8 +16,10 @@ import (
 const (
 	logStartAt = "start"
 	logEndAt   = "end"
+	execution  = "execution"
+	procName   = "proc_name"
 	tags       = "tags"
-	printTime  = "printTime"
+	printTime  = "print_time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,7 +60,12 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 // Run calls FindLogByID and returns the log.
 func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogByID(ctx, h.id, h.tr, h.printTime)
+	opts := data.BuildloggerOptions{
+		ID:        h.id,
+		TimeRange: h.tr,
+		PrintTime: h.printTime,
+	}
+	r, err := h.sc.FindLogByID(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
 	}
@@ -110,6 +117,8 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 type logGetByTaskIDHandler struct {
 	id        string
+	procName  string
+	execution int
 	tags      []string
 	tr        util.TimeRange
 	n         int
@@ -137,10 +146,15 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 	h.id = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
+	h.procName = vals.Get(procName)
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
+	if len(vals[execution]) > 0 {
+		h.execution, err = strconv.Atoi(vals[execution][0])
+		catcher.Add(err)
+	}
 	if len(vals["n"]) > 0 {
 		h.n, err = strconv.Atoi(vals["n"][0])
 		catcher.Add(err)
@@ -151,7 +165,15 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 
 // Run calls FindLogsByTaskID and returns the merged logs.
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogsByTaskID(ctx, h.id, h.tr, h.n, h.printTime, h.tags...)
+	opts := data.BuildloggerOptions{
+		TaskID:      h.id,
+		ProcessName: h.procName,
+		Tags:        h.tags,
+		TimeRange:   h.tr,
+		PrintTime:   h.printTime,
+		Tail:        h.n,
+	}
+	r, err := h.sc.FindLogsByTaskID(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
@@ -193,7 +215,11 @@ func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) er
 
 // Run calls FindLogMetadataByTaskID and returns the merged logs.
 func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.id, h.tags...)
+	opts := data.BuildloggerOptions{
+		TaskID: h.id,
+		Tags:   h.tags,
+	}
+	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by task id '%s'", h.id))
 	}
@@ -243,7 +269,14 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 
 // Run calls FindLogsByTestName and returns the merged logs.
 func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	r, err := h.sc.FindLogsByTestName(ctx, h.id, h.name, h.tr, h.printTime, h.tags...)
+	opts := data.BuildloggerOptions{
+		TaskID:    h.id,
+		TestName:  h.name,
+		Tags:      h.tags,
+		TimeRange: h.tr,
+		PrintTime: h.printTime,
+	}
+	r, err := h.sc.FindLogsByTestName(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
 	}
@@ -287,11 +320,17 @@ func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) 
 
 // Run calls FindLogMetadataByTestName and returns the merged logs.
 func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, h.tags...)
+	opts := data.BuildloggerOptions{
+		TaskID:   h.id,
+		TestName: h.name,
+		Tags:     h.tags,
+	}
+	testLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 	}
-	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, "", h.tags...)
+	opts.TestName = ""
+	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
 	errResp, ok := err.(gimlet.ErrorResponse)
 	if err != nil && (!ok || errResp.StatusCode == http.StatusNotFound) {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
@@ -346,23 +385,30 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 
 // Run calls FindGroupedLogs and returns the merged logs.
 func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
-	if h.tr.IsZero() {
-		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.id, h.name, append(h.tags, h.groupID)...)
+	opts := data.BuildloggerOptions{
+		TaskID:    h.id,
+		TestName:  h.name,
+		Tags:      append(h.tags, h.groupID),
+		TimeRange: h.tr,
+		PrintTime: h.printTime,
+	}
+	if opts.TimeRange.IsZero() {
+		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
 		if err != nil {
 			return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.name))
 		}
 
 		for _, log := range testLogs {
-			if h.tr.StartAt.After(time.Time(log.CreatedAt)) || h.tr.StartAt.IsZero() {
-				h.tr.StartAt = time.Time(log.CreatedAt)
+			if opts.TimeRange.StartAt.After(time.Time(log.CreatedAt)) || opts.TimeRange.StartAt.IsZero() {
+				opts.TimeRange.StartAt = time.Time(log.CreatedAt)
 			}
-			if h.tr.EndAt.Before(time.Time(log.CompletedAt)) {
-				h.tr.EndAt = time.Time(log.CompletedAt)
+			if opts.TimeRange.EndAt.Before(time.Time(log.CompletedAt)) {
+				opts.TimeRange.EndAt = time.Time(log.CompletedAt)
 			}
 		}
 	}
 
-	r, err := h.sc.FindGroupedLogs(ctx, h.id, h.name, h.groupID, h.tr, h.printTime, h.tags...)
+	r, err := h.sc.FindGroupedLogs(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err,
 			"Error getting grouped logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))

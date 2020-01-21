@@ -67,7 +67,7 @@ func (m *evgAuthReadLogByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *
 	ctx := r.Context()
 
 	taskID := gimlet.GetVars(r)["task_id"]
-	apiLogs, err := m.sc.FindLogMetadataByTaskID(ctx, taskID)
+	apiLogs, err := m.sc.FindLogMetadataByTaskID(ctx, data.BuildloggerOptions{TaskID: taskID})
 	if err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return

@@ -676,7 +676,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "?start=2012-11-01T22:08:00%2B00:00"
 	urlString += "&end=2013-11-01T22:08:00%2B00:00"
 	urlString += "&tags=hello&tags=world"
-	urlString += "&printTime=true"
+	urlString += "&print_time=true"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	expectedTr := util.TimeRange{
