@@ -146,14 +146,14 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
-		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesId{
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
 			Project: "projecta",
 			Variant: "variant",
 			Task:    "task",
 			Test:    "test",
 		})
 		mockDetector := &MockDetector{}
-		j.(*recalculateChangePointsJob).ChangePointDetector = mockDetector
+		j.(*recalculateChangePointsJob).changePointDetector = mockDetector
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Len(t, mockDetector.Calls, 2)
@@ -200,7 +200,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
-		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesId{
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
 			Project: "projecta",
 			Variant: "variant",
 			Task:    "task",
@@ -208,7 +208,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		})
 		mockDetector := &MockDetector{}
 		job := j.(*recalculateChangePointsJob)
-		job.ChangePointDetector = mockDetector
+		job.changePointDetector = mockDetector
 		job.conf = model.NewCedarConfig(env)
 		job.conf.Flags.DisableSignalProcessing = true
 		j.Run(ctx)
