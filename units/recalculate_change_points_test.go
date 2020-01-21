@@ -146,7 +146,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
-		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesId{
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
 			Project: "projecta",
 			Variant: "variant",
 			Task:    "task",
@@ -200,7 +200,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
-		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesId{
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
 			Project: "projecta",
 			Variant: "variant",
 			Task:    "task",

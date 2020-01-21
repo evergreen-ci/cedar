@@ -62,6 +62,15 @@ var (
 	perfVersionlKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
+func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResultSeriesID {
+	return PerformanceResultSeriesID{
+		Project: info.Project,
+		Variant: info.Variant,
+		Task:    info.TaskName,
+		Test:    info.TestName,
+	}
+}
+
 // CreatePerformanceResult is the entry point for creating a performance
 // result.
 func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, rollups []PerfRollupValue) *PerformanceResult {

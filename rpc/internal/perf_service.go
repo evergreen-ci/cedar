@@ -106,14 +106,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem attaching rollup data for perf result '%s'", record.ID))
 	}
 
-	id := model.PerformanceResultSeriesId{
-		Project: record.Info.Project,
-		Variant: record.Info.Variant,
-		Task:    record.Info.TaskName,
-		Test:    record.Info.TestName,
-	}
-
-	processingJob := units.NewRecalculateChangePointsJob(id)
+	processingJob := units.NewRecalculateChangePointsJob(record.Info.ToPerformanceResultSeriesID())
 	err := srv.env.GetRemoteQueue().Put(ctx, processingJob)
 	if err != nil {
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))

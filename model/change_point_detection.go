@@ -57,7 +57,7 @@ var (
 	perfAlgorithmOptionValueKey = bsonutil.MustHaveTag(AlgorithmOption{}, "Value")
 )
 
-type PerformanceResultSeriesId struct {
+type PerformanceResultSeriesID struct {
 	Project string `bson:"project"`
 	Variant string `bson:"variant"`
 	Task    string `bson:"task"`
@@ -76,11 +76,11 @@ type MeasurementData struct {
 }
 
 type PerformanceData struct {
-	PerformanceResultId PerformanceResultSeriesId `bson:"_id"`
+	PerformanceResultId PerformanceResultSeriesID `bson:"_id"`
 	Data                []MeasurementData         `bson:"data"`
 }
 
-func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesId) error {
+func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
 	filter := bson.M{
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
@@ -100,7 +100,7 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 	return nil
 }
 
-func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesId, error) {
+func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -142,7 +142,7 @@ func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Contex
 		return nil, errors.Wrapf(err, "Unable to get metrics needing change point detection")
 	}
 	defer cur.Close(ctx)
-	var res []PerformanceResultSeriesId
+	var res []PerformanceResultSeriesID
 	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to decode metrics needing change results")
@@ -150,7 +150,7 @@ func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Contex
 	return res, nil
 }
 
-func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesId, error) {
+func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -185,14 +185,14 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 		return nil, errors.Wrap(err, "Cannot aggregate time series ids")
 	}
 	defer cur.Close(ctx)
-	var res []PerformanceResultSeriesId
+	var res []PerformanceResultSeriesID
 	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not decode time series ids")
 	}
 	return res, nil
 }
-func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesId) (*PerformanceData, error) {
+func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) (*PerformanceData, error) {
 	pipe := []bson.M{
 		{
 			"$match": bson.M{
@@ -274,7 +274,7 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 	return catcher.Resolve()
 }
 
-func clearChangePoints(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesId) error {
+func clearChangePoints(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
 	seriesFilter := bson.M{
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,

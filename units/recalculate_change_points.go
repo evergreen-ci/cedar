@@ -23,7 +23,7 @@ type recalculateChangePointsJob struct {
 	*job.Base           `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env                 cedar.Environment
 	conf                *model.CedarConfig
-	PerformanceResultId model.PerformanceResultSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
+	PerformanceResultId model.PerformanceResultSeriesID `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
 	ChangePointDetector perf.ChangeDetector
 }
 
@@ -45,7 +45,7 @@ func makeChangePointsJob() *recalculateChangePointsJob {
 	return j
 }
 
-func NewRecalculateChangePointsJob(timeSeriesId model.PerformanceResultSeriesId) amboy.Job {
+func NewRecalculateChangePointsJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeChangePointsJob()
 	// Every ten minutes at most
 	timestamp := util.RoundPartOfHour(10)
@@ -54,7 +54,7 @@ func NewRecalculateChangePointsJob(timeSeriesId model.PerformanceResultSeriesId)
 	return j
 }
 
-func (j *recalculateChangePointsJob) makeMessage(msg string, id model.PerformanceResultSeriesId) message.Fields {
+func (j *recalculateChangePointsJob) makeMessage(msg string, id model.PerformanceResultSeriesID) message.Fields {
 	return message.Fields{
 		"job_id":  j.ID(),
 		"message": msg,
