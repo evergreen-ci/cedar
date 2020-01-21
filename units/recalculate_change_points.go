@@ -24,7 +24,7 @@ type recalculateChangePointsJob struct {
 	env                 cedar.Environment
 	conf                *model.CedarConfig
 	PerformanceResultId model.PerformanceResultSeriesID `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
-	ChangePointDetector perf.ChangeDetector
+	changePointDetector perf.ChangeDetector
 }
 
 func init() {
@@ -77,13 +77,13 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-	if j.ChangePointDetector == nil {
+	if j.changePointDetector == nil {
 		err := j.conf.Find()
 		if err != nil {
 			j.AddError(errors.Wrap(err, "Unable to get cedar configuration"))
 			return
 		}
-		j.ChangePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
+		j.changePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
@@ -100,7 +100,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			float_series = append(float_series, item.Value)
 		}
 
-		changePoints, err := j.ChangePointDetector.DetectChanges(ctx, float_series)
+		changePoints, err := j.changePointDetector.DetectChanges(ctx, float_series)
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
 			return
