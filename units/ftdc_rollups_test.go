@@ -101,7 +101,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			assert.NoError(t, res.Decode(result))
 			require.NotNil(t, result.Rollups)
 			assert.True(t, len(j.RollupTypes) <= len(result.Rollups.Stats))
-			assert.Equal(t, len(result.Rollups.Stats), j.queue.Stats(ctx).Total)
+			assert.Equal(t, 1, j.queue.Stats(ctx).Total)
 			assert.Zero(t, result.FailedRollupAttempts)
 			for _, stats := range result.Rollups.Stats {
 				assert.Equal(t, user, stats.UserSubmitted)

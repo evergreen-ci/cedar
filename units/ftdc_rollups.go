@@ -149,20 +149,19 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
-		j.createSignalProcessingJob(ctx, result, r)
 	}
+	j.createSignalProcessingJob(ctx, result)
 }
 
-func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *model.PerformanceResult, rollup model.PerfRollupValue) {
+func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *model.PerformanceResult) {
 	if j.queue == nil {
 		j.queue = j.env.GetRemoteQueue()
 	}
-	id := model.TimeSeriesId{
-		Project:     result.Info.Project,
-		Variant:     result.Info.Variant,
-		Task:        result.Info.TaskName,
-		Test:        result.Info.TestName,
-		Measurement: rollup.Name,
+	id := model.PerformanceResultSeriesId{
+		Project: result.Info.Project,
+		Variant: result.Info.Variant,
+		Task:    result.Info.TaskName,
+		Test:    result.Info.TestName,
 	}
 	processingJob := NewRecalculateChangePointsJob(id)
 	j.AddError(errors.Wrapf(j.queue.Put(ctx, processingJob), "problem putting signal processing job %s on remote queue", j.ID()))
