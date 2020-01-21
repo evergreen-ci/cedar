@@ -243,7 +243,7 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 // each project/version/task/test combination
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	queue := dbc.env.GetRemoteQueue()
-	ids, err := model.GetTimeSeriesIds(ctx, dbc.env)
+	ids, err := model.GetPerformanceResultSeriesIDs(ctx, dbc.env)
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
 	}
@@ -255,12 +255,11 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		err = queue.Put(ctx, job)
 		if err != nil {
 			catcher.Add(errors.New(message.WrapError(err, message.Fields{
-				"message":     "Unable to enqueue recalculation job for metric",
-				"project":     id.Project,
-				"variant":     id.Variant,
-				"task":        id.Task,
-				"test":        id.Test,
-				"measurement": id.Measurement,
+				"message": "Unable to enqueue recalculation job for metric",
+				"project": id.Project,
+				"variant": id.Variant,
+				"task":    id.Task,
+				"test":    id.Test,
 			}).String()))
 		}
 	}

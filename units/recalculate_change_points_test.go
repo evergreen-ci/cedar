@@ -146,29 +146,28 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
-		j := NewRecalculateChangePointsJob(model.TimeSeriesId{
-			Project:     "projecta",
-			Variant:     "variant",
-			Task:        "task",
-			Test:        "test",
-			Measurement: "measurement",
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesId{
+			Project: "projecta",
+			Variant: "variant",
+			Task:    "task",
+			Test:    "test",
 		})
 		mockDetector := &MockDetector{}
-		j.(*RecalculateChangePointsJob).ChangePointDetector = mockDetector
+		j.(*recalculateChangePointsJob).ChangePointDetector = mockDetector
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
-		assert.Len(t, mockDetector.Calls, 1)
+		assert.Len(t, mockDetector.Calls, 2)
 		var result []model.PerformanceResult
 		filter := bson.M{
-			"change_points": bson.M{"$ne": []struct{}{}},
+			"analysis.change_points": bson.M{"$ne": []struct{}{}},
 		}
 		res, err := env.GetDB().Collection("perf_results").Find(ctx, filter)
 		require.NoError(t, err)
 		assert.NoError(t, res.All(ctx, &result))
 		require.Len(t, result, 1)
-		require.Len(t, result[0].ChangePoints, 1)
-		require.Equal(t, result[0].ChangePoints[0].Measurement, "measurement")
-		require.Equal(t, result[0].ChangePoints[0].Algorithm, model.AlgorithmInfo{
+		require.Len(t, result[0].Analysis.ChangePoints, 2)
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement_another")
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
 			Name:    "some_algorithm",
 			Version: 1,
 			Options: []model.AlgorithmOption{
@@ -182,18 +181,33 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 				},
 			},
 		})
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement")
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
+			Name:    "some_algorithm",
+			Version: 1,
+			Options: []model.AlgorithmOption{
+				{
+					Name:  "some_option",
+					Value: int32(5),
+				},
+				{
+					Name:  "another_option",
+					Value: 0.05,
+				},
+			},
+		})
+		require.NotEqual(t, result[0].Analysis.ProcessedAt, time.Time{})
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
-		j := NewRecalculateChangePointsJob(model.TimeSeriesId{
-			Project:     "projecta",
-			Variant:     "variant",
-			Task:        "task",
-			Test:        "test",
-			Measurement: "measurement",
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesId{
+			Project: "projecta",
+			Variant: "variant",
+			Task:    "task",
+			Test:    "test",
 		})
 		mockDetector := &MockDetector{}
-		job := j.(*RecalculateChangePointsJob)
+		job := j.(*recalculateChangePointsJob)
 		job.ChangePointDetector = mockDetector
 		job.conf = model.NewCedarConfig(env)
 		job.conf.Flags.DisableSignalProcessing = true

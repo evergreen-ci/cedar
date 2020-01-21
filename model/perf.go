@@ -22,22 +22,6 @@ import (
 
 const perfResultCollection = "perf_results"
 
-type ChangePoint struct {
-	Index        int
-	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
-	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
-	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
-}
-type AlgorithmInfo struct {
-	Name    string            `bson:"name" json:"name" yaml:"name"`
-	Version int               `bson:"version" json:"version" yaml:"version"`
-	Options []AlgorithmOption `bson:"options" json:"options" yaml:"options"`
-}
-type AlgorithmOption struct {
-	Name  string      `bson:"name" json:"name" yaml:"name"`
-	Value interface{} `bson:"value" json:"value" yaml:"value"`
-}
-
 // PerformanceResult describes a single result of a performance test from
 // Evergreen.
 type PerformanceResult struct {
@@ -59,8 +43,8 @@ type PerformanceResult struct {
 	Artifacts            []ArtifactInfo `bson:"artifacts"`
 	FailedRollupAttempts int            `bson:"failed_rollup_attempts"`
 
-	Rollups      PerfRollups   `bson:"rollups"`
-	ChangePoints []ChangePoint `bson:"change_points"`
+	Rollups  PerfRollups  `bson:"rollups"`
+	Analysis PerfAnalysis `bson:"analysis"`
 
 	env       cedar.Environment
 	populated bool
@@ -74,6 +58,7 @@ var (
 	perfArtifactsKey         = bsonutil.MustHaveTag(PerformanceResult{}, "Artifacts")
 	perfFailedRollupAttempts = bsonutil.MustHaveTag(PerformanceResult{}, "FailedRollupAttempts")
 	perfRollupsKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
+	perfAnalysisKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Analysis")
 	perfVersionlKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
@@ -95,8 +80,10 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 			Stats:       append([]PerfRollupValue{}, rollups...),
 			ProcessedAt: createdAt,
 		},
-		populated:    true,
-		ChangePoints: []ChangePoint{},
+		populated: true,
+		Analysis: PerfAnalysis{
+			ChangePoints: []ChangePoint{},
+		},
 	}
 }
 
@@ -329,6 +316,7 @@ var (
 	perfResultInfoParentKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Parent")
 	perfResultInfoTagsKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Tags")
 	perfResultInfoArgumentsKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Arguments")
+	perfResultInfoMainlineKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Mainline")
 	perfResultInfoSchemaKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
 )
 
@@ -654,174 +642,4 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 	}
 
 	return errors.WithStack(it.Close(ctx))
-}
-
-func GetTimeSeriesIds(ctx context.Context, env cedar.Environment) ([]TimeSeriesId, error) {
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"info.order": bson.M{
-					"$exists": true,
-				},
-				"info.mainline":  true,
-				"info.project":   bson.M{"$exists": true},
-				"info.variant":   bson.M{"$exists": true},
-				"info.task_name": bson.M{"$exists": true},
-				"info.test_name": bson.M{"$exists": true},
-			},
-		},
-		{
-			"$unwind": "$rollups.stats",
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"task":        "$info.task_name",
-					"variant":     "$info.variant",
-					"project":     "$info.project",
-					"test":        "$info.test_name",
-					"measurement": "$rollups.stats.name",
-				},
-			},
-		},
-		{
-			"$replaceRoot": bson.M{
-				"newRoot": "$_id",
-			},
-		},
-	}
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipeline)
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot aggregate time series ids")
-	}
-	defer cur.Close(ctx)
-	var res []TimeSeriesId
-	err = cur.All(ctx, &res)
-	if err != nil {
-		return nil, errors.Wrap(err, "Could not decode time series ids")
-	}
-	return res, nil
-}
-
-type TimeSeriesId struct {
-	Project     string `bson:"project"`
-	Variant     string `bson:"variant"`
-	Task        string `bson:"task"`
-	Test        string `bson:"test"`
-	Measurement string `bson:"measurement"`
-}
-
-type TimeSeriesEntry struct {
-	PerfResultID string  `bson:"_id"`
-	Value        float64 `bson:"value"`
-	Order        int     `bson:"order"`
-}
-
-type TimeSeries struct {
-	TimeSeriesId TimeSeriesId      `bson:"_id"`
-	Data         []TimeSeriesEntry `bson:"times_series"`
-}
-
-func makeTimeSeriesPipeline(timeSeriesId TimeSeriesId) []bson.M {
-	return []bson.M{
-		{
-			"$match": bson.M{
-				"info.project":   timeSeriesId.Project,
-				"info.variant":   timeSeriesId.Variant,
-				"info.task_name": timeSeriesId.Task,
-				"info.test_name": timeSeriesId.Test,
-			},
-		},
-		{
-			"$match": bson.M{
-				"info.order": bson.M{
-					"$exists": true,
-				},
-				"info.mainline": true,
-			},
-		},
-		{
-			"$unwind": "$rollups.stats",
-		},
-		{
-			"$match": bson.M{
-				"rollups.stats.name": timeSeriesId.Measurement,
-			},
-		},
-		{
-			"$project": bson.M{
-				"value": "$rollups.stats.val",
-				"order": "$info.order",
-			},
-		},
-	}
-}
-
-func GetTimeSeries(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) (*TimeSeries, error) {
-	timeSeriesAggregator := makeTimeSeriesPipeline(timeSeriesId)
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, timeSeriesAggregator)
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot aggregate time series")
-	}
-	defer cur.Close(ctx)
-	var res []TimeSeriesEntry
-	err = cur.All(ctx, &res)
-	if err != nil {
-		return nil, errors.Wrap(err, "Could not decode time series")
-	}
-	return &TimeSeries{
-		TimeSeriesId: timeSeriesId,
-		Data:         res,
-	}, nil
-}
-
-func ReplaceChangePoints(ctx context.Context, env cedar.Environment, timeSeries *TimeSeries, changePoints []ChangePoint) error {
-	err := clearChangePoints(ctx, env, timeSeries.TimeSeriesId)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to clear change points for measurement %s", timeSeries.TimeSeriesId)
-	}
-	catcher := grip.NewBasicCatcher()
-	for _, cp := range changePoints {
-		perfResultId := timeSeries.Data[cp.Index].PerfResultID
-		err = createChangePoint(ctx, env, perfResultId, timeSeries.TimeSeriesId.Measurement, cp.Algorithm)
-		if err != nil {
-			catcher.Add(errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
-		}
-	}
-	return catcher.Resolve()
-}
-
-func clearChangePoints(ctx context.Context, env cedar.Environment, timeSeriesId TimeSeriesId) error {
-	seriesFilter := bson.M{
-		"info.project":              timeSeriesId.Project,
-		"info.variant":              timeSeriesId.Variant,
-		"info.task_name":            timeSeriesId.Task,
-		"info.test_name":            timeSeriesId.Test,
-		"rollups.stats.name":        timeSeriesId.Measurement,
-		"change_points.measurement": timeSeriesId.Measurement,
-	}
-	pullUpdate := bson.M{
-		"$pull": bson.M{
-			"change_points": bson.M{
-				"measurement": timeSeriesId.Measurement,
-			},
-		},
-	}
-	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, pullUpdate)
-	return errors.Wrap(err, "Unable to clear change points")
-}
-
-func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm AlgorithmInfo) error {
-	filter := bson.M{"_id": resultToUpdate}
-	update := bson.M{
-		"$push": bson.M{
-			"change_points": ChangePoint{
-				Measurement:  measurement,
-				Algorithm:    algorithm,
-				CalculatedOn: time.Now(),
-			},
-		},
-	}
-	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
-	return errors.Wrap(err, "Unable to create change point")
 }

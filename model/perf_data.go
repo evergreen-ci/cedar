@@ -65,8 +65,9 @@ var (
 // PerfRollups describes the "rolled up", or calculated metrics from time
 // series data collected in a given performance test, of a performance result.
 type PerfRollups struct {
-	Stats       []PerfRollupValue `bson:"stats"`
-	ProcessedAt time.Time         `bson:"processed_at"`
+	Stats                  []PerfRollupValue `bson:"stats"`
+	ProcessedAt            time.Time         `bson:"processed_at"`
+	ChangePointsDetectedAt time.Time         `bson:"change_points_detected_at"`
 
 	dirty bool // nolint
 	id    string

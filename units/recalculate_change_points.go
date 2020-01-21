@@ -19,11 +19,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-type RecalculateChangePointsJob struct {
+type recalculateChangePointsJob struct {
 	*job.Base           `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env                 cedar.Environment
 	conf                *model.CedarConfig
-	TimeSeriesId        model.TimeSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
+	PerformanceResultId model.PerformanceResultSeriesId `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
 	ChangePointDetector perf.ChangeDetector
 }
 
@@ -31,8 +31,8 @@ func init() {
 	registry.AddJobType("recalculate-change-points", func() amboy.Job { return makeChangePointsJob() })
 }
 
-func makeChangePointsJob() *RecalculateChangePointsJob {
-	j := &RecalculateChangePointsJob{
+func makeChangePointsJob() *recalculateChangePointsJob {
+	j := &recalculateChangePointsJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
 				Name:    "recalculate-change-points",
@@ -45,16 +45,16 @@ func makeChangePointsJob() *RecalculateChangePointsJob {
 	return j
 }
 
-func NewRecalculateChangePointsJob(timeSeriesId model.TimeSeriesId) amboy.Job {
+func NewRecalculateChangePointsJob(timeSeriesId model.PerformanceResultSeriesId) amboy.Job {
 	j := makeChangePointsJob()
 	// Every ten minutes at most
 	timestamp := util.RoundPartOfHour(10)
-	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timeSeriesId.Measurement, timestamp))
-	j.TimeSeriesId = timeSeriesId
+	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timestamp))
+	j.PerformanceResultId = timeSeriesId
 	return j
 }
 
-func (j *RecalculateChangePointsJob) makeMessage(msg string, id model.TimeSeriesId) message.Fields {
+func (j *recalculateChangePointsJob) makeMessage(msg string, id model.PerformanceResultSeriesId) message.Fields {
 	return message.Fields{
 		"job_id":  j.ID(),
 		"message": msg,
@@ -65,13 +65,13 @@ func (j *RecalculateChangePointsJob) makeMessage(msg string, id model.TimeSeries
 	}
 }
 
-func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
+func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 	if j.conf == nil {
 		j.conf = model.NewCedarConfig(j.env)
 	}
 	if j.conf.Flags.DisableSignalProcessing {
-		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.TimeSeriesId))
+		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.PerformanceResultId))
 		return
 	}
 	if j.env == nil {
@@ -85,28 +85,29 @@ func (j *RecalculateChangePointsJob) Run(ctx context.Context) {
 		}
 		j.ChangePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
-	timeSeries, err := model.GetTimeSeries(ctx, j.env, j.TimeSeriesId)
+	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.TimeSeriesId))
+		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.PerformanceResultId))
 		return
 	}
-	sort.Slice(timeSeries.Data, func(i, j int) bool {
-		return timeSeries.Data[i].Order < timeSeries.Data[j].Order
-	})
+	mappedChangePoints := map[string][]model.ChangePoint{}
+	for _, series := range performanceData.Data {
+		sort.Slice(series.TimeSeries, func(i, j int) bool {
+			return series.TimeSeries[i].Order < series.TimeSeries[j].Order
+		})
+		var float_series []float64
+		for _, item := range series.TimeSeries {
+			float_series = append(float_series, item.Value)
+		}
 
-	var series []float64
-	for _, item := range timeSeries.Data {
-		series = append(series, item.Value)
+		changePoints, err := j.ChangePointDetector.DetectChanges(ctx, float_series)
+		if err != nil {
+			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
+			return
+		}
+		mappedChangePoints[series.Measurement] = changePoints
 	}
 
-	changePoints, err := j.ChangePointDetector.DetectChanges(ctx, series)
-	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.TimeSeriesId))
-		return
-	}
-
-	err = model.ReplaceChangePoints(ctx, j.env, timeSeries, changePoints)
-	if err != nil {
-		j.AddError(err)
-	}
+	j.AddError(model.ReplaceChangePoints(ctx, j.env, performanceData, mappedChangePoints))
+	j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, performanceData.PerformanceResultId))
 }
