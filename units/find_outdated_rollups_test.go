@@ -147,7 +147,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		for cursor.Next(ctx) {
 			count += 1
 		}
-		assert.Equal(t, 1, count)
+		assert.Equal(t, 2, count)
 	})
 	t.Run("InvalidRollups", func(t *testing.T) {
 		j := &findOutdatedRollupsJob{

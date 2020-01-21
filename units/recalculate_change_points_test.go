@@ -166,7 +166,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		assert.NoError(t, res.All(ctx, &result))
 		require.Len(t, result, 1)
 		require.Len(t, result[0].Analysis.ChangePoints, 2)
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement_another")
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement")
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
 			Name:    "some_algorithm",
 			Version: 1,
@@ -181,7 +181,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 				},
 			},
 		})
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement")
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement_another")
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
 			Name:    "some_algorithm",
 			Version: 1,
