@@ -2,6 +2,7 @@ package model
 
 import (
 	dbmodel "github.com/evergreen-ci/cedar/model"
+
 	"github.com/pkg/errors"
 )
 
@@ -14,6 +15,30 @@ type APIPerformanceResult struct {
 	CompletedAt APITime                  `json:"completed_at"`
 	Artifacts   []APIArtifactInfo        `json:"artifacts"`
 	Rollups     APIPerfRollups           `json:"rollups"`
+	Analysis    APIPerfAnalysis          `json:"analysis"`
+}
+
+type APIPerfAnalysis struct {
+	ChangePoints []APIChangePoint `bson:"change_points" json:"change_points" yaml:"change_points"`
+	ProcessedAt  APITime          `bson:"processed_at" json:"processed_at" yaml:"processed_at"`
+}
+
+type APIChangePoint struct {
+	Index        int
+	Measurement  string           `bson:"measurement" json:"measurement" yaml:"measurement"`
+	CalculatedOn APITime          `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
+	Algorithm    APIAlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+}
+
+type APIAlgorithmInfo struct {
+	Name    string               `bson:"name" json:"name" yaml:"name"`
+	Version int                  `bson:"version" json:"version" yaml:"version"`
+	Options []APIAlgorithmOption `bson:"options" json:"options" yaml:"options"`
+}
+
+type APIAlgorithmOption struct {
+	Name  string      `bson:"name" json:"name" yaml:"name"`
+	Value interface{} `bson:"value" json:"value" yaml:"value"`
 }
 
 // Import transforms a PerformanceResult object into an APIPerformanceResult
@@ -26,6 +51,7 @@ func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 		apiResult.CompletedAt = NewTime(r.CompletedAt)
 		apiResult.Info = getPerformanceResultInfo(r.Info)
 		apiResult.Rollups = getPerfRollups(r.Rollups)
+		apiResult.Analysis = getAnalysis(r.Analysis)
 
 		var apiArtifacts []APIArtifactInfo
 		for _, artifactInfo := range r.Artifacts {
@@ -135,6 +161,46 @@ func getPerfRollups(r dbmodel.PerfRollups) APIPerfRollups {
 	rollups.Stats = apiStats
 
 	return rollups
+}
+
+func getAnalysis(r dbmodel.PerfAnalysis) APIPerfAnalysis {
+	var changePoints []APIChangePoint
+	for _, stat := range r.ChangePoints {
+		changePoints = append(changePoints, getChangePointValue(stat))
+	}
+
+	return APIPerfAnalysis{
+		ChangePoints: changePoints,
+		ProcessedAt:  NewTime(r.ProcessedAt),
+	}
+}
+
+func getChangePointValue(point dbmodel.ChangePoint) APIChangePoint {
+	return APIChangePoint{
+		Index:        point.Index,
+		Measurement:  point.Measurement,
+		CalculatedOn: NewTime(point.CalculatedOn),
+		Algorithm:    getAlgorithm(point.Algorithm),
+	}
+}
+
+func getAlgorithm(info dbmodel.AlgorithmInfo) APIAlgorithmInfo {
+	return APIAlgorithmInfo{
+		Name:    info.Name,
+		Version: info.Version,
+		Options: getOptions(info.Options),
+	}
+}
+
+func getOptions(options []dbmodel.AlgorithmOption) []APIAlgorithmOption {
+	var apiOptions []APIAlgorithmOption
+	for _, option := range options {
+		apiOptions = append(apiOptions, APIAlgorithmOption{
+			Name:  option.Name,
+			Value: option.Value,
+		})
+	}
+	return apiOptions
 }
 
 func getPerfRollupValue(r dbmodel.PerfRollupValue) APIPerfRollupValue {

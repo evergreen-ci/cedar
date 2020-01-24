@@ -13,8 +13,8 @@ import (
 )
 
 type PerfAnalysis struct {
-	ChangePoints []ChangePoint `bson:"change_points"`
-	ProcessedAt  time.Time     `bson:"processed_at"`
+	ChangePoints []ChangePoint `bson:"change_points" json:"change_points" yaml:"change_points"`
+	ProcessedAt  time.Time     `bson:"processed_at" json:"processed_at" yaml:"processed_at"`
 }
 
 var (
