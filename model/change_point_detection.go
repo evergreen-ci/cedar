@@ -218,7 +218,12 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 				},
 				"time_series": bson.M{
 					"$push": bson.M{
-						"value":          "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
+						"value": bson.M{
+							"$ifNull": bson.A{
+								"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
+								0,
+							},
+						},
 						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
 						"perf_result_id": "$_id",
 					},
