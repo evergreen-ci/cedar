@@ -142,7 +142,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 			"url":       route,
 			"auth_user": spc.user,
 		})
-		return errors.Errorf("Failed to detect changes in metric data, status: %q", http.StatusText(resp.StatusCode))
+		return errors.Errorf("Failed to detect changes in metric data, status: %q, url: %q, auth_user: %q", http.StatusText(resp.StatusCode), route, spc.user)
 	}
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
