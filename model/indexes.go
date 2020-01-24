@@ -85,5 +85,16 @@ func GetRequiredIndexes() []SystemIndexes {
 			Keys:       bson.D{{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1}},
 			Collection: buildloggerCollection,
 		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), 1},
+				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), 1},
+				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), 1},
+				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey), 1},
+				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey), 1},
+				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), 1},
+			},
+			Collection: perfResultCollection,
+		},
 	}
 }
