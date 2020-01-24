@@ -12,6 +12,7 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
 
@@ -77,7 +78,7 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 		result = append(result, mapped)
 	}
 
-	grip.Debug(map[string]interface{}{
+	grip.Debug(message.Fields{
 		"message":        "change point detection completed",
 		"num_points":     len(series),
 		"cp_detected":    len(result),
@@ -135,7 +136,13 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return errors.Errorf("Failed to detect changes in metric data, status: %q", http.StatusText(resp.StatusCode))
+		grip.Warning(message.Fields{
+			"message":   "Failed to detect changes in metric data",
+			"status":    http.StatusText(resp.StatusCode),
+			"url":       route,
+			"auth_user": spc.user,
+		})
+		return errors.Errorf("Failed to detect changes in metric data, status: %q, url: %q, auth_user: %q", http.StatusText(resp.StatusCode), route, spc.user)
 	}
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
