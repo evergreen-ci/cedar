@@ -309,11 +309,15 @@ func TestLogIteratorReader(t *testing.T) {
 	require.NoError(t, err)
 	expectedSize := 0
 	expectedSizeWithTime := 0
-	for _, line := range lines {
+	expectedSizeWithLimit := 0
+	for i, line := range lines {
 		expectedSize += len(line.Data)
 		formattedTime := line.Timestamp.Format("2006/01/02 15:04:05.000")
 		expectedLine := fmt.Sprintf("[%s] %s", formattedTime, line.Data)
 		expectedSizeWithTime += len(expectedLine)
+		if i < 40 {
+			expectedSizeWithLimit += len(line.Data)
+		}
 	}
 	timeRange := util.TimeRange{
 		StartAt: chunks[0].Start,
@@ -388,7 +392,39 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Zero(t, n)
 		assert.Error(t, err)
 	})
+	t.Run("WithLimit", func(t *testing.T) {
+		opts := LogIteratorReaderOptions{Limit: 40}
+		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
+		nTotal := 0
+		readData := []byte{}
+		p := make([]byte, 22)
+		for {
+			n, err := r.Read(p)
+			nTotal += n
+			readData = append(readData, p[:n]...)
+			assert.True(t, n >= 0)
+			assert.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		assert.Equal(t, expectedSizeWithLimit, nTotal)
 
+		current := 0
+		readLines := strings.Split(string(readData), "\n")
+		assert.Equal(t, "", readLines[len(readLines)-1])
+		for _, line := range readLines[:len(readLines)-1] {
+			require.True(t, current < len(lines))
+			assert.Equal(t, lines[current].Data, line+"\n")
+			current++
+		}
+		assert.Equal(t, 40, current)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
 		opts := LogIteratorReaderOptions{}
 		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
@@ -439,7 +475,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 
 	t.Run("NLines", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		opts := LogIteratorReaderOptions{TailN: 42}
+		opts := LogIteratorReaderOptions{Limit: 20, TailN: 42}
 		r := NewLogIteratorReader(ctx, it, opts)
 		readData := []byte{}
 		p := make([]byte, 4096)
