@@ -3,6 +3,7 @@ package units
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -158,5 +159,10 @@ func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *
 		j.queue = j.env.GetRemoteQueue()
 	}
 	processingJob := NewRecalculateChangePointsJob(result.Info.ToPerformanceResultSeriesID())
-	j.AddError(errors.Wrapf(j.queue.Put(ctx, processingJob), "problem putting signal processing job %s on remote queue", j.ID()))
+
+	err := errors.Wrapf(j.queue.Put(ctx, processingJob), "problem putting signal processing job %s on remote queue", j.ID())
+	// Duplicate key errors may arise due to rate limiting, and we shouldn't consider them an error
+	if err != nil && strings.Contains(err.Error(), "duplicate key error") != true {
+		j.AddError(err)
+	}
 }

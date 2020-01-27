@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/mongodb/grip"
 
@@ -252,8 +253,9 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 
 	for _, id := range ids {
 		job := units.NewRecalculateChangePointsJob(id)
-		err = queue.Put(ctx, job)
-		if err != nil {
+		err := queue.Put(ctx, job)
+		// Duplicate key errors may arise due to rate limiting, and we shouldn't consider them an error
+		if err != nil && strings.Contains(err.Error(), "duplicate key error") != true {
 			catcher.Add(errors.New(message.WrapError(err, message.Fields{
 				"message": "Unable to enqueue recalculation job for metric",
 				"project": id.Project,

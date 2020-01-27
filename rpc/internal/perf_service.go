@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -110,7 +111,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		processingJob := units.NewRecalculateChangePointsJob(record.Info.ToPerformanceResultSeriesID())
 		err := srv.env.GetRemoteQueue().Put(ctx, processingJob)
 
-		if err != nil {
+		if err != nil && strings.Contains(err.Error(), "duplicate key error") != true {
 			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
 		}
 	}
