@@ -20,6 +20,7 @@ const (
 	procName   = "proc_name"
 	tags       = "tags"
 	printTime  = "print_time"
+	limit      = "limit"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -30,6 +31,7 @@ type logGetByIDHandler struct {
 	id        string
 	tr        util.TimeRange
 	printTime bool
+	limit     int
 	sc        data.Connector
 }
 
@@ -48,14 +50,20 @@ func (h *logGetByIDHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id and time range from the http request.
 func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
-	h.id = gimlet.GetVars(r)["id"]
-
-	vals := r.URL.Query()
 	var err error
+	catcher := grip.NewBasicCatcher()
+
+	h.id = gimlet.GetVars(r)["id"]
+	vals := r.URL.Query()
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
+	catcher.Add(err)
+	if len(vals[limit]) > 0 {
+		h.limit, err = strconv.Atoi(vals[limit][0])
+		catcher.Add(err)
+	}
 
-	return err
+	return catcher.Resolve()
 }
 
 // Run calls FindLogByID and returns the log.
@@ -64,6 +72,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		ID:        h.id,
 		TimeRange: h.tr,
 		PrintTime: h.printTime,
+		Limit:     h.limit,
 	}
 	r, err := h.sc.FindLogByID(ctx, opts)
 	if err != nil {
@@ -121,8 +130,9 @@ type logGetByTaskIDHandler struct {
 	execution int
 	tags      []string
 	tr        util.TimeRange
-	n         int
 	printTime bool
+	n         int
+	limit     int
 	sc        data.Connector
 }
 
@@ -155,6 +165,10 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 		h.execution, err = strconv.Atoi(vals[execution][0])
 		catcher.Add(err)
 	}
+	if len(vals[limit]) > 0 {
+		h.limit, err = strconv.Atoi(vals[limit][0])
+		catcher.Add(err)
+	}
 	if len(vals["n"]) > 0 {
 		h.n, err = strconv.Atoi(vals["n"][0])
 		catcher.Add(err)
@@ -167,10 +181,12 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	opts := data.BuildloggerOptions{
 		TaskID:      h.id,
+		Execution:   h.execution,
 		ProcessName: h.procName,
 		Tags:        h.tags,
 		TimeRange:   h.tr,
 		PrintTime:   h.printTime,
+		Limit:       h.limit,
 		Tail:        h.n,
 	}
 	r, err := h.sc.FindLogsByTaskID(ctx, opts)
@@ -237,6 +253,7 @@ type logGetByTestNameHandler struct {
 	tags      []string
 	tr        util.TimeRange
 	printTime bool
+	limit     int
 	sc        data.Connector
 }
 
@@ -255,6 +272,7 @@ func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id, name, time range, and tags from the http request.
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
+	catcher := grip.NewBasicCatcher()
 	var err error
 
 	h.id = gimlet.GetVars(r)["task_id"]
@@ -263,8 +281,13 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == "true"
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
+	catcher.Add(err)
+	if len(vals[limit]) > 0 {
+		h.limit, err = strconv.Atoi(vals[limit][0])
+		catcher.Add(err)
+	}
 
-	return err
+	return catcher.Resolve()
 }
 
 // Run calls FindLogsByTestName and returns the merged logs.
@@ -275,6 +298,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		Tags:      h.tags,
 		TimeRange: h.tr,
 		PrintTime: h.printTime,
+		Limit:     h.limit,
 	}
 	r, err := h.sc.FindLogsByTestName(ctx, opts)
 	if err != nil {
@@ -350,6 +374,7 @@ type logGroupHandler struct {
 	tags      []string
 	tr        util.TimeRange
 	printTime bool
+	limit     int
 	sc        data.Connector
 }
 
@@ -369,6 +394,7 @@ func (h *logGroupHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the id, name, time range, and tags from the http request.
 func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
+	catcher := grip.NewBasicCatcher()
 
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
@@ -378,9 +404,14 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.printTime = vals.Get(printTime) == "true"
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
+		catcher.Add(err)
+	}
+	if len(vals[limit]) > 0 {
+		h.limit, err = strconv.Atoi(vals[limit][0])
+		catcher.Add(err)
 	}
 
-	return err
+	return catcher.Resolve()
 }
 
 // Run calls FindGroupedLogs and returns the merged logs.
@@ -391,6 +422,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		Tags:      append(h.tags, h.groupID),
 		TimeRange: h.tr,
 		PrintTime: h.printTime,
+		Limit:     h.limit,
 	}
 	if opts.TimeRange.IsZero() {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
