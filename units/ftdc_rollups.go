@@ -162,7 +162,7 @@ func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *
 
 	err := errors.Wrapf(j.queue.Put(ctx, processingJob), "problem putting signal processing job %s on remote queue", j.ID())
 	// Duplicate key errors may arise due to rate limiting, and we shouldn't consider them an error
-	if err != nil && strings.Contains(err.Error(), "duplicate key error") != true {
+	if err != nil && !strings.Contains(err.Error(), "duplicate key error") {
 		j.AddError(err)
 	}
 }

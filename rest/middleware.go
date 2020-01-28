@@ -117,7 +117,7 @@ func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.Evergre
 		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error reading response body"))
 	}
 
-	if string(bytes) != "true" {
+	if string(bytes) != trueString {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
 			Message:    fmt.Sprintf("unauthorized to read logs from project '%s'", resourceId),

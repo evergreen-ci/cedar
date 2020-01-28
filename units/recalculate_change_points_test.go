@@ -127,11 +127,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 
 	_ = env.GetDB().Drop(ctx)
 
-	rollups := makePerfResults(100, 50, "a")
-	for _, x := range makePerfResults(100, 50, "b") {
-		rollups = append(rollups, x)
-	}
-
+	rollups := append(makePerfResults(100, 50, "a"), makePerfResults(100, 50, "b")...)
 	for _, result := range rollups {
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
 		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)

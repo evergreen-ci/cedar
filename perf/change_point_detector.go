@@ -125,7 +125,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	req.WithContext(ctx)
+	req = req.WithContext(ctx)
 	req.Header.Add("Cookie", fmt.Sprintf("auth_user=%v;auth_token=%v", spc.user, spc.token))
 	req.Header.Add("Content-Type", "application/json")
 

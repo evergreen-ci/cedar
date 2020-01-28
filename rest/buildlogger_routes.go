@@ -21,6 +21,7 @@ const (
 	tags       = "tags"
 	printTime  = "print_time"
 	limit      = "limit"
+	trueString = "true"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,7 +56,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
-	h.printTime = vals.Get(printTime) == "true"
+	h.printTime = vals.Get(printTime) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
@@ -158,7 +159,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 	vals := r.URL.Query()
 	h.procName = vals.Get(procName)
 	h.tags = vals[tags]
-	h.printTime = vals.Get(printTime) == "true"
+	h.printTime = vals.Get(printTime) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[execution]) > 0 {
@@ -279,7 +280,7 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
 	h.tags = vals[tags]
-	h.printTime = vals.Get(printTime) == "true"
+	h.printTime = vals.Get(printTime) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
@@ -401,7 +402,7 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.groupID = gimlet.GetVars(r)["group_id"]
 	vals := r.URL.Query()
 	h.tags = vals[tags]
-	h.printTime = vals.Get(printTime) == "true"
+	h.printTime = vals.Get(printTime) == trueString
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 		catcher.Add(err)

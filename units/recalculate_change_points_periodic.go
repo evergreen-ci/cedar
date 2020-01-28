@@ -63,7 +63,7 @@ func (j *periodicChangePointJob) Run(ctx context.Context) {
 	}
 	for _, id := range needUpdates {
 		err := j.queue.Put(ctx, NewRecalculateChangePointsJob(id))
-		if err != nil && strings.Contains(err.Error(), "duplicate key error") != true {
+		if err != nil && !strings.Contains(err.Error(), "duplicate key error") {
 			j.AddError(err)
 		}
 	}
