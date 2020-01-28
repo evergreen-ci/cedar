@@ -90,6 +90,10 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.PerformanceResultId))
 		return
 	}
+	if performanceData == nil {
+		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, j.PerformanceResultId))
+		return
+	}
 	mappedChangePoints := map[string][]model.ChangePoint{}
 	for _, series := range performanceData.Data {
 		sort.Slice(series.TimeSeries, func(i, j int) bool {

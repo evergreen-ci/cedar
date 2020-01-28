@@ -257,6 +257,9 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not decode time series")
 	}
+	if len(res) < 1 {
+		return nil, nil
+	}
 	return &res[0], nil
 }
 
