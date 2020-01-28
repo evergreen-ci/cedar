@@ -255,7 +255,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		job := units.NewRecalculateChangePointsJob(id)
 		err := queue.Put(ctx, job)
 		// Duplicate key errors may arise due to rate limiting, and we shouldn't consider them an error
-		if err != nil && strings.Contains(err.Error(), "duplicate key error") != true {
+		if err != nil && !strings.Contains(err.Error(), "duplicate key error") {
 			catcher.Add(errors.New(message.WrapError(err, message.Fields{
 				"message": "Unable to enqueue recalculation job for metric",
 				"project": id.Project,

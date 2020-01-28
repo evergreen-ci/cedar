@@ -512,6 +512,12 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 			dbModel.NewMergingIterator(it1, it2),
 			dbModel.LogIteratorReaderOptions{PrintTime: printTime, Limit: rh.(*logGetByTestNameHandler).limit},
 		)
+
+		resp = rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		s.Require().NotNil(resp.Data())
+		s.Equal(expected, resp.Data())
 	}
 }
 
@@ -653,6 +659,12 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 			opts,
 		)
 
+		resp = rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		s.Require().NotNil(resp.Data())
+		s.Equal(expected, resp.Data())
+
 		// only tests
 		rh.(*logGroupHandler).name = "test2"
 		rh.(*logGroupHandler).groupID = "tag3"
@@ -713,7 +725,6 @@ func (s *LogHandlerSuite) TestParse() {
 		urlString string
 		handler   string
 		tags      bool
-		printTime bool
 	}{
 		{
 			handler:   "id",
