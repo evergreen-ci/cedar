@@ -58,7 +58,7 @@ func (s *buildloggerConnectorSuite) setup() {
 			Variant:     "linux",
 			TaskName:    "task0",
 			TaskID:      "task1",
-			Execution:   1,
+			Execution:   0,
 			TestName:    "test0",
 			ProcessName: "mongod0",
 			Format:      model.LogFormatText,
@@ -184,6 +184,13 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 			l, err := s.sc.FindLogMetadataByID(s.ctx, id)
 			s.Require().NoError(err)
 			s.Equal(id, *l.ID)
+
+			// limit
+			findOpts.Limit = 100
+			r, err = s.sc.FindLogByID(s.ctx, findOpts)
+			s.Require().NoError(err)
+			opts.Limit = findOpts.Limit
+			s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, opts), r)
 		}
 	}
 }
@@ -207,7 +214,10 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 				StartAt: time.Now().Add(-time.Hour),
 				EndAt:   time.Now(),
 			},
-			Info: model.LogInfo{TaskID: "task1"},
+			Info: model.LogInfo{
+				TaskID:    "task1",
+				Execution: 1,
+			},
 		}
 		logs := model.Logs{}
 		logs.Setup(s.env)
@@ -218,6 +228,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 
 		findOpts := BuildloggerOptions{
 			TaskID:    opts.Info.TaskID,
+			Execution: 1,
 			TimeRange: opts.TimeRange,
 			PrintTime: printTime,
 		}
@@ -267,7 +278,17 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NoError(err)
 		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
 
+		// limit
+		findOpts.Limit = 100
+		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		s.Require().NoError(err)
+		readerOpts.Limit = findOpts.Limit
+		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
+
 		// tail
+		findOpts.Execution = 0
+		opts.Info.Execution = 0
+		opts.Empty.Execution = true
 		logs = model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
@@ -279,7 +300,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		findOpts.Tail = 100
 		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts.TailN = 100
+		readerOpts.TailN = findOpts.Tail
 		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
 	}
 }
@@ -361,6 +382,13 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 			s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
 		}
+
+		// limit
+		findOpts.Limit = 100
+		r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+		s.Require().NoError(err)
+		readerOpts.Limit = findOpts.Limit
+		s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, readerOpts), r)
 	}
 }
 
@@ -417,6 +445,12 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 		s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 		s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
 	}
+
+	// limit
+	findOpts.Limit = 100
+	r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+	s.Require().NoError(err)
+	s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, model.LogIteratorReaderOptions{Limit: findOpts.Limit}), r)
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
@@ -482,6 +516,13 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		s.Require().NoError(err)
 		readerOpts := model.LogIteratorReaderOptions{PrintTime: printTime}
 		s.Equal(model.NewLogIteratorReader(s.ctx, model.NewMergingIterator(expectedIt1, expectedIt2), readerOpts), r)
+
+		// limit
+		findOpts.Limit = 100
+		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		s.Require().NoError(err)
+		readerOpts.Limit = findOpts.Limit
+		s.Equal(model.NewLogIteratorReader(s.ctx, model.NewMergingIterator(expectedIt1, expectedIt2), readerOpts), r)
 	}
 }
 
@@ -515,6 +556,13 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		s.Require().NoError(err)
 
 		readerOpts := model.LogIteratorReaderOptions{PrintTime: printTime}
+		s.Equal(model.NewLogIteratorReader(s.ctx, model.NewMergingIterator(expectedIt), readerOpts), r)
+
+		// limit
+		findOpts.Limit = 100
+		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		s.Require().NoError(err)
+		readerOpts.Limit = findOpts.Limit
 		s.Equal(model.NewLogIteratorReader(s.ctx, model.NewMergingIterator(expectedIt), readerOpts), r)
 	}
 }

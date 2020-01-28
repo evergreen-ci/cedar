@@ -37,6 +37,7 @@ func (s *LogHandlerSuite) setup() {
 					Project:     "project",
 					TaskID:      "task_id1",
 					TestName:    "test1",
+					Execution:   1,
 					ProcessName: "mongod0",
 					Tags:        []string{"tag1"},
 					Mainline:    true,
@@ -171,6 +172,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByIDHandler).printTime = printTime
+		rh.(*logGetByIDHandler).limit = 0
 		it := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
 			s.sc.CachedLogs["abc"].Artifact.Chunks,
@@ -181,6 +183,17 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 		expected := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
 
 		resp := rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		s.Require().NotNil(resp.Data())
+		s.Equal(expected, resp.Data())
+
+		// with limit
+		rh.(*logGetByIDHandler).limit = 100
+		opts.Limit = rh.(*logGetByIDHandler).limit
+		expected = dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+
+		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
 		s.Require().NotNil(resp.Data())
@@ -259,6 +272,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByTaskIDHandler).n = 0
+		rh.(*logGetByTaskIDHandler).limit = 0
 		rh.(*logGetByTaskIDHandler).printTime = printTime
 		its := []dbModel.LogIterator{
 			dbModel.NewBatchedLogIterator(
@@ -294,7 +308,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		}
 		expected := dbModel.NewLogIteratorReader(
 			context.TODO(),
-			dbModel.NewMergingIterator(its...),
+			dbModel.NewMergingIterator(its[1:]...),
 			opts,
 		)
 
@@ -308,7 +322,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
 		expected = dbModel.NewLogIteratorReader(
 			context.TODO(),
-			dbModel.NewMergingIterator(append(its[:1], its[2:4]...)...),
+			dbModel.NewMergingIterator(its[2:4]...),
 			opts,
 		)
 		resp = rh.Run(context.TODO())
@@ -317,11 +331,48 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
 
-		// tail
+		// with execution
+		rh.(*logGetByTaskIDHandler).execution = 1
+		expected = dbModel.NewLogIteratorReader(
+			context.TODO(),
+			dbModel.NewMergingIterator(its[0]),
+			opts,
+		)
+		resp = rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		s.Require().NotNil(resp.Data())
+		s.Equal(expected, resp.Data())
+
+		// with limit
 		rh.(*logGetByTaskIDHandler).id = "task_id2"
+		rh.(*logGetByTaskIDHandler).execution = 0
 		rh.(*logGetByTaskIDHandler).tags = []string{}
-		rh.(*logGetByTaskIDHandler).n = 100
+		rh.(*logGetByTaskIDHandler).limit = 100
 		expectedIt := dbModel.NewMergingIterator(
+			dbModel.NewBatchedLogIterator(
+				s.buckets["ghi"],
+				s.sc.CachedLogs["ghi"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByTaskIDHandler).tr,
+			),
+		)
+		opts.Limit = rh.(*logGetByTaskIDHandler).limit
+		expected = dbModel.NewLogIteratorReader(
+			context.TODO(),
+			expectedIt,
+			opts,
+		)
+
+		resp = rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		s.Require().NotNil(resp.Data())
+		s.Equal(expected, resp.Data())
+
+		// tail
+		rh.(*logGetByTaskIDHandler).n = 100
+		expectedIt = dbModel.NewMergingIterator(
 			dbModel.NewBatchedLogIterator(
 				s.buckets["ghi"],
 				s.sc.CachedLogs["ghi"].Artifact.Chunks,
@@ -429,6 +480,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByTestNameHandler).printTime = printTime
+		rh.(*logGetByTestNameHandler).limit = 0
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
 			s.sc.CachedLogs["abc"].Artifact.Chunks,
@@ -452,6 +504,14 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+
+		// limit
+		rh.(*logGetByTestNameHandler).limit = 100
+		expected = dbModel.NewLogIteratorReader(
+			context.TODO(),
+			dbModel.NewMergingIterator(it1, it2),
+			dbModel.LogIteratorReaderOptions{PrintTime: printTime, Limit: rh.(*logGetByTestNameHandler).limit},
+		)
 	}
 }
 
@@ -553,6 +613,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGroupHandler).printTime = printTime
+		rh.(*logGroupHandler).limit = 0
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
 			s.sc.CachedLogs["abc"].Artifact.Chunks,
@@ -582,6 +643,15 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+
+		// limit
+		rh.(*logGroupHandler).limit = 100
+		opts.Limit = rh.(*logGroupHandler).limit
+		expected = dbModel.NewLogIteratorReader(
+			context.TODO(),
+			dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3)),
+			opts,
+		)
 
 		// only tests
 		rh.(*logGroupHandler).name = "test2"
@@ -677,6 +747,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "&end=2013-11-01T22:08:00%2B00:00"
 	urlString += "&tags=hello&tags=world"
 	urlString += "&print_time=true"
+	urlString += "&limit=50"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	expectedTr := util.TimeRange{
@@ -694,6 +765,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 		s.Equal(expectedTags, getLogTags(rh, handler))
 	}
 	s.True(getLogPrintTime(rh, handler))
+	s.Equal(50, getLogLimit(rh, handler))
 }
 
 func (s *LogHandlerSuite) testParseInvalid(handler, urlString string) {
@@ -717,6 +789,7 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	rh := s.rh[handler]
+	rh = rh.Factory() // need to reset this since we are reusing the handlers
 
 	err := rh.Parse(ctx, req)
 	s.Require().NoError(err)
@@ -727,6 +800,7 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool
 		s.Nil(getLogTags(rh, handler))
 	}
 	s.False(getLogPrintTime(rh, handler))
+	s.Zero(getLogLimit(rh, handler))
 }
 
 func getLogTimeRange(rh gimlet.RouteHandler, handler string) (util.TimeRange, util.TimeRange) {
@@ -769,5 +843,20 @@ func getLogPrintTime(rh gimlet.RouteHandler, handler string) bool {
 		return rh.(*logGroupHandler).printTime
 	default:
 		return false
+	}
+}
+
+func getLogLimit(rh gimlet.RouteHandler, handler string) int {
+	switch handler {
+	case "id":
+		return rh.(*logGetByIDHandler).limit
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).limit
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).limit
+	case "group":
+		return rh.(*logGroupHandler).limit
+	default:
+		return 0
 	}
 }

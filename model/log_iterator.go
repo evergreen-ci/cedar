@@ -576,6 +576,10 @@ func (h *LogIteratorHeap) SafePop() LogIterator {
 // LogIteratorReaderOptions describes the options for creating a
 // LogIteratorReader.
 type LogIteratorReaderOptions struct {
+	// Limit limits the number of lines read from the log. If equal to 0,
+	// lines will be read until the iterator is exhausted. If TailN is
+	// greater than 0, Limit will be ignored.
+	Limit int
 	// TailN is the number of lines to read from the tail of the log. If
 	// equal to 0, the reader returned will read log lines in normal order.
 	TailN int
@@ -604,6 +608,7 @@ func NewLogIteratorReader(ctx context.Context, it LogIterator, opts LogIteratorR
 	return &logIteratorReader{
 		ctx:       ctx,
 		it:        it,
+		limit:     opts.Limit,
 		printTime: opts.PrintTime,
 	}
 }
@@ -611,6 +616,8 @@ func NewLogIteratorReader(ctx context.Context, it LogIterator, opts LogIteratorR
 type logIteratorReader struct {
 	ctx       context.Context
 	it        LogIterator
+	lineCount int
+	limit     int
 	leftOver  []byte
 	printTime bool
 }
@@ -628,6 +635,11 @@ func (r *logIteratorReader) Read(p []byte) (int, error) {
 	}
 
 	for r.it.Next(r.ctx) {
+		r.lineCount++
+		if r.limit > 0 && r.lineCount > r.limit {
+			break
+		}
+
 		data := r.it.Item().Data
 		if r.printTime {
 			data = fmt.Sprintf("[%s] %s",
