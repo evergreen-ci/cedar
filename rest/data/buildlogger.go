@@ -45,7 +45,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
 }
 
@@ -80,8 +80,12 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 		TimeRange: opts.TimeRange,
 		Info: dbModel.LogInfo{
 			TaskID:      opts.TaskID,
+			Execution:   opts.Execution,
 			ProcessName: opts.ProcessName,
 			Tags:        opts.Tags,
+		},
+		Empty: dbModel.EmptyLogInfo{
+			Execution: opts.Execution == 0,
 		},
 	}
 	logs := dbModel.Logs{}
@@ -107,7 +111,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{TailN: opts.Tail, PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, TailN: opts.Tail, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
 }
 
@@ -151,7 +155,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 	if err != nil {
 		return nil, err
 	}
-	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
 }
 
@@ -211,7 +215,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 		return nil, err
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...), readerOpts), nil
 }
 
@@ -279,7 +283,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange), readerOpts), ctx.Err()
 }
 
@@ -324,6 +328,9 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		if opts.ProcessName != "" && opts.ProcessName != log.Info.ProcessName {
 			continue
 		}
+		if opts.Execution != log.Info.Execution {
+			continue
+		}
 		if !containsTags(opts.Tags, log.Info.Tags) {
 			continue
 		}
@@ -344,7 +351,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 	}
 
 	it := dbModel.NewMergingIterator(its...)
-	readerOpts := dbModel.LogIteratorReaderOptions{TailN: opts.Tail, PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, TailN: opts.Tail, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), ctx.Err()
 }
 
@@ -387,7 +394,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 	if err != nil {
 		return nil, err
 	}
-	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
 }
 
@@ -442,7 +449,7 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 		return nil, err
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{PrintTime: opts.PrintTime}
+	readerOpts := dbModel.LogIteratorReaderOptions{Limit: opts.Limit, PrintTime: opts.PrintTime}
 	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...), readerOpts), ctx.Err()
 }
 
