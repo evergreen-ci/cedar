@@ -134,7 +134,7 @@ func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Contex
 		},
 		{
 			"$replaceRoot": bson.M{
-				"newRoot": "_id",
+				"newRoot": "$_id",
 			},
 		},
 	})
