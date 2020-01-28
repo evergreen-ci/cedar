@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -216,5 +217,7 @@ func (s *mongoDBSender) Send(m message.Composer) {
 		}
 	}
 }
+
+func (s *mongoDBSender) Flush(_ context.Context) error { return nil }
 
 func (s *mongoDBSender) Close() error { s.session.Close(); return nil }
