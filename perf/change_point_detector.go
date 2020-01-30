@@ -108,6 +108,8 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 			http.MethodPatch,
 		},
 		Statuses: []int{
+			// status code for timeouts from ELB in AWS (Kanopy infrastructure)
+			499,
 			http.StatusBadGateway,
 			http.StatusServiceUnavailable,
 			http.StatusGatewayTimeout,
