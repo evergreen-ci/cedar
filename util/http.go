@@ -87,6 +87,8 @@ func NewDefaultHTTPRetryConf() HTTPRetryConfiguration {
 			http.MethodPatch,
 		},
 		Statuses: []int{
+			// status code for timeouts from ELB in AWS (Kanopy infrastructure)
+			499,
 			http.StatusInternalServerError,
 			http.StatusBadGateway,
 			http.StatusServiceUnavailable,
