@@ -15,6 +15,7 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 )
@@ -472,22 +473,27 @@ func (i *mergingIterator) Close() error {
 ///////////////////
 
 func parseLogLineString(data string) (LogLine, error) {
-	ts, err := strconv.ParseInt(strings.TrimSpace(data[:20]), 10, 64)
-
+	priority, err := strconv.ParseInt(strings.TrimSpace(data[:3]), 10, 16)
+	if err != nil {
+		return LogLine{}, err
+	}
+	ts, err := strconv.ParseInt(strings.TrimSpace(data[3:23]), 10, 64)
 	if err != nil {
 		return LogLine{}, err
 	}
 
 	return LogLine{
+		Priority:  level.Priority(priority),
 		Timestamp: time.Unix(0, ts*1e6).UTC(),
-		Data:      data[20:],
+		Data:      data[23:],
 	}, nil
 }
 
-func prependTimestamp(t time.Time, data string) string {
+func prependPriorityAndTimestamp(p level.Priority, t time.Time, data string) string {
+	priority := fmt.Sprintf("%3d", p)
 	ts := fmt.Sprintf("%20d", util.UnixMilli(t))
 
-	return fmt.Sprintf("%s%s\n", ts, data)
+	return fmt.Sprintf("%s%s%s\n", priority, ts, data)
 }
 
 func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
@@ -587,6 +593,12 @@ type LogIteratorReaderOptions struct {
 	// with the line in the following format:
 	// 		[2006/01/02 15:04:05.000] This is a long line.
 	PrintTime bool
+	// PrintPriority, when true, prints the priority of each log line along
+	// with the line in the following format:
+	// 		[P: 30] This is a long line.
+	// If PrintTime is also set to true, priority will be printed first:
+	// 		[P:100] [2006/01/02 15:04:05.000] This is a long line.
+	PrintPriority bool
 }
 
 // NewLogIteratorReader returns an io.Reader that reads the log lines from the
@@ -598,28 +610,31 @@ func NewLogIteratorReader(ctx context.Context, it LogIterator, opts LogIteratorR
 		}
 
 		return &logIteratorTailReader{
-			ctx:       ctx,
-			it:        it,
-			n:         opts.TailN,
-			printTime: opts.PrintTime,
+			ctx:           ctx,
+			it:            it,
+			n:             opts.TailN,
+			printTime:     opts.PrintTime,
+			printPriority: opts.PrintPriority,
 		}
 	}
 
 	return &logIteratorReader{
-		ctx:       ctx,
-		it:        it,
-		limit:     opts.Limit,
-		printTime: opts.PrintTime,
+		ctx:           ctx,
+		it:            it,
+		limit:         opts.Limit,
+		printTime:     opts.PrintTime,
+		printPriority: opts.PrintPriority,
 	}
 }
 
 type logIteratorReader struct {
-	ctx       context.Context
-	it        LogIterator
-	lineCount int
-	limit     int
-	leftOver  []byte
-	printTime bool
+	ctx           context.Context
+	it            LogIterator
+	lineCount     int
+	limit         int
+	leftOver      []byte
+	printTime     bool
+	printPriority bool
 }
 
 func (r *logIteratorReader) Read(p []byte) (int, error) {
@@ -644,6 +659,9 @@ func (r *logIteratorReader) Read(p []byte) (int, error) {
 		if r.printTime {
 			data = fmt.Sprintf("[%s] %s",
 				r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000"), data)
+		}
+		if r.printPriority {
+			data = fmt.Sprintf("[P:%3d] %s", r.it.Item().Priority, data)
 		}
 		n = r.writeToBuffer([]byte(data), p, n)
 		if n == len(p) {
@@ -677,11 +695,12 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 }
 
 type logIteratorTailReader struct {
-	ctx       context.Context
-	it        LogIterator
-	n         int
-	printTime bool
-	r         io.Reader
+	ctx           context.Context
+	it            LogIterator
+	n             int
+	printTime     bool
+	printPriority bool
+	r             io.Reader
 }
 
 func (r *logIteratorTailReader) Read(p []byte) (int, error) {
@@ -705,6 +724,9 @@ func (r *logIteratorTailReader) getReader() error {
 		if r.printTime {
 			data = fmt.Sprintf("[%s] %s",
 				r.it.Item().Timestamp.Format("2006/01/02 15:04:05.000"), data)
+		}
+		if r.printPriority {
+			data = fmt.Sprintf("[P:%3d] %s", r.it.Item().Priority, data)
 		}
 		lines = data + lines
 	}
