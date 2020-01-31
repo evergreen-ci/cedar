@@ -490,10 +490,7 @@ func parseLogLineString(data string) (LogLine, error) {
 }
 
 func prependPriorityAndTimestamp(p level.Priority, t time.Time, data string) string {
-	priority := fmt.Sprintf("%3d", p)
-	ts := fmt.Sprintf("%20d", util.UnixMilli(t))
-
-	return fmt.Sprintf("%s%s%s\n", priority, ts, data)
+	return fmt.Sprintf("%3d%20d%s\n", p, util.UnixMilli(t), data)
 }
 
 func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {

@@ -160,7 +160,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 		if line.Priority > level.Emergency {
 			line.Priority = level.Emergency
 		} else if line.Priority < level.Invalid {
-			line.Priority = level.Invalid
+			line.Priority = level.Trace
 		}
 
 		linesCombined += prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data)
