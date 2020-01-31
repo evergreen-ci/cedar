@@ -74,14 +74,15 @@ type Connector interface {
 }
 
 type BuildloggerOptions struct {
-	ID          string
-	TaskID      string
-	TestName    string
-	Execution   int
-	ProcessName string
-	Tags        []string
-	TimeRange   util.TimeRange
-	PrintTime   bool
-	Limit       int
-	Tail        int
+	ID            string
+	TaskID        string
+	TestName      string
+	Execution     int
+	ProcessName   string
+	Tags          []string
+	TimeRange     util.TimeRange
+	PrintTime     bool
+	PrintPriority bool
+	Limit         int
+	Tail          int
 }
