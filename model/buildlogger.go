@@ -16,6 +16,7 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -155,7 +156,14 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 
 	linesCombined := ""
 	for _, line := range lines {
-		linesCombined += prependTimestamp(line.Timestamp, line.Data)
+		// unlikely scenario, but just in case priority is out of range.
+		if line.Priority > level.Emergency {
+			line.Priority = level.Emergency
+		} else if line.Priority < level.Invalid {
+			line.Priority = level.Trace
+		}
+
+		linesCombined += prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data)
 	}
 
 	conf := &CedarConfig{}
@@ -373,6 +381,7 @@ func (id *LogInfo) ID() string {
 // passes data from RPC calls to the upload phase and is used as the return
 // item for the LogIterator.
 type LogLine struct {
+	Priority  level.Priority
 	Timestamp time.Time
 	Data      string
 }

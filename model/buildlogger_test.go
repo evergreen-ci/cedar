@@ -13,6 +13,7 @@ import (
 	"github.com/evergreen-ci/pail"
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/grip/level"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -301,25 +302,30 @@ func TestBuildloggerAppend(t *testing.T) {
 	}
 	chunk1 := []LogLine{
 		{
+			Priority:  level.Debug,
 			Timestamp: time.Now().Add(-time.Hour).Round(time.Millisecond).UTC(),
 			Data:      "This is not a test.",
 		},
 		{
+			Priority:  level.Emergency,
 			Timestamp: time.Now().Add(-59 * time.Minute).Round(time.Millisecond).UTC(),
 			Data:      "This is a test.",
 		},
 	}
 	chunk2 := []LogLine{
 		{
+			Priority:  level.Info,
 			Timestamp: time.Now().Add(-57 * time.Minute).Round(time.Millisecond).UTC(),
 			Data:      "Logging is fun.",
 		},
 		{
+			Priority:  level.Info,
 			Timestamp: time.Now().Add(-56 * time.Minute).Round(time.Millisecond).UTC(),
 			Data:      "Buildogger logging logs.",
 		},
 
 		{
+			Priority:  level.Info,
 			Timestamp: time.Now().Add(-55 * time.Minute).Round(time.Millisecond).UTC(),
 			Data:      "Finished logging.",
 		},
@@ -356,7 +362,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		require.NoError(t, log.Append(ctx, chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
-			expectedData = append(expectedData, []byte(prependTimestamp(line.Timestamp, line.Data))...)
+			expectedData = append(expectedData, []byte(prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data))...)
 		}
 
 		b := &backoff.Backoff{

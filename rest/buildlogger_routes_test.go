@@ -263,7 +263,10 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerCtxErr() {
 
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 	for _, printTime := range []bool{true, false} {
-		opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+		opts := dbModel.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 
 		rh := s.rh["task_id"]
 		rh.(*logGetByTaskIDHandler).id = "task_id1"
@@ -274,6 +277,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		rh.(*logGetByTaskIDHandler).n = 0
 		rh.(*logGetByTaskIDHandler).limit = 0
 		rh.(*logGetByTaskIDHandler).printTime = printTime
+		rh.(*logGetByTaskIDHandler).printPriority = !printTime
 		its := []dbModel.LogIterator{
 			dbModel.NewBatchedLogIterator(
 				s.buckets["abc"],
@@ -480,6 +484,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByTestNameHandler).printTime = printTime
+		rh.(*logGetByTestNameHandler).printPriority = !printTime
 		rh.(*logGetByTestNameHandler).limit = 0
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
@@ -496,7 +501,10 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		expected := dbModel.NewLogIteratorReader(
 			context.TODO(),
 			dbModel.NewMergingIterator(it1, it2),
-			dbModel.LogIteratorReaderOptions{PrintTime: printTime},
+			dbModel.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+			},
 		)
 
 		resp := rh.Run(context.TODO())
@@ -510,7 +518,10 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		expected = dbModel.NewLogIteratorReader(
 			context.TODO(),
 			dbModel.NewMergingIterator(it1, it2),
-			dbModel.LogIteratorReaderOptions{PrintTime: printTime, Limit: rh.(*logGetByTestNameHandler).limit},
+			dbModel.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+				Limit:         rh.(*logGetByTestNameHandler).limit},
 		)
 
 		resp = rh.Run(context.TODO())
@@ -608,7 +619,10 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerCtxErr() {
 
 func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 	for _, printTime := range []bool{true, false} {
-		opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+		opts := dbModel.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 
 		rh := s.rh["group"]
 		rh.(*logGroupHandler).id = "task_id1"
@@ -619,6 +633,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGroupHandler).printTime = printTime
+		rh.(*logGroupHandler).printPriority = !printTime
 		rh.(*logGroupHandler).limit = 0
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
@@ -758,6 +773,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "&end=2013-11-01T22:08:00%2B00:00"
 	urlString += "&tags=hello&tags=world"
 	urlString += "&print_time=true"
+	urlString += "&print_priority=true"
 	urlString += "&limit=50"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
@@ -776,6 +792,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 		s.Equal(expectedTags, getLogTags(rh, handler))
 	}
 	s.True(getLogPrintTime(rh, handler))
+	s.True(getLogPrintPriority(rh, handler))
 	s.Equal(50, getLogLimit(rh, handler))
 }
 
@@ -852,6 +869,21 @@ func getLogPrintTime(rh gimlet.RouteHandler, handler string) bool {
 		return rh.(*logGetByTestNameHandler).printTime
 	case "group":
 		return rh.(*logGroupHandler).printTime
+	default:
+		return false
+	}
+}
+
+func getLogPrintPriority(rh gimlet.RouteHandler, handler string) bool {
+	switch handler {
+	case "id":
+		return rh.(*logGetByIDHandler).printPriority
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).printPriority
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).printPriority
+	case "group":
+		return rh.(*logGroupHandler).printPriority
 	default:
 		return false
 	}

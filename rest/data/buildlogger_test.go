@@ -172,13 +172,17 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 					StartAt: time.Now().Add(-time.Hour),
 					EndAt:   time.Now(),
 				},
-				PrintTime: printTime,
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
 			}
 			r, err := s.sc.FindLogByID(s.ctx, findOpts)
 			s.Require().NoError(err)
 			expectedIt, err := log.Download(s.ctx, findOpts.TimeRange)
 			s.Require().NoError(err)
-			opts := model.LogIteratorReaderOptions{PrintTime: printTime}
+			opts := model.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+			}
 			s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, opts), r)
 
 			l, err := s.sc.FindLogMetadataByID(s.ctx, id)
@@ -207,7 +211,10 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDDNE() {
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	for _, printTime := range []bool{true, false} {
-		readerOpts := model.LogIteratorReaderOptions{PrintTime: printTime}
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
@@ -227,10 +234,11 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NotNil(expectedIt)
 
 		findOpts := BuildloggerOptions{
-			TaskID:    opts.Info.TaskID,
-			Execution: 1,
-			TimeRange: opts.TimeRange,
-			PrintTime: printTime,
+			TaskID:        opts.Info.TaskID,
+			Execution:     1,
+			TimeRange:     opts.TimeRange,
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
 		}
 		r, err := s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -324,7 +332,10 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDDNE() {
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 	for _, printTime := range []bool{true, false} {
-		readerOpts := model.LogIteratorReaderOptions{PrintTime: printTime}
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
@@ -344,10 +355,11 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		s.Require().NotNil(expectedIt)
 
 		findOpts := BuildloggerOptions{
-			TaskID:    opts.Info.TaskID,
-			TestName:  opts.Info.TestName,
-			TimeRange: opts.TimeRange,
-			PrintTime: printTime,
+			TaskID:        opts.Info.TaskID,
+			TestName:      opts.Info.TestName,
+			TimeRange:     opts.TimeRange,
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
 		}
 		r, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -506,15 +518,19 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		s.Require().NotNil(expectedIt2)
 
 		findOpts := BuildloggerOptions{
-			TaskID:    opts.Info.TaskID,
-			TestName:  "test0",
-			Tags:      opts.Info.Tags,
-			TimeRange: opts.TimeRange,
-			PrintTime: printTime,
+			TaskID:        opts.Info.TaskID,
+			TestName:      "test0",
+			Tags:          opts.Info.Tags,
+			TimeRange:     opts.TimeRange,
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
 		}
 		r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts := model.LogIteratorReaderOptions{PrintTime: printTime}
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 		s.Equal(model.NewLogIteratorReader(s.ctx, model.NewMergingIterator(expectedIt1, expectedIt2), readerOpts), r)
 
 		// limit
@@ -546,16 +562,20 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		s.Require().NotNil(expectedIt)
 
 		findOpts := BuildloggerOptions{
-			TaskID:    opts.Info.TaskID,
-			TestName:  opts.Info.TestName,
-			Tags:      []string{"tag4"},
-			TimeRange: opts.TimeRange,
-			PrintTime: printTime,
+			TaskID:        opts.Info.TaskID,
+			TestName:      opts.Info.TestName,
+			Tags:          []string{"tag4"},
+			TimeRange:     opts.TimeRange,
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
 		}
 		r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
 
-		readerOpts := model.LogIteratorReaderOptions{PrintTime: printTime}
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 		s.Equal(model.NewLogIteratorReader(s.ctx, model.NewMergingIterator(expectedIt), readerOpts), r)
 
 		// limit

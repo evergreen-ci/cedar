@@ -3,6 +3,7 @@ package internal
 import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/mongodb/grip/level"
 	"github.com/pkg/errors"
 )
 
@@ -47,6 +48,7 @@ func (l LogLine) Export() (model.LogLine, error) {
 	}
 
 	return model.LogLine{
+		Priority:  level.Priority(l.Priority),
 		Timestamp: ts,
 		Data:      l.Data,
 	}, nil
