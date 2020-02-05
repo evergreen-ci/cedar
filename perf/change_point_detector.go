@@ -98,7 +98,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 	conf := util.HTTPRetryConfiguration{
 		MaxRetries:      50,
 		TemporaryErrors: true,
-		MaxDelay:        5 * time.Minute,
+		MaxDelay:        30 * time.Second,
 		BaseDelay:       50 * time.Millisecond,
 		Methods: []string{
 			http.MethodGet,
