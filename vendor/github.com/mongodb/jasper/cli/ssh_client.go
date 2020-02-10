@@ -8,6 +8,8 @@ import (
 
 	"github.com/mongodb/jasper"
 	"github.com/mongodb/jasper/options"
+	"github.com/mongodb/jasper/remote"
+	"github.com/mongodb/jasper/scripting"
 	"github.com/pkg/errors"
 )
 
@@ -16,11 +18,12 @@ import (
 type sshClient struct {
 	manager jasper.Manager
 	opts    sshClientOptions
+	shCache scripting.HarnessCache
 }
 
 // NewSSHClient creates a new Jasper manager that connects to a remote
 // machine's Jasper service over SSH using the remote machine's Jasper CLI.
-func NewSSHClient(remoteOpts options.Remote, clientOpts ClientOptions, trackProcs bool) (jasper.RemoteClient, error) {
+func NewSSHClient(remoteOpts options.Remote, clientOpts ClientOptions, trackProcs bool) (remote.Manager, error) {
 	if err := remoteOpts.Validate(); err != nil {
 		return nil, errors.Wrap(err, "problem validating remote options")
 	}
@@ -33,18 +36,20 @@ func NewSSHClient(remoteOpts options.Remote, clientOpts ClientOptions, trackProc
 		return nil, errors.Wrap(err, "problem validating client options")
 	}
 
-	manager, err := jasper.NewLocalManager(trackProcs)
+	manager, err := jasper.NewSynchronizedManager(trackProcs)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem creating underlying manager")
 	}
 
-	return &sshClient{
+	client := &sshClient{
 		opts: sshClientOptions{
 			Machine: remoteOpts,
 			Client:  clientOpts,
 		},
+		shCache: scripting.NewCache(),
 		manager: manager,
-	}, nil
+	}
+	return client, nil
 }
 
 func (c *sshClient) ID() string {
@@ -91,6 +96,13 @@ func (c *sshClient) CreateCommand(ctx context.Context) *jasper.Command {
 
 		return nil
 	})
+}
+
+func (c *sshClient) CreateScripting(ctx context.Context, opts options.ScriptingHarness) (scripting.Harness, error) {
+	return c.shCache.Create(c.manager, opts)
+}
+func (c *sshClient) GetScripting(ctx context.Context, id string) (scripting.Harness, error) {
+	return c.shCache.Get(id)
 }
 
 func (c *sshClient) Register(ctx context.Context, proc jasper.Process) error {
@@ -187,8 +199,8 @@ func (c *sshClient) ConfigureCache(ctx context.Context, opts options.Cache) erro
 	return nil
 }
 
-func (c *sshClient) DownloadFile(ctx context.Context, info options.Download) error {
-	output, err := c.runRemoteCommand(ctx, DownloadFileCommand, &info)
+func (c *sshClient) DownloadFile(ctx context.Context, opts options.Download) error {
+	output, err := c.runRemoteCommand(ctx, DownloadFileCommand, &opts)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -200,9 +212,9 @@ func (c *sshClient) DownloadFile(ctx context.Context, info options.Download) err
 	return nil
 }
 
-func (c *sshClient) WriteFile(ctx context.Context, info options.WriteFile) error {
-	sendInfo := func(info options.WriteFile) error {
-		output, err := c.runRemoteCommand(ctx, WriteFileCommand, &info)
+func (c *sshClient) WriteFile(ctx context.Context, opts options.WriteFile) error {
+	return opts.WriteBufferedContent(func(opts options.WriteFile) error {
+		output, err := c.runRemoteCommand(ctx, WriteFileCommand, &opts)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -212,8 +224,7 @@ func (c *sshClient) WriteFile(ctx context.Context, info options.WriteFile) error
 		}
 
 		return nil
-	}
-	return info.WriteBufferedContent(sendInfo)
+	})
 }
 
 func (c *sshClient) DownloadMongoDB(ctx context.Context, opts options.MongoDBDownload) error {
@@ -299,7 +310,7 @@ func (c *sshClient) runClientCommand(ctx context.Context, subcommand []string, s
 // newCommand creates the command that runs the Jasper CLI client command
 // over SSH.
 func (c *sshClient) newCommand(ctx context.Context, clientSubcommand []string, input []byte, output io.WriteCloser) *jasper.Command {
-	cmd := c.manager.CreateCommand(ctx).Host(c.opts.Machine.Host).User(c.opts.Machine.User).ExtendRemoteArgs(c.opts.Machine.Args...).
+	cmd := c.manager.CreateCommand(ctx).SetRemoteOptions(&c.opts.Machine).
 		Add(c.opts.buildCommand(clientSubcommand...))
 
 	if len(input) != 0 {

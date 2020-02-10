@@ -6,14 +6,12 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/send"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-const ProcessTestTimeout = 15 * time.Second
 
 func TestOutputOptions(t *testing.T) {
 	stdout := bytes.NewBuffer([]byte{})
@@ -128,36 +126,36 @@ func TestOutputOptions(t *testing.T) {
 			assert.Error(t, opts.Validate())
 		},
 		"ValidateFailsForInvalidLogFormat": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogDefault, Options: Log{Format: LogFormat("foo")}}}
+			opts.Loggers = []Logger{{Type: LogDefault, Options: Log{Format: LogFormat("foo")}}}
 			assert.Error(t, opts.Validate())
 		},
 		"ValidateFailsForInvalidLogTypes": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogType(""), Options: Log{Format: LogFormatPlain}}}
+			opts.Loggers = []Logger{{Type: LogType(""), Options: Log{Format: LogFormatPlain}}}
 			assert.Error(t, opts.Validate())
 		},
 		"SuppressOutputWithLogger": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
+			opts.Loggers = []Logger{{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
 			opts.SuppressOutput = true
 			assert.NoError(t, opts.Validate())
 		},
 		"SuppressErrorWithLogger": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
+			opts.Loggers = []Logger{{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
 			opts.SuppressError = true
 			assert.NoError(t, opts.Validate())
 		},
 		"SuppressOutputAndErrorWithLogger": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
+			opts.Loggers = []Logger{{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
 			opts.SuppressOutput = true
 			opts.SuppressError = true
 			assert.NoError(t, opts.Validate())
 		},
 		"RedirectOutputWithLogger": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
+			opts.Loggers = []Logger{{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
 			opts.SendOutputToError = true
 			assert.NoError(t, opts.Validate())
 		},
 		"RedirectErrorWithLogger": func(t *testing.T, opts Output) {
-			opts.Loggers = []Logger{Logger{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
+			opts.Loggers = []Logger{{Type: LogDefault, Options: Log{Format: LogFormatPlain}}}
 			opts.SendErrorToOutput = true
 			assert.NoError(t, opts.Validate())
 		},
@@ -169,8 +167,9 @@ func TestOutputOptions(t *testing.T) {
 			require.NoError(t, err)
 
 			msg := "foo"
-			out.Write([]byte(msg))
-			opts.outputSender.Close()
+			_, err = out.Write([]byte(msg))
+			assert.NoError(t, err)
+			assert.NoError(t, opts.outputSender.Close())
 
 			assert.Equal(t, msg, stdout.String())
 
@@ -190,8 +189,9 @@ func TestOutputOptions(t *testing.T) {
 			require.NoError(t, err)
 
 			msg := "foo"
-			errOut.Write([]byte(msg))
-			opts.errorSender.Close()
+			_, err = errOut.Write([]byte(msg))
+			assert.NoError(t, err)
+			assert.NoError(t, opts.errorSender.Close())
 
 			assert.Equal(t, msg, stderr.String())
 
@@ -306,7 +306,7 @@ func TestLoggers(t *testing.T) {
 			require.NoError(t, err)
 			defer func() {
 				assert.NoError(t, file.Close())
-				os.RemoveAll(file.Name())
+				grip.Warning(os.RemoveAll(file.Name()))
 			}()
 
 			l.Type = LogFile

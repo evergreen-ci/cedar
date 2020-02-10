@@ -9,13 +9,14 @@ import (
 	"github.com/mongodb/jasper/mock"
 	"github.com/mongodb/jasper/options"
 	"github.com/mongodb/jasper/testutil"
+	"github.com/mongodb/jasper/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
 
 func TestCLIManager(t *testing.T) {
-	for remoteType, makeService := range map[string]func(ctx context.Context, t *testing.T, port int, manager jasper.Manager) jasper.CloseFunc{
+	for remoteType, makeService := range map[string]func(ctx context.Context, t *testing.T, port int, manager jasper.Manager) util.CloseFunc{
 		RESTService: makeTestRESTService,
 		RPCService:  makeTestRPCService,
 	} {
@@ -54,7 +55,7 @@ func TestCLIManager(t *testing.T) {
 				},
 				"CreateCommandPasses": func(ctx context.Context, t *testing.T, c *cli.Context, jasperProcID string) {
 					input, err := json.Marshal(options.Command{
-						Commands: [][]string{[]string{"true"}},
+						Commands: [][]string{{"true"}},
 					})
 					require.NoError(t, err)
 					resp := &OutcomeResponse{}
@@ -137,7 +138,7 @@ func TestCLIManager(t *testing.T) {
 					defer cancel()
 					port := testutil.GetPortNumber()
 					c := mockCLIContext(remoteType, port)
-					manager, err := jasper.NewLocalManager(false)
+					manager, err := jasper.NewSynchronizedManager(false)
 					require.NoError(t, err)
 					closeService := makeService(ctx, t, port, manager)
 					require.NoError(t, err)

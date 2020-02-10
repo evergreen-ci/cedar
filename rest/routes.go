@@ -71,7 +71,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !level.IsValidPriority(level.FromString(l)) {
+	if !level.FromString(l).IsValid() {
 		resp.Err = fmt.Sprintf("%s is not a valid level", l)
 	}
 	resp.Level = l

@@ -12,6 +12,7 @@ import (
 	"github.com/mongodb/jasper"
 	"github.com/mongodb/jasper/mock"
 	"github.com/mongodb/jasper/options"
+	"github.com/mongodb/jasper/scripting"
 	"github.com/mongodb/jasper/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -492,8 +493,8 @@ func TestSSHClient(t *testing.T) {
 				makeOutcomeResponse(nil),
 			)
 
-			info := options.WriteFile{Path: filepath.Join(buildDir(t), "write_file"), Content: []byte("foo")}
-			require.NoError(t, client.WriteFile(ctx, info))
+			opts := options.WriteFile{Path: filepath.Join(buildDir(t), "write_file"), Content: []byte("foo")}
+			require.NoError(t, client.WriteFile(ctx, opts))
 		},
 		"WriteFileFailsWithInvalidResponse": func(ctx context.Context, t *testing.T, client *sshClient, baseManager *mock.Manager) {
 			baseManager.Create = makeCreateFunc(
@@ -502,13 +503,27 @@ func TestSSHClient(t *testing.T) {
 				nil,
 				invalidResponse(),
 			)
-			info := options.WriteFile{Path: filepath.Join(buildDir(t), "write_file"), Content: []byte("foo")}
-			assert.Error(t, client.WriteFile(ctx, info))
+			opts := options.WriteFile{Path: filepath.Join(buildDir(t), "write_file"), Content: []byte("foo")}
+			assert.Error(t, client.WriteFile(ctx, opts))
 		},
 		"WriteFileFailsIfBaseManagerCreateFails": func(ctx context.Context, t *testing.T, client *sshClient, baseManager *mock.Manager) {
 			baseManager.FailCreate = true
-			info := options.WriteFile{Path: filepath.Join(buildDir(t), "write_file"), Content: []byte("foo")}
-			assert.Error(t, client.WriteFile(ctx, info))
+			opts := options.WriteFile{Path: filepath.Join(buildDir(t), "write_file"), Content: []byte("foo")}
+			assert.Error(t, client.WriteFile(ctx, opts))
+		},
+		"ScriptingReturnsFromCache": func(ctx context.Context, t *testing.T, client *sshClient, baseManager *mock.Manager) {
+			opts := &options.ScriptingPython{
+				VirtualEnvPath: "build",
+				Packages:       []string{"pymongo"},
+			}
+			env, err := scripting.NewHarness(baseManager, opts)
+			require.NoError(t, err)
+			require.NoError(t, client.shCache.Add(env.ID(), env))
+
+			sh, err := client.CreateScripting(ctx, opts)
+			require.NoError(t, err)
+			require.NotNil(t, sh)
+			assert.Equal(t, env.ID(), sh.ID())
 		},
 		// "": func(ctx context.Context, t *testing.T, client *sshClient, baseManager *mock.Manager) {},
 	} {
@@ -556,10 +571,12 @@ func invalidResponse() interface{} {
 }
 
 func mockRemoteOptions() options.Remote {
-	return options.Remote{
-		User: "user",
-		Host: "localhost",
-	}
+	opts := options.Remote{}
+	opts.User = "user"
+	opts.Host = "localhost"
+	opts.Port = 12345
+	opts.Password = "abc123"
+	return opts
 }
 
 func mockClientOptions() ClientOptions {

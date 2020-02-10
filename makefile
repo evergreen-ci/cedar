@@ -235,6 +235,19 @@ vendor-clean:
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/text
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/gopkg.in/yaml.v2/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
+	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/google/uuid/
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/google/uuid
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/google/uuid/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/gopkg.in/mgo.v2
+	rm -rf vendor/github.com/mongodb/jasper/vendor/go.mongodb.org/mongo-driver
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/birch/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/aviation/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/certdepot/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/timber/
+	rm -rf vendor/github.com/mongodb/jasper/vendor/github.com/evergreen-ci/poplar/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/go.mongodb.org/mongo-driver/
+	rm -rf vendor/github.com/evergreen-ci/timber/vendor/gopkg.in/yaml.v2/
+	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/grpc/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 phony += vendor-clean
 # end vendoring tooling configuration
@@ -301,7 +314,7 @@ $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
 # mongodb utility targets
 ifeq ($(OS),Windows_NT)
   decompress := 7z.exe x
-else 
+else
   decompress := tar -zxvf
 endif
 mongodb/.get-mongodb:

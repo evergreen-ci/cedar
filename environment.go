@@ -158,7 +158,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		})
 	}
 
-	jpm, err := jasper.NewLocalManager(true)
+	jpm, err := jasper.NewSynchronizedManager(true)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

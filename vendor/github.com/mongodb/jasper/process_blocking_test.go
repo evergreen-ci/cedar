@@ -8,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/jasper/internal/executor"
 	"github.com/mongodb/jasper/options"
 	"github.com/mongodb/jasper/testutil"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +34,7 @@ func TestBlockingProcess(t *testing.T) {
 					assert.NotNil(t, ctx)
 					assert.NotZero(t, proc.ID())
 					assert.False(t, proc.Complete(ctx))
-					assert.NotNil(t, makeDefaultTrigger(ctx, nil, &proc.opts, "foo"))
+					assert.NotNil(t, makeDefaultTrigger(ctx, nil, &proc.info.Options, "foo"))
 				},
 				"InfoIDPopulatedInBasicCase": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
 					infoReturned := make(chan struct{})
@@ -87,13 +89,13 @@ func TestBlockingProcess(t *testing.T) {
 					proc.info.Complete = true
 					assert.True(t, proc.Complete(ctx))
 					assert.Error(t, proc.RegisterTrigger(ctx, nil))
-					assert.Error(t, proc.RegisterTrigger(ctx, makeDefaultTrigger(ctx, nil, &proc.opts, "foo")))
+					assert.Error(t, proc.RegisterTrigger(ctx, makeDefaultTrigger(ctx, nil, &proc.info.Options, "foo")))
 					assert.Len(t, proc.triggers, 0)
 				},
 				"TestRegisterPopulatedTrigger": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
 					assert.False(t, proc.Complete(ctx))
 					assert.Error(t, proc.RegisterTrigger(ctx, nil))
-					assert.NoError(t, proc.RegisterTrigger(ctx, makeDefaultTrigger(ctx, nil, &proc.opts, "foo")))
+					assert.NoError(t, proc.RegisterTrigger(ctx, makeDefaultTrigger(ctx, nil, &proc.info.Options, "foo")))
 					assert.Len(t, proc.triggers, 1)
 				},
 				"RunningIsFalseWhenCompleteIsSatisfied": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
@@ -110,9 +112,9 @@ func TestBlockingProcess(t *testing.T) {
 
 					op := <-proc.ops
 
-					op(&exec.Cmd{
+					op(executor.MakeLocal(&exec.Cmd{
 						Process: &os.Process{},
-					})
+					}))
 					<-signal
 				},
 				"RunningIsFalseWithNilCmd": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
@@ -135,14 +137,14 @@ func TestBlockingProcess(t *testing.T) {
 					}()
 
 					op := <-proc.ops
-					op(&exec.Cmd{
+					op(executor.MakeLocal(&exec.Cmd{
 						Process: &os.Process{Pid: 42},
-					})
+					}))
 
 					<-signal
 				},
 				"RunningIsFalseWithCanceledContext": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
-					proc.ops <- func(_ *exec.Cmd) {}
+					proc.ops <- func(_ executor.Executor) {}
 					cctx, cancel := context.WithCancel(ctx)
 					cancel()
 					assert.False(t, proc.Running(cctx))
@@ -181,19 +183,19 @@ func TestBlockingProcess(t *testing.T) {
 					}()
 
 					op := <-proc.ops
-					op(&exec.Cmd{
+					op(executor.MakeLocal(&exec.Cmd{
 						Process: &os.Process{Pid: -42},
-					})
+					}))
 
 					<-signal
 				},
 				"WaitSomeBeforeCanceling": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
-					proc.opts = *testutil.SleepCreateOpts(10)
+					proc.info.Options = *testutil.SleepCreateOpts(10)
 					proc.complete = make(chan struct{})
 					cctx, cancel := context.WithTimeout(ctx, 600*time.Millisecond)
 					defer cancel()
 
-					cmd, deadline, err := proc.opts.Resolve(ctx)
+					cmd, deadline, err := proc.info.Options.Resolve(ctx)
 					require.NoError(t, err)
 					assert.NoError(t, cmd.Start())
 
@@ -203,10 +205,10 @@ func TestBlockingProcess(t *testing.T) {
 					assert.Contains(t, err.Error(), "operation canceled")
 				},
 				"WaitShouldReturnNilForSuccessfulCommandsWithoutIDs": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
-					proc.opts.Args = []string{"sleep", "10"}
-					proc.ops = make(chan func(*exec.Cmd))
+					proc.info.Options.Args = []string{"sleep", "10"}
+					proc.ops = make(chan func(executor.Executor))
 
-					cmd, _, err := proc.opts.Resolve(ctx)
+					cmd, _, err := proc.info.Options.Resolve(ctx)
 					assert.NoError(t, err)
 					assert.NoError(t, cmd.Start())
 					signal := make(chan struct{})
@@ -221,6 +223,9 @@ func TestBlockingProcess(t *testing.T) {
 					go func() {
 						for {
 							select {
+							case <-ctx.Done():
+								grip.Warning(ctx.Err())
+								return
 							case op := <-proc.ops:
 								proc.setInfo(ProcessInfo{
 									Complete:   true,
@@ -235,10 +240,10 @@ func TestBlockingProcess(t *testing.T) {
 					<-signal
 				},
 				"WaitShouldReturnNilForSuccessfulCommands": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
-					proc.opts.Args = []string{"sleep", "10"}
-					proc.ops = make(chan func(*exec.Cmd))
+					proc.info.Options.Args = []string{"sleep", "10"}
+					proc.ops = make(chan func(executor.Executor))
 
-					cmd, _, err := proc.opts.Resolve(ctx)
+					cmd, _, err := proc.info.Options.Resolve(ctx)
 					assert.NoError(t, err)
 					assert.NoError(t, cmd.Start())
 					signal := make(chan struct{})
@@ -253,6 +258,9 @@ func TestBlockingProcess(t *testing.T) {
 					go func() {
 						for {
 							select {
+							case <-ctx.Done():
+								grip.Warning(ctx.Err())
+								return
 							case op := <-proc.ops:
 								proc.setInfo(ProcessInfo{
 									ID:         "foo",
@@ -268,10 +276,10 @@ func TestBlockingProcess(t *testing.T) {
 					<-signal
 				},
 				"WaitShouldReturnErrorForFailedCommands": func(ctx context.Context, t *testing.T, proc *blockingProcess) {
-					proc.opts.Args = []string{"sleep", "10"}
-					proc.ops = make(chan func(*exec.Cmd))
+					proc.info.Options.Args = []string{"sleep", "10"}
+					proc.ops = make(chan func(executor.Executor))
 
-					cmd, _, err := proc.opts.Resolve(ctx)
+					cmd, _, err := proc.info.Options.Resolve(ctx)
 					assert.NoError(t, err)
 					assert.NoError(t, cmd.Start())
 					signal := make(chan struct{})
@@ -286,6 +294,9 @@ func TestBlockingProcess(t *testing.T) {
 					go func() {
 						for {
 							select {
+							case <-ctx.Done():
+								grip.Warning(ctx.Err())
+								return
 							case op := <-proc.ops:
 								proc.err = errors.New("signal: killed")
 								proc.setInfo(ProcessInfo{
@@ -387,11 +398,10 @@ func TestBlockingProcess(t *testing.T) {
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 
-					id := uuid.Must(uuid.NewV4()).String()
+					id := uuid.New().String()
 					proc := &blockingProcess{
 						id:   id,
-						ops:  make(chan func(*exec.Cmd), 1),
-						opts: options.Create{},
+						ops:  make(chan func(executor.Executor), 1),
 						info: ProcessInfo{ID: id},
 					}
 

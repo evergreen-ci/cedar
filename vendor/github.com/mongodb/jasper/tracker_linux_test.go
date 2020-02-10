@@ -236,18 +236,12 @@ func TestManagerSetsEnvironmentVariables(t *testing.T) {
 	defer cancel()
 
 	for managerName, makeManager := range map[string]func() *basicProcessManager{
-		"Basic/NoLock/BasicProcs": func() *basicProcessManager {
+		"Basic": func() *basicProcessManager {
 			return &basicProcessManager{
-				procs:    map[string]Process{},
-				blocking: false,
-				tracker:  newMockProcessTracker(),
-			}
-		},
-		"Basic/NoLock/BlockingProcs": func() *basicProcessManager {
-			return &basicProcessManager{
-				procs:    map[string]Process{},
-				blocking: true,
-				tracker:  newMockProcessTracker(),
+				procs: map[string]Process{},
+				tracker: &mockProcessTracker{
+					Infos: []ProcessInfo{},
+				},
 			}
 		},
 	} {

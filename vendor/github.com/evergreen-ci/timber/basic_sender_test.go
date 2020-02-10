@@ -49,7 +49,7 @@ func (mc *mockClient) AppendLogLines(_ context.Context, in *internal.LogLines, _
 	return &internal.BuildloggerResponse{LogId: in.LogId}, nil
 }
 
-func (*mockClient) StreamLog(_ context.Context, _ ...grpc.CallOption) (internal.Buildlogger_StreamLogClient, error) {
+func (*mockClient) StreamLogLines(_ context.Context, _ ...grpc.CallOption) (internal.Buildlogger_StreamLogLinesClient, error) {
 	return nil, nil
 }
 
@@ -90,7 +90,7 @@ func (ms *mockService) AppendLogLines(_ context.Context, in *internal.LogLines) 
 	return &internal.BuildloggerResponse{}, nil
 }
 
-func (ms *mockService) StreamLog(_ internal.Buildlogger_StreamLogServer) error { return nil }
+func (ms *mockService) StreamLogLines(_ internal.Buildlogger_StreamLogLinesServer) error { return nil }
 
 func (ms *mockService) CloseLog(_ context.Context, in *internal.LogEndInfo) (*internal.BuildloggerResponse, error) {
 	if ms.closeErr {
@@ -111,6 +111,8 @@ func (ms *mockSender) Send(m message.Composer) {
 		ms.lastMessage = m.String()
 	}
 }
+
+func (ms *mockSender) Flush(_ context.Context) error { return nil }
 
 func TestLoggerOptionsValidate(t *testing.T) {
 	t.Run("Defaults", func(t *testing.T) {
@@ -194,6 +196,8 @@ func TestNewLogger(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("WithExistingClient", func(t *testing.T) {
+		subCtx, subCancel := context.WithCancel(ctx)
+
 		name := "test"
 		l := send.LevelInfo{Default: level.Debug, Threshold: level.Debug}
 		opts := &LoggerOptions{
@@ -201,7 +205,7 @@ func TestNewLogger(t *testing.T) {
 			Local:      &mockSender{Base: send.NewBase("test")},
 		}
 
-		s, err := NewLogger(ctx, name, l, opts)
+		s, err := NewLoggerWithContext(ctx, name, l, opts)
 		require.NoError(t, err)
 		require.NotNil(t, s)
 		assert.Equal(t, name, s.Name())
@@ -209,7 +213,10 @@ func TestNewLogger(t *testing.T) {
 		assert.True(t, srv.createLog)
 		b, ok := s.(*buildlogger)
 		require.True(t, ok)
-		assert.Equal(t, ctx, b.ctx)
+		require.NotNil(t, b.ctx)
+		assert.NotNil(t, b.cancel)
+		subCancel()
+		assert.Equal(t, context.Canceled, subCtx.Err())
 		assert.NotNil(t, b.buffer)
 		assert.Equal(t, opts, b.opts)
 		assert.Equal(t, defaultMaxBufferSize, b.opts.MaxBufferSize)
@@ -221,6 +228,7 @@ func TestNewLogger(t *testing.T) {
 		srv.createLog = false
 	})
 	t.Run("WithoutExistingClient", func(t *testing.T) {
+		subCtx, subCancel := context.WithCancel(ctx)
 		name := "test2"
 		l := send.LevelInfo{Default: level.Trace, Threshold: level.Alert}
 		opts := &LoggerOptions{
@@ -229,7 +237,7 @@ func TestNewLogger(t *testing.T) {
 			RPCAddress: addr,
 		}
 
-		s, err := NewLogger(ctx, name, l, opts)
+		s, err := NewLoggerWithContext(ctx, name, l, opts)
 		require.NoError(t, err)
 		require.NotNil(t, s)
 		assert.Equal(t, name, s.Name())
@@ -237,7 +245,39 @@ func TestNewLogger(t *testing.T) {
 		assert.True(t, srv.createLog)
 		b, ok := s.(*buildlogger)
 		require.True(t, ok)
-		assert.Equal(t, ctx, b.ctx)
+		require.NotNil(t, b.ctx)
+		assert.NotNil(t, b.cancel)
+		subCancel()
+		assert.Equal(t, context.Canceled, subCtx.Err())
+		assert.NotNil(t, b.cancel)
+		assert.NotNil(t, b.buffer)
+		assert.Equal(t, opts, b.opts)
+		assert.Equal(t, defaultMaxBufferSize, b.opts.MaxBufferSize)
+		assert.Equal(t, defaultFlushInterval, b.opts.FlushInterval)
+		time.Sleep(time.Second)
+		b.mu.Lock()
+		assert.NotNil(t, b.timer)
+		b.mu.Unlock()
+		srv.createLog = false
+	})
+	t.Run("WithoutContext", func(t *testing.T) {
+		name := "test"
+		l := send.LevelInfo{Default: level.Debug, Threshold: level.Debug}
+		opts := &LoggerOptions{
+			ClientConn: conn,
+			Local:      &mockSender{Base: send.NewBase("test")},
+		}
+
+		s, err := NewLogger(name, l, opts)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+		assert.Equal(t, name, s.Name())
+		assert.Equal(t, l, s.Level())
+		assert.True(t, srv.createLog)
+		b, ok := s.(*buildlogger)
+		require.True(t, ok)
+		assert.NotNil(t, b.ctx)
+		assert.NotNil(t, b.cancel)
 		assert.NotNil(t, b.buffer)
 		assert.Equal(t, opts, b.opts)
 		assert.Equal(t, defaultMaxBufferSize, b.opts.MaxBufferSize)
@@ -257,7 +297,7 @@ func TestNewLogger(t *testing.T) {
 			FlushInterval: -1,
 		}
 
-		s, err := NewLogger(ctx, name, l, opts)
+		s, err := NewLoggerWithContext(ctx, name, l, opts)
 		require.NoError(t, err)
 		require.NotNil(t, s)
 		b, ok := s.(*buildlogger)
@@ -266,7 +306,7 @@ func TestNewLogger(t *testing.T) {
 		assert.Nil(t, b.timer)
 	})
 	t.Run("InvalidOptions", func(t *testing.T) {
-		s, err := NewLogger(ctx, "test3", send.LevelInfo{}, &LoggerOptions{})
+		s, err := NewLoggerWithContext(ctx, "test3", send.LevelInfo{}, &LoggerOptions{})
 		assert.Error(t, err)
 		assert.Nil(t, s)
 	})
@@ -280,7 +320,7 @@ func TestNewLogger(t *testing.T) {
 		}
 		srv.createErr = true
 
-		s, err := NewLogger(ctx, name, l, opts)
+		s, err := NewLoggerWithContext(ctx, name, l, opts)
 		assert.Error(t, err)
 		assert.Nil(t, s)
 		assert.True(t, strings.Contains(ms.lastMessage, "create error"))
@@ -295,10 +335,8 @@ func TestCreateNewLog(t *testing.T) {
 		mc := &mockClient{}
 		ms := &mockSender{Base: send.NewBase("test")}
 		b := createSender(ctx, mc, ms)
-		ts := time.Now()
-		expectedTS := &timestamp.Timestamp{Seconds: ts.Unix(), Nanos: int32(ts.Nanosecond())}
 
-		require.NoError(t, b.createNewLog(ts))
+		require.NoError(t, b.createNewLog())
 		assert.Equal(t, b.opts.Project, mc.logData.Info.Project)
 		assert.Equal(t, b.opts.Version, mc.logData.Info.Version)
 		assert.Equal(t, b.opts.Variant, mc.logData.Info.Variant)
@@ -308,9 +346,9 @@ func TestCreateNewLog(t *testing.T) {
 		assert.Equal(t, b.opts.Trial, mc.logData.Info.Trial)
 		assert.Equal(t, b.opts.ProcessName, mc.logData.Info.ProcName)
 		assert.Equal(t, internal.LogFormat(b.opts.Format), mc.logData.Info.Format)
+		assert.Equal(t, b.opts.Tags, mc.logData.Info.Tags)
 		assert.Equal(t, b.opts.Arguments, mc.logData.Info.Arguments)
 		assert.Equal(t, b.opts.Mainline, mc.logData.Info.Mainline)
-		assert.Equal(t, expectedTS, mc.logData.CreatedAt)
 		assert.Equal(t, internal.LogStorage_LOG_STORAGE_S3, mc.logData.Storage)
 		assert.Equal(t, b.opts.logID, mc.logData.Info.TestName)
 		assert.Empty(t, ms.lastMessage)
@@ -320,7 +358,7 @@ func TestCreateNewLog(t *testing.T) {
 		ms := &mockSender{Base: send.NewBase("test")}
 		b := createSender(ctx, mc, ms)
 
-		assert.Error(t, b.createNewLog(time.Now()))
+		assert.Error(t, b.createNewLog())
 		assert.Equal(t, "create error", ms.lastMessage)
 	})
 }
@@ -391,6 +429,7 @@ func TestSend(t *testing.T) {
 		assert.Len(t, mc.logLines.Lines, len(messages))
 		for i := range mc.logLines.Lines {
 			assert.Equal(t, messages[i], mc.logLines.Lines[i].Data)
+			assert.EqualValues(t, level.Debug, mc.logLines.Lines[0].Priority)
 		}
 	})
 	t.Run("FlushAtCapacityWithOutNewLineCheck", func(t *testing.T) {
@@ -408,7 +447,7 @@ func TestSend(t *testing.T) {
 				size = b.opts.MaxBufferSize - b.bufferSize
 			}
 
-			m := message.ConvertToComposer(level.Debug, newRandString(size))
+			m := message.ConvertToComposer(level.Info, newRandString(size))
 			b.Send(m)
 			require.Empty(t, ms.lastMessage)
 
@@ -429,6 +468,7 @@ func TestSend(t *testing.T) {
 		assert.Len(t, mc.logLines.Lines, len(messages))
 		for i := range mc.logLines.Lines {
 			assert.Equal(t, messages[i].String(), mc.logLines.Lines[i].Data)
+			assert.EqualValues(t, messages[i].Priority(), mc.logLines.Lines[i].Priority)
 		}
 	})
 	t.Run("FlushAtInterval", func(t *testing.T) {
@@ -452,9 +492,10 @@ func TestSend(t *testing.T) {
 		b.mu.Unlock()
 		require.Len(t, mc.logLines.Lines, 1)
 		assert.Equal(t, m.String(), mc.logLines.Lines[0].Data)
+		assert.EqualValues(t, m.Priority(), mc.logLines.Lines[0].Priority)
 
 		// flush resets timer
-		m = message.ConvertToComposer(level.Debug, newRandString(size))
+		m = message.ConvertToComposer(level.Emergency, newRandString(size))
 		b.Send(m)
 		b.mu.Lock()
 		require.NotEmpty(t, b.buffer)
@@ -465,6 +506,7 @@ func TestSend(t *testing.T) {
 		b.mu.Unlock()
 		require.Len(t, mc.logLines.Lines, 1)
 		assert.Equal(t, m.String(), mc.logLines.Lines[0].Data)
+		assert.EqualValues(t, m.Priority(), mc.logLines.Lines[0].Priority)
 
 		// recent last flush
 		b.mu.Lock()
@@ -483,15 +525,18 @@ func TestSend(t *testing.T) {
 		b.opts.MaxBufferSize = 4096
 		b.opts.DisableNewLineCheck = true
 
-		m1 := message.ConvertToComposer(level.Debug, "Hello world!\nThis has a new line.")
+		m1 := message.ConvertToComposer(level.Emergency, "Hello world!\nThis has a new line.")
 		m2 := message.ConvertToComposer(level.Debug, "Goodbye world!")
 		m := message.NewGroupComposer([]message.Composer{m1, m2})
 		b.Send(m)
 		assert.Len(t, b.buffer, 3)
 		assert.Equal(t, len(m1.String())+len(m2.String())-1, b.bufferSize)
 		assert.Equal(t, strings.Split(m1.String(), "\n")[0], b.buffer[0].Data)
+		assert.EqualValues(t, m.Priority(), b.buffer[0].Priority)
 		assert.Equal(t, strings.Split(m1.String(), "\n")[1], b.buffer[1].Data)
+		assert.EqualValues(t, m.Priority(), b.buffer[1].Priority)
 		assert.Equal(t, m2.String(), b.buffer[2].Data)
+		assert.EqualValues(t, m.Priority(), b.buffer[2].Priority)
 	})
 	t.Run("RPCError", func(t *testing.T) {
 		str := "overflow"
@@ -521,14 +566,55 @@ func TestSend(t *testing.T) {
 	})
 }
 
+func TestFlush(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	t.Run("ForceFlush", func(t *testing.T) {
+		mc := &mockClient{}
+		ms := &mockSender{Base: send.NewBase("test")}
+		b := createSender(ctx, mc, ms)
+		b.opts.logID = "id"
+		b.opts.MaxBufferSize = 4096
+
+		m := message.ConvertToComposer(level.Info, "overflow")
+		b.Send(m)
+		require.NotEmpty(t, b.buffer)
+		require.NoError(t, b.Flush(ctx))
+		assert.Empty(t, b.buffer)
+		assert.Zero(t, b.bufferSize)
+		assert.True(t, time.Since(b.lastFlush) <= time.Second)
+		require.Len(t, mc.logLines.Lines, 1)
+		assert.Equal(t, "overflow", mc.logLines.Lines[0].Data)
+	})
+	t.Run("ClosedSender", func(t *testing.T) {
+		mc := &mockClient{}
+		ms := &mockSender{Base: send.NewBase("test")}
+		b := createSender(ctx, mc, ms)
+		b.opts.logID = "id"
+		b.opts.MaxBufferSize = 4096
+
+		m := message.ConvertToComposer(level.Info, "overflow")
+		b.Send(m)
+		require.NotEmpty(t, b.buffer)
+		b.closed = true
+		require.NoError(t, b.Flush(ctx))
+		assert.NotEmpty(t, b.buffer)
+		assert.NotZero(t, b.bufferSize)
+		assert.Nil(t, mc.logLines)
+	})
+}
+
 func TestClose(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	t.Run("CloseNonNilConn", func(t *testing.T) {
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		mc := &mockClient{}
 		ms := &mockSender{Base: send.NewBase("test")}
-		b := createSender(ctx, mc, ms)
+		b := createSender(subCtx, mc, ms)
 
 		assert.NoError(t, b.Close())
 		b.closed = false
@@ -536,22 +622,26 @@ func TestClose(t *testing.T) {
 		assert.Panics(t, func() { _ = b.Close() })
 	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		mc := &mockClient{}
 		ms := &mockSender{Base: send.NewBase("test")}
-		b := createSender(ctx, mc, ms)
+		b := createSender(subCtx, mc, ms)
 		b.opts.logID = "id"
 		b.opts.SetExitCode(10)
 
 		require.NoError(t, b.Close())
 		assert.Equal(t, b.opts.logID, mc.logEndInfo.LogId)
 		assert.Equal(t, b.opts.exitCode, mc.logEndInfo.ExitCode)
-		assert.Equal(t, time.Now().Unix(), mc.logEndInfo.CompletedAt.Seconds)
 		assert.True(t, b.closed)
+		assert.Equal(t, context.Canceled, b.ctx.Err())
 	})
 	t.Run("NonEmptyBuffer", func(t *testing.T) {
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		mc := &mockClient{}
 		ms := &mockSender{Base: send.NewBase("test")}
-		b := createSender(ctx, mc, ms)
+		b := createSender(subCtx, mc, ms)
 		b.opts.logID = "id"
 		b.opts.SetExitCode(2)
 		logLine := &internal.LogLine{Timestamp: &timestamp.Timestamp{}, Data: "some data"}
@@ -559,28 +649,33 @@ func TestClose(t *testing.T) {
 
 		require.NoError(t, b.Close())
 		assert.NotNil(t, mc.logEndInfo)
-		assert.Equal(t, time.Now().Unix(), mc.logEndInfo.CompletedAt.Seconds)
 		assert.Equal(t, b.opts.logID, mc.logEndInfo.LogId)
 		assert.Equal(t, b.opts.exitCode, mc.logEndInfo.ExitCode)
 		assert.NotNil(t, mc.logLines)
 		assert.Equal(t, b.opts.logID, mc.logLines.LogId)
 		assert.Equal(t, logLine, mc.logLines.Lines[0])
 		assert.True(t, b.closed)
+		assert.Equal(t, context.Canceled, b.ctx.Err())
 	})
 	t.Run("NoopWhenClosed", func(t *testing.T) {
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		mc := &mockClient{}
 		ms := &mockSender{Base: send.NewBase("test")}
-		b := createSender(ctx, mc, ms)
+		b := createSender(subCtx, mc, ms)
 		b.closed = true
 
 		require.NoError(t, b.Close())
 		assert.Nil(t, mc.logEndInfo)
 		assert.True(t, b.closed)
+		assert.Equal(t, context.Canceled, b.ctx.Err())
 	})
 	t.Run("RPCErrors", func(t *testing.T) {
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		mc := &mockClient{appendErr: true}
 		ms := &mockSender{Base: send.NewBase("test")}
-		b := createSender(ctx, mc, ms)
+		b := createSender(subCtx, mc, ms)
 		logLine := &internal.LogLine{Timestamp: &timestamp.Timestamp{}, Data: "some data"}
 		b.buffer = append(b.buffer, logLine)
 
@@ -593,12 +688,15 @@ func TestClose(t *testing.T) {
 		assert.Error(t, b.Close())
 		assert.Equal(t, "close error", ms.lastMessage)
 		assert.True(t, b.closed)
+		assert.Equal(t, context.Canceled, b.ctx.Err())
 	})
 }
 
 func createSender(ctx context.Context, mc internal.BuildloggerClient, ms send.Sender) *buildlogger {
+	ctx, cancel := context.WithCancel(ctx)
 	return &buildlogger{
-		ctx: ctx,
+		ctx:    ctx,
+		cancel: cancel,
 		opts: &LoggerOptions{
 			Project:     "project",
 			Version:     "version",
@@ -609,6 +707,7 @@ func createSender(ctx context.Context, mc internal.BuildloggerClient, ms send.Se
 			TestName:    "test_name",
 			Trial:       2,
 			ProcessName: "proc_name",
+			Tags:        []string{"tag1", "tag2", "tag3"},
 			Arguments:   map[string]string{"tag1": "val", "tag2": "val2"},
 			Mainline:    true,
 			Local:       ms,

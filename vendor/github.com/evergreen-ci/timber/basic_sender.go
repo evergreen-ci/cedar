@@ -67,6 +67,7 @@ func (s LogStorage) validate() error {
 type buildlogger struct {
 	mu         sync.Mutex
 	ctx        context.Context
+	cancel     context.CancelFunc
 	opts       *LoggerOptions
 	conn       *grpc.ClientConn
 	client     internal.BuildloggerClient
@@ -81,50 +82,51 @@ type buildlogger struct {
 // LoggerOptions support the use and creation of a Buildlogger log.
 type LoggerOptions struct {
 	// Unique information to identify the log.
-	Project     string            `json:"project" yaml:"project"`
-	Version     string            `json:"version" yaml:"version"`
-	Variant     string            `json:"variant" yaml:"variant"`
-	TaskName    string            `json:"task_name" yaml:"task_name"`
-	TaskID      string            `json:"task_id" yaml:"task_id"`
-	Execution   int32             `json:"execution" yaml:"execution"`
-	TestName    string            `json:"test_name" yaml:"test_name"`
-	Trial       int32             `json:"trial" yaml:"trial"`
-	ProcessName string            `json:"proc_name" yaml:"proc_name"`
-	Format      LogFormat         `json:"format" yaml:"format"`
-	Arguments   map[string]string `json:"arguments" yaml:"arguments"`
-	Mainline    bool              `json:"mainline" yaml:"mainline"`
+	Project     string            `bson:"project" json:"project" yaml:"project"`
+	Version     string            `bson:"version" json:"version" yaml:"version"`
+	Variant     string            `bson:"variant" json:"variant" yaml:"variant"`
+	TaskName    string            `bson:"task_name" json:"task_name" yaml:"task_name"`
+	TaskID      string            `bson:"task_id" json:"task_id" yaml:"task_id"`
+	Execution   int32             `bson:"execution" json:"execution" yaml:"execution"`
+	TestName    string            `bson:"test_name" json:"test_name" yaml:"test_name"`
+	Trial       int32             `bson:"trial" json:"trial" yaml:"trial"`
+	ProcessName string            `bson:"proc_name" json:"proc_name" yaml:"proc_name"`
+	Format      LogFormat         `bson:"format" json:"format" yaml:"format"`
+	Tags        []string          `bson:"tags" json:"tags" yaml:"tags"`
+	Arguments   map[string]string `bson:"args" json:"args" yaml:"args"`
+	Mainline    bool              `bson:"mainline" json:"mainline" yaml:"mainline"`
 
 	// Storage location type for this log.
-	Storage LogStorage `json:"storage" yaml:"storage"`
+	Storage LogStorage `bson:"storage" json:"storage" yaml:"storage"`
 
 	// Configure a local sender for "fallback" operations and to collect
 	// the location of the buildlogger output.
-	Local send.Sender `json:"-" yaml:"-"`
+	Local send.Sender `bson:"-" json:"-" yaml:"-"`
 
 	// The number max number of bytes to buffer before sending log data
-	// over rpc to Cedar. Defaults to 10MB.
-	MaxBufferSize int `json:"max_buffer_size" yaml:"max_buffer_size"`
+	// over rpc to cedar. Defaults to 10MB.
+	MaxBufferSize int `bson:"max_buffer_size" json:"max_buffer_size" yaml:"max_buffer_size"`
 	// The interval at which to flush log lines, regardless of whether the
 	// max buffer size has been reached or not. Setting FlushInterval to a
 	// duration less than 0 will disable timed flushes. Defaults to 1
 	// minute.
-	FlushInterval time.Duration `json:"flush_interval" yaml:"flush_interval"`
+	FlushInterval time.Duration `bson:"flush_interval" json:"flush_interval" yaml:"flush_interval"`
 
 	// Disable checking for new lines in messages. If this is set to true,
 	// make sure log messages do not contain new lines, otherwise the logs
 	// will be stored incorrectly.
-	DisableNewLineCheck bool `json:"new_line_check_off" yaml:"new_line_check_off"`
+	DisableNewLineCheck bool `bson:"new_line_check_off" json:"new_line_check_off" yaml:"new_line_check_off"`
 
 	// The gRPC client connection. If nil, a new connection will be
 	// established with the gRPC connection configuration.
-	ClientConn *grpc.ClientConn `json:"-" yaml:"-"`
+	ClientConn *grpc.ClientConn `bson:"-" json:"-" yaml:"-"`
 
 	// Configuration for gRPC client connection.
-	RPCAddress string `json:"rpc_address" yaml:"rpc_address"`
-	Insecure   bool   `json:"insecure" yaml:"insecure"`
-	CAFile     string `json:"ca_file" yaml:"ca_file"`
-	CertFile   string `json:"cert_file" yaml:"cert_file"`
-	KeyFile    string `json:"key_file" yaml:"key_file"`
+	RPCAddress string `bson:"rpc_address" json:"rpc_address" yaml:"rpc_address"`
+	Insecure   bool   `bson:"insecure" json:"insecure" yaml:"insecure"`
+	CAFile     string `bson:"ca_file" json:"ca_file" yaml:"ca_file"`
+	CertFile   string `bson:"cert_file" json:"cert_file" yaml:"cert_file"`
+	KeyFile    string `bson:"key_file" json:"key_file" yaml:"key_file"`
 
 	logID    string
 	exitCode int32
@@ -168,14 +170,18 @@ func (opts *LoggerOptions) SetExitCode(i int32) { opts.exitCode = i }
 
 // GetLogID returns the unique buildlogger log ID set after NewLogger is
 // called.
-func (opts *LoggerOptions) GetLogID() string {
-	return opts.logID
+func (opts *LoggerOptions) GetLogID() string { return opts.logID }
+
+// NewLogger returns a grip Sender backed by cedar Buildlogger with level
+// information set.
+func NewLogger(name string, l send.LevelInfo, opts *LoggerOptions) (send.Sender, error) {
+	return NewLoggerWithContext(context.Background(), name, l, opts)
 }
 
-// NewLogger returns a grip Sender backed by Cedar Buildlogger with level
-// information set.
-func NewLogger(ctx context.Context, name string, l send.LevelInfo, opts *LoggerOptions) (send.Sender, error) {
-	b, err := MakeLogger(ctx, name, opts)
+// NewLoggerWithContext returns a grip Sender backed by cedar Buildlogger with
+// level information set, using the passed in context.
+func NewLoggerWithContext(ctx context.Context, name string, l send.LevelInfo, opts *LoggerOptions) (send.Sender, error) {
+	b, err := MakeLoggerWithContext(ctx, name, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem making new logger")
 	}
@@ -187,10 +193,14 @@ func NewLogger(ctx context.Context, name string, l send.LevelInfo, opts *LoggerO
 	return b, nil
 }
 
-// MakeLogger returns a grip Sender backed by Cedar Buildlogger.
-func MakeLogger(ctx context.Context, name string, opts *LoggerOptions) (send.Sender, error) {
-	ts := time.Now()
+// MakeLogger returns a grip Sender backed by cedar Buildlogger.
+func MakeLogger(name string, opts *LoggerOptions) (send.Sender, error) {
+	return MakeLoggerWithContext(context.Background(), name, opts)
+}
 
+// MakeLoggerWithContext returns a grip Sender backed by cedar Buildlogger
+// using the passed in context.
+func MakeLoggerWithContext(ctx context.Context, name string, opts *LoggerOptions) (send.Sender, error) {
 	if err := opts.validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid cedar buildlogger options")
 	}
@@ -206,7 +216,7 @@ func MakeLogger(ctx context.Context, name string, opts *LoggerOptions) (send.Sen
 			rpcOpts = append(rpcOpts, grpc.WithInsecure())
 		} else {
 			var tlsConf *tls.Config
-			tlsConf, err = aviation.GetClientTLSConfig(opts.CAFile, opts.CertFile, opts.KeyFile)
+			tlsConf, err = aviation.GetClientTLSConfigFromFiles(opts.CAFile, opts.CertFile, opts.KeyFile)
 			if err != nil {
 				return nil, errors.Wrap(err, "problem getting client TLS config")
 			}
@@ -234,9 +244,13 @@ func MakeLogger(ctx context.Context, name string, opts *LoggerOptions) (send.Sen
 		return nil, errors.Wrap(err, "problem setting default error handler")
 	}
 
-	if err := b.createNewLog(ts); err != nil {
+	if err := b.createNewLog(); err != nil {
 		return nil, err
 	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	b.ctx = ctx
+	b.cancel = cancel
 
 	if opts.FlushInterval > 0 {
 		go b.timedFlush()
@@ -246,7 +260,7 @@ func MakeLogger(ctx context.Context, name string, opts *LoggerOptions) (send.Sen
 }
 
 // Send sends the given message with a timestamp created when the function is
-// called to the Cedar Buildlogger backend. This function buffers the messages
+// called to the cedar Buildlogger backend. This function buffers the messages
 // until the maximum allowed buffer size is reached, at which point the
 // messages in the buffer are sent to the Buildlogger server via RPC. Send is
 // thread safe.
@@ -277,6 +291,7 @@ func (b *buildlogger) Send(m message.Composer) {
 			continue
 		}
 		logLine := &internal.LogLine{
+			Priority:  int32(m.Priority()),
 			Timestamp: &timestamp.Timestamp{Seconds: ts.Unix(), Nanos: int32(ts.Nanosecond())},
 			Data:      strings.TrimRightFunc(line, unicode.IsSpace),
 		}
@@ -284,12 +299,25 @@ func (b *buildlogger) Send(m message.Composer) {
 		b.buffer = append(b.buffer, logLine)
 		b.bufferSize += len(logLine.Data)
 		if b.bufferSize > b.opts.MaxBufferSize {
-			if err := b.flush(); err != nil {
+			if err := b.flush(b.ctx); err != nil {
 				b.opts.Local.Send(message.NewErrorMessage(level.Error, err))
 				return
 			}
 		}
 	}
+}
+
+// Flush flushes anything messages that may be in the buffer to cedar
+// Buildlogger backend via RPC.
+func (b *buildlogger) Flush(ctx context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.closed {
+		return nil
+	}
+
+	return b.flush(ctx)
 }
 
 // Close flushes anything that may be left in the underlying buffer and closes
@@ -302,15 +330,15 @@ func (b *buildlogger) Send(m message.Composer) {
 func (b *buildlogger) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	defer b.cancel()
 
-	ts := time.Now()
 	if b.closed {
 		return nil
 	}
 	catcher := grip.NewBasicCatcher()
 
 	if len(b.buffer) > 0 {
-		if err := b.flush(); err != nil {
+		if err := b.flush(b.ctx); err != nil {
 			b.opts.Local.Send(message.NewErrorMessage(level.Error, err))
 			catcher.Add(errors.Wrap(err, "problem flushing buffer"))
 		}
@@ -318,9 +346,8 @@ func (b *buildlogger) Close() error {
 
 	if !catcher.HasErrors() {
 		endInfo := &internal.LogEndInfo{
-			LogId:       b.opts.logID,
-			ExitCode:    b.opts.exitCode,
-			CompletedAt: &timestamp.Timestamp{Seconds: ts.Unix(), Nanos: int32(ts.Nanosecond())},
+			LogId:    b.opts.logID,
+			ExitCode: b.opts.exitCode,
 		}
 		_, err := b.client.CloseLog(b.ctx, endInfo)
 		b.opts.Local.Send(message.NewErrorMessage(level.Error, err))
@@ -336,7 +363,7 @@ func (b *buildlogger) Close() error {
 	return catcher.Resolve()
 }
 
-func (b *buildlogger) createNewLog(ts time.Time) error {
+func (b *buildlogger) createNewLog() error {
 	data := &internal.LogData{
 		Info: &internal.LogInfo{
 			Project:   b.opts.Project,
@@ -349,11 +376,11 @@ func (b *buildlogger) createNewLog(ts time.Time) error {
 			Trial:     b.opts.Trial,
 			ProcName:  b.opts.ProcessName,
 			Format:    internal.LogFormat(b.opts.Format),
+			Tags:      b.opts.Tags,
 			Arguments: b.opts.Arguments,
 			Mainline:  b.opts.Mainline,
 		},
-		Storage:   internal.LogStorage(b.opts.Storage),
-		CreatedAt: &timestamp.Timestamp{Seconds: ts.Unix(), Nanos: int32(ts.Nanosecond())},
+		Storage: internal.LogStorage(b.opts.Storage),
 	}
 	resp, err := b.client.CreateLog(b.ctx, data)
 	if err != nil {
@@ -378,7 +405,7 @@ func (b *buildlogger) timedFlush() {
 		case <-b.timer.C:
 			b.mu.Lock()
 			if len(b.buffer) > 0 && time.Since(b.lastFlush) >= b.opts.FlushInterval {
-				if err := b.flush(); err != nil {
+				if err := b.flush(b.ctx); err != nil {
 					b.opts.Local.Send(message.NewErrorMessage(level.Error, err))
 				}
 			}
@@ -388,8 +415,8 @@ func (b *buildlogger) timedFlush() {
 	}
 }
 
-func (b *buildlogger) flush() error {
-	_, err := b.client.AppendLogLines(b.ctx, &internal.LogLines{
+func (b *buildlogger) flush(ctx context.Context) error {
+	_, err := b.client.AppendLogLines(ctx, &internal.LogLines{
 		LogId: b.opts.logID,
 		Lines: b.buffer,
 	})

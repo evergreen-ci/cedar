@@ -3,11 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
-	"github.com/kardianos/service"
+	"github.com/evergreen-ci/service"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
@@ -36,21 +39,30 @@ const (
 	RPCService      = "rpc"
 	RESTService     = "rest"
 	CombinedService = "combined"
+	WireService     = "wire"
 )
 
 // Constants representing service flags.
 const (
-	quietFlagName = "quiet"
-	userFlagName  = "user"
+	quietFlagName    = "quiet"
+	userFlagName     = "user"
+	passwordFlagName = "password"
+	envFlagName      = "env"
 
-	logNameFlagName = "log_name"
-	defaultLogName  = "jasper"
-
+	logNameFlagName  = "log_name"
+	defaultLogName   = "jasper"
 	logLevelFlagName = "log_level"
 
-	splunkURLFlagName     = "splunk_url"
-	splunkTokenFlagName   = "splunk_token"
-	splunkChannelFlagName = "splunk_channel"
+	splunkURLFlagName           = "splunk_url"
+	splunkTokenFlagName         = "splunk_token"
+	splunkTokenFilePathFlagName = "splunk_token_path"
+	splunkChannelFlagName       = "splunk_channel"
+
+	// Flags related to resource limits.
+	limitNumFilesFlagName      = "limit_num_files"
+	limitNumProcsFlagName      = "limit_num_procs"
+	limitLockedMemoryFlagName  = "limit_locked_memory"
+	limitVirtualMemoryFlagName = "limit_virtual_memory"
 )
 
 // Service encapsulates the functionality to set up Jasper services.
@@ -103,7 +115,17 @@ func serviceFlags() []cli.Flag {
 			Usage: "the user who running the service",
 		},
 		cli.StringFlag{
+			Name:   passwordFlagName,
+			Usage:  "the password for the user running the service",
+			EnvVar: "JASPER_USER_PASSWORD",
+		},
+		cli.StringSliceFlag{
+			Name:  envFlagName,
+			Usage: "the service environment variables (format: key=value)",
+		},
+		cli.StringFlag{
 			Name:  logNameFlagName,
+			Usage: "the name of the logger",
 			Value: defaultLogName,
 		},
 		cli.StringFlag{
@@ -122,10 +144,43 @@ func serviceFlags() []cli.Flag {
 			EnvVar: "GRIP_SPLUNK_CLIENT_TOKEN",
 		},
 		cli.StringFlag{
+			Name:  splunkTokenFilePathFlagName,
+			Usage: "the path to the file containing the splunk token",
+		},
+		cli.StringFlag{
 			Name:   splunkChannelFlagName,
 			Usage:  "the splunk channel",
 			EnvVar: "GRIP_SPLUNK_CHANNEL",
 		},
+		cli.IntFlag{
+			Name:  limitNumFilesFlagName,
+			Usage: "the maximum number of open file descriptors. Specify -1 for no limit",
+		},
+		cli.IntFlag{
+			Name:  limitNumProcsFlagName,
+			Usage: "the maximum number of processes. Specify -1 for no limit",
+		},
+		cli.IntFlag{
+			Name:  limitLockedMemoryFlagName,
+			Usage: "the maximum size that may be locked into memory (kB). Specify -1 for no limit",
+		},
+		cli.IntFlag{
+			Name:  limitVirtualMemoryFlagName,
+			Usage: "the maximum available virtual memory (kB). Specify -1 for no limit",
+		},
+	}
+}
+
+func validateLimits(flagNames ...string) func(*cli.Context) error {
+	return func(c *cli.Context) error {
+		catcher := grip.NewBasicCatcher()
+		for _, flagName := range flagNames {
+			l := c.Int(flagName)
+			if l < -1 {
+				catcher.Errorf("%s is not a valid limit value for %s", l, flagName)
+			}
+		}
+		return catcher.Resolve()
 	}
 }
 
@@ -133,7 +188,7 @@ func validateLogLevel(flagName string) func(*cli.Context) error {
 	return func(c *cli.Context) error {
 		l := c.String(logLevelFlagName)
 		priority := level.FromString(l)
-		if !level.IsValidPriority(priority) {
+		if !priority.IsValid() {
 			return errors.Errorf("%s is not a valid log level", l)
 		}
 		return nil
@@ -148,13 +203,23 @@ func makeLogger(c *cli.Context) *options.Logger {
 		Token:     c.String(splunkTokenFlagName),
 		Channel:   c.String(splunkChannelFlagName),
 	}
+	if info.Token == "" {
+		if tokenFilePath := c.String(splunkTokenFilePathFlagName); tokenFilePath != "" {
+			token, err := ioutil.ReadFile(tokenFilePath)
+			if err != nil {
+				grip.Error(errors.Wrapf(err, "could not read splunk token file from path '%s'", tokenFilePath))
+				return nil
+			}
+			info.Token = string(token)
+		}
+	}
 	if !info.Populated() {
 		return nil
 	}
 
 	l := c.String(logLevelFlagName)
 	priority := level.FromString(l)
-	if !level.IsValidPriority(priority) {
+	if !priority.IsValid() {
 		return nil
 	}
 
@@ -168,33 +233,140 @@ func makeLogger(c *cli.Context) *options.Logger {
 	}
 }
 
+// setupLogger creates a logger and sets it as the global logging back end.
+func setupLogger(opts *options.Logger) error {
+	sender, err := opts.Configure()
+	if err != nil {
+		return errors.Wrap(err, "could not configure logging")
+	}
+	return errors.Wrap(grip.SetSender(sender), "could not set grip logger")
+}
+
 // buildRunCommand builds the command arguments to run the Jasper service with
 // the flags set in the cli.Context.
 func buildRunCommand(c *cli.Context, serviceType string) []string {
-	args := unparseFlagSet(c)
+	args := unparseFlagSet(c, serviceType)
 	subCmd := []string{JasperCommand, ServiceCommand, RunCommand, serviceType}
 	return append(subCmd, args...)
 }
 
 // serviceOptions returns all options specific to particular service management
 // systems.
-func serviceOptions() service.KeyValue {
-	return service.KeyValue{
+func serviceOptions(c *cli.Context) service.KeyValue {
+	opts := service.KeyValue{
 		// launchd-specific options
 		"RunAtLoad": true,
+		// Windows-specific options
+		"Password": c.String(passwordFlagName),
 	}
+
+	// Linux-specific resource limit options
+	if limit := resourceLimit(c.Int(limitNumFilesFlagName)); limit != "" {
+		opts["LimitNumFiles"] = limit
+	}
+	if limit := resourceLimit(c.Int(limitNumProcsFlagName)); limit != "" {
+		opts["LimitNumProcs"] = limit
+	}
+	if limit := resourceLimit(c.Int(limitLockedMemoryFlagName)); limit != "" {
+		opts["LimitLockedMemory"] = limit
+	}
+	if limit := resourceLimit(c.Int(limitVirtualMemoryFlagName)); limit != "" {
+		opts["LimitVirtualMemory"] = limit
+	}
+
+	return opts
+}
+
+func resourceLimit(limit int) string {
+	system := service.ChosenSystem()
+	if system == nil {
+		return ""
+	}
+	if limit < -1 || limit == 0 {
+		return ""
+	}
+	switch system.String() {
+	case "linux-systemd":
+		if limit == -1 {
+			return "infinity"
+		}
+	case "linux-upstart", "unix-systemv":
+		if limit == -1 {
+			return "unlimited"
+		}
+	default:
+		return ""
+	}
+
+	return strconv.Itoa(limit)
 }
 
 // serviceConfig returns the daemon service configuration.
-func serviceConfig(serviceType string, args []string) *service.Config {
+func serviceConfig(serviceType string, c *cli.Context, args []string) *service.Config {
 	return &service.Config{
 		Name:        fmt.Sprintf("%s_jasperd", serviceType),
 		DisplayName: fmt.Sprintf("Jasper %s service", serviceType),
 		Description: "Jasper is a service for process management",
 		Executable:  "", // No executable refers to the current executable.
 		Arguments:   args,
-		Option:      serviceOptions(),
+		Environment: makeUserEnvironment(c.String(userFlagName), c.StringSlice(envFlagName)),
+		UserName:    c.String(userFlagName),
+		Option:      serviceOptions(c),
 	}
+}
+
+// makeUserEnvironment sets up the environment variables for the service. It
+// attempts to reads the common user environment variables from /etc/passwd for
+// upstart and sysv.
+func makeUserEnvironment(user string, vars []string) map[string]string {
+	env := map[string]string{}
+	for _, v := range vars {
+		keyAndValue := strings.Split(v, "=")
+		if len(keyAndValue) == 2 {
+			env[keyAndValue[0]] = keyAndValue[1]
+		}
+	}
+
+	if user == "" {
+		return env
+	}
+	system := service.ChosenSystem()
+	if system == nil || (system.String() != "linux-upstart" && system.String() != "unix-systemv") {
+		return env
+	}
+	// Content and format of /etc/passwd is documented here:
+	// https://linux.die.net/man/5/passwd
+	file := "/etc/passwd"
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		grip.Debug(message.WrapErrorf(err, "could not read file '%s'", file))
+		return env
+	}
+
+	const numEtcPasswdFields = 7
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, user+":") {
+			fields := strings.Split(line, ":")
+			if len(fields) == numEtcPasswdFields {
+				if _, ok := env["USER"]; !ok {
+					env["USER"] = user
+				}
+				if _, ok := env["LOGNAME"]; !ok {
+					env["LOGNAME"] = user
+				}
+				if _, ok := env["HOME"]; !ok {
+					env["HOME"] = fields[numEtcPasswdFields-2]
+				}
+				if _, ok := env["SHELL"]; !ok {
+					env["SHELL"] = fields[numEtcPasswdFields-1]
+				}
+				return env
+			}
+		}
+	}
+	grip.Debug(message.WrapErrorf(err, "could not find user environment variables in file '%s'", file))
+	return env
 }
 
 type serviceOperation func(daemon service.Interface, config *service.Config) error
@@ -209,6 +381,7 @@ func serviceCommand(cmd string, operation serviceOperation) cli.Command {
 			serviceCommandREST(cmd, operation),
 			serviceCommandRPC(cmd, operation),
 			serviceCommandCombined(cmd, operation),
+			serviceCommandWire(cmd, operation),
 		},
 	}
 }

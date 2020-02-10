@@ -225,11 +225,15 @@ func ExtractBuildloggerURLsResponse(input []byte) (BuildloggerURLsResponse, erro
 	return resp, resp.successOrError()
 }
 
+// IDResponse describes the structure of a wrapped Jasper process ID
+// specific command as a response for the CLI.
 type IDResponse struct {
 	OutcomeResponse `json:"outcome"`
 	ID              string `json:"id,omitempty"`
 }
 
+// ExtractIDResponse unmarshells an ID response from an unprocessed
+// slice of bytes.
 func ExtractIDResponse(input []byte) (IDResponse, error) {
 	resp := IDResponse{}
 	if err := json.Unmarshal(input, &resp); err != nil {
@@ -241,6 +245,67 @@ func ExtractIDResponse(input []byte) (IDResponse, error) {
 // IDInput represents CLI-specific input representing a Jasper process ID.
 type IDInput struct {
 	ID string `json:"id"`
+}
+
+// ScriptingOptions is a way to serialize implementations of the
+// options.ScriptingHarness type by wrapping a type name for the
+// implementation name to pass to the factory.
+type ScriptingOptions struct {
+	ImplementationType string          `json:"type"`
+	Payload            json.RawMessage `json:"payload"`
+}
+
+// Validate ensures that the ScriptingOptions instance is
+// validated.
+func (opts *ScriptingOptions) Validate() error {
+	catcher := grip.NewBasicCatcher()
+	catcher.NewWhen(opts.ImplementationType == "", "implementation type must be defined")
+	catcher.NewWhen(opts.Payload == nil, "implementation type must be defined")
+
+	return catcher.Resolve()
+}
+
+// BuildScriptingOptions constructs a ScriptingOptions value.
+func BuildScriptingOptions(in options.ScriptingHarness) (*ScriptingOptions, error) {
+	out := &ScriptingOptions{}
+
+	switch opts := in.(type) {
+	case *options.ScriptingPython:
+		if opts.LegacyPython {
+			out.ImplementationType = "python2"
+		} else {
+			out.ImplementationType = "python3"
+		}
+	case *options.ScriptingGolang:
+		out.ImplementationType = "golang"
+	case *options.ScriptingRoswell:
+		out.ImplementationType = "lisp"
+	default:
+		return nil, errors.Errorf("unsupported scripting type [%T]", in)
+	}
+
+	var err error
+	out.Payload, err = json.Marshal(in)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem building message payload")
+	}
+
+	return out, nil
+}
+
+// Export builds a native scripting harness container.
+func (opts *ScriptingOptions) Export() (options.ScriptingHarness, error) {
+	harness, err := options.NewScriptingHarness(opts.ImplementationType)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	err = json.Unmarshal(opts.Payload, harness)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return harness, nil
 }
 
 // Validate checks that the Jasper process ID is non-empty.

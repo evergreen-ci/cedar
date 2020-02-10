@@ -8,16 +8,29 @@ import (
 	"hash"
 	"io"
 	"os"
-	"os/exec"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/shlex"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/send"
+	"github.com/mongodb/jasper/internal/executor"
 	"github.com/pkg/errors"
+)
+
+const (
+	// ProcessImplementationBlocking suggests that the process
+	// constructor use a blocking implementation. Some managers
+	// may override this option. Blocking implementations
+	// typically require the manager to maintain multiple
+	// go routines.
+	ProcessImplementationBlocking = "blocking"
+	// ProcessImplementationBasic suggests that the process
+	// constructor use a basic implementation. Some managers
+	// may override this option. Basic implementations are more
+	// simple than blocking implementations.
+	ProcessImplementationBasic = "basic"
 )
 
 // Create contains options related to starting a process. This includes
@@ -27,9 +40,11 @@ type Create struct {
 	Args             []string          `bson:"args" json:"args" yaml:"args"`
 	Environment      map[string]string `bson:"env,omitempty" json:"env,omitempty" yaml:"env,omitempty"`
 	OverrideEnviron  bool              `bson:"override_env,omitempty" json:"override_env,omitempty" yaml:"override_env,omitempty"`
+	Synchronized     bool              `bson:"synchronized" json:"synchronized" yaml:"synchronized"`
+	Implementation   string            `bson:"implementation" json:"implementation" yaml:"implementation"`
 	WorkingDirectory string            `bson:"working_directory,omitempty" json:"working_directory,omitempty" yaml:"working_directory,omitempty"`
 	Output           Output            `bson:"output" json:"output" yaml:"output"`
-	RemoteInfo       *Remote           `bson:"remote,omitempty" json:"remote,omitempty" yaml:"remote,omitempty"`
+	Remote           *Remote           `bson:"remote,omitempty" json:"remote,omitempty" yaml:"remote,omitempty"`
 	// TimeoutSecs takes precedence over Timeout. On remote interfaces,
 	// TimeoutSecs should be set instead of Timeout.
 	TimeoutSecs int           `bson:"timeout_secs,omitempty" json:"timeout_secs,omitempty" yaml:"timeout_secs,omitempty"`
@@ -91,11 +106,15 @@ func (opts *Create) Validate() error {
 		opts.TimeoutSecs = int(opts.Timeout.Seconds())
 	}
 
+	if opts.Implementation == "" {
+		opts.Implementation = ProcessImplementationBasic
+	}
+
 	if err := opts.Output.Validate(); err != nil {
 		return errors.Wrap(err, "cannot create command with invalid output")
 	}
 
-	if opts.WorkingDirectory != "" && opts.RemoteInfo == nil {
+	if opts.WorkingDirectory != "" && opts.Remote == nil {
 		info, err := os.Stat(opts.WorkingDirectory)
 
 		if os.IsNotExist(err) {
@@ -114,6 +133,8 @@ func (opts *Create) Validate() error {
 	return nil
 }
 
+// Hash returns the canonical hash implementation for the create
+// options (and thus the process it will create.)
 func (opts *Create) Hash() hash.Hash {
 	hash := sha1.New()
 
@@ -139,84 +160,71 @@ func (opts *Create) Hash() hash.Hash {
 	return hash
 }
 
-func (opts *Create) resolveRemote(env []string) {
-	if opts.RemoteInfo == nil {
-		return
-	}
-
-	var remoteCmd string
-
-	if opts.WorkingDirectory != "" {
-		remoteCmd += fmt.Sprintf("cd '%s' && ", opts.WorkingDirectory)
-	}
-
-	if len(env) != 0 {
-		remoteCmd += strings.Join(env, " ") + " "
-	}
-
-	remoteCmd += strings.Join(opts.Args, " ")
-
-	opts.Args = append(append([]string{"ssh"}, opts.RemoteInfo.Args...), opts.RemoteInfo.String(), remoteCmd)
-}
-
 // Resolve creates the command object according to the create options. It
 // returns the resolved command and the deadline when the command will be
 // terminated by timeout. If there is no deadline, it returns the zero time.
-func (opts *Create) Resolve(ctx context.Context) (*exec.Cmd, time.Time, error) {
-	var err error
+func (opts *Create) Resolve(ctx context.Context) (executor.Executor, time.Time, error) {
 	if ctx.Err() != nil {
 		return nil, time.Time{}, errors.New("cannot resolve command with canceled context")
 	}
 
-	if err = opts.Validate(); err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, time.Time{}, errors.WithStack(err)
 	}
 
-	if opts.WorkingDirectory == "" && opts.RemoteInfo == nil {
-		opts.WorkingDirectory, _ = os.Getwd()
-	}
-
-	var env []string
-	if !opts.OverrideEnviron && opts.RemoteInfo == nil {
-		env = os.Environ()
-	}
-
-	env = append(env, opts.ResolveEnvironment()...)
-
-	opts.resolveRemote(env)
-
-	var args []string
-	if len(opts.Args) > 1 {
-		args = opts.Args[1:]
-	}
-
 	var deadline time.Time
+	var cancel context.CancelFunc = func() {}
 	if opts.Timeout > 0 {
-		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
 		deadline, _ = ctx.Deadline()
 		opts.closers = append(opts.closers, func() error { cancel(); return nil })
 	}
 
-	cmd := exec.CommandContext(ctx, opts.Args[0], args...) // nolint
-	if opts.RemoteInfo == nil {
-		cmd.Dir = opts.WorkingDirectory
+	var cmd executor.Executor
+	if opts.Remote == nil {
+		cmd = executor.NewLocal(ctx, opts.Args)
+	} else if opts.Remote.UseSSHLibrary {
+		// The client and session will be closed by the SSH executor.
+		client, session, err := opts.Remote.Resolve()
+		if err != nil {
+			cancel()
+			return nil, time.Time{}, errors.Wrap(err, "could not create SSH connection")
+		}
+		cmd = executor.MakeSSH(ctx, client, session, opts.Args)
+	} else {
+		cmd = executor.NewSSHBinary(ctx, append(opts.Remote.Args, opts.Remote.String()), opts.Args)
 	}
 
-	cmd.Stdout, err = opts.Output.GetOutput()
+	if opts.WorkingDirectory == "" && opts.Remote == nil {
+		opts.WorkingDirectory, _ = os.Getwd()
+	}
+	cmd.SetDir(opts.WorkingDirectory)
+
+	var env []string
+	if !opts.OverrideEnviron && opts.Remote == nil {
+		env = os.Environ()
+	}
+	for key, value := range opts.Environment {
+		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
+	cmd.SetEnv(env)
+
+	stdout, err := opts.Output.GetOutput()
 	if err != nil {
+		cancel()
 		return nil, time.Time{}, errors.WithStack(err)
 	}
-	cmd.Stderr, err = opts.Output.GetError()
+	cmd.SetStdout(stdout)
+
+	stderr, err := opts.Output.GetError()
 	if err != nil {
+		cancel()
 		return nil, time.Time{}, errors.WithStack(err)
 	}
-	if opts.RemoteInfo == nil {
-		cmd.Env = env
-	}
+	cmd.SetStderr(stderr)
 
 	if opts.StandardInput != nil {
-		cmd.Stdin = opts.StandardInput
+		cmd.SetStdin(opts.StandardInput)
 	}
 
 	// Senders require Close() or else command output is not guaranteed to log.
@@ -259,6 +267,8 @@ func (opts *Create) Close() error {
 	return catcher.Resolve()
 }
 
+// RegisterCloser adds the closer function to the processes closer
+// functions, which are called when the process is closed.
 func (opts *Create) RegisterCloser(fn func() error) {
 	if fn == nil {
 		return
