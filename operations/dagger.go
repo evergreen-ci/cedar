@@ -8,9 +8,9 @@ import (
 	"github.com/evergreen-ci/cedar/depgraph"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/google/uuid"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/urfave/cli"
 )
 
@@ -91,7 +91,7 @@ func loadGraphToDB() cli.Command {
 			}
 
 			if graph.BuildID == "" {
-				graph.BuildID = uuid.Must(uuid.NewV4()).String()
+				graph.BuildID = uuid.New().String()
 			}
 
 			gdb := &model.GraphMetadata{
