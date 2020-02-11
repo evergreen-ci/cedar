@@ -87,14 +87,13 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo, factorie
 		timestamp.Add(-time.Hour)
 	}
 
-	j.SetID(fmt.Sprintf("perf-rollup.%s.%s.%s", perfId, artifactInfo.Path, timestamp))
+	j.SetID(fmt.Sprintf("perf-rollup.%s.%s.%s", perfId, artifactInfo.Path, timestamp.Format(tsFormat)))
 
 	return j, nil
 }
 
 func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
-
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
@@ -103,7 +102,6 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		result.Setup(j.env)
 		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
 	}
-
 	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "", false)
 	if err != nil {
 		j.AddError(errors.Wrap(err, "problem resolving bucket"))
