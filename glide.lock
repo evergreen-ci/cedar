@@ -26,7 +26,7 @@ imports:
   version: c2e93f3ae59f2904160ceaab466009f965df46d6
 
 - name: github.com/mongodb/amboy
-  version: 7d2f98eeb2f72546b732489134da79f886f73831
+  version: 424cd633098855de18f86da6e39a271ec6cb38d6
 - name: github.com/mongodb/grip
   version: c55591ce17342e8b8dc5ce7cded6de3837ab025a
 - name: github.com/mongodb/anser
