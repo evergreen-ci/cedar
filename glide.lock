@@ -79,7 +79,7 @@ imports:
 
 # grpc and dependencies
 - name: google.golang.org/grpc
-  version: 2773c7bbcf81cf358d3f0038b1469b2d44062acb
+  version: eb53a9e8ba93d766afe9b14fcc6cb6dd8b19371b
 - name: golang.org/x/net
   version: 3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898
 - name: golang.org/x/sys
@@ -87,6 +87,6 @@ imports:
 - name: golang.org/x/text
   version: 6c92c7dc7f53607809182301b96e4cc1975143f1
 - name: google.golang.org/genproto
-  version: 082222b4a5c572e33e82ee9162d1352c7cf38682
+  version: 2dc5924e38981f069b4982c6eb2b72365efd00a7
 - name: github.com/golang/protobuf
-  version: c823c79ea1570fb5ff454033735a8e68575d1d0f
+  version: d23c5127dc24889085f8ccea5c9d560a57a879d8
