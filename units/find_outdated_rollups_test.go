@@ -2,23 +2,19 @@ package units
 
 import (
 	"context"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
+	"github.com/mongodb/amboy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/mgo.v2/bson"
 )
 
 func TestFindOutdatedRollupsJob(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("windows is slow")
-	}
-
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -115,7 +111,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.False(t, j.HasErrors())
-		time.Sleep(10 * time.Second)
+		amboy.Wait(ctx, env.GetRemoteQueue())
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})
@@ -159,7 +155,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		j.Run(ctx)
 		assert.True(t, j.Status().Completed)
 		assert.Error(t, j.Error())
-		time.Sleep(time.Second)
+		amboy.Wait(ctx, env.GetRemoteQueue())
 
 		result := &model.PerformanceResult{}
 		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": outdatedResult.Info.ID()})
