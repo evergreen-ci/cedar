@@ -468,6 +468,90 @@ func (i *mergingIterator) Close() error {
 	return catcher.Resolve()
 }
 
+/////////////////////
+// Paginated Iterator
+/////////////////////
+
+type paginatedIterator struct {
+	size          int
+	softSizeLimit int
+	window        time.Duration
+	windowEnd     time.Time
+	prevItem      *LogLine
+
+	LogIterator
+}
+
+func NewPaginatedLogIterator(it LogIterator, window time.Duration, softSizeLimit int) LogIterator {
+	if window <= 0 {
+		window = 5 * time.Minute
+	}
+	if softSizeLimit <= 0 {
+		softSizeLimit = 50 * 1024 * 1024
+	}
+
+	return &paginatedIterator{
+		window:        window,
+		softSizeLimit: softSizeLimit,
+		LogIterator:   it,
+	}
+}
+
+func (i *paginatedIterator) Next(ctx context.Context) bool {
+	prevItem := i.Item()
+
+	if i.LogIterator.Next(ctx) {
+		item := i.Item()
+
+		if i.windowEnd.IsZero() {
+			if i.LogIterator.IsReversed() {
+				i.windowEnd.Add(-i.window)
+			} else {
+				i.windowEnd.Add(i.window)
+			}
+		}
+
+		// use longest case for line size
+		data := fmt.Sprintf(
+			"[P:%3d] [%s] %s",
+			item.Priority,
+			item.Timestamp.Format("2006/01/02 15:04:05.000"),
+			item.Data,
+		)
+		i.size += len([]byte(data))
+
+		if i.LogIterator.IsReversed() {
+			if i.size < i.softSizeLimit && item.Timestamp.Before(i.windowEnd) {
+				i.windowEnd.Add(-i.window)
+			}
+			if item.Timestamp.Before(i.windowEnd) {
+				i.prevItem = &prevItem
+				return false
+			}
+		} else {
+			if i.size < i.softSizeLimit && item.Timestamp.After(i.windowEnd) {
+				i.windowEnd.Add(i.window)
+			}
+			if item.Timestamp.After(i.windowEnd) {
+				i.prevItem = &prevItem
+				return false
+			}
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (i *paginatedIterator) Item() LogLine {
+	if i.prevItem != nil {
+		return *i.prevItem
+	}
+
+	return i.LogIterator.Item()
+}
+
 ///////////////////
 // Helper functions
 ///////////////////
@@ -588,13 +672,13 @@ type LogIteratorReaderOptions struct {
 	TailN int
 	// PrintTime, when true, prints the timestamp of each log line along
 	// with the line in the following format:
-	// 		[2006/01/02 15:04:05.000] This is a long line.
+	// 		[2006/01/02 15:04:05.000] This is a log line.
 	PrintTime bool
 	// PrintPriority, when true, prints the priority of each log line along
 	// with the line in the following format:
-	// 		[P: 30] This is a long line.
+	// 		[P: 30] This is a log line.
 	// If PrintTime is also set to true, priority will be printed first:
-	// 		[P:100] [2006/01/02 15:04:05.000] This is a long line.
+	// 		[P:100] [2006/01/02 15:04:05.000] This is a log line.
 	PrintPriority bool
 }
 

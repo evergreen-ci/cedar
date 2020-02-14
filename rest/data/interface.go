@@ -2,10 +2,10 @@ package data
 
 import (
 	"context"
-	"io"
 
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/gimlet"
 )
 
 // Connector abstracts the link between cedar's service and API layers,
@@ -48,21 +48,21 @@ type Connector interface {
 	// FindLogById returns the buildlogger log with the given id as a
 	// LogIterator. ID, PrintTime, PrintPriority, TimeRange, and Limit are
 	// respected from BuildloggerOptions.
-	FindLogByID(context.Context, BuildloggerOptions) (io.Reader, error)
+	FindLogByID(context.Context, BuildloggerOptions) (gimlet.Responder, error)
 	// FindLogMetadataByID returns the metadata for the buildlogger log
 	// with the given id.
 	FindLogMetadataByID(context.Context, string) (*model.APILog, error)
 	// FindLogsByTaskID returns the buildlogger logs with the given task
 	// id. TaskID, ProcessName, Execution, Tags, PrintTime, PrintPriority,
 	// TimeRange, Limit, and Tail are respected from BuildloggerOptions.
-	FindLogsByTaskID(context.Context, BuildloggerOptions) (io.Reader, error)
+	FindLogsByTaskID(context.Context, BuildloggerOptions) (gimlet.Responder, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
 	// the given task id and tags.
 	FindLogMetadataByTaskID(context.Context, BuildloggerOptions) ([]model.APILog, error)
 	// FindLogsByTestName returns the buildlogger logs with the given task
 	// id and test name. TaskID, TestName, Tags, TimeRange, PrintTime,
 	// PrintPriority, Limit are respected from BuildloggerOptions.
-	FindLogsByTestName(context.Context, BuildloggerOptions) (io.Reader, error)
+	FindLogsByTestName(context.Context, BuildloggerOptions) (gimlet.Responder, error)
 	// FindLogsByTestName returns the metadata for the buildlogger logs
 	// with the given task id, test name, and tags.
 	FindLogMetadataByTestName(context.Context, BuildloggerOptions) ([]model.APILog, error)
@@ -71,7 +71,7 @@ type Connector interface {
 	// level. This function returns logs with the given task id and group
 	// id. TaskID, TestName, Tags, TimeRange, PrintTime, PrintPriority, and
 	// Limit are respected from BuildloggerOptions.
-	FindGroupedLogs(context.Context, BuildloggerOptions) (io.Reader, error)
+	FindGroupedLogs(context.Context, BuildloggerOptions) (gimlet.Responder, error)
 }
 
 type BuildloggerOptions struct {

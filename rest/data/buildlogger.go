@@ -3,9 +3,10 @@ package data
 import (
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
@@ -21,7 +22,7 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	log := dbModel.Log{ID: opts.ID}
 	log.Setup(dbc.env)
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
@@ -45,12 +46,18 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
+	resp := gimlet.NewResponseBuilder()
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  it,
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, resp.SetFormat(gimlet.TEXT)
 }
 
 func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -79,7 +86,7 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 	return apiLog, nil
 }
 
-func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	dbOpts := dbModel.LogFindOptions{
 		TimeRange: opts.TimeRange,
 		Info: dbModel.LogInfo{
@@ -115,13 +122,20 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		TailN:         opts.Tail,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
+	resp := gimlet.NewResponseBuilder()
+	resp.SetFormat(gimlet.TEXT)
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  it,
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			TailN:         opts.Tail,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -159,17 +173,25 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 	return apiLogs, nil
 }
 
-func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	it, err := dbc.findLogsByTestName(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
+
+	resp := gimlet.NewResponseBuilder()
+	resp.SetFormat(gimlet.TEXT)
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  it,
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -212,7 +234,7 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 	return apiLogs, nil
 }
 
-func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	its := []dbModel.LogIterator{}
 	it, err := dbc.findLogsByTestName(ctx, opts)
 	if err != nil {
@@ -228,12 +250,19 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 		return nil, err
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...), readerOpts), nil
+	resp := gimlet.NewResponseBuilder()
+	resp.SetFormat(gimlet.TEXT)
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  dbModel.NewMergingIterator(its...),
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, nil
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
@@ -279,7 +308,7 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts Buildlogger
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	log, ok := mc.CachedLogs[opts.ID]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
@@ -300,12 +329,21 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
+	resp := gimlet.NewResponseBuilder()
+	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+		return nil, err
 	}
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange), readerOpts), ctx.Err()
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange),
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -328,7 +366,7 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 	return apiLog, ctx.Err()
 }
 
-func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == opts.TaskID {
@@ -371,14 +409,20 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange))
 	}
 
-	it := dbModel.NewMergingIterator(its...)
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		TailN:         opts.Tail,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), ctx.Err()
+	resp := gimlet.NewResponseBuilder()
+	resp.SetFormat(gimlet.TEXT)
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  dbModel.NewMergingIterator(its...),
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			TailN:         opts.Tail,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -415,17 +459,25 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts Build
 	return apiLogs, ctx.Err()
 }
 
-func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	it, err := mc.findLogsByTestName(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, it, readerOpts), nil
+
+	resp := gimlet.NewResponseBuilder()
+	resp.SetFormat(gimlet.TEXT)
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  it,
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, nil
 }
 
 func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -457,13 +509,12 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts Bui
 				Message:    "corrupt data",
 			}
 		}
-
 	}
 
 	return apiLogs, ctx.Err()
 }
 
-func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) (io.Reader, error) {
+func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
 	its := []dbModel.LogIterator{}
 	it, err := mc.findLogsByTestName(ctx, opts)
 	if err != nil {
@@ -479,12 +530,19 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 		return nil, err
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	return dbModel.NewLogIteratorReader(ctx, dbModel.NewMergingIterator(its...), readerOpts), ctx.Err()
+	resp := gimlet.NewResponseBuilder()
+	resp.SetFormat(gimlet.TEXT)
+	return &buildloggerPaginatedResponder{
+		ctx: ctx,
+		it:  dbModel.NewMergingIterator(its...),
+		tr:  opts.TimeRange,
+		readerOpts: dbModel.LogIteratorReaderOptions{
+			Limit:         opts.Limit,
+			PrintTime:     opts.PrintTime,
+			PrintPriority: opts.PrintPriority,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}, ctx.Err()
 }
 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
@@ -522,4 +580,81 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts Buildlogge
 	}
 
 	return dbModel.NewMergingIterator(its...), ctx.Err()
+}
+
+//////////////////////////////////
+// Buildlogger Paginated Responder
+//////////////////////////////////
+type buildloggerPaginatedResponder struct {
+	ctx        context.Context
+	it         dbModel.LogIterator
+	tr         util.TimeRange
+	readerOpts dbModel.LogIteratorReaderOptions
+	err        error
+
+	gimlet.Responder
+}
+
+func (r *buildloggerPaginatedResponder) Pages() *gimlet.ResponsePages {
+	defer func() {
+		if r.err != nil {
+			r.SetStatus(http.StatusInternalServerError)
+		} else {
+			r.SetStatus(http.StatusOK)
+		}
+	}()
+
+	if r.Responder.Pages() == nil {
+		reader := dbModel.NewLogIteratorReader(
+			r.ctx,
+			dbModel.NewPaginatedLogIterator(r.it, 5*time.Minute, 50*1024*1024),
+			r.readerOpts,
+		)
+		data, err := ioutil.ReadAll(reader)
+		if err != nil {
+			r.err = err
+			return nil
+		}
+
+		if err = r.AddData(data); err != nil {
+			r.err = err
+			return nil
+		}
+
+		baseURL := "https://cedar.mongodb.com"
+		next := &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   "start",
+			LimitQueryParam: "limit",
+			Key:             r.it.Item().Timestamp.Add(time.Millisecond).Format(time.RFC3339),
+			Relation:        "next",
+		}
+
+		numLines := len(strings.Split(string(data), "\n"))
+		if numLines < r.readerOpts.Limit {
+			next.Limit = r.readerOpts.Limit - numLines
+		}
+		if r.it.Item().Timestamp.Equal(r.tr.EndAt) || numLines == r.readerOpts.Limit {
+			next = nil
+		}
+
+		pages := &gimlet.ResponsePages{
+			Prev: &gimlet.Page{
+				BaseURL:         baseURL,
+				KeyQueryParam:   "start",
+				LimitQueryParam: "limit",
+				Key:             r.tr.StartAt.Format(time.RFC3339),
+				Limit:           r.readerOpts.Limit,
+				Relation:        "prev",
+			},
+			Next: next,
+		}
+
+		if err = r.SetPages(pages); err != nil {
+			r.err = err
+			return nil
+		}
+	}
+
+	return r.Responder.Pages()
 }

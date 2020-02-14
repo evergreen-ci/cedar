@@ -10,6 +10,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/gimlet"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -164,6 +165,9 @@ func (s *buildloggerConnectorSuite) TearDownSuite() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
+	responder := gimlet.NewResponseBuilder()
+	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
+
 	for id, log := range s.logs {
 		for _, printTime := range []bool{true, false} {
 			findOpts := BuildloggerOptions{
@@ -183,7 +187,14 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 				PrintTime:     printTime,
 				PrintPriority: !printTime,
 			}
-			s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, opts), r)
+			expected := &buildloggerPaginatedResponder{
+				ctx:        s.ctx,
+				it:         expectedIt,
+				tr:         findOpts.TimeRange,
+				readerOpts: opts,
+				Responder:  responder,
+			}
+			s.Equal(expected, r)
 
 			l, err := s.sc.FindLogMetadataByID(s.ctx, id)
 			s.Require().NoError(err)
@@ -194,7 +205,8 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 			r, err = s.sc.FindLogByID(s.ctx, findOpts)
 			s.Require().NoError(err)
 			opts.Limit = findOpts.Limit
-			s.Equal(model.NewLogIteratorReader(s.ctx, expectedIt, opts), r)
+			expected.readerOpts = opts
+			s.Equal(expected, r)
 		}
 	}
 }
