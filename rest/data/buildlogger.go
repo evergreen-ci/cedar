@@ -46,8 +46,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 		}
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  it,
 		tr:  opts.TimeRange,
@@ -57,7 +56,8 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, resp.SetFormat(gimlet.TEXT)
+	}
+	return resp, resp.SetFormat(gimlet.TEXT)
 }
 
 func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -122,9 +122,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 		}
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	resp.SetFormat(gimlet.TEXT)
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  it,
 		tr:  opts.TimeRange,
@@ -135,7 +133,8 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, nil
+	}
+	return resp, resp.SetFormat(gimlet.TEXT)
 }
 
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -179,9 +178,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 		return nil, err
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	resp.SetFormat(gimlet.TEXT)
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  it,
 		tr:  opts.TimeRange,
@@ -191,7 +188,8 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, nil
+	}
+	return resp, resp.SetFormat(gimlet.TEXT)
 }
 
 func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -250,9 +248,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 		return nil, err
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	resp.SetFormat(gimlet.TEXT)
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  dbModel.NewMergingIterator(its...),
 		tr:  opts.TimeRange,
@@ -262,7 +258,8 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, nil
+	}
+	return resp, resp.SetFormat(gimlet.TEXT)
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
@@ -329,11 +326,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 		}
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	if err := resp.SetFormat(gimlet.TEXT); err != nil {
-		return nil, err
-	}
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange),
 		tr:  opts.TimeRange,
@@ -343,7 +336,12 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, ctx.Err()
+	}
+	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+		return nil, err
+	}
+
+	return resp, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -409,9 +407,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		its = append(its, dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange))
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	resp.SetFormat(gimlet.TEXT)
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  dbModel.NewMergingIterator(its...),
 		tr:  opts.TimeRange,
@@ -422,7 +418,12 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, ctx.Err()
+	}
+	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+		return nil, err
+	}
+
+	return resp, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -465,9 +466,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 		return nil, err
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	resp.SetFormat(gimlet.TEXT)
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  it,
 		tr:  opts.TimeRange,
@@ -477,7 +476,12 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, nil
+	}
+	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+		return nil, err
+	}
+
+	return resp, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -530,9 +534,7 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 		return nil, err
 	}
 
-	resp := gimlet.NewResponseBuilder()
-	resp.SetFormat(gimlet.TEXT)
-	return &buildloggerPaginatedResponder{
+	resp := &buildloggerPaginatedResponder{
 		ctx: ctx,
 		it:  dbModel.NewMergingIterator(its...),
 		tr:  opts.TimeRange,
@@ -542,7 +544,12 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 			PrintPriority: opts.PrintPriority,
 		},
 		Responder: gimlet.NewResponseBuilder(),
-	}, ctx.Err()
+	}
+	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+		return nil, err
+	}
+
+	return resp, ctx.Err()
 }
 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
