@@ -183,16 +183,15 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 			s.Require().NoError(err)
 			expectedIt, err := log.Download(s.ctx, findOpts.TimeRange)
 			s.Require().NoError(err)
-			opts := model.LogIteratorReaderOptions{
-				PrintTime:     printTime,
-				PrintPriority: !printTime,
-			}
 			expected := &buildloggerPaginatedResponder{
-				ctx:        s.ctx,
-				it:         expectedIt,
-				tr:         findOpts.TimeRange,
-				readerOpts: opts,
-				Responder:  responder,
+				ctx: s.ctx,
+				it:  expectedIt,
+				tr:  findOpts.TimeRange,
+				readerOpts: model.LogIteratorReaderOptions{
+					PrintTime:     printTime,
+					PrintPriority: !printTime,
+				},
+				Responder: responder,
 			}
 			s.Equal(expected, r)
 
@@ -204,8 +203,7 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 			findOpts.Limit = 100
 			r, err = s.sc.FindLogByID(s.ctx, findOpts)
 			s.Require().NoError(err)
-			opts.Limit = findOpts.Limit
-			expected.readerOpts = opts
+			expected.readerOpts.Limit = findOpts.Limit
 			s.Equal(expected, r)
 		}
 	}
@@ -226,11 +224,6 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
 
 	for _, printTime := range []bool{true, false} {
-		readerOpts := model.LogIteratorReaderOptions{
-			PrintTime:     printTime,
-			PrintPriority: !printTime,
-		}
-
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
@@ -258,11 +251,14 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		r, err := s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected := &buildloggerPaginatedResponder{
-			ctx:        s.ctx,
-			it:         expectedIt,
-			tr:         findOpts.TimeRange,
-			readerOpts: readerOpts,
-			Responder:  responder,
+			ctx: s.ctx,
+			it:  expectedIt,
+			tr:  findOpts.TimeRange,
+			readerOpts: model.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+			},
+			Responder: responder,
 		}
 		s.Equal(expected, r)
 
@@ -314,8 +310,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		findOpts.Limit = 100
 		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts.Limit = findOpts.Limit
-		expected.readerOpts = readerOpts
+		expected.readerOpts.Limit = findOpts.Limit
 		s.Equal(expected, r)
 
 		// tail
@@ -334,8 +329,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected.it = expectedIt
-		readerOpts.TailN = findOpts.Tail
-		expected.readerOpts = readerOpts
+		expected.readerOpts.TailN = findOpts.Tail
 		s.Equal(expected, r)
 	}
 }
@@ -362,10 +356,6 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
 
 	for _, printTime := range []bool{true, false} {
-		readerOpts := model.LogIteratorReaderOptions{
-			PrintTime:     printTime,
-			PrintPriority: !printTime,
-		}
 
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
@@ -394,11 +384,14 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		r, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected := &buildloggerPaginatedResponder{
-			ctx:        s.ctx,
-			it:         expectedIt,
-			tr:         findOpts.TimeRange,
-			readerOpts: readerOpts,
-			Responder:  responder,
+			ctx: s.ctx,
+			it:  expectedIt,
+			tr:  findOpts.TimeRange,
+			readerOpts: model.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+			},
+			Responder: responder,
 		}
 		s.Equal(expected, r)
 
@@ -437,8 +430,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		findOpts.Limit = 100
 		r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts.Limit = findOpts.Limit
-		expected.readerOpts = readerOpts
+		expected.readerOpts.Limit = findOpts.Limit
 		s.Equal(expected, r)
 	}
 }
@@ -512,7 +504,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	findOpts.Limit = 100
 	r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
-	expected.readerOpts = model.LogIteratorReaderOptions{Limit: findOpts.Limit}
+	expected.readerOpts.Limit = findOpts.Limit
 	s.Equal(expected, r)
 }
 
@@ -581,16 +573,15 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		}
 		r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts := model.LogIteratorReaderOptions{
-			PrintTime:     printTime,
-			PrintPriority: !printTime,
-		}
 		expected := &buildloggerPaginatedResponder{
-			ctx:        s.ctx,
-			it:         model.NewMergingIterator(expectedIt1, expectedIt2),
-			tr:         findOpts.TimeRange,
-			readerOpts: readerOpts,
-			Responder:  responder,
+			ctx: s.ctx,
+			it:  model.NewMergingIterator(expectedIt1, expectedIt2),
+			tr:  findOpts.TimeRange,
+			readerOpts: model.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+			},
+			Responder: responder,
 		}
 		s.Equal(expected, r)
 
@@ -598,8 +589,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		findOpts.Limit = 100
 		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts.Limit = findOpts.Limit
-		expected.readerOpts = readerOpts
+		expected.readerOpts.Limit = findOpts.Limit
 		s.Equal(expected, r)
 	}
 }
@@ -636,16 +626,15 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		}
 		r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts := model.LogIteratorReaderOptions{
-			PrintTime:     printTime,
-			PrintPriority: !printTime,
-		}
 		expected := &buildloggerPaginatedResponder{
-			ctx:        s.ctx,
-			it:         model.NewMergingIterator(expectedIt),
-			tr:         findOpts.TimeRange,
-			readerOpts: readerOpts,
-			Responder:  responder,
+			ctx: s.ctx,
+			it:  model.NewMergingIterator(expectedIt),
+			tr:  findOpts.TimeRange,
+			readerOpts: model.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+			},
+			Responder: responder,
 		}
 		s.Equal(expected, r)
 
@@ -653,8 +642,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		findOpts.Limit = 100
 		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		readerOpts.Limit = findOpts.Limit
-		expected.readerOpts = readerOpts
+		expected.readerOpts.Limit = findOpts.Limit
 		s.Equal(expected, r)
 	}
 }
