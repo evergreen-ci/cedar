@@ -325,6 +325,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NoError(err)
 		s.Require().NotNil(expectedIt)
 
+		findOpts.Limit = 0
 		findOpts.Tail = 100
 		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)

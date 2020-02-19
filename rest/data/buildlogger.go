@@ -45,23 +45,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-
-	return resp, resp.SetFormat(gimlet.TEXT)
+	return newResponder(ctx, it, opts)
 }
 
 func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -126,24 +110,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 		}
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		TailN:         opts.Tail,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-
-	return resp, resp.SetFormat(gimlet.TEXT)
+	return newResponder(ctx, it, opts)
 }
 
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -187,23 +154,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 		return nil, err
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-
-	return resp, resp.SetFormat(gimlet.TEXT)
+	return newResponder(ctx, it, opts)
 }
 
 func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -263,23 +214,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	}
 	it = dbModel.NewMergingIterator(its...)
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-
-	return resp, resp.SetFormat(gimlet.TEXT)
+	return newResponder(ctx, it, opts)
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
@@ -347,22 +282,8 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 	}
 	it := dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange)
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+	resp, err := newResponder(ctx, it, opts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -433,23 +354,8 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 	}
 	it := dbModel.NewMergingIterator(its...)
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		TailN:         opts.Tail,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+	resp, err := newResponder(ctx, it, opts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -496,22 +402,8 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 		return nil, err
 	}
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+	resp, err := newResponder(ctx, it, opts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -569,22 +461,8 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	}
 	it = dbModel.NewMergingIterator(its...)
 
-	readerOpts := dbModel.LogIteratorReaderOptions{
-		Limit:         opts.Limit,
-		PrintTime:     opts.PrintTime,
-		PrintPriority: opts.PrintPriority,
-	}
-	if readerOpts.Limit > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
-	resp := &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  gimlet.NewResponseBuilder(),
-	}
-	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+	resp, err := newResponder(ctx, it, opts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -643,7 +521,11 @@ type buildloggerPaginatedResponder struct {
 
 func (r *buildloggerPaginatedResponder) Data() interface{} {
 	_ = r.Pages()
-	return r.Responder.Data()
+	data, ok := r.Responder.Data().([]interface{})
+	if !ok {
+		return r.Responder.Data()
+	}
+	return data[0]
 }
 
 func (r *buildloggerPaginatedResponder) Pages() *gimlet.ResponsePages {
@@ -695,4 +577,32 @@ func (r *buildloggerPaginatedResponder) Pages() *gimlet.ResponsePages {
 	}
 
 	return r.Responder.Pages()
+}
+
+func newResponder(ctx context.Context, it dbModel.LogIterator, opts BuildloggerOptions) (gimlet.Responder, error) {
+	readerOpts := dbModel.LogIteratorReaderOptions{
+		Limit:         opts.Limit,
+		TailN:         opts.Tail,
+		PrintTime:     opts.PrintTime,
+		PrintPriority: opts.PrintPriority,
+	}
+	if readerOpts.Limit > 0 || readerOpts.TailN > 0 {
+		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
+	}
+
+	resp := gimlet.NewResponseBuilder()
+	if err := resp.SetFormat(gimlet.TEXT); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "problem creating responder").Error(),
+		}
+	}
+
+	return &buildloggerPaginatedResponder{
+		ctx:        ctx,
+		it:         it,
+		tr:         opts.TimeRange,
+		readerOpts: readerOpts,
+		Responder:  resp,
+	}, nil
 }

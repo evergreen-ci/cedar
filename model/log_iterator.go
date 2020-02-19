@@ -505,9 +505,9 @@ func (i *paginatedIterator) Next(ctx context.Context) bool {
 
 		if i.windowEnd.IsZero() {
 			if i.LogIterator.IsReversed() {
-				i.windowEnd.Add(-i.window)
+				i.windowEnd = item.Timestamp.Add(-i.window)
 			} else {
-				i.windowEnd.Add(i.window)
+				i.windowEnd = item.Timestamp.Add(i.window)
 			}
 		}
 
