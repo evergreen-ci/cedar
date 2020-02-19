@@ -721,6 +721,6 @@ func (s *buildloggerConnectorSuite) TestBuildloggerPaginatedResponder() {
 	resp.Responder = gimlet.NewResponseBuilder()
 	s.Require().Equal([]interface{}{}, resp.Responder.Data())
 	s.Require().Nil(resp.Responder.Pages())
-	s.Equal([]interface{}{[]byte{}}, resp.Data())
+	s.Equal([]byte{}, resp.Data())
 	s.Equal(expectedPages, resp.Pages())
 }
