@@ -204,7 +204,7 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 			r, err = s.sc.FindLogByID(s.ctx, findOpts)
 			s.Require().NoError(err)
 			expected.readerOpts.Limit = findOpts.Limit
-			s.Equal(expected, r)
+			s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
 		}
 	}
 }
@@ -311,7 +311,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(expected, r)
+		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
 
 		// tail
 		findOpts.Execution = 0
@@ -328,9 +328,8 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		findOpts.Tail = 100
 		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected.it = expectedIt
 		expected.readerOpts.TailN = findOpts.Tail
-		s.Equal(expected, r)
+		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
 	}
 }
 
@@ -431,7 +430,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(expected, r)
+		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
 	}
 }
 
@@ -505,7 +504,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
 	expected.readerOpts.Limit = findOpts.Limit
-	s.Equal(expected, r)
+	s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
@@ -590,7 +589,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(expected, r)
+		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expected.it, expected.readerOpts)), r)
 	}
 }
 
@@ -643,7 +642,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
 		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(expected, r)
+		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expected.it, expected.readerOpts)), r)
 	}
 }
 
