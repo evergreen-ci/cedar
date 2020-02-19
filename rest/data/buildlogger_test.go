@@ -661,3 +661,65 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsDNE() {
 	s.Error(err)
 	s.Nil(r)
 }
+
+func (s *buildloggerConnectorSuite) TestBuildloggerPaginatedResponder() {
+	responder := gimlet.NewResponseBuilder()
+	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
+
+	opts := model.LogFindOptions{
+		TimeRange: util.TimeRange{
+			StartAt: time.Now().Add(-time.Hour),
+			EndAt:   time.Now(),
+		},
+		Info: model.LogInfo{
+			TaskID:    "task1",
+			Execution: 1,
+		},
+	}
+	logs := model.Logs{}
+	logs.Setup(s.env)
+	s.Require().NoError(logs.Find(s.ctx, opts))
+	expectedIt, err := logs.Merge(s.ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(expectedIt)
+
+	resp := &buildloggerPaginatedResponder{
+		ctx: s.ctx,
+		it:  expectedIt,
+		tr:  opts.TimeRange,
+		readerOpts: model.LogIteratorReaderOptions{
+			PrintTime:     true,
+			PrintPriority: true,
+		},
+		Responder: gimlet.NewResponseBuilder(),
+	}
+	expectedPages := &gimlet.ResponsePages{
+		Prev: &gimlet.Page{
+			BaseURL:         "https://cedar.mongodb.com",
+			KeyQueryParam:   "start",
+			LimitQueryParam: "limit",
+			Key:             opts.TimeRange.StartAt.Format(time.RFC3339),
+			Relation:        "prev",
+		},
+		Next: &gimlet.Page{
+			BaseURL:         "https://cedar.mongodb.com",
+			KeyQueryParam:   "start",
+			LimitQueryParam: "limit",
+			Key:             time.Time{}.Add(time.Millisecond).Format(time.RFC3339),
+			Relation:        "next",
+		},
+	}
+
+	s.Require().Nil(resp.Responder.Pages())
+	s.Equal(expectedPages, resp.Pages())
+	s.Equal(expectedPages, resp.Responder.Pages())
+	s.Equal(expectedPages, resp.Pages()) // assert no errors on second call
+	s.NoError(resp.err)
+
+	// data calls pages before returning
+	resp.Responder = gimlet.NewResponseBuilder()
+	s.Require().Equal([]interface{}{}, resp.Responder.Data())
+	s.Require().Nil(resp.Responder.Pages())
+	s.Equal([]interface{}{[]byte{}}, resp.Data())
+	s.Equal(expectedPages, resp.Pages())
+}

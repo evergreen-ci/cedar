@@ -647,15 +647,13 @@ func (r *buildloggerPaginatedResponder) Data() interface{} {
 }
 
 func (r *buildloggerPaginatedResponder) Pages() *gimlet.ResponsePages {
-	defer func() {
-		if r.err != nil {
-			r.SetStatus(http.StatusInternalServerError)
-		} else {
-			r.SetStatus(http.StatusOK)
-		}
-	}()
-
 	if r.Responder.Pages() == nil {
+		defer func() {
+			if r.err != nil {
+				r.SetStatus(http.StatusInternalServerError)
+			}
+		}()
+
 		reader := dbModel.NewLogIteratorReader(
 			r.ctx,
 			dbModel.NewPaginatedLogIterator(r.it, 5*time.Minute, 50*1024*1024),

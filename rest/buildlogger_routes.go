@@ -84,7 +84,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return r
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -202,7 +202,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return r
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -316,7 +316,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return r
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -460,5 +460,5 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 			"Error getting grouped logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return r
 }
