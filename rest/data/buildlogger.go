@@ -21,16 +21,21 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
+
 	log := dbModel.Log{ID: opts.ID}
 	log.Setup(dbc.env)
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("log with id '%s' not found", opts.ID),
 		}
 	} else if err != nil {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
 		}
@@ -39,13 +44,22 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	log.Setup(dbc.env)
 	it, err := log.Download(ctx, opts.TimeRange)
 	if err != nil {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
 		}
 	}
 
-	return newResponder(ctx, it, opts)
+	opts.Tail = 0
+	data, paginated, err = paginateData(ctx, it, opts)
+	if err != nil {
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
+	}
+
+	return data, it.Item().Timestamp, paginated, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -74,7 +88,12 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 	return apiLog, nil
 }
 
-func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
+
 	dbOpts := dbModel.LogFindOptions{
 		TimeRange: opts.TimeRange,
 		Info: dbModel.LogInfo{
@@ -90,12 +109,12 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
 	if err := logs.Find(ctx, dbOpts); db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("logs with task id '%s' not found", opts.TaskID),
 		}
 	} else if err != nil {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
 		}
@@ -104,13 +123,21 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	logs.Setup(dbc.env)
 	it, err := logs.Merge(ctx)
 	if err != nil {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
 		}
 	}
 
-	return newResponder(ctx, it, opts)
+	data, paginated, err = paginateData(ctx, it, opts)
+	if err != nil {
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
+	}
+
+	return data, it.Item().Timestamp, paginated, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -148,13 +175,27 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 	return apiLogs, nil
 }
 
-func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
+
 	it, err := dbc.findLogsByTestName(ctx, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, err
 	}
 
-	return newResponder(ctx, it, opts)
+	opts.Tail = 0
+	data, paginated, err = paginateData(ctx, it, opts)
+	if err != nil {
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
+	}
+
+	return data, it.Item().Timestamp, paginated, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -197,11 +238,16 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 	return apiLogs, nil
 }
 
-func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
+
 	its := []dbModel.LogIterator{}
 	it, err := dbc.findLogsByTestName(ctx, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, err
 	}
 	its = append(its, it)
 
@@ -210,11 +256,20 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	if err == nil {
 		its = append(its, it)
 	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
-		return nil, err
+		return data, time.Time{}, paginated, err
 	}
 	it = dbModel.NewMergingIterator(its...)
 
-	return newResponder(ctx, it, opts)
+	opts.Tail = 0
+	data, paginated, err = paginateData(ctx, it, opts)
+	if err != nil {
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
+	}
+
+	return data, it.Item().Timestamp, paginated, nil
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
@@ -260,10 +315,15 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts Buildlogger
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
+
 	log, ok := mc.CachedLogs[opts.ID]
 	if !ok {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("log with id '%s' not found", opts.ID),
 		}
@@ -275,19 +335,23 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
 		}
 	}
 	it := dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange)
 
-	resp, err := newResponder(ctx, it, opts)
+	opts.Tail = 0
+	data, paginated, err = paginateData(ctx, it, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
 	}
 
-	return resp, ctx.Err()
+	return data, it.Item().Timestamp, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -310,7 +374,11 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 	return apiLog, ctx.Err()
 }
 
-func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == opts.TaskID {
@@ -318,7 +386,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		}
 	}
 	if len(logs) == 0 {
-		return nil, gimlet.ErrorResponse{
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("logs with task id '%s' not found", opts.TaskID),
 		}
@@ -344,7 +412,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		}
 		bucket, err := pail.NewLocalBucket(bucketOpts)
 		if err != nil {
-			return nil, gimlet.ErrorResponse{
+			return data, time.Time{}, paginated, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
 				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
 			}
@@ -354,12 +422,16 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 	}
 	it := dbModel.NewMergingIterator(its...)
 
-	resp, err := newResponder(ctx, it, opts)
+	var err error
+	data, paginated, err = paginateData(ctx, it, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
 	}
 
-	return resp, ctx.Err()
+	return data, it.Item().Timestamp, paginated, nil
 }
 
 func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -396,18 +468,27 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts Build
 	return apiLogs, ctx.Err()
 }
 
-func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
+
 	it, err := mc.findLogsByTestName(ctx, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, err
 	}
 
-	resp, err := newResponder(ctx, it, opts)
+	opts.Tail = 0
+	data, paginated, err = paginateData(ctx, it, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
 	}
 
-	return resp, ctx.Err()
+	return data, it.Item().Timestamp, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -444,11 +525,15 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts Bui
 	return apiLogs, ctx.Err()
 }
 
-func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) (gimlet.Responder, error) {
+func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOptions) ([]byte, time.Time, bool, error) {
+	var (
+		data      []byte
+		paginated bool
+	)
 	its := []dbModel.LogIterator{}
 	it, err := mc.findLogsByTestName(ctx, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, err
 	}
 	its = append(its, it)
 
@@ -457,16 +542,20 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	if err == nil {
 		its = append(its, it)
 	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
-		return nil, err
+		return data, time.Time{}, paginated, err
 	}
 	it = dbModel.NewMergingIterator(its...)
 
-	resp, err := newResponder(ctx, it, opts)
+	opts.Tail = 0
+	data, paginated, err = paginateData(ctx, it, opts)
 	if err != nil {
-		return nil, err
+		return data, time.Time{}, paginated, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+		}
 	}
 
-	return resp, ctx.Err()
+	return data, it.Item().Timestamp, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
@@ -506,103 +595,21 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts Buildlogge
 	return dbModel.NewMergingIterator(its...), ctx.Err()
 }
 
-//////////////////////////////////
-// Buildlogger Paginated Responder
-//////////////////////////////////
-type buildloggerPaginatedResponder struct {
-	ctx        context.Context
-	it         dbModel.LogIterator
-	tr         util.TimeRange
-	readerOpts dbModel.LogIteratorReaderOptions
-	err        error
-
-	gimlet.Responder
-}
-
-func (r *buildloggerPaginatedResponder) Data() interface{} {
-	_ = r.Pages()
-	data, ok := r.Responder.Data().([]interface{})
-	if !ok {
-		return r.Responder.Data()
-	}
-	return data[0]
-}
-
-func (r *buildloggerPaginatedResponder) Pages() *gimlet.ResponsePages {
-	if r.Responder.Pages() == nil {
-		defer func() {
-			if r.err != nil {
-				r.SetStatus(http.StatusInternalServerError)
-			}
-		}()
-
-		reader := dbModel.NewLogIteratorReader(
-			r.ctx,
-			dbModel.NewPaginatedLogIterator(r.it, 5*time.Minute, 50*1024*1024),
-			r.readerOpts,
-		)
-		data, err := ioutil.ReadAll(reader)
-		if err != nil {
-			r.err = err
-			return nil
-		}
-
-		if err = r.AddData(data); err != nil {
-			r.err = err
-			return nil
-		}
-
-		baseURL := "https://cedar.mongodb.com"
-		pages := &gimlet.ResponsePages{
-			Prev: &gimlet.Page{
-				BaseURL:         baseURL,
-				KeyQueryParam:   "start",
-				LimitQueryParam: "limit",
-				Key:             r.tr.StartAt.Format(time.RFC3339),
-				Relation:        "prev",
-			},
-			Next: &gimlet.Page{
-				BaseURL:         baseURL,
-				KeyQueryParam:   "start",
-				LimitQueryParam: "limit",
-				Key:             r.it.Item().Timestamp.Add(time.Millisecond).Format(time.RFC3339),
-				Relation:        "next",
-			},
-		}
-
-		if err = r.SetPages(pages); err != nil {
-			r.err = err
-			return nil
-		}
-	}
-
-	return r.Responder.Pages()
-}
-
-func newResponder(ctx context.Context, it dbModel.LogIterator, opts BuildloggerOptions) (gimlet.Responder, error) {
+func paginateData(ctx context.Context, it dbModel.LogIterator, opts BuildloggerOptions) ([]byte, bool, error) {
 	readerOpts := dbModel.LogIteratorReaderOptions{
 		Limit:         opts.Limit,
 		TailN:         opts.Tail,
 		PrintTime:     opts.PrintTime,
 		PrintPriority: opts.PrintPriority,
 	}
-	if readerOpts.Limit > 0 || readerOpts.TailN > 0 {
-		return gimlet.NewTextResponse(dbModel.NewLogIteratorReader(ctx, it, readerOpts)), nil
-	}
 
-	resp := gimlet.NewResponseBuilder()
-	if err := resp.SetFormat(gimlet.TEXT); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "problem creating responder").Error(),
-		}
+	var paginated bool
+	if opts.SoftSizeLimit > 0 && readerOpts.Limit <= 0 && readerOpts.TailN <= 0 {
+		readerOpts.SoftSizeLimit = opts.SoftSizeLimit
+		paginated = true
 	}
+	reader := dbModel.NewLogIteratorReader(ctx, it, readerOpts)
 
-	return &buildloggerPaginatedResponder{
-		ctx:        ctx,
-		it:         it,
-		tr:         opts.TimeRange,
-		readerOpts: readerOpts,
-		Responder:  resp,
-	}, nil
+	data, err := ioutil.ReadAll(reader)
+	return data, paginated, err
 }

@@ -2,24 +2,26 @@ package data
 
 import (
 	"context"
-	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/testutils"
 	"github.com/evergreen-ci/cedar/util"
-	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
 )
 
 type buildloggerConnectorSuite struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	sc     Connector
-	env    cedar.Environment
-	logs   map[string]model.Log
+	ctx     context.Context
+	cancel  context.CancelFunc
+	sc      Connector
+	env     cedar.Environment
+	logs    map[string]model.Log
+	tempDir string
 
 	suite.Suite
 }
@@ -34,12 +36,10 @@ func TestBuildloggerConnectorSuiteDB(t *testing.T) {
 func TestBuildloggerConnectorSuiteMock(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
 	s.setup()
-	wd, err := os.Getwd()
-	s.Require().NoError(err)
 	s.sc = &MockConnector{
 		CachedLogs: s.logs,
 		env:        cedar.GetEnvironment(),
-		Bucket:     wd,
+		Bucket:     s.tempDir,
 	}
 	suite.Run(t, s)
 }
@@ -51,6 +51,14 @@ func (s *buildloggerConnectorSuite) setup() {
 	db := s.env.GetDB()
 	s.Require().NotNil(db)
 	s.logs = map[string]model.Log{}
+
+	// setup config
+	var err error
+	s.tempDir, err = ioutil.TempDir(".", "buildlogger_connector")
+	s.Require().NoError(err)
+	conf := model.NewCedarConfig(s.env)
+	conf.Bucket = model.BucketConfig{BuildLogsBucket: s.tempDir}
+	s.Require().NoError(conf.Save())
 
 	logs := []model.LogInfo{
 		{
@@ -143,31 +151,33 @@ func (s *buildloggerConnectorSuite) setup() {
 			Mainline:    true,
 		},
 	}
+
 	for _, logInfo := range logs {
 		log := model.CreateLog(logInfo, model.PailLocal)
+
+		opts := pail.LocalOptions{
+			Path:   s.tempDir,
+			Prefix: log.Artifact.Prefix,
+		}
+		bucket, err := pail.NewLocalBucket(opts)
+		s.Require().NoError(err)
+		chunks, _, err := testutils.CreateLog(s.ctx, bucket, 100, 10)
+		log.Artifact.Chunks = chunks
+
 		log.Setup(s.env)
 		s.Require().NoError(log.SaveNew(s.ctx))
 		s.logs[log.ID] = *log
 		time.Sleep(time.Second)
 	}
-
-	// setup config
-	wd, err := os.Getwd()
-	s.Require().NoError(err)
-	conf := model.NewCedarConfig(s.env)
-	conf.Bucket = model.BucketConfig{BuildLogsBucket: wd}
-	s.Require().NoError(conf.Save())
 }
 
 func (s *buildloggerConnectorSuite) TearDownSuite() {
 	defer s.cancel()
+	s.NoError(os.RemoveAll(s.tempDir))
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
 	for id, log := range s.logs {
 		for _, printTime := range []bool{true, false} {
 			findOpts := BuildloggerOptions{
@@ -178,41 +188,47 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 				},
 				PrintTime:     printTime,
 				PrintPriority: !printTime,
+				SoftSizeLimit: 500,
 			}
-			r, err := s.sc.FindLogByID(s.ctx, findOpts)
+			data, next, paginated, err := s.sc.FindLogByID(s.ctx, findOpts)
 			s.Require().NoError(err)
-			expectedIt, err := log.Download(s.ctx, findOpts.TimeRange)
+			s.True(paginated)
+			it, err := log.Download(s.ctx, findOpts.TimeRange)
 			s.Require().NoError(err)
-			expected := &buildloggerPaginatedResponder{
-				ctx: s.ctx,
-				it:  expectedIt,
-				tr:  findOpts.TimeRange,
-				readerOpts: model.LogIteratorReaderOptions{
-					PrintTime:     printTime,
-					PrintPriority: !printTime,
-				},
-				Responder: responder,
+			readerOpts := model.LogIteratorReaderOptions{
+				PrintTime:     printTime,
+				PrintPriority: !printTime,
+				SoftSizeLimit: findOpts.SoftSizeLimit,
 			}
-			s.Equal(expected, r)
+			expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+			s.Require().NoError(err)
+			s.Equal(expected, data)
+			s.Equal(it.Item().Timestamp, next)
 
 			l, err := s.sc.FindLogMetadataByID(s.ctx, id)
 			s.Require().NoError(err)
 			s.Equal(id, *l.ID)
 
 			// limit
-			findOpts.Limit = 100
-			r, err = s.sc.FindLogByID(s.ctx, findOpts)
+			findOpts.Limit = 50
+			readerOpts.Limit = 100
+			readerOpts.SoftSizeLimit = 0
+			data, next, paginated, err = s.sc.FindLogByID(s.ctx, findOpts)
 			s.Require().NoError(err)
-			expected.readerOpts.Limit = findOpts.Limit
-			s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
+			s.False(paginated)
+			it, err = log.Download(s.ctx, findOpts.TimeRange)
+			s.Require().NoError(err)
+			expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+			s.Require().NoError(err)
+			s.Equal(expected, data)
+			s.Equal(it.Item().Timestamp, next)
 		}
 	}
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogByIDDNE() {
-	r, err := s.sc.FindLogByID(s.ctx, BuildloggerOptions{ID: "DNE"})
+	_, _, _, err := s.sc.FindLogByID(s.ctx, BuildloggerOptions{ID: "DNE"})
 	s.Error(err)
-	s.Nil(r)
 
 	l, err := s.sc.FindLogMetadataByID(s.ctx, "DNE")
 	s.Error(err)
@@ -220,9 +236,6 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDDNE() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
@@ -237,9 +250,6 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		logs := model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err := logs.Merge(s.ctx)
-		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
 
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
@@ -247,20 +257,23 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
 			PrintPriority: !printTime,
+			SoftSizeLimit: 500,
 		}
-		r, err := s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		data, next, paginated, err := s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected := &buildloggerPaginatedResponder{
-			ctx: s.ctx,
-			it:  expectedIt,
-			tr:  findOpts.TimeRange,
-			readerOpts: model.LogIteratorReaderOptions{
-				PrintTime:     printTime,
-				PrintPriority: !printTime,
-			},
-			Responder: responder,
+		s.True(paginated)
+		it, err := logs.Merge(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(it)
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+			SoftSizeLimit: 500,
 		}
-		s.Equal(expected, r)
+		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		apiLogs, err := s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -274,15 +287,17 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		logs = model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err = logs.Merge(s.ctx)
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+		s.Require().NotNil(it)
 
 		findOpts.Tags = opts.Info.Tags
-		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected.it = expectedIt
-		s.Equal(expected, r)
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		apiLogs, err = s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -296,41 +311,57 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		logs = model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err = logs.Merge(s.ctx)
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+		s.Require().NotNil(it)
 
 		findOpts.ProcessName = opts.Info.ProcessName
-		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected.it = expectedIt
-		s.Equal(expected, r)
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		// limit
-		findOpts.Limit = 100
-		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		logs = model.Logs{}
+		logs.Setup(s.env)
+		s.Require().NoError(logs.Find(s.ctx, opts))
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
+		s.Require().NotNil(it)
 
-		// tail
-		findOpts.Execution = 0
+		findOpts.Limit = 100
+		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.False(paginated)
+		readerOpts.Limit = 100
+		readerOpts.SoftSizeLimit = 0
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
+
+		// tail and execution
 		opts.Info.Execution = 0
 		opts.Empty.Execution = true
 		logs = model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		fmt.Println(logs.Logs)
-		expectedIt, err = logs.Merge(s.ctx)
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+		s.Require().NotNil(it)
 
-		findOpts.Limit = 0
+		findOpts.Execution = 0
 		findOpts.Tail = 100
-		r, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
+		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected.readerOpts.TailN = findOpts.Tail
-		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
+		readerOpts.Limit = 0
+		readerOpts.TailN = findOpts.Tail
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 	}
 }
 
@@ -342,9 +373,8 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDDNE() {
 			EndAt:   time.Now(),
 		},
 	}
-	r, err := s.sc.FindLogsByTaskID(s.ctx, opts)
+	_, _, _, err := s.sc.FindLogsByTaskID(s.ctx, opts)
 	s.Error(err)
-	s.Nil(r)
 
 	apiLogs, err := s.sc.FindLogMetadataByTaskID(s.ctx, BuildloggerOptions{TaskID: "DNE"})
 	s.Error(err)
@@ -352,11 +382,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDDNE() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
 	for _, printTime := range []bool{true, false} {
-
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
@@ -370,9 +396,9 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		logs := model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err := logs.Merge(s.ctx)
+		it, err := logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+		s.Require().NotNil(it)
 
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
@@ -380,20 +406,20 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
 			PrintPriority: !printTime,
+			SoftSizeLimit: 500,
 		}
-		r, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
+		data, next, paginated, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected := &buildloggerPaginatedResponder{
-			ctx: s.ctx,
-			it:  expectedIt,
-			tr:  findOpts.TimeRange,
-			readerOpts: model.LogIteratorReaderOptions{
-				PrintTime:     printTime,
-				PrintPriority: !printTime,
-			},
-			Responder: responder,
+		s.True(paginated)
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+			SoftSizeLimit: findOpts.SoftSizeLimit,
 		}
-		s.Equal(expected, r)
+		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -408,15 +434,18 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		logs = model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err = logs.Merge(s.ctx)
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+		s.Require().NotNil(it)
 
 		findOpts.Tags = opts.Info.Tags
-		r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+		data, next, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected.it = expectedIt
-		s.Equal(expected, r)
+		s.True(paginated)
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -427,18 +456,24 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		}
 
 		// limit
-		findOpts.Limit = 100
-		r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
+		s.Require().NotNil(it)
+
+		findOpts.Limit = 100
+		data, next, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.False(paginated)
+		readerOpts.Limit = findOpts.Limit
+		readerOpts.SoftSizeLimit = 0
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 	}
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
 	opts := model.LogFindOptions{
 		TimeRange: util.TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
@@ -450,24 +485,23 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	logs := model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err := logs.Merge(s.ctx)
+	it, err := logs.Merge(s.ctx)
 	s.Require().NoError(err)
-	s.Require().NotNil(expectedIt)
+	s.Require().NotNil(it)
 
 	findOpts := BuildloggerOptions{
-		TaskID:    opts.Info.TaskID,
-		TimeRange: opts.TimeRange,
+		TaskID:        opts.Info.TaskID,
+		TimeRange:     opts.TimeRange,
+		SoftSizeLimit: 500,
 	}
-	r, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
+	data, next, paginated, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
-	expected := &buildloggerPaginatedResponder{
-		ctx:        s.ctx,
-		it:         expectedIt,
-		tr:         findOpts.TimeRange,
-		readerOpts: model.LogIteratorReaderOptions{},
-		Responder:  responder,
-	}
-	s.Equal(expected, r)
+	s.True(paginated)
+	readerOpts := model.LogIteratorReaderOptions{SoftSizeLimit: findOpts.SoftSizeLimit}
+	expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+	s.Require().NoError(err)
+	s.Equal(expected, data)
+	s.Equal(it.Item().Timestamp, next)
 
 	apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
@@ -482,15 +516,18 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	logs = model.Logs{}
 	logs.Setup(s.env)
 	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err = logs.Merge(s.ctx)
+	it, err = logs.Merge(s.ctx)
 	s.Require().NoError(err)
-	s.Require().NotNil(expectedIt)
+	s.Require().NotNil(it)
 
 	findOpts.Tags = opts.Info.Tags
-	r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+	data, next, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
-	expected.it = expectedIt
-	s.Equal(expected, r)
+	s.True(paginated)
+	expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+	s.Require().NoError(err)
+	s.Equal(expected, data)
+	s.Equal(it.Item().Timestamp, next)
 
 	apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
@@ -501,11 +538,20 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	}
 
 	// limit
-	findOpts.Limit = 100
-	r, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+	it, err = logs.Merge(s.ctx)
 	s.Require().NoError(err)
-	expected.readerOpts.Limit = findOpts.Limit
-	s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expectedIt, expected.readerOpts)), r)
+	s.Require().NotNil(it)
+
+	findOpts.Limit = 100
+	data, next, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+	s.Require().NoError(err)
+	s.False(paginated)
+	readerOpts.Limit = findOpts.Limit
+	readerOpts.SoftSizeLimit = 0
+	expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+	s.Require().NoError(err)
+	s.Equal(expected, data)
+	s.Equal(it.Item().Timestamp, next)
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
@@ -517,9 +563,8 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
 			EndAt:   time.Now(),
 		},
 	}
-	r, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
+	_, _, _, err := s.sc.FindLogsByTestName(s.ctx, findOpts)
 	s.Error(err)
-	s.Nil(r)
 
 	apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 	s.Error(err)
@@ -527,9 +572,6 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
@@ -542,26 +584,25 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 				Tags:     []string{"tag1"},
 			},
 		}
-		logs := model.Logs{}
-		logs.Setup(s.env)
-		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt1, err := logs.Merge(s.ctx)
-		fmt.Println(logs.Logs)
+		logs1 := model.Logs{}
+		logs1.Setup(s.env)
+		s.Require().NoError(logs1.Find(s.ctx, opts))
+		it1, err := logs1.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt1)
+		s.Require().NotNil(it1)
 
 		opts.Info = model.LogInfo{
 			TaskID: "task1",
 			Tags:   []string{"tag1"},
 		}
 		opts.Empty = model.EmptyLogInfo{TestName: true}
-		logs = model.Logs{}
-		logs.Setup(s.env)
-		s.Require().NoError(logs.Find(s.ctx, opts))
-		fmt.Println(logs.Logs)
-		expectedIt2, err := logs.Merge(s.ctx)
+		logs2 := model.Logs{}
+		logs2.Setup(s.env)
+		s.Require().NoError(logs2.Find(s.ctx, opts))
+		it2, err := logs2.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt2)
+		s.Require().NotNil(it2)
+		it := model.NewMergingIterator(it1, it2)
 
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
@@ -570,34 +611,43 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
 			PrintPriority: !printTime,
+			SoftSizeLimit: 500,
 		}
-		r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
+		data, next, paginated, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected := &buildloggerPaginatedResponder{
-			ctx: s.ctx,
-			it:  model.NewMergingIterator(expectedIt1, expectedIt2),
-			tr:  findOpts.TimeRange,
-			readerOpts: model.LogIteratorReaderOptions{
-				PrintTime:     printTime,
-				PrintPriority: !printTime,
-			},
-			Responder: responder,
+		s.True(paginated)
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+			SoftSizeLimit: findOpts.SoftSizeLimit,
 		}
-		s.Equal(expected, r)
+		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		// limit
-		findOpts.Limit = 100
-		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		it1, err = logs1.Merge(s.ctx)
 		s.Require().NoError(err)
-		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expected.it, expected.readerOpts)), r)
+		s.Require().NotNil(it1)
+		it2, err = logs2.Merge(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(it2)
+		it = model.NewMergingIterator(it1, it2)
+
+		findOpts.Limit = 100
+		data, next, paginated, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		s.Require().NoError(err)
+		readerOpts.Limit = findOpts.Limit
+		readerOpts.SoftSizeLimit = 0
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 	}
 }
 
 func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
 			TimeRange: util.TimeRange{
@@ -612,9 +662,10 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		logs := model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
-		expectedIt, err := logs.Merge(s.ctx)
+		it, err := logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		s.Require().NotNil(expectedIt)
+		s.Require().NotNil(it)
+		it = model.NewMergingIterator(it)
 
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
@@ -623,27 +674,37 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
 			PrintPriority: !printTime,
+			SoftSizeLimit: 500,
 		}
-		r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
+		data, next, paginated, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
-		expected := &buildloggerPaginatedResponder{
-			ctx: s.ctx,
-			it:  model.NewMergingIterator(expectedIt),
-			tr:  findOpts.TimeRange,
-			readerOpts: model.LogIteratorReaderOptions{
-				PrintTime:     printTime,
-				PrintPriority: !printTime,
-			},
-			Responder: responder,
+		s.True(paginated)
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+			SoftSizeLimit: findOpts.SoftSizeLimit,
 		}
-		s.Equal(expected, r)
+		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		// limit
-		findOpts.Limit = 100
-		r, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
-		expected.readerOpts.Limit = findOpts.Limit
-		s.Equal(gimlet.NewTextResponse(model.NewLogIteratorReader(s.ctx, expected.it, expected.readerOpts)), r)
+		s.Require().NotNil(it)
+		it = model.NewMergingIterator(it)
+
+		findOpts.Limit = 100
+		data, next, paginated, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.False(paginated)
+		readerOpts.Limit = findOpts.Limit
+		readerOpts.SoftSizeLimit = 0
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 	}
 }
 
@@ -657,70 +718,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsDNE() {
 			EndAt:   time.Now(),
 		},
 	}
-	r, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
+	_, _, _, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
 
 	s.Error(err)
-	s.Nil(r)
-}
-
-func (s *buildloggerConnectorSuite) TestBuildloggerPaginatedResponder() {
-	responder := gimlet.NewResponseBuilder()
-	s.Require().NoError(responder.SetFormat(gimlet.TEXT))
-
-	opts := model.LogFindOptions{
-		TimeRange: util.TimeRange{
-			StartAt: time.Now().Add(-time.Hour),
-			EndAt:   time.Now(),
-		},
-		Info: model.LogInfo{
-			TaskID:    "task1",
-			Execution: 1,
-		},
-	}
-	logs := model.Logs{}
-	logs.Setup(s.env)
-	s.Require().NoError(logs.Find(s.ctx, opts))
-	expectedIt, err := logs.Merge(s.ctx)
-	s.Require().NoError(err)
-	s.Require().NotNil(expectedIt)
-
-	resp := &buildloggerPaginatedResponder{
-		ctx: s.ctx,
-		it:  expectedIt,
-		tr:  opts.TimeRange,
-		readerOpts: model.LogIteratorReaderOptions{
-			PrintTime:     true,
-			PrintPriority: true,
-		},
-		Responder: gimlet.NewResponseBuilder(),
-	}
-	expectedPages := &gimlet.ResponsePages{
-		Prev: &gimlet.Page{
-			BaseURL:         "https://cedar.mongodb.com",
-			KeyQueryParam:   "start",
-			LimitQueryParam: "limit",
-			Key:             opts.TimeRange.StartAt.Format(time.RFC3339),
-			Relation:        "prev",
-		},
-		Next: &gimlet.Page{
-			BaseURL:         "https://cedar.mongodb.com",
-			KeyQueryParam:   "start",
-			LimitQueryParam: "limit",
-			Key:             time.Time{}.Add(time.Millisecond).Format(time.RFC3339),
-			Relation:        "next",
-		},
-	}
-
-	s.Require().Nil(resp.Responder.Pages())
-	s.Equal(expectedPages, resp.Pages())
-	s.Equal(expectedPages, resp.Responder.Pages())
-	s.Equal(expectedPages, resp.Pages()) // assert no errors on second call
-	s.NoError(resp.err)
-
-	// data calls pages before returning
-	resp.Responder = gimlet.NewResponseBuilder()
-	s.Require().Equal([]interface{}{}, resp.Responder.Data())
-	s.Require().Nil(resp.Responder.Pages())
-	s.Equal([]byte{}, resp.Data())
-	s.Equal(expectedPages, resp.Pages())
 }

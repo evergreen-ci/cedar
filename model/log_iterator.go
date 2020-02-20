@@ -680,6 +680,11 @@ type LogIteratorReaderOptions struct {
 	// If PrintTime is also set to true, priority will be printed first:
 	// 		[P:100] [2006/01/02 15:04:05.000] This is a log line.
 	PrintPriority bool
+	// SoftSizeLimit assists with pagination of long logs. When set the
+	// reader will attempt to read as close to the limit as possible while
+	// also reading every line for each timestamp reached. If TailN is set,
+	// this will be ignored.
+	SoftSizeLimit int
 }
 
 // NewLogIteratorReader returns an io.Reader that reads the log lines from the
@@ -705,17 +710,21 @@ func NewLogIteratorReader(ctx context.Context, it LogIterator, opts LogIteratorR
 		limit:         opts.Limit,
 		printTime:     opts.PrintTime,
 		printPriority: opts.PrintPriority,
+		softSizeLimit: opts.SoftSizeLimit,
 	}
 }
 
 type logIteratorReader struct {
-	ctx           context.Context
-	it            LogIterator
-	lineCount     int
-	limit         int
-	leftOver      []byte
-	printTime     bool
-	printPriority bool
+	ctx            context.Context
+	it             LogIterator
+	lineCount      int
+	limit          int
+	leftOver       []byte
+	printTime      bool
+	printPriority  bool
+	softSizeLimit  int
+	totalBytesRead int
+	lastItem       LogLine
 }
 
 func (r *logIteratorReader) Read(p []byte) (int, error) {
@@ -735,7 +744,11 @@ func (r *logIteratorReader) Read(p []byte) (int, error) {
 		if r.limit > 0 && r.lineCount > r.limit {
 			break
 		}
+		if r.softSizeLimit > 0 && r.totalBytesRead >= r.softSizeLimit && !r.lastItem.Timestamp.Equal(r.it.Item().Timestamp) {
+			break
+		}
 
+		r.lastItem = r.it.Item()
 		data := r.it.Item().Data
 		if r.printTime {
 			data = fmt.Sprintf("[%s] %s",
@@ -771,6 +784,8 @@ func (r *logIteratorReader) writeToBuffer(data, buffer []byte, n int) int {
 		r.leftOver = data[m:]
 	}
 	_ = copy(buffer[n:n+m], data[:m])
+
+	r.totalBytesRead += m
 
 	return n + m
 }
