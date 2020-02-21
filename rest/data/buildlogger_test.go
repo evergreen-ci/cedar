@@ -9,7 +9,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/testutils"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
@@ -161,7 +160,7 @@ func (s *buildloggerConnectorSuite) setup() {
 		}
 		bucket, err := pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
-		chunks, _, err := testutils.CreateLog(s.ctx, bucket, 100, 10)
+		chunks, _, err := model.GenerateTestLog(s.ctx, bucket, 100, 10)
 		log.Artifact.Chunks = chunks
 
 		log.Setup(s.env)

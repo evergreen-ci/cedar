@@ -12,7 +12,6 @@ import (
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/testutils"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
@@ -155,7 +154,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 		}
 		s.buckets[key], err = pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
-		val.Artifact.Chunks, _, err = testutils.CreateLog(context.Background(), s.buckets[key], 100, 10)
+		val.Artifact.Chunks, _, err = dbModel.GenerateTestLog(context.Background(), s.buckets[key], 100, 10)
 		s.Require().NoError(err)
 		s.sc.CachedLogs[key] = val
 

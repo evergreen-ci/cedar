@@ -1,31 +1,28 @@
-package testutils
+package model
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/grip/level"
 	"github.com/pkg/errors"
 )
 
-func CreateLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]model.LogChunkInfo, []model.LogLine, error) {
-	lines := make([]model.LogLine, size)
+func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]LogChunkInfo, []LogLine, error) {
+	lines := make([]LogLine, size)
 	numChunks := size / chunkSize
 	if numChunks == 0 || size%chunkSize > 0 {
 		numChunks += 1
 	}
-	chunks := make([]model.LogChunkInfo, numChunks)
+	chunks := make([]LogChunkInfo, numChunks)
 	ts := time.Now().Round(time.Millisecond).UTC()
 
 	for i := 0; i < numChunks; i++ {
 		rawLines := ""
-		chunks[i] = model.LogChunkInfo{
+		chunks[i] = LogChunkInfo{
 			Key:   newRandCharSetString(16),
 			Start: ts,
 		}
@@ -33,18 +30,18 @@ func CreateLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]
 		j := 0
 		for j < chunkSize && j+i*chunkSize < size {
 			line := newRandCharSetString(100)
-			lines[j+i*chunkSize] = model.LogLine{
+			lines[j+i*chunkSize] = LogLine{
 				Priority:  level.Debug,
 				Timestamp: ts,
 				Data:      line + "\n",
 			}
-			rawLines += fmt.Sprintf("%3d%20d%s\n", level.Debug, util.UnixMilli(ts), line)
+			rawLines += prependPriorityAndTimestamp(level.Debug, ts, line)
 			ts = ts.Add(time.Minute)
 			j++
 		}
 
 		if err := bucket.Put(ctx, chunks[i].Key, strings.NewReader(rawLines)); err != nil {
-			return []model.LogChunkInfo{}, []model.LogLine{}, errors.Wrap(err, "failed to add chunk to bucket")
+			return []LogChunkInfo{}, []LogLine{}, errors.Wrap(err, "failed to add chunk to bucket")
 		}
 
 		chunks[i].NumLines = j
