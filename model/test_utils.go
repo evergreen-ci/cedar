@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// GenerateTestLog is a convenience function to generate random logs with 100
+// character long lines of the given size and chunk size in the given bucket.
 func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]LogChunkInfo, []LogLine, error) {
 	lines := make([]LogLine, size)
 	numChunks := size / chunkSize
