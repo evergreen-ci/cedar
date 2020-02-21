@@ -37,8 +37,8 @@ type logGetByIDHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
-	limit         int
 	paginate      bool
+	limit         int
 	sc            data.Connector
 }
 
@@ -145,9 +145,9 @@ type logGetByTaskIDHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
+	paginate      bool
 	n             int
 	limit         int
-	paginate      bool
 	sc            data.Connector
 }
 
@@ -275,8 +275,8 @@ type logGetByTestNameHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
-	limit         int
 	paginate      bool
+	limit         int
 	sc            data.Connector
 }
 
@@ -404,8 +404,8 @@ type logGroupHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
-	limit         int
 	paginate      bool
+	limit         int
 	sc            data.Connector
 }
 
