@@ -161,6 +161,7 @@ func (s *buildloggerConnectorSuite) setup() {
 		bucket, err := pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
 		chunks, _, err := model.GenerateTestLog(s.ctx, bucket, 100, 10)
+		s.Require().NoError(err)
 		log.Artifact.Chunks = chunks
 
 		log.Setup(s.env)
@@ -293,6 +294,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		findOpts.Tags = opts.Info.Tags
 		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
+		s.True(paginated)
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
@@ -317,6 +319,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		findOpts.ProcessName = opts.Info.ProcessName
 		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
+		s.True(paginated)
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
@@ -355,6 +358,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		findOpts.Tail = 100
 		data, next, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
+		s.False(paginated)
 		readerOpts.Limit = 0
 		readerOpts.TailN = findOpts.Tail
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
@@ -637,6 +641,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		findOpts.Limit = 100
 		data, next, paginated, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
+		s.False(paginated)
 		readerOpts.Limit = findOpts.Limit
 		readerOpts.SoftSizeLimit = 0
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
