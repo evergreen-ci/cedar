@@ -45,22 +45,32 @@ type Connector interface {
 	//////////////////
 	// Buildlogger Log
 	//////////////////
-	// FindLogById returns the buildlogger log with the given id as a
-	// LogIterator. ID, PrintTime, PrintPriority, TimeRange, and Limit are
+	// FindLogById returns the buildlogger log with the given id. The time
+	// returned in the next timestamp for pagination and the bool indicates
+	// whether the log is paginated or not. If the log is not paginated,
+	// the timestamp should be ignored.
+	// ID, PrintTime, PrintPriority, TimeRange, and Limit are
 	// respected from BuildloggerOptions.
 	FindLogByID(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogMetadataByID returns the metadata for the buildlogger log
 	// with the given id.
 	FindLogMetadataByID(context.Context, string) (*model.APILog, error)
 	// FindLogsByTaskID returns the buildlogger logs with the given task
-	// id. TaskID, ProcessName, Execution, Tags, PrintTime, PrintPriority,
+	// id. The time returned is the next timestamp for pagination and the
+	// bool indicates whether the logs is paginated or not. If the logs are
+	// not paginated, the timestamp should be ignored.
+	// TaskID, ProcessName, Execution, Tags, PrintTime, PrintPriority,
 	// TimeRange, Limit, and Tail are respected from BuildloggerOptions.
 	FindLogsByTaskID(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
 	// the given task id and tags.
 	FindLogMetadataByTaskID(context.Context, BuildloggerOptions) ([]model.APILog, error)
 	// FindLogsByTestName returns the buildlogger logs with the given task
-	// id and test name. TaskID, TestName, Tags, TimeRange, PrintTime,
+	// id and test name. The time returned is the next timestamp for
+	// pagination and the bool indicates whether the log is paginated
+	// or not. If the logs are not paginated, the timestamp should be
+	// ignored.
+	// TaskID, TestName, Tags, TimeRange, PrintTime,
 	// PrintPriority, Limit are respected from BuildloggerOptions.
 	FindLogsByTestName(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogsByTestName returns the metadata for the buildlogger logs
@@ -69,7 +79,10 @@ type Connector interface {
 	// FindGroupedLogs finds logs that are grouped via a "group id" held in
 	// the tags field. These groups have a hierarchy of test level and task
 	// level. This function returns logs with the given task id and group
-	// id. TaskID, TestName, Tags, TimeRange, PrintTime, PrintPriority, and
+	// id. The time returned is the next timestamp for pagination and the
+	// bool indicates whether the log is paginated or not. If the logs are
+	// not paginated, the timestamp should be ignored.
+	// TaskID, TestName, Tags, TimeRange, PrintTime, PrintPriority, and
 	// Limit are respected from BuildloggerOptions.
 	FindGroupedLogs(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 }
