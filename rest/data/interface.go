@@ -46,7 +46,7 @@ type Connector interface {
 	// Buildlogger Log
 	//////////////////
 	// FindLogById returns the buildlogger log with the given id. The time
-	// returned in the next timestamp for pagination and the bool indicates
+	// returned is the next timestamp for pagination and the bool indicates
 	// whether the log is paginated or not. If the log is not paginated,
 	// the timestamp should be ignored.
 	// ID, PrintTime, PrintPriority, TimeRange, and Limit are
