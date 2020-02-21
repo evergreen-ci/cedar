@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
-	"github.com/mongodb/grip/level"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +38,7 @@ func TestLogIterator(t *testing.T) {
 	}()
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
-	chunks, lines, err := createLog(ctx, bucket, 100, 30)
+	chunks, lines, err := GenerateTestLog(ctx, bucket, 99, 30)
 	require.NoError(t, err)
 
 	badBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: "DNE"})
@@ -203,7 +200,7 @@ func TestMergeLogIterator(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("SingleLog", func(t *testing.T) {
-		chunks, lines, err := createLog(ctx, bucket, 100, 10)
+		chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 		require.NoError(t, err)
 		timeRange := util.TimeRange{
 			StartAt: chunks[0].Start,
@@ -227,7 +224,7 @@ func TestMergeLogIterator(t *testing.T) {
 		its := make([]LogIterator, numLogs)
 		lineMap := map[string]bool{}
 		for i := 0; i < numLogs; i++ {
-			chunks, lines, err := createLog(ctx, bucket, 100, 10)
+			chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 			require.NoError(t, err)
 
 			timeRange := util.TimeRange{
@@ -263,7 +260,7 @@ func TestMergeLogIterator(t *testing.T) {
 		its := make([]LogIterator, numLogs)
 		lineMap := map[string]bool{}
 		for i := 0; i < numLogs; i++ {
-			chunks, lines, err := createLog(ctx, bucket, 100, 10)
+			chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 			require.NoError(t, err)
 
 			timeRange := util.TimeRange{
@@ -306,7 +303,7 @@ func TestLogIteratorReader(t *testing.T) {
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
 
-	chunks, lines, err := createLog(ctx, bucket, 100, 10)
+	chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 	require.NoError(t, err)
 	expectedSize := 0
 	expectedSizeWithTime := 0
@@ -501,6 +498,48 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Zero(t, n)
 		assert.Error(t, err)
 	})
+	t.Run("WithSoftSizeLimit", func(t *testing.T) {
+		opts := LogIteratorReaderOptions{SoftSizeLimit: 5000}
+		it := NewMergingIterator(
+			NewBatchedLogIterator(bucket, chunks, 2, timeRange),
+			NewBatchedLogIterator(bucket, chunks, 2, timeRange),
+			NewBatchedLogIterator(bucket, chunks, 2, timeRange),
+		)
+		r := NewLogIteratorReader(ctx, it, opts)
+		nTotal := 0
+		readData := []byte{}
+		p := make([]byte, 22)
+		for {
+			n, err := r.Read(p)
+			nTotal += n
+			readData = append(readData, p[:n]...)
+			assert.True(t, n >= 0)
+			assert.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		assert.Equal(t, 5000+100+51, nTotal) // 51 lines each 100 characters long + newline
+
+		current := 0
+		totalLines := 0
+		readLines := strings.Split(string(readData), "\n")
+		assert.Equal(t, "", readLines[len(readLines)-1])
+		for _, line := range readLines[:len(readLines)-1] {
+			require.True(t, current < len(lines))
+			assert.Equal(t, lines[current].Data, line+"\n")
+			totalLines++
+			if totalLines > 2 && totalLines%3 == 0 {
+				current++
+			}
+		}
+		assert.Equal(t, 51, totalLines)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
 	t.Run("EmptyBuffer", func(t *testing.T) {
 		opts := LogIteratorReaderOptions{}
 		r := NewLogIteratorReader(ctx, NewBatchedLogIterator(bucket, chunks, 2, timeRange), opts)
@@ -542,7 +581,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
 
-	chunks, lines, err := createLog(ctx, bucket, 100, 10)
+	chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 	require.NoError(t, err)
 	timeRange := util.TimeRange{
 		StartAt: chunks[0].Start,
@@ -551,7 +590,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 
 	t.Run("NLines", func(t *testing.T) {
 		it := NewBatchedLogIterator(bucket, chunks, 2, timeRange)
-		opts := LogIteratorReaderOptions{Limit: 20, TailN: 42}
+		opts := LogIteratorReaderOptions{Limit: 20, TailN: 42, SoftSizeLimit: 1}
 		r := NewLogIteratorReader(ctx, it, opts)
 		readData := []byte{}
 		p := make([]byte, 4096)
@@ -713,56 +752,4 @@ func TestLogIteratorTailReader(t *testing.T) {
 		assert.Zero(t, n)
 		assert.Error(t, err)
 	})
-}
-
-func createLog(ctx context.Context, bucket pail.Bucket, size, chunkSize int) ([]LogChunkInfo, []LogLine, error) {
-	lines := make([]LogLine, size)
-	numChunks := size / chunkSize
-	if numChunks == 0 || size%chunkSize > 0 {
-		numChunks += 1
-	}
-	chunks := make([]LogChunkInfo, numChunks)
-	ts := time.Now().Round(time.Millisecond).UTC()
-
-	for i := 0; i < numChunks; i++ {
-		rawLines := ""
-		chunks[i] = LogChunkInfo{
-			Key:   newRandCharSetString(16),
-			Start: ts,
-		}
-
-		j := 0
-		for j < chunkSize && j+i*chunkSize < size {
-			line := newRandCharSetString(100)
-			lines[j+i*chunkSize] = LogLine{
-				Priority:  level.Debug,
-				Timestamp: ts,
-				Data:      line + "\n",
-			}
-			rawLines += prependPriorityAndTimestamp(level.Debug, ts, line)
-			ts = ts.Add(time.Minute)
-			j++
-		}
-
-		if err := bucket.Put(ctx, chunks[i].Key, strings.NewReader(rawLines)); err != nil {
-			return []LogChunkInfo{}, []LogLine{}, errors.Wrap(err, "failed to add chunk to bucket")
-		}
-
-		chunks[i].NumLines = j
-		chunks[i].End = ts.Add(-time.Minute)
-		ts = ts.Add(time.Hour)
-	}
-
-	return chunks, lines, nil
-}
-
-var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-func newRandCharSetString(length int) string {
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }

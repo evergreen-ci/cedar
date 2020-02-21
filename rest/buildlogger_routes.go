@@ -22,7 +22,10 @@ const (
 	printTime     = "print_time"
 	printPriority = "print_priority"
 	limit         = "limit"
+	paginate      = "paginate"
 	trueString    = "true"
+	softSizeLimit = 10 * 1024 * 1024
+	baseURL       = "https://cedar.mongodb.com"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -34,6 +37,7 @@ type logGetByIDHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
+	paginate      bool
 	limit         int
 	sc            data.Connector
 }
@@ -60,6 +64,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	vals := r.URL.Query()
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
@@ -79,12 +84,15 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		PrintPriority: h.printPriority,
 		Limit:         h.limit,
 	}
-	r, err := h.sc.FindLogByID(ctx, opts)
+	if h.paginate && opts.Limit <= 0 {
+		opts.SoftSizeLimit = softSizeLimit
+	}
+	data, next, paginated, err := h.sc.FindLogByID(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log by id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return newBuildloggerResponder(data, h.tr.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,6 +145,7 @@ type logGetByTaskIDHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
+	paginate      bool
 	n             int
 	limit         int
 	sc            data.Connector
@@ -166,6 +175,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[execution]) > 0 {
@@ -197,12 +207,15 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		Limit:         h.limit,
 		Tail:          h.n,
 	}
-	r, err := h.sc.FindLogsByTaskID(ctx, opts)
+	if h.paginate && opts.Limit <= 0 && opts.Tail <= 0 {
+		opts.SoftSizeLimit = softSizeLimit
+	}
+	data, next, paginated, err := h.sc.FindLogsByTaskID(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by task id '%s'", h.id))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return newBuildloggerResponder(data, h.tr.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -262,6 +275,7 @@ type logGetByTestNameHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
+	paginate      bool
 	limit         int
 	sc            data.Connector
 }
@@ -290,6 +304,7 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
@@ -311,12 +326,15 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		PrintPriority: h.printPriority,
 		Limit:         h.limit,
 	}
-	r, err := h.sc.FindLogsByTestName(ctx, opts)
+	if h.paginate && opts.Limit <= 0 {
+		opts.SoftSizeLimit = softSizeLimit
+	}
+	data, next, paginated, err := h.sc.FindLogsByTestName(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting logs by test name '%s'", h.name))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return newBuildloggerResponder(data, h.tr.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -386,6 +404,7 @@ type logGroupHandler struct {
 	tr            util.TimeRange
 	printTime     bool
 	printPriority bool
+	paginate      bool
 	limit         int
 	sc            data.Connector
 }
@@ -415,6 +434,7 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 		catcher.Add(err)
@@ -438,6 +458,9 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		PrintPriority: h.printPriority,
 		Limit:         h.limit,
 	}
+	if h.paginate && opts.Limit <= 0 {
+		opts.SoftSizeLimit = softSizeLimit
+	}
 	if opts.TimeRange.IsZero() {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
 		if err != nil {
@@ -454,11 +477,40 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		}
 	}
 
-	r, err := h.sc.FindGroupedLogs(ctx, opts)
+	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, opts)
 	if err != nil {
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err,
 			"Error getting grouped logs with task_id/test_name/group_id '%s/%s/%s'", h.id, h.name, h.groupID))
 	}
 
-	return gimlet.NewTextResponse(r)
+	return newBuildloggerResponder(data, h.tr.StartAt, next, paginated)
+}
+
+func newBuildloggerResponder(data []byte, last, next time.Time, paginated bool) gimlet.Responder {
+	resp := gimlet.NewTextResponse(data)
+
+	if paginated {
+		pages := &gimlet.ResponsePages{
+			Prev: &gimlet.Page{
+				BaseURL:         baseURL,
+				KeyQueryParam:   "start",
+				LimitQueryParam: "limit",
+				Key:             last.Format(time.RFC3339),
+				Relation:        "prev",
+			},
+			Next: &gimlet.Page{
+				BaseURL:         baseURL,
+				KeyQueryParam:   "start",
+				LimitQueryParam: "limit",
+				Key:             next.Format(time.RFC3339),
+				Relation:        "next",
+			},
+		}
+
+		if err := resp.SetPages(pages); err != nil {
+			return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem setting response pages"))
+		}
+	}
+
+	return resp
 }

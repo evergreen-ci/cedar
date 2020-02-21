@@ -2,8 +2,10 @@ package rest
 
 import (
 	"context"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -13,6 +15,8 @@ import (
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -27,9 +31,9 @@ type LogHandlerSuite struct {
 	suite.Suite
 }
 
-func (s *LogHandlerSuite) setup() {
+func (s *LogHandlerSuite) setup(tempDir string) {
 	s.sc = data.MockConnector{
-		Bucket: ".",
+		Bucket: tempDir,
 		CachedLogs: map[string]dbModel.Log{
 			"abc": dbModel.Log{
 				ID: "abc",
@@ -143,10 +147,6 @@ func (s *LogHandlerSuite) setup() {
 	s.apiResults = map[string]model.APILog{}
 	s.buckets = map[string]pail.Bucket{}
 	for key, val := range s.sc.CachedLogs {
-		apiResult := model.APILog{}
-		s.Require().NoError(apiResult.Import(val))
-		s.apiResults[key] = apiResult
-
 		var err error
 		opts := pail.LocalOptions{
 			Path:   s.sc.Bucket,
@@ -154,12 +154,24 @@ func (s *LogHandlerSuite) setup() {
 		}
 		s.buckets[key], err = pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
+		val.Artifact.Chunks, _, err = dbModel.GenerateTestLog(context.Background(), s.buckets[key], 100, 10)
+		s.Require().NoError(err)
+		s.sc.CachedLogs[key] = val
+
+		apiResult := model.APILog{}
+		s.Require().NoError(apiResult.Import(val))
+		s.apiResults[key] = apiResult
 	}
 }
 
 func TestLogHandlerSuite(t *testing.T) {
 	s := new(LogHandlerSuite)
-	s.setup()
+	tempDir, err := ioutil.TempDir(".", "bucket_test")
+	s.Require().NoError(err)
+	defer func() {
+		s.NoError(os.RemoveAll(tempDir))
+	}()
+	s.setup(tempDir)
 	suite.Run(t, s)
 }
 
@@ -172,6 +184,8 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByIDHandler).printTime = printTime
+		rh.(*logGetByIDHandler).printPriority = !printTime
+		rh.(*logGetByIDHandler).paginate = printTime
 		rh.(*logGetByIDHandler).limit = 0
 		it := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
@@ -179,25 +193,48 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 			batchSize,
 			rh.(*logGetByIDHandler).tr,
 		)
-		opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
-		expected := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		opts := dbModel.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
+		r := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		expected, err := ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp := rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		pages := resp.Pages()
+		if rh.(*logGetByIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with limit
 		rh.(*logGetByIDHandler).limit = 100
 		opts.Limit = rh.(*logGetByIDHandler).limit
-		expected = dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		r = dbModel.NewLogIteratorReader(
+			context.TODO(),
+			dbModel.NewBatchedLogIterator(
+				s.buckets["abc"],
+				s.sc.CachedLogs["abc"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByIDHandler).tr,
+			),
+			opts,
+		)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		s.Nil(resp.Pages())
 	}
 }
 
@@ -237,7 +274,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByIDHandlerFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Require().NotNil(resp.Data())
 	s.Equal(&expected, resp.Data())
 }
 
@@ -278,13 +314,9 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		rh.(*logGetByTaskIDHandler).limit = 0
 		rh.(*logGetByTaskIDHandler).printTime = printTime
 		rh.(*logGetByTaskIDHandler).printPriority = !printTime
-		its := []dbModel.LogIterator{
-			dbModel.NewBatchedLogIterator(
-				s.buckets["abc"],
-				s.sc.CachedLogs["abc"].Artifact.Chunks,
-				batchSize,
-				rh.(*logGetByTaskIDHandler).tr,
-			),
+		rh.(*logGetByTaskIDHandler).paginate = printTime
+
+		it := dbModel.NewMergingIterator(
 			dbModel.NewBatchedLogIterator(
 				s.buckets["def"],
 				s.sc.CachedLogs["def"].Artifact.Chunks,
@@ -309,93 +341,134 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 				batchSize,
 				rh.(*logGetByTaskIDHandler).tr,
 			),
-		}
-		expected := dbModel.NewLogIteratorReader(
-			context.TODO(),
-			dbModel.NewMergingIterator(its[1:]...),
-			opts,
 		)
+		r := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		expected, err := ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp := rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
-		s.Equal(expected, resp.Data())
+		s.EqualValues(expected, resp.Data())
+		pages := resp.Pages()
+		if rh.(*logGetByTaskIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with tags
 		rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
-		expected = dbModel.NewLogIteratorReader(
-			context.TODO(),
-			dbModel.NewMergingIterator(its[2:4]...),
-			opts,
+		it = dbModel.NewMergingIterator(
+			dbModel.NewBatchedLogIterator(
+				s.buckets["jkl"],
+				s.sc.CachedLogs["jkl"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByTaskIDHandler).tr,
+			),
+			dbModel.NewBatchedLogIterator(
+				s.buckets["mno"],
+				s.sc.CachedLogs["mno"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByTaskIDHandler).tr,
+			),
 		)
+		r = dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
+
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		pages = resp.Pages()
+		if rh.(*logGetByTaskIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with execution
 		rh.(*logGetByTaskIDHandler).execution = 1
-		expected = dbModel.NewLogIteratorReader(
-			context.TODO(),
-			dbModel.NewMergingIterator(its[0]),
-			opts,
+		it = dbModel.NewMergingIterator(
+			dbModel.NewBatchedLogIterator(
+				s.buckets["abc"],
+				s.sc.CachedLogs["abc"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByTaskIDHandler).tr,
+			),
 		)
+		r = dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
+
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		pages = resp.Pages()
+		if rh.(*logGetByTaskIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with limit
 		rh.(*logGetByTaskIDHandler).id = "task_id2"
 		rh.(*logGetByTaskIDHandler).execution = 0
 		rh.(*logGetByTaskIDHandler).tags = []string{}
 		rh.(*logGetByTaskIDHandler).limit = 100
-		expectedIt := dbModel.NewMergingIterator(
-			dbModel.NewBatchedLogIterator(
-				s.buckets["ghi"],
-				s.sc.CachedLogs["ghi"].Artifact.Chunks,
-				batchSize,
-				rh.(*logGetByTaskIDHandler).tr,
-			),
-		)
 		opts.Limit = rh.(*logGetByTaskIDHandler).limit
-		expected = dbModel.NewLogIteratorReader(
+		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
-			expectedIt,
+			dbModel.NewMergingIterator(
+				dbModel.NewBatchedLogIterator(
+					s.buckets["ghi"],
+					s.sc.CachedLogs["ghi"].Artifact.Chunks,
+					batchSize,
+					rh.(*logGetByTaskIDHandler).tr,
+				),
+			),
 			opts,
 		)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		s.Nil(resp.Pages())
 
 		// tail
 		rh.(*logGetByTaskIDHandler).n = 100
-		expectedIt = dbModel.NewMergingIterator(
-			dbModel.NewBatchedLogIterator(
-				s.buckets["ghi"],
-				s.sc.CachedLogs["ghi"].Artifact.Chunks,
-				batchSize,
-				rh.(*logGetByTaskIDHandler).tr,
-			),
-		)
 		opts.TailN = rh.(*logGetByTaskIDHandler).n
-		expected = dbModel.NewLogIteratorReader(
+		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
-			expectedIt,
+			dbModel.NewMergingIterator(
+				dbModel.NewBatchedLogIterator(
+					s.buckets["ghi"],
+					s.sc.CachedLogs["ghi"].Artifact.Chunks,
+					batchSize,
+					rh.(*logGetByTaskIDHandler).tr,
+				),
+			),
 			opts,
 		)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		s.Nil(resp.Pages())
 	}
 }
 
@@ -441,7 +514,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
 	// with tags
@@ -449,7 +521,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Require().NotNil(resp.Data())
 	s.Equal(append(expected[:1], expected[2:4]...), resp.Data())
 }
 
@@ -485,50 +556,79 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		}
 		rh.(*logGetByTestNameHandler).printTime = printTime
 		rh.(*logGetByTestNameHandler).printPriority = !printTime
+		rh.(*logGetByTestNameHandler).paginate = printTime
 		rh.(*logGetByTestNameHandler).limit = 0
-		it1 := dbModel.NewBatchedLogIterator(
-			s.buckets["abc"],
-			s.sc.CachedLogs["abc"].Artifact.Chunks,
-			batchSize,
-			rh.(*logGetByTestNameHandler).tr,
+
+		it := dbModel.NewMergingIterator(
+			dbModel.NewBatchedLogIterator(
+				s.buckets["abc"],
+				s.sc.CachedLogs["abc"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByTestNameHandler).tr,
+			),
+			dbModel.NewBatchedLogIterator(
+				s.buckets["jkl"],
+				s.sc.CachedLogs["jkl"].Artifact.Chunks,
+				batchSize,
+				rh.(*logGetByTestNameHandler).tr,
+			),
 		)
-		it2 := dbModel.NewBatchedLogIterator(
-			s.buckets["jkl"],
-			s.sc.CachedLogs["jkl"].Artifact.Chunks,
-			batchSize,
-			rh.(*logGetByTestNameHandler).tr,
-		)
-		expected := dbModel.NewLogIteratorReader(
+		r := dbModel.NewLogIteratorReader(
 			context.TODO(),
-			dbModel.NewMergingIterator(it1, it2),
+			it,
 			dbModel.LogIteratorReaderOptions{
 				PrintTime:     printTime,
 				PrintPriority: !printTime,
 			},
 		)
+		expected, err := ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp := rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		pages := resp.Pages()
+		if rh.(*logGetByTestNameHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTestNameHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// limit
 		rh.(*logGetByTestNameHandler).limit = 100
-		expected = dbModel.NewLogIteratorReader(
+		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
-			dbModel.NewMergingIterator(it1, it2),
+			dbModel.NewMergingIterator(
+				dbModel.NewBatchedLogIterator(
+					s.buckets["abc"],
+					s.sc.CachedLogs["abc"].Artifact.Chunks,
+					batchSize,
+					rh.(*logGetByTestNameHandler).tr,
+				),
+				dbModel.NewBatchedLogIterator(
+					s.buckets["jkl"],
+					s.sc.CachedLogs["jkl"].Artifact.Chunks,
+					batchSize,
+					rh.(*logGetByTestNameHandler).tr,
+				),
+			),
 			dbModel.LogIteratorReaderOptions{
 				PrintTime:     printTime,
 				PrintPriority: !printTime,
-				Limit:         rh.(*logGetByTestNameHandler).limit},
+				Limit:         rh.(*logGetByTestNameHandler).limit,
+			},
 		)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		s.Nil(resp.Pages())
 	}
 }
 
@@ -578,7 +678,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
 	// only tests
@@ -589,7 +688,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 }
 
@@ -634,6 +732,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		}
 		rh.(*logGroupHandler).printTime = printTime
 		rh.(*logGroupHandler).printPriority = !printTime
+		rh.(*logGroupHandler).paginate = printTime
 		rh.(*logGroupHandler).limit = 0
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
@@ -653,53 +752,81 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 			batchSize,
 			rh.(*logGroupHandler).tr,
 		)
-		expected := dbModel.NewLogIteratorReader(
-			context.TODO(),
-			dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3)),
-			opts,
-		)
+		it := dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3))
+		r := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
+		expected, err := ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp := rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		pages := resp.Pages()
+		if rh.(*logGroupHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGroupHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// limit
+		it1 = dbModel.NewBatchedLogIterator(
+			s.buckets["abc"],
+			s.sc.CachedLogs["abc"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGroupHandler).tr,
+		)
+		it2 = dbModel.NewBatchedLogIterator(
+			s.buckets["jkl"],
+			s.sc.CachedLogs["jkl"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGroupHandler).tr,
+		)
+		it3 = dbModel.NewBatchedLogIterator(
+			s.buckets["mno"],
+			s.sc.CachedLogs["mno"].Artifact.Chunks,
+			batchSize,
+			rh.(*logGroupHandler).tr,
+		)
 		rh.(*logGroupHandler).limit = 100
 		opts.Limit = rh.(*logGroupHandler).limit
-		expected = dbModel.NewLogIteratorReader(
+		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
 			dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3)),
 			opts,
 		)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		s.Nil(resp.Pages())
 
 		// only tests
 		rh.(*logGroupHandler).name = "test2"
 		rh.(*logGroupHandler).groupID = "tag3"
-		it := dbModel.NewBatchedLogIterator(
+		it = dbModel.NewBatchedLogIterator(
 			s.buckets["def"],
 			s.sc.CachedLogs["def"].Artifact.Chunks,
 			batchSize,
 			rh.(*logGroupHandler).tr,
 		)
-		expected = dbModel.NewLogIteratorReader(
+		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
 			dbModel.NewMergingIterator(dbModel.NewMergingIterator(it)),
 			opts,
 		)
+		expected, err = ioutil.ReadAll(r)
+		s.Require().NoError(err)
 
 		resp = rh.Run(context.TODO())
 		s.Require().NotNil(resp)
 		s.Equal(http.StatusOK, resp.Status())
-		s.Require().NotNil(resp.Data())
 		s.Equal(expected, resp.Data())
+		s.Nil(resp.Pages())
 	}
 }
 
@@ -774,6 +901,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "&tags=hello&tags=world"
 	urlString += "&print_time=true"
 	urlString += "&print_priority=true"
+	urlString += "&paginate=true"
 	urlString += "&limit=50"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
@@ -793,6 +921,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	}
 	s.True(getLogPrintTime(rh, handler))
 	s.True(getLogPrintPriority(rh, handler))
+	s.True(getLogPaginate(rh, handler))
 	s.Equal(50, getLogLimit(rh, handler))
 }
 
@@ -828,6 +957,7 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool
 		s.Nil(getLogTags(rh, handler))
 	}
 	s.False(getLogPrintTime(rh, handler))
+	s.False(getLogPaginate(rh, handler))
 	s.Zero(getLogLimit(rh, handler))
 }
 
@@ -889,6 +1019,21 @@ func getLogPrintPriority(rh gimlet.RouteHandler, handler string) bool {
 	}
 }
 
+func getLogPaginate(rh gimlet.RouteHandler, handler string) bool {
+	switch handler {
+	case "id":
+		return rh.(*logGetByIDHandler).paginate
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).paginate
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).paginate
+	case "group":
+		return rh.(*logGroupHandler).paginate
+	default:
+		return false
+	}
+}
+
 func getLogLimit(rh gimlet.RouteHandler, handler string) int {
 	switch handler {
 	case "id":
@@ -902,4 +1047,39 @@ func getLogLimit(rh gimlet.RouteHandler, handler string) int {
 	default:
 		return 0
 	}
+}
+
+func TestNewBuildloggerResponder(t *testing.T) {
+	data := []byte("data")
+	last := time.Now().Add(-time.Hour)
+	next := time.Now()
+	t.Run("NotPaginated", func(t *testing.T) {
+		resp := newBuildloggerResponder(data, last, next, false)
+		assert.Equal(t, data, resp.Data())
+		assert.Equal(t, gimlet.TEXT, resp.Format())
+		assert.Nil(t, resp.Pages())
+	})
+	t.Run("Paginated", func(t *testing.T) {
+		resp := newBuildloggerResponder(data, last, next, true)
+		assert.Equal(t, data, resp.Data())
+		assert.Equal(t, gimlet.TEXT, resp.Format())
+		pages := resp.Pages()
+		require.NotNil(t, pages)
+		expectedPrev := &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   "start",
+			LimitQueryParam: "limit",
+			Key:             last.Format(time.RFC3339),
+			Relation:        "prev",
+		}
+		expectedNext := &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   "start",
+			LimitQueryParam: "limit",
+			Key:             next.Format(time.RFC3339),
+			Relation:        "next",
+		}
+		assert.Equal(t, expectedPrev, pages.Prev)
+		assert.Equal(t, expectedNext, pages.Next)
+	})
 }
