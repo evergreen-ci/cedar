@@ -22,6 +22,7 @@ const (
 	printTime     = "print_time"
 	printPriority = "print_priority"
 	limit         = "limit"
+	paginate      = "paginate"
 	trueString    = "true"
 	softSizeLimit = 10 * 1024 * 1024
 	baseURL       = "https://cedar.mongodb.com"
@@ -37,6 +38,7 @@ type logGetByIDHandler struct {
 	printTime     bool
 	printPriority bool
 	limit         int
+	paginate      bool
 	sc            data.Connector
 }
 
@@ -62,6 +64,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	vals := r.URL.Query()
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
@@ -81,7 +84,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		PrintPriority: h.printPriority,
 		Limit:         h.limit,
 	}
-	if opts.Limit <= 0 {
+	if h.paginate && opts.Limit <= 0 {
 		opts.SoftSizeLimit = softSizeLimit
 	}
 	data, next, paginated, err := h.sc.FindLogByID(ctx, opts)
@@ -144,6 +147,7 @@ type logGetByTaskIDHandler struct {
 	printPriority bool
 	n             int
 	limit         int
+	paginate      bool
 	sc            data.Connector
 }
 
@@ -171,6 +175,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[execution]) > 0 {
@@ -202,7 +207,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		Limit:         h.limit,
 		Tail:          h.n,
 	}
-	if opts.Limit <= 0 && opts.Tail <= 0 {
+	if h.paginate && opts.Limit <= 0 && opts.Tail <= 0 {
 		opts.SoftSizeLimit = softSizeLimit
 	}
 	data, next, paginated, err := h.sc.FindLogsByTaskID(ctx, opts)
@@ -271,6 +276,7 @@ type logGetByTestNameHandler struct {
 	printTime     bool
 	printPriority bool
 	limit         int
+	paginate      bool
 	sc            data.Connector
 }
 
@@ -298,6 +304,7 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
@@ -319,7 +326,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		PrintPriority: h.printPriority,
 		Limit:         h.limit,
 	}
-	if opts.Limit <= 0 {
+	if h.paginate && opts.Limit <= 0 {
 		opts.SoftSizeLimit = softSizeLimit
 	}
 	data, next, paginated, err := h.sc.FindLogsByTestName(ctx, opts)
@@ -398,6 +405,7 @@ type logGroupHandler struct {
 	printTime     bool
 	printPriority bool
 	limit         int
+	paginate      bool
 	sc            data.Connector
 }
 
@@ -426,6 +434,7 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
+	h.paginate = vals.Get(paginate) == trueString
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 		catcher.Add(err)
@@ -449,7 +458,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		PrintPriority: h.printPriority,
 		Limit:         h.limit,
 	}
-	if opts.Limit <= 0 {
+	if h.paginate && opts.Limit <= 0 {
 		opts.SoftSizeLimit = softSizeLimit
 	}
 	if opts.TimeRange.IsZero() {

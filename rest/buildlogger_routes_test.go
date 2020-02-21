@@ -184,6 +184,8 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 			EndAt:   time.Now(),
 		}
 		rh.(*logGetByIDHandler).printTime = printTime
+		rh.(*logGetByIDHandler).printPriority = !printTime
+		rh.(*logGetByIDHandler).paginate = printTime
 		rh.(*logGetByIDHandler).limit = 0
 		it := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
@@ -191,7 +193,10 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 			batchSize,
 			rh.(*logGetByIDHandler).tr,
 		)
-		opts := dbModel.LogIteratorReaderOptions{PrintTime: printTime}
+		opts := dbModel.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+		}
 		r := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
 		expected, err := ioutil.ReadAll(r)
 		s.Require().NoError(err)
@@ -201,9 +206,13 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Equal(expected, resp.Data())
 		pages := resp.Pages()
-		s.Require().NotNil(pages)
-		s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-		s.Equal(rh.(*logGetByIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		if rh.(*logGetByIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with limit
 		rh.(*logGetByIDHandler).limit = 100
@@ -305,6 +314,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		rh.(*logGetByTaskIDHandler).limit = 0
 		rh.(*logGetByTaskIDHandler).printTime = printTime
 		rh.(*logGetByTaskIDHandler).printPriority = !printTime
+		rh.(*logGetByTaskIDHandler).paginate = printTime
 
 		it := dbModel.NewMergingIterator(
 			dbModel.NewBatchedLogIterator(
@@ -341,9 +351,13 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.EqualValues(expected, resp.Data())
 		pages := resp.Pages()
-		s.Require().NotNil(pages)
-		s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-		s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		if rh.(*logGetByTaskIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with tags
 		rh.(*logGetByTaskIDHandler).tags = []string{"tag1"}
@@ -370,9 +384,13 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Equal(expected, resp.Data())
 		pages = resp.Pages()
-		s.Require().NotNil(pages)
-		s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-		s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		if rh.(*logGetByTaskIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with execution
 		rh.(*logGetByTaskIDHandler).execution = 1
@@ -393,9 +411,13 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Equal(expected, resp.Data())
 		pages = resp.Pages()
-		s.Require().NotNil(pages)
-		s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-		s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		if rh.(*logGetByTaskIDHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// with limit
 		rh.(*logGetByTaskIDHandler).id = "task_id2"
@@ -534,6 +556,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		}
 		rh.(*logGetByTestNameHandler).printTime = printTime
 		rh.(*logGetByTestNameHandler).printPriority = !printTime
+		rh.(*logGetByTestNameHandler).paginate = printTime
 		rh.(*logGetByTestNameHandler).limit = 0
 
 		it := dbModel.NewMergingIterator(
@@ -566,9 +589,13 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Equal(expected, resp.Data())
 		pages := resp.Pages()
-		s.Require().NotNil(pages)
-		s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-		s.Equal(rh.(*logGetByTestNameHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		if rh.(*logGetByTestNameHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGetByTestNameHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// limit
 		rh.(*logGetByTestNameHandler).limit = 100
@@ -705,6 +732,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		}
 		rh.(*logGroupHandler).printTime = printTime
 		rh.(*logGroupHandler).printPriority = !printTime
+		rh.(*logGroupHandler).paginate = printTime
 		rh.(*logGroupHandler).limit = 0
 		it1 := dbModel.NewBatchedLogIterator(
 			s.buckets["abc"],
@@ -734,9 +762,13 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		s.Equal(expected, resp.Data())
 		pages := resp.Pages()
-		s.Require().NotNil(pages)
-		s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-		s.Equal(rh.(*logGroupHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		if rh.(*logGroupHandler).paginate {
+			s.Require().NotNil(pages)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
+			s.Equal(rh.(*logGroupHandler).tr.StartAt.Format(time.RFC3339), pages.Prev.Key)
+		} else {
+			s.Nil(pages)
+		}
 
 		// limit
 		it1 = dbModel.NewBatchedLogIterator(
@@ -869,6 +901,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "&tags=hello&tags=world"
 	urlString += "&print_time=true"
 	urlString += "&print_priority=true"
+	urlString += "&paginate=true"
 	urlString += "&limit=50"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
@@ -888,6 +921,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	}
 	s.True(getLogPrintTime(rh, handler))
 	s.True(getLogPrintPriority(rh, handler))
+	s.True(getLogPaginate(rh, handler))
 	s.Equal(50, getLogLimit(rh, handler))
 }
 
@@ -923,6 +957,7 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool
 		s.Nil(getLogTags(rh, handler))
 	}
 	s.False(getLogPrintTime(rh, handler))
+	s.False(getLogPaginate(rh, handler))
 	s.Zero(getLogLimit(rh, handler))
 }
 
@@ -979,6 +1014,21 @@ func getLogPrintPriority(rh gimlet.RouteHandler, handler string) bool {
 		return rh.(*logGetByTestNameHandler).printPriority
 	case "group":
 		return rh.(*logGroupHandler).printPriority
+	default:
+		return false
+	}
+}
+
+func getLogPaginate(rh gimlet.RouteHandler, handler string) bool {
+	switch handler {
+	case "id":
+		return rh.(*logGetByIDHandler).paginate
+	case "task_id":
+		return rh.(*logGetByTaskIDHandler).paginate
+	case "test_name":
+		return rh.(*logGetByTestNameHandler).paginate
+	case "group":
+		return rh.(*logGroupHandler).paginate
 	default:
 		return false
 	}
