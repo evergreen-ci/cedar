@@ -198,7 +198,6 @@ func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
 	req := &simpleLogRequest{}
 	resp := &SimpleLogInjestionResponse{}
 	resp.LogID = gimlet.GetVars(r)["id"]
-	defer r.Body.Close()
 
 	if resp.LogID == "" {
 		resp.Errors = []string{"no log id specified"}
@@ -321,7 +320,6 @@ type SystemInfoReceivedResponse struct {
 func (s *Service) recieveSystemInfo(w http.ResponseWriter, r *http.Request) {
 	resp := &SystemInfoReceivedResponse{}
 	req := message.SystemInfo{}
-	defer r.Body.Close()
 
 	if err := gimlet.GetJSON(r.Body, &req); err != nil {
 		grip.Error(err)
@@ -654,7 +652,6 @@ type userAPIKeyResponse struct {
 }
 
 func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
 	creds := &userCredentials{}
 	if err := gimlet.GetJSON(r.Body, creds); err != nil {
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem reading request body")))
