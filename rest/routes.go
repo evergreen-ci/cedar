@@ -666,6 +666,7 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 			Message:    "no username specified",
 			StatusCode: http.StatusUnauthorized,
 		})
+		return
 	}
 
 	resp := &userAPIKeyResponse{Username: creds.Username}
