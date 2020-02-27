@@ -3,11 +3,10 @@ package data
 import (
 	"context"
 	"fmt"
+	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
 	"net/http"
 	"sort"
-	"strings"
-
-	"github.com/mongodb/grip"
 
 	"github.com/pkg/errors"
 
@@ -253,9 +252,8 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 
 	for _, id := range ids {
 		job := units.NewRecalculateChangePointsJob(id)
-		err := queue.Put(ctx, job)
-		// Duplicate key errors may arise due to rate limiting, and we shouldn't consider them an error
-		if err != nil && !strings.Contains(err.Error(), "duplicate key error") {
+		err := amboy.EnqueueUniqueJob(ctx, queue, job)
+		if err != nil {
 			catcher.Add(errors.New(message.WrapError(err, message.Fields{
 				"message": "Unable to enqueue recalculation job for metric",
 				"project": id.Project,

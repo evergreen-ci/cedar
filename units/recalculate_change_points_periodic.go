@@ -3,8 +3,6 @@ package units
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -62,8 +60,8 @@ func (j *periodicChangePointJob) Run(ctx context.Context) {
 		j.AddError(errors.Wrap(err, "Unable to get metrics needing change point detection"))
 	}
 	for _, id := range needUpdates {
-		err := j.queue.Put(ctx, NewRecalculateChangePointsJob(id))
-		if err != nil && !strings.Contains(err.Error(), "duplicate key error") {
+		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewRecalculateChangePointsJob(id))
+		if err != nil {
 			j.AddError(err)
 		}
 	}
