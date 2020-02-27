@@ -512,7 +512,7 @@ func (c *Client) GetAuthKey(ctx context.Context, username, password string) (str
 		return "", errors.Wrap(err, "problem building payload")
 	}
 
-	req, err := c.makeRequest(ctx, http.MethodGet, url, bytes.NewBuffer(payload))
+	req, err := c.makeRequest(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
 	if err != nil {
 		return "", errors.Wrap(err, "problem building request")
 	}
@@ -579,7 +579,7 @@ func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCre
 		return "", errors.Wrap(err, "problem building payload")
 	}
 
-	req, err := c.makeRequest(ctx, http.MethodGet, url, bytes.NewBuffer(payload))
+	req, err := c.makeRequest(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
 	if err != nil {
 		return "", errors.Wrap(err, "problem building request")
 	}
