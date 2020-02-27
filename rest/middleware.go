@@ -82,8 +82,19 @@ func (m *evgAuthReadLogByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *
 }
 
 func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceId string) gimlet.Responder {
+	var (
+		authDataAPIKey string
+		authDataName   string
+	)
+	if len(r.Header[evgConf.HeaderKeyName]) > 0 {
+		authDataAPIKey = r.Header[evgConf.HeaderKeyName][0]
+	}
+	if len(r.Header[evgConf.HeaderUserName]) > 0 {
+		authDataName = r.Header[evgConf.HeaderUserName][0]
+	}
+
 	cookie, err := r.Cookie(evgConf.AuthTokenCookie)
-	if err != nil {
+	if err != nil && (authDataAPIKey == "" || authDataName == "") {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
 			Message:    "unauthorized user",
@@ -97,6 +108,8 @@ func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.Evergre
 	}
 	req = req.WithContext(ctx)
 	req.AddCookie(cookie)
+	req.Header.Set(evgConf.HeaderKeyName, authDataAPIKey)
+	req.Header.Set(evgConf.HeaderUserName, authDataName)
 
 	client := util.GetDefaultHTTPRetryableClient()
 	defer util.PutHTTPClient(client)
