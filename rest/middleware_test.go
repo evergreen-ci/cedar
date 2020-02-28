@@ -127,5 +127,5 @@ func (h *evgAuthMockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	w.Write([]byte(fmt.Sprintf("%v", h.returnTrue)))
+	_, _ = w.Write([]byte(fmt.Sprintf("%v", h.returnTrue)))
 }
