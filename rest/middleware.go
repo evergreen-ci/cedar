@@ -81,23 +81,53 @@ func (m *evgAuthReadLogByTaskIDMiddleware) ServeHTTP(rw http.ResponseWriter, r *
 	next(rw, r)
 }
 
-func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceId string) gimlet.Responder {
+func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceID string) gimlet.Responder {
+	req, errResp := createEvgAuthRequest(ctx, r, evgConf, resourceID)
+	if errResp != nil {
+		return errResp
+	}
+
+	return doEvgAuthRequest(req, resourceID)
+}
+
+func createEvgAuthRequest(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceID string) (*http.Request, gimlet.Responder) {
+	var (
+		authDataAPIKey string
+		authDataName   string
+	)
+	if len(r.Header[evgConf.HeaderKeyName]) > 0 {
+		authDataAPIKey = r.Header[evgConf.HeaderKeyName][0]
+	}
+	if len(r.Header[evgConf.HeaderUserName]) > 0 {
+		authDataName = r.Header[evgConf.HeaderUserName][0]
+	}
+
 	cookie, err := r.Cookie(evgConf.AuthTokenCookie)
-	if err != nil {
-		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
+	if err != nil && (authDataAPIKey == "" || authDataName == "") {
+		return nil, gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
 			Message:    "unauthorized user",
 		})
 	}
 
-	urlString := fmt.Sprintf("%s/rest/v2/auth?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceId)
+	urlString := fmt.Sprintf("%s/rest/v2/auth?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceID)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
 	if err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
+		return nil, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
 	}
 	req = req.WithContext(ctx)
-	req.AddCookie(cookie)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	if authDataAPIKey != "" {
+		req.Header.Set(evgConf.HeaderKeyName, authDataAPIKey)
+		req.Header.Set(evgConf.HeaderUserName, authDataName)
+	}
 
+	return req, nil
+}
+
+func doEvgAuthRequest(req *http.Request, resourceID string) gimlet.Responder {
 	client := util.GetDefaultHTTPRetryableClient()
 	defer util.PutHTTPClient(client)
 
@@ -120,7 +150,7 @@ func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.Evergre
 	if string(bytes) != trueString {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
-			Message:    fmt.Sprintf("unauthorized to read logs from project '%s'", resourceId),
+			Message:    fmt.Sprintf("unauthorized to read logs from project '%s'", resourceID),
 		})
 	}
 
