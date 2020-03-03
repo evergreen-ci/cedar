@@ -17,8 +17,10 @@ const (
 var BuildRevision = ""
 
 const (
-	AuthTokenCookie  = "cedar-token"
-	APIUserHeader    = "Api-User"
-	APIKeyHeader     = "Api-Key"
-	TokenExpireAfter = time.Hour
+	AuthTokenCookie        = "cedar-token"
+	APIUserHeader          = "Api-User"
+	APIKeyHeader           = "Api-Key"
+	EvergreenAPIUserHeader = "Evergreen-Api-User"
+	EvergreenAPIKeyHeader  = "Evergreen-Api-Key"
+	TokenExpireAfter       = time.Hour
 )

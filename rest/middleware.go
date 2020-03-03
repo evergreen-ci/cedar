@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/util"
@@ -91,17 +92,8 @@ func evgAuthReadLog(ctx context.Context, r *http.Request, evgConf *model.Evergre
 }
 
 func createEvgAuthRequest(ctx context.Context, r *http.Request, evgConf *model.EvergreenConfig, resourceID string) (*http.Request, gimlet.Responder) {
-	var (
-		authDataAPIKey string
-		authDataName   string
-	)
-	if len(r.Header[evgConf.HeaderKeyName]) > 0 {
-		authDataAPIKey = r.Header[evgConf.HeaderKeyName][0]
-	}
-	if len(r.Header[evgConf.HeaderUserName]) > 0 {
-		authDataName = r.Header[evgConf.HeaderUserName][0]
-	}
-
+	authDataAPIKey := r.Header.Get(cedar.EvergreenAPIKeyHeader)
+	authDataName := r.Header.Get(cedar.EvergreenAPIUserHeader)
 	cookie, err := r.Cookie(evgConf.AuthTokenCookie)
 	if err != nil && (authDataAPIKey == "" || authDataName == "") {
 		return nil, gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{

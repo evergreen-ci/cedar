@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,8 +53,8 @@ func TestCreateEvgAuthRequest(t *testing.T) {
 		defer cancel()
 		originalReq, err := http.NewRequest(http.MethodGet, "https://cedar.mongodb.com", nil)
 		require.NoError(t, err)
-		originalReq.Header.Set(evgConf.HeaderKeyName, "key")
-		originalReq.Header.Set(evgConf.HeaderUserName, "user")
+		originalReq.Header.Set(cedar.EvergreenAPIKeyHeader, "key")
+		originalReq.Header.Set(cedar.EvergreenAPIUserHeader, "user")
 		req, errResp := createEvgAuthRequest(ctx, originalReq, evgConf, resourceID)
 		require.Nil(t, errResp)
 		require.NotNil(t, req)
@@ -73,8 +74,8 @@ func TestCreateEvgAuthRequest(t *testing.T) {
 		require.NoError(t, err)
 		originalCookie := &http.Cookie{Name: evgConf.AuthTokenCookie, Value: "value"}
 		originalReq.AddCookie(originalCookie)
-		originalReq.Header.Set(evgConf.HeaderKeyName, "key")
-		originalReq.Header.Set(evgConf.HeaderUserName, "user")
+		originalReq.Header.Set(cedar.EvergreenAPIKeyHeader, "key")
+		originalReq.Header.Set(cedar.EvergreenAPIUserHeader, "user")
 		req, errResp := createEvgAuthRequest(ctx, originalReq, evgConf, resourceID)
 		require.Nil(t, errResp)
 		require.NotNil(t, req)
