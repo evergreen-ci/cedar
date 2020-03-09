@@ -154,6 +154,7 @@ func (s *perfRollupSuite) TestAddPerfRollupValue() {
 	prevProcessedAt := s.r.ProcessedAt
 	_, err := s.r.GetFloat("mean")
 	s.Error(err)
+	time.Sleep(time.Millisecond) // Ensure that the processed time changes.
 	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       1,
