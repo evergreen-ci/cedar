@@ -65,7 +65,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		if err = env.client.Ping(ctx, nil); err != nil {
 			connctx, cancel := context.WithTimeout(ctx, conf.MongoDBDialTimeout)
 			defer cancel()
-			if err := env.client.Connect(connctx); err != nil {
+			if err = env.client.Connect(connctx); err != nil {
 				return nil, errors.Wrap(err, "problem connecting to database")
 			}
 		}
@@ -88,7 +88,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			return nil
 		})
 
-		if err := env.localQueue.Start(ctx); err != nil {
+		if err = env.localQueue.Start(ctx); err != nil {
 			return nil, errors.Wrap(err, "problem starting remote queue")
 		}
 	}
@@ -104,7 +104,8 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			MDB:     opts,
 		}
 
-		rq, err := queue.NewMongoDBQueue(ctx, args)
+		var rq amboy.Queue
+		rq, err = queue.NewMongoDBQueue(ctx, args)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem setting main queue backend")
 		}

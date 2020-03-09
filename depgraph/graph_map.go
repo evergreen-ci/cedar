@@ -8,7 +8,7 @@ import (
 )
 
 // GraphMap is an alias for map[string][]string which is a convenient
-// format for representating DAGs, and is the basis for other output
+// format for representing DAGs, and is the basis for other output
 // formats.
 type GraphMap map[string][]string
 

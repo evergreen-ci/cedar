@@ -75,7 +75,7 @@ func (r *CostReport) Save() error {
 		return errors.New("cannot populate a cost report document without specifying an ID")
 	}
 
-	// TOOD call some kind of validation routine to avoid saving junk data
+	// TODO call some kind of validation routine to avoid saving junk data
 	conf, session, err := cedar.GetSessionWithConfig(r.env)
 	if err != nil {
 		return errors.WithStack(err)

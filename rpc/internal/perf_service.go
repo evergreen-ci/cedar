@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"github.com/mongodb/amboy"
 	"io"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/mongodb/amboy"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"

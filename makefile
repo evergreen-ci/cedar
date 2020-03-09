@@ -25,39 +25,16 @@ endif
 goEnv := GOPATH=$(gopath)$(if $(GO_BIN_PATH), PATH="$(shell dirname $(GO_BIN_PATH)):$(PATH)")
 # end environment setup
 
-# start linting configuration
-#   package, testing, and linter dependencies specified
-#   separately. This is a temporary solution: eventually we should
-#   vendorize all of these dependencies.
-lintDeps := github.com/alecthomas/gometalinter
-#   include test files and give linters 40s to run to avoid timeouts
-lintArgs := --tests --deadline=14m --vendor
-#   gotype produces false positives because it reads .a files which
-#   are rarely up to date.
-lintArgs += --disable="gotype" --disable="gosec" --disable="gocyclo" --disable="golint"
-lintArgs += --skip="build"
-lintArgs += --exclude="rpc/internal/.*.pb.go"
-#   enable and configure additional linters
-lintArgs += --line-length=100 --dupl-threshold=150 --cyclo-over=15
-#   the gotype linter has an imperfect compilation simulator and
-#   produces the following false postive errors:
-lintArgs += --exclude="error: could not import github.com/mongodb/greenbay"
-#   some test cases are structurally similar, and lead to dupl linter
-#   warnings, but are important to maintain separately, and would be
-#   difficult to test without a much more complex reflection/code
-#   generation approach, so we ignore dupl errors in tests.
-lintArgs += --exclude="warning: duplicate of .*_test.go"
-#   go lint warns on an error in docstring format, erroneously because
-#   it doesn't consider the entire package.
-lintArgs += --exclude="warning: package comment should be of the form \"Package .* ...\""
-#   known issues that the linter picks up that are not relevant in our cases
-lintArgs += --exclude="file is not goimported" # top-level mains aren't imported
-lintArgs += --exclude="error return value not checked .defer.*"
-lintArgs += --exclude="\w+Key is unused.*"
-lintArgs += --exclude="unused global variable \w+Key"
-lintArgs += --exclude=".*unused variable or constant \w+Key"
-lintArgs += --exclude=".*composite literal uses unkeyed fields"
-# end linting configuration
+
+# start lint setup targets
+lintDeps := $(buildDir)/.lintSetup $(buildDir)/run-linter $(buildDir)/golangci-lint
+$(buildDir)/.lintSetup:$(buildDir)/golangci-lint
+	@touch $@
+$(buildDir)/golangci-lint:$(buildDir)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/76a82c6ed19784036bbf2d4c84d0228ca12381a4/install.sh | sh -s -- -b $(buildDir) v1.23.8 >/dev/null 2>&1
+$(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup $(buildDir)
+	@$(goEnv) $(gobin) build -o $@ $<
+# end lint setup targets
 
 # benchmark setup targets
 $(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
@@ -68,18 +45,9 @@ $(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
 
 # start dependency installation tools
 #   implementation details for being able to lazily install dependencies
-lintDeps := $(addprefix $(gopath)/src/,$(lintDeps))
-srcFiles := makefile $(shell find . -name "*.go" -not -path "./$(buildDir)/*" -not -name "*_test.go" -not -path "*\#*")
 distContents := $(buildDir)/$(name)
 coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
 coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
-$(gopath)/src/%:
-	@-[ ! -d $(gopath) ] && mkdir -p $(gopath) || true
-	$(goEnv) $(gobin) get $(subst $(gopath)/src/,,$@)
-$(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/.lintSetup
-	 $(goEnv) $(gobin) build -o $@ $<
-$(buildDir)/.lintSetup:$(lintDeps) $(buildDir)/
-	@-$(goEnv) $(gopath)/bin/gometalinter --install >/dev/null && touch $@
 # end dependency installation tools
 
 
@@ -87,7 +55,7 @@ $(buildDir)/.lintSetup:$(lintDeps) $(buildDir)/
 # convienent link in the working directory
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
-$(buildDir)/$(name):$(srcFiles)
+$(buildDir)/$(name):
 	$(goEnv) $(gobin) build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
 	$(goEnv) $(gobin) build -o $@ $<
@@ -304,9 +272,9 @@ $(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
 	$(goEnv) $(gobin) tool cover -html=$< -o $@
 #  targets to generate gotest output from the linter.
 $(buildDir)/output.%.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
-	@$(goEnv) ./$< --output=$@ --lintArgs='$(lintArgs)' --packages='$*'
+	@$(goEnv) ./$< --output=$@ --lintBin=$(buildDir)/golangci-lint --packages='$*'
 $(buildDir)/output.lint:$(buildDir)/run-linter $(buildDir)/ .FORCE
-	@$(goEnv) ./$< --output="$@" --lintArgs='$(lintArgs)' --packages="$(packages)"
+	@$(goEnv) ./$< --output=$@ --lintBin=$(buildDir)/golangci-lint --packages='$(packages)'
 #  targets to process and generate coverage reports
 # end test and coverage artifacts
 
@@ -337,7 +305,7 @@ check-mongod:mongodb/.get-mongodb
 
 # clean and other utility targets
 clean:
-	rm *.pb.go
+	rm -f *.pb.go
 	rm -rf $(lintDeps) $(buildDir)/coverage.* $(name) $(buildDir)/$(name)
 clean-results:
 	rm -rf $(buildDir)/output.*
