@@ -3,15 +3,16 @@ package units
 import (
 	"context"
 	"fmt"
+
+	"github.com/pkg/errors"
+
+	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
-
-	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/model"
 )
 
 const periodicChangePointJobName = "periodic-change-point-detection"

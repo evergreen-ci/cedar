@@ -84,7 +84,7 @@ func TestCalcFunctions(t *testing.T) {
 			}), 0),
 			durationTotal: time.Duration(500000000),
 			total:         time.Duration(600000000),
-			totalWallTime: time.Duration(2 * time.Second),
+			totalWallTime: 2 * time.Second,
 		},
 		gauges: struct {
 			state   []float64
@@ -142,7 +142,7 @@ func TestCalcFunctions(t *testing.T) {
 			name:    operationThroughputName,
 			factory: &operationThroughput{},
 			expectedValues: []interface{}{
-				float64(s.counters.operationsTotal) / float64(s.timers.totalWallTime.Seconds()),
+				float64(s.counters.operationsTotal) / s.timers.totalWallTime.Seconds(),
 			},
 			expectedVersion:     operationThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
@@ -158,7 +158,7 @@ func TestCalcFunctions(t *testing.T) {
 			name:    sizeThroughputName,
 			factory: &sizeThroughput{},
 			expectedValues: []interface{}{
-				float64(s.counters.sizeTotal) / float64(s.timers.totalWallTime.Seconds()),
+				float64(s.counters.sizeTotal) / s.timers.totalWallTime.Seconds(),
 			},
 			expectedVersion:     sizeThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
@@ -174,7 +174,7 @@ func TestCalcFunctions(t *testing.T) {
 			name:    errorThroughputName,
 			factory: &errorThroughput{},
 			expectedValues: []interface{}{
-				float64(s.counters.errorsTotal) / float64(s.timers.totalWallTime.Seconds()),
+				float64(s.counters.errorsTotal) / s.timers.totalWallTime.Seconds(),
 			},
 			expectedVersion:     errorThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},

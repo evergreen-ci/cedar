@@ -217,7 +217,7 @@ func (result *PerformanceResult) IncFailedRollupAttempts(ctx context.Context) er
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
 
-	return errors.Wrapf(err, "problem incrementing failed rollup attemps for performance result with id %s", result.ID)
+	return errors.Wrapf(err, "problem incrementing failed rollup attempts for performance result with id %s", result.ID)
 }
 
 // Remove removes the performance result from the database. The environment
@@ -424,11 +424,11 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 	if opts.Sort != nil {
 		sortKeys := make(bson.D, len(opts.Sort))
 		for i, key := range opts.Sort {
-			sortKeys[i] = bson.E{key, -1}
+			sortKeys[i] = bson.E{Key: key, Value: -1}
 		}
 		findOpts.SetSort(sortKeys)
 	} else {
-		findOpts.SetSort(bson.D{{perfCreatedAtKey, -1}})
+		findOpts.SetSort(bson.D{{Key: perfCreatedAtKey, Value: -1}})
 	}
 	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search, findOpts)
 	if err != nil {

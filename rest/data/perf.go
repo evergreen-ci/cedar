@@ -3,8 +3,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"github.com/mongodb/amboy"
-	"github.com/mongodb/grip"
 	"net/http"
 	"sort"
 
@@ -15,6 +13,8 @@ import (
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/amboy"
+	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 )
 

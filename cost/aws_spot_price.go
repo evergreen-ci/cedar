@@ -11,7 +11,7 @@ import (
 
 type spotPrices []*ec2.SpotPrice
 
-// The folowing spotPrices methods are to implement sort.Sort
+// The following spotPrices methods are to implement sort.Sort.
 func (slice spotPrices) Len() int {
 	return len(slice)
 }

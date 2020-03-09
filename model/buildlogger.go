@@ -443,7 +443,7 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	if opts.Limit > 0 {
 		findOpts.SetLimit(opts.Limit)
 	}
-	findOpts.SetSort(bson.D{{logCreatedAtKey, -1}})
+	findOpts.SetSort(bson.D{{Key: logCreatedAtKey, Value: -1}})
 	it, err := l.env.GetDB().Collection(buildloggerCollection).Find(ctx, createFindQuery(opts), findOpts)
 	if err != nil {
 		return errors.WithStack(err)

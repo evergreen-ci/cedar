@@ -635,8 +635,8 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs.Setup(env)
 		opts := LogFindOptions{
 			TimeRange: util.TimeRange{
-				time.Now().Add(-48 * time.Hour),
-				time.Now(),
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now(),
 			},
 			Info: LogInfo{Project: "DNE"},
 		}

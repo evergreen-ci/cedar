@@ -97,7 +97,7 @@ func (c *CostSuite) TestCreateCostItemFromAmazonItems() {
 	items := []AWSItem{item1, item2, item3}
 	item := createCostItemFromAmazonItems(key, items)
 	c.Equal(item.Name, key.Name)
-	c.Equal(item.ItemType, string(key.ItemType))
+	c.Equal(item.ItemType, key.ItemType)
 	c.Equal(item.AvgPrice, float64(4.42))
 	c.Equal(item.FixedPrice, float64(68))
 	c.Equal(item.AvgUptime, float64(1.67))
