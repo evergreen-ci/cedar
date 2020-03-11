@@ -99,12 +99,12 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		sort.Slice(series.TimeSeries, func(i, j int) bool {
 			return series.TimeSeries[i].Order < series.TimeSeries[j].Order
 		})
-		var float_series []float64
-		for _, item := range series.TimeSeries {
-			float_series = append(float_series, item.Value)
+		floatSeries := make([]float64, len(series.TimeSeries))
+		for i, item := range series.TimeSeries {
+			floatSeries[i] = item.Value
 		}
 
-		changePoints, err := j.changePointDetector.DetectChanges(ctx, float_series)
+		changePoints, err := j.changePointDetector.DetectChanges(ctx, floatSeries)
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
 			return
