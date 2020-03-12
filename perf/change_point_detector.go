@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -118,6 +119,11 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 			http.StatusRequestTimeout,
 			http.StatusPreconditionFailed,
 			http.StatusExpectationFailed,
+		},
+		RetryableErrors: []error{
+			// If a connection gets cut by the ELB, sometimes the client doesn't get an actual error
+			// The client only receives a nil body leading to an EOF
+			io.EOF,
 		},
 	}
 	client := util.GetHTTPRetryableClient(conf)
