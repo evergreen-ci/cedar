@@ -23,7 +23,7 @@ func (s *ServiceCacheSuite) SetupTest() {
 func (s *ServiceCacheSuite) TestDefaultCacheValues() {
 	s.Nil(s.cache.localQueue)
 	s.Nil(s.cache.remoteQueue)
-	s.Nil(s.cache.remoteReporter)
+	s.Nil(s.cache.remoteManager)
 	s.Equal("cedar.testing", s.cache.name)
 }
 
@@ -54,7 +54,7 @@ func (s *ServiceCacheSuite) TestRemoteQueueNotSettableToNil() {
 	s.NotNil(s.cache.remoteQueue)
 	s.Equal(s.cache.remoteQueue, q)
 
-	s.Nil(s.cache.remoteReporter)
+	s.Nil(s.cache.remoteManager)
 }
 
 func (s *ServiceCacheSuite) TestQueueGetterRetrievesQueue() {
