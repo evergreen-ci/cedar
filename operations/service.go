@@ -191,7 +191,7 @@ func getAdminService(env cedar.Environment) (*gimlet.APIApp, error) {
 
 	app.AddMiddleware(gimlet.MakeRecoveryLogger())
 
-	err := app.Merge(gimlet.GetPProfApp(), amboyRest.NewReportingService(env.GetRemoteReporter()).App())
+	err := app.Merge(gimlet.GetPProfApp(), amboyRest.NewManagementService(env.GetRemoteManager()).App())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

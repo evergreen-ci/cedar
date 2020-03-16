@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/amboy/management"
 	"github.com/mongodb/amboy/pool"
 	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/amboy/reporting"
 	"github.com/mongodb/anser/apm"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -128,11 +128,11 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		if err = env.remoteQueue.Start(ctx); err != nil {
 			return nil, errors.Wrap(err, "problem starting remote queue")
 		}
-		reporterOpts := reporting.DBQueueReporterOptions{
+		managementOpts := management.DBQueueManagerOptions{
 			Name:    conf.QueueName,
 			Options: opts,
 		}
-		env.remoteReporter, err = reporting.MakeDBQueueState(ctx, reporterOpts, env.client)
+		env.remoteManager, err = management.MakeDBQueueManager(ctx, managementOpts, env.client)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem starting remote reporter")
 		}
@@ -191,7 +191,7 @@ type Environment interface {
 	// line operations
 	GetRemoteQueue() amboy.Queue
 	SetRemoteQueue(amboy.Queue) error
-	GetRemoteReporter() reporting.Reporter
+	GetRemoteManager() management.Management
 	GetLocalQueue() amboy.Queue
 	SetLocalQueue(amboy.Queue) error
 
@@ -239,7 +239,7 @@ type envState struct {
 	remoteQueue       amboy.Queue
 	localQueue        amboy.Queue
 	remoteQueueGroup  amboy.QueueGroup
-	remoteReporter    reporting.Reporter
+	remoteManager     management.Management
 	ctx               context.Context
 	client            *mongo.Client
 	conf              *Configuration
@@ -287,11 +287,11 @@ func (c *envState) GetRemoteQueueGroup() amboy.QueueGroup {
 	return c.remoteQueueGroup
 }
 
-func (c *envState) GetRemoteReporter() reporting.Reporter {
+func (c *envState) GetRemoteManager() management.Management {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.remoteReporter
+	return c.remoteManager
 }
 
 func (c *envState) SetLocalQueue(q amboy.Queue) error {
