@@ -154,8 +154,8 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	}
 	key := fmt.Sprint(util.UnixMilli(time.Now()))
 
-	linesCombined := ""
-	for _, line := range lines {
+	linesCombined := make([]string, len(lines))
+	for idx, line := range lines {
 		// unlikely scenario, but just in case priority is out of range.
 		if line.Priority > level.Emergency {
 			line.Priority = level.Emergency
@@ -163,7 +163,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 			line.Priority = level.Trace
 		}
 
-		linesCombined += prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data)
+		linesCombined[idx] = prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data)
 	}
 
 	conf := &CedarConfig{}
@@ -182,7 +182,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	if err != nil {
 		return errors.Wrap(err, "problem creating bucket")
 	}
-	if err := bucket.Put(ctx, key, strings.NewReader(linesCombined)); err != nil {
+	if err := bucket.Put(ctx, key, strings.NewReader(strings.Join(linesCombined, ""))); err != nil {
 		return errors.Wrap(err, "problem uploading log lines to bucket")
 	}
 
