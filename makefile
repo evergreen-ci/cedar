@@ -56,7 +56,7 @@ coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name):
-	$(goEnv) $(gobin) build -ldflags "-X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+	$(goEnv) $(gobin) build -ldflags "-w -X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
 	$(goEnv) $(gobin) build -o $@ $<
 generate-points:$(buildDir)/generate-points
