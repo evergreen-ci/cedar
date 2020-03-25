@@ -271,6 +271,8 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 type logGetByTestNameHandler struct {
 	id            string
 	name          string
+	procName      string
+	execution     int
 	tags          []string
 	tr            util.TimeRange
 	printTime     bool
@@ -301,12 +303,17 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.id = gimlet.GetVars(r)["task_id"]
 	h.name = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
+	h.procName = vals.Get(procName)
 	h.tags = vals[tags]
 	h.printTime = vals.Get(printTime) == trueString
 	h.printPriority = vals.Get(printPriority) == trueString
 	h.paginate = vals.Get(paginate) == trueString
 	h.tr, err = parseTimeRange(vals, logStartAt, logEndAt)
 	catcher.Add(err)
+	if len(vals[execution]) > 0 {
+		h.execution, err = strconv.Atoi(vals[execution][0])
+		catcher.Add(err)
+	}
 	if len(vals[limit]) > 0 {
 		h.limit, err = strconv.Atoi(vals[limit][0])
 		catcher.Add(err)
@@ -320,6 +327,8 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	opts := data.BuildloggerOptions{
 		TaskID:        h.id,
 		TestName:      h.name,
+		Execution:     h.execution,
+		ProcessName:   h.procName,
 		Tags:          h.tags,
 		TimeRange:     h.tr,
 		PrintTime:     h.printTime,

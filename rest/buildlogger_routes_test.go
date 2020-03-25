@@ -561,12 +561,6 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 
 		it := dbModel.NewMergingIterator(
 			dbModel.NewBatchedLogIterator(
-				s.buckets["abc"],
-				s.sc.CachedLogs["abc"].Artifact.Chunks,
-				batchSize,
-				rh.(*logGetByTestNameHandler).tr,
-			),
-			dbModel.NewBatchedLogIterator(
 				s.buckets["jkl"],
 				s.sc.CachedLogs["jkl"].Artifact.Chunks,
 				batchSize,
@@ -602,12 +596,6 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
 			dbModel.NewMergingIterator(
-				dbModel.NewBatchedLogIterator(
-					s.buckets["abc"],
-					s.sc.CachedLogs["abc"].Artifact.Chunks,
-					batchSize,
-					rh.(*logGetByTestNameHandler).tr,
-				),
 				dbModel.NewBatchedLogIterator(
 					s.buckets["jkl"],
 					s.sc.CachedLogs["jkl"].Artifact.Chunks,

@@ -181,7 +181,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 		paginated bool
 	)
 
-	it, err := dbc.findLogsByTestName(ctx, opts)
+	it, err := dbc.findLogsByTestName(ctx, opts, true)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
@@ -244,15 +244,18 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 		paginated bool
 	)
 
+	opts.ProcessName = ""
+	opts.Execution = 0
+
 	its := []dbModel.LogIterator{}
-	it, err := dbc.findLogsByTestName(ctx, opts)
+	it, err := dbc.findLogsByTestName(ctx, opts, false)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
 	its = append(its, it)
 
 	opts.TestName = ""
-	it, err = dbc.findLogsByTestName(ctx, opts)
+	it, err = dbc.findLogsByTestName(ctx, opts, false)
 	if err == nil {
 		its = append(its, it)
 	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
@@ -272,18 +275,24 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	return data, it.Item().Timestamp, paginated, nil
 }
 
-func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
+func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions, emptyExecution bool) (dbModel.LogIterator, error) {
 	dbOpts := dbModel.LogFindOptions{
 		TimeRange: opts.TimeRange,
 		Info: dbModel.LogInfo{
-			TaskID: opts.TaskID,
-			Tags:   opts.Tags,
+			TaskID:      opts.TaskID,
+			ProcessName: opts.ProcessName,
+			Execution:   opts.Execution,
+			Tags:        opts.Tags,
 		},
+		Empty: dbModel.EmptyLogInfo{},
 	}
 	if opts.TestName != "" {
 		dbOpts.Info.TestName = opts.TestName
 	} else {
-		dbOpts.Empty = dbModel.EmptyLogInfo{TestName: true}
+		dbOpts.Empty.TestName = true
+	}
+	if emptyExecution {
+		dbOpts.Empty.Execution = opts.Execution == 0
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -474,7 +483,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 		paginated bool
 	)
 
-	it, err := mc.findLogsByTestName(ctx, opts)
+	it, err := mc.findLogsByTestName(ctx, opts, true)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
@@ -530,15 +539,19 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 		data      []byte
 		paginated bool
 	)
+
+	opts.ProcessName = ""
+	opts.Execution = 0
+
 	its := []dbModel.LogIterator{}
-	it, err := mc.findLogsByTestName(ctx, opts)
+	it, err := mc.findLogsByTestName(ctx, opts, false)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
 	its = append(its, it)
 
 	opts.TestName = ""
-	it, err = mc.findLogsByTestName(ctx, opts)
+	it, err = mc.findLogsByTestName(ctx, opts, false)
 	if err == nil {
 		its = append(its, it)
 	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
@@ -558,10 +571,16 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	return data, it.Item().Timestamp, paginated, ctx.Err()
 }
 
-func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions) (dbModel.LogIterator, error) {
+func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions, emptyExecution bool) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == opts.TaskID && log.Info.TestName == opts.TestName && containsTags(opts.Tags, log.Info.Tags) {
+			if opts.ProcessName != "" && log.Info.ProcessName != opts.ProcessName {
+				continue
+			}
+			if emptyExecution && log.Info.Execution != opts.Execution {
+				continue
+			}
 			logs = append(logs, log)
 		}
 	}
