@@ -83,6 +83,21 @@ func (s *buildloggerConnectorSuite) setup() {
 			TaskID:      "task1",
 			Execution:   1,
 			TestName:    "test0",
+			ProcessName: "mongod0",
+			Format:      model.LogFormatText,
+			Tags:        []string{"tag1", "tag2", "tag3"},
+			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:    1,
+			Mainline:    true,
+		},
+		{
+			Project:     "test",
+			Version:     "0",
+			Variant:     "linux",
+			TaskName:    "task0",
+			TaskID:      "task1",
+			Execution:   1,
+			TestName:    "test0",
 			ProcessName: "mongod1",
 			Format:      model.LogFormatText,
 			Tags:        []string{"tag1", "tag2"},
@@ -277,7 +292,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 
 		apiLogs, err := s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 4)
+		s.Len(apiLogs, 5)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 		}
@@ -302,7 +317,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 
 		apiLogs, err = s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 2)
+		s.Len(apiLogs, 3)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 		}
@@ -392,8 +407,9 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 				EndAt:   time.Now(),
 			},
 			Info: model.LogInfo{
-				TaskID:   "task1",
-				TestName: "test0",
+				TaskID:    "task1",
+				TestName:  "test0",
+				Execution: 1,
 			},
 		}
 		logs := model.Logs{}
@@ -406,6 +422,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
 			TestName:      opts.Info.TestName,
+			Execution:     1,
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
 			PrintPriority: !printTime,
@@ -426,7 +443,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 
 		apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 2)
+		s.Len(apiLogs, 3)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 			s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
@@ -452,11 +469,29 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 
 		apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 1)
+		s.Len(apiLogs, 2)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 			s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
 		}
+
+		// with process name
+		opts.Info.ProcessName = "mongod0"
+		logs = model.Logs{}
+		logs.Setup(s.env)
+		s.Require().NoError(logs.Find(s.ctx, opts))
+		it, err = logs.Merge(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(it)
+
+		findOpts.ProcessName = opts.Info.ProcessName
+		data, next, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.True(paginated)
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
 
 		// limit
 		it, err = logs.Merge(s.ctx)
@@ -482,7 +517,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},
-		Info:  model.LogInfo{TaskID: "task1"},
+		Info:  model.LogInfo{TaskID: "task1", Execution: 1},
 		Empty: model.EmptyLogInfo{TestName: true},
 	}
 	logs := model.Logs{}
@@ -494,6 +529,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 
 	findOpts := BuildloggerOptions{
 		TaskID:        opts.Info.TaskID,
+		Execution:     1,
 		TimeRange:     opts.TimeRange,
 		SoftSizeLimit: 500,
 	}
