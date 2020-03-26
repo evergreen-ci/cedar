@@ -217,7 +217,7 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 			"method":    "GET",
 			"route":     "/perf/task_name/{task_name}",
 			"message":   "error getting performance results by task name",
-			"task_name": h.task_name,
+			"task_name": h.taskName,
 			"err":       err.Error(),
 		})
 		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskName))
