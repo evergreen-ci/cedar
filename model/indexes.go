@@ -78,14 +78,6 @@ func GetRequiredIndexes() []SystemIndexes {
 			Collection: userCollection,
 		},
 		{
-			Keys:       bson.D{{logCreatedAtKey, 1}},
-			Collection: buildloggerCollection,
-		},
-		{
-			Keys:       bson.D{{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1}},
-			Collection: buildloggerCollection,
-		},
-		{
 			Keys: bson.D{
 				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), 1},
 				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), 1},
@@ -95,6 +87,49 @@ func GetRequiredIndexes() []SystemIndexes {
 				{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), 1},
 			},
 			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1},
+				{logCreatedAtKey, -1},
+			},
+			Collection: buildloggerCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessName), 1},
+				{logCreatedAtKey, -1},
+			},
+			Collection: buildloggerCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey), 1},
+				{logCreatedAtKey, -1},
+			},
+			Collection: buildloggerCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessName), 1},
+				{logCreatedAtKey, -1},
+			},
+			Collection: buildloggerCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey), 1},
+				{bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey), 1},
+				{logCreatedAtKey, -1},
+			},
+			Collection: buildloggerCollection,
 		},
 	}
 }
