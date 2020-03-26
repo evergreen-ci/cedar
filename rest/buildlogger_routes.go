@@ -91,7 +91,8 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogByID(ctx, opts)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":  "/buildlogger/{id}",
+			"method":  "GET",
+			"route":   "/buildlogger/{id}",
 			"message": "error getting log by id",
 			"id":      h.id,
 			"err":     err.Error(),
@@ -135,7 +136,8 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLog, err := h.sc.FindLogMetadataByID(ctx, h.id)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":  "/buildlogger/{id}/meta",
+			"method":  "GET",
+			"route":   "/buildlogger/{id}/meta",
 			"message": "error getting log metadata by id",
 			"id":      h.id,
 			"err":     err.Error(),
@@ -226,7 +228,8 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTaskID(ctx, opts)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":  "/buildlogger/task_id/{task_id}",
+			"method":  "GET",
+			"route":   "/buildlogger/task_id/{task_id}",
 			"message": "error getting logs by task id",
 			"task_id": h.id,
 			"err":     err.Error(),
@@ -278,7 +281,8 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, opts)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":  "/buildlogger/task_id/{task_id}/meta",
+			"method":  "GET",
+			"route":   "/buildlogger/task_id/{task_id}/meta",
 			"message": "error getting log metadata by task id",
 			"task_id": h.id,
 			"err":     err.Error(),
@@ -366,7 +370,8 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTestName(ctx, opts)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":    "/buildlogger/test_name/{task_id}/{test_name}",
+			"method":    "GET",
+			"route":     "/buildlogger/test_name/{task_id}/{test_name}",
 			"message":   "error getting logs by test name",
 			"task_id":   h.id,
 			"test_name": h.name,
@@ -422,7 +427,8 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	testLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":    "/buildlogger/test_name/{task_id}/{test_name}/meta",
+			"method":    "GET",
+			"route":     "/buildlogger/test_name/{task_id}/{test_name}/meta",
 			"message":   "error getting log metadata by test name",
 			"task_id":   h.id,
 			"test_name": h.name,
@@ -435,7 +441,8 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	errResp, ok := err.(gimlet.ErrorResponse)
 	if err != nil && (!ok || errResp.StatusCode == http.StatusNotFound) {
 		grip.Error(message.Fields{
-			"method":      "/buildlogger/test_name/{task_id}/{test_name}/meta",
+			"method":      "GET",
+			"route":       "/buildlogger/test_name/{task_id}/{test_name}/meta",
 			"message":     "error getting log metadata by test name",
 			"task_id":     h.id,
 			"test_name":   h.name,
@@ -521,7 +528,8 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, opts)
 		if err != nil {
 			grip.Error(message.Fields{
-				"method":    "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
+				"method":    "GET",
+				"route":     "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
 				"message":   "error getting logs by test name with group id",
 				"task_id":   h.id,
 				"test_name": h.name,
@@ -544,7 +552,8 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, opts)
 	if err != nil {
 		grip.Error(message.Fields{
-			"method":    "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
+			"method":    "GET",
+			"route":     "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
 			"message":   "error getting logs by test name with group id",
 			"task_id":   h.id,
 			"test_name": h.name,
