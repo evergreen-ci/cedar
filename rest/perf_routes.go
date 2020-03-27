@@ -52,14 +52,14 @@ func (h *perfGetByIdHandler) Parse(_ context.Context, r *http.Request) error {
 func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResult, err := h.sc.FindPerformanceResultById(ctx, h.id)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "problem getting performance result by id '%s'", h.id)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/{id}",
-			"message": "error getting performance result by id",
 			"id":      h.id,
-			"err":     err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance result by id '%s'", h.id))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResult)
 }
@@ -97,14 +97,14 @@ func (h *perfRemoveByIdHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
 	numRemoved, err := h.sc.RemovePerformanceResultById(ctx, h.id)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "problem removing performance result by id '%s'", h.id)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
 			"method":  "DELETE",
 			"route":   "/perf/{id}",
-			"message": "error removing performance result by id",
 			"id":      h.id,
-			"err":     err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error removing performance result by id '%s'", h.id))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(fmt.Sprintf("Delete operation removed %d performance results", numRemoved))
 }
@@ -148,14 +148,14 @@ func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error
 func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByTaskId(ctx, h.taskId, h.interval, h.tags...)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.taskId)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/task_id/{task_id}",
-			"message": "error getting performance results by task id",
 			"task_id": h.taskId,
-			"err":     err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskId))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResults)
 }
@@ -213,14 +213,14 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.interval, h.limit, h.tags...)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "problem getting performance results by task_id '%s'", h.taskName)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
 			"route":     "/perf/task_name/{task_name}",
-			"message":   "error getting performance results by task name",
 			"task_name": h.taskName,
-			"err":       err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by task_id '%s'", h.taskName))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResults)
 }
@@ -264,14 +264,14 @@ func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) erro
 func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByVersion(ctx, h.version, h.interval, h.tags...)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "problem getting performance results by version '%s'", h.version)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/version/{version}",
-			"message": "error getting performance results by version",
 			"version": h.version,
-			"err":     err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance results by version '%s'", h.version))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResults)
 }
@@ -315,14 +315,14 @@ func (h *perfGetChildrenHandler) Parse(_ context.Context, r *http.Request) error
 func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultWithChildren(ctx, h.id, h.maxDepth, h.tags...)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "problem getting performance result and children by id '%s'", h.id)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/children/{id}",
-			"message": "error getting performance result and children by id",
 			"id":      h.id,
-			"err":     err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting performance result and children by id '%s'", h.id))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResults)
 }
@@ -354,13 +354,13 @@ func (h *perfSignalProcessingRecalculateHandler) Parse(_ context.Context, r *htt
 func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet.Responder {
 	err := h.sc.ScheduleSignalProcessingRecalculateJobs(ctx)
 	if err != nil {
-		grip.Error(message.Fields{
+		err = errors.Wrapf(err, "Error scheduling signal processing recalculation jobs")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",
 			"route":   "/perf/signal_processing/recalculate",
-			"message": "error scheduling signal processing recalculation jobs",
-			"err":     err.Error(),
-		})
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error scheduling signal processing recalculation jobs"))
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(struct{}{})
 }
