@@ -281,12 +281,12 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting log metadata by task id '%s'", h.id)
-		grip.Error(message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/buildlogger/task_id/{task_id}/meta",
 			"task_id": h.id,
-		})
+		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
