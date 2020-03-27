@@ -10,7 +10,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
@@ -649,7 +648,7 @@ func (s *Service) setServiceFlagDisabled(w http.ResponseWriter, r *http.Request)
 func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
-		util.LogRequestError(r, err)
+		logRequestError(r, err)
 	}()
 
 	rootcrt, err := certdepot.GetCertificate(s.Depot, s.Conf.CA.CertDepot.CAName)
@@ -675,7 +674,7 @@ func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
-		util.LogRequestError(r, err)
+		logRequestError(r, err)
 	}()
 
 	creds := &userCredentials{}
@@ -747,7 +746,7 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
-		util.LogRequestError(r, err)
+		logRequestError(r, err)
 	}()
 
 	usr, authorized := s.checkPayloadCreds(rw, r)
@@ -791,7 +790,7 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
-		util.LogRequestError(r, err)
+		logRequestError(r, err)
 	}()
 
 	usr, authorized := s.checkPayloadCreds(rw, r)
@@ -846,7 +845,7 @@ type userAPIKeyResponse struct {
 func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (string, bool) {
 	var err error
 	defer func() {
-		util.LogRequestError(r, err)
+		logRequestError(r, err)
 	}()
 
 	creds := &userCredentials{}
@@ -888,4 +887,13 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 	s.umconf.AttachCookie(token, rw)
 
 	return creds.Username, true
+}
+
+func logRequestError(r *http.Request, err error) {
+	grip.Error(message.WrapError(err, message.Fields{
+		"method":  r.Method,
+		"remote":  r.RemoteAddr,
+		"request": gimlet.GetRequestID(r.Context()),
+		"path":    r.URL.Path,
+	}))
 }
