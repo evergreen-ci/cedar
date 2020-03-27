@@ -10,6 +10,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
+	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
@@ -646,21 +647,21 @@ func (s *Service) setServiceFlagDisabled(w http.ResponseWriter, r *http.Request)
 // GET /admin/ca
 
 func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		util.LogRequestError(r, err)
+	}()
+
 	rootcrt, err := certdepot.GetCertificate(s.Depot, s.Conf.CA.CertDepot.CAName)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrapf(err,
-			"problem getting root cert '%s'", s.Conf.CA.CertDepot.CAName)))
+		err = errors.Wrapf(err, "problem getting root certificate '%s'", s.Conf.CA.CertDepot.CAName)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := rootcrt.Export()
 	if err != nil {
+		err = errors.Wrap(err, "problem exporting root certificate")
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting root certificate")))
-		grip.Error(message.Fields{
-			"method":  "GET",
-			"route":   "/admin/ca",
-			"message": "problem exporting root certificate",
-			"err":     err.Error(),
-		})
 		return
 	}
 
@@ -672,21 +673,23 @@ func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 // POST /admin/users/key
 
 func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		util.LogRequestError(r, err)
+	}()
+
 	creds := &userCredentials{}
-	if err := gimlet.GetJSON(r.Body, creds); err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem reading request body")))
+	if err = gimlet.GetJSON(r.Body, creds); err != nil {
+		err = errors.Wrap(err, "problem reading request body")
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return
 	}
 
 	if creds.Username == "" {
+		err = errors.New("no user name specified")
 		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
 			Message:    "no username specified",
 			StatusCode: http.StatusUnauthorized,
-		})
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/key",
-			"message": "no user name specified",
 		})
 		return
 	}
@@ -695,27 +698,15 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/key",
-			"message": "problem creating user token",
-			"user":    creds.Username,
-			"err":     err.Error(),
-		})
+		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return
 	}
 
 	user, err := s.UserManager.GetUserByToken(r.Context(), token)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/key",
-			"message": "problem finding user",
-			"user":    creds.Username,
-			"err":     err.Error(),
-		})
+		err = errors.Wrapf(err, "problem finding user '%s'", creds.Username)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return
 	}
 	s.umconf.AttachCookie(token, rw)
@@ -729,15 +720,10 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	dbuser, ok := user.(*model.User)
 	if !ok {
+		err = errors.Errorf("cannot generate key for user '%s'", creds.Username)
 		gimlet.WriteJSONResponse(rw, http.StatusInternalServerError, gimlet.ErrorResponse{
 			Message:    "cannot generate key for user",
 			StatusCode: http.StatusInternalServerError,
-		})
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/key",
-			"message": "cannot generate key for user",
-			"user":    creds.Username,
 		})
 		return
 	}
@@ -745,14 +731,8 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	dbuser.Setup(s.Environment)
 	key, err = dbuser.SetAPIKey()
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem generating key")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/key",
-			"message": "problem generating key",
-			"user":    creds.Username,
-			"err":     err.Error(),
-		})
+		err = errors.Errorf("problem generating key for user '%s'", creds.Username)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
@@ -765,6 +745,11 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 // POST /admin/users/certificate
 
 func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		util.LogRequestError(r, err)
+	}()
+
 	usr, authorized := s.checkPayloadCreds(rw, r)
 	if !authorized {
 		return
@@ -776,41 +761,23 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		Host:       usr,
 		Expires:    s.Conf.CA.SSLExpireAfter,
 	}
-	_, err := opts.CreateCertificateOnExpiration(s.Depot, s.Conf.CA.SSLRenewalBefore)
+	_, err = opts.CreateCertificateOnExpiration(s.Depot, s.Conf.CA.SSLRenewalBefore)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem updating certificate")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/certificate",
-			"message": "problem updating certificate",
-			"user":    usr,
-			"err":     err.Error(),
-		})
+		err = errors.Wrapf(err, "problem updating certificate for '%s'", usr)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
 	crt, err := certdepot.GetCertificate(s.Depot, usr)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/certificate",
-			"message": "problem fetching certificate",
-			"user":    usr,
-			"err":     err.Error(),
-		})
+		err = errors.Wrapf(err, "problem fetching certificate for '%s'", usr)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := crt.Export()
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/certificate",
-			"message": "problem exporting certificate",
-			"user":    usr,
-			"err":     err.Error(),
-		})
+		err = errors.Wrapf(err, "problem exporting certificate for '%s'", usr)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
@@ -822,6 +789,11 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 // POST /admin/users/certificate/key
 
 func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		util.LogRequestError(r, err)
+	}()
+
 	usr, authorized := s.checkPayloadCreds(rw, r)
 	if !authorized {
 		return
@@ -834,41 +806,23 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 			Host:       usr,
 			Expires:    s.Conf.CA.SSLExpireAfter,
 		}
-		if err := opts.CreateCertificate(s.Depot); err != nil {
-			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem generating certificate")))
-			grip.Error(message.Fields{
-				"method":  "POST",
-				"route":   "/admin/users/certificate/key",
-				"message": "problem generating certificate",
-				"user":    usr,
-				"err":     err.Error(),
-			})
+		if err = opts.CreateCertificate(s.Depot); err != nil {
+			err = errors.Wrapf(err, "problem generating certificate for '%s'", usr)
+			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 			return
 		}
 	}
 
 	key, err := certdepot.GetPrivateKey(s.Depot, usr)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem fetching certificate key")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/certificate/key",
-			"message": "problem fetching certificate key",
-			"user":    usr,
-			"err":     err.Error(),
-		})
+		err = errors.Wrapf(err, "problem fetching certificate key for '%s'", usr)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := key.ExportPrivate()
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting certificate key")))
-		grip.Error(message.Fields{
-			"method":  "POST",
-			"route":   "/admin/users/certificate/key",
-			"message": "problem exporting certificate key",
-			"user":    usr,
-			"err":     err.Error(),
-		})
+		errors.Wrapf(err, "problem exporting certificate key '%s'", usr)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
@@ -890,13 +844,20 @@ type userAPIKeyResponse struct {
 }
 
 func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (string, bool) {
+	var err error
+	defer func() {
+		util.LogRequestError(r, err)
+	}()
+
 	creds := &userCredentials{}
-	if err := gimlet.GetJSON(r.Body, creds); err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem reading request body")))
+	if err = gimlet.GetJSON(r.Body, creds); err != nil {
+		err = errors.Wrap(err, "problem reading request body")
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return "", false
 	}
 
 	if creds.Username == "" {
+		err = errors.New("no username specified")
 		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
 			Message:    "no username specified",
 			StatusCode: http.StatusUnauthorized,
@@ -906,15 +867,18 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 
 	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem creating user token")))
+		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return "", false
 	}
 
 	user, err := s.UserManager.GetUserByToken(r.Context(), token)
 	if err != nil {
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem finding user")))
+		err = errors.Wrapf(err, "problem finding user '%s'", creds.Username)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return "", false
 	} else if user == nil {
+		err = errors.Errorf("user '%s' not defined", creds.Username)
 		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
 			Message:    "user not defined",
 			StatusCode: http.StatusUnauthorized,

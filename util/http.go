@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/rehttp"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 )
 
 const httpClientTimeout = 5 * time.Minute
@@ -145,4 +148,14 @@ func GetHTTPRetryableClient(conf HTTPRetryConfiguration) *http.Client {
 
 func GetDefaultHTTPRetryableClient() *http.Client {
 	return GetHTTPRetryableClient(NewDefaultHTTPRetryConf())
+}
+
+func LogRequestError(r *http.Request, err error) {
+	grip.Error(message.Fields{
+		"method":  r.Method,
+		"remote":  r.RemoteAddr,
+		"request": gimlet.GetRequestID(r.Context()),
+		"path":    r.URL.Path,
+		"err":     err.Error(),
+	})
 }
