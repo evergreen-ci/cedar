@@ -820,7 +820,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	}
 	payload, err := key.ExportPrivate()
 	if err != nil {
-		errors.Wrapf(err, "problem exporting certificate key '%s'", usr)
+		err = errors.Wrapf(err, "problem exporting certificate key '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
