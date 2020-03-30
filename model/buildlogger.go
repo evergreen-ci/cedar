@@ -154,7 +154,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	}
 	key := fmt.Sprint(util.UnixMilli(time.Now()))
 
-	lineBuffer := bytes.NewBuffer([]byte{})
+	lineBuffer := &bytes.Buffer{}
 	for _, line := range lines {
 		// unlikely scenario, but just in case priority is out of range.
 		if line.Priority > level.Emergency {
