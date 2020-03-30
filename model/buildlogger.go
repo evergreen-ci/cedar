@@ -1,13 +1,13 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash"
 	"io"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -154,8 +154,8 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	}
 	key := fmt.Sprint(util.UnixMilli(time.Now()))
 
-	linesCombined := make([]string, len(lines))
-	for idx, line := range lines {
+	lineBuffer := &bytes.Buffer{}
+	for _, line := range lines {
 		// unlikely scenario, but just in case priority is out of range.
 		if line.Priority > level.Emergency {
 			line.Priority = level.Emergency
@@ -163,7 +163,10 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 			line.Priority = level.Trace
 		}
 
-		linesCombined[idx] = prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data)
+		_, err := lineBuffer.WriteString(prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data))
+		if err != nil {
+			return errors.Wrap(err, "problem buffering lines")
+		}
 	}
 
 	conf := &CedarConfig{}
@@ -182,7 +185,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	if err != nil {
 		return errors.Wrap(err, "problem creating bucket")
 	}
-	if err := bucket.Put(ctx, key, strings.NewReader(strings.Join(linesCombined, ""))); err != nil {
+	if err := bucket.Put(ctx, key, lineBuffer); err != nil {
 		return errors.Wrap(err, "problem uploading log lines to bucket")
 	}
 
