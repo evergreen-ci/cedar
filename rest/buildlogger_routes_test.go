@@ -677,9 +677,10 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
 	s.Equal(expected, resp.Data())
 
 	// only tests
-	rh.(*logMetaGetByTestNameHandler).opts.TestName = "test2"
-	rh.(*logMetaGetByTestNameHandler).opts.Tags = []string{"tag3"}
-	expected = []model.APILog{s.apiResults["def"]}
+	rh.(*logMetaGetByTestNameHandler).opts.TaskID = "task_id2"
+	rh.(*logMetaGetByTestNameHandler).opts.TestName = "test1"
+	rh.(*logMetaGetByTestNameHandler).opts.Tags = []string{}
+	expected = []model.APILog{s.apiResults["ghi"]}
 
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)

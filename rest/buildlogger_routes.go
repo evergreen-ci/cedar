@@ -371,7 +371,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	h.opts.TestName = ""
 	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 	errResp, ok := err.(gimlet.ErrorResponse)
-	if err != nil && (!ok || errResp.StatusCode == http.StatusNotFound) {
+	if err != nil && (!ok || errResp.StatusCode != http.StatusNotFound) {
 		err = errors.Wrapf(err, "problem getting log metadata by test name '%s'", h.opts.TestName)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
