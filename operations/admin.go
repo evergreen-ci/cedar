@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 
 	"github.com/evergreen-ci/cedar/rest"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/certdepot"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -209,7 +209,7 @@ func getUserCert() cli.Command {
 
 			if writeToFile {
 				path := "cedar.ca"
-				if err = util.WriteFile(path, ca); err != nil {
+				if err = utility.WriteFile(path, ca); err != nil {
 					return errors.WithStack(err)
 				}
 				grip.Notice(message.Fields{
@@ -231,7 +231,7 @@ func getUserCert() cli.Command {
 
 			if writeToFile {
 				path := user + ".crt"
-				if err = util.WriteFile(path, cert); err != nil {
+				if err = utility.WriteFile(path, cert); err != nil {
 					return errors.WithStack(err)
 				}
 				grip.Notice(message.Fields{
@@ -254,7 +254,7 @@ func getUserCert() cli.Command {
 
 			if writeToFile {
 				path := user + ".key"
-				if err = util.WriteFile(path, key); err != nil {
+				if err = utility.WriteFile(path, key); err != nil {
 					return errors.WithStack(err)
 				}
 				grip.Notice(message.Fields{
@@ -290,7 +290,7 @@ func uploadCerts() cli.Command {
 			dbName := c.String(dbNameFlag)
 			collName := c.String("depotName")
 
-			if !util.FileExists(certName+".crt") || !util.FileExists(certName+".key") {
+			if !utility.FileExists(certName+".crt") || !utility.FileExists(certName+".key") {
 				return errors.New("certificate of that name does not exist")
 			}
 

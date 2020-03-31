@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/util"
 )
 
 // Connector abstracts the link between cedar's service and API layers,
@@ -24,15 +24,15 @@ type Connector interface {
 	// FindPerformanceResultsByTaskId returns the performance results with
 	// the given task id and that fall within given time range, filtered by
 	// the optional tags.
-	FindPerformanceResultsByTaskId(context.Context, string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultsByTaskId(context.Context, string, dbModel.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultsByTaskName returns the performance results
 	// with the given task name and that fall within given time range,
 	// filtered by the optional tags.
-	FindPerformanceResultsByTaskName(context.Context, string, string, string, util.TimeRange, int, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultsByTaskName(context.Context, string, string, string, dbModel.TimeRange, int, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultsByVersion returns the performance results with
 	// the given version and that fall within given time range, filtered by
 	// the optional tags.
-	FindPerformanceResultsByVersion(context.Context, string, util.TimeRange, ...string) ([]model.APIPerformanceResult, error)
+	FindPerformanceResultsByVersion(context.Context, string, dbModel.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultWithChildren returns the the performance result
 	// with the given id and its children up to the given depth and
 	// filtered by the optional tags.
@@ -96,7 +96,7 @@ type BuildloggerOptions struct {
 	Execution     int
 	ProcessName   string
 	Tags          []string
-	TimeRange     util.TimeRange
+	TimeRange     dbModel.TimeRange
 	PrintTime     bool
 	PrintPriority bool
 	Limit         int

@@ -10,7 +10,7 @@ import (
 	"github.com/evergreen-ci/cedar/cost"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/units"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -71,7 +71,7 @@ func dumpCostConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			return errors.WithStack(util.WriteJSON(fileName, conf))
+			return errors.WithStack(utility.WriteJSONFile(fileName, conf))
 		},
 	}
 }

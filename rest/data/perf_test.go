@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/barque/util"
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/amboy/queue"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
@@ -377,7 +377,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	}
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := utility.GetTimeRange(time.Time{}, dur)
 
 	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, expectedTaskID, tr)
 	s.Equal(expectedCount, len(actualResult))

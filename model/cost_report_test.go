@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -264,61 +263,61 @@ func TestCostDataStructures(t *testing.T) {
 	for name, test := range map[string]func(*testing.T, *ServiceItem){
 		"CachesCostReturnedAppropriatly": func(t *testing.T, item *ServiceItem) {
 			item.TotalCost = 1.0
-			assert.Equal(t, 1.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 1.0, item.GetCost(TimeRange{}))
 		},
 		"FixedPricesForTime": func(t *testing.T, item *ServiceItem) {
 			item.TotalHours = 1
 			item.FixedPrice = 2
-			assert.Equal(t, 2.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 2.0, item.GetCost(TimeRange{}))
 		},
 		"AveragePriceForFixedTime": func(t *testing.T, item *ServiceItem) {
 			item.TotalHours = 1
 			item.AvgPrice = 3
-			assert.Equal(t, 3.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 3.0, item.GetCost(TimeRange{}))
 		},
 		"DefinedAverageUptimeFixedPrice": func(t *testing.T, item *ServiceItem) {
 			item.AvgUptime = 10
 			item.FixedPrice = 10
-			assert.Equal(t, 100.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 100.0, item.GetCost(TimeRange{}))
 		},
 		"DefinedAverageUptimeAveragePrice": func(t *testing.T, item *ServiceItem) {
 			item.AvgUptime = 10
 			item.AvgPrice = 3
-			assert.Equal(t, 30.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 30.0, item.GetCost(TimeRange{}))
 		},
 		"UnspecifiedAverageUptimeFixedPrices": func(t *testing.T, item *ServiceItem) {
 			item.FixedPrice = 5
 			item.Launched = 3
 			item.Terminated = 0
-			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour + time.Second)}
+			tr := TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour + time.Second)}
 			assert.InDelta(t, 15.0, item.GetCost(tr), 0.1)
 		},
 		"UnspecifiedAverageUptimeAveragePrices": func(t *testing.T, item *ServiceItem) {
 			item.AvgPrice = 8
 			item.Launched = 2
 			item.Terminated = 0
-			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour + time.Second)}
+			tr := TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour + time.Second)}
 			assert.InDelta(t, 16.0, item.GetCost(tr), 0.1)
 		},
 		"UnspecifiedButNoReportDuration": func(t *testing.T, item *ServiceItem) {
 			item.AvgPrice = 10
 			item.Launched = 3
 			item.Terminated = 0
-			assert.Equal(t, 0.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 0.0, item.GetCost(TimeRange{}))
 		},
 		"UnspecifiedEmptyNumberOfItems": func(t *testing.T, item *ServiceItem) {
 			item.AvgPrice = 10
 			item.Launched = 0
 			item.Terminated = -1
-			tr := util.TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour)}
+			tr := TimeRange{StartAt: time.Now(), EndAt: time.Now().Add(time.Hour)}
 			assert.InDelta(t, 10.0, item.GetCost(tr), .01)
 		},
 		"TotalHousSpecifiedButNoPrice": func(t *testing.T, item *ServiceItem) {
 			item.TotalHours = 4
-			assert.Equal(t, 0.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 0.0, item.GetCost(TimeRange{}))
 		},
 		"IsZeroForZeroTypes": func(t *testing.T, item *ServiceItem) {
-			assert.Equal(t, 0.0, item.GetCost(util.TimeRange{}))
+			assert.Equal(t, 0.0, item.GetCost(TimeRange{}))
 		},
 		// "": func(t *testing.T, item *ServiceItem) {},
 	} {

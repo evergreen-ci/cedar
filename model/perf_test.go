@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/barque/util"
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/assert"
@@ -634,7 +634,7 @@ func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 
 func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 	options := PerfFindOptions{
-		Interval: util.TimeRange{
+		Interval: TimeRange{
 			StartAt: time.Time{},
 			EndAt:   time.Now(),
 		},

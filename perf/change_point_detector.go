@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -96,7 +96,7 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 		return errors.WithStack(err)
 	}
 
-	conf := util.HTTPRetryConfiguration{
+	conf := utility.HTTPRetryConfiguration{
 		MaxRetries:      50,
 		TemporaryErrors: true,
 		MaxDelay:        30 * time.Second,
@@ -120,14 +120,14 @@ func (spc *signalProcessingClient) doRequest(method, route string, ctx context.C
 			http.StatusPreconditionFailed,
 			http.StatusExpectationFailed,
 		},
-		RetryableErrors: []error{
+		Errors: []error{
 			// If a connection gets cut by the ELB, sometimes the client doesn't get an actual error
 			// The client only receives a nil body leading to an EOF
 			io.EOF,
 		},
 	}
-	client := util.GetHTTPRetryableClient(conf)
-	defer util.PutHTTPClient(client)
+	client := utility.GetHTTPRetryableClient(conf)
+	defer utility.PutHTTPClient(client)
 
 	req, err := http.NewRequest(method, route, bytes.NewBuffer(body))
 	if err != nil {

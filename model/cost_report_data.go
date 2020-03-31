@@ -3,15 +3,14 @@ package model
 import (
 	"time"
 
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 )
 
 // Report provides time information on the overall structure.
 type CostReportMetadata struct {
-	Generated  time.Time      `bson:"generated" json:"generated" yaml:"generated"`
-	Range      util.TimeRange `bson:"time_range" json:"time_range" yaml:"time_range"`
-	Incomplete bool           `bson:"incomplete" json:"incomplete" yaml:"incomplete"`
+	Generated  time.Time `bson:"generated" json:"generated" yaml:"generated"`
+	Range      TimeRange `bson:"time_range" json:"time_range" yaml:"time_range"`
+	Incomplete bool      `bson:"incomplete" json:"incomplete" yaml:"incomplete"`
 }
 
 var (
@@ -117,7 +116,7 @@ type CloudProvider struct {
 	accounts map[string]*CloudAccount
 }
 
-func (c *CloudProvider) refresh(reportRange util.TimeRange) {
+func (c *CloudProvider) refresh(reportRange TimeRange) {
 	c.accounts = make(map[string]*CloudAccount)
 	c.Cost = 0
 
@@ -143,7 +142,7 @@ type CloudAccount struct {
 	services map[string]*AccountService
 }
 
-func (c *CloudAccount) refresh(reportRange util.TimeRange) {
+func (c *CloudAccount) refresh(reportRange TimeRange) {
 	c.services = make(map[string]*AccountService)
 	c.Cost = 0
 
@@ -168,7 +167,7 @@ type AccountService struct {
 	items map[string]*ServiceItem
 }
 
-func (s *AccountService) refresh(reportRange util.TimeRange) {
+func (s *AccountService) refresh(reportRange TimeRange) {
 	s.items = make(map[string]*ServiceItem)
 	s.Cost = 0
 	for _, i := range s.Items {
@@ -204,7 +203,7 @@ func (i *ServiceItem) ID() string {
 	return i.ItemType
 }
 
-func (i *ServiceItem) GetCost(reportRange util.TimeRange) float64 {
+func (i *ServiceItem) GetCost(reportRange TimeRange) float64 {
 	if i.TotalCost > 0 {
 		return i.TotalCost
 	}

@@ -4,19 +4,19 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
 
-func parseTimeRange(vals url.Values, start, end string) (util.TimeRange, error) {
-	tr := util.TimeRange{EndAt: time.Now()}
+func parseTimeRange(vals url.Values, start, end string) (model.TimeRange, error) {
+	tr := model.TimeRange{EndAt: time.Now()}
 	startAt := vals.Get(start)
 	endAt := vals.Get(end)
 
 	if startAt != "" {
 		s, err := time.ParseInLocation(time.RFC3339, startAt, time.UTC)
 		if err != nil {
-			return util.TimeRange{}, errors.Errorf("problem parsing start time '%s'", startAt)
+			return model.TimeRange{}, errors.Errorf("problem parsing start time '%s'", startAt)
 		}
 		tr.StartAt = s
 	}
@@ -24,7 +24,7 @@ func parseTimeRange(vals url.Values, start, end string) (util.TimeRange, error) 
 	if endAt != "" {
 		e, err := time.ParseInLocation(time.RFC3339, endAt, time.UTC)
 		if err != nil {
-			return util.TimeRange{}, errors.Errorf("problem parsing end time '%s'", endAt)
+			return model.TimeRange{}, errors.Errorf("problem parsing end time '%s'", endAt)
 		}
 		tr.EndAt = e
 	}

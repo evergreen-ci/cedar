@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/anser/bsonutil"
@@ -428,7 +427,7 @@ func TestBuildloggerDownload(t *testing.T) {
 	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
 	require.NoError(t, err)
 
-	timeRange := util.TimeRange{
+	timeRange := TimeRange{
 		StartAt: log2.Artifact.Chunks[0].Start,
 		EndAt:   log2.Artifact.Chunks[len(log2.Artifact.Chunks)-1].End,
 	}
@@ -603,7 +602,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	t.Run("NoEnv", func(t *testing.T) {
 		logs := Logs{}
 		opts := LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -617,12 +616,12 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs := Logs{}
 		logs.Setup(env)
 		opts := LogFindOptions{
-			TimeRange: util.TimeRange{},
+			TimeRange: TimeRange{},
 			Info:      LogInfo{Project: log1.Info.Project},
 		}
 		assert.Error(t, logs.Find(ctx, opts))
 
-		opts.TimeRange = util.TimeRange{
+		opts.TimeRange = TimeRange{
 			StartAt: time.Now(),
 			EndAt:   time.Now().Add(-time.Hour),
 		}
@@ -634,7 +633,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs := Logs{}
 		logs.Setup(env)
 		opts := LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: TimeRange{
 				StartAt: time.Now().Add(-48 * time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -648,7 +647,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs := Logs{}
 		logs.Setup(env)
 		opts := LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: TimeRange{
 				StartAt: time.Now().Add(-48 * time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -665,7 +664,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs := Logs{}
 		logs.Setup(env)
 		opts := LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: TimeRange{
 				StartAt: time.Now().Add(-48 * time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -682,7 +681,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs := Logs{}
 		logs.Setup(env)
 		opts := LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: TimeRange{
 				StartAt: time.Now().Add(-48 * time.Hour),
 				EndAt:   time.Now().Add(-25 * time.Hour),
 			},
@@ -690,7 +689,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		}
 		require.Equal(t, mongo.ErrNoDocuments, logs.Find(ctx, opts))
 
-		opts.TimeRange = util.TimeRange{
+		opts.TimeRange = TimeRange{
 			StartAt: time.Now().Add(-22 * time.Hour),
 			EndAt:   time.Now(),
 		}
@@ -700,7 +699,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 
 func TestBuildloggerCreateFindQuery(t *testing.T) {
 	opts := LogFindOptions{
-		TimeRange: util.TimeRange{
+		TimeRange: TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},
@@ -821,7 +820,7 @@ func TestBuildloggerMerge(t *testing.T) {
 	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
 	require.NoError(t, err)
 
-	timeRange := util.TimeRange{
+	timeRange := TimeRange{
 		StartAt: log2.Artifact.Chunks[0].Start,
 		EndAt:   log2.Artifact.Chunks[len(log2.Artifact.Chunks)-1].End,
 	}

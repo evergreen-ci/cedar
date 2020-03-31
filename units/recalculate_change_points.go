@@ -8,7 +8,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -48,7 +48,7 @@ func makeChangePointsJob() *recalculateChangePointsJob {
 func NewRecalculateChangePointsJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeChangePointsJob()
 	// Every ten minutes at most
-	timestamp := util.RoundPartOfHour(10)
+	timestamp := utility.RoundPartOfHour(10)
 	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timestamp))
 	j.PerformanceResultId = timeSeriesId
 	return j

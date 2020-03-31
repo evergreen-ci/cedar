@@ -12,7 +12,6 @@ import (
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
@@ -179,7 +178,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 	for _, printTime := range []bool{true, false} {
 		rh := s.rh["id"]
 		rh.(*logGetByIDHandler).opts.ID = "abc"
-		rh.(*logGetByIDHandler).opts.TimeRange = util.TimeRange{
+		rh.(*logGetByIDHandler).opts.TimeRange = model.TimeRange{
 			StartAt: time.Now().Add(-24 * time.Hour),
 			EndAt:   time.Now(),
 		}
@@ -244,7 +243,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 func (s *LogHandlerSuite) TestLogGetByIDHandlerNotFound() {
 	rh := s.rh["id"]
 	rh.(*logGetByIDHandler).opts.ID = "DNE"
-	rh.(*logGetByIDHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGetByIDHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -259,7 +258,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerCtxErr() {
 	cancel()
 	rh := s.rh["id"]
 	rh.(*logGetByIDHandler).opts.ID = "abc"
-	rh.(*logGetByIDHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGetByIDHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -309,7 +308,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 
 		rh := s.rh["task_id"]
 		rh.(*logGetByTaskIDHandler).opts.TaskID = "task_id1"
-		rh.(*logGetByTaskIDHandler).opts.TimeRange = util.TimeRange{
+		rh.(*logGetByTaskIDHandler).opts.TimeRange = model.TimeRange{
 			StartAt: time.Now().Add(-24 * time.Hour),
 			EndAt:   time.Now(),
 		}
@@ -481,7 +480,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerNotFound() {
 	rh := s.rh["task_id"]
 	rh.(*logGetByTaskIDHandler).opts.TaskID = "DNE"
-	rh.(*logGetByTaskIDHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGetByTaskIDHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -496,7 +495,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerCtxErr() {
 	cancel()
 	rh := s.rh["task_id"]
 	rh.(*logGetByTaskIDHandler).opts.TaskID = "task_id1"
-	rh.(*logGetByTaskIDHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGetByTaskIDHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -556,7 +555,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		rh.(*logGetByTestNameHandler).opts.TaskID = "task_id1"
 		rh.(*logGetByTestNameHandler).opts.TestName = "test1"
 		rh.(*logGetByTestNameHandler).opts.Tags = []string{"tag1"}
-		rh.(*logGetByTestNameHandler).opts.TimeRange = util.TimeRange{
+		rh.(*logGetByTestNameHandler).opts.TimeRange = model.TimeRange{
 			StartAt: time.Now().Add(-24 * time.Hour),
 			EndAt:   time.Now(),
 		}
@@ -633,7 +632,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerNotFound() {
 	rh.(*logGetByTestNameHandler).opts.TaskID = "task_id1"
 	rh.(*logGetByTestNameHandler).opts.TestName = "DNE"
 	rh.(*logGetByTestNameHandler).opts.Tags = []string{"tag1"}
-	rh.(*logGetByTestNameHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGetByTestNameHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -650,7 +649,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerCtxErr() {
 	rh.(*logGetByTestNameHandler).opts.TaskID = "task_id1"
 	rh.(*logGetByTestNameHandler).opts.TestName = "test1"
 	rh.(*logGetByTestNameHandler).opts.Tags = []string{"tag1"}
-	rh.(*logGetByTestNameHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGetByTestNameHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -724,7 +723,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		rh.(*logGroupHandler).opts.TestName = "test1"
 		rh.(*logGroupHandler).groupID = "tag1"
 		rh.(*logGroupHandler).opts.Tags = []string{"tag1"}
-		rh.(*logGroupHandler).opts.TimeRange = util.TimeRange{
+		rh.(*logGroupHandler).opts.TimeRange = model.TimeRange{
 			StartAt: time.Now().Add(-24 * time.Hour),
 			EndAt:   time.Now(),
 		}
@@ -838,7 +837,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerNotFound() {
 	rh.(*logGroupHandler).opts.TestName = "DNE"
 	rh.(*logGroupHandler).groupID = "tag1"
 	rh.(*logGroupHandler).opts.Tags = []string{"tag1"}
-	rh.(*logGroupHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGroupHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -856,7 +855,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerCtxErr() {
 	rh.(*logGroupHandler).opts.TestName = "test1"
 	rh.(*logGroupHandler).groupID = "tag1"
 	rh.(*logGroupHandler).opts.Tags = []string{"tag1"}
-	rh.(*logGroupHandler).opts.TimeRange = util.TimeRange{
+	rh.(*logGroupHandler).opts.TimeRange = model.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
 		EndAt:   time.Now(),
 	}
@@ -908,7 +907,7 @@ func (s *LogHandlerSuite) testParseValid(handler, urlString string, tags bool) {
 	urlString += "&paginate=true"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
-	expectedTr := util.TimeRange{
+	expectedTr := model.TimeRange{
 		StartAt: time.Date(2012, time.November, 1, 22, 8, 0, 0, time.UTC),
 		EndAt:   time.Date(2013, time.November, 1, 22, 8, 0, 0, time.UTC),
 	}
@@ -975,18 +974,18 @@ func (s *LogHandlerSuite) testParseDefaults(handler, urlString string, tags bool
 	s.Zero(getLogLimit(rh, handler))
 }
 
-func getLogTimeRange(rh gimlet.RouteHandler, handler string) (util.TimeRange, util.TimeRange) {
+func getLogTimeRange(rh gimlet.RouteHandler, handler string) (model.TimeRange, model.TimeRange) {
 	switch handler {
 	case "id":
-		return rh.(*logGetByIDHandler).opts.TimeRange, util.TimeRange{EndAt: time.Now()}
+		return rh.(*logGetByIDHandler).opts.TimeRange, model.TimeRange{EndAt: time.Now()}
 	case "task_id":
-		return rh.(*logGetByTaskIDHandler).opts.TimeRange, util.TimeRange{EndAt: time.Now()}
+		return rh.(*logGetByTaskIDHandler).opts.TimeRange, model.TimeRange{EndAt: time.Now()}
 	case "test_name":
-		return rh.(*logGetByTestNameHandler).opts.TimeRange, util.TimeRange{EndAt: time.Now()}
+		return rh.(*logGetByTestNameHandler).opts.TimeRange, model.TimeRange{EndAt: time.Now()}
 	case "group":
-		return rh.(*logGroupHandler).opts.TimeRange, util.TimeRange{}
+		return rh.(*logGroupHandler).opts.TimeRange, model.TimeRange{}
 	default:
-		return util.TimeRange{}, util.TimeRange{}
+		return model.TimeRange{}, model.TimeRange{}
 	}
 }
 

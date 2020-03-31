@@ -8,7 +8,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -81,7 +81,7 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo, factorie
 		return nil, errors.Wrap(err, "failed to create new ftdc rollups job")
 	}
 
-	timestamp := util.RoundPartOfHour(0)
+	timestamp := utility.RoundPartOfHour(0)
 	if timestamp.Hour()%2 == 1 {
 		timestamp.Add(-time.Hour)
 	}

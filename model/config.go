@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/certdepot"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -226,7 +226,7 @@ func (c *CedarConfig) Save() error {
 func LoadCedarConfig(file string) (*CedarConfig, error) {
 	newConfig := &CedarConfig{}
 
-	if err := util.ReadFileYAML(file, newConfig); err != nil {
+	if err := utility.ReadYAMLFile(file, newConfig); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
