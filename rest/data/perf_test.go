@@ -384,7 +384,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 		s.Equal(expectedTaskID, *result.Info.TaskID)
 	}
 	s.NoError(err)
-/
+
 	// Now with tags
 	actualResult, err = s.sc.FindPerformanceResultsByTaskId(s.ctx, expectedTaskID, tr, "tag1", "tag2")
 	s.True(len(actualResult) < expectedCount)
