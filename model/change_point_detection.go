@@ -27,12 +27,14 @@ type ChangePoint struct {
 	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
 	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
 	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+	Triage       TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
 }
 
 var (
 	perfChangePointMeasurementKey  = bsonutil.MustHaveTag(ChangePoint{}, "Measurement")
 	perfChangePointCalculatedOnKey = bsonutil.MustHaveTag(ChangePoint{}, "CalculatedOn")
 	perfChangePointAlgorithmKey    = bsonutil.MustHaveTag(ChangePoint{}, "Algorithm")
+	perfChangePointTriageKey       = bsonutil.MustHaveTag(ChangePoint{}, "Triage")
 )
 
 type AlgorithmInfo struct {
@@ -56,6 +58,34 @@ var (
 	perfAlgorithmOptionNameKey  = bsonutil.MustHaveTag(AlgorithmOption{}, "Name")
 	perfAlgorithmOptionValueKey = bsonutil.MustHaveTag(AlgorithmOption{}, "Value")
 )
+
+type TriageInfo struct {
+	TriagedOn time.Time    `bson:"triaged_on" json:"triaged_on" yaml:"triaged_on"`
+	Status    TriageStatus `bson:"triage_status" json:"triage_status" yaml:"triage_status"`
+}
+
+var (
+	perfTriageInfoTriagedOnKey = bsonutil.MustHaveTag(TriageInfo{}, "TriagedOn")
+	perfTriageInfoStatusKey    = bsonutil.MustHaveTag(TriageInfo{}, "Status")
+)
+
+type TriageStatus string
+
+const (
+	Untriaged          TriageStatus = "untriaged"
+	TruePositive       TriageStatus = "true_positive"
+	FalsePositive      TriageStatus = "false_positive"
+	UnderInvestigation TriageStatus = "under_investigation"
+)
+
+func (ts TriageStatus) Validate() error {
+	switch ts {
+	case Untriaged, TruePositive, FalsePositive, UnderInvestigation:
+		return nil
+	default:
+		return errors.New("invalid triage status")
+	}
+}
 
 type PerformanceResultSeriesID struct {
 	Project string `bson:"project"`
