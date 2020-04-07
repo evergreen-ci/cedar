@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/cedar/perf"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
@@ -86,7 +88,11 @@ type MockDetector struct {
 	Calls [][]float64
 }
 
-func (m *MockDetector) DetectChanges(ctx context.Context, series []float64, measurement string) ([]model.ChangePoint, error) {
+func (m *MockDetector) Algorithm() perf.Algorithm {
+	return perf.CreateDefaultAlgorithm()
+}
+
+func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]int, error) {
 	m.Calls = append(m.Calls, series)
 	last := series[0]
 	var cps []int
@@ -96,34 +102,7 @@ func (m *MockDetector) DetectChanges(ctx context.Context, series []float64, meas
 			cps = append(cps, idx)
 		}
 	}
-	var changePoints []model.ChangePoint
-	for _, cp := range cps {
-		changePoints = append(changePoints, model.ChangePoint{
-			Index: cp,
-			Algorithm: model.AlgorithmInfo{
-				Name:    "some_algorithm",
-				Version: 1,
-				Options: []model.AlgorithmOption{
-					{
-						Name:  "some_option",
-						Value: 5,
-					},
-					{
-						Name:  "another_option",
-						Value: 0.05,
-					},
-				},
-			},
-			CalculatedOn: time.Now(),
-			Measurement:  measurement,
-			Triage: model.TriageInfo{
-				TriagedOn: time.Time{},
-				Status:    model.TriageStatusUntriaged,
-			},
-		})
-	}
-
-	return changePoints, nil
+	return cps, nil
 }
 
 func TestRecalculateChangePointsJob(t *testing.T) {
@@ -168,33 +147,33 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		assert.NoError(t, res.All(ctx, &result))
 		require.Len(t, result, 1)
 		require.Len(t, result[0].Analysis.ChangePoints, 2)
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement")
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement_another")
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
-			Name:    "some_algorithm",
-			Version: 1,
+			Name:    "e_divisive_means",
+			Version: 0,
 			Options: []model.AlgorithmOption{
 				{
-					Name:  "some_option",
-					Value: int32(5),
+					Name:  "pvalue",
+					Value: 0.05,
 				},
 				{
-					Name:  "another_option",
-					Value: 0.05,
+					Name:  "permutations",
+					Value: int32(100),
 				},
 			},
 		})
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement_another")
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement")
 		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm, model.AlgorithmInfo{
-			Name:    "some_algorithm",
-			Version: 1,
+			Name:    "e_divisive_means",
+			Version: 0,
 			Options: []model.AlgorithmOption{
 				{
-					Name:  "some_option",
-					Value: int32(5),
+					Name:  "pvalue",
+					Value: 0.05,
 				},
 				{
-					Name:  "another_option",
-					Value: 0.05,
+					Name:  "permutations",
+					Value: int32(100),
 				},
 			},
 		})

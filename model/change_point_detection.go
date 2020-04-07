@@ -30,6 +30,32 @@ type ChangePoint struct {
 	Triage       TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
 }
 
+func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algorithmConfiguration map[string]interface{}) ChangePoint {
+	cp := ChangePoint{
+		Index: index,
+		Algorithm: AlgorithmInfo{
+			Name:    algorithmName,
+			Version: algorithmVersion,
+		},
+		CalculatedOn: time.Now(),
+		Measurement:  measurement,
+		Triage: TriageInfo{
+			TriagedOn: time.Time{},
+			Status:    TriageStatusUntriaged,
+		},
+	}
+
+	for k, v := range algorithmConfiguration {
+		additionalOption := AlgorithmOption{
+			Name:  k,
+			Value: v,
+		}
+		cp.Algorithm.Options = append(cp.Algorithm.Options, additionalOption)
+	}
+
+	return cp
+}
+
 var (
 	perfChangePointMeasurementKey  = bsonutil.MustHaveTag(ChangePoint{}, "Measurement")
 	perfChangePointCalculatedOnKey = bsonutil.MustHaveTag(ChangePoint{}, "CalculatedOn")
