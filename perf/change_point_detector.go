@@ -67,7 +67,7 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 				Version: point.Algorithm.Version,
 			},
 			CalculatedOn: time.Now(),
-			Measurement: measurement,
+			Measurement:  measurement,
 			Triage: model.TriageInfo{
 				TriagedOn: time.Time{},
 				Status:    model.TriageStatusUntriaged,

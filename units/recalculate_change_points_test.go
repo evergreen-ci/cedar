@@ -115,7 +115,7 @@ func (m *MockDetector) DetectChanges(ctx context.Context, series []float64, meas
 				},
 			},
 			CalculatedOn: time.Now(),
-			Measurement: measurement,
+			Measurement:  measurement,
 			Triage: model.TriageInfo{
 				TriagedOn: time.Time{},
 				Status:    model.TriageStatusUntriaged,
