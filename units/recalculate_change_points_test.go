@@ -184,7 +184,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			},
 		})
 		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement_another")
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm, model.AlgorithmInfo{
 			Name:    "some_algorithm",
 			Version: 1,
 			Options: []model.AlgorithmOption{
@@ -199,6 +199,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			},
 		})
 		require.NotEqual(t, result[0].Analysis.ProcessedAt, time.Time{})
+
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.TriagedOn, time.Time{})
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.Status, model.TriageStatusUntriaged)
 		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.TriagedOn, time.Time{})
