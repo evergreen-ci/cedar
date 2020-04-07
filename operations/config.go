@@ -5,7 +5,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -43,7 +43,7 @@ func dumpCedarConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			return errors.WithStack(util.WriteJSON(fileName, conf))
+			return errors.WithStack(utility.WriteJSONFile(fileName, conf))
 		},
 	}
 }

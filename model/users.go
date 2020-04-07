@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
@@ -102,7 +102,7 @@ func (u *User) SetAPIKey() (string, error) {
 	}
 	defer session.Close()
 
-	k := util.RandomString()
+	k := utility.RandomString()
 
 	err = session.DB(conf.DatabaseName).C(userCollection).UpdateId(u.ID, bson.M{
 		dbUserAPIKeyKey: k,
@@ -128,7 +128,7 @@ func (u *User) UpdateLoginCache() (string, error) {
 	var update bson.M
 
 	if u.LoginCache.Token == "" {
-		u.LoginCache.Token = util.RandomString()
+		u.LoginCache.Token = utility.RandomString()
 
 		update = bson.M{"$set": bson.M{
 			bsonutil.GetDottedKeyName(dbUserLoginCacheKey, loginCacheTokenKey): u.LoginCache.Token,
@@ -266,7 +266,7 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 		u.APIKey = user.GetAPIKey()
 		u.SystemRoles = user.Roles()
 		u.CreatedAt = time.Now()
-		u.LoginCache = LoginCache{Token: util.RandomString(), TTL: time.Now()}
+		u.LoginCache = LoginCache{Token: utility.RandomString(), TTL: time.Now()}
 		u.populated = true
 		if err = u.Save(); err != nil {
 			return nil, errors.Wrapf(err, "problem inserting user %s", user.Username())

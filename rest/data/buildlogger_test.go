@@ -9,7 +9,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
 )
@@ -197,7 +196,7 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 		for _, printTime := range []bool{true, false} {
 			findOpts := BuildloggerOptions{
 				ID: id,
-				TimeRange: util.TimeRange{
+				TimeRange: model.TimeRange{
 					StartAt: time.Now().Add(-time.Hour),
 					EndAt:   time.Now(),
 				},
@@ -253,7 +252,7 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDDNE() {
 func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: model.TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -386,7 +385,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDDNE() {
 	opts := BuildloggerOptions{
 		TaskID: "DNE",
-		TimeRange: util.TimeRange{
+		TimeRange: model.TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},
@@ -402,7 +401,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDDNE() {
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: model.TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -513,7 +512,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	opts := model.LogFindOptions{
-		TimeRange: util.TimeRange{
+		TimeRange: model.TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},
@@ -597,7 +596,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
 	findOpts := BuildloggerOptions{
 		TaskID:   "task1",
 		TestName: "DNE",
-		TimeRange: util.TimeRange{
+		TimeRange: model.TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},
@@ -613,7 +612,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
 func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: model.TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -690,7 +689,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 	for _, printTime := range []bool{true, false} {
 		opts := model.LogFindOptions{
-			TimeRange: util.TimeRange{
+			TimeRange: model.TimeRange{
 				StartAt: time.Now().Add(-time.Hour),
 				EndAt:   time.Now(),
 			},
@@ -753,7 +752,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsDNE() {
 		TaskID:   "task1",
 		TestName: "DNE",
 		Tags:     []string{"tag1"},
-		TimeRange: util.TimeRange{
+		TimeRange: model.TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},

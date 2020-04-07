@@ -11,7 +11,6 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/cedar/units"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
@@ -68,7 +67,7 @@ func (dbc *DBConnector) RemovePerformanceResultById(ctx context.Context, id stri
 // FindPerformanceResultsByTaskId queries the database to find all performance
 // results with the given taskId and that fall within interval, filtered by
 // tags.
-func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, taskId string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -112,7 +111,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, task
 // filtered by tags. Results are returned sorted (descending) by the Evergreen
 // order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, project, taskName, variant string, interval model.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -158,7 +157,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, pr
 // FindPerformanceResultsByVersion queries the database to find all performance
 // results with the given version and that fall within interval, filtered by
 // tags.
-func (dbc *DBConnector) FindPerformanceResultsByVersion(ctx context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindPerformanceResultsByVersion(ctx context.Context, version string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
 	results.Setup(dbc.env)
 
@@ -313,7 +312,7 @@ func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id strin
 // FindPerformanceResultsByTaskId queries the mock cache to find all
 // performance results with the given taskId and that fall within interval,
 // filtered by tags.
-func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) {
@@ -344,7 +343,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskI
 // filtered by tags. Results are returned sorted (descending) by the Evergreen
 // order. If limit is greater than 0, the number of results returned will be no
 // greater than limit.
-func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval util.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval model.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) &&
@@ -379,7 +378,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 // FindPerformanceResultsByVersion queries the mock cache to find all
 // performance results with the given version and that fall within interval,
 // filtered by tags.
-func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval util.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
 		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) && result.Info.Mainline {
@@ -422,7 +421,7 @@ func (mc *MockConnector) FindPerformanceResultWithChildren(ctx context.Context, 
 	return append(results, children...), err
 }
 
-func (mc *MockConnector) checkInterval(id string, interval util.TimeRange) bool {
+func (mc *MockConnector) checkInterval(id string, interval model.TimeRange) bool {
 	result := mc.CachedPerformanceResults[id]
 	createdAt := result.CreatedAt
 	completedAt := result.CompletedAt

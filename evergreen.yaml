@@ -1,5 +1,5 @@
 stepback: false
-ignore: 
+ignore:
   - "*.rst"
 
 #######################################
@@ -109,7 +109,7 @@ functions:
 tasks:
   - name: dist
     tags: ["dist"]
-    commands: 
+    commands:
       - func: get-project
       - func: run-make
         vars: { target: "${task_name}" }
@@ -148,9 +148,6 @@ tasks:
     name: test-rest
   - <<: *run-build
     tags: ["test"]
-    name: test-util
-  - <<: *run-build
-    tags: ["test"]
     name: test-units
   - <<: *run-build
     tags: ["test"]
@@ -186,9 +183,6 @@ tasks:
   - <<: *run-build
     tags: ["lint"]
     name: lint-rest
-  - <<: *run-build
-    tags: ["lint"]
-    name: lint-util
   - <<: *run-build
     tags: ["lint"]
     name: lint-units

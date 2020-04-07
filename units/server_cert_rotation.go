@@ -7,8 +7,8 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/certdepot"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -47,7 +47,7 @@ func makeServerCertRotationJob() *serverCertRotationJob {
 func NewServerCertRotationJob() amboy.Job {
 	j := makeServerCertRotationJob()
 
-	timestamp := util.RoundPartOfDay(0)
+	timestamp := utility.RoundPartOfDay(0)
 	if timestamp.Day()%2 == 1 {
 		timestamp.Add(-24 * time.Hour)
 	}

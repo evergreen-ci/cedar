@@ -7,7 +7,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/depgraph"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/google/uuid"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
@@ -58,7 +58,7 @@ func filterLibrary() cli.Command {
 
 			libgraph.Prune("third_party")
 
-			return errors.Wrap(util.WriteJSON(c.String(outputFlagName), libgraph),
+			return errors.Wrap(utility.WriteJSONFile(c.String(outputFlagName), libgraph),
 				"problem writing filtered graph")
 		},
 	}
@@ -239,10 +239,10 @@ func findPaths() cli.Command {
 			}
 
 			if c.Bool("print") {
-				return errors.WithStack(util.PrintJSON(paths))
+				return errors.WithStack(utility.PrintJSON(paths))
 			}
 
-			return errors.Wrap(util.WriteJSON(c.String("output"), paths),
+			return errors.Wrap(utility.WriteJSONFile(c.String("output"), paths),
 				"problem writhing path report")
 		},
 	}
@@ -290,7 +290,7 @@ func groups() cli.Command {
 			grip.Infof("found %d cycles in graph with %d nodes",
 				len(report.Cycles), len(report.Graph))
 
-			return errors.Wrap(util.WriteJSON(c.String("output"), report),
+			return errors.Wrap(utility.WriteJSONFile(c.String("output"), report),
 				"problem cycle report")
 		},
 	}
@@ -352,7 +352,7 @@ func process() cli.Command {
 			graph.Prune(c.String("prune"))
 			report := graph.Mapping(c.String("prefix"))
 
-			if err = util.WriteJSON(c.String("output")+".json", report); err != nil {
+			if err = utility.WriteJSONFile(c.String("output")+".json", report); err != nil {
 				return errors.Wrap(err, "problem writing json file")
 			}
 
@@ -361,7 +361,7 @@ func process() cli.Command {
 				dot := report.Dot()
 				grip.Info("writing dot file to disk")
 
-				if err = util.WriteString(c.String("output")+".dot", dot); err != nil {
+				if err = utility.WriteFile(c.String("output")+".dot", dot); err != nil {
 					return errors.Wrap(err, "problem writing dot file")
 				}
 			}
@@ -371,7 +371,7 @@ func process() cli.Command {
 				grip.Infof("found %d cycles in graph with %d nodes",
 					len(cycles.Cycles), len(cycles.Graph))
 
-				if err = util.WriteJSON(c.String("output")+"-cycles.json", cycles); err != nil {
+				if err = utility.WriteJSONFile(c.String("output")+"-cycles.json", cycles); err != nil {
 					return errors.Wrap(err, "problem writing json file")
 				}
 			}

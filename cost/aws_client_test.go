@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -203,7 +203,7 @@ func (s *AWSClientSuite) TestGetSpotRangeTerminatedByAmazon() {
 	updateTime, _ = time.Parse(utcLayout, "2017-07-05T17:04:05.000Z")
 	s.spot.Status.UpdateTime = &updateTime
 	times = getSpotRange(s.spot)
-	s.Equal(times, util.TimeRange{})
+	s.Equal(times, model.TimeRange{})
 }
 
 func (s *AWSClientSuite) TestGetReservedRange() {
@@ -220,14 +220,14 @@ func (s *AWSClientSuite) TestGetReservedRange() {
 	var zeroTime *time.Time
 	s.reserved.Start = zeroTime
 	times = getReservedRange(s.reserved)
-	s.Equal(times, util.TimeRange{})
+	s.Equal(times, model.TimeRange{})
 }
 
 func (s *AWSClientSuite) TestGetOnDemandRangeNotTerminated() {
 	s.T().Skip("stabalization pass")
 	s.ondemand.LaunchTime = nil
 	times := getOnDemandRange(s.ondemand)
-	s.Equal(times, util.TimeRange{})
+	s.Equal(times, model.TimeRange{})
 
 	start, _ := time.Parse(utcLayout, "2016-03-18T00:00:00.000Z")
 	s.ondemand.LaunchTime = &start
@@ -259,20 +259,20 @@ func (s *AWSClientSuite) TestGetOnDemandRangeTerminated() {
 	reason = "InternalError"
 	s.ondemand.StateTransitionReason = &reason
 	times = getOnDemandRange(s.ondemand)
-	s.Equal(times, util.TimeRange{})
+	s.Equal(times, model.TimeRange{})
 }
 
 func (s *AWSClientSuite) TestGetUptimeRangeWhenHalfInReport() {
 	//report start and end are both before their respective tag values
 	repStart, _ := time.Parse(tagLayout, "20170705144309")
 	repEnd, _ := time.Parse(tagLayout, "20170705175600")
-	repRange := util.TimeRange{
+	repRange := model.TimeRange{
 		StartAt: repStart,
 		EndAt:   repEnd,
 	}
 	itemStart, _ := time.Parse(tagLayout, "20170705164309")
 	itemEnd, _ := time.Parse(tagLayout, "20170705183800")
-	itemRange := util.TimeRange{
+	itemRange := model.TimeRange{
 		StartAt: itemStart,
 		EndAt:   itemEnd,
 	}
@@ -293,13 +293,13 @@ func (s *AWSClientSuite) TestGetUptimeRangeWhenLongerThanReport() {
 	//report start and end are both between the tags
 	repStart, _ := time.Parse(tagLayout, "20170705165500")
 	repEnd, _ := time.Parse(tagLayout, "20170705175800")
-	repRange := util.TimeRange{
+	repRange := model.TimeRange{
 		StartAt: repStart,
 		EndAt:   repEnd,
 	}
 	itemStart, _ := time.Parse(tagLayout, "20170705164309")
 	itemEnd, _ := time.Parse(tagLayout, "20170705183800")
-	itemRange := util.TimeRange{
+	itemRange := model.TimeRange{
 		StartAt: itemStart,
 		EndAt:   itemEnd,
 	}
@@ -312,13 +312,13 @@ func (s *AWSClientSuite) TestGetUptimeRangeWhenUnterminated() {
 	// unterminated instance, report start is before tagged start
 	itemStart, _ := time.Parse(tagLayout, "20170705164309")
 	itemEnd, _ := time.Parse(tagLayout, "")
-	itemRange := util.TimeRange{
+	itemRange := model.TimeRange{
 		StartAt: itemStart,
 		EndAt:   itemEnd,
 	}
 	repStart, _ := time.Parse(tagLayout, "20170705155500")
 	repEnd, _ := time.Parse(tagLayout, "20170705193800")
-	repRange := util.TimeRange{
+	repRange := model.TimeRange{
 		StartAt: repStart,
 		EndAt:   repEnd,
 	}
@@ -331,38 +331,38 @@ func (s *AWSClientSuite) TestGetUptimeInstanceOutsideReport() {
 	//instance ends before report starts
 	itemStart, _ := time.Parse(tagLayout, "20170703164309")
 	itemEnd, _ := time.Parse(tagLayout, "20170704155500")
-	itemRange := util.TimeRange{
+	itemRange := model.TimeRange{
 		StartAt: itemStart,
 		EndAt:   itemEnd,
 	}
 	repStart, _ := time.Parse(tagLayout, "20170705155500")
 	repEnd, _ := time.Parse(tagLayout, "20170705193800")
-	repRange := util.TimeRange{
+	repRange := model.TimeRange{
 		StartAt: repStart,
 		EndAt:   repEnd,
 	}
 	uptimeRange := getUptimeRange(itemRange, repRange)
-	s.Equal(uptimeRange, util.TimeRange{})
+	s.Equal(uptimeRange, model.TimeRange{})
 
 	//instance starts after report ends
 	itemStart, _ = time.Parse(tagLayout, "20170706164309")
 	itemEnd, _ = time.Parse(tagLayout, "20170706185500")
-	itemRange = util.TimeRange{
+	itemRange = model.TimeRange{
 		StartAt: itemStart,
 		EndAt:   itemEnd,
 	}
 	uptimeRange = getUptimeRange(itemRange, repRange)
-	s.Equal(uptimeRange, util.TimeRange{})
+	s.Equal(uptimeRange, model.TimeRange{})
 
 	//empty item
-	uptimeRange = getUptimeRange(util.TimeRange{}, repRange)
-	s.Equal(uptimeRange, util.TimeRange{})
+	uptimeRange = getUptimeRange(model.TimeRange{}, repRange)
+	s.Equal(uptimeRange, model.TimeRange{})
 }
 
 func (s *AWSClientSuite) TestSetUptime() {
 	start, _ := time.Parse(tagLayout, "20170706164309")
 	end, _ := time.Parse(tagLayout, "20170706185500")
-	times := util.TimeRange{
+	times := model.TimeRange{
 		StartAt: start,
 		EndAt:   end,
 	}
@@ -446,11 +446,11 @@ func (s *AWSClientSuite) TestIsValidInstance() {
 	item := &AWSItem{Price: 0.48}
 	time1, _ := time.Parse(utcLayout, "2017-07-05T19:04:05.000Z")
 	time2, _ := time.Parse(utcLayout, "2017-07-08T20:04:05.000Z")
-	range1 := util.TimeRange{
+	range1 := model.TimeRange{
 		StartAt: time1,
 		EndAt:   time2,
 	}
-	range2 := util.TimeRange{
+	range2 := model.TimeRange{
 		StartAt: time1,
 		EndAt:   time2,
 	}
@@ -458,6 +458,6 @@ func (s *AWSClientSuite) TestIsValidInstance() {
 	s.True(res)
 	res = isValidInstance(nil, nil, range1, range2)
 	s.False(res)
-	res = isValidInstance(item, nil, util.TimeRange{}, range2)
+	res = isValidInstance(item, nil, model.TimeRange{}, range2)
 	s.False(res)
 }

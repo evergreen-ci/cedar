@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
@@ -56,13 +55,13 @@ func setAverages(res *model.ServiceItem, items []AWSItem) {
 	}
 
 	if len(prices) != 0 {
-		res.AvgPrice = util.Average(prices)
+		res.AvgPrice = average(prices)
 	}
 	if len(fixedPrices) != 0 {
-		res.FixedPrice = util.Average(fixedPrices)
+		res.FixedPrice = average(fixedPrices)
 	}
 	if len(uptimes) != 0 {
-		res.AvgUptime = util.Average(uptimes)
+		res.AvgUptime = average(uptimes)
 	}
 }
 
@@ -79,7 +78,7 @@ func createCostItemFromAmazonItems(key AWSItemKey, items []AWSItem) model.Servic
 }
 
 // getAllProviders returns the AWS provider and any providers in the config file
-func getAllProviders(ctx context.Context, reportRange util.TimeRange, config *model.CostConfig) ([]model.CloudProvider, error) {
+func getAllProviders(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) ([]model.CloudProvider, error) {
 	awsProvider, err := getAWSProvider(ctx, reportRange, config)
 	if err != nil {
 		return nil, err
@@ -99,7 +98,7 @@ func getAllProviders(ctx context.Context, reportRange util.TimeRange, config *mo
 }
 
 // getAWSProvider specifically creates a provider for AWS and populates those accounts
-func getAWSProvider(ctx context.Context, reportRange util.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
+func getAWSProvider(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig) (*model.CloudProvider, error) {
 	catcher := grip.NewSimpleCatcher()
 	res := model.CloudProvider{
 		Name: "aws",
@@ -123,7 +122,7 @@ func getAWSProvider(ctx context.Context, reportRange util.TimeRange, config *mod
 }
 
 //getAWSAccountByOwner gets account information using the API keys labeled by the owner string.
-func getAWSAccountByOwner(ctx context.Context, reportRange util.TimeRange, config *model.CostConfig, account model.CostConfigAmazonAccount) (*model.CloudAccount, error) {
+func getAWSAccountByOwner(ctx context.Context, reportRange model.TimeRange, config *model.CostConfig, account model.CostConfigAmazonAccount) (*model.CloudAccount, error) {
 	grip.Infof("Compiling data for account owner %s", account.Name)
 	client, err := NewAWSClientWithInfo(account.Key, account.Secret)
 	if err != nil {

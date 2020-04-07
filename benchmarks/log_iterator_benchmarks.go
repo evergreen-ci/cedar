@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/poplar"
 	"github.com/evergreen-ci/timber"
@@ -129,7 +128,7 @@ func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifac
 		return poplar.BenchmarkSuite{}, errors.Wrap(err, "problem connecting to s3")
 	}
 
-	tr := util.TimeRange{
+	tr := model.TimeRange{
 		StartAt: artifact.Chunks[0].Start,
 		EndAt:   artifact.Chunks[len(artifact.Chunks)-1].End,
 	}

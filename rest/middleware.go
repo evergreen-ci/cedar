@@ -9,8 +9,8 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 )
 
@@ -120,8 +120,8 @@ func createEvgAuthRequest(ctx context.Context, r *http.Request, evgConf *model.E
 }
 
 func doEvgAuthRequest(req *http.Request, resourceID string) gimlet.Responder {
-	client := util.GetDefaultHTTPRetryableClient()
-	defer util.PutHTTPClient(client)
+	client := utility.GetDefaultHTTPRetryableClient()
+	defer utility.PutHTTPClient(client)
 
 	resp, err := client.Do(req)
 	if err != nil {

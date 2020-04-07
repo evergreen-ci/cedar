@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/anser/model"
@@ -168,7 +168,7 @@ func (e *EvergreenConnectionInfo) IsValid() bool {
 // it to a Config struct.
 func LoadCostConfig(file string) (*CostConfig, error) {
 	newConfig := &CostConfig{}
-	if err := util.ReadFileYAML(file, newConfig); err != nil {
+	if err := utility.ReadYAMLFile(file, newConfig); err != nil {
 		return nil, errors.WithStack(err)
 	}
 

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -152,7 +152,7 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 		})
 		return nil
 	}
-	key := fmt.Sprint(util.UnixMilli(time.Now()))
+	key := fmt.Sprint(utility.UnixMilli(time.Now()))
 
 	lineBuffer := &bytes.Buffer{}
 	for _, line := range lines {
@@ -273,7 +273,7 @@ func (l *Log) Close(ctx context.Context, exitCode int) error {
 // Download returns a LogIterator which iterates lines of the given log. The
 // environment should not be nil. When reverse is true, the log lines are
 // returned in reverse order.
-func (l *Log) Download(ctx context.Context, timeRange util.TimeRange) (LogIterator, error) {
+func (l *Log) Download(ctx context.Context, timeRange TimeRange) (LogIterator, error) {
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")
 	}
@@ -395,7 +395,7 @@ type Logs struct {
 	Logs      []Log `bson:"results"`
 	env       cedar.Environment
 	populated bool
-	timeRange util.TimeRange
+	timeRange TimeRange
 }
 
 // EmptyLogInfo allows querying of null or missing fields.
@@ -417,7 +417,7 @@ type EmptyLogInfo struct {
 
 // LogFindOptions describes the search criteria for the Find function on Logs.
 type LogFindOptions struct {
-	TimeRange util.TimeRange
+	TimeRange TimeRange
 	Info      LogInfo
 	Empty     EmptyLogInfo
 	Limit     int64

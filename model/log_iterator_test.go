@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,8 +43,8 @@ func TestLogIterator(t *testing.T) {
 	badBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: "DNE"})
 	require.NoError(t, err)
 
-	completeTimeRange := util.TimeRange{EndAt: chunks[len(chunks)-1].End}
-	partialTimeRange := util.TimeRange{
+	completeTimeRange := TimeRange{EndAt: chunks[len(chunks)-1].End}
+	partialTimeRange := TimeRange{
 		StartAt: chunks[1].Start,
 		EndAt:   chunks[len(chunks)-1].End.Add(-time.Minute),
 	}
@@ -202,7 +201,7 @@ func TestMergeLogIterator(t *testing.T) {
 	t.Run("SingleLog", func(t *testing.T) {
 		chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 		require.NoError(t, err)
-		timeRange := util.TimeRange{
+		timeRange := TimeRange{
 			StartAt: chunks[0].Start,
 			EndAt:   chunks[len(chunks)-1].End,
 		}
@@ -227,7 +226,7 @@ func TestMergeLogIterator(t *testing.T) {
 			chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 			require.NoError(t, err)
 
-			timeRange := util.TimeRange{
+			timeRange := TimeRange{
 				StartAt: chunks[0].Start,
 				EndAt:   chunks[len(chunks)-1].End,
 			}
@@ -263,7 +262,7 @@ func TestMergeLogIterator(t *testing.T) {
 			chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 			require.NoError(t, err)
 
-			timeRange := util.TimeRange{
+			timeRange := TimeRange{
 				StartAt: chunks[0].Start,
 				EndAt:   chunks[len(chunks)-1].End,
 			}
@@ -323,7 +322,7 @@ func TestLogIteratorReader(t *testing.T) {
 			expectedSizeWithLimit += len(line.Data)
 		}
 	}
-	timeRange := util.TimeRange{
+	timeRange := TimeRange{
 		StartAt: chunks[0].Start,
 		EndAt:   chunks[len(chunks)-1].End,
 	}
@@ -583,7 +582,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 
 	chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 	require.NoError(t, err)
-	timeRange := util.TimeRange{
+	timeRange := TimeRange{
 		StartAt: chunks[0].Start,
 		EndAt:   chunks[len(chunks)-1].End,
 	}

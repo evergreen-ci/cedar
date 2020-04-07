@@ -10,7 +10,6 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	datamodel "github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/stretchr/testify/suite"
 )
@@ -171,7 +170,7 @@ func (s *PerfHandlerSuite) TestPerfRemoveByIdHandler() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).taskId = "123"
-	rh.(*perfGetByTaskIdHandler).interval = util.TimeRange{
+	rh.(*perfGetByTaskIdHandler).interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -188,7 +187,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).taskId = "555"
-	rh.(*perfGetByTaskIdHandler).interval = util.TimeRange{
+	rh.(*perfGetByTaskIdHandler).interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -201,7 +200,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	rh := s.rh["task_name"]
 	rh.(*perfGetByTaskNameHandler).taskName = "taskname0"
-	rh.(*perfGetByTaskNameHandler).interval = util.TimeRange{
+	rh.(*perfGetByTaskNameHandler).interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -216,7 +215,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
-	rh.(*perfGetByTaskNameHandler).interval = util.TimeRange{
+	rh.(*perfGetByTaskNameHandler).interval = model.TimeRange{
 		StartAt: time.Time{},
 		EndAt:   time.Now(),
 	}
@@ -250,7 +249,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
 	rh := s.rh["task_name"]
 	rh.(*perfGetByTaskNameHandler).taskName = "taskname2"
-	rh.(*perfGetByTaskNameHandler).interval = util.TimeRange{
+	rh.(*perfGetByTaskNameHandler).interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -263,7 +262,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 	rh := s.rh["version"]
 	rh.(*perfGetByVersionHandler).version = "1"
-	rh.(*perfGetByVersionHandler).interval = util.TimeRange{
+	rh.(*perfGetByVersionHandler).interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -280,7 +279,7 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
 	rh := s.rh["version"]
 	rh.(*perfGetByVersionHandler).version = "2"
-	rh.(*perfGetByVersionHandler).interval = util.TimeRange{
+	rh.(*perfGetByVersionHandler).interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -360,7 +359,7 @@ func (s *PerfHandlerSuite) testParseValid(handler, urlString string, limit bool)
 	urlString += "&limit=5"
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
-	expectedInterval := util.TimeRange{
+	expectedInterval := model.TimeRange{
 		StartAt: time.Date(2012, time.November, 1, 22, 8, 0, 0, time.UTC),
 		EndAt:   time.Date(2013, time.November, 1, 22, 8, 0, 0, time.UTC),
 	}
@@ -409,7 +408,7 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, limit bo
 	s.NoError(err)
 }
 
-func getPerfInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
+func getPerfInterval(rh gimlet.RouteHandler, handler string) model.TimeRange {
 	switch handler {
 	case "task_id":
 		return rh.(*perfGetByTaskIdHandler).interval
@@ -418,7 +417,7 @@ func getPerfInterval(rh gimlet.RouteHandler, handler string) util.TimeRange {
 	case "version":
 		return rh.(*perfGetByVersionHandler).interval
 	default:
-		return util.TimeRange{}
+		return model.TimeRange{}
 	}
 }
 
