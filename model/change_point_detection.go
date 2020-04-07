@@ -72,15 +72,15 @@ var (
 type TriageStatus string
 
 const (
-	Untriaged          TriageStatus = "untriaged"
-	TruePositive       TriageStatus = "true_positive"
-	FalsePositive      TriageStatus = "false_positive"
-	UnderInvestigation TriageStatus = "under_investigation"
+	TriageStatusUntriaged          TriageStatus = "untriaged"
+	TriageStatusTruePositive       TriageStatus = "true_positive"
+	TriageStatusFalsePositive      TriageStatus = "false_positive"
+	TriageStatusUnderInvestigation TriageStatus = "under_investigation"
 )
 
 func (ts TriageStatus) Validate() error {
 	switch ts {
-	case Untriaged, TruePositive, FalsePositive, UnderInvestigation:
+	case TriageStatusUntriaged, TriageStatusTruePositive, TriageStatusFalsePositive, TriageStatusUnderInvestigation:
 		return nil
 	default:
 		return errors.New("invalid triage status")
@@ -303,7 +303,7 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 		changePoints := mappedChangePoints[measurementData.Measurement]
 		for _, cp := range changePoints {
 			perfResultId := measurementData.TimeSeries[cp.Index].PerfResultID
-			err = createChangePoint(ctx, env, perfResultId, measurementData.Measurement, cp.Algorithm)
+			err = createChangePoint(ctx, env, perfResultId, cp)
 			if err != nil {
 				catcher.Add(errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
 			}
@@ -328,15 +328,11 @@ func clearChangePoints(ctx context.Context, env cedar.Environment, performanceRe
 	return errors.Wrap(err, "Unable to clear change points")
 }
 
-func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm AlgorithmInfo) error {
+func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, cp ChangePoint) error {
 	filter := bson.M{"_id": resultToUpdate}
 	update := bson.M{
 		"$push": bson.M{
-			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): ChangePoint{
-				Measurement:  measurement,
-				Algorithm:    algorithm,
-				CalculatedOn: time.Now(),
-			},
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): cp,
 		},
 	}
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)

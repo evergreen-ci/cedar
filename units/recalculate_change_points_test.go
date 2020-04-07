@@ -86,7 +86,7 @@ type MockDetector struct {
 	Calls [][]float64
 }
 
-func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
+func (m *MockDetector) DetectChanges(ctx context.Context, series []float64, measurement string) ([]model.ChangePoint, error) {
 	m.Calls = append(m.Calls, series)
 	last := series[0]
 	var cps []int
@@ -113,6 +113,12 @@ func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]m
 						Value: 0.05,
 					},
 				},
+			},
+			CalculatedOn: time.Now(),
+			Measurement: measurement,
+			Triage: model.TriageInfo{
+				TriagedOn: time.Time{},
+				Status:    model.TriageStatusUntriaged,
 			},
 		})
 	}
@@ -162,7 +168,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		assert.NoError(t, res.All(ctx, &result))
 		require.Len(t, result, 1)
 		require.Len(t, result[0].Analysis.ChangePoints, 2)
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement_another")
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement")
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
 			Name:    "some_algorithm",
 			Version: 1,
@@ -177,7 +183,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 				},
 			},
 		})
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement")
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement_another")
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
 			Name:    "some_algorithm",
 			Version: 1,
@@ -193,6 +199,10 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			},
 		})
 		require.NotEqual(t, result[0].Analysis.ProcessedAt, time.Time{})
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.TriagedOn, time.Time{})
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.Status, model.TriageStatusUntriaged)
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.TriagedOn, time.Time{})
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.Status, model.TriageStatusUntriaged)
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {

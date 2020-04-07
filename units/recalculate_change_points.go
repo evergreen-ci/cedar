@@ -104,7 +104,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			floatSeries[i] = item.Value
 		}
 
-		changePoints, err := j.changePointDetector.DetectChanges(ctx, floatSeries)
+		changePoints, err := j.changePointDetector.DetectChanges(ctx, floatSeries, series.Measurement)
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
 			return

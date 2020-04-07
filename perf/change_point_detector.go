@@ -18,7 +18,7 @@ import (
 )
 
 type ChangeDetector interface {
-	DetectChanges(context.Context, []float64) ([]model.ChangePoint, error)
+	DetectChanges(context.Context, []float64, string) ([]model.ChangePoint, error)
 }
 type jsonChangePoint struct {
 	Index     int
@@ -41,7 +41,7 @@ func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDet
 	return &signalProcessingClient{user: user, token: token, baseURL: baseURL}
 }
 
-func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
+func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64, measurement string) ([]model.ChangePoint, error) {
 	startAt := time.Now()
 
 	jsonChangePoints := &struct {
@@ -65,6 +65,12 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 			Algorithm: model.AlgorithmInfo{
 				Name:    point.Algorithm.Name,
 				Version: point.Algorithm.Version,
+			},
+			CalculatedOn: time.Now(),
+			Measurement: measurement,
+			Triage: model.TriageInfo{
+				TriagedOn: time.Time{},
+				Status:    model.TriageStatusUntriaged,
 			},
 		}
 
