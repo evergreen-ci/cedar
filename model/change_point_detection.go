@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-
-	"github.com/evergreen-ci/cedar"
 )
 
 type PerfAnalysis struct {
@@ -40,8 +39,7 @@ func CreateChangePoint(index int, measurement string, algorithmName string, algo
 		CalculatedOn: time.Now(),
 		Measurement:  measurement,
 		Triage: TriageInfo{
-			TriagedOn: time.Time{},
-			Status:    TriageStatusUntriaged,
+			Status: TriageStatusUntriaged,
 		},
 	}
 

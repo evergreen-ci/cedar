@@ -22,21 +22,21 @@ type Algorithm interface {
 	Configuration() map[string]interface{}
 }
 
-type EDivisiveMeans struct {
+type eDivisiveMeans struct {
 	version      int
 	pvalue       float64
 	permutations int
 }
 
-func (e *EDivisiveMeans) Name() string {
+func (e *eDivisiveMeans) Name() string {
 	return "e_divisive_means"
 }
 
-func (e *EDivisiveMeans) Version() int {
+func (e *eDivisiveMeans) Version() int {
 	return e.version
 }
 
-func (e *EDivisiveMeans) Configuration() map[string]interface{} {
+func (e *eDivisiveMeans) Configuration() map[string]interface{} {
 	return map[string]interface{}{
 		"pvalue":       e.pvalue,
 		"permutations": e.permutations,
@@ -44,7 +44,7 @@ func (e *EDivisiveMeans) Configuration() map[string]interface{} {
 }
 
 func CreateDefaultAlgorithm() Algorithm {
-	return &EDivisiveMeans{
+	return &eDivisiveMeans{
 		version:      0,
 		pvalue:       0.05,
 		permutations: 100,

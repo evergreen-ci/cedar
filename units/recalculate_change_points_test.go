@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/cedar/perf"
-
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -147,7 +146,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		assert.NoError(t, res.All(ctx, &result))
 		require.Len(t, result, 1)
 		require.Len(t, result[0].Analysis.ChangePoints, 2)
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement_another")
+		require.True(t, result[0].Analysis.ChangePoints[0].Measurement == "measurement" || result[0].Analysis.ChangePoints[0].Measurement == "measurement_another")
 		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
 			Name:    "e_divisive_means",
 			Version: 0,
@@ -162,7 +161,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 				},
 			},
 		})
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement")
+		require.True(t, result[0].Analysis.ChangePoints[1].Measurement == "measurement" || result[0].Analysis.ChangePoints[1].Measurement == "measurement_another")
 		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm, model.AlgorithmInfo{
 			Name:    "e_divisive_means",
 			Version: 0,
