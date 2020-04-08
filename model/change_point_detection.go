@@ -29,12 +29,13 @@ type ChangePoint struct {
 	Triage       TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
 }
 
-func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algorithmConfiguration map[string]interface{}) ChangePoint {
+func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algoOptions []AlgorithmOption) ChangePoint {
 	cp := ChangePoint{
 		Index: index,
 		Algorithm: AlgorithmInfo{
 			Name:    algorithmName,
 			Version: algorithmVersion,
+			Options: algoOptions,
 		},
 		CalculatedOn: time.Now(),
 		Measurement:  measurement,
@@ -42,15 +43,6 @@ func CreateChangePoint(index int, measurement string, algorithmName string, algo
 			Status: TriageStatusUntriaged,
 		},
 	}
-
-	for k, v := range algorithmConfiguration {
-		additionalOption := AlgorithmOption{
-			Name:  k,
-			Value: v,
-		}
-		cp.Algorithm.Options = append(cp.Algorithm.Options, additionalOption)
-	}
-
 	return cp
 }
 

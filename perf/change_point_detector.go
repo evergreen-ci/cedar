@@ -16,10 +16,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+type AlgorithmConfigurationValue struct {
+	Name  string
+	Value interface{}
+}
+
 type Algorithm interface {
 	Name() string
 	Version() int
-	Configuration() map[string]interface{}
+	Configuration() []AlgorithmConfigurationValue
 }
 
 type eDivisiveMeans struct {
@@ -36,10 +41,16 @@ func (e *eDivisiveMeans) Version() int {
 	return e.version
 }
 
-func (e *eDivisiveMeans) Configuration() map[string]interface{} {
-	return map[string]interface{}{
-		"pvalue":       e.pvalue,
-		"permutations": e.permutations,
+func (e *eDivisiveMeans) Configuration() []AlgorithmConfigurationValue {
+	return []AlgorithmConfigurationValue{
+		{
+			"pvalue",
+			e.pvalue,
+		},
+		{
+			"permutations",
+			int32(e.permutations),
+		},
 	}
 }
 
@@ -117,12 +128,16 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 }
 
 func (spc *signalProcessingClient) createRequest(series []float64) *changeDetectionRequest {
+	config := map[string]interface{}{}
+	for _, v := range spc.algorithm.Configuration() {
+		config[v.Name] = v.Value
+	}
 	return &changeDetectionRequest{
 		Series: series,
 		Algorithm: jsonAlgorithm{
 			Name:          spc.algorithm.Name(),
 			Version:       spc.algorithm.Version(),
-			Configuration: spc.algorithm.Configuration(),
+			Configuration: config,
 		},
 	}
 }
