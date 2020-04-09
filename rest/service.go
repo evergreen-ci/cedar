@@ -7,10 +7,10 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/gimlet/ldap"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -142,7 +142,7 @@ func (s *Service) Validate() error {
 	}
 
 	if s.RPCServers == nil {
-		addr, err := util.GetPublicIP()
+		addr, err := utility.GetPublicIP()
 
 		grip.Critical(message.WrapError(err, message.Fields{
 			"op":   "finding local config",

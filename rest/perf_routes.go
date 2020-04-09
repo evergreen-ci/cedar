@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -115,7 +115,7 @@ func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 type perfGetByTaskIdHandler struct {
 	taskId   string
-	interval util.TimeRange
+	interval model.TimeRange
 	tags     []string
 	sc       data.Connector
 }
@@ -167,7 +167,7 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 type perfGetByTaskNameHandler struct {
 	taskName string
 	project  string
-	interval util.TimeRange
+	interval model.TimeRange
 	tags     []string
 	limit    int
 	variant  string
@@ -231,7 +231,7 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 
 type perfGetByVersionHandler struct {
 	version  string
-	interval util.TimeRange
+	interval model.TimeRange
 	tags     []string
 	sc       data.Connector
 }

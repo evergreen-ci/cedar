@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -383,7 +382,7 @@ type PerformanceResults struct {
 // PerfFindOptions describe the search criteria for the Find function on
 // PerformanceResults.
 type PerfFindOptions struct {
-	Interval    util.TimeRange
+	Interval    TimeRange
 	Info        PerformanceResultInfo
 	MaxDepth    int
 	GraphLookup bool

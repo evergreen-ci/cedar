@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/assert"
@@ -566,7 +565,7 @@ func (s *perfResultsSuite) TestFindWithNilEnv() {
 	}()
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
-		Interval: util.GetTimeRange(start, time.Hour*48),
+		Interval: GetTimeRange(start, time.Hour*48),
 		MaxDepth: 5,
 	}
 	s.Error(s.r.Find(s.ctx, options))
@@ -575,7 +574,7 @@ func (s *perfResultsSuite) TestFindWithNilEnv() {
 func (s *perfResultsSuite) TestFindResultsByTimeInterval() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
-		Interval: util.GetTimeRange(start, time.Hour*48),
+		Interval: GetTimeRange(start, time.Hour*48),
 		MaxDepth: 5,
 	}
 	s.NoError(s.r.Find(s.ctx, options))
@@ -583,27 +582,27 @@ func (s *perfResultsSuite) TestFindResultsByTimeInterval() {
 	s.Equal(1, s.r.Results[0].Version)
 
 	start = getTimeForTestingByDate(16)
-	options.Interval = util.GetTimeRange(start, time.Hour*48)
+	options.Interval = GetTimeRange(start, time.Hour*48)
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 1)
 	s.Equal(2, s.r.Results[0].Version)
 
 	start = getTimeForTestingByDate(15)
-	options.Interval = util.GetTimeRange(start, time.Hour*72)
+	options.Interval = GetTimeRange(start, time.Hour*72)
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 2)
 	options.Limit = 1
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Len(s.r.Results, 1)
 
-	options.Interval = util.GetTimeRange(start, -time.Hour*24)
+	options.Interval = GetTimeRange(start, -time.Hour*24)
 	s.Error(s.r.Find(s.ctx, options))
 }
 
 func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 	start := getTimeForTestingByDate(15)
 	options := PerfFindOptions{
-		Interval: util.GetTimeRange(start, time.Hour*72),
+		Interval: GetTimeRange(start, time.Hour*72),
 		MaxDepth: 5,
 	}
 	options.Info.Version = "1"
@@ -634,7 +633,7 @@ func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 
 func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 	options := PerfFindOptions{
-		Interval: util.TimeRange{
+		Interval: TimeRange{
 			StartAt: time.Time{},
 			EndAt:   time.Now(),
 		},

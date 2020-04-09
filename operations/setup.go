@@ -6,7 +6,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/send"
@@ -45,7 +44,12 @@ func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
 	if c.interactive {
 		senders = append(senders, send.MakeNative())
 	} else {
-		senders = append(senders, util.GetSystemSender())
+		sender, err := send.MakeDefaultSystem()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		senders = append(senders, sender)
 	}
 
 	if conf.IsNil() {

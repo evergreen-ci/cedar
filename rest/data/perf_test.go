@@ -8,7 +8,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/amboy/queue"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
@@ -377,7 +376,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 	}
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, expectedTaskID, tr)
 	s.Equal(expectedCount, len(actualResult))
@@ -406,7 +405,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskId() {
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, "doesNotExist", tr)
@@ -419,7 +418,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdNarrowInterval() 
 
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, s.results[0].info.TaskID, tr)
@@ -437,7 +436,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	}
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "", tr, 0)
 	s.Require().Equal(expectedCount, len(actualResult))
@@ -483,7 +482,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", "doesNotExist", "", tr, 0)
@@ -494,7 +493,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameNarrowInterval() {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByTaskName(s.ctx, "", s.results[0].info.TaskName, "", tr, 0)
@@ -512,7 +511,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	}
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, expectedVersion, tr)
 	s.Equal(expectedCount, len(actualResult))
@@ -541,7 +540,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
 	dur, err := time.ParseDuration("100h")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, "doesNotExist", tr)
@@ -552,7 +551,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
 	dur, err := time.ParseDuration("1ns")
 	s.Require().NoError(err)
-	tr := util.GetTimeRange(time.Time{}, dur)
+	tr := model.GetTimeRange(time.Time{}, dur)
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, s.results[0].info.Version, tr)

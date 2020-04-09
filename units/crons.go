@@ -9,7 +9,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -52,7 +52,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 			return nil
 		}
 
-		ts := util.RoundPartOfMinute(0).Format(tsFormat)
+		ts := utility.RoundPartOfMinute(0).Format(tsFormat)
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(queue.Put(ctx, NewSysInfoStatsCollector(fmt.Sprintf("sys-info-stats-%s", ts))))
 		catcher.Add(queue.Put(ctx, NewLocalAmboyStatsCollector(env, ts)))
@@ -69,7 +69,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 			return nil
 		}
 
-		return queue.Put(ctx, NewRemoteAmboyStatsCollector(env, util.RoundPartOfMinute(0).Format(tsFormat)))
+		return queue.Put(ctx, NewRemoteAmboyStatsCollector(env, utility.RoundPartOfMinute(0).Format(tsFormat)))
 	})
 	amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
 		job, err := NewFindOutdatedRollupsJob(perf.DefaultRollupFactories())
@@ -87,7 +87,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 		if conf.Flags.DisableSignalProcessing {
 			return nil
 		}
-		job := NewPeriodicChangePointJob(util.RoundPartOfMinute(0).Format(tsFormat))
+		job := NewPeriodicChangePointJob(utility.RoundPartOfMinute(0).Format(tsFormat))
 		return queue.Put(ctx, job)
 	})
 

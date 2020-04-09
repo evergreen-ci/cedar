@@ -10,7 +10,6 @@ import (
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
@@ -142,7 +141,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
 	dbOpts := dbModel.LogFindOptions{
-		TimeRange: util.TimeRange{EndAt: time.Now()},
+		TimeRange: dbModel.TimeRange{EndAt: time.Now()},
 		Info: dbModel.LogInfo{
 			TaskID: opts.TaskID,
 			Tags:   opts.Tags,
@@ -200,7 +199,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 
 func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
 	dbOpts := dbModel.LogFindOptions{
-		TimeRange: util.TimeRange{EndAt: time.Now()},
+		TimeRange: dbModel.TimeRange{EndAt: time.Now()},
 		Info: dbModel.LogInfo{
 			TaskID: opts.TaskID,
 			Tags:   opts.Tags,

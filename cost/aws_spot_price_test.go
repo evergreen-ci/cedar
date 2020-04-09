@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/evergreen-ci/cedar/util"
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -45,7 +45,7 @@ func (s *SpotPriceSuite) TestCalculatePriceOnePrice() {
 	start, _ := time.Parse(utcLayout, "2017-07-08T19:04:05.000Z")
 	end, _ := time.Parse(utcLayout, "2017-07-08T22:04:05.000Z")
 	var blocks = spotPrices([]*ec2.SpotPrice{block1})
-	times := util.TimeRange{
+	times := model.TimeRange{
 		StartAt: start,
 		EndAt:   end,
 	}
@@ -76,7 +76,7 @@ func (s *SpotPriceSuite) TestCalculatePriceManyPrices() {
 		SpotPrice: &price3,
 	}
 	var blocks = spotPrices([]*ec2.SpotPrice{block1, block3, block2})
-	times := util.TimeRange{
+	times := model.TimeRange{
 		StartAt: start,
 		EndAt:   end,
 	}
@@ -89,7 +89,7 @@ func (s *SpotPriceSuite) TestCalculateRealPrices() {
 	s.T().Skip("integration test dependent change")
 	time1, _ := time.Parse(utcLayout, "2018-08-15T06:19:00.000Z")
 	time2, _ := time.Parse(utcLayout, "2018-08-15T10:19:00.000Z")
-	times := util.TimeRange{
+	times := model.TimeRange{
 		StartAt: time1,
 		EndAt:   time2,
 	}

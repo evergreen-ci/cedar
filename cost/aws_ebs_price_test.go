@@ -6,13 +6,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/stretchr/testify/suite"
 )
 
 type EBSPriceSuite struct {
 	suite.Suite
-	reportRange util.TimeRange
+	reportRange model.TimeRange
 	ebsPrices   *model.CostConfigAmazonEBS
 	volume      *ec2.Volume
 }
@@ -35,7 +34,7 @@ func (s *EBSPriceSuite) SetupSuite() {
 	time1, _ := time.Parse(utcLayout, "2017-07-05T07:04:05.000Z")
 	time2, _ := time.Parse(utcLayout, "2017-07-05T19:04:05.000Z")
 
-	s.reportRange = util.TimeRange{
+	s.reportRange = model.TimeRange{
 		StartAt: time1,
 		EndAt:   time2,
 	}

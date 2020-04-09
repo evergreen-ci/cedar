@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -111,7 +110,7 @@ func (c *CostSuite) TestPrint() {
 	defer os.RemoveAll(tempDir)
 
 	report := model.CostReportMetadata{
-		Range: util.TimeRange{
+		Range: model.TimeRange{
 			StartAt: time.Now().Add(-2 * time.Hour),
 			EndAt:   time.Now().Add(-time.Hour),
 		},

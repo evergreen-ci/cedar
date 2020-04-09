@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
@@ -28,7 +27,7 @@ type EvergreenReportOptions struct {
 func CreateReport(ctx context.Context, config *model.CostConfig, opts *EvergreenReportOptions) (*model.CostReport, error) {
 	grip.Info("Creating the report")
 	output := &model.CostReport{}
-	reportRange := util.GetTimeRange(opts.StartAt, opts.Duration)
+	reportRange := model.GetTimeRange(opts.StartAt, opts.Duration)
 
 	if opts.DisableAll {
 		grip.Info("skipping entire evergreen report.")

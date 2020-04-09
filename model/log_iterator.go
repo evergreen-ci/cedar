@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/recovery"
@@ -46,7 +46,7 @@ type LogIterator interface {
 type serializedIterator struct {
 	bucket               pail.Bucket
 	chunks               []LogChunkInfo
-	timeRange            util.TimeRange
+	timeRange            TimeRange
 	reverse              bool
 	lineCount            int
 	keyIndex             int
@@ -59,7 +59,7 @@ type serializedIterator struct {
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
 // chunks from blob storage while iterating over lines of a buildlogger log.
-func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+func NewSerializedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange TimeRange) LogIterator {
 	chunks = filterChunks(timeRange, chunks)
 
 	return &serializedIterator{
@@ -176,7 +176,7 @@ type batchedIterator struct {
 	batchSize            int
 	chunks               []LogChunkInfo
 	chunkIndex           int
-	timeRange            util.TimeRange
+	timeRange            TimeRange
 	reverse              bool
 	lineCount            int
 	keyIndex             int
@@ -190,7 +190,7 @@ type batchedIterator struct {
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
 // caller) of chunks from blob storage in parallel while iterating over lines
 // of a buildlogger log.
-func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange util.TimeRange) LogIterator {
+func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize int, timeRange TimeRange) LogIterator {
 	chunks = filterChunks(timeRange, chunks)
 
 	return &batchedIterator{
@@ -205,7 +205,7 @@ func NewBatchedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, batchSize 
 // NewParallelizedLogIterator returns a LogIterator that fetches all chunks
 // from blob storage in parallel while iterating over lines of a buildlogger
 // log.
-func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange util.TimeRange) LogIterator {
+func NewParallelizedLogIterator(bucket pail.Bucket, chunks []LogChunkInfo, timeRange TimeRange) LogIterator {
 	chunks = filterChunks(timeRange, chunks)
 
 	return &batchedIterator{
@@ -490,10 +490,10 @@ func parseLogLineString(data string) (LogLine, error) {
 }
 
 func prependPriorityAndTimestamp(p level.Priority, t time.Time, data string) string {
-	return fmt.Sprintf("%3d%20d%s\n", p, util.UnixMilli(t), data)
+	return fmt.Sprintf("%3d%20d%s\n", p, utility.UnixMilli(t), data)
 }
 
-func filterChunks(timeRange util.TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
+func filterChunks(timeRange TimeRange, chunks []LogChunkInfo) []LogChunkInfo {
 	filteredChunks := []LogChunkInfo{}
 	for i := 0; i < len(chunks); i++ {
 		if timeRange.Check(chunks[i].Start) || timeRange.Check(chunks[i].End) {
@@ -588,13 +588,13 @@ type LogIteratorReaderOptions struct {
 	TailN int
 	// PrintTime, when true, prints the timestamp of each log line along
 	// with the line in the following format:
-	// 		[2006/01/02 15:04:05.000] This is a log line.
+	//		[2006/01/02 15:04:05.000] This is a log line.
 	PrintTime bool
 	// PrintPriority, when true, prints the priority of each log line along
 	// with the line in the following format:
-	// 		[P: 30] This is a log line.
+	//		[P: 30] This is a log line.
 	// If PrintTime is also set to true, priority will be printed first:
-	// 		[P:100] [2006/01/02 15:04:05.000] This is a log line.
+	//		[P:100] [2006/01/02 15:04:05.000] This is a log line.
 	PrintPriority bool
 	// SoftSizeLimit assists with pagination of long logs. When set the
 	// reader will attempt to read as close to the limit as possible while
