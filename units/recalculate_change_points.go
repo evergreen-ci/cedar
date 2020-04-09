@@ -108,7 +108,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		var changePoints []model.ChangePoint
 		for _, pointIndex := range result {
-			mapped := model.CreateChangePoint(pointIndex, series.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), AlgorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
+			mapped := model.CreateChangePoint(pointIndex, series.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
 			changePoints = append(changePoints, mapped)
 		}
 
@@ -123,7 +123,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, performanceData.PerformanceResultId))
 }
 
-func AlgorithmConfigurationToOptions(configurationValues []perf.AlgorithmConfigurationValue) []model.AlgorithmOption {
+func algorithmConfigurationToOptions(configurationValues []perf.AlgorithmConfigurationValue) []model.AlgorithmOption {
 	var options []model.AlgorithmOption
 	for _, v := range configurationValues {
 		options = append(options, model.AlgorithmOption{
