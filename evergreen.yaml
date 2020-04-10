@@ -240,8 +240,8 @@ buildvariants:
     expansions:
       RACE_DETECTOR: true
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.0.13.tgz
-      GO_BIN_PATH: /opt/golang/go1.12/bin/go
-      GOROOT: /opt/golang/go1.12
+      GO_BIN_PATH: /opt/golang/go1.13/bin/go
+      GOROOT: /opt/golang/go1.13
       curator_build: ubuntu1604
     run_on:
       - archlinux-test
@@ -250,8 +250,8 @@ buildvariants:
   - name: lint
     display_name: Lint (Arch Linux)
     expansions:
-      GO_BIN_PATH: /opt/golang/go1.12/bin/go
-      GOROOT: /opt/golang/go1.12
+      GO_BIN_PATH: /opt/golang/go1.13/bin/go
+      GOROOT: /opt/golang/go1.13
       DISABLE_COVERAGE: true
     run_on:
       - archlinux-test
@@ -261,8 +261,8 @@ buildvariants:
     display_name: Ubuntu 16.04
     expansions:
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: /opt/golang/go1.9/bin/go
-      GOROOT: /opt/golang/go1.9
+      GO_BIN_PATH: /opt/golang/go1.13/bin/go
+      GOROOT: /opt/golang/go1.13
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-4.0.13.tgz
       curator_build: ubuntu1604
     run_on:
@@ -273,8 +273,8 @@ buildvariants:
     display_name: macOS
     expansions:
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: /opt/golang/go1.12/bin/go
-      GOROOT: /opt/golang/go1.12
+      GO_BIN_PATH: /opt/golang/go1.13/bin/go
+      GOROOT: /opt/golang/go1.13
       MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.13.tgz
       curator_build: macos
     run_on:
@@ -293,7 +293,7 @@ buildvariants:
     expansions:
       MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2008plus-ssl-4.0.13.zip
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: "C:\\golang\\go1.9\\bin\\go"
-      GOROOT: "C:\\golang\\go1.9"
+      GO_BIN_PATH: "C:\\golang\\go1.13\\bin\\go"
+      GOROOT: "C:\\golang\\go1.13"
       curator_build: windows-64
     tasks: [ "testGroup" ]
