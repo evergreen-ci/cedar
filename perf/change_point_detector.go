@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
@@ -17,66 +16,104 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ChangeDetector interface {
-	DetectChanges(context.Context, []float64) ([]model.ChangePoint, error)
+type AlgorithmConfigurationValue struct {
+	Name  string
+	Value interface{}
 }
+
+type Algorithm interface {
+	Name() string
+	Version() int
+	Configuration() []AlgorithmConfigurationValue
+}
+
+type eDivisiveMeans struct {
+	version      int
+	pvalue       float64
+	permutations int
+}
+
+func (e *eDivisiveMeans) Name() string {
+	return "e_divisive_means"
+}
+
+func (e *eDivisiveMeans) Version() int {
+	return e.version
+}
+
+func (e *eDivisiveMeans) Configuration() []AlgorithmConfigurationValue {
+	return []AlgorithmConfigurationValue{
+		{
+			"pvalue",
+			e.pvalue,
+		},
+		{
+			"permutations",
+			int32(e.permutations),
+		},
+	}
+}
+
+func CreateDefaultAlgorithm() Algorithm {
+	return &eDivisiveMeans{
+		version:      0,
+		pvalue:       0.05,
+		permutations: 100,
+	}
+}
+
+type ChangeDetector interface {
+	Algorithm() Algorithm
+	DetectChanges(context.Context, []float64) ([]int, error)
+}
+
 type jsonChangePoint struct {
-	Index     int
-	Algorithm jsonAlgorithm
+	Index     int           `json:"index"`
+	Algorithm jsonAlgorithm `json:"algorithm"`
 }
 
 type jsonAlgorithm struct {
-	Name          string
-	Version       int
-	Configuration map[string]interface{}
+	Name          string                 `json:"name"`
+	Version       int                    `json:"version"`
+	Configuration map[string]interface{} `json:"configuration"`
+}
+
+type changeDetectionRequest struct {
+	Algorithm jsonAlgorithm `json:"algorithm"`
+	Series    []float64     `json:"series"`
+}
+
+type changeDetectionResponse struct {
+	ChangePoints []jsonChangePoint `json:"changePoints"`
 }
 
 type signalProcessingClient struct {
-	user    string
-	token   string
-	baseURL string
+	user      string
+	token     string
+	baseURL   string
+	algorithm Algorithm
 }
 
-func NewMicroServiceChangeDetector(baseURL, user string, token string) ChangeDetector {
-	return &signalProcessingClient{user: user, token: token, baseURL: baseURL}
+func NewMicroServiceChangeDetector(baseURL, user string, token string, algorithm Algorithm) ChangeDetector {
+	return &signalProcessingClient{user: user, token: token, baseURL: baseURL, algorithm: algorithm}
 }
 
-func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
+func (spc *signalProcessingClient) Algorithm() Algorithm {
+	return spc.algorithm
+}
+
+func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []float64) ([]int, error) {
 	startAt := time.Now()
 
-	jsonChangePoints := &struct {
-		ChangePoints []jsonChangePoint `json:"changePoints"`
-	}{}
+	jsonChangePoints := &changeDetectionResponse{}
 
-	request := &struct {
-		Series []float64 `json:"series"`
-	}{
-		Series: series,
-	}
-
-	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/change_points/detect", ctx, request, jsonChangePoints); err != nil {
+	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/change_points/detect", ctx, spc.createRequest(series), jsonChangePoints); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	var result []model.ChangePoint
+	var result []int
 	for _, point := range jsonChangePoints.ChangePoints {
-		mapped := model.ChangePoint{
-			Index: point.Index,
-			Algorithm: model.AlgorithmInfo{
-				Name:    point.Algorithm.Name,
-				Version: point.Algorithm.Version,
-			},
-		}
-
-		for k, v := range point.Algorithm.Configuration {
-			additionalOption := model.AlgorithmOption{
-				Name:  k,
-				Value: v,
-			}
-			mapped.Algorithm.Options = append(mapped.Algorithm.Options, additionalOption)
-		}
-
-		result = append(result, mapped)
+		result = append(result, point.Index)
 	}
 
 	grip.Debug(message.Fields{
@@ -88,6 +125,21 @@ func (spc *signalProcessingClient) DetectChanges(ctx context.Context, series []f
 	})
 
 	return result, nil
+}
+
+func (spc *signalProcessingClient) createRequest(series []float64) *changeDetectionRequest {
+	config := map[string]interface{}{}
+	for _, v := range spc.algorithm.Configuration() {
+		config[v.Name] = v.Value
+	}
+	return &changeDetectionRequest{
+		Series: series,
+		Algorithm: jsonAlgorithm{
+			Name:          spc.algorithm.Name(),
+			Version:       spc.algorithm.Version(),
+			Configuration: config,
+		},
+	}
 }
 
 func (spc *signalProcessingClient) doRequest(method, route string, ctx context.Context, in, out interface{}) error {

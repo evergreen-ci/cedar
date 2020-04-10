@@ -83,7 +83,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			j.AddError(errors.Wrap(err, "Unable to get cedar configuration"))
 			return
 		}
-		j.changePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
+		j.changePointDetector = perf.NewMicroServiceChangeDetector(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token, perf.CreateDefaultAlgorithm())
 	}
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
@@ -104,7 +104,14 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 			floatSeries[i] = item.Value
 		}
 
-		changePoints, err := j.changePointDetector.DetectChanges(ctx, floatSeries)
+		result, err := j.changePointDetector.DetectChanges(ctx, floatSeries)
+
+		var changePoints []model.ChangePoint
+		for _, pointIndex := range result {
+			mapped := model.CreateChangePoint(pointIndex, series.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
+			changePoints = append(changePoints, mapped)
+		}
+
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
 			return
@@ -114,4 +121,15 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 	j.AddError(model.ReplaceChangePoints(ctx, j.env, performanceData, mappedChangePoints))
 	j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, performanceData.PerformanceResultId))
+}
+
+func algorithmConfigurationToOptions(configurationValues []perf.AlgorithmConfigurationValue) []model.AlgorithmOption {
+	var options []model.AlgorithmOption
+	for _, v := range configurationValues {
+		options = append(options, model.AlgorithmOption{
+			Name:  v.Name,
+			Value: v.Value,
+		})
+	}
+	return options
 }

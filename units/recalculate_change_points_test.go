@@ -8,6 +8,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,7 +87,11 @@ type MockDetector struct {
 	Calls [][]float64
 }
 
-func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]model.ChangePoint, error) {
+func (m *MockDetector) Algorithm() perf.Algorithm {
+	return perf.CreateDefaultAlgorithm()
+}
+
+func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]int, error) {
 	m.Calls = append(m.Calls, series)
 	last := series[0]
 	var cps []int
@@ -96,28 +101,7 @@ func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]m
 			cps = append(cps, idx)
 		}
 	}
-	var changePoints []model.ChangePoint
-	for _, cp := range cps {
-		changePoints = append(changePoints, model.ChangePoint{
-			Index: cp,
-			Algorithm: model.AlgorithmInfo{
-				Name:    "some_algorithm",
-				Version: 1,
-				Options: []model.AlgorithmOption{
-					{
-						Name:  "some_option",
-						Value: 5,
-					},
-					{
-						Name:  "another_option",
-						Value: 0.05,
-					},
-				},
-			},
-		})
-	}
-
-	return changePoints, nil
+	return cps, nil
 }
 
 func TestRecalculateChangePointsJob(t *testing.T) {
@@ -162,37 +146,36 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		assert.NoError(t, res.All(ctx, &result))
 		require.Len(t, result, 1)
 		require.Len(t, result[0].Analysis.ChangePoints, 2)
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Measurement, "measurement_another")
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
-			Name:    "some_algorithm",
-			Version: 1,
-			Options: []model.AlgorithmOption{
-				{
-					Name:  "some_option",
-					Value: int32(5),
-				},
-				{
-					Name:  "another_option",
-					Value: 0.05,
-				},
-			},
-		})
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Measurement, "measurement")
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm, model.AlgorithmInfo{
-			Name:    "some_algorithm",
-			Version: 1,
-			Options: []model.AlgorithmOption{
-				{
-					Name:  "some_option",
-					Value: int32(5),
-				},
-				{
-					Name:  "another_option",
-					Value: 0.05,
-				},
-			},
-		})
 		require.NotEqual(t, result[0].Analysis.ProcessedAt, time.Time{})
+
+		var options []model.AlgorithmOption
+
+		for _, v := range mockDetector.Algorithm().Configuration() {
+			options = append(options, model.AlgorithmOption{
+				Name:  v.Name,
+				Value: v.Value,
+			})
+		}
+
+		//Change point 1
+		require.Contains(t, []string{"measurement", "measurement_another"}, result[0].Analysis.ChangePoints[0].Measurement)
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm.Name, mockDetector.Algorithm().Name())
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm.Version, mockDetector.Algorithm().Version())
+		for _, v := range options {
+			require.Contains(t, result[0].Analysis.ChangePoints[0].Algorithm.Options, v)
+		}
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.TriagedOn, time.Time{})
+		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.Status, model.TriageStatusUntriaged)
+
+		//Change point 2
+		require.Contains(t, []string{"measurement", "measurement_another"}, result[0].Analysis.ChangePoints[1].Measurement)
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm.Name, mockDetector.Algorithm().Name())
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm.Version, mockDetector.Algorithm().Version())
+		for _, v := range options {
+			require.Contains(t, result[0].Analysis.ChangePoints[1].Algorithm.Options, v)
+		}
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.TriagedOn, time.Time{})
+		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.Status, model.TriageStatusUntriaged)
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {

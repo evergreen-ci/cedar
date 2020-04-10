@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-
-	"github.com/evergreen-ci/cedar"
 )
 
 type PerfAnalysis struct {
@@ -27,12 +26,31 @@ type ChangePoint struct {
 	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
 	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
 	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+	Triage       TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
+}
+
+func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algoOptions []AlgorithmOption) ChangePoint {
+	cp := ChangePoint{
+		Index: index,
+		Algorithm: AlgorithmInfo{
+			Name:    algorithmName,
+			Version: algorithmVersion,
+			Options: algoOptions,
+		},
+		CalculatedOn: time.Now(),
+		Measurement:  measurement,
+		Triage: TriageInfo{
+			Status: TriageStatusUntriaged,
+		},
+	}
+	return cp
 }
 
 var (
 	perfChangePointMeasurementKey  = bsonutil.MustHaveTag(ChangePoint{}, "Measurement")
 	perfChangePointCalculatedOnKey = bsonutil.MustHaveTag(ChangePoint{}, "CalculatedOn")
 	perfChangePointAlgorithmKey    = bsonutil.MustHaveTag(ChangePoint{}, "Algorithm")
+	perfChangePointTriageKey       = bsonutil.MustHaveTag(ChangePoint{}, "Triage")
 )
 
 type AlgorithmInfo struct {
@@ -56,6 +74,34 @@ var (
 	perfAlgorithmOptionNameKey  = bsonutil.MustHaveTag(AlgorithmOption{}, "Name")
 	perfAlgorithmOptionValueKey = bsonutil.MustHaveTag(AlgorithmOption{}, "Value")
 )
+
+type TriageInfo struct {
+	TriagedOn time.Time    `bson:"triaged_on" json:"triaged_on" yaml:"triaged_on"`
+	Status    TriageStatus `bson:"triage_status" json:"triage_status" yaml:"triage_status"`
+}
+
+var (
+	perfTriageInfoTriagedOnKey = bsonutil.MustHaveTag(TriageInfo{}, "TriagedOn")
+	perfTriageInfoStatusKey    = bsonutil.MustHaveTag(TriageInfo{}, "Status")
+)
+
+type TriageStatus string
+
+const (
+	TriageStatusUntriaged          TriageStatus = "untriaged"
+	TriageStatusTruePositive       TriageStatus = "true_positive"
+	TriageStatusFalsePositive      TriageStatus = "false_positive"
+	TriageStatusUnderInvestigation TriageStatus = "under_investigation"
+)
+
+func (ts TriageStatus) Validate() error {
+	switch ts {
+	case TriageStatusUntriaged, TriageStatusTruePositive, TriageStatusFalsePositive, TriageStatusUnderInvestigation:
+		return nil
+	default:
+		return errors.New("invalid triage status")
+	}
+}
 
 type PerformanceResultSeriesID struct {
 	Project string `bson:"project"`
@@ -273,7 +319,7 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 		changePoints := mappedChangePoints[measurementData.Measurement]
 		for _, cp := range changePoints {
 			perfResultId := measurementData.TimeSeries[cp.Index].PerfResultID
-			err = createChangePoint(ctx, env, perfResultId, measurementData.Measurement, cp.Algorithm)
+			err = createChangePoint(ctx, env, perfResultId, cp)
 			if err != nil {
 				catcher.Add(errors.Wrapf(err, "Failed to update performance result with change point %s", perfResultId))
 			}
@@ -298,15 +344,11 @@ func clearChangePoints(ctx context.Context, env cedar.Environment, performanceRe
 	return errors.Wrap(err, "Unable to clear change points")
 }
 
-func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, measurement string, algorithm AlgorithmInfo) error {
+func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdate string, cp ChangePoint) error {
 	filter := bson.M{"_id": resultToUpdate}
 	update := bson.M{
 		"$push": bson.M{
-			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): ChangePoint{
-				Measurement:  measurement,
-				Algorithm:    algorithm,
-				CalculatedOn: time.Now(),
-			},
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): cp,
 		},
 	}
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
