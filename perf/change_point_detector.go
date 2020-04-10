@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/evergreen-ci/cedar/util"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
