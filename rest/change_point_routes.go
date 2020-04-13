@@ -16,7 +16,7 @@ import (
 //
 // GET /perf/project/{projectId}/version/change_points
 
-type perfGetChangesPointByVersionHandler struct {
+type perfGetChangePointsByVersionHandler struct {
 	page      int
 	pageSize  int
 	projectId string
@@ -24,20 +24,20 @@ type perfGetChangesPointByVersionHandler struct {
 }
 
 func makeGetChangePointsByVersion(sc data.Connector) gimlet.RouteHandler {
-	return &perfGetChangesPointByVersionHandler{
+	return &perfGetChangePointsByVersionHandler{
 		sc: sc,
 	}
 }
 
-// Factory returns a pointer to a new perfGetChangesPointByVersionHandler.
-func (h *perfGetChangesPointByVersionHandler) Factory() gimlet.RouteHandler {
-	return &perfGetChangesPointByVersionHandler{
+// Factory returns a pointer to a new perfGetChangePointsByVersionHandler.
+func (h *perfGetChangePointsByVersionHandler) Factory() gimlet.RouteHandler {
+	return &perfGetChangePointsByVersionHandler{
 		sc: h.sc,
 	}
 }
 
 // Parse fetches the id from the http request.
-func (h *perfGetChangesPointByVersionHandler) Parse(_ context.Context, r *http.Request) error {
+func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.Request) error {
 	h.projectId = gimlet.GetVars(r)["projectId"]
 	vals := r.URL.Query()
 	catcher := grip.NewBasicCatcher()
@@ -60,8 +60,8 @@ func (h *perfGetChangesPointByVersionHandler) Parse(_ context.Context, r *http.R
 }
 
 // Run calls FindLogMetadataByID and returns the log.
-func (h *perfGetChangesPointByVersionHandler) Run(ctx context.Context) gimlet.Responder {
-	changePointsByVersion, err := h.sc.GetChangePointsByVersions(ctx, h.projectId, h.page, h.page)
+func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {
+	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.projectId, h.page, h.page)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.projectId)
 		grip.Error(message.WrapError(err, message.Fields{

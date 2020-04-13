@@ -44,9 +44,9 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 		totalPages := 100
 		pageSize := 7
 		apiResults := CreateAPIChangePointGroupedByVersionResult(testInput, page, pageSize, totalPages)
-		assert.Equal(t, apiResults.Page, page)
-		assert.Equal(t, apiResults.PageSize, pageSize)
-		assert.Equal(t, apiResults.TotalPages, totalPages)
+		assert.Equal(t, page, apiResults.Page)
+		assert.Equal(t, pageSize, apiResults.PageSize)
+		assert.Equal(t, totalPages, apiResults.TotalPages)
 
 		assert.Equal(t, apiResults.Versions[0].VersionId, testInput[0].VersionId)
 		for i, changePoint := range apiResults.Versions[0].ChangePoints {

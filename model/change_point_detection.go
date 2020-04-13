@@ -107,8 +107,8 @@ func (ts TriageStatus) Validate() error {
 type PerformanceResultSeriesID struct {
 	Project     string `bson:"project" json:"project"`
 	Variant     string `bson:"variant" json:"variant"`
-	Task        string `bson:"task_name" json:"task"`
-	Test        string `bson:"test_name" json:"test"`
+	Task        string `bson:"task" json:"task"`
+	Test        string `bson:"test" json:"test"`
 	ThreadLevel int32  `bson:"thread_level" json:"thread_level"`
 }
 
@@ -347,11 +347,11 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 	}
 	countKey := "count"
 	pipe := []bson.M{
-		getMatchForChangePointsGroupedByVersion(projectId),
 		{
 			"$count": countKey,
 		},
 	}
+	pipe = append(getMatchAndUnwindForChangePointsGroupedByVersion(projectId), pipe...)
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return 0, errors.Wrap(err, "Cannot aggregate to get count of change points grouped by version")
@@ -368,24 +368,25 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 	return 0, errors.New("Not able to get count of total changepoints matching query")
 }
 
-func getMatchForChangePointsGroupedByVersion(projectId string) bson.M {
-	return bson.M{
-		"$match": bson.M{
-			bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):             projectId,
-			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "0"): bson.M{"$exists": true},
+func getMatchAndUnwindForChangePointsGroupedByVersion(projectId string) []bson.M {
+	return []bson.M{
+		{
+			"$match": bson.M{
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):             projectId,
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "0"): bson.M{"$exists": true},
+			},
+		},
+		{
+			"$unwind": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
 		},
 	}
 }
 
 func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, page, pageSize int) ([]GetChangePointsGroupedByVersionResult, error) {
 	pipe := []bson.M{
-		getMatchForChangePointsGroupedByVersion(projectId),
-		{
-			"$unwind": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-		},
 		{
 			"$sort": bson.M{
-				"created_at": -1,
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointCalculatedOnKey): -1,
 			},
 		},
 		{
@@ -400,8 +401,8 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 				"change_point":   "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
 				"project":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
 				"variant":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-				"task_name":      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-				"test_name":      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+				"task":           "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+				"test":           "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 				"thread_level":   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey, "thread_level"),
 				"version":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfVersionlKey),
 			},
@@ -414,6 +415,7 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 			},
 		},
 	}
+	pipe = append(getMatchAndUnwindForChangePointsGroupedByVersion(projectId), pipe...)
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate to get change points grouped by version")

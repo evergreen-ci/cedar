@@ -2,8 +2,6 @@ package data
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -57,9 +55,9 @@ func (s *ChangePointConnectorSuite) createPerformanceResultsWithChangePoints(env
 						},
 					},
 					{
-						Index:        1,
+						Index:        2,
 						Measurement:  "measurement2",
-						CalculatedOn: time.Now(),
+						CalculatedOn: time.Now().Add(1 * time.Minute),
 						Algorithm: model.AlgorithmInfo{
 							Name:    "default",
 							Version: 10,
@@ -109,9 +107,9 @@ func (s *ChangePointConnectorSuite) createPerformanceResultsWithChangePoints(env
 			Analysis: model.PerfAnalysis{
 				ChangePoints: []model.ChangePoint{
 					{
-						Index:        10,
+						Index:        3,
 						Measurement:  "measurement1",
-						CalculatedOn: time.Now(),
+						CalculatedOn: time.Now().Add(5 * time.Minute),
 						Algorithm: model.AlgorithmInfo{
 							Name:    "edvisive",
 							Version: 15,
@@ -152,7 +150,6 @@ type ChangePointConnectorSuite struct {
 	cancel context.CancelFunc
 	sc     Connector
 	env    cedar.Environment
-	idMap  map[string]model.PerformanceResult
 
 	suite.Suite
 }
@@ -177,27 +174,52 @@ func (s *ChangePointConnectorSuite) TearDownSuite() {
 	s.Require().NoError(err)
 }
 
-func (s *ChangePointConnectorSuite) TestGetChangePointsByVersions() {
+func (s *ChangePointConnectorSuite) TestGetChangePointsByVersion() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	result, err := s.sc.GetChangePointsByVersions(s.ctx, projectId, page, pageSize)
+	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize)
 	if err != nil {
 		print(err)
 	}
 	s.NoError(err)
-	s.Require().Equal(result.Page, page)
-	s.Require().Equal(result.PageSize, pageSize)
-	s.Require().Equal(result.TotalPages, 1)
-	s.Require().Equal(len(result.Versions), 2)
+	s.Require().Equal(page, result.Page)
+	s.Require().Equal(pageSize, result.PageSize)
+	s.Require().Equal(1, result.TotalPages)
+	s.Require().Equal(2, len(result.Versions))
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		for _, changePoint := range versionWithChangePoints.ChangePoints {
-			s.Require().Equal(changePoint.Project, projectId)
+			s.Require().Equal(projectId, changePoint.Project)
 			totalChangePoints += 1
 		}
 	}
-	s.Require().Equal(totalChangePoints, 3)
-	bolB, _ := json.Marshal(result)
-	fmt.Println(string(bolB))
+	s.Require().Equal(3, totalChangePoints)
+}
+
+func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
+	page := 0
+	pageSize := 1
+	projectId := "project1"
+	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize)
+	if err != nil {
+		print(err)
+	}
+	s.NoError(err)
+	s.Require().Equal(page, result.Page)
+	s.Require().Equal(pageSize, result.PageSize)
+	s.Require().Equal(3, result.TotalPages)
+	seenPerfResults := []int{result.Versions[0].ChangePoints[0].Index}
+	for i := result.Page + 1; i < result.TotalPages; i++ {
+		result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, i, pageSize)
+		if err != nil {
+			print(err)
+		}
+		s.NoError(err)
+		s.Require().Equal(i, result.Page)
+		s.Require().Equal(pageSize, result.PageSize)
+		s.Require().Equal(3, result.TotalPages)
+		s.Require().NotContains(seenPerfResults, result.Versions[0].ChangePoints[0].Index)
+		seenPerfResults = append(seenPerfResults, result.Versions[0].ChangePoints[0].Index)
+	}
 }
