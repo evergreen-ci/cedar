@@ -135,7 +135,7 @@ func (t *TestResults) Remove(ctx context.Context) error {
 }
 
 // Append uploads test results to the offline blob storage bucket configured
-// configured test results and updates the metadata in the database to reflect
+// for the task execution and updates the metadata in the database to reflect
 // the uploaded results. The environment should not be nil.
 func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if t.env == nil {
@@ -239,7 +239,7 @@ func (t *TestResults) SetTestRecorded(ctx context.Context, testName string, reco
 		"id":           t.ID,
 		"updateResult": updateResult,
 		"test_name":    testName,
-		"op":           fmt.Sprintf("set test name recorded to %s", recorded),
+		"op":           fmt.Sprintf("set test name recorded to %v", recorded),
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
