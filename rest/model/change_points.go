@@ -24,9 +24,9 @@ type APIChangePointWithPerfData struct {
 
 func CreateAPIChangePointGroupedByVersionResult(changePointsWithVersions []dbmodel.GetChangePointsGroupedByVersionResult, page, pageSize, totalPages int) *APIChangePointGroupedByVersionResult {
 	apiChangePoints := make([]APIChangePointsWithVersion, len(changePointsWithVersions))
-	for i, changePointWithVersion := range changePointsWithVersions {
-		changePoints := make([]APIChangePointWithPerfData, len(changePointWithVersion.ChangePoints))
-		for j, dbChangePoint := range changePointWithVersion.ChangePoints {
+	for i, changePointsWithVersion := range changePointsWithVersions {
+		changePoints := make([]APIChangePointWithPerfData, len(changePointsWithVersion.ChangePoints))
+		for j, dbChangePoint := range changePointsWithVersion.ChangePoints {
 			changePoints[j] = APIChangePointWithPerfData{
 				PerfResultId:              dbChangePoint.PerfResultId,
 				ChangePoint:               dbChangePoint.ChangePoint,
@@ -34,7 +34,7 @@ func CreateAPIChangePointGroupedByVersionResult(changePointsWithVersions []dbmod
 			}
 		}
 		apiChangePoints[i] = APIChangePointsWithVersion{
-			VersionId:    changePointWithVersion.VersionId,
+			VersionId:    changePointsWithVersion.VersionId,
 			ChangePoints: changePoints,
 		}
 	}
