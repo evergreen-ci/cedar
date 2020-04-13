@@ -5,7 +5,7 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
