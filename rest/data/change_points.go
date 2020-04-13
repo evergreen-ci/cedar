@@ -41,5 +41,10 @@ func (dbc *DBConnector) GetChangePointsByVersions(ctx context.Context, projectId
 // GetChangePointsByVersions returns changepoints grouped by version associated with
 // the given project. Paginated.
 func (mc *MockConnector) GetChangePointsByVersions(ctx context.Context, projectId string, page, pageSize int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
-	return nil, nil
+	return &dataModel.APIChangePointGroupedByVersionResult{
+		Versions:   nil,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: 0,
+	}, nil
 }
