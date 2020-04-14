@@ -87,7 +87,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	}
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.PerformanceResultId.Project))
+		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.PerformanceResultId))
 		return
 	}
 	if performanceData == nil {
@@ -113,7 +113,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		}
 
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId.Project))
+			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
 			return
 		}
 		mappedChangePoints[series.Measurement] = changePoints

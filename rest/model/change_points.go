@@ -18,8 +18,12 @@ type APIChangePointsWithVersion struct {
 
 type APIChangePointWithPerfData struct {
 	PerfResultId string `json:"perf_result_id"`
+	Project      string `json:"project"`
+	Task         string `json:"task"`
+	Test         string `json:"test"`
+	Variant      string `json:"variant"`
+	ThreadLevel  int32  `json:"thread_level"`
 	dbmodel.ChangePoint
-	dbmodel.PerformanceResultSeriesID
 }
 
 func CreateAPIChangePointGroupedByVersionResult(changePointsWithVersions []dbmodel.GetChangePointsGroupedByVersionResult, page, pageSize, totalPages int) *APIChangePointGroupedByVersionResult {
@@ -28,13 +32,17 @@ func CreateAPIChangePointGroupedByVersionResult(changePointsWithVersions []dbmod
 		changePoints := make([]APIChangePointWithPerfData, len(changePointsWithVersion.ChangePoints))
 		for j, dbChangePoint := range changePointsWithVersion.ChangePoints {
 			changePoints[j] = APIChangePointWithPerfData{
-				PerfResultId:              dbChangePoint.PerfResultId,
-				ChangePoint:               dbChangePoint.ChangePoint,
-				PerformanceResultSeriesID: dbChangePoint.PerformanceResultSeriesID,
+				PerfResultId: dbChangePoint.PerfResultID,
+				ChangePoint:  dbChangePoint.ChangePoint,
+				Project:      dbChangePoint.Info.Project,
+				Task:         dbChangePoint.Info.TaskName,
+				Test:         dbChangePoint.Info.TestName,
+				Variant:      dbChangePoint.Info.Variant,
+				ThreadLevel:  dbChangePoint.Info.Arguments["thread_level"],
 			}
 		}
 		apiChangePoints[i] = APIChangePointsWithVersion{
-			VersionId:    changePointsWithVersion.VersionId,
+			VersionId:    changePointsWithVersion.VersionID,
 			ChangePoints: changePoints,
 		}
 	}

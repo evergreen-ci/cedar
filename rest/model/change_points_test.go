@@ -11,15 +11,15 @@ import (
 func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 	testInput := []dbmodel.GetChangePointsGroupedByVersionResult{
 		{
-			VersionId: "version1",
+			VersionID: "version1",
 			ChangePoints: []dbmodel.ChangePointWithPerformanceData{
 				{
-					PerformanceResultSeriesID: dbmodel.PerformanceResultSeriesID{
-						Project:     "project1",
-						Variant:     "variant1",
-						Task:        "task1",
-						Test:        "test1",
-						ThreadLevel: 10,
+					Info: dbmodel.PerformanceResultInfo{
+						Project:   "project1",
+						Variant:   "variant1",
+						TaskName:  "task1",
+						TestName:  "test1",
+						Arguments: map[string]int32{"thread_level": 10},
 					},
 					ChangePoint: dbmodel.ChangePoint{
 						Index:        10,
@@ -34,7 +34,7 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 							Status:    "triaged",
 						},
 					},
-					PerfResultId: "perf1",
+					PerfResultID: "perf1",
 				},
 			},
 		},
@@ -48,12 +48,16 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 		assert.Equal(t, pageSize, apiResults.PageSize)
 		assert.Equal(t, totalPages, apiResults.TotalPages)
 
-		assert.Equal(t, apiResults.Versions[0].VersionId, testInput[0].VersionId)
+		assert.Equal(t, apiResults.Versions[0].VersionId, testInput[0].VersionID)
 		for i, changePoint := range apiResults.Versions[0].ChangePoints {
 			inputChangePoint := testInput[0].ChangePoints[i]
 			assert.Equal(t, inputChangePoint.ChangePoint, changePoint.ChangePoint)
-			assert.Equal(t, inputChangePoint.PerformanceResultSeriesID, changePoint.PerformanceResultSeriesID)
-			assert.Equal(t, inputChangePoint.PerfResultId, changePoint.PerfResultId)
+			assert.Equal(t, inputChangePoint.Info.Project, changePoint.Project)
+			assert.Equal(t, inputChangePoint.Info.Variant, changePoint.Variant)
+			assert.Equal(t, inputChangePoint.Info.TaskName, changePoint.Task)
+			assert.Equal(t, inputChangePoint.Info.TestName, changePoint.Test)
+			assert.Equal(t, inputChangePoint.Info.Arguments["thread_level"], changePoint.ThreadLevel)
+			assert.Equal(t, inputChangePoint.PerfResultID, changePoint.PerfResultId)
 		}
 	})
 }
