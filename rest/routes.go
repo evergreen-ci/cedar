@@ -680,7 +680,7 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	creds := &userCredentials{}
 	if err = gimlet.GetJSON(r.Body, creds); err != nil {
 		err = errors.Wrap(err, "problem reading request body")
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
@@ -851,7 +851,7 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 	creds := &userCredentials{}
 	if err = gimlet.GetJSON(r.Body, creds); err != nil {
 		err = errors.Wrap(err, "problem reading request body")
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return "", false
 	}
 
