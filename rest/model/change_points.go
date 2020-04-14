@@ -26,28 +26,32 @@ type APIChangePointWithPerfData struct {
 	dbmodel.ChangePoint
 }
 
-func CreateAPIChangePointGroupedByVersionResult(changePointsWithVersions []dbmodel.GetChangePointsGroupedByVersionResult, page, pageSize, totalPages int) *APIChangePointGroupedByVersionResult {
-	apiChangePoints := make([]APIChangePointsWithVersion, len(changePointsWithVersions))
-	for i, changePointsWithVersion := range changePointsWithVersions {
-		changePoints := make([]APIChangePointWithPerfData, len(changePointsWithVersion.ChangePoints))
-		for j, dbChangePoint := range changePointsWithVersion.ChangePoints {
-			changePoints[j] = APIChangePointWithPerfData{
-				PerfResultId: dbChangePoint.PerfResultID,
-				ChangePoint:  dbChangePoint.ChangePoint,
-				Project:      dbChangePoint.Info.Project,
-				Task:         dbChangePoint.Info.TaskName,
-				Test:         dbChangePoint.Info.TestName,
-				Variant:      dbChangePoint.Info.Variant,
-				ThreadLevel:  dbChangePoint.Info.Arguments["thread_level"],
+func CreateAPIChangePointGroupedByVersionResult(getChangePointsGroupedByVersionResult []dbmodel.GetChangePointsGroupedByVersionResult, page, pageSize, totalPages int) *APIChangePointGroupedByVersionResult {
+	changePointsGroupedByVersion := make([]APIChangePointsWithVersion, len(getChangePointsGroupedByVersionResult))
+	for i, perfResultsWithVersion := range getChangePointsGroupedByVersionResult {
+		var apiChangePoints []APIChangePointWithPerfData
+		for _, perfResult := range perfResultsWithVersion.PerfResults {
+			for _, dbChangePoint := range perfResult.Analysis.ChangePoints {
+				changePoint := APIChangePointWithPerfData{
+					PerfResultId: perfResult.ID,
+					Project:      perfResult.Info.Project,
+					Task:         perfResult.Info.TaskName,
+					Test:         perfResult.Info.TestName,
+					Variant:      perfResult.Info.Variant,
+					ThreadLevel:  perfResult.Info.Arguments["thread_level"],
+					ChangePoint:  dbChangePoint,
+				}
+				apiChangePoints = append(apiChangePoints, changePoint)
 			}
 		}
-		apiChangePoints[i] = APIChangePointsWithVersion{
-			VersionId:    changePointsWithVersion.VersionID,
-			ChangePoints: changePoints,
+
+		changePointsGroupedByVersion[i] = APIChangePointsWithVersion{
+			VersionId:    perfResultsWithVersion.VersionID,
+			ChangePoints: apiChangePoints,
 		}
 	}
 	return &APIChangePointGroupedByVersionResult{
-		Versions:   apiChangePoints,
+		Versions:   changePointsGroupedByVersion,
 		Page:       page,
 		PageSize:   pageSize,
 		TotalPages: totalPages,

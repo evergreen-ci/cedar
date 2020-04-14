@@ -32,6 +32,7 @@ func (s *ChangePointConnectorSuite) createPerformanceResultsWithChangePoints(env
 				Arguments: map[string]int32{
 					"thread_level": 10,
 				},
+				Order: 1,
 			},
 			Analysis: model.PerfAnalysis{
 				ChangePoints: []model.ChangePoint{
@@ -81,6 +82,7 @@ func (s *ChangePointConnectorSuite) createPerformanceResultsWithChangePoints(env
 			ID: "perfResult2",
 			Info: model.PerformanceResultInfo{
 				Project: "project2",
+				Order:   2,
 			},
 			Analysis: model.PerfAnalysis{
 				ChangePoints: []model.ChangePoint{
@@ -103,6 +105,7 @@ func (s *ChangePointConnectorSuite) createPerformanceResultsWithChangePoints(env
 				Arguments: map[string]int32{
 					"thread_level": 15,
 				},
+				Order: 3,
 			},
 			Analysis: model.PerfAnalysis{
 				ChangePoints: []model.ChangePoint{
@@ -208,7 +211,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
 	s.NoError(err)
 	s.Require().Equal(page, result.Page)
 	s.Require().Equal(pageSize, result.PageSize)
-	s.Require().Equal(3, result.TotalPages)
+	s.Require().Equal(2, result.TotalPages)
 	seenPerfResults := []int{result.Versions[0].ChangePoints[0].Index}
 	for i := result.Page + 1; i < result.TotalPages; i++ {
 		result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, i, pageSize)
@@ -218,7 +221,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
 		s.NoError(err)
 		s.Require().Equal(i, result.Page)
 		s.Require().Equal(pageSize, result.PageSize)
-		s.Require().Equal(3, result.TotalPages)
+		s.Require().Equal(2, result.TotalPages)
 		s.Require().NotContains(seenPerfResults, result.Versions[0].ChangePoints[0].Index)
 		seenPerfResults = append(seenPerfResults, result.Versions[0].ChangePoints[0].Index)
 	}

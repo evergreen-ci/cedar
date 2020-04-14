@@ -127,15 +127,9 @@ type PerformanceData struct {
 	Data                []MeasurementData         `bson:"data"`
 }
 
-type ChangePointWithPerformanceData struct {
-	Info         PerformanceResultInfo `bson:"info"`
-	ChangePoint  ChangePoint           `bson:"change_point"`
-	PerfResultID string                `bson:"perf_result_id" json:"perf_result_id"`
-}
-
 type GetChangePointsGroupedByVersionResult struct {
-	VersionID    string                           `bson:"version_id" json:"version_id"`
-	ChangePoints []ChangePointWithPerformanceData `bson:"change_points" json:"change_points"`
+	VersionID   string              `bson:"version_id" json:"version_id"`
+	PerfResults []PerformanceResult `bson:"perf_results" json:"perf_results"`
 }
 
 func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
@@ -373,7 +367,12 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalStep
 			},
 		},
 		{
-			"$unwind": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
+			"$group": bson.M{
+				"_id":          "$info.version",
+				"perf_results": bson.M{"$push": "$$ROOT"},
+				"version_id":   bson.M{"$first": "$info.version"},
+				"order":        bson.M{"$first": "$info.order"},
+			},
 		},
 	}
 	return append(basepipe, additionalSteps...)
@@ -383,7 +382,7 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 	pipe := []bson.M{
 		{
 			"$sort": bson.M{
-				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointCalculatedOnKey): -1,
+				"order": -1,
 			},
 		},
 		{
@@ -391,20 +390,6 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 		},
 		{
 			"$limit": pageSize,
-		},
-		{
-			"$project": bson.M{
-				"perf_result_id": "$_id",
-				"change_point":   "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-				"info":           "$" + bsonutil.GetDottedKeyName(perfInfoKey),
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id":           "$info.version",
-				"change_points": bson.M{"$push": "$$ROOT"},
-				"version_id":    bson.M{"$first": "$info.version"},
-			},
 		},
 	}
 	pipe = appendAfterBaseGetChangePointsByVersionAgg(projectId, pipe...)

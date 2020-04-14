@@ -12,7 +12,7 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 	testInput := []dbmodel.GetChangePointsGroupedByVersionResult{
 		{
 			VersionID: "version1",
-			ChangePoints: []dbmodel.ChangePointWithPerformanceData{
+			PerfResults: []dbmodel.PerformanceResult{
 				{
 					Info: dbmodel.PerformanceResultInfo{
 						Project:   "project1",
@@ -21,20 +21,24 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 						TestName:  "test1",
 						Arguments: map[string]int32{"thread_level": 10},
 					},
-					ChangePoint: dbmodel.ChangePoint{
-						Index:        10,
-						Measurement:  "measurement1",
-						CalculatedOn: time.Now(),
-						Algorithm: dbmodel.AlgorithmInfo{
-							Name:    "algo1",
-							Version: 31,
-						},
-						Triage: dbmodel.TriageInfo{
-							TriagedOn: time.Now(),
-							Status:    "triaged",
+					Analysis: dbmodel.PerfAnalysis{
+						ChangePoints: []dbmodel.ChangePoint{
+							{
+								Index:        10,
+								Measurement:  "measurement1",
+								CalculatedOn: time.Now(),
+								Algorithm: dbmodel.AlgorithmInfo{
+									Name:    "algo1",
+									Version: 31,
+								},
+								Triage: dbmodel.TriageInfo{
+									TriagedOn: time.Now(),
+									Status:    "triaged",
+								},
+							},
 						},
 					},
-					PerfResultID: "perf1",
+					ID: "perf1",
 				},
 			},
 		},
@@ -50,14 +54,14 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 
 		assert.Equal(t, apiResults.Versions[0].VersionId, testInput[0].VersionID)
 		for i, changePoint := range apiResults.Versions[0].ChangePoints {
-			inputChangePoint := testInput[0].ChangePoints[i]
-			assert.Equal(t, inputChangePoint.ChangePoint, changePoint.ChangePoint)
-			assert.Equal(t, inputChangePoint.Info.Project, changePoint.Project)
-			assert.Equal(t, inputChangePoint.Info.Variant, changePoint.Variant)
-			assert.Equal(t, inputChangePoint.Info.TaskName, changePoint.Task)
-			assert.Equal(t, inputChangePoint.Info.TestName, changePoint.Test)
-			assert.Equal(t, inputChangePoint.Info.Arguments["thread_level"], changePoint.ThreadLevel)
-			assert.Equal(t, inputChangePoint.PerfResultID, changePoint.PerfResultId)
+			perfResult := testInput[0].PerfResults[i]
+			assert.Equal(t, perfResult.Analysis.ChangePoints[0], changePoint.ChangePoint)
+			assert.Equal(t, perfResult.Info.Project, changePoint.Project)
+			assert.Equal(t, perfResult.Info.Variant, changePoint.Variant)
+			assert.Equal(t, perfResult.Info.TaskName, changePoint.Task)
+			assert.Equal(t, perfResult.Info.TestName, changePoint.Test)
+			assert.Equal(t, perfResult.Info.Arguments["thread_level"], changePoint.ThreadLevel)
+			assert.Equal(t, perfResult.ID, changePoint.PerfResultId)
 		}
 	})
 }
