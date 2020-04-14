@@ -118,8 +118,9 @@ type TimeSeriesEntry struct {
 }
 
 type MeasurementData struct {
-	Measurement string            `bson:"measurement"`
-	TimeSeries  []TimeSeriesEntry `bson:"time_series"`
+	Measurement  string            `bson:"measurement"`
+	TimeSeries   []TimeSeriesEntry `bson:"time_series"`
+	ChangePoints []ChangePoint     `bson:"change_points"`
 }
 
 type PerformanceData struct {
@@ -260,6 +261,12 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
 		},
 		{
+			"$unwind": bson.M{
+				"path": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+		{
 			"$group": bson.M{
 				"_id": bson.M{
 					"project":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
@@ -269,6 +276,18 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 					"measurement": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
 				},
 				"time_series": bson.M{
+					"$push": bson.M{
+						"value": bson.M{
+							"$ifNull": bson.A{
+								"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
+								0,
+							},
+						},
+						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
+						"perf_result_id": "$_id",
+					},
+				},
+				"change_points": bson.M{
 					"$push": bson.M{
 						"value": bson.M{
 							"$ifNull": bson.A{
@@ -294,6 +313,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 					"$push": bson.M{
 						"measurement": "$_id.measurement",
 						"time_series": "$time_series",
+						"change_points": "$change_points",
 					},
 				},
 			},

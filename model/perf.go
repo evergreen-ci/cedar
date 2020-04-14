@@ -58,7 +58,7 @@ var (
 	perfFailedRollupAttempts = bsonutil.MustHaveTag(PerformanceResult{}, "FailedRollupAttempts")
 	perfRollupsKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Rollups")
 	perfAnalysisKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Analysis")
-	perfVersionlKey          = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
+	perfVersionKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
 func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResultSeriesID {
