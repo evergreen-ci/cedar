@@ -44,6 +44,8 @@ type Connector interface {
 	// processing recalculation job has been scheduled for each type of
 	// test (project/variant/task/test combo).
 	ScheduleSignalProcessingRecalculateJobs(context.Context) error
+	// MarkChangePoints returns once all change points have been successfully marked
+	MarkChangePoints(ctx context.Context) interface{}
 
 	//////////////////
 	// Buildlogger Log

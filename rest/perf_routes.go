@@ -358,6 +358,66 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",
+			"route":   "/perf/change_points",
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+	return gimlet.NewJSONResponse(struct{}{})
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// POST /perf/change_points/triage/mark
+
+type changePointStub struct {
+	PerfResultID string `bson:"perf_result_id" json:"perf_result_id" yaml:"perf_result_id"`
+	Measurement string `bson:"measurement" json:"measurement" yaml:"measurement"`
+}
+
+type changePointMarkRequest struct {
+	Status string `bson:"status" json:"status" yaml:"status"`
+	ChangePoints []changePointStub `bson:"change_points" json:"change_points" yaml:"change_points"`
+}
+
+type perfChangePointTriageMarkHandler struct {
+	sc data.Connector
+	req changePointMarkRequest
+}
+
+func makePerfChangePointTriageMarkHandler(sc data.Connector) gimlet.RouteHandler {
+	return &perfChangePointTriageMarkHandler{
+		sc: sc,
+	}
+}
+
+func (h *perfChangePointTriageMarkHandler) Factory() gimlet.RouteHandler {
+	return &perfChangePointTriageMarkHandler{
+		sc: h.sc,
+	}
+}
+
+func (h *perfChangePointTriageMarkHandler) Parse(ctx context.Context, r *http.Request) error {
+	err := gimlet.GetJSON(r.Body, h.req)
+	if err != nil {
+		err = errors.Wrapf(err, "Error parsing triage status change request")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method": "POST",
+			"route": "/perf/change_points/triage/mark",
+		}))
+		return err
+	}
+	return nil
+}
+
+func (h *perfChangePointTriageMarkHandler) Run(ctx context.Context) gimlet.Responder {
+	err := h.sc.MarkChangePoints(ctx)
+	if err != nil {
+		err = errors.Wrapf(err, "Error scheduling signal processing recalculation jobs")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "POST",
 			"route":   "/perf/signal_processing/recalculate",
 		}))
 		return gimlet.MakeJSONErrorResponder(err)

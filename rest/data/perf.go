@@ -265,6 +265,10 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	return catcher.Resolve()
 }
 
+func (dbc *DBConnector) MarkChangePoints(ctx context.Context, status string, ) error {
+	model.SetTriageStatus()
+}
+
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
