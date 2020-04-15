@@ -38,7 +38,7 @@ func (h *perfGetChangePointsByVersionHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id from the http request.
 func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.Request) error {
-	h.projectId = gimlet.GetVars(r)["projectId"]
+	h.projectId = gimlet.GetVars(r)["projectID"]
 	vals := r.URL.Query()
 	catcher := grip.NewBasicCatcher()
 	var err error
