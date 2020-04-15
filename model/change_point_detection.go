@@ -264,7 +264,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 		{
 			"$filter": bson.M{
 				"input": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
-				"as": "cp",
+				"as":    "cp",
 				"cond": bson.M{
 					"$eq": bson.A{"$$cp.measurement", "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey)},
 				},
@@ -306,8 +306,8 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 				},
 				"data": bson.M{
 					"$push": bson.M{
-						"measurement": "$_id.measurement",
-						"time_series": "$time_series",
+						"measurement":   "$_id.measurement",
+						"time_series":   "$time_series",
 						"change_points": "$change_points",
 					},
 				},
@@ -331,7 +331,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 }
 
 func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performanceData *PerformanceData, mappedChangePoints map[string][]ChangePoint) error {
-	err := clearChangePoints(ctx, env, performanceData.PerformanceResultId)
+	err := clearUntriagedChangePoints(ctx, env, performanceData.PerformanceResultId)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to clear change points for measurement %s", performanceData.PerformanceResultId)
 	}
@@ -417,19 +417,21 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 	return res, nil
 }
 
-func clearChangePoints(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
+func clearUntriagedChangePoints(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
 	seriesFilter := bson.M{
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
 	}
-	clearingUpdate := bson.M{
-		"$set": bson.M{
-			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): []bson.M{},
+	clearingUntriagedUpdate := bson.M{
+		"$pull": bson.M{
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
+				perfChangePointMeasurementKey: TriageStatusUntriaged,
+			},
 		},
 	}
-	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, clearingUpdate)
+	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, seriesFilter, clearingUntriagedUpdate)
 	return errors.Wrap(err, "Unable to clear change points")
 }
 

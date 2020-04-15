@@ -101,11 +101,11 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		})
 		latestTriagedChangePointIndex := 0
 		for _, cp := range perfData.ChangePoints {
-			if cp.Index > latestTriagedChangePointIndex && cp.Triage.Status != "untriaged" {
+			if cp.Index > latestTriagedChangePointIndex && cp.Triage.Status != model.TriageStatusUntriaged {
 				latestTriagedChangePointIndex = cp.Index
 			}
 		}
-		floatSeries := make([]float64, len(perfData.TimeSeries) - latestTriagedChangePointIndex)
+		floatSeries := make([]float64, len(perfData.TimeSeries)-latestTriagedChangePointIndex)
 		for i, item := range perfData.TimeSeries {
 			if i > latestTriagedChangePointIndex {
 				floatSeries[i-latestTriagedChangePointIndex] = item.Value
@@ -116,7 +116,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 
 		var changePoints []model.ChangePoint
 		for _, pointIndex := range result {
-			mapped := model.CreateChangePoint(pointIndex, perfData.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
+			mapped := model.CreateChangePoint(pointIndex+latestTriagedChangePointIndex, perfData.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
 			changePoints = append(changePoints, mapped)
 		}
 
