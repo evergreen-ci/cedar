@@ -128,7 +128,7 @@ type PerformanceData struct {
 }
 
 type GetChangePointsGroupedByVersionResult struct {
-	VersionID   string              `bson:"version_id" json:"version_id"`
+	VersionID   string              `bson:"_id" json:"version_id"`
 	PerfResults []PerformanceResult `bson:"perf_results" json:"perf_results"`
 }
 
@@ -369,7 +369,6 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalStep
 			"$group": bson.M{
 				"_id":          "$info.version",
 				"perf_results": bson.M{"$push": "$$ROOT"},
-				"version_id":   bson.M{"$first": "$info.version"},
 				"order":        bson.M{"$first": "$info.order"},
 			},
 		},
