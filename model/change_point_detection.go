@@ -260,10 +260,14 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 		{
 			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
 		},
+		//Filter out any change points unrelated to this rollup
 		{
-			"$unwind": bson.M{
-				"path": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-				"preserveNullAndEmptyArrays": true,
+			"$filter": bson.M{
+				"input": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
+				"as": "cp",
+				"cond": bson.M{
+					"$eq": bson.A{"$$cp.measurement", "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey)},
+				},
 			},
 		},
 		{
@@ -288,16 +292,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 					},
 				},
 				"change_points": bson.M{
-					"$push": bson.M{
-						"value": bson.M{
-							"$ifNull": bson.A{
-								"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
-								0,
-							},
-						},
-						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
-						"perf_result_id": "$_id",
-					},
+					"$push": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
 				},
 			},
 		},
