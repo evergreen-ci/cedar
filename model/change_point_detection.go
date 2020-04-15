@@ -336,10 +336,9 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 
 func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, pageSize int) (int, error) {
 	countKey := "count"
-	countStep := bson.M{
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, bson.M{
 		"$count": countKey,
-	}
-	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, countStep)
+	})
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return 0, errors.Wrap(err, "Cannot aggregate to get count of change points grouped by version")
@@ -359,7 +358,7 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 }
 
 func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalSteps ...bson.M) []bson.M {
-	basepipe := []bson.M{
+	return append([]bson.M{
 		{
 			"$match": bson.M{
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):             projectId,
@@ -374,12 +373,11 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalStep
 				"order":        bson.M{"$first": "$info.order"},
 			},
 		},
-	}
-	return append(basepipe, additionalSteps...)
+	}, additionalSteps...)
 }
 
 func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, page, pageSize int) ([]GetChangePointsGroupedByVersionResult, error) {
-	pipe := []bson.M{
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, []bson.M{
 		{
 			"$sort": bson.M{
 				"order": -1,
@@ -391,8 +389,7 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 		{
 			"$limit": pageSize,
 		},
-	}
-	pipe = appendAfterBaseGetChangePointsByVersionAgg(projectId, pipe...)
+	}...)
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate to get change points grouped by version")
