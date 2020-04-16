@@ -42,8 +42,7 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 	return newVals
 }
 
-func makePerfResultsWithChangePoints(unique string) ([]testResultsAndRollups, map[string][]int) {
-	seed := time.Now().UnixNano()
+func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, map[string][]int) {
 	// deterministic testing on failure
 	fmt.Println("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
 	rand.Seed(seed)
@@ -257,8 +256,8 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
-		aRollups, aChangePoints := makePerfResultsWithChangePoints("a")
-		bRollups, bChangePoints := makePerfResultsWithChangePoints("b")
+		aRollups, aChangePoints := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
+		bRollups, bChangePoints := makePerfResultsWithChangePoints("b", time.Now().UnixNano())
 		provisionDb(ctx, env, append(aRollups, bRollups...))
 
 		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
@@ -307,7 +306,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	})
 
 	t.Run("IgnoresHistoryBeforeTriagedChangePoint", func(t *testing.T) {
-		cRollups, _ := makePerfResultsWithChangePoints("c")
+		cRollups, _ := makePerfResultsWithChangePoints("c", time.Now().UnixNano())
 		provisionDb(ctx, env, cRollups)
 
 		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{

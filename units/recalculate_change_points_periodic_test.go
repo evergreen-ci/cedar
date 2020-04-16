@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/model"
 )
 
 func init() {
@@ -43,18 +42,9 @@ func TestPeriodicChangePointsJob(t *testing.T) {
 
 	_ = env.GetDB().Drop(ctx)
 
-	aRollups, _ := makePerfResultsWithChangePoints("a")
-	bRollups, _ := makePerfResultsWithChangePoints("b")
-	rollups := append(aRollups, bRollups...)
-	for _, result := range rollups {
-		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
-		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
-		performanceResult.Setup(env)
-		err := performanceResult.SaveNew(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}
+	aRollups, _ := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
+	bRollups, _ := makePerfResultsWithChangePoints("b", time.Now().UnixNano())
+	provisionDb(ctx, env, append(aRollups, bRollups...))
 	defer func() {
 		assert.NoError(t, tearDownPeriodicTest(env))
 	}()
