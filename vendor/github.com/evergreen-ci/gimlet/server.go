@@ -79,7 +79,7 @@ func (c *ServerConfig) build() Server {
 	}}
 }
 
-// Resovle validates a config and constructs a server from the
+// Resolve validates a config and constructs a server from the
 // configuration if possible.
 func (c *ServerConfig) Resolve() (Server, error) {
 	if err := c.Validate(); err != nil {
@@ -129,9 +129,11 @@ func (s server) Run(ctx context.Context) (WaitFunc, error) {
 	go func() {
 		defer recovery.LogStackTraceAndContinue("app service")
 		if s.Server.TLSConfig != nil {
-			grip.Error(errors.Wrap(s.ListenAndServeTLS("", ""), "problem starting tls service"))
+			err := s.ListenAndServeTLS("", "")
+			grip.ErrorWhen(err != http.ErrServerClosed, errors.Wrap(err, "problem starting tls service"))
 		} else {
-			grip.Error(errors.Wrap(s.ListenAndServe(), "problem starting service"))
+			err := s.ListenAndServe()
+			grip.ErrorWhen(err != http.ErrServerClosed, errors.Wrap(err, "problem starting service"))
 		}
 
 		close(serviceWait)
