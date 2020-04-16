@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -22,7 +23,7 @@ var (
 )
 
 type ChangePoint struct {
-	Index        int
+	Index        int           `bson:"index" json:"index" yaml:"index"`
 	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
 	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
 	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
@@ -124,6 +125,11 @@ type MeasurementData struct {
 type PerformanceData struct {
 	PerformanceResultId PerformanceResultSeriesID `bson:"_id"`
 	Data                []MeasurementData         `bson:"data"`
+}
+
+type GetChangePointsGroupedByVersionResult struct {
+	VersionID   string              `bson:"_id" json:"version_id"`
+	PerfResults []PerformanceResult `bson:"perf_results" json:"perf_results"`
 }
 
 func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
@@ -326,6 +332,74 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 		}
 	}
 	return catcher.Resolve()
+}
+
+func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, pageSize int) (int, error) {
+	countKey := "count"
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, bson.M{
+		"$count": countKey,
+	})
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
+	if err != nil {
+		return 0, errors.Wrap(err, "Cannot aggregate to get count of change points grouped by version")
+	}
+	defer cur.Close(ctx)
+	res := struct {
+		Count int `bson:"count"`
+	}{}
+	if cur.Next(ctx) {
+		err = cur.Decode(&res)
+		if err != nil {
+			return 0, errors.Wrap(err, "Cannot decode response of getting count of change points grouped by version")
+		}
+		return int(math.Ceil(float64(res.Count) / float64(pageSize))), nil
+	}
+	return 0, errors.New("Not able to get count of total changepoints matching query")
+}
+
+func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalSteps ...bson.M) []bson.M {
+	return append([]bson.M{
+		{
+			"$match": bson.M{
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):             projectId,
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "0"): bson.M{"$exists": true},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id":          "$info.version",
+				"perf_results": bson.M{"$push": "$$ROOT"},
+				"order":        bson.M{"$first": "$info.order"},
+			},
+		},
+	}, additionalSteps...)
+}
+
+func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, page, pageSize int) ([]GetChangePointsGroupedByVersionResult, error) {
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, []bson.M{
+		{
+			"$sort": bson.M{
+				"order": -1,
+			},
+		},
+		{
+			"$skip": page * pageSize,
+		},
+		{
+			"$limit": pageSize,
+		},
+	}...)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot aggregate to get change points grouped by version")
+	}
+	defer cur.Close(ctx)
+	var res []GetChangePointsGroupedByVersionResult
+	err = cur.All(ctx, &res)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot decode response of getting change points grouped by version")
+	}
+	return res, nil
 }
 
 func clearChangePoints(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
