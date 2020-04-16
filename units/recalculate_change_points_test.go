@@ -2,6 +2,7 @@ package units
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -42,7 +43,10 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 }
 
 func makePerfResultsWithChangePoints(unique string) ([]testResultsAndRollups, map[string][]int) {
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	// deterministic testing on failure
+	fmt.Println("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
+	rand.Seed(seed)
 	numTimeSeries := rand.Intn(10) + 1
 	timeSeriesLengths := make([]int, numTimeSeries)
 	timeSeriesChangePoints := make([][]int, numTimeSeries)
@@ -57,12 +61,12 @@ func makePerfResultsWithChangePoints(unique string) ([]testResultsAndRollups, ma
 	for measurement, length := range timeSeriesLengths {
 		remainingPoints := length
 		for remainingPoints > 0 {
-			if remainingPoints < 20 {
+			if remainingPoints < 30 {
 				remainingPoints = 0
 				continue
 			}
 			// make sure there are 10 points on either side of the cp
-			changePoint := rand.Intn(remainingPoints-9) + 10
+			changePoint := rand.Intn(remainingPoints-20) + 10
 			timeSeriesChangePoints[measurement] = append(timeSeriesChangePoints[measurement], changePoint+length-remainingPoints)
 			remainingPoints = remainingPoints - changePoint
 		}
@@ -197,9 +201,6 @@ func getPerformanceResultsWithChangePoints(ctx context.Context, env cedar.Enviro
 func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environment, t *testing.T, detector perf.ChangeDetector) map[string]map[string][]int {
 	result := getPerformanceResultsWithChangePoints(ctx, env, t)
 
-	// make sure processed_at got set in db
-	require.NotEqual(t, result[0].Analysis.ProcessedAt, time.Time{})
-
 	var options []model.AlgorithmOption
 	for _, v := range detector.Algorithm().Configuration() {
 		options = append(options, model.AlgorithmOption{
@@ -210,6 +211,9 @@ func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environ
 
 	createdChangePoints := map[string]map[string][]int{}
 	for _, v := range result {
+		// make sure processed_at got set in db
+		require.NotEqual(t, v.Analysis.ProcessedAt, time.Time{})
+
 		if createdChangePoints[v.Info.Project] == nil {
 			createdChangePoints[v.Info.Project] = map[string][]int{}
 		}
