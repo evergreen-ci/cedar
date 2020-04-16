@@ -262,11 +262,15 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 		},
 		//Filter out any change points unrelated to this rollup
 		{
-			"$filter": bson.M{
-				"input": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
-				"as":    "cp",
-				"cond": bson.M{
-					"$eq": bson.A{"$$cp.measurement", "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey)},
+			"$set": bson.M{
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
+					"$filter": bson.M{
+						"input": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
+						"as":    "cp",
+						"cond": bson.M{
+							"$eq": bson.A{"$$cp.measurement", "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey)},
+						},
+					},
 				},
 			},
 		},
@@ -293,6 +297,18 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 				},
 				"change_points": bson.M{
 					"$push": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
+				},
+			},
+		},
+		// Flatter the change points into one array
+		{
+			"$set": bson.M{
+				"change_points": bson.M{
+					"$reduce": bson.M{
+						"input":        "$change_points",
+						"initialValue": bson.A{},
+						"in":           bson.M{"$concatArrays": bson.A{"$$value", "$$this"}},
+					},
 				},
 			},
 		},
@@ -444,4 +460,19 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	}
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
 	return errors.Wrap(err, "Unable to create change point")
+}
+
+func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultId string, measurement string, status TriageStatus) error {
+	filter := bson.M{
+		perfIDKey: perfResultId,
+		bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
+	}
+	update := bson.M{
+		"$set": bson.M{
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoStatusKey):    status,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
+		},
+	}
+	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
+	return errors.Wrap(err, "Unable to change triage status of change point")
 }

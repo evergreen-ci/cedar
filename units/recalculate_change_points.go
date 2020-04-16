@@ -107,7 +107,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		}
 		floatSeries := make([]float64, len(perfData.TimeSeries)-latestTriagedChangePointIndex)
 		for i, item := range perfData.TimeSeries {
-			if i > latestTriagedChangePointIndex {
+			if i >= latestTriagedChangePointIndex {
 				floatSeries[i-latestTriagedChangePointIndex] = item.Value
 			}
 		}

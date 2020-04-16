@@ -43,7 +43,9 @@ func TestPeriodicChangePointsJob(t *testing.T) {
 
 	_ = env.GetDB().Drop(ctx)
 
-	rollups := append(makePerfResults(100, 50, "a"), makePerfResults(100, 50, "b")...)
+	aRollups, _ := makePerfResultsWithChangePoints("a")
+	bRollups, _ := makePerfResultsWithChangePoints("b")
+	rollups := append(aRollups, bRollups...)
 	for _, result := range rollups {
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
 		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
