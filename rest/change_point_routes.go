@@ -14,7 +14,7 @@ import (
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /perf/project/{projectId}/version/change_points
+// GET /perf/project/{projectID}/change_points_by_version
 
 type perfGetChangePointsByVersionHandler struct {
 	page      int
@@ -67,7 +67,7 @@ func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Re
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
-			"route":   "/perf/project/{projectId}/version/change_points",
+			"route":   "/perf/project/{projectID}/change_points_by_version",
 			"id":      h.projectId,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
