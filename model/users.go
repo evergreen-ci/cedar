@@ -83,10 +83,13 @@ func (u *User) Save() error {
 	return errors.WithStack(err)
 }
 
-func (u *User) Email() string     { return u.EmailAddress }
-func (u *User) Username() string  { return u.ID }
-func (u *User) GetAPIKey() string { return u.APIKey }
-func (u *User) Roles() []string   { return u.SystemRoles }
+func (u *User) Email() string                              { return u.EmailAddress }
+func (u *User) Username() string                           { return u.ID }
+func (u *User) GetAPIKey() string                          { return u.APIKey }
+func (u *User) Roles() []string                            { return u.SystemRoles }
+func (u *User) GetAccessToken() string                     { return "" }
+func (u *User) GetRefreshToken() string                    { return "" }
+func (u *User) HasPermission(_ gimlet.PermissionOpts) bool { return false }
 
 func (u *User) DisplayName() string {
 	if u.Display != "" {
