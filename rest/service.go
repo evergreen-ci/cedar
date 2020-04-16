@@ -10,6 +10,7 @@ import (
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/gimlet/ldap"
+	"github.com/evergreen-ci/gimlet/usercache"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
@@ -66,38 +67,39 @@ func (s *Service) Validate() error {
 
 	if s.Conf.LDAP.URL != "" {
 		s.UserManager, err = ldap.NewUserService(ldap.CreationOpts{
-			URL:           s.Conf.LDAP.URL,
-			Port:          s.Conf.LDAP.Port,
-			UserPath:      s.Conf.LDAP.UserPath,
-			ServicePath:   s.Conf.LDAP.ServicePath,
-			UserGroup:     s.Conf.LDAP.UserGroup,
-			ServiceGroup:  s.Conf.LDAP.ServiceGroup,
-			PutCache:      model.PutLoginCache,
-			GetCache:      model.GetLoginCache,
-			ClearCache:    model.ClearLoginCache,
-			GetUser:       model.GetUser,
-			GetCreateUser: model.GetOrAddUser,
+			URL:          s.Conf.LDAP.URL,
+			Port:         s.Conf.LDAP.Port,
+			UserPath:     s.Conf.LDAP.UserPath,
+			ServicePath:  s.Conf.LDAP.ServicePath,
+			UserGroup:    s.Conf.LDAP.UserGroup,
+			ServiceGroup: s.Conf.LDAP.ServiceGroup,
+			ExternalCache: &usercache.ExternalOptions{
+				PutUserGetToken: model.PutLoginCache,
+				GetUserByToken:  model.GetLoginCache,
+				ClearUserToken:  model.ClearLoginCache,
+				GetUserByID:     model.GetUser,
+				GetOrCreateUser: model.GetOrAddUser,
+			},
 		})
 		if err != nil {
 			return errors.Wrap(err, "problem setting up ldap user manager")
 		}
 	} else if s.Conf.NaiveAuth.AppAuth {
-		users := []gimlet.User{}
+		users := []gimlet.BasicUser{}
 		for _, user := range s.Conf.NaiveAuth.Users {
 			users = append(
 				users,
-				gimlet.NewBasicUser(
-					user.ID,
-					user.Name,
-					user.EmailAddress,
-					user.Password,
-					user.Key,
-					user.AccessRoles,
-					user.Invalid,
-				),
+				gimlet.BasicUser{
+					ID:           user.ID,
+					Name:         user.Name,
+					EmailAddress: user.EmailAddress,
+					Password:     user.Password,
+					Key:          user.Key,
+					AccessRoles:  user.AccessRoles,
+				},
 			)
 		}
-		s.UserManager, err = gimlet.NewBasicUserManager(users)
+		s.UserManager, err = gimlet.NewBasicUserManager(users, nil)
 		if err != nil {
 			return errors.Wrap(err, "problem setting up basic user manager")
 		}
