@@ -867,14 +867,14 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
 		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return "", false
 	}
 
 	user, err := s.UserManager.GetUserByToken(r.Context(), token)
 	if err != nil {
 		err = errors.Wrapf(err, "problem finding user '%s'", creds.Username)
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return "", false
 	} else if user == nil {
 		err = errors.Errorf("user '%s' not defined", creds.Username)
