@@ -365,23 +365,22 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 	return gimlet.NewJSONResponse(struct{}{})
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 //
 // POST /perf/change_points/triage/mark
 
 type changePointStub struct {
 	PerfResultID string `bson:"perf_result_id" json:"perf_result_id" yaml:"perf_result_id"`
-	Measurement string `bson:"measurement" json:"measurement" yaml:"measurement"`
+	Measurement  string `bson:"measurement" json:"measurement" yaml:"measurement"`
 }
 
 type changePointMarkRequest struct {
-	Status string `bson:"status" json:"status" yaml:"status"`
+	Status       string            `bson:"status" json:"status" yaml:"status"`
 	ChangePoints []changePointStub `bson:"change_points" json:"change_points" yaml:"change_points"`
 }
 
 type perfChangePointTriageMarkHandler struct {
-	sc data.Connector
+	sc  data.Connector
 	req changePointMarkRequest
 }
 
@@ -403,8 +402,8 @@ func (h *perfChangePointTriageMarkHandler) Parse(ctx context.Context, r *http.Re
 		err = errors.Wrapf(err, "Error parsing triage status change request")
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
-			"method": "POST",
-			"route": "/perf/change_points/triage/mark",
+			"method":  "POST",
+			"route":   "/perf/change_points/triage/mark",
 		}))
 		return err
 	}
@@ -412,13 +411,17 @@ func (h *perfChangePointTriageMarkHandler) Parse(ctx context.Context, r *http.Re
 }
 
 func (h *perfChangePointTriageMarkHandler) Run(ctx context.Context) gimlet.Responder {
-	err := h.sc.MarkChangePoints(ctx)
+	cps := map[string]string{}
+	for _, stub := range h.req.ChangePoints {
+		cps[stub.PerfResultID] = stub.Measurement
+	}
+	err := h.sc.TriageChangePoints(ctx, cps, h.req.Status)
 	if err != nil {
-		err = errors.Wrapf(err, "Error scheduling signal processing recalculation jobs")
+		err = errors.Wrapf(err, "Error triaging change points")
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",
-			"route":   "/perf/signal_processing/recalculate",
+			"route":   "/perf/change_points/triage/mark",
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}

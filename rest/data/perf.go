@@ -265,8 +265,28 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	return catcher.Resolve()
 }
 
-func (dbc *DBConnector) MarkChangePoints(ctx context.Context, status string, ) error {
-	model.SetTriageStatus()
+type ChangePointStub struct {
+	PerfResultID string `bson:"perf_result_id" json:"perf_result_id" yaml:"perf_result_id"`
+	Measurement  string `bson:"measurement" json:"measurement" yaml:"measurement"`
+}
+
+func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints map[string]string, status string) error {
+	ts := model.TriageStatus(status)
+	err := ts.Validate()
+	if err != nil {
+		return gimlet.ErrorResponse{
+			StatusCode: http.StatusUnprocessableEntity,
+			Message:    fmt.Sprintf("Invalid triage status: %s", status),
+		}
+	}
+	err = model.TriageChangePoints(ctx, dbc.env, changePoints, ts)
+	if err != nil {
+		return gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Could not triage change points",
+		}
+	}
+	return nil
 }
 
 ///////////////////////////////
@@ -473,5 +493,9 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 // ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
 // each project/version/task/test combination
 func (mc *MockConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
+	return nil
+}
+
+func (mc *MockConnector) TriageChangePoints(ctx context.Context, changePoints map[string]string, status string) error {
 	return nil
 }
