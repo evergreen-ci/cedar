@@ -8,15 +8,13 @@ import "github.com/mongodb/anser/bsonutil"
 // The prefix field indicates the name of the "sub-bucket". The top level
 // bucket is accesible via the cedar.Environment interface.
 type TestResultsArtifactInfo struct {
-	Type    PailType        `bson:"type"`
-	Prefix  string          `bson:"prefix"`
-	Version int             `bson:"version"`
-	Tests   map[string]bool `bson:"tests,omitempty"`
+	Type    PailType `bson:"type"`
+	Prefix  string   `bson:"prefix"`
+	Version int      `bson:"version"`
 }
 
 var (
 	testResultsArtifactInfoTypeKey    = bsonutil.MustHaveTag(TestResultsArtifactInfo{}, "Type")
 	testResultsArtifactInfoPrefixKey  = bsonutil.MustHaveTag(TestResultsArtifactInfo{}, "Prefix")
 	testResultsArtifactInfoVersionKey = bsonutil.MustHaveTag(TestResultsArtifactInfo{}, "Version")
-	testResultsArtifactInfoTestsKey   = bsonutil.MustHaveTag(TestResultsArtifactInfo{}, "Tests")
 )

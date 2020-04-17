@@ -135,8 +135,7 @@ func (t *TestResults) Remove(ctx context.Context) error {
 }
 
 // Append uploads test results to the offline blob storage bucket configured
-// for the task execution and updates the metadata in the database to reflect
-// the uploaded results. The environment should not be nil.
+// for the task execution. The environment should not be nil.
 func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if t.env == nil {
 		return errors.New("cannot not append test results with a nil environment")
@@ -181,71 +180,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 
 	}
 
-	return errors.Wrap(t.appendTestNames(ctx, testNames), "problem updating log metadata during upload")
-}
-
-func (t *TestResults) appendTestNames(ctx context.Context, testNames []string) error {
-	if t.env == nil {
-		return errors.New("cannot append with a nil environment")
-	}
-
-	if t.ID == "" {
-		t.ID = t.Info.ID()
-	}
-
-	set := bson.M{}
-	for _, testName := range testNames {
-		set[bsonutil.GetDottedKeyName(testResultsArtifactKey, testResultsArtifactInfoTestsKey, testName)] = false
-	}
-	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
-		ctx,
-		bson.M{"_id": t.ID},
-		bson.M{"$set": set},
-	)
-	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   testResultsCollection,
-		"id":           t.ID,
-		"updateResult": updateResult,
-		"test_names":   testNames,
-		"op":           "append test names to a test results record",
-	})
-	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
-	}
-
-	return errors.Wrapf(err, "problem appending test names to %s", t.ID)
-}
-
-func (t *TestResults) SetTestRecorded(ctx context.Context, testName string, recorded bool) error {
-	if t.env == nil {
-		return errors.New("cannot set test recorded with a nil environment")
-	}
-
-	if t.ID == "" {
-		t.ID = t.Info.ID()
-	}
-
-	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
-		ctx,
-		bson.M{"_id": t.ID},
-		bson.M{
-			"$set": bson.M{
-				bsonutil.GetDottedKeyName(testResultsArtifactKey, testResultsArtifactInfoTestsKey, testName): recorded,
-			},
-		},
-	)
-	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   testResultsCollection,
-		"id":           t.ID,
-		"updateResult": updateResult,
-		"test_name":    testName,
-		"op":           fmt.Sprintf("set test name recorded to %v", recorded),
-	})
-	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
-	}
-
-	return errors.Wrapf(err, "problem setting test recorded for %s", t.ID)
+	return nil
 }
 
 // TestResultsInfo describes information unique to a single task execution.
@@ -281,7 +216,6 @@ func (id *TestResultsInfo) ID() string {
 		_, _ = io.WriteString(hash, id.Project)
 		_, _ = io.WriteString(hash, id.Version)
 		_, _ = io.WriteString(hash, id.Variant)
-		_, _ = io.WriteString(hash, id.Distro)
 		_, _ = io.WriteString(hash, id.TaskName)
 		_, _ = io.WriteString(hash, id.TaskID)
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Execution))
