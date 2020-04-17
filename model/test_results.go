@@ -183,6 +183,42 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	return nil
 }
 
+// Close "closes out" by populating the completed_at field. The environment
+// should not be nil.
+func (t *TestResults) Close(ctx context.Context) error {
+	if t.env == nil {
+		return errors.New("cannot close log with a nil environment")
+	}
+
+	if t.ID == "" {
+		t.ID = t.Info.ID()
+	}
+
+	completedAt := time.Now()
+	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": t.ID},
+		bson.M{
+			"$set": bson.M{
+				testResultsCompletedAtKey: completedAt,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   testResultsCollection,
+		"id":           t.ID,
+		"completed_at": completedAt,
+		"updateResult": updateResult,
+		"op":           "close test results record",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
+	}
+
+	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
+
+}
+
 // TestResultsInfo describes information unique to a single task execution.
 type TestResultsInfo struct {
 	Project   string `bson:"project,omitempty"`
@@ -199,7 +235,6 @@ var (
 	testResultsInfoProjectKey   = bsonutil.MustHaveTag(TestResultsInfo{}, "Project")
 	testResultsInfoVersionKey   = bsonutil.MustHaveTag(TestResultsInfo{}, "Version")
 	testResultsInfoVariantKey   = bsonutil.MustHaveTag(TestResultsInfo{}, "Variant")
-	testResultsInfoDistroKey    = bsonutil.MustHaveTag(TestResultsInfo{}, "Distro")
 	testResultsInfoTaskNameKey  = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskName")
 	testResultsInfoTaskIDKey    = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskID")
 	testResultsInfoExecutionKey = bsonutil.MustHaveTag(TestResultsInfo{}, "Execution")
