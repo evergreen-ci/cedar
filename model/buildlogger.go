@@ -271,8 +271,7 @@ func (l *Log) Close(ctx context.Context, exitCode int) error {
 }
 
 // Download returns a LogIterator which iterates lines of the given log. The
-// environment should not be nil. When reverse is true, the log lines are
-// returned in reverse order.
+// environment should not be nil.
 func (l *Log) Download(ctx context.Context, timeRange TimeRange) (LogIterator, error) {
 	if l.env == nil {
 		return nil, errors.New("cannot download log with a nil environment")

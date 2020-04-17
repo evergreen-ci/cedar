@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"math/rand"
@@ -210,7 +211,6 @@ func TestTestResultsAppend(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
-		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
 
@@ -225,14 +225,14 @@ func TestTestResultsAppend(t *testing.T) {
 	}
 
 	t.Run("NoEnv", func(t *testing.T) {
+		tr.populated = true
 		assert.Error(t, tr.Append(ctx, results))
 	})
-	t.Run("DNE", func(t *testing.T) {
-		tr.Setup(env)
+	t.Run("Unpopulated", func(t *testing.T) {
+		tr.populated = false
 		assert.Error(t, tr.Append(ctx, results))
 	})
-	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr)
-	require.NoError(t, err)
+	tr.populated = true
 	t.Run("NoConfig", func(t *testing.T) {
 		tr.Setup(env)
 		assert.Error(t, tr.Append(ctx, results))
@@ -248,7 +248,7 @@ func TestTestResultsAppend(t *testing.T) {
 	require.NoError(t, conf.Find())
 	conf.Bucket.TestResultsBucket = tmpDir
 	require.NoError(t, conf.Save())
-	t.Run("AppendToBucketAndDB", func(t *testing.T) {
+	t.Run("AppendToBucket", func(t *testing.T) {
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, results[0:5]))
 		require.NoError(t, tr.Append(ctx, results[5:]))
@@ -291,26 +291,89 @@ func TestTestResultsAppend(t *testing.T) {
 	})
 }
 
-func getTestResults() *TestResults {
-	info := TestResultsInfo{
-		Project:   utility.RandomString(),
-		Version:   utility.RandomString(),
-		Variant:   utility.RandomString(),
-		TaskName:  utility.RandomString(),
-		TaskID:    utility.RandomString(),
-		Execution: seedRand.Intn(5),
-		Requester: utility.RandomString(),
+func TestTestResultsDownload(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "download-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+
+	tr := getTestResults()
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
+	require.NoError(t, err)
+
+	results := []TestResult{}
+	resultsMap := map[string]TestResult{}
+	for i := 0; i < 10; i++ {
+		result := getTestResult()
+		results = append(results, result)
+		resultsMap[result.TestName] = result
+		data, err := bson.Marshal(result)
+		require.NoError(t, err)
+		require.NoError(t, testBucket.Put(ctx, result.TestName, bytes.NewReader(data)))
 	}
-	return &TestResults{
-		ID:          info.ID(),
-		Info:        info,
-		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
-		CompletedAt: time.Now().UTC().Round(time.Millisecond),
-		Artifact: TestResultsArtifactInfo{
-			Type:   PailLocal,
-			Prefix: info.ID(),
-		},
-	}
+
+	t.Run("NoEnv", func(t *testing.T) {
+		tr.populated = true
+		_, err = tr.Download(ctx)
+		assert.Error(t, err)
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		tr.populated = false
+		tr.Setup(env)
+		_, err = tr.Download(ctx)
+		assert.Error(t, err)
+	})
+	tr.populated = true
+	t.Run("NoConfig", func(t *testing.T) {
+		tr.Setup(env)
+		_, err = tr.Download(ctx)
+		assert.Error(t, err)
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		tr.Setup(env)
+		_, err = tr.Download(ctx)
+		assert.Error(t, err)
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("DownloadFromBucket", func(t *testing.T) {
+		tr.Setup(env)
+
+		b := &backoff.Backoff{
+			Min:    100 * time.Millisecond,
+			Max:    5 * time.Second,
+			Factor: 2,
+		}
+
+		var results []TestResult
+		for i := 0; i < 10; i++ {
+			results, err = tr.Download(ctx)
+			require.NoError(t, err)
+			if len(results) == 10 {
+				break
+			}
+
+			time.Sleep(b.Duration())
+		}
+
+		require.Len(t, results, 10)
+		for _, result := range results {
+			expected, ok := resultsMap[result.TestName]
+			require.True(t, ok)
+			assert.Equal(t, expected, result)
+		}
+	})
 }
 
 func TestTestResultsClose(t *testing.T) {
@@ -366,6 +429,28 @@ func TestTestResultsClose(t *testing.T) {
 		assert.Equal(t, tr1.Info, updated.Info)
 		assert.Equal(t, tr1.Artifact, updated.Artifact)
 	})
+}
+
+func getTestResults() *TestResults {
+	info := TestResultsInfo{
+		Project:   utility.RandomString(),
+		Version:   utility.RandomString(),
+		Variant:   utility.RandomString(),
+		TaskName:  utility.RandomString(),
+		TaskID:    utility.RandomString(),
+		Execution: seedRand.Intn(5),
+		Requester: utility.RandomString(),
+	}
+	return &TestResults{
+		ID:          info.ID(),
+		Info:        info,
+		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
+		CompletedAt: time.Now().UTC().Round(time.Millisecond),
+		Artifact: TestResultsArtifactInfo{
+			Type:   PailLocal,
+			Prefix: info.ID(),
+		},
+	}
 }
 
 func getTestResult() TestResult {

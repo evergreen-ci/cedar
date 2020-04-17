@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -135,8 +136,12 @@ func (t *TestResults) Remove(ctx context.Context) error {
 }
 
 // Append uploads test results to the offline blob storage bucket configured
-// for the task execution. The environment should not be nil.
+// for the task execution. The TestResults should be populated and the
+// environment should not be nil.
 func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
+	if !t.populated {
+		return errors.New("cannot append with populated test results")
+	}
 	if t.env == nil {
 		return errors.New("cannot not append test results with a nil environment")
 	}
@@ -166,9 +171,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "problem creating bucket")
 	}
 
-	testNames := make([]string, len(results))
-	for i, result := range results {
-		testNames[i] = result.TestName
+	for _, result := range results {
 		data, err := bson.Marshal(result)
 		if err != nil {
 			return errors.Wrap(err, "problem marshalling bson")
@@ -181,6 +184,68 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	}
 
 	return nil
+}
+
+// Download returns a TestResult slice with the corresponding results stored in
+// the offline blob storage. The TestResults should be populated and the
+// environment should not be nil.
+func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
+	if !t.populated {
+		return []TestResult{}, errors.New("cannot download with populated test results")
+	}
+	if t.env == nil {
+		return []TestResult{}, errors.New("cannot download test results with a nil environment")
+	}
+
+	if t.ID == "" {
+		t.ID = t.Info.ID()
+	}
+
+	conf := &CedarConfig{}
+	conf.Setup(t.env)
+	if err := conf.Find(); err != nil {
+		return []TestResult{}, errors.Wrap(err, "problem getting application configuration")
+	}
+
+	bucket, err := t.Artifact.Type.Create(
+		ctx,
+		t.env,
+		conf.Bucket.TestResultsBucket,
+		t.Artifact.Prefix,
+		string(pail.S3PermissionsPrivate),
+		false,
+	)
+	if err != nil {
+		return []TestResult{}, errors.Wrap(err, "problem creating bucket")
+	}
+
+	iter, err := bucket.List(ctx, "")
+	if err != nil {
+		return []TestResult{}, errors.Wrap(err, "problem listing bucket items")
+	}
+
+	results := []TestResult{}
+	for iter.Next(ctx) {
+		r, err := iter.Item().Get(ctx)
+		if err != nil {
+			return []TestResult{}, errors.Wrap(err, "problem getting test result")
+		}
+		defer func() {
+			_ = r.Close()
+		}()
+
+		data, err := ioutil.ReadAll(r)
+		if err != nil {
+			return []TestResult{}, errors.Wrap(err, "problem reading test result data")
+		}
+		result := TestResult{}
+		if err = bson.Unmarshal(data, &result); err != nil {
+			return []TestResult{}, errors.Wrap(err, "problem unmarshalling bson test result")
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
 }
 
 // Close "closes out" by populating the completed_at field. The environment
