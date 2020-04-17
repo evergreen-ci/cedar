@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -477,7 +478,7 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 	if err := session.StartTransaction(); err != nil {
 		return errors.Wrap(err, "Unable to start transaction for triage update")
 	}
-	err = mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
+	return mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
 		for perfResultId, measurement := range changePoints {
 			filter := bson.M{
 				perfIDKey: perfResultId,
@@ -489,13 +490,14 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 					bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
 				},
 			}
-			_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
-			if err != nil {
+			res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(sc, filter, update)
+			fmt.Print(res)
+			if err != nil || res.ModifiedCount != 1 {
 				err2 := session.AbortTransaction(ctx)
 				if err2 != nil {
 					return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
 				}
-				return errors.Wrap(err, "Unable to change triage status of change point")
+				return errors.New(fmt.Sprintf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId))
 			}
 		}
 		err := session.CommitTransaction(sc)
@@ -504,7 +506,6 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 		}
 		return nil
 	})
-	return nil
 }
 func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID string, measurement string, status TriageStatus) error {
 	filter := bson.M{
