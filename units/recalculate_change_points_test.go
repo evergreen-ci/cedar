@@ -12,7 +12,6 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -193,7 +192,7 @@ func getPerformanceResultsWithChangePoints(ctx context.Context, env cedar.Enviro
 	}
 	res, err := env.GetDB().Collection("perf_results").Find(ctx, filter)
 	require.NoError(t, err)
-	assert.NoError(t, res.All(ctx, &result))
+	require.NoError(t, res.All(ctx, &result))
 	return result
 }
 
@@ -252,7 +251,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	_ = env.GetDB().Drop(ctx)
 
 	defer func() {
-		assert.NoError(t, tearDown(env))
+		require.NoError(t, tearDown(env))
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
@@ -271,15 +270,15 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		j.Run(ctx)
 
 		// Check that we made one call for each measurement/rollup
-		assert.Len(t, mockDetector.Calls, len(aChangePoints))
+		require.Len(t, mockDetector.Calls, len(aChangePoints))
 
 		createdChangePoints := extractAndValidateChangePointsFromDb(ctx, env, t, mockDetector)
 
 		// make sure everything is where we think it should be
-		assert.Equal(t, aChangePoints, createdChangePoints["projecta"])
+		require.Equal(t, aChangePoints, createdChangePoints["projecta"])
 
 		// make sure we only calculated cps for projecta
-		assert.Len(t, createdChangePoints, 1)
+		require.Len(t, createdChangePoints, 1)
 
 		// Now let's calculate for another project
 		j = NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
@@ -290,19 +289,19 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		})
 		j.(*recalculateChangePointsJob).changePointDetector = mockDetector
 		j.Run(ctx)
-		assert.True(t, j.Status().Completed)
+		require.True(t, j.Status().Completed)
 
 		// Check that we made one call for each measurement/rollup
-		assert.Len(t, mockDetector.Calls, len(aChangePoints)+len(bChangePoints))
+		require.Len(t, mockDetector.Calls, len(aChangePoints)+len(bChangePoints))
 
 		createdChangePoints = extractAndValidateChangePointsFromDb(ctx, env, t, mockDetector)
 
 		// make sure everything is where we think it should be
-		assert.Equal(t, aChangePoints, createdChangePoints["projecta"])
-		assert.Equal(t, bChangePoints, createdChangePoints["projectb"])
+		require.Equal(t, aChangePoints, createdChangePoints["projecta"])
+		require.Equal(t, bChangePoints, createdChangePoints["projectb"])
 
 		// make sure we only calculated cps for projecta & project b
-		assert.Len(t, createdChangePoints, 2)
+		require.Len(t, createdChangePoints, 2)
 	})
 
 	t.Run("IgnoresHistoryBeforeTriagedChangePoint", func(t *testing.T) {
@@ -346,7 +345,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 
 		for _, result := range mockDetector.Results {
 			// check that we're not detecting anything new
-			assert.Equal(t, result, []int{})
+			require.Equal(t, result, []int{})
 		}
 
 		performanceResults = getPerformanceResultsWithChangePoints(ctx, env, t)
@@ -356,7 +355,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		}
 
 		// make sure all the original change points are still there (not evicted)
-		assert.Equal(t, originalChangePoints, newChangePoints)
+		require.Equal(t, originalChangePoints, newChangePoints)
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
@@ -372,7 +371,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		job.conf = model.NewCedarConfig(env)
 		job.conf.Flags.DisableSignalProcessing = true
 		j.Run(ctx)
-		assert.True(t, j.Status().Completed)
-		assert.Len(t, mockDetector.Calls, 0)
+		require.True(t, j.Status().Completed)
+		require.Len(t, mockDetector.Calls, 0)
 	})
 }
