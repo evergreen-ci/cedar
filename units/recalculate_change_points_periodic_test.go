@@ -42,8 +42,8 @@ func TestPeriodicChangePointsJob(t *testing.T) {
 
 	_ = env.GetDB().Drop(ctx)
 
-	aRollups, _ := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
-	bRollups, _ := makePerfResultsWithChangePoints("b", time.Now().UnixNano())
+	aRollups, _ := makePerfResultsWithChangePoints("e", time.Now().UnixNano())
+	bRollups, _ := makePerfResultsWithChangePoints("f", time.Now().UnixNano())
 	provisionDb(ctx, env, append(aRollups, bRollups...))
 	defer func() {
 		assert.NoError(t, tearDownPeriodicTest(env))
