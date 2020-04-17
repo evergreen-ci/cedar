@@ -253,7 +253,6 @@ type TestResultsInfo struct {
 	Project   string `bson:"project,omitempty"`
 	Version   string `bson:"version,omitempty"`
 	Variant   string `bson:"variant,omitempty"`
-	Distro    string `bson:"distro,omitempty"`
 	TaskName  string `bson:"task_name,omitempty"`
 	TaskID    string `bson:"task_id,omitempty"`
 	Execution int    `bson:"execution"`
@@ -298,7 +297,6 @@ func (id *TestResultsInfo) ID() string {
 // some type of pail bucket storage.
 type TestResult struct {
 	TestName       string    `bson:"test_name"`
-	TestFile       string    `bson:"test_file"`
 	Trial          int       `bson:"trial"`
 	Status         string    `bson:"status"`
 	LogURL         string    `bson:"log_url"`
