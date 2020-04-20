@@ -231,9 +231,11 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 			return nil, errors.Wrap(err, "problem getting test result")
 		}
 		defer func() {
-			err = r.Close()
-			grip.Error(message.WrapError(err, message.Fields{
-				"message": "problem closing test results bucket iterator",
+			grip.Error(message.WrapError(r.Close(), message.Fields{
+				"message":     "problem closing test results bucket iterator",
+				"bucket_name": conf.Bucket.TestResultsBucket,
+				"prefix":      t.Artifact.Prefix,
+				"location":    t.Artifact.Type,
 			}))
 		}()
 
