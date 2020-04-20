@@ -249,7 +249,6 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-
 	defer func() {
 		require.NoError(t, tearDown(env))
 	}()
