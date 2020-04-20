@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-
-	"github.com/pkg/errors"
+	"strings"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -15,6 +14,7 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 )
 
 /////////////////////////////
@@ -281,9 +281,17 @@ func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints map
 	}
 	err = model.TriageChangePoints(ctx, dbc.env, changePoints, ts)
 	if err != nil {
-		return gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Could not triage change points",
+		if strings.Contains(err.Error(), "Could not find") {
+			return gimlet.ErrorResponse{
+				StatusCode: http.StatusNotFound,
+				Message:    err.Error(),
+			}
+		} else {
+			grip.Error(err)
+			return gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Could not triage change points",
+			}
 		}
 	}
 	return nil

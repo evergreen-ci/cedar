@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -490,13 +489,15 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 				},
 			}
 			res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(sc, filter, update)
-			fmt.Print(res)
-			if err != nil || res.ModifiedCount != 1 {
+			if err != nil {
 				err2 := session.AbortTransaction(ctx)
 				if err2 != nil {
 					return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
 				}
-				return errors.New(fmt.Sprintf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId))
+				return errors.Errorf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId)
+			}
+			if res.ModifiedCount != 1 {
+				return errors.Errorf("Could not find change point <%s> for performance result %s", measurement, perfResultId)
 			}
 		}
 		err := session.CommitTransaction(sc)
