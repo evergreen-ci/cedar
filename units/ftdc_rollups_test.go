@@ -19,7 +19,7 @@ import (
 
 const testDBName = "cedar_test_config"
 
-func init() {
+func setupFtdc() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  testDBName,
@@ -43,6 +43,7 @@ func tearDownEnv(env cedar.Environment) error {
 }
 
 func TestFTDCRollupsJob(t *testing.T) {
+	setupFtdc()
 	if runtime.GOOS == "darwin" && os.Getenv("EVR_TASK_ID") != "" {
 		t.Skip("avoid less relevant failing test in evergreen")
 	}

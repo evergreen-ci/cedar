@@ -12,7 +12,7 @@ import (
 
 const testDBName = "cedar_test_config"
 
-func init() {
+func setupConfig() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:         "mongodb://localhost:27017",
 		DatabaseName:       testDBName,
@@ -28,6 +28,7 @@ func init() {
 }
 
 func TestCedarConfig(t *testing.T) {
+	setupConfig()
 	conf, session, err := cedar.GetSessionWithConfig(cedar.GetEnvironment())
 	require.NoError(t, err)
 	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())

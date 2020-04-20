@@ -138,7 +138,7 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 	return rollups, changePoints
 }
 
-func init() {
+func setup() {
 	dbName := "test_cedar_signal_processing"
 	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
@@ -244,17 +244,19 @@ func provisionDb(ctx context.Context, env cedar.Environment, rollups []testResul
 }
 
 func TestRecalculateChangePointsJob(t *testing.T) {
+	setup()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_ = env.GetDB().Drop(ctx)
 
 	defer func() {
 		require.NoError(t, tearDown(env))
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
+		_ = env.GetDB().Drop(ctx)
+
 		aRollups, aChangePoints := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
 		bRollups, bChangePoints := makePerfResultsWithChangePoints("b", time.Now().UnixNano())
 		provisionDb(ctx, env, append(aRollups, bRollups...))
@@ -305,6 +307,9 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	})
 
 	t.Run("IgnoresHistoryBeforeTriagedChangePoint", func(t *testing.T) {
+		setup()
+		_ = env.GetDB().Drop(ctx)
+
 		cRollups, _ := makePerfResultsWithChangePoints("c", time.Now().UnixNano())
 		provisionDb(ctx, env, cRollups)
 

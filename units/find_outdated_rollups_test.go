@@ -15,6 +15,7 @@ import (
 )
 
 func TestFindOutdatedRollupsJob(t *testing.T) {
+	setupFtdc()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
