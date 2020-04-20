@@ -317,7 +317,8 @@ func TestTestResultsDownload(t *testing.T) {
 		result := getTestResult()
 		results = append(results, result)
 		resultsMap[result.TestName] = result
-		data, err := bson.Marshal(result)
+		var data []byte
+		data, err = bson.Marshal(result)
 		require.NoError(t, err)
 		require.NoError(t, testBucket.Put(ctx, result.TestName, bytes.NewReader(data)))
 	}
