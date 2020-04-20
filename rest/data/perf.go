@@ -272,15 +272,13 @@ type ChangePointStub struct {
 
 func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints map[string]string, status string) error {
 	ts := model.TriageStatus(status)
-	err := ts.Validate()
-	if err != nil {
+	if err := ts.Validate(); err != nil {
 		return gimlet.ErrorResponse{
 			StatusCode: http.StatusUnprocessableEntity,
 			Message:    fmt.Sprintf("Invalid triage status: %s", status),
 		}
 	}
-	err = model.TriageChangePoints(ctx, dbc.env, changePoints, ts)
-	if err != nil {
+	if err := model.TriageChangePoints(ctx, dbc.env, changePoints, ts); err != nil {
 		if strings.Contains(err.Error(), "Could not find") {
 			return gimlet.ErrorResponse{
 				StatusCode: http.StatusNotFound,
