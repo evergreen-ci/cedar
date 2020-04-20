@@ -19,6 +19,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func TestCreateTestResults(t *testing.T) {
 	expected := getTestResults()
 	actual := CreateTestResults(expected.Info, PailLocal)
@@ -438,7 +442,7 @@ func getTestResults() *TestResults {
 		Variant:   utility.RandomString(),
 		TaskName:  utility.RandomString(),
 		TaskID:    utility.RandomString(),
-		Execution: seedRand.Intn(5),
+		Execution: rand.Intn(5),
 		Requester: utility.RandomString(),
 	}
 	return &TestResults{
@@ -456,13 +460,11 @@ func getTestResults() *TestResults {
 func getTestResult() TestResult {
 	return TestResult{
 		TestName:       utility.RandomString(),
-		Trial:          seedRand.Intn(10),
+		Trial:          rand.Intn(10),
 		Status:         "Pass",
-		LineNum:        seedRand.Intn(1000),
+		LineNum:        rand.Intn(1000),
 		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
 		TestEndTime:    time.Now().UTC().Round(time.Millisecond),
 	}
 }
-
-var seedRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))

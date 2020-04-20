@@ -191,10 +191,10 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 // environment should not be nil.
 func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	if !t.populated {
-		return []TestResult{}, errors.New("cannot download with populated test results")
+		return nil, errors.New("cannot download with populated test results")
 	}
 	if t.env == nil {
-		return []TestResult{}, errors.New("cannot download test results with a nil environment")
+		return nil, errors.New("cannot download test results with a nil environment")
 	}
 
 	if t.ID == "" {
@@ -204,7 +204,7 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	conf := &CedarConfig{}
 	conf.Setup(t.env)
 	if err := conf.Find(); err != nil {
-		return []TestResult{}, errors.Wrap(err, "problem getting application configuration")
+		return nil, errors.Wrap(err, "problem getting application configuration")
 	}
 
 	bucket, err := t.Artifact.Type.Create(
@@ -216,31 +216,34 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		false,
 	)
 	if err != nil {
-		return []TestResult{}, errors.Wrap(err, "problem creating bucket")
+		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
 	iter, err := bucket.List(ctx, "")
 	if err != nil {
-		return []TestResult{}, errors.Wrap(err, "problem listing bucket items")
+		return nil, errors.Wrap(err, "problem listing bucket items")
 	}
 
 	results := []TestResult{}
 	for iter.Next(ctx) {
 		r, err := iter.Item().Get(ctx)
 		if err != nil {
-			return []TestResult{}, errors.Wrap(err, "problem getting test result")
+			return nil, errors.Wrap(err, "problem getting test result")
 		}
 		defer func() {
-			_ = r.Close()
+			err = r.Close()
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "problem closing test results bucket iterator",
+			}))
 		}()
 
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
-			return []TestResult{}, errors.Wrap(err, "problem reading test result data")
+			return nil, errors.Wrap(err, "problem reading test result data")
 		}
 		result := TestResult{}
 		if err = bson.Unmarshal(data, &result); err != nil {
-			return []TestResult{}, errors.Wrap(err, "problem unmarshalling bson test result")
+			return nil, errors.Wrap(err, "problem unmarshalling bson test result")
 		}
 		results = append(results, result)
 	}
@@ -281,7 +284,6 @@ func (t *TestResults) Close(ctx context.Context) error {
 	}
 
 	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
-
 }
 
 // TestResultsInfo describes information unique to a single task execution.
