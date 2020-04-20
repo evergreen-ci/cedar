@@ -20,10 +20,15 @@ package client
 import (
 	"context"
 
+	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/proto"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/xds/internal/balancer/lrs"
 )
+
+const nodeMetadataHostnameKey = "PROXYLESS_CLIENT_HOSTNAME"
 
 // ReportLoad sends the load of the given clusterName from loadStore to the
 // given server. If the server is not an empty string, and is different from the
@@ -39,9 +44,11 @@ func (c *Client) ReportLoad(server string, clusterName string, loadStore lrs.Sto
 		cc      *grpc.ClientConn
 		closeCC bool
 	)
+	c.logger.Infof("Starting load report to server: %s", server)
 	if server == "" || server == c.opts.Config.BalancerName {
 		cc = c.cc
 	} else {
+		c.logger.Infof("LRS server is different from xDS server, starting a new ClientConn")
 		dopts := append([]grpc.DialOption{c.opts.Config.Creds}, c.opts.DialOpts...)
 		ccNew, err := grpc.Dial(server, dopts...)
 		if err != nil {
@@ -53,7 +60,21 @@ func (c *Client) ReportLoad(server string, clusterName string, loadStore lrs.Sto
 		closeCC = true
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	go loadStore.ReportTo(ctx, c.cc, clusterName, c.opts.Config.NodeProto)
+
+	nodeTemp := proto.Clone(c.opts.Config.NodeProto).(*corepb.Node)
+	if nodeTemp == nil {
+		nodeTemp = &corepb.Node{}
+	}
+	if nodeTemp.Metadata == nil {
+		nodeTemp.Metadata = &structpb.Struct{}
+	}
+	if nodeTemp.Metadata.Fields == nil {
+		nodeTemp.Metadata.Fields = make(map[string]*structpb.Value)
+	}
+	nodeTemp.Metadata.Fields[nodeMetadataHostnameKey] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{StringValue: c.opts.TargetName},
+	}
+	go loadStore.ReportTo(ctx, c.cc, clusterName, nodeTemp)
 	return func() {
 		cancel()
 		if closeCC {
