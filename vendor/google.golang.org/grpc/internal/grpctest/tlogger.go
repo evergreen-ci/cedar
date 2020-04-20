@@ -26,6 +26,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"google.golang.org/grpc/grpclog"
@@ -48,18 +49,21 @@ const (
 type tLogger struct {
 	v           int
 	t           *testing.T
-	errors      map[*regexp.Regexp]int
 	initialized bool
+
+	m      sync.Mutex // protects errors
+	errors map[*regexp.Regexp]int
 }
 
 func init() {
-	TLogger = &tLogger{0, nil, map[*regexp.Regexp]int{}, false}
+	TLogger = &tLogger{errors: map[*regexp.Regexp]int{}}
 	vLevel := os.Getenv("GRPC_GO_LOG_VERBOSITY_LEVEL")
 	if vl, err := strconv.Atoi(vLevel); err == nil {
 		TLogger.v = vl
 	}
 }
 
+// getStackFrame gets, from the stack byte string, the appropriate stack frame.
 func getStackFrame(stack []byte, frame int) (string, error) {
 	s := strings.Split(string(stack), "\n")
 	if frame >= (len(s)-1)/2 {
@@ -69,9 +73,10 @@ func getStackFrame(stack []byte, frame int) (string, error) {
 	return fmt.Sprintf("%v:", split[len(split)-1]), nil
 }
 
-func (g *tLogger) log(ltype logType, format string, args ...interface{}) {
+// log logs the message with the specified parameters to the tLogger.
+func (g *tLogger) log(ltype logType, depth int, format string, args ...interface{}) {
 	s := debug.Stack()
-	prefix, err := getStackFrame(s, callingFrame)
+	prefix, err := getStackFrame(s, callingFrame+depth)
 	args = append([]interface{}{prefix}, args...)
 	if err != nil {
 		g.t.Error(err)
@@ -116,6 +121,8 @@ func (g *tLogger) Update(t *testing.T) {
 		g.initialized = true
 	}
 	g.t = t
+	g.m.Lock()
+	defer g.m.Unlock()
 	g.errors = map[*regexp.Regexp]int{}
 }
 
@@ -135,11 +142,15 @@ func (g *tLogger) ExpectErrorN(expr string, n int) {
 		g.t.Error(err)
 		return
 	}
+	g.m.Lock()
+	defer g.m.Unlock()
 	g.errors[re] += n
 }
 
 // EndTest checks if expected errors were not encountered.
 func (g *tLogger) EndTest(t *testing.T) {
+	g.m.Lock()
+	defer g.m.Unlock()
 	for re, count := range g.errors {
 		if count > 0 {
 			t.Errorf("Expected error '%v' not encountered", re.String())
@@ -148,7 +159,10 @@ func (g *tLogger) EndTest(t *testing.T) {
 	g.errors = map[*regexp.Regexp]int{}
 }
 
+// expected determines if the error string is protected or not.
 func (g *tLogger) expected(s string) bool {
+	g.m.Lock()
+	defer g.m.Unlock()
 	for re, count := range g.errors {
 		if re.FindStringIndex(s) != nil {
 			g.errors[re]--
@@ -162,51 +176,67 @@ func (g *tLogger) expected(s string) bool {
 }
 
 func (g *tLogger) Info(args ...interface{}) {
-	g.log(logLog, "", args...)
+	g.log(logLog, 0, "", args...)
 }
 
 func (g *tLogger) Infoln(args ...interface{}) {
-	g.log(logLog, "", args...)
+	g.log(logLog, 0, "", args...)
 }
 
 func (g *tLogger) Infof(format string, args ...interface{}) {
-	g.log(logLog, format, args...)
+	g.log(logLog, 0, format, args...)
+}
+
+func (g *tLogger) InfoDepth(depth int, args ...interface{}) {
+	g.log(logLog, depth, "", args...)
 }
 
 func (g *tLogger) Warning(args ...interface{}) {
-	g.log(logLog, "", args...)
+	g.log(logLog, 0, "", args...)
 }
 
 func (g *tLogger) Warningln(args ...interface{}) {
-	g.log(logLog, "", args...)
+	g.log(logLog, 0, "", args...)
 }
 
 func (g *tLogger) Warningf(format string, args ...interface{}) {
-	g.log(logLog, format, args...)
+	g.log(logLog, 0, format, args...)
+}
+
+func (g *tLogger) WarningDepth(depth int, args ...interface{}) {
+	g.log(logLog, depth, "", args...)
 }
 
 func (g *tLogger) Error(args ...interface{}) {
-	g.log(errorLog, "", args...)
+	g.log(errorLog, 0, "", args...)
 }
 
 func (g *tLogger) Errorln(args ...interface{}) {
-	g.log(errorLog, "", args...)
+	g.log(errorLog, 0, "", args...)
 }
 
 func (g *tLogger) Errorf(format string, args ...interface{}) {
-	g.log(errorLog, format, args...)
+	g.log(errorLog, 0, format, args...)
+}
+
+func (g *tLogger) ErrorDepth(depth int, args ...interface{}) {
+	g.log(errorLog, depth, "", args...)
 }
 
 func (g *tLogger) Fatal(args ...interface{}) {
-	g.log(fatalLog, "", args...)
+	g.log(fatalLog, 0, "", args...)
 }
 
 func (g *tLogger) Fatalln(args ...interface{}) {
-	g.log(fatalLog, "", args...)
+	g.log(fatalLog, 0, "", args...)
 }
 
 func (g *tLogger) Fatalf(format string, args ...interface{}) {
-	g.log(fatalLog, format, args...)
+	g.log(fatalLog, 0, format, args...)
+}
+
+func (g *tLogger) FatalDepth(depth int, args ...interface{}) {
+	g.log(fatalLog, depth, "", args...)
 }
 
 func (g *tLogger) V(l int) bool {
