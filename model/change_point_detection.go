@@ -462,9 +462,9 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	return errors.Wrap(err, "Unable to create change point")
 }
 
-func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultId string, measurement string, status TriageStatus) error {
+func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID string, measurement string, status TriageStatus) error {
 	filter := bson.M{
-		perfIDKey: perfResultId,
+		perfIDKey: perfResultID,
 		bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
 	}
 	update := bson.M{
@@ -473,6 +473,12 @@ func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultId 
 			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
 		},
 	}
-	_, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
-	return errors.Wrap(err, "Unable to change triage status of change point")
+	res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, filter, update)
+	if err != nil {
+		return errors.Wrap(err, "Unable to change triage status of change point")
+	}
+	if res.ModifiedCount != 1 {
+		return errors.Errorf("Error triaging change point on measurement %s for performance results %s, modified count: %d", measurement, perfResultID, res.ModifiedCount)
+	}
+	return nil
 }
