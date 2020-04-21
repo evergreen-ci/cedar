@@ -91,6 +91,15 @@ func provisionDB(ctx context.Context, env cedar.Environment) []string {
 		if err != nil {
 			panic(err)
 		}
+		err = createChangePoint(ctx, env, performanceResult.ID, ChangePoint{
+			Index:        idx,
+			Measurement:  "measurement_another",
+			CalculatedOn: time.Now(),
+			Triage:       TriageInfo{Status: TriageStatusUntriaged},
+		})
+		if err != nil {
+			panic(err)
+		}
 		ids = append(ids, performanceResult.ID)
 	}
 	return ids
@@ -131,8 +140,10 @@ func TestTriageChangePointsJob(t *testing.T) {
 		for idx, res := range result {
 			if idx < 5 {
 				require.Equal(t, res.Analysis.ChangePoints[0].Triage.Status, TriageStatusTruePositive)
+				require.Equal(t, res.Analysis.ChangePoints[1].Triage.Status, TriageStatusUntriaged)
 			} else {
 				require.Equal(t, res.Analysis.ChangePoints[0].Triage.Status, TriageStatusUntriaged)
+				require.Equal(t, res.Analysis.ChangePoints[1].Triage.Status, TriageStatusUntriaged)
 			}
 		}
 	})
@@ -167,6 +178,7 @@ func TestTriageChangePointsJob(t *testing.T) {
 
 		for _, res := range result {
 			assert.Equal(t, res.Analysis.ChangePoints[0].Triage.Status, TriageStatusUntriaged)
+			assert.Equal(t, res.Analysis.ChangePoints[1].Triage.Status, TriageStatusUntriaged)
 		}
 	})
 }
