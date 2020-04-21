@@ -464,7 +464,6 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	return errors.Wrap(err, "Unable to create change point")
 }
 
-
 type ChangePointStub struct {
 	PerfResultID string `json:"perf_result_id"`
 	Measurement  string `json:"measurement"`
@@ -474,14 +473,6 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 	coll := env.GetDB().Collection(perfResultCollection)
 
 	var conditions []bson.M
-	//for _, stub := range changePoints {
-	//	conditions = append(conditions, bson.M{
-	//		"$and": bson.A{
-	//			bson.M{"$eq": bson.A{"$"+perfIDKey, stub.PerfResultID}},
-	//			bson.M{"$eq": bson.A{"$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey), bson.A{stub.Measurement}}},
-	//		},
-	//	})
-	//}
 	for _, stub := range changePoints {
 		conditions = append(conditions, bson.M{
 			perfIDKey: stub.PerfResultID,
@@ -489,11 +480,11 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 		})
 	}
 	filter := bson.M{
-		"$expr": bson.M{
-			"$or": conditions,
-		},
+		"$or": conditions,
 	}
 
+	str, err := json.Marshal(filter)
+	fmt.Println(string(str))
 	cur, err := coll.Find(ctx, filter)
 	if err != nil {
 		return errors.Wrap(err, "Could not execute query finding change points for triage")
@@ -502,9 +493,6 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 	if err := cur.All(ctx, &results); err != nil {
 		return errors.Wrap(err, "Could not decode performance results for triage")
 	}
-
-	str, err := json.Marshal(filter)
-	fmt.Println(string(str))
 
 	for _, stub := range changePoints {
 		for _, res := range results {
@@ -517,10 +505,9 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 			}
 		}
 		return errors.Errorf("Could not find change point <%s> for performance result %s", stub.Measurement, stub.PerfResultID)
-		cont:
-			continue
+	cont:
+		continue
 	}
-
 
 	update := bson.M{
 		"$set": bson.M{
@@ -530,8 +517,10 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 	}
 	str, err = json.Marshal(update)
 	fmt.Println(string(str))
-	if _, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, filter, update); err != nil {
-		return errors.Wrap(err, "Could not perform triaging update")
+	for _, cond := range conditions {
+		if _, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, cond, update); err != nil {
+			return errors.Wrap(err, "Could not perform triaging update")
+		}
 	}
 	return nil
 }
