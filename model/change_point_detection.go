@@ -464,46 +464,63 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 }
 
 func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints map[string]string, status TriageStatus) error {
-	session, err := env.GetDB().Client().StartSession()
-	if err != nil {
-		return errors.Wrap(err, "Unable to start session for triage update")
+	var conditions []bson.M
+	for perfResultID, measurement := range changePoints {
+		filter["$expr"]["or"] = append(filter["$expr"]["or"], bson.M{
+			perfIDKey: perfResultID,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
+		})
 	}
-	defer session.EndSession(ctx)
-	if err := session.StartTransaction(); err != nil {
-		return errors.Wrap(err, "Unable to start transaction for triage update")
+
+	filter := bson.M{
+		"$expr": bson.M{
+			"$or": []bson.M{},
+		},
 	}
-	return mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
-		for perfResultId, measurement := range changePoints {
-			filter := bson.M{
-				perfIDKey: perfResultId,
-				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
-			}
-			update := bson.M{
-				"$set": bson.M{
-					bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoStatusKey):    status,
-					bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
-				},
-			}
-			res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(sc, filter, update)
-			if err != nil {
-				if err2 := session.AbortTransaction(ctx); err2 != nil {
-					return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
-				}
-				return errors.Errorf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId)
-			}
-			if res.ModifiedCount != 1 {
-				if err2 := session.AbortTransaction(ctx); err2 != nil {
-					return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
-				}
-				return errors.Errorf("Could not find change point <%s> for performance result %s", measurement, perfResultId)
-			}
-		}
-		err := session.CommitTransaction(sc)
-		if err != nil {
-			return errors.Wrap(err, "Failed to commit transaction during change point triage")
-		}
-		return nil
-	})
+
+
+
+
+	//session, err := env.GetDB().Client().StartSession()
+	//if err != nil {
+	//	return errors.Wrap(err, "Unable to start session for triage update")
+	//}
+	//defer session.EndSession(ctx)
+	//if err := session.StartTransaction(); err != nil {
+	//	return errors.Wrap(err, "Unable to start transaction for triage update")
+	//}
+	//return mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
+	//	for perfResultId, measurement := range changePoints {
+	//		filter := bson.M{
+	//			perfIDKey: perfResultId,
+	//			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
+	//		}
+	//		update := bson.M{
+	//			"$set": bson.M{
+	//				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoStatusKey):    status,
+	//				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
+	//			},
+	//		}
+	//		res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(sc, filter, update)
+	//		if err != nil {
+	//			if err2 := session.AbortTransaction(ctx); err2 != nil {
+	//				return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
+	//			}
+	//			return errors.Errorf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId)
+	//		}
+	//		if res.ModifiedCount != 1 {
+	//			if err2 := session.AbortTransaction(ctx); err2 != nil {
+	//				return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
+	//			}
+	//			return errors.Errorf("Could not find change point <%s> for performance result %s", measurement, perfResultId)
+	//		}
+	//	}
+	//	err := session.CommitTransaction(sc)
+	//	if err != nil {
+	//		return errors.Wrap(err, "Failed to commit transaction during change point triage")
+	//	}
+	//	return nil
+	//})
 }
 func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID string, measurement string, status TriageStatus) error {
 	filter := bson.M{
