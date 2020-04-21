@@ -5,7 +5,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
 )
 
 // HistoricalTestData describes aggregated test result data for a given date
@@ -48,25 +47,12 @@ type HistoricalTestDataInfo struct {
 
 func (i *HistoricalTestDataInfo) validate() error {
 	catcher := grip.NewBasicCatcher()
-	switch {
-	case i.Project == "":
-		catcher.Add(errors.New("project field must not be empty"))
-		fallthrough
-	case i.Variant == "":
-		catcher.Add(errors.New("variant field must not be empty"))
-		fallthrough
-	case i.TaskName == "":
-		catcher.Add(errors.New("task name field must not be empty"))
-		fallthrough
-	case i.TestName == "":
-		catcher.Add(errors.New("test name field must not be empty"))
-		fallthrough
-	case i.Requester == "":
-		catcher.Add(errors.New("requester field must not be empty"))
-		fallthrough
-	case i.Date.IsZero():
-		catcher.Add(errors.New("date field must not be zero"))
-	}
+	catcher.NewWhen(i.Project == "", "project field must not be empty")
+	catcher.NewWhen(i.Variant == "", "variant field must not be empty")
+	catcher.NewWhen(i.TaskName == "", "task name field must not be empty")
+	catcher.NewWhen(i.TestName == "", "test name field must not be empty")
+	catcher.NewWhen(i.Requester == "", "requester field must not be empty")
+	catcher.NewWhen(i.Date.IsZero(), "date field must not be zero")
 
 	return catcher.Resolve()
 }
