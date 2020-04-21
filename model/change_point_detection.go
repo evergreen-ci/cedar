@@ -2,8 +2,6 @@ package model
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"math"
 	"time"
 
@@ -483,8 +481,6 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 		"$or": conditions,
 	}
 
-	str, err := json.Marshal(filter)
-	fmt.Println(string(str))
 	cur, err := coll.Find(ctx, filter)
 	if err != nil {
 		return errors.Wrap(err, "Could not execute query finding change points for triage")
@@ -515,8 +511,6 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
 		},
 	}
-	str, err = json.Marshal(update)
-	fmt.Println(string(str))
 	for _, cond := range conditions {
 		if _, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, cond, update); err != nil {
 			return errors.Wrap(err, "Could not perform triaging update")

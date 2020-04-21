@@ -498,6 +498,6 @@ func (mc *MockConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Con
 	return nil
 }
 
-func (mc *MockConnector) TriageChangePoints(ctx context.Context, changePoints map[string]string, status string) error {
+func (mc *MockConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointStub, status string) error {
 	return nil
 }
