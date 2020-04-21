@@ -369,14 +369,10 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 //
 // POST /perf/change_points/triage/mark
 
-type changePointStub struct {
-	PerfResultID string `json:"perf_result_id"`
-	Measurement  string `json:"measurement"`
-}
 
 type changePointMarkRequest struct {
 	Status       string            `json:"status"`
-	ChangePoints []changePointStub `json:"change_points"`
+	ChangePoints []model.ChangePointStub `json:"change_points"`
 }
 
 type perfChangePointTriageMarkHandler struct {
@@ -411,11 +407,7 @@ func (h *perfChangePointTriageMarkHandler) Parse(ctx context.Context, r *http.Re
 }
 
 func (h *perfChangePointTriageMarkHandler) Run(ctx context.Context) gimlet.Responder {
-	cps := map[string]string{}
-	for _, stub := range h.req.ChangePoints {
-		cps[stub.PerfResultID] = stub.Measurement
-	}
-	err := h.sc.TriageChangePoints(ctx, cps, h.req.Status)
+	err := h.sc.TriageChangePoints(ctx, h.req.ChangePoints, h.req.Status)
 	if err != nil {
 		err = errors.Wrapf(err, "Error triaging change points")
 		grip.Error(message.WrapError(err, message.Fields{

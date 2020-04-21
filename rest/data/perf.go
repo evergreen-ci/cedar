@@ -265,12 +265,8 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	return catcher.Resolve()
 }
 
-type ChangePointStub struct {
-	PerfResultID string `bson:"perf_result_id" json:"perf_result_id" yaml:"perf_result_id"`
-	Measurement  string `bson:"measurement" json:"measurement" yaml:"measurement"`
-}
 
-func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints map[string]string, status string) error {
+func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointStub, status string) error {
 	ts := model.TriageStatus(status)
 	if err := ts.Validate(); err != nil {
 		return gimlet.ErrorResponse{

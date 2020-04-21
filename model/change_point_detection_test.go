@@ -109,9 +109,12 @@ func TestTriageChangePointsJob(t *testing.T) {
 		_ = env.GetDB().Drop(ctx)
 		ids := provisionDB(ctx, env)
 
-		cps := map[string]string{}
+		var cps []ChangePointStub
 		for _, id := range ids[:5] {
-			cps[id] = "measurement"
+			cps = append(cps, ChangePointStub{
+				PerfResultID: id,
+				Measurement:  "measurement",
+			})
 		}
 		require.NoError(t, TriageChangePoints(ctx, env, cps, TriageStatusTruePositive))
 
@@ -138,12 +141,18 @@ func TestTriageChangePointsJob(t *testing.T) {
 		_ = env.GetDB().Drop(ctx)
 		ids := provisionDB(ctx, env)
 
-		cps := map[string]string{}
+		var cps []ChangePointStub
 		for _, id := range ids[:5] {
-			cps[id] = "measurement"
+			cps = append(cps, ChangePointStub{
+				PerfResultID: id,
+				Measurement:  "measurement",
+			})
 		}
 		// We're gonna miss on one, everything should roll back
-		cps["wrong_id"] = "measurement"
+		cps = append(cps, ChangePointStub{
+			PerfResultID: "wrong_id",
+			Measurement:  "measurement",
+		})
 		assert.NotNil(t, TriageChangePoints(ctx, env, cps, TriageStatusTruePositive))
 
 		filter := bson.M{

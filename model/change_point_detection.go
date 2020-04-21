@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math"
 	"time"
 
@@ -10,7 +12,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type PerfAnalysis struct {
@@ -463,64 +464,76 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	return errors.Wrap(err, "Unable to create change point")
 }
 
-func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints map[string]string, status TriageStatus) error {
+
+type ChangePointStub struct {
+	PerfResultID string `json:"perf_result_id"`
+	Measurement  string `json:"measurement"`
+}
+
+func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints []ChangePointStub, status TriageStatus) error {
+	coll := env.GetDB().Collection(perfResultCollection)
+
 	var conditions []bson.M
-	for perfResultID, measurement := range changePoints {
-		filter["$expr"]["or"] = append(filter["$expr"]["or"], bson.M{
-			perfIDKey: perfResultID,
-			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
+	//for _, stub := range changePoints {
+	//	conditions = append(conditions, bson.M{
+	//		"$and": bson.A{
+	//			bson.M{"$eq": bson.A{"$"+perfIDKey, stub.PerfResultID}},
+	//			bson.M{"$eq": bson.A{"$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey), bson.A{stub.Measurement}}},
+	//		},
+	//	})
+	//}
+	for _, stub := range changePoints {
+		conditions = append(conditions, bson.M{
+			perfIDKey: stub.PerfResultID,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): stub.Measurement,
 		})
 	}
-
 	filter := bson.M{
 		"$expr": bson.M{
-			"$or": []bson.M{},
+			"$or": conditions,
 		},
 	}
 
+	cur, err := coll.Find(ctx, filter)
+	if err != nil {
+		return errors.Wrap(err, "Could not execute query finding change points for triage")
+	}
+	var results []PerformanceResult
+	if err := cur.All(ctx, &results); err != nil {
+		return errors.Wrap(err, "Could not decode performance results for triage")
+	}
+
+	str, err := json.Marshal(filter)
+	fmt.Println(string(str))
+
+	for _, stub := range changePoints {
+		for _, res := range results {
+			if res.ID == stub.PerfResultID {
+				for _, cp := range res.Analysis.ChangePoints {
+					if cp.Measurement == stub.Measurement {
+						goto cont
+					}
+				}
+			}
+		}
+		return errors.Errorf("Could not find change point <%s> for performance result %s", stub.Measurement, stub.PerfResultID)
+		cont:
+			continue
+	}
 
 
-
-	//session, err := env.GetDB().Client().StartSession()
-	//if err != nil {
-	//	return errors.Wrap(err, "Unable to start session for triage update")
-	//}
-	//defer session.EndSession(ctx)
-	//if err := session.StartTransaction(); err != nil {
-	//	return errors.Wrap(err, "Unable to start transaction for triage update")
-	//}
-	//return mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
-	//	for perfResultId, measurement := range changePoints {
-	//		filter := bson.M{
-	//			perfIDKey: perfResultId,
-	//			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): measurement,
-	//		}
-	//		update := bson.M{
-	//			"$set": bson.M{
-	//				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoStatusKey):    status,
-	//				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
-	//			},
-	//		}
-	//		res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(sc, filter, update)
-	//		if err != nil {
-	//			if err2 := session.AbortTransaction(ctx); err2 != nil {
-	//				return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
-	//			}
-	//			return errors.Errorf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId)
-	//		}
-	//		if res.ModifiedCount != 1 {
-	//			if err2 := session.AbortTransaction(ctx); err2 != nil {
-	//				return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
-	//			}
-	//			return errors.Errorf("Could not find change point <%s> for performance result %s", measurement, perfResultId)
-	//		}
-	//	}
-	//	err := session.CommitTransaction(sc)
-	//	if err != nil {
-	//		return errors.Wrap(err, "Failed to commit transaction during change point triage")
-	//	}
-	//	return nil
-	//})
+	update := bson.M{
+		"$set": bson.M{
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoStatusKey):    status,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
+		},
+	}
+	str, err = json.Marshal(update)
+	fmt.Println(string(str))
+	if _, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, filter, update); err != nil {
+		return errors.Wrap(err, "Could not perform triaging update")
+	}
+	return nil
 }
 func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID string, measurement string, status TriageStatus) error {
 	filter := bson.M{
