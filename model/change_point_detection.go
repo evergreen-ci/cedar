@@ -105,10 +105,6 @@ func (ts TriageStatus) Validate() error {
 	}
 }
 
-func TriageStatuses() []TriageStatus {
-	return []TriageStatus{TriageStatusUntriaged, TriageStatusTruePositive, TriageStatusFalsePositive, TriageStatusUnderInvestigation}
-}
-
 type PerformanceResultSeriesID struct {
 	Project string `bson:"project"`
 	Variant string `bson:"variant"`
@@ -490,13 +486,15 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 			}
 			res, err := env.GetDB().Collection(perfResultCollection).UpdateOne(sc, filter, update)
 			if err != nil {
-				err2 := session.AbortTransaction(ctx)
-				if err2 != nil {
+				if err2 := session.AbortTransaction(ctx); err2 != nil {
 					return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
 				}
 				return errors.Errorf("Unable to triage change point <%s> for performance result %s", measurement, perfResultId)
 			}
 			if res.ModifiedCount != 1 {
+				if err2 := session.AbortTransaction(ctx); err2 != nil {
+					return errors.Wrap(err, "Failed to abort transaction during failed change point triage")
+				}
 				return errors.Errorf("Could not find change point <%s> for performance result %s", measurement, perfResultId)
 			}
 		}

@@ -370,13 +370,13 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 // POST /perf/change_points/triage/mark
 
 type changePointStub struct {
-	PerfResultID string `bson:"perf_result_id" json:"perf_result_id" yaml:"perf_result_id"`
-	Measurement  string `bson:"measurement" json:"measurement" yaml:"measurement"`
+	PerfResultID string `json:"perf_result_id"`
+	Measurement  string `json:"measurement"`
 }
 
 type changePointMarkRequest struct {
-	Status       string            `bson:"status" json:"status" yaml:"status"`
-	ChangePoints []changePointStub `bson:"change_points" json:"change_points" yaml:"change_points"`
+	Status       string            `json:"status"`
+	ChangePoints []changePointStub `json:"change_points"`
 }
 
 type perfChangePointTriageMarkHandler struct {
