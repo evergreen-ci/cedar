@@ -262,7 +262,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 		},
 		//Filter out any change points unrelated to this rollup
 		{
-			"$set": bson.M{
+			"$addFields": bson.M{
 				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
 					"$filter": bson.M{
 						"input": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
@@ -302,7 +302,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 		},
 		// Flatter the change points into one array
 		{
-			"$set": bson.M{
+			"$addFields": bson.M{
 				"change_points": bson.M{
 					"$reduce": bson.M{
 						"input":        "$change_points",
