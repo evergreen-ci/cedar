@@ -105,7 +105,7 @@ func provisionDB(ctx context.Context, env cedar.Environment) []string {
 	return ids
 }
 
-func TestTriageChangePointsJob(t *testing.T) {
+func TestTriageChangePoints(t *testing.T) {
 	setup()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,9 +118,9 @@ func TestTriageChangePointsJob(t *testing.T) {
 		_ = env.GetDB().Drop(ctx)
 		ids := provisionDB(ctx, env)
 
-		var cps []ChangePointStub
+		var cps []ChangePointInfo
 		for _, id := range ids[:5] {
-			cps = append(cps, ChangePointStub{
+			cps = append(cps, ChangePointInfo{
 				PerfResultID: id,
 				Measurement:  "measurement",
 			})
@@ -152,15 +152,15 @@ func TestTriageChangePointsJob(t *testing.T) {
 		_ = env.GetDB().Drop(ctx)
 		ids := provisionDB(ctx, env)
 
-		var cps []ChangePointStub
+		var cps []ChangePointInfo
 		for _, id := range ids[:5] {
-			cps = append(cps, ChangePointStub{
+			cps = append(cps, ChangePointInfo{
 				PerfResultID: id,
 				Measurement:  "measurement",
 			})
 		}
 		// We're gonna miss on one, everything should roll back
-		cps = append(cps, ChangePointStub{
+		cps = append(cps, ChangePointInfo{
 			PerfResultID: "wrong_id",
 			Measurement:  "measurement",
 		})

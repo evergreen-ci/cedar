@@ -266,7 +266,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 }
 
 
-func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointStub, status string) error {
+func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointInfo, status string) error {
 	ts := model.TriageStatus(status)
 	if err := ts.Validate(); err != nil {
 		return gimlet.ErrorResponse{
@@ -498,6 +498,6 @@ func (mc *MockConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Con
 	return nil
 }
 
-func (mc *MockConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointStub, status string) error {
+func (mc *MockConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointInfo, status string) error {
 	return nil
 }

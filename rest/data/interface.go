@@ -45,7 +45,7 @@ type Connector interface {
 	// test (project/variant/task/test combo).
 	ScheduleSignalProcessingRecalculateJobs(context.Context) error
 	// TriageChangePoints returns once all change points have been successfully marked
-	TriageChangePoints(ctx context.Context, changePoints []dbModel.ChangePointStub, status string) error
+	TriageChangePoints(ctx context.Context, changePoints []dbModel.ChangePointInfo, status string) error
 
 	//////////////////
 	// Buildlogger Log

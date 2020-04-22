@@ -10,6 +10,8 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PerfAnalysis struct {
@@ -462,12 +464,12 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	return errors.Wrap(err, "Unable to create change point")
 }
 
-type ChangePointStub struct {
+type ChangePointInfo struct {
 	PerfResultID string `json:"perf_result_id"`
 	Measurement  string `json:"measurement"`
 }
 
-func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints []ChangePointStub, status TriageStatus) error {
+func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints []ChangePointInfo, status TriageStatus) error {
 	coll := env.GetDB().Collection(perfResultCollection)
 
 	var conditions []bson.M
@@ -511,10 +513,15 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
 		},
 	}
+	var operations []mongo.WriteModel
 	for _, cond := range conditions {
-		if _, err := env.GetDB().Collection(perfResultCollection).UpdateOne(ctx, cond, update); err != nil {
-			return errors.Wrap(err, "Could not perform triaging update")
-		}
+		operations = append(operations, &mongo.UpdateOneModel{Filter: cond, Update: update})
+	}
+
+	bulkOptions := options.BulkWriteOptions{}
+	bulkOptions.SetOrdered(true)
+	if _, err := env.GetDB().Collection(perfResultCollection).BulkWrite(ctx, operations, &bulkOptions); err != nil {
+		return errors.Wrap(err, "Could not perform triaging update")
 	}
 	return nil
 }

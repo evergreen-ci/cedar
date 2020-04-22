@@ -372,7 +372,7 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 
 type changePointMarkRequest struct {
 	Status       string            `json:"status"`
-	ChangePoints []model.ChangePointStub `json:"change_points"`
+	ChangePoints []model.ChangePointInfo `json:"change_points"`
 }
 
 type perfChangePointTriageMarkHandler struct {
