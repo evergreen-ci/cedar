@@ -348,7 +348,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		j.Run(ctx)
 
 		for _, result := range mockDetector.Results {
-			// check that we're not detecting anything new
+			// check that we're not detecting anything new.
 			require.Equal(t, result, []int{})
 		}
 
