@@ -131,6 +131,21 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, performanceData.PerformanceResultId))
 }
 
+func calculatePercentChange(lowerWindow, upperWindow []float64) float64 {
+	avgLowerWindow := getAverageValue(lowerWindow)
+	avgUpperWindow := getAverageValue(upperWindow)
+
+	return 100 * ((avgUpperWindow / avgLowerWindow) - 1)
+}
+
+func getAverageValue(values []float64) float64 {
+	total := float64(0)
+	for _, value := range values {
+		total += value
+	}
+	return total / float64(len(values))
+}
+
 func algorithmConfigurationToOptions(configurationValues []perf.AlgorithmConfigurationValue) []model.AlgorithmOption {
 	var options []model.AlgorithmOption
 	for _, v := range configurationValues {
