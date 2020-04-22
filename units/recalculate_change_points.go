@@ -113,17 +113,36 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		}
 
 		result, err := j.changePointDetector.DetectChanges(ctx, floatSeries)
-
-		var changePoints []model.ChangePoint
-		for _, pointIndex := range result {
-			mapped := model.CreateChangePoint(pointIndex+latestTriagedChangePointIndex, perfData.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
-			changePoints = append(changePoints, mapped)
-		}
-
 		if err != nil {
 			j.AddError(errors.Wrapf(err, "Unable to detect change points in time perfData %s", j.PerformanceResultId))
 			return
 		}
+
+		var changePoints []model.ChangePoint
+		for i, pointIndex := range result {
+			var lowerBound int
+			var upperBound int
+
+			if i == 0 {
+				lowerBound = 0
+			} else {
+				lowerBound = result[i-1]
+			}
+
+			if i == len(result)-1 {
+				upperBound = len(floatSeries)
+			} else {
+				upperBound = result[i+1]
+			}
+
+			lowerWindow := floatSeries[lowerBound:pointIndex]
+			upperWindow := floatSeries[pointIndex:upperBound]
+			percentChange := calculatePercentChange(lowerWindow, upperWindow)
+
+			mapped := model.CreateChangePoint(pointIndex+latestTriagedChangePointIndex, perfData.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()), percentChange)
+			changePoints = append(changePoints, mapped)
+		}
+
 		mappedChangePoints[perfData.Measurement] = changePoints
 	}
 

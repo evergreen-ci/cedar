@@ -41,7 +41,12 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 	return newVals
 }
 
-func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, map[string][]int) {
+type changePointIndexPercentChange struct {
+	index         int
+	percentChange float64
+}
+
+func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, map[string][]changePointIndexPercentChange) {
 	// deterministic testing on failure
 	grip.Debug("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
 	rand.Seed(seed)
@@ -129,13 +134,45 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 	}
 
 	// time to map over change points
-	changePoints := map[string][]int{}
+	changePoints := map[string][]changePointIndexPercentChange{}
 	for measurement, cpIndices := range timeSeriesChangePoints {
 		measurementName := "measurement_" + strconv.Itoa(measurement)
-		changePoints[measurementName] = append(changePoints[measurementName], cpIndices...)
+		cpsWithIndexAndPercentChange := make([]changePointIndexPercentChange, len(cpIndices))
+		currentTimeSeries := timeSeries[measurement]
+		for i, pointIndex := range cpIndices {
+			var lowerBound int
+			var upperBound int
+
+			if i == 0 {
+				lowerBound = 0
+			} else {
+				lowerBound = cpIndices[i-1]
+			}
+
+			if i == len(cpIndices)-1 {
+				upperBound = len(currentTimeSeries)
+			} else {
+				upperBound = cpIndices[i+1]
+			}
+
+			lowerWindow := convertIntArrayToFloat64(currentTimeSeries[lowerBound:pointIndex])
+			upperWindow := convertIntArrayToFloat64(currentTimeSeries[pointIndex:upperBound])
+
+			percentChange := calculatePercentChange(lowerWindow, upperWindow)
+			cpsWithIndexAndPercentChange[i] = changePointIndexPercentChange{index: pointIndex, percentChange: percentChange}
+		}
+		changePoints[measurementName] = append(changePoints[measurementName], cpsWithIndexAndPercentChange...)
 	}
 
 	return rollups, changePoints
+}
+
+func convertIntArrayToFloat64(input []int) []float64 {
+	floatArray := make([]float64, len(input))
+	for i, curInt := range input {
+		floatArray[i] = float64(curInt)
+	}
+	return floatArray
 }
 
 func setupChangePointsTest() {
@@ -196,7 +233,7 @@ func getPerformanceResultsWithChangePoints(ctx context.Context, env cedar.Enviro
 	return result
 }
 
-func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environment, t *testing.T, detector perf.ChangeDetector) map[string]map[string][]int {
+func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environment, t *testing.T, detector perf.ChangeDetector) map[string]map[string][]changePointIndexPercentChange {
 	result := getPerformanceResultsWithChangePoints(ctx, env, t)
 
 	var options []model.AlgorithmOption
@@ -207,13 +244,13 @@ func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environ
 		})
 	}
 
-	createdChangePoints := map[string]map[string][]int{}
+	createdChangePoints := map[string]map[string][]changePointIndexPercentChange{}
 	for _, v := range result {
 		// make sure processed_at got set in db
 		require.NotEqual(t, v.Analysis.ProcessedAt, time.Time{})
 
 		if createdChangePoints[v.Info.Project] == nil {
-			createdChangePoints[v.Info.Project] = map[string][]int{}
+			createdChangePoints[v.Info.Project] = map[string][]changePointIndexPercentChange{}
 		}
 		for _, cp := range v.Analysis.ChangePoints {
 			// make sure all the algorithm and triage info is correct
@@ -224,7 +261,7 @@ func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environ
 			}
 			require.Equal(t, cp.Triage.TriagedOn, time.Time{})
 			require.Equal(t, cp.Triage.Status, model.TriageStatusUntriaged)
-			createdChangePoints[v.Info.Project][cp.Measurement] = append(createdChangePoints[v.Info.Project][cp.Measurement], cp.Index)
+			createdChangePoints[v.Info.Project][cp.Measurement] = append(createdChangePoints[v.Info.Project][cp.Measurement], changePointIndexPercentChange{index: cp.Index, percentChange: cp.PercentChange})
 		}
 	}
 
