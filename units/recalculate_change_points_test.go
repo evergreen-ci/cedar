@@ -2,7 +2,6 @@ package units
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/mgo.v2/bson"
@@ -43,7 +43,7 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 
 func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, map[string][]int) {
 	// deterministic testing on failure
-	fmt.Println("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
+	grip.Debug("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
 	rand.Seed(seed)
 	numTimeSeries := rand.Intn(10) + 1
 	timeSeriesLengths := make([]int, numTimeSeries)
@@ -138,7 +138,7 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 	return rollups, changePoints
 }
 
-func setup() {
+func setupChangePointsTest() {
 	dbName := "test_cedar_signal_processing"
 	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
@@ -244,7 +244,7 @@ func provisionDb(ctx context.Context, env cedar.Environment, rollups []testResul
 }
 
 func TestRecalculateChangePointsJob(t *testing.T) {
-	setup()
+	setupChangePointsTest()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -306,7 +306,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	})
 
 	t.Run("IgnoresHistoryBeforeTriagedChangePoint", func(t *testing.T) {
-		setup()
+		setupChangePointsTest()
 		_ = env.GetDB().Drop(ctx)
 
 		cRollups, _ := makePerfResultsWithChangePoints("c", time.Now().UnixNano())

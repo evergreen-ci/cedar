@@ -18,7 +18,7 @@ func TestSimpleParser(t *testing.T) {
 	parser.Run(context.TODO())
 	// assert.True(parser.Completed())
 
-	// TODO: setup local queue or db service as a prereq
+	// TODO: setupChangePointsTest local queue or db service as a prereq
 
 	// assert.NoError(parser.Error())
 
