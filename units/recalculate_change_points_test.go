@@ -2,6 +2,7 @@ package units
 
 import (
 	"context"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -9,22 +10,97 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/mgo.v2/bson"
 )
 
-type TestResultsAndRollups struct {
+type testResultsAndRollups struct {
 	info    *model.PerformanceResultInfo
 	rollups []model.PerfRollupValue
 }
 
-func makePerfResults(length int, breakpoint int, unique string) []TestResultsAndRollups {
-	var rollups []TestResultsAndRollups
+func generateDistinctRandoms(existing []int, min, max, num int) []int {
+	var newVals []int
+	exists := map[int]bool{}
+	for _, v := range existing {
+		exists[v] = true
+	}
+	randoms := rand.Perm(max - min + 1)
+	for _, v := range randoms {
+		v += min
+		if !exists[v] {
+			exists[v] = true
+			newVals = append(newVals, v)
+			if len(newVals) == num {
+				break
+			}
+		}
+	}
+	return newVals
+}
+
+func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, map[string][]int) {
+	// deterministic testing on failure
+	grip.Debug("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
+	rand.Seed(seed)
+	numTimeSeries := rand.Intn(10) + 1
+	timeSeriesLengths := make([]int, numTimeSeries)
+	timeSeriesChangePoints := make([][]int, numTimeSeries)
+	timeSeries := make([][]int, numTimeSeries)
+
+	// generate series of random length in range [100, 300]
+	for i := 0; i < numTimeSeries; i++ {
+		timeSeriesLengths[i] = rand.Intn(201) + 100
+	}
+
+	// sprinkle in some random change points
+	for measurement, length := range timeSeriesLengths {
+		remainingPoints := length
+		for remainingPoints > 0 {
+			if remainingPoints < 30 {
+				remainingPoints = 0
+				continue
+			}
+			// make sure there are 10 points on either side of the cp
+			changePoint := rand.Intn(remainingPoints-20) + 10
+			timeSeriesChangePoints[measurement] = append(timeSeriesChangePoints[measurement], changePoint+length-remainingPoints)
+			remainingPoints = remainingPoints - changePoint
+		}
+	}
+
+	// let's create our time series
+	for measurement, length := range timeSeriesLengths {
+		changePoints := timeSeriesChangePoints[measurement]
+		startingPoint := 0
+		stableValue := 1001
+		for _, cp := range changePoints {
+			stableValue = generateDistinctRandoms([]int{stableValue}, 0, 1000, 1)[0]
+			for i := startingPoint; i < cp; i++ {
+				timeSeries[measurement] = append(timeSeries[measurement], stableValue)
+			}
+			startingPoint = cp
+		}
+		stableValue = generateDistinctRandoms([]int{stableValue}, 0, 1000, 1)[0]
+		for i := startingPoint; i < length; i++ {
+			timeSeries[measurement] = append(timeSeries[measurement], stableValue)
+		}
+	}
+
+	// measurements/rollups can be added/removed over time, so we should chop up and group our time series randomly
+	consumed := make([]int, numTimeSeries)
+	var finishedConsuming []int
+	var rollups []testResultsAndRollups
+
 	i := 0
-	for i < length {
-		newRollup := TestResultsAndRollups{
+	for len(finishedConsuming) != numTimeSeries {
+		// Let's record a random number of measurements this run, drawn from [1, numTimeSeries-len(finishedConsuming)]
+		measurementsThisRun := rand.Intn(numTimeSeries-len(finishedConsuming)) + 1
+		// Get measurements that aren't yet finished being persisted
+		measurements := generateDistinctRandoms(finishedConsuming, 0, numTimeSeries-1, measurementsThisRun)
+
+		newRollup := testResultsAndRollups{
 			info: &model.PerformanceResultInfo{
 				Project:  "project" + unique,
 				Variant:  "variant",
@@ -34,33 +110,35 @@ func makePerfResults(length int, breakpoint int, unique string) []TestResultsAnd
 				TaskName: "task",
 				Mainline: true,
 			},
-			rollups: []model.PerfRollupValue{
-				{
-					Name:       "measurement",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-				},
-				{
-					Name:       "measurement_another",
-					MetricType: model.MetricTypeSum,
-					Version:    0,
-				},
-			},
 		}
-		if i < breakpoint {
-			newRollup.rollups[0].Value = float64(100)
-			newRollup.rollups[1].Value = float64(100)
-		} else {
-			newRollup.rollups[0].Value = float64(1000)
-			newRollup.rollups[1].Value = float64(1000)
+
+		for _, measurement := range measurements {
+			newRollup.rollups = append(newRollup.rollups, model.PerfRollupValue{
+				Name:       "measurement_" + strconv.Itoa(measurement),
+				Value:      timeSeries[measurement][consumed[measurement]],
+				Version:    0,
+				MetricType: "sum",
+			})
+			consumed[measurement]++
+			if consumed[measurement] == timeSeriesLengths[measurement] {
+				finishedConsuming = append(finishedConsuming, measurement)
+			}
 		}
 		rollups = append(rollups, newRollup)
 		i++
 	}
-	return rollups
+
+	// time to map over change points
+	changePoints := map[string][]int{}
+	for measurement, cpIndices := range timeSeriesChangePoints {
+		measurementName := "measurement_" + strconv.Itoa(measurement)
+		changePoints[measurementName] = append(changePoints[measurementName], cpIndices...)
+	}
+
+	return rollups, changePoints
 }
 
-func init() {
+func setupChangePointsTest() {
 	dbName := "test_cedar_signal_processing"
 	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
@@ -84,7 +162,8 @@ func tearDown(env cedar.Environment) error {
 }
 
 type MockDetector struct {
-	Calls [][]float64
+	Calls   [][]float64
+	Results [][]int
 }
 
 func (m *MockDetector) Algorithm() perf.Algorithm {
@@ -94,24 +173,65 @@ func (m *MockDetector) Algorithm() perf.Algorithm {
 func (m *MockDetector) DetectChanges(ctx context.Context, series []float64) ([]int, error) {
 	m.Calls = append(m.Calls, series)
 	last := series[0]
-	var cps []int
+	cps := []int{}
 	for idx, i := range series {
 		if i != last {
 			last = i
 			cps = append(cps, idx)
 		}
 	}
+	m.Results = append(m.Results, cps)
 	return cps, nil
 }
 
-func TestRecalculateChangePointsJob(t *testing.T) {
-	env := cedar.GetEnvironment()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func getPerformanceResultsWithChangePoints(ctx context.Context, env cedar.Environment, t *testing.T) []model.PerformanceResult {
+	// Get all perf results with change points
+	var result []model.PerformanceResult
+	filter := bson.M{
+		"analysis.change_points": bson.M{"$ne": []struct{}{}},
+	}
+	res, err := env.GetDB().Collection("perf_results").Find(ctx, filter)
+	require.NoError(t, err)
+	require.NoError(t, res.All(ctx, &result))
+	return result
+}
 
-	_ = env.GetDB().Drop(ctx)
+func extractAndValidateChangePointsFromDb(ctx context.Context, env cedar.Environment, t *testing.T, detector perf.ChangeDetector) map[string]map[string][]int {
+	result := getPerformanceResultsWithChangePoints(ctx, env, t)
 
-	rollups := append(makePerfResults(100, 50, "a"), makePerfResults(100, 50, "b")...)
+	var options []model.AlgorithmOption
+	for _, v := range detector.Algorithm().Configuration() {
+		options = append(options, model.AlgorithmOption{
+			Name:  v.Name,
+			Value: v.Value,
+		})
+	}
+
+	createdChangePoints := map[string]map[string][]int{}
+	for _, v := range result {
+		// make sure processed_at got set in db
+		require.NotEqual(t, v.Analysis.ProcessedAt, time.Time{})
+
+		if createdChangePoints[v.Info.Project] == nil {
+			createdChangePoints[v.Info.Project] = map[string][]int{}
+		}
+		for _, cp := range v.Analysis.ChangePoints {
+			// make sure all the algorithm and triage info is correct
+			require.Equal(t, cp.Algorithm.Name, detector.Algorithm().Name())
+			require.Equal(t, cp.Algorithm.Version, detector.Algorithm().Version())
+			for _, o := range options {
+				require.Contains(t, cp.Algorithm.Options, o)
+			}
+			require.Equal(t, cp.Triage.TriagedOn, time.Time{})
+			require.Equal(t, cp.Triage.Status, model.TriageStatusUntriaged)
+			createdChangePoints[v.Info.Project][cp.Measurement] = append(createdChangePoints[v.Info.Project][cp.Measurement], cp.Index)
+		}
+	}
+
+	return createdChangePoints
+}
+
+func provisionDb(ctx context.Context, env cedar.Environment, rollups []testResultsAndRollups) {
 	for _, result := range rollups {
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
 		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
@@ -121,11 +241,25 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			panic(err)
 		}
 	}
+}
+
+func TestRecalculateChangePointsJob(t *testing.T) {
+	setupChangePointsTest()
+	env := cedar.GetEnvironment()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	defer func() {
-		assert.NoError(t, tearDown(env))
+		require.NoError(t, tearDown(env))
 	}()
 
 	t.Run("Recalculates", func(t *testing.T) {
+		_ = env.GetDB().Drop(ctx)
+
+		aRollups, aChangePoints := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
+		bRollups, bChangePoints := makePerfResultsWithChangePoints("b", time.Now().UnixNano())
+		provisionDb(ctx, env, append(aRollups, bRollups...))
+
 		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
 			Project: "projecta",
 			Variant: "variant",
@@ -135,47 +269,97 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		mockDetector := &MockDetector{}
 		j.(*recalculateChangePointsJob).changePointDetector = mockDetector
 		j.Run(ctx)
-		assert.True(t, j.Status().Completed)
-		assert.Len(t, mockDetector.Calls, 2)
-		var result []model.PerformanceResult
-		filter := bson.M{
-			"analysis.change_points": bson.M{"$ne": []struct{}{}},
-		}
-		res, err := env.GetDB().Collection("perf_results").Find(ctx, filter)
-		require.NoError(t, err)
-		assert.NoError(t, res.All(ctx, &result))
-		require.Len(t, result, 1)
-		require.Len(t, result[0].Analysis.ChangePoints, 2)
-		require.NotEqual(t, result[0].Analysis.ProcessedAt, time.Time{})
 
-		var options []model.AlgorithmOption
+		// Check that we made one call for each measurement/rollup
+		require.Len(t, mockDetector.Calls, len(aChangePoints))
 
-		for _, v := range mockDetector.Algorithm().Configuration() {
-			options = append(options, model.AlgorithmOption{
-				Name:  v.Name,
-				Value: v.Value,
-			})
+		createdChangePoints := extractAndValidateChangePointsFromDb(ctx, env, t, mockDetector)
+
+		// make sure everything is where we think it should be
+		require.Equal(t, aChangePoints, createdChangePoints["projecta"])
+
+		// make sure we only calculated cps for projecta
+		require.Len(t, createdChangePoints, 1)
+
+		// Now let's calculate for another project
+		j = NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
+			Project: "projectb",
+			Variant: "variant",
+			Task:    "task",
+			Test:    "test",
+		})
+		j.(*recalculateChangePointsJob).changePointDetector = mockDetector
+		j.Run(ctx)
+		require.True(t, j.Status().Completed)
+
+		// Check that we made one call for each measurement/rollup
+		require.Len(t, mockDetector.Calls, len(aChangePoints)+len(bChangePoints))
+
+		createdChangePoints = extractAndValidateChangePointsFromDb(ctx, env, t, mockDetector)
+
+		// make sure everything is where we think it should be
+		require.Equal(t, aChangePoints, createdChangePoints["projecta"])
+		require.Equal(t, bChangePoints, createdChangePoints["projectb"])
+
+		// make sure we only calculated cps for projecta & project b
+		require.Len(t, createdChangePoints, 2)
+	})
+
+	t.Run("IgnoresHistoryBeforeTriagedChangePoint", func(t *testing.T) {
+		setupChangePointsTest()
+		_ = env.GetDB().Drop(ctx)
+
+		cRollups, _ := makePerfResultsWithChangePoints("c", time.Now().UnixNano())
+		provisionDb(ctx, env, cRollups)
+
+		j := NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
+			Project: "projectc",
+			Variant: "variant",
+			Task:    "task",
+			Test:    "test",
+		})
+		mockDetector := &MockDetector{}
+		j.(*recalculateChangePointsJob).changePointDetector = mockDetector
+		j.Run(ctx)
+
+		performanceResults := getPerformanceResultsWithChangePoints(ctx, env, t)
+
+		for _, perfResult := range performanceResults {
+			for _, cp := range perfResult.Analysis.ChangePoints {
+				// let's triage the cps
+				_ = model.TriageChangePoint(ctx, env, perfResult.ID, cp.Measurement, model.TriageStatusTruePositive)
+			}
 		}
 
-		//Change point 1
-		require.Contains(t, []string{"measurement", "measurement_another"}, result[0].Analysis.ChangePoints[0].Measurement)
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm.Name, mockDetector.Algorithm().Name())
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Algorithm.Version, mockDetector.Algorithm().Version())
-		for _, v := range options {
-			require.Contains(t, result[0].Analysis.ChangePoints[0].Algorithm.Options, v)
+		performanceResults = getPerformanceResultsWithChangePoints(ctx, env, t)
+		var originalChangePoints []model.ChangePoint
+		for _, perfResult := range performanceResults {
+			originalChangePoints = append(originalChangePoints, perfResult.Analysis.ChangePoints...)
 		}
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.TriagedOn, time.Time{})
-		require.Equal(t, result[0].Analysis.ChangePoints[0].Triage.Status, model.TriageStatusUntriaged)
 
-		//Change point 2
-		require.Contains(t, []string{"measurement", "measurement_another"}, result[0].Analysis.ChangePoints[1].Measurement)
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm.Name, mockDetector.Algorithm().Name())
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Algorithm.Version, mockDetector.Algorithm().Version())
-		for _, v := range options {
-			require.Contains(t, result[0].Analysis.ChangePoints[1].Algorithm.Options, v)
+		j = NewRecalculateChangePointsJob(model.PerformanceResultSeriesID{
+			Project: "projectc",
+			Variant: "variant",
+			Task:    "task",
+			Test:    "test",
+		})
+		mockDetector = &MockDetector{}
+		j.(*recalculateChangePointsJob).changePointDetector = mockDetector
+		j.Run(ctx)
+
+		for _, result := range mockDetector.Results {
+			// check that we're not detecting anything new.
+			require.Equal(t, result, []int{})
 		}
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.TriagedOn, time.Time{})
-		require.Equal(t, result[0].Analysis.ChangePoints[1].Triage.Status, model.TriageStatusUntriaged)
+
+		performanceResults = getPerformanceResultsWithChangePoints(ctx, env, t)
+		var newChangePoints []model.ChangePoint
+		for _, perfResult := range performanceResults {
+			newChangePoints = append(newChangePoints, perfResult.Analysis.ChangePoints...)
+		}
+
+		// make sure all the original change points are still there (not evicted)
+		require.Equal(t, originalChangePoints, newChangePoints)
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
@@ -191,7 +375,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		job.conf = model.NewCedarConfig(env)
 		job.conf.Flags.DisableSignalProcessing = true
 		j.Run(ctx)
-		assert.True(t, j.Status().Completed)
-		assert.Len(t, mockDetector.Calls, 0)
+		require.True(t, j.Status().Completed)
+		require.Len(t, mockDetector.Calls, 0)
 	})
 }

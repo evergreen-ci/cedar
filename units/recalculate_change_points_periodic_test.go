@@ -10,10 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/model"
 )
 
-func init() {
+func setupPeriodic() {
 	dbName := "test_cedar_signal_processing_periodic"
 	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
@@ -37,27 +36,21 @@ func tearDownPeriodicTest(env cedar.Environment) error {
 }
 
 func TestPeriodicChangePointsJob(t *testing.T) {
+	setupPeriodic()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	_ = env.GetDB().Drop(ctx)
-
-	rollups := append(makePerfResults(100, 50, "a"), makePerfResults(100, 50, "b")...)
-	for _, result := range rollups {
-		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
-		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
-		performanceResult.Setup(env)
-		err := performanceResult.SaveNew(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}
 	defer func() {
 		assert.NoError(t, tearDownPeriodicTest(env))
 	}()
 
 	t.Run("PeriodicallySchedules", func(t *testing.T) {
+		_ = env.GetDB().Drop(ctx)
+
+		aRollups, _ := makePerfResultsWithChangePoints("e", time.Now().UnixNano())
+		bRollups, _ := makePerfResultsWithChangePoints("f", time.Now().UnixNano())
+		provisionDb(ctx, env, append(aRollups, bRollups...))
+
 		j := NewPeriodicChangePointJob("someId")
 		job := j.(*periodicChangePointJob)
 		job.queue = queue.NewLocalLimitedSize(1, 100)

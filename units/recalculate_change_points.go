@@ -87,7 +87,7 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 	}
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to aggregate time series %s", j.PerformanceResultId))
+		j.AddError(errors.Wrapf(err, "Unable to aggregate time perfData %s", j.PerformanceResultId))
 		return
 	}
 	if performanceData == nil {
@@ -95,28 +95,36 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 		return
 	}
 	mappedChangePoints := map[string][]model.ChangePoint{}
-	for _, series := range performanceData.Data {
-		sort.Slice(series.TimeSeries, func(i, j int) bool {
-			return series.TimeSeries[i].Order < series.TimeSeries[j].Order
+	for _, perfData := range performanceData.Data {
+		sort.Slice(perfData.TimeSeries, func(i, j int) bool {
+			return perfData.TimeSeries[i].Order < perfData.TimeSeries[j].Order
 		})
-		floatSeries := make([]float64, len(series.TimeSeries))
-		for i, item := range series.TimeSeries {
-			floatSeries[i] = item.Value
+		latestTriagedChangePointIndex := 0
+		for _, cp := range perfData.ChangePoints {
+			if cp.Index > latestTriagedChangePointIndex && cp.Triage.Status != model.TriageStatusUntriaged {
+				latestTriagedChangePointIndex = cp.Index
+			}
+		}
+		floatSeries := make([]float64, len(perfData.TimeSeries)-latestTriagedChangePointIndex)
+		for i, item := range perfData.TimeSeries {
+			if i >= latestTriagedChangePointIndex {
+				floatSeries[i-latestTriagedChangePointIndex] = item.Value
+			}
 		}
 
 		result, err := j.changePointDetector.DetectChanges(ctx, floatSeries)
 
 		var changePoints []model.ChangePoint
 		for _, pointIndex := range result {
-			mapped := model.CreateChangePoint(pointIndex, series.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
+			mapped := model.CreateChangePoint(pointIndex+latestTriagedChangePointIndex, perfData.Measurement, j.changePointDetector.Algorithm().Name(), j.changePointDetector.Algorithm().Version(), algorithmConfigurationToOptions(j.changePointDetector.Algorithm().Configuration()))
 			changePoints = append(changePoints, mapped)
 		}
 
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "Unable to detect change points in time series %s", j.PerformanceResultId))
+			j.AddError(errors.Wrapf(err, "Unable to detect change points in time perfData %s", j.PerformanceResultId))
 			return
 		}
-		mappedChangePoints[series.Measurement] = changePoints
+		mappedChangePoints[perfData.Measurement] = changePoints
 	}
 
 	j.AddError(model.ReplaceChangePoints(ctx, j.env, performanceData, mappedChangePoints))
