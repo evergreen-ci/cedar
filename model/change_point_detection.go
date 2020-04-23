@@ -472,12 +472,12 @@ type ChangePointInfo struct {
 func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints []ChangePointInfo, status TriageStatus) error {
 	coll := env.GetDB().Collection(perfResultCollection)
 
-	var conditions []bson.M
-	for _, stub := range changePoints {
-		conditions = append(conditions, bson.M{
+	conditions := make([]bson.M, len(changePoints))
+	for i, stub := range changePoints {
+		conditions[i] = bson.M{
 			perfIDKey: stub.PerfResultID,
 			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): stub.Measurement,
-		})
+		}
 	}
 	filter := bson.M{
 		"$or": conditions,
@@ -485,11 +485,11 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 
 	cur, err := coll.Find(ctx, filter)
 	if err != nil {
-		return errors.Wrap(err, "Could not execute query finding change points for triage")
+		return errors.Wrap(err, "problem executing query finding change points for triage")
 	}
 	var results []PerformanceResult
 	if err := cur.All(ctx, &results); err != nil {
-		return errors.Wrap(err, "Could not decode performance results for triage")
+		return errors.Wrap(err, "problem decoding performance results for triage")
 	}
 
 ChangePointsLoop:
@@ -503,7 +503,7 @@ ChangePointsLoop:
 				}
 			}
 		}
-		return errors.Errorf("Could not find change point <%s> for performance result %s", stub.Measurement, stub.PerfResultID)
+		return errors.Errorf("problem finding change point <%s> for performance result %s", stub.Measurement, stub.PerfResultID)
 	}
 
 	update := bson.M{
@@ -518,7 +518,7 @@ ChangePointsLoop:
 	}
 
 	if _, err := env.GetDB().Collection(perfResultCollection).BulkWrite(ctx, operations, options.BulkWrite().SetOrdered(true)); err != nil {
-		return errors.Wrap(err, "Could not perform triaging update")
+		return errors.Wrap(err, "problem performing triaging update")
 	}
 	return nil
 }
@@ -538,7 +538,7 @@ func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID 
 		return errors.Wrap(err, "Unable to change triage status of change point")
 	}
 	if res.ModifiedCount != 1 {
-		return errors.Errorf("Error triaging change point on measurement %s for performance results %s, modified count: %d", measurement, perfResultID, res.ModifiedCount)
+		return errors.Errorf("problem triaging change point on measurement %s for performance results %s, modified count: %d", measurement, perfResultID, res.ModifiedCount)
 	}
 	return nil
 }

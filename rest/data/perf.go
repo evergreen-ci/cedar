@@ -274,7 +274,7 @@ func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []m
 		}
 	}
 	if err := model.TriageChangePoints(ctx, dbc.env, changePoints, ts); err != nil {
-		if strings.Contains(err.Error(), "Could not find") {
+		if strings.Contains(err.Error(), "problem finding change point") {
 			return gimlet.ErrorResponse{
 				StatusCode: http.StatusNotFound,
 				Message:    err.Error(),
@@ -283,7 +283,7 @@ func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []m
 			grip.Error(err)
 			return gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Could not triage change points",
+				Message:    "problem triaging change points",
 			}
 		}
 	}
