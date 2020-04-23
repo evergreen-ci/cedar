@@ -518,9 +518,7 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 		operations = append(operations, &mongo.UpdateOneModel{Filter: cond, Update: update})
 	}
 
-	bulkOptions := options.BulkWriteOptions{}
-	bulkOptions.SetOrdered(true)
-	if _, err := env.GetDB().Collection(perfResultCollection).BulkWrite(ctx, operations, &bulkOptions); err != nil {
+	if _, err := env.GetDB().Collection(perfResultCollection).BulkWrite(ctx, operations, options.BulkWrite().SetOrdered(true)); err != nil {
 		return errors.Wrap(err, "Could not perform triaging update")
 	}
 	return nil
