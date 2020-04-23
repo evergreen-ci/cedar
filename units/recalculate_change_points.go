@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/aclements/go-moremath/stats"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
@@ -151,18 +153,10 @@ func (j *recalculateChangePointsJob) Run(ctx context.Context) {
 }
 
 func calculatePercentChange(lowerWindow, upperWindow []float64) float64 {
-	avgLowerWindow := getAverageValue(lowerWindow)
-	avgUpperWindow := getAverageValue(upperWindow)
+	avgLowerWindow := stats.Mean(lowerWindow)
+	avgUpperWindow := stats.Mean(upperWindow)
 
 	return 100 * ((avgUpperWindow / avgLowerWindow) - 1)
-}
-
-func getAverageValue(values []float64) float64 {
-	total := float64(0)
-	for _, value := range values {
-		total += value
-	}
-	return total / float64(len(values))
 }
 
 func algorithmConfigurationToOptions(configurationValues []perf.AlgorithmConfigurationValue) []model.AlgorithmOption {
