@@ -140,27 +140,11 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 		cpsWithIndexAndPercentChange := make([]changePointIndexPercentChange, len(cpIndices))
 		currentTimeSeries := timeSeries[measurement]
 		for i, pointIndex := range cpIndices {
-			var lowerBound int
-			var upperBound int
-
-			if i == 0 {
-				lowerBound = 0
-			} else {
-				lowerBound = cpIndices[i-1]
-			}
-
-			if i == len(cpIndices)-1 {
-				upperBound = len(currentTimeSeries)
-			} else {
-				upperBound = cpIndices[i+1]
-			}
-
-			lowerWindow := convertIntArrayToFloat64(currentTimeSeries[lowerBound:pointIndex])
-			upperWindow := convertIntArrayToFloat64(currentTimeSeries[pointIndex:upperBound])
-
-			percentChange := calculatePercentChange(lowerWindow, upperWindow)
+			// No need to average over windows, since they are constant --> just use points before/after the change
+			percentChange := 100 * ((float64(currentTimeSeries[pointIndex]) / float64(currentTimeSeries[pointIndex-1])) - 1)
 			cpsWithIndexAndPercentChange[i] = changePointIndexPercentChange{index: pointIndex, percentChange: percentChange}
 		}
+
 		changePoints[measurementName] = append(changePoints[measurementName], cpsWithIndexAndPercentChange...)
 	}
 
