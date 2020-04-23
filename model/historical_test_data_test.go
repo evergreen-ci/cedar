@@ -10,12 +10,12 @@ import (
 
 func TestCreateHistoricalTestData(t *testing.T) {
 	info := HistoricalTestDataInfo{
-		Project:   "project",
-		Variant:   "variant",
-		TaskName:  "task_name",
-		TestName:  "test_name",
-		Requester: "requester",
-		Date:      time.Now(),
+		Project:     "project",
+		Variant:     "variant",
+		TaskName:    "task_name",
+		TestName:    "test_name",
+		RequestType: "request_type",
+		Date:        time.Now(),
 	}
 
 	t.Run("MissingProject", func(t *testing.T) {
@@ -50,13 +50,13 @@ func TestCreateHistoricalTestData(t *testing.T) {
 		assert.Error(t, err)
 		info.TestName = testName
 	})
-	t.Run("MissingRequester", func(t *testing.T) {
-		requester := info.Requester
-		info.Requester = ""
+	t.Run("MissingRequestType", func(t *testing.T) {
+		RequestType := info.RequestType
+		info.RequestType = ""
 		htd, err := CreateHistoricalTestData(info)
 		assert.Nil(t, htd)
 		assert.Error(t, err)
-		info.Requester = requester
+		info.RequestType = RequestType
 	})
 	t.Run("MissingDate", func(t *testing.T) {
 		date := info.Date
