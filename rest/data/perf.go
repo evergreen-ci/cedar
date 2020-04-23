@@ -265,7 +265,6 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	return catcher.Resolve()
 }
 
-
 func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointInfo, status string) error {
 	ts := model.TriageStatus(status)
 	if err := ts.Validate(); err != nil {

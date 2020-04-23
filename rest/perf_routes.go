@@ -369,9 +369,8 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 //
 // POST /perf/change_points/triage/mark
 
-
 type changePointMarkRequest struct {
-	Status       string            `json:"status"`
+	Status       string                  `json:"status"`
 	ChangePoints []model.ChangePointInfo `json:"change_points"`
 }
 
