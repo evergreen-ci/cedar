@@ -492,7 +492,7 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 		return errors.Wrap(err, "Could not decode performance results for triage")
 	}
 
-	ChangePointsLoop:
+ChangePointsLoop:
 	for _, stub := range changePoints {
 		for _, res := range results {
 			if res.ID == stub.PerfResultID {
