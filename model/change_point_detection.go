@@ -492,19 +492,18 @@ func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints
 		return errors.Wrap(err, "Could not decode performance results for triage")
 	}
 
+	ChangePointsLoop:
 	for _, stub := range changePoints {
 		for _, res := range results {
 			if res.ID == stub.PerfResultID {
 				for _, cp := range res.Analysis.ChangePoints {
 					if cp.Measurement == stub.Measurement {
-						goto cont
+						continue ChangePointsLoop
 					}
 				}
 			}
 		}
 		return errors.Errorf("Could not find change point <%s> for performance result %s", stub.Measurement, stub.PerfResultID)
-	cont:
-		continue
 	}
 
 	update := bson.M{
