@@ -438,13 +438,13 @@ func TestTestResultsClose(t *testing.T) {
 
 func getTestResults() *TestResults {
 	info := TestResultsInfo{
-		Project:   utility.RandomString(),
-		Version:   utility.RandomString(),
-		Variant:   utility.RandomString(),
-		TaskName:  utility.RandomString(),
-		TaskID:    utility.RandomString(),
-		Execution: rand.Intn(5),
-		Requester: utility.RandomString(),
+		Project:     utility.RandomString(),
+		Version:     utility.RandomString(),
+		Variant:     utility.RandomString(),
+		TaskName:    utility.RandomString(),
+		TaskID:      utility.RandomString(),
+		Execution:   rand.Intn(5),
+		RequestType: utility.RandomString(),
 	}
 	return &TestResults{
 		ID:          info.ID(),
