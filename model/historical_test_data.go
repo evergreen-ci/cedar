@@ -2,8 +2,8 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -136,5 +136,5 @@ func (i *HistoricalTestDataInfo) validate() error {
 }
 
 func (i *HistoricalTestDataInfo) getPath() string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s/%d", i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Unix())
+	return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, string(i.Date.Unix()))
 }
