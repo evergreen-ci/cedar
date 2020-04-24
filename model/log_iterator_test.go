@@ -712,7 +712,6 @@ func TestLogIteratorTailReader(t *testing.T) {
 			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
 			expectedLine := fmt.Sprintf("[P:%3d] [%s] %s", lines[current].Priority, formattedTime, lines[current].Data)
 			assert.Equal(t, expectedLine, line+"\n")
-			fmt.Println(line)
 			current++
 		}
 		assert.Equal(t, len(lines), current)
