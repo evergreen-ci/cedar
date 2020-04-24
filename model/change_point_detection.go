@@ -23,14 +23,15 @@ var (
 )
 
 type ChangePoint struct {
-	Index        int           `bson:"index" json:"index" yaml:"index"`
-	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
-	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
-	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
-	Triage       TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
+	Index         int           `bson:"index" json:"index" yaml:"index"`
+	Measurement   string        `bson:"measurement" json:"measurement" yaml:"measurement"`
+	CalculatedOn  time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
+	Algorithm     AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+	Triage        TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
+	PercentChange float64       `bson:"percent_change" json:"percent_change" yaml:"percent_change"`
 }
 
-func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algoOptions []AlgorithmOption) ChangePoint {
+func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algoOptions []AlgorithmOption, percentChange float64) ChangePoint {
 	cp := ChangePoint{
 		Index: index,
 		Algorithm: AlgorithmInfo{
@@ -38,8 +39,9 @@ func CreateChangePoint(index int, measurement string, algorithmName string, algo
 			Version: algorithmVersion,
 			Options: algoOptions,
 		},
-		CalculatedOn: time.Now(),
-		Measurement:  measurement,
+		PercentChange: percentChange,
+		CalculatedOn:  time.Now(),
+		Measurement:   measurement,
 		Triage: TriageInfo{
 			Status: TriageStatusUntriaged,
 		},
