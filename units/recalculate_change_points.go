@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/aclements/go-moremath/stats"
-
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
