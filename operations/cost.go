@@ -1,10 +1,9 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"time"
-
-	"context"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/cost"
