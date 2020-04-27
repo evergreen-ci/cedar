@@ -108,14 +108,14 @@ func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error)
 		if err := conf.Find(); err != nil {
 			return nil, errors.Wrap(err, "problem getting application configuration")
 		}
-		d.bucket = conf.Bucket.HistoricalTestStatsBucket
+		d.bucket = conf.Bucket.TestResultsBucket
 	}
 
 	bucket, err := d.ArtifactType.Create(
 		ctx,
 		d.env,
 		d.bucket,
-		"",
+		historicalTestDataCollection,
 		string(pail.S3PermissionsPrivate),
 		true,
 	)

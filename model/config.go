@@ -158,11 +158,10 @@ var (
 
 // Credentials and other configuration information for pail Bucket usage.
 type BucketConfig struct {
-	AWSKey                    string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
-	AWSSecret                 string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
-	BuildLogsBucket           string `bson:"build_logs_bucket" json:"build_logs_bucket" yaml:"build_logs_bucket"`
-	TestResultsBucket         string `bson:"test_results_bucket" json:"test_results_bucket" yaml:"test_results_bucket"`
-	HistoricalTestStatsBucket string `bson:"historical_test_stats_bucket" json:"historical_test_stats_bucket" yaml:"historical_test_stats_bucket"`
+	AWSKey            string `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
+	AWSSecret         string `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
+	BuildLogsBucket   string `bson:"build_logs_bucket" json:"build_logs_bucket" yaml:"build_logs_bucket"`
+	TestResultsBucket string `bson:"test_results_bucket" json:"test_results_bucket" yaml:"test_results_bucket"`
 }
 
 var (

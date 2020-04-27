@@ -8,6 +8,7 @@ import (
 	"hash"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -31,6 +32,7 @@ type TestResults struct {
 	Artifact    TestResultsArtifactInfo `bson:"artifact"`
 
 	env       cedar.Environment
+	bucket    string
 	populated bool
 }
 
@@ -201,22 +203,9 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		t.ID = t.Info.ID()
 	}
 
-	conf := &CedarConfig{}
-	conf.Setup(t.env)
-	if err := conf.Find(); err != nil {
-		return nil, errors.Wrap(err, "problem getting application configuration")
-	}
-
-	bucket, err := t.Artifact.Type.Create(
-		ctx,
-		t.env,
-		conf.Bucket.TestResultsBucket,
-		t.Artifact.Prefix,
-		string(pail.S3PermissionsPrivate),
-		false,
-	)
+	bucket, prefix, err := t.getBucket(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem creating bucket")
+		return nil, err
 	}
 
 	iter, err := bucket.List(ctx, "")
@@ -233,8 +222,8 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		defer func() {
 			grip.Error(message.WrapError(r.Close(), message.Fields{
 				"message":  "problem closing bucket reader",
-				"bucket":   conf.Bucket.TestResultsBucket,
-				"prefix":   t.Artifact.Prefix,
+				"bucket":   t.bucket,
+				"prefix":   prefix,
 				"path":     iter.Item(),
 				"location": t.Artifact.Type,
 			}))
@@ -287,6 +276,38 @@ func (t *TestResults) Close(ctx context.Context) error {
 	}
 
 	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
+}
+
+func (t *TestResults) getBucket(ctx context.Context) (pail.Bucket, string, error) {
+	if t.bucket == "" {
+		conf := &CedarConfig{}
+		conf.Setup(t.env)
+		if err := conf.Find(); err != nil {
+			return nil, "", errors.Wrap(err, "problem getting application configuration")
+		}
+		t.bucket = conf.Bucket.TestResultsBucket
+	}
+
+	var prefix string
+	if t.Artifact.Type == PailLocal {
+		prefix = filepath.Join(testResultsCollection, t.Artifact.Prefix)
+	} else {
+		prefix = fmt.Sprintf("%s/%s", testResultsCollection, t.Artifact.Prefix)
+	}
+
+	bucket, err := t.Artifact.Type.Create(
+		ctx,
+		t.env,
+		t.bucket,
+		prefix,
+		string(pail.S3PermissionsPrivate),
+		true,
+	)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "problem creating bucket")
+	}
+
+	return bucket, prefix, nil
 }
 
 // TestResultsInfo describes information unique to a single task execution.

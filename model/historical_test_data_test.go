@@ -113,7 +113,7 @@ func TestHistoricalTestDataFind(t *testing.T) {
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
 
-	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: historicalTestDataCollection})
 	require.NoError(t, err)
 	hd1 := getHistoricalTestData(t)
 	hd2 := getHistoricalTestData(t)
@@ -138,7 +138,7 @@ func TestHistoricalTestDataFind(t *testing.T) {
 	})
 	conf.Setup(env)
 	require.NoError(t, conf.Find())
-	conf.Bucket.HistoricalTestStatsBucket = tmpDir
+	conf.Bucket.TestResultsBucket = tmpDir
 	require.NoError(t, conf.Save())
 	t.Run("NoEnv", func(t *testing.T) {
 		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
