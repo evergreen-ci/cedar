@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -86,7 +87,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	}
 
 	d.populated = false
-	r, err := bucket.Get(ctx, d.Info.getPath())
+	r, err := bucket.Get(ctx, d.Info.getPath(d.ArtifactType))
 	if err != nil {
 		return errors.Wrap(err, "problem getting data from bucket")
 	}
@@ -95,7 +96,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 			"message":  "problem closing bucket reader",
 			"bucket":   conf.Bucket.HistoricalTestStatsBucket,
 			"prefix":   "",
-			"path":     d.Info.getPath(),
+			"path":     d.Info.getPath(d.ArtifactType),
 			"location": d.ArtifactType,
 		}))
 	}()
@@ -135,6 +136,9 @@ func (i *HistoricalTestDataInfo) validate() error {
 	return catcher.Resolve()
 }
 
-func (i *HistoricalTestDataInfo) getPath() string {
-	return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, string(i.Date.Unix()))
+func (i *HistoricalTestDataInfo) getPath(artifactType PailType) string {
+	if artifactType == PailLocal {
+		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, fmt.Sprintf("%d", i.Date.Unix()))
+	}
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%d", i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Unix())
 }

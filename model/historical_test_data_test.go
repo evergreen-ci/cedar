@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -119,7 +120,8 @@ func TestHistoricalTestDataFind(t *testing.T) {
 	hd2 := getHistoricalTestData(t)
 	data, err := bson.Marshal(hd1)
 	require.NoError(t, err)
-	require.NoError(t, testBucket.Put(ctx, hd1.Info.getPath(), bytes.NewReader(data)))
+	fmt.Println(hd1.Info.getPath(PailLocal))
+	require.NoError(t, testBucket.Put(ctx, hd1.Info.getPath(hd1.ArtifactType), bytes.NewReader(data)))
 
 	t.Run("NoConfig", func(t *testing.T) {
 		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
