@@ -47,7 +47,7 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 		}
 
 		chunks[i].NumLines = j
-		chunks[i].End = ts.Add(-time.Minute)
+		chunks[i].End = ts.Add(-time.Millisecond)
 		ts = ts.Add(time.Hour)
 	}
 
