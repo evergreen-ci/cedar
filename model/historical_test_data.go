@@ -29,6 +29,7 @@ type HistoricalTestData struct {
 	ArtifactType    PailType               `bson:"artifact_type"`
 
 	env       cedar.Environment
+	bucket    string
 	populated bool
 }
 
@@ -69,24 +70,11 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 		return errors.New("cannot find with a nil environment")
 	}
 
-	conf := &CedarConfig{}
-	conf.Setup(d.env)
-	if err := conf.Find(); err != nil {
-		return errors.Wrap(err, "problem getting application configuration")
-	}
-	bucket, err := d.ArtifactType.Create(
-		ctx,
-		d.env,
-		conf.Bucket.HistoricalTestStatsBucket,
-		"",
-		string(pail.S3PermissionsPrivate),
-		true,
-	)
-	if err != nil {
-		return errors.Wrap(err, "problem creating bucket")
-	}
-
 	d.populated = false
+	bucket, err := d.getBucket(ctx)
+	if err != nil {
+		return err
+	}
 	r, err := bucket.Get(ctx, d.Info.getPath(d.ArtifactType))
 	if err != nil {
 		return errors.Wrap(err, "problem getting data from bucket")
@@ -94,7 +82,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	defer func() {
 		grip.Error(message.WrapError(r.Close(), message.Fields{
 			"message":  "problem closing bucket reader",
-			"bucket":   conf.Bucket.HistoricalTestStatsBucket,
+			"bucket":   d.bucket,
 			"prefix":   "",
 			"path":     d.Info.getPath(d.ArtifactType),
 			"location": d.ArtifactType,
@@ -111,6 +99,31 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	d.populated = true
 
 	return nil
+}
+
+func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error) {
+	if d.bucket == "" {
+		conf := &CedarConfig{}
+		conf.Setup(d.env)
+		if err := conf.Find(); err != nil {
+			return nil, errors.Wrap(err, "problem getting application configuration")
+		}
+		d.bucket = conf.Bucket.HistoricalTestStatsBucket
+	}
+
+	bucket, err := d.ArtifactType.Create(
+		ctx,
+		d.env,
+		d.bucket,
+		"",
+		string(pail.S3PermissionsPrivate),
+		true,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem creating bucket")
+	}
+
+	return bucket, nil
 }
 
 // HistoricalTestDataInfo describes information unique to a single test
