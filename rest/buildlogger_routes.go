@@ -490,14 +490,14 @@ func newBuildloggerResponder(data []byte, last, next time.Time, paginated bool) 
 				BaseURL:         baseURL,
 				KeyQueryParam:   "start",
 				LimitQueryParam: "limit",
-				Key:             last.Format(time.RFC3339),
+				Key:             last.Format(time.RFC3339Nano),
 				Relation:        "prev",
 			},
 			Next: &gimlet.Page{
 				BaseURL:         baseURL,
 				KeyQueryParam:   "start",
 				LimitQueryParam: "limit",
-				Key:             next.Format(time.RFC3339),
+				Key:             next.Format(time.RFC3339Nano),
 				Relation:        "next",
 			},
 		}

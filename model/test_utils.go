@@ -38,7 +38,7 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 				Data:      line + "\n",
 			}
 			rawLines += prependPriorityAndTimestamp(level.Debug, ts, line)
-			ts = ts.Add(time.Minute)
+			ts = ts.Add(time.Millisecond)
 			j++
 		}
 

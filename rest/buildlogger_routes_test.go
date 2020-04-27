@@ -209,8 +209,8 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 		pages := resp.Pages()
 		if rh.(*logGetByIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
-			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-			s.Equal(rh.(*logGetByIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339), pages.Prev.Key)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
+			s.Equal(rh.(*logGetByIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -357,8 +357,8 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		pages := resp.Pages()
 		if rh.(*logGetByTaskIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
-			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339), pages.Prev.Key)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -390,8 +390,8 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		pages = resp.Pages()
 		if rh.(*logGetByTaskIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
-			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339), pages.Prev.Key)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -417,8 +417,8 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		pages = resp.Pages()
 		if rh.(*logGetByTaskIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
-			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339), pages.Prev.Key)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
+			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -591,8 +591,8 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		pages := resp.Pages()
 		if rh.(*logGetByTestNameHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
-			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-			s.Equal(rh.(*logGetByTestNameHandler).opts.TimeRange.StartAt.Format(time.RFC3339), pages.Prev.Key)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
+			s.Equal(rh.(*logGetByTestNameHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -763,8 +763,8 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		pages := resp.Pages()
 		if rh.(*logGroupHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
-			s.Equal(it.Item().Timestamp.Format(time.RFC3339), pages.Next.Key)
-			s.Equal(rh.(*logGroupHandler).opts.TimeRange.StartAt.Format(time.RFC3339), pages.Prev.Key)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
+			s.Equal(rh.(*logGroupHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -1082,14 +1082,14 @@ func TestNewBuildloggerResponder(t *testing.T) {
 			BaseURL:         baseURL,
 			KeyQueryParam:   "start",
 			LimitQueryParam: "limit",
-			Key:             last.Format(time.RFC3339),
+			Key:             last.Format(time.RFC3339Nano),
 			Relation:        "prev",
 		}
 		expectedNext := &gimlet.Page{
 			BaseURL:         baseURL,
 			KeyQueryParam:   "start",
 			LimitQueryParam: "limit",
-			Key:             next.Format(time.RFC3339),
+			Key:             next.Format(time.RFC3339Nano),
 			Relation:        "next",
 		}
 		assert.Equal(t, expectedPrev, pages.Prev)

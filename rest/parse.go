@@ -14,7 +14,7 @@ func parseTimeRange(vals url.Values, start, end string) (model.TimeRange, error)
 	endAt := vals.Get(end)
 
 	if startAt != "" {
-		s, err := time.ParseInLocation(time.RFC3339, startAt, time.UTC)
+		s, err := time.ParseInLocation(time.RFC3339Nano, startAt, time.UTC)
 		if err != nil {
 			return model.TimeRange{}, errors.Errorf("problem parsing start time '%s'", startAt)
 		}
@@ -22,7 +22,7 @@ func parseTimeRange(vals url.Values, start, end string) (model.TimeRange, error)
 	}
 
 	if endAt != "" {
-		e, err := time.ParseInLocation(time.RFC3339, endAt, time.UTC)
+		e, err := time.ParseInLocation(time.RFC3339Nano, endAt, time.UTC)
 		if err != nil {
 			return model.TimeRange{}, errors.Errorf("problem parsing end time '%s'", endAt)
 		}
