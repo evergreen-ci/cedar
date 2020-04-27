@@ -3,7 +3,6 @@ package model
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -107,7 +106,7 @@ func TestHistoricalTestDataFind(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "find-test")
+	tmpDir, err := ioutil.TempDir("", "find-test")
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
@@ -120,7 +119,6 @@ func TestHistoricalTestDataFind(t *testing.T) {
 	hd2 := getHistoricalTestData(t)
 	data, err := bson.Marshal(hd1)
 	require.NoError(t, err)
-	fmt.Println(hd1.Info.getPath(PailLocal))
 	require.NoError(t, testBucket.Put(ctx, hd1.Info.getPath(hd1.ArtifactType), bytes.NewReader(data)))
 
 	t.Run("NoConfig", func(t *testing.T) {
