@@ -119,7 +119,7 @@ func TestHistoricalTestDataFind(t *testing.T) {
 	hd2 := getHistoricalTestData(t)
 	data, err := bson.Marshal(hd1)
 	require.NoError(t, err)
-	require.NoError(t, testBucket.Put(ctx, hd1.Info.getPath(hd1.ArtifactType), bytes.NewReader(data)))
+	require.NoError(t, testBucket.Put(ctx, hd1.getPath(), bytes.NewReader(data)))
 
 	t.Run("NoConfig", func(t *testing.T) {
 		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
@@ -159,7 +159,110 @@ func TestHistoricalTestDataFind(t *testing.T) {
 		assert.Equal(t, hd1.NumFail, hd.NumFail)
 		assert.Equal(t, hd1.Durations, hd.Durations)
 		assert.Equal(t, hd1.AverageDuration, hd.AverageDuration)
+		assert.Equal(t, hd1.ArtifactType, hd.ArtifactType)
 		assert.True(t, hd.populated)
+		assert.Equal(t, tmpDir, hd.bucket)
+	})
+}
+
+func TestHistoricalTestDataSaveNew(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir("", "save-new-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: historicalTestDataCollection})
+	require.NoError(t, err)
+	hd := getHistoricalTestData(t)
+
+	t.Run("NoConfig", func(t *testing.T) {
+		hd.Setup(env)
+		hd.populated = true
+
+		assert.Error(t, hd.SaveNew(ctx))
+		_, err = testBucket.Get(ctx, hd.getPath())
+		assert.Error(t, err)
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		hd.Setup(env)
+		hd.populated = true
+
+		assert.Error(t, hd.SaveNew(ctx))
+		_, err = testBucket.Get(ctx, hd.getPath())
+		assert.Error(t, err)
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("NoEnv", func(t *testing.T) {
+		hd.Setup(nil)
+		hd.populated = true
+
+		assert.Error(t, hd.SaveNew(ctx))
+		_, err = testBucket.Get(ctx, hd.getPath())
+		assert.Error(t, err)
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("NoEnv", func(t *testing.T) {
+		hd.Setup(nil)
+		hd.populated = true
+
+		assert.Error(t, hd.SaveNew(ctx))
+		_, err = testBucket.Get(ctx, hd.getPath())
+		assert.Error(t, err)
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("NoEnv", func(t *testing.T) {
+		hd.Setup(nil)
+		hd.populated = true
+
+		assert.Error(t, hd.SaveNew(ctx))
+		_, err = testBucket.Get(ctx, hd.getPath())
+		assert.Error(t, err)
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		hd.Setup(env)
+		hd.populated = false
+
+		assert.Error(t, hd.SaveNew(ctx))
+		_, err = testBucket.Get(ctx, hd.getPath())
+		assert.Error(t, err)
+	})
+	t.Run("SavesOnce", func(t *testing.T) {
+		hd.Setup(env)
+		hd.populated = true
+
+		require.NoError(t, hd.SaveNew(ctx))
+		r, err := testBucket.Get(ctx, hd.getPath())
+		require.NoError(t, err)
+		data, err := ioutil.ReadAll(r)
+		require.NoError(t, err)
+		actual := &HistoricalTestData{}
+		require.NoError(t, bson.Unmarshal(data, actual))
+		assert.Equal(t, hd.Info, actual.Info)
+		assert.Equal(t, hd.NumPass, actual.NumPass)
+		assert.Equal(t, hd.NumFail, actual.NumFail)
+		assert.Equal(t, hd.Durations, actual.Durations)
+		assert.Equal(t, hd.AverageDuration, actual.AverageDuration)
+		assert.Equal(t, hd.ArtifactType, actual.ArtifactType)
+
+		assert.Error(t, hd.SaveNew(ctx))
 	})
 }
 
