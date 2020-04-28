@@ -110,11 +110,6 @@ func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
 		return errors.New("cannot find with a nil environment")
 	}
 
-	data, err := bson.Marshal(d)
-	if err != nil {
-		return errors.Wrap(err, "problem marshalling historical test data")
-	}
-
 	bucket, err := d.getBucket(ctx)
 	if err != nil {
 		return err
@@ -125,6 +120,11 @@ func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
 	}
 	if it.Next(ctx) {
 		return errors.Errorf("historical test data with path %s already exists", d.getPath())
+	}
+
+	data, err := bson.Marshal(d)
+	if err != nil {
+		return errors.Wrap(err, "problem marshalling historical test data")
 	}
 	if err = bucket.Put(ctx, d.getPath(), bytes.NewReader(data)); err != nil {
 		return errors.Wrap(err, "problem saving historical test data to bucket")
