@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -75,7 +76,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r, err := bucket.Get(ctx, d.Info.getPath(d.ArtifactType))
+	r, err := bucket.Get(ctx, d.getPath())
 	if err != nil {
 		return errors.Wrap(err, "problem getting data from bucket")
 	}
@@ -84,7 +85,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 			"message":  "problem closing bucket reader",
 			"bucket":   d.bucket,
 			"prefix":   "",
-			"path":     d.Info.getPath(d.ArtifactType),
+			"path":     d.getPath(),
 			"location": d.ArtifactType,
 		}))
 	}()
@@ -97,6 +98,40 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 		return errors.Wrap(err, "problem unmarshalling data")
 	}
 	d.populated = true
+
+	return nil
+}
+
+// SaveNew saves a new HistoricalTestData to the Pail backed storage, if a file
+// with the same name exists, an error is returned. The HistoricalTestData
+// should be populated and the environment should not be nil.
+func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
+	if !d.populated {
+		return errors.New("cannot save unpopulated historical test data")
+	}
+	if d.env == nil {
+		return errors.New("cannot find with a nil environment")
+	}
+
+	bucket, err := d.getBucket(ctx)
+	if err != nil {
+		return err
+	}
+	it, err := bucket.List(ctx, d.getPath())
+	if err != nil {
+		return errors.Wrap(err, "problem listing bucket items")
+	}
+	if it.Next(ctx) {
+		return errors.Errorf("historical test data with path %s already exists", d.getPath())
+	}
+
+	data, err := bson.Marshal(d)
+	if err != nil {
+		return errors.Wrap(err, "problem marshalling historical test data")
+	}
+	if err = bucket.Put(ctx, d.getPath(), bytes.NewReader(data)); err != nil {
+		return errors.Wrap(err, "problem saving historical test data to bucket")
+	}
 
 	return nil
 }
@@ -126,6 +161,14 @@ func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error)
 	return bucket, nil
 }
 
+func (d *HistoricalTestData) getPath() string {
+	i := d.Info
+	if d.ArtifactType == PailLocal {
+		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, fmt.Sprintf("%d", i.Date.Unix()))
+	}
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%d", i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Unix())
+}
+
 // HistoricalTestDataInfo describes information unique to a single test
 // statistics document.
 type HistoricalTestDataInfo struct {
@@ -147,11 +190,4 @@ func (i *HistoricalTestDataInfo) validate() error {
 	catcher.NewWhen(i.Date.IsZero(), "date field must not be zero")
 
 	return catcher.Resolve()
-}
-
-func (i *HistoricalTestDataInfo) getPath(artifactType PailType) string {
-	if artifactType == PailLocal {
-		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, fmt.Sprintf("%d", i.Date.Unix()))
-	}
-	return fmt.Sprintf("%s/%s/%s/%s/%s/%d", i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Unix())
 }
