@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-
-	"github.com/pkg/errors"
+	"strings"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -15,6 +14,7 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
 )
 
 /////////////////////////////
@@ -265,6 +265,31 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	return catcher.Resolve()
 }
 
+func (dbc *DBConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointInfo, status string) error {
+	ts := model.TriageStatus(status)
+	if err := ts.Validate(); err != nil {
+		return gimlet.ErrorResponse{
+			StatusCode: http.StatusUnprocessableEntity,
+			Message:    fmt.Sprintf("Invalid triage status: %s", status),
+		}
+	}
+	if err := model.TriageChangePoints(ctx, dbc.env, changePoints, ts); err != nil {
+		if strings.Contains(err.Error(), "problem finding change point") {
+			return gimlet.ErrorResponse{
+				StatusCode: http.StatusNotFound,
+				Message:    err.Error(),
+			}
+		} else {
+			grip.Error(err)
+			return gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "problem triaging change points",
+			}
+		}
+	}
+	return nil
+}
+
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
@@ -469,5 +494,9 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 // ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
 // each project/version/task/test combination
 func (mc *MockConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
+	return nil
+}
+
+func (mc *MockConnector) TriageChangePoints(ctx context.Context, changePoints []model.ChangePointInfo, status string) error {
 	return nil
 }

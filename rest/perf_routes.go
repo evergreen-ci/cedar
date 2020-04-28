@@ -358,7 +358,61 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",
-			"route":   "/perf/signal_processing/recalculate",
+			"route":   "/perf/change_points",
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+	return gimlet.NewJSONResponse(struct{}{})
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// POST /perf/change_points/triage/mark
+
+type changePointMarkRequest struct {
+	Status       string                  `json:"status"`
+	ChangePoints []model.ChangePointInfo `json:"change_points"`
+}
+
+type perfChangePointTriageMarkHandler struct {
+	sc  data.Connector
+	req changePointMarkRequest
+}
+
+func makePerfChangePointTriageMarkHandler(sc data.Connector) gimlet.RouteHandler {
+	return &perfChangePointTriageMarkHandler{
+		sc: sc,
+	}
+}
+
+func (h *perfChangePointTriageMarkHandler) Factory() gimlet.RouteHandler {
+	return &perfChangePointTriageMarkHandler{
+		sc: h.sc,
+	}
+}
+
+func (h *perfChangePointTriageMarkHandler) Parse(ctx context.Context, r *http.Request) error {
+	err := gimlet.GetJSON(r.Body, h.req)
+	if err != nil {
+		err = errors.Wrapf(err, "Error parsing triage status change request")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "POST",
+			"route":   "/perf/change_points/triage/mark",
+		}))
+		return err
+	}
+	return nil
+}
+
+func (h *perfChangePointTriageMarkHandler) Run(ctx context.Context) gimlet.Responder {
+	err := h.sc.TriageChangePoints(ctx, h.req.ChangePoints, h.req.Status)
+	if err != nil {
+		err = errors.Wrapf(err, "Error triaging change points")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "POST",
+			"route":   "/perf/change_points/triage/mark",
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}

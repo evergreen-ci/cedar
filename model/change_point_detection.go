@@ -10,6 +10,8 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PerfAnalysis struct {
@@ -23,14 +25,15 @@ var (
 )
 
 type ChangePoint struct {
-	Index        int           `bson:"index" json:"index" yaml:"index"`
-	Measurement  string        `bson:"measurement" json:"measurement" yaml:"measurement"`
-	CalculatedOn time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
-	Algorithm    AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
-	Triage       TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
+	Index         int           `bson:"index" json:"index" yaml:"index"`
+	Measurement   string        `bson:"measurement" json:"measurement" yaml:"measurement"`
+	CalculatedOn  time.Time     `bson:"calculated_on" json:"calculated_on" yaml:"calculated_on"`
+	Algorithm     AlgorithmInfo `bson:"algorithm" json:"algorithm" yaml:"algorithm"`
+	Triage        TriageInfo    `bson:"triage" json:"triage" yaml:"triage"`
+	PercentChange float64       `bson:"percent_change" json:"percent_change" yaml:"percent_change"`
 }
 
-func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algoOptions []AlgorithmOption) ChangePoint {
+func CreateChangePoint(index int, measurement string, algorithmName string, algorithmVersion int, algoOptions []AlgorithmOption, percentChange float64) ChangePoint {
 	cp := ChangePoint{
 		Index: index,
 		Algorithm: AlgorithmInfo{
@@ -38,8 +41,9 @@ func CreateChangePoint(index int, measurement string, algorithmName string, algo
 			Version: algorithmVersion,
 			Options: algoOptions,
 		},
-		CalculatedOn: time.Now(),
-		Measurement:  measurement,
+		PercentChange: percentChange,
+		CalculatedOn:  time.Now(),
+		Measurement:   measurement,
 		Triage: TriageInfo{
 			Status: TriageStatusUntriaged,
 		},
@@ -462,6 +466,64 @@ func createChangePoint(ctx context.Context, env cedar.Environment, resultToUpdat
 	return errors.Wrap(err, "Unable to create change point")
 }
 
+type ChangePointInfo struct {
+	PerfResultID string `json:"perf_result_id"`
+	Measurement  string `json:"measurement"`
+}
+
+func TriageChangePoints(ctx context.Context, env cedar.Environment, changePoints []ChangePointInfo, status TriageStatus) error {
+	coll := env.GetDB().Collection(perfResultCollection)
+
+	conditions := make([]bson.M, len(changePoints))
+	for i, stub := range changePoints {
+		conditions[i] = bson.M{
+			perfIDKey: stub.PerfResultID,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): stub.Measurement,
+		}
+	}
+	filter := bson.M{
+		"$or": conditions,
+	}
+
+	cur, err := coll.Find(ctx, filter)
+	if err != nil {
+		return errors.Wrap(err, "problem executing query finding change points for triage")
+	}
+	var results []PerformanceResult
+	if err := cur.All(ctx, &results); err != nil {
+		return errors.Wrap(err, "problem decoding performance results for triage")
+	}
+
+ChangePointsLoop:
+	for _, stub := range changePoints {
+		for _, res := range results {
+			if res.ID == stub.PerfResultID {
+				for _, cp := range res.Analysis.ChangePoints {
+					if cp.Measurement == stub.Measurement {
+						continue ChangePointsLoop
+					}
+				}
+			}
+		}
+		return errors.Errorf("problem finding change point <%s> for performance result %s", stub.Measurement, stub.PerfResultID)
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoStatusKey):    status,
+			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "$", perfChangePointTriageKey, perfTriageInfoTriagedOnKey): time.Now(),
+		},
+	}
+	var operations []mongo.WriteModel
+	for _, cond := range conditions {
+		operations = append(operations, &mongo.UpdateOneModel{Filter: cond, Update: update})
+	}
+
+	if _, err := env.GetDB().Collection(perfResultCollection).BulkWrite(ctx, operations, options.BulkWrite().SetOrdered(true)); err != nil {
+		return errors.Wrap(err, "problem performing triaging update")
+	}
+	return nil
+}
 func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID string, measurement string, status TriageStatus) error {
 	filter := bson.M{
 		perfIDKey: perfResultID,
@@ -478,7 +540,7 @@ func TriageChangePoint(ctx context.Context, env cedar.Environment, perfResultID 
 		return errors.Wrap(err, "Unable to change triage status of change point")
 	}
 	if res.ModifiedCount != 1 {
-		return errors.Errorf("Error triaging change point on measurement %s for performance results %s, modified count: %d", measurement, perfResultID, res.ModifiedCount)
+		return errors.Errorf("problem triaging change point on measurement %s for performance results %s, modified count: %d", measurement, perfResultID, res.ModifiedCount)
 	}
 	return nil
 }

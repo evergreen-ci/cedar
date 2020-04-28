@@ -46,7 +46,7 @@ func TestLogIterator(t *testing.T) {
 	completeTimeRange := TimeRange{EndAt: chunks[len(chunks)-1].End}
 	partialTimeRange := TimeRange{
 		StartAt: chunks[1].Start,
-		EndAt:   chunks[len(chunks)-1].End.Add(-time.Minute),
+		EndAt:   chunks[len(chunks)-1].End.Add(-time.Millisecond),
 	}
 	offset := chunks[0].NumLines
 	partialLinesLen := len(lines) - chunks[0].NumLines - 1
@@ -211,7 +211,7 @@ func TestMergeLogIterator(t *testing.T) {
 		for it.Next(ctx) {
 			logLine := it.Item()
 			require.True(t, count < len(lines))
-			assert.Equal(t, lines[count], logLine)
+			require.Equal(t, lines[count], logLine)
 			count++
 		}
 		assert.Equal(t, len(lines), count)
@@ -242,11 +242,11 @@ func TestMergeLogIterator(t *testing.T) {
 		for it.Next(ctx) {
 			logLine := it.Item()
 
-			assert.True(t, lastTime.Before(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
+			require.True(t, lastTime.Before(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
 			lastTime = logLine.Timestamp
 			seen, ok := lineMap[logLine.Data]
 			require.True(t, ok)
-			assert.False(t, seen)
+			require.False(t, seen)
 			lineMap[logLine.Data] = true
 			count++
 		}
@@ -277,11 +277,11 @@ func TestMergeLogIterator(t *testing.T) {
 		lastTime := time.Now().Add(365 * 24 * time.Hour)
 		for it.Next(ctx) {
 			logLine := it.Item()
-			assert.True(t, lastTime.After(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
+			require.True(t, lastTime.After(logLine.Timestamp) || lastTime.Equal(logLine.Timestamp))
 			lastTime = logLine.Timestamp
 			seen, ok := lineMap[logLine.Data]
 			require.True(t, ok)
-			assert.False(t, seen)
+			require.False(t, seen)
 			lineMap[logLine.Data] = true
 			count++
 		}
@@ -337,8 +337,8 @@ func TestLogIteratorReader(t *testing.T) {
 			n, err := r.Read(p)
 			nTotal += n
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -351,7 +351,7 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Equal(t, "", readLines[len(readLines)-1])
 		for _, line := range readLines[:len(readLines)-1] {
 			require.True(t, current < len(lines))
-			assert.Equal(t, lines[current].Data, line+"\n")
+			require.Equal(t, lines[current].Data, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -370,8 +370,8 @@ func TestLogIteratorReader(t *testing.T) {
 			n, err := r.Read(p)
 			nTotal += n
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -386,7 +386,7 @@ func TestLogIteratorReader(t *testing.T) {
 			require.True(t, current < len(lines))
 			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
 			expectedLine := fmt.Sprintf("[%s] %s", formattedTime, lines[current].Data)
-			assert.Equal(t, expectedLine, line+"\n")
+			require.Equal(t, expectedLine, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -405,8 +405,8 @@ func TestLogIteratorReader(t *testing.T) {
 			n, err := r.Read(p)
 			nTotal += n
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -420,7 +420,7 @@ func TestLogIteratorReader(t *testing.T) {
 		for _, line := range readLines[:len(readLines)-1] {
 			require.True(t, current < len(lines))
 			expectedLine := fmt.Sprintf("[P:%3d] %s", lines[current].Priority, lines[current].Data)
-			assert.Equal(t, expectedLine, line+"\n")
+			require.Equal(t, expectedLine, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -439,8 +439,8 @@ func TestLogIteratorReader(t *testing.T) {
 			n, err := r.Read(p)
 			nTotal += n
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -455,7 +455,7 @@ func TestLogIteratorReader(t *testing.T) {
 			require.True(t, current < len(lines))
 			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
 			expectedLine := fmt.Sprintf("[P:%3d] [%s] %s", lines[current].Priority, formattedTime, lines[current].Data)
-			assert.Equal(t, expectedLine, line+"\n")
+			require.Equal(t, expectedLine, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -474,8 +474,8 @@ func TestLogIteratorReader(t *testing.T) {
 			n, err := r.Read(p)
 			nTotal += n
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -488,7 +488,7 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Equal(t, "", readLines[len(readLines)-1])
 		for _, line := range readLines[:len(readLines)-1] {
 			require.True(t, current < len(lines))
-			assert.Equal(t, lines[current].Data, line+"\n")
+			require.Equal(t, lines[current].Data, line+"\n")
 			current++
 		}
 		assert.Equal(t, 40, current)
@@ -512,8 +512,8 @@ func TestLogIteratorReader(t *testing.T) {
 			n, err := r.Read(p)
 			nTotal += n
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -527,7 +527,7 @@ func TestLogIteratorReader(t *testing.T) {
 		assert.Equal(t, "", readLines[len(readLines)-1])
 		for _, line := range readLines[:len(readLines)-1] {
 			require.True(t, current < len(lines))
-			assert.Equal(t, lines[current].Data, line+"\n")
+			require.Equal(t, lines[current].Data, line+"\n")
 			totalLines++
 			if totalLines > 2 && totalLines%3 == 0 {
 				current++
@@ -545,7 +545,7 @@ func TestLogIteratorReader(t *testing.T) {
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
-			assert.Zero(t, n)
+			require.Zero(t, n)
 			if err == io.EOF {
 				break
 			}
@@ -609,7 +609,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 		assert.Equal(t, "", readLines[len(readLines)-1])
 		for _, line := range readLines[:len(readLines)-1] {
 			require.True(t, current < len(lines))
-			assert.Equal(t, lines[current].Data, line+"\n")
+			require.Equal(t, lines[current].Data, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -627,8 +627,8 @@ func TestLogIteratorTailReader(t *testing.T) {
 		for {
 			n, err := r.Read(p)
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -642,7 +642,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 			require.True(t, current < len(lines))
 			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
 			expectedLine := fmt.Sprintf("[%s] %s", formattedTime, lines[current].Data)
-			assert.Equal(t, expectedLine, line+"\n")
+			require.Equal(t, expectedLine, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -660,8 +660,8 @@ func TestLogIteratorTailReader(t *testing.T) {
 		for {
 			n, err := r.Read(p)
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -674,7 +674,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 		for _, line := range readLines[:len(readLines)-1] {
 			require.True(t, current < len(lines))
 			expectedLine := fmt.Sprintf("[P:%3d] %s", lines[current].Priority, lines[current].Data)
-			assert.Equal(t, expectedLine, line+"\n")
+			require.Equal(t, expectedLine, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -696,8 +696,8 @@ func TestLogIteratorTailReader(t *testing.T) {
 		for {
 			n, err := r.Read(p)
 			readData = append(readData, p[:n]...)
-			assert.True(t, n >= 0)
-			assert.True(t, n <= len(p))
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
 			if err == io.EOF {
 				break
 			}
@@ -711,7 +711,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 			require.True(t, current < len(lines))
 			formattedTime := lines[current].Timestamp.Format("2006/01/02 15:04:05.000")
 			expectedLine := fmt.Sprintf("[P:%3d] [%s] %s", lines[current].Priority, formattedTime, lines[current].Data)
-			assert.Equal(t, expectedLine, line+"\n")
+			require.Equal(t, expectedLine, line+"\n")
 			current++
 		}
 		assert.Equal(t, len(lines), current)
@@ -727,7 +727,7 @@ func TestLogIteratorTailReader(t *testing.T) {
 		p := make([]byte, 0)
 		for {
 			n, err := r.Read(p)
-			assert.Zero(t, n)
+			require.Zero(t, n)
 			if err == io.EOF {
 				break
 			}
