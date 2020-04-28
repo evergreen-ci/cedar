@@ -102,6 +102,9 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	return nil
 }
 
+// SaveNew saves a new HistoricalTestData to the Pail backed storage, if a file
+// with the same name exists, an error is returned. The HistoricalTestData
+// should be populated and the environment should not be nil.
 func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
 	if !d.populated {
 		return errors.New("cannot save unpopulated historical test data")
