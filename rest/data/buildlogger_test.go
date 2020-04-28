@@ -235,7 +235,7 @@ func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {
 			expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 			s.Require().NoError(err)
 			s.Equal(expected, data)
-			s.Equal(it.Item().Timestamp, next)
+			s.Zero(next)
 		}
 	}
 }
@@ -287,7 +287,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		apiLogs, err := s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -312,7 +312,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		apiLogs, err = s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -337,7 +337,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		// limit
 		logs = model.Logs{}
@@ -356,7 +356,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		// tail and execution
 		opts.Info.Execution = 0
@@ -378,7 +378,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 	}
 }
 
@@ -438,7 +438,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -464,7 +464,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -490,7 +490,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		// limit
 		it, err = logs.Merge(s.ctx)
@@ -506,7 +506,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 	}
 }
 
@@ -539,7 +539,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 	s.Require().NoError(err)
 	s.Equal(expected, data)
-	s.Equal(it.Item().Timestamp, next)
+	s.Zero(next)
 
 	apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
@@ -565,7 +565,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 	s.Require().NoError(err)
 	s.Equal(expected, data)
-	s.Equal(it.Item().Timestamp, next)
+	s.Zero(next)
 
 	apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
@@ -589,7 +589,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 	s.Require().NoError(err)
 	s.Equal(expected, data)
-	s.Equal(it.Item().Timestamp, next)
+	s.Zero(next)
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
@@ -662,7 +662,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		// limit
 		it1, err = logs1.Merge(s.ctx)
@@ -682,7 +682,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 	}
 }
 
@@ -726,7 +726,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 
 		// limit
 		it, err = logs.Merge(s.ctx)
@@ -743,7 +743,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
-		s.Equal(it.Item().Timestamp, next)
+		s.Zero(next)
 	}
 }
 

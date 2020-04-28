@@ -493,13 +493,15 @@ func newBuildloggerResponder(data []byte, last, next time.Time, paginated bool) 
 				Key:             last.Format(time.RFC3339Nano),
 				Relation:        "prev",
 			},
-			Next: &gimlet.Page{
+		}
+		if !next.IsZero() {
+			pages.Next = &gimlet.Page{
 				BaseURL:         baseURL,
 				KeyQueryParam:   "start",
 				LimitQueryParam: "limit",
 				Key:             next.Format(time.RFC3339Nano),
 				Relation:        "next",
-			},
+			}
 		}
 
 		if err := resp.SetPages(pages); err != nil {
