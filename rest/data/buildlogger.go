@@ -58,7 +58,12 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, nil
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -136,7 +141,12 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, nil
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -194,7 +204,12 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, nil
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, nil
 }
 
 func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -271,7 +286,12 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, nil
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, nil
 }
 
 func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions, emptyExecution bool) (dbModel.LogIterator, error) {
@@ -359,7 +379,12 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, ctx.Err()
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*model.APILog, error) {
@@ -439,7 +464,12 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, nil
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -496,7 +526,12 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, ctx.Err()
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
@@ -567,7 +602,12 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 		}
 	}
 
-	return data, it.Item().Timestamp, paginated, ctx.Err()
+	next := it.Item().Timestamp
+	if !it.Next(ctx) {
+		next = time.Time{}
+	}
+
+	return data, next, paginated, ctx.Err()
 }
 
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions, emptyExecution bool) (dbModel.LogIterator, error) {
