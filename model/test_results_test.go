@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -308,7 +309,7 @@ func TestTestResultsDownload(t *testing.T) {
 	}()
 
 	tr := getTestResults()
-	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: filepath.Join(testResultsCollection, tr.ID)})
 	require.NoError(t, err)
 
 	results := []TestResult{}
