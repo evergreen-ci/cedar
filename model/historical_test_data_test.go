@@ -251,6 +251,9 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		require.NoError(t, hd.SaveNew(ctx))
 		r, err := testBucket.Get(ctx, hd.getPath())
 		require.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Close())
+		}()
 		data, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		actual := &HistoricalTestData{}
