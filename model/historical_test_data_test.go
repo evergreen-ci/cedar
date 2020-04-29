@@ -165,12 +165,12 @@ func TestHistoricalTestDataFind(t *testing.T) {
 	})
 }
 
-func TestHistoricalTestDataSaveNew(t *testing.T) {
+func TestHistoricalTestDataSave(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tmpDir, err := ioutil.TempDir("", "save-new-test")
+	tmpDir, err := ioutil.TempDir("", "save-test")
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
@@ -185,7 +185,7 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		hd.Setup(env)
 		hd.populated = true
 
-		assert.Error(t, hd.SaveNew(ctx))
+		assert.Error(t, hd.Save(ctx))
 		_, err = testBucket.Get(ctx, hd.getPath())
 		assert.Error(t, err)
 	})
@@ -196,7 +196,7 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		hd.Setup(env)
 		hd.populated = true
 
-		assert.Error(t, hd.SaveNew(ctx))
+		assert.Error(t, hd.Save(ctx))
 		_, err = testBucket.Get(ctx, hd.getPath())
 		assert.Error(t, err)
 	})
@@ -208,7 +208,7 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		hd.Setup(nil)
 		hd.populated = true
 
-		assert.Error(t, hd.SaveNew(ctx))
+		assert.Error(t, hd.Save(ctx))
 		_, err = testBucket.Get(ctx, hd.getPath())
 		assert.Error(t, err)
 	})
@@ -220,7 +220,7 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		hd.Setup(nil)
 		hd.populated = true
 
-		assert.Error(t, hd.SaveNew(ctx))
+		assert.Error(t, hd.Save(ctx))
 		_, err = testBucket.Get(ctx, hd.getPath())
 		assert.Error(t, err)
 	})
@@ -232,7 +232,7 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		hd.Setup(nil)
 		hd.populated = true
 
-		assert.Error(t, hd.SaveNew(ctx))
+		assert.Error(t, hd.Save(ctx))
 		_, err = testBucket.Get(ctx, hd.getPath())
 		assert.Error(t, err)
 	})
@@ -240,21 +240,21 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		hd.Setup(env)
 		hd.populated = false
 
-		assert.Error(t, hd.SaveNew(ctx))
+		assert.Error(t, hd.Save(ctx))
 		_, err = testBucket.Get(ctx, hd.getPath())
 		assert.Error(t, err)
 	})
-	t.Run("SavesOnce", func(t *testing.T) {
+	t.Run("SaveOverWrites", func(t *testing.T) {
 		hd.Setup(env)
 		hd.populated = true
 
-		require.NoError(t, hd.SaveNew(ctx))
-		r, err := testBucket.Get(ctx, hd.getPath())
+		require.NoError(t, hd.Save(ctx))
+		r1, err := testBucket.Get(ctx, hd.getPath())
 		require.NoError(t, err)
 		defer func() {
-			assert.NoError(t, r.Close())
+			assert.NoError(t, r1.Close())
 		}()
-		data, err := ioutil.ReadAll(r)
+		data, err := ioutil.ReadAll(r1)
 		require.NoError(t, err)
 		actual := &HistoricalTestData{}
 		require.NoError(t, bson.Unmarshal(data, actual))
@@ -265,7 +265,23 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 		assert.Equal(t, hd.AverageDuration, actual.AverageDuration)
 		assert.Equal(t, hd.ArtifactType, actual.ArtifactType)
 
-		assert.Error(t, hd.SaveNew(ctx))
+		hd.NumPass += 5
+		require.NoError(t, hd.Save(ctx))
+		r2, err := testBucket.Get(ctx, hd.getPath())
+		require.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r2.Close())
+		}()
+		data, err = ioutil.ReadAll(r2)
+		require.NoError(t, err)
+		actual = &HistoricalTestData{}
+		require.NoError(t, bson.Unmarshal(data, actual))
+		assert.Equal(t, hd.Info, actual.Info)
+		assert.Equal(t, hd.NumPass, actual.NumPass)
+		assert.Equal(t, hd.NumFail, actual.NumFail)
+		assert.Equal(t, hd.Durations, actual.Durations)
+		assert.Equal(t, hd.AverageDuration, actual.AverageDuration)
+		assert.Equal(t, hd.ArtifactType, actual.ArtifactType)
 	})
 }
 
