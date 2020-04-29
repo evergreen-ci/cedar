@@ -191,7 +191,7 @@ type Environment interface {
 	// line operations
 	GetRemoteQueue() amboy.Queue
 	SetRemoteQueue(amboy.Queue) error
-	GetRemoteManager() management.Management
+	GetRemoteManager() management.Manager
 	GetLocalQueue() amboy.Queue
 	SetLocalQueue(amboy.Queue) error
 
@@ -239,7 +239,7 @@ type envState struct {
 	remoteQueue       amboy.Queue
 	localQueue        amboy.Queue
 	remoteQueueGroup  amboy.QueueGroup
-	remoteManager     management.Management
+	remoteManager     management.Manager
 	ctx               context.Context
 	client            *mongo.Client
 	conf              *Configuration
@@ -287,7 +287,7 @@ func (c *envState) GetRemoteQueueGroup() amboy.QueueGroup {
 	return c.remoteQueueGroup
 }
 
-func (c *envState) GetRemoteManager() management.Management {
+func (c *envState) GetRemoteManager() management.Manager {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

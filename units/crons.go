@@ -33,8 +33,8 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 		"state":   "not populated",
 		"opts":    opts,
 		"started": message.Fields{
-			"remote": remote.Started(),
-			"local":  local.Started(),
+			"remote": remote.Info().Started,
+			"local":  local.Info().Started,
 		},
 		"stats": message.Fields{
 			"remote": remote.Stats(ctx),
