@@ -294,8 +294,8 @@ func TestHistoricalTestDataRemove(t *testing.T) {
 		hd.Setup(env)
 
 		assert.Error(t, hd.Remove(ctx))
-		r, err := testBucket.Get(ctx, hd1.getPath())
-		require.NoError(t, err)
+		r, getErr := testBucket.Get(ctx, hd1.getPath())
+		require.NoError(t, getErr)
 		assert.NoError(t, r.Close())
 	})
 	conf := &CedarConfig{populated: true}
@@ -306,8 +306,8 @@ func TestHistoricalTestDataRemove(t *testing.T) {
 		hd.Setup(env)
 
 		assert.Error(t, hd.Remove(ctx))
-		r, err := testBucket.Get(ctx, hd1.getPath())
-		require.NoError(t, err)
+		r, getErr := testBucket.Get(ctx, hd1.getPath())
+		require.NoError(t, getErr)
 		assert.NoError(t, r.Close())
 	})
 	conf.Setup(env)
@@ -318,8 +318,8 @@ func TestHistoricalTestDataRemove(t *testing.T) {
 		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
 
 		assert.Error(t, hd.Remove(ctx))
-		r, err := testBucket.Get(ctx, hd1.getPath())
-		require.NoError(t, err)
+		r, getErr := testBucket.Get(ctx, hd1.getPath())
+		require.NoError(t, getErr)
 		assert.NoError(t, r.Close())
 	})
 	t.Run("DNE", func(t *testing.T) {
