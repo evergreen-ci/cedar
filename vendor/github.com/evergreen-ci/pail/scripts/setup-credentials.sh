@@ -5,7 +5,7 @@ set -o errexit
 echo "building aws creds file!"
 
 if [ "Windows_NT" == "$OS" ]; then
-  export AWS_DIR=/cygdrive/c/Users/$USER/.aws
+  export AWS_DIR=$WORK_DIR/.aws
 else
   export AWS_DIR=$HOME/.aws
 fi

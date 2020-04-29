@@ -326,7 +326,7 @@ func TestHistoricalTestDataRemove(t *testing.T) {
 		hd := &HistoricalTestData{Info: hd2.Info, ArtifactType: hd2.ArtifactType}
 		hd.Setup(env)
 
-		assert.Error(t, hd.Remove(ctx))
+		assert.NoError(t, hd.Remove(ctx))
 	})
 	t.Run("RemoveFile", func(t *testing.T) {
 		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
