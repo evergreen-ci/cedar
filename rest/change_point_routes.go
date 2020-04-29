@@ -54,14 +54,14 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 		h.pageSize, err = strconv.Atoi(pageSize)
 		catcher.Add(err)
 	} else {
-		h.pageSize = 0
+		h.pageSize = 10
 	}
 	return catcher.Resolve()
 }
 
 // Run calls FindLogMetadataByID and returns the log.
 func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {
-	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.projectId, h.page, h.page)
+	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.projectId, h.page, h.pageSize)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.projectId)
 		grip.Error(message.WrapError(err, message.Fields{
