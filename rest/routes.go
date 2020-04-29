@@ -42,7 +42,7 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.queue != nil {
-		resp.QueueRunning = s.queue.Started()
+		resp.QueueRunning = s.queue.Info().Started
 		resp.QueueStats = s.queue.Stats(ctx)
 	}
 
