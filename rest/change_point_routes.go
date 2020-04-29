@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
@@ -17,10 +18,16 @@ import (
 // GET /perf/project/{projectID}/change_points_by_version
 
 type perfGetChangePointsByVersionHandler struct {
-	page      int
-	pageSize  int
-	projectId string
-	sc        data.Connector
+	page             int
+	pageSize         int
+	variantRegex     string
+	versionRegex     string
+	taskRegex        string
+	testRegex        string
+	measurementRegex string
+	threadLevels 	 []int
+	projectId        string
+	sc               data.Connector
 }
 
 func makeGetChangePointsByVersion(sc data.Connector) gimlet.RouteHandler {
@@ -49,19 +56,33 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	} else {
 		h.page = 0
 	}
-	pageSize := vals.Get("page_size")
+	pageSize := vals.Get("pageSize")
 	if pageSize != "" {
 		h.pageSize, err = strconv.Atoi(pageSize)
 		catcher.Add(err)
 	} else {
 		h.pageSize = 0
 	}
+	h.variantRegex = vals.Get("variantRegex")
+	h.versionRegex = vals.Get("versionRegex")
+	h.taskRegex = vals.Get("taskRegex")
+	h.testRegex = vals.Get("testRegex")
+	h.measurementRegex = vals.Get("measurementRegex")
+	tls := vals.Get("threadLevels")
+	if tls != "" {
+		tlslice := strings.Split(tls, ",")
+		for _, tl := range tlslice {
+			intTl, err := strconv.Atoi(tl)
+			catcher.Add(err)
+			h.threadLevels = append(h.threadLevels, intTl)
+		}
+	}
 	return catcher.Resolve()
 }
 
 // Run calls FindLogMetadataByID and returns the log.
 func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {
-	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.projectId, h.page, h.page)
+	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.projectId, h.page, h.page, h.variantRegex, h.versionRegex, h.taskRegex, h.testRegex, h.measurementRegex, h.threadLevels)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.projectId)
 		grip.Error(message.WrapError(err, message.Fields{

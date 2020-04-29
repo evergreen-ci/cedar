@@ -304,7 +304,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 				},
 			},
 		},
-		// Flatter the change points into one array
+		// Flatten the change points into one array
 		{
 			"$addFields": bson.M{
 				"change_points": bson.M{
@@ -369,10 +369,9 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 	return catcher.Resolve()
 }
 
-func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, pageSize int) (int, error) {
-	countKey := "count"
-	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, bson.M{
-		"$count": countKey,
+func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int) (int, error) {
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels,  bson.M{
+		"$count": "count",
 	})
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
@@ -392,12 +391,33 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 	return 0, errors.New("Not able to get count of total changepoints matching query")
 }
 
-func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalSteps ...bson.M) []bson.M {
+func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int, additionalSteps ...bson.M) []bson.M {
+	matchStage := bson.M{
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey): projectId,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey): bson.M{"$regex": variantRegex},
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey): bson.M{"$regex": versionRegex},
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$regex": taskRegex},
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$regex": testRegex},
+	}
+
+	if threadLevels  != nil {
+		matchStage[bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey, "thread_level")] = bson.M{
+			"$in": threadLevels,
+		}
+	}
+
+
+
 	return append([]bson.M{
 		{
+			"$match": matchStage,
+		},
+		{
+			"$unwind": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
+		},
+		{
 			"$match": bson.M{
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):             projectId,
-				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "0"): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): bson.M{"$regex": measurementRegex},
 			},
 		},
 		{
@@ -410,8 +430,8 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId string, additionalStep
 	}, additionalSteps...)
 }
 
-func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, page, pageSize int) ([]GetChangePointsGroupedByVersionResult, error) {
-	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, []bson.M{
+func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, page, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int) ([]GetChangePointsGroupedByVersionResult, error) {
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels, []bson.M{
 		{
 			"$sort": bson.M{
 				"order": -1,

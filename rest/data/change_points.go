@@ -16,15 +16,15 @@ import (
 
 // GetChangePointsByVersion returns changepoints grouped by version associated with
 // the given project. Paginated.
-func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, projectId string, page, pageSize int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
-	totalPages, err := model.GetTotalPagesForChangePointsGroupedByVersion(ctx, dbc.env, projectId, pageSize)
+func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, projectId string, page, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
+	totalPages, err := model.GetTotalPagesForChangePointsGroupedByVersion(ctx, dbc.env, projectId, pageSize, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("Error getting total pages of changepoints for project '%s'", projectId),
 		}
 	}
-	changePointsGroupedByVersion, err := model.GetChangePointsGroupedByVersion(ctx, dbc.env, projectId, page, pageSize)
+	changePointsGroupedByVersion, err := model.GetChangePointsGroupedByVersion(ctx, dbc.env, projectId, page, pageSize, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -40,7 +40,7 @@ func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, projectId 
 
 // GetChangePointsByVersion returns changepoints grouped by version associated with
 // the given project. Paginated.
-func (mc *MockConnector) GetChangePointsByVersion(ctx context.Context, projectId string, page, pageSize int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
+func (mc *MockConnector) GetChangePointsByVersion(ctx context.Context, projectId string, page, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevelRegex []int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
 	return &dataModel.APIChangePointGroupedByVersionResult{
 		Versions:   nil,
 		Page:       page,
