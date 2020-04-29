@@ -136,6 +136,25 @@ func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
 	return nil
 }
 
+// Remove deletes the HistoricalTestData file from the Pail backed storage. The
+// environment should not be nil.
+func (d *HistoricalTestData) Remove(ctx context.Context) error {
+	if d.env == nil {
+		return errors.New("cannot find with a nil environment")
+	}
+
+	bucket, err := d.getBucket(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = bucket.Remove(ctx, d.getPath())
+	if pail.IsKeyNotFoundError(err) {
+		return nil
+	}
+	return errors.Wrap(err, "problem removing historical test data file")
+}
+
 func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error) {
 	if d.bucket == "" {
 		conf := &CedarConfig{}

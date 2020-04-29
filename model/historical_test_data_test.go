@@ -269,6 +269,75 @@ func TestHistoricalTestDataSaveNew(t *testing.T) {
 	})
 }
 
+func TestHistoricalTestDataRemove(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir("", "remove-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: historicalTestDataCollection})
+	require.NoError(t, err)
+	hd1 := getHistoricalTestData(t)
+	hd2 := getHistoricalTestData(t)
+	data, err := bson.Marshal(hd1)
+	require.NoError(t, err)
+	require.NoError(t, testBucket.Put(ctx, hd1.getPath(), bytes.NewReader(data)))
+
+	t.Run("NoConfig", func(t *testing.T) {
+		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
+		hd.Setup(env)
+
+		assert.Error(t, hd.Remove(ctx))
+		r, getErr := testBucket.Get(ctx, hd1.getPath())
+		require.NoError(t, getErr)
+		assert.NoError(t, r.Close())
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
+		hd.Setup(env)
+
+		assert.Error(t, hd.Remove(ctx))
+		r, getErr := testBucket.Get(ctx, hd1.getPath())
+		require.NoError(t, getErr)
+		assert.NoError(t, r.Close())
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("NoEnv", func(t *testing.T) {
+		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
+
+		assert.Error(t, hd.Remove(ctx))
+		r, getErr := testBucket.Get(ctx, hd1.getPath())
+		require.NoError(t, getErr)
+		assert.NoError(t, r.Close())
+	})
+	t.Run("DNE", func(t *testing.T) {
+		hd := &HistoricalTestData{Info: hd2.Info, ArtifactType: hd2.ArtifactType}
+		hd.Setup(env)
+
+		assert.NoError(t, hd.Remove(ctx))
+	})
+	t.Run("RemoveFile", func(t *testing.T) {
+		hd := &HistoricalTestData{Info: hd1.Info, ArtifactType: hd1.ArtifactType}
+		hd.Setup(env)
+
+		require.NoError(t, hd.Remove(ctx))
+		_, err = testBucket.Get(ctx, hd1.getPath())
+		assert.Error(t, err)
+	})
+}
+
 func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 	info := HistoricalTestDataInfo{
 		Project:     utility.RandomString(),
