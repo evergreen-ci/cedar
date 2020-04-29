@@ -619,7 +619,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultWithChildrenDepth() {
 
 func (s *PerfConnectorSuite) TestScheduleSignalProcessingRecalculateJobs() {
 	theQueue := s.env.GetRemoteQueue()
-	if !theQueue.Started() {
+	if !theQueue.Info().Started {
 		s.Require().NoError(theQueue.Start(s.ctx))
 	}
 	err := s.sc.ScheduleSignalProcessingRecalculateJobs(s.ctx)
