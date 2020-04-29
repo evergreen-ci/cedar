@@ -148,7 +148,11 @@ func (d *HistoricalTestData) Remove(ctx context.Context) error {
 		return err
 	}
 
-	return errors.Wrap(bucket.Remove(ctx, d.getPath()), "problem removing historical test data file")
+	err = bucket.Remove(ctx, d.getPath())
+	if pail.IsKeyNotFoundError(err) {
+		return nil
+	}
+	return errors.Wrap(err, "problem removing historical test data file")
 }
 
 func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error) {
