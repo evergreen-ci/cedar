@@ -9,6 +9,8 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -608,6 +610,23 @@ type BuildloggerServer interface {
 	AppendLogLines(context.Context, *LogLines) (*BuildloggerResponse, error)
 	StreamLogLines(Buildlogger_StreamLogLinesServer) error
 	CloseLog(context.Context, *LogEndInfo) (*BuildloggerResponse, error)
+}
+
+// UnimplementedBuildloggerServer can be embedded to have forward compatible implementations.
+type UnimplementedBuildloggerServer struct {
+}
+
+func (*UnimplementedBuildloggerServer) CreateLog(ctx context.Context, req *LogData) (*BuildloggerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateLog not implemented")
+}
+func (*UnimplementedBuildloggerServer) AppendLogLines(ctx context.Context, req *LogLines) (*BuildloggerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AppendLogLines not implemented")
+}
+func (*UnimplementedBuildloggerServer) StreamLogLines(srv Buildlogger_StreamLogLinesServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamLogLines not implemented")
+}
+func (*UnimplementedBuildloggerServer) CloseLog(ctx context.Context, req *LogEndInfo) (*BuildloggerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloseLog not implemented")
 }
 
 func RegisterBuildloggerServer(s *grpc.Server, srv BuildloggerServer) {
