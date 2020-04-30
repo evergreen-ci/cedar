@@ -53,7 +53,7 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 		h.args.PageSize, err = strconv.Atoi(pageSize)
 		catcher.Add(err)
 	} else {
-		h.args.PageSize = 0
+		h.args.PageSize = 10
 	}
 	h.args.VariantRegex = vals.Get("variantRegex")
 	h.args.VersionRegex = vals.Get("versionRegex")
@@ -72,7 +72,6 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	return catcher.Resolve()
 }
 
-// Run calls FindLogMetadataByID and returns the log.
 func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.args)
 	if err != nil {
