@@ -388,7 +388,7 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 		}
 		return int(math.Ceil(float64(res.Count) / float64(pageSize))), nil
 	}
-	return 0, errors.New("Not able to get count of total changepoints matching query")
+	return 0, nil
 }
 
 func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int, additionalSteps ...bson.M) []bson.M {
@@ -408,9 +408,11 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, version
 
 
 	return append([]bson.M{
+		//Filter based on perf_result level properties
 		{
 			"$match": matchStage,
 		},
+		//Filter out cps that don't match regex
 		{
 			"$addFields": bson.M{
 				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
@@ -420,6 +422,12 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, version
 						"cond": bson.M{"$regexMatch": bson.M{ "input": "$$cp.measurement", "regex": measurementRegex}},
 					},
 				},
+			},
+		},
+		//Filter out perf results with no valid regex
+		{
+			"$match": bson.M{
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, "0"): bson.M{"$exists": true},
 			},
 		},
 		{
