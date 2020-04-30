@@ -113,6 +113,8 @@ func (d *HistoricalTestData) Save(ctx context.Context) error {
 		return errors.New("cannot save with a nil environment")
 	}
 
+	d.LastUpdate = time.Now()
+
 	bucket, err := d.getBucket(ctx)
 	if err != nil {
 		return err
