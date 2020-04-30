@@ -102,27 +102,20 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	return nil
 }
 
-// SaveNew saves a new HistoricalTestData to the Pail backed storage, if a file
-// with the same name exists, an error is returned. The HistoricalTestData
-// should be populated and the environment should not be nil.
-func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
+// Save saves HistoricalTestData to the Pail backed storage. The
+// HistoricalTestData should be populated and the environment should not be
+// nil.
+func (d *HistoricalTestData) Save(ctx context.Context) error {
 	if !d.populated {
 		return errors.New("cannot save unpopulated historical test data")
 	}
 	if d.env == nil {
-		return errors.New("cannot find with a nil environment")
+		return errors.New("cannot save with a nil environment")
 	}
 
 	bucket, err := d.getBucket(ctx)
 	if err != nil {
 		return err
-	}
-	it, err := bucket.List(ctx, d.getPath())
-	if err != nil {
-		return errors.Wrap(err, "problem listing bucket items")
-	}
-	if it.Next(ctx) {
-		return errors.Errorf("historical test data with path %s already exists", d.getPath())
 	}
 
 	data, err := bson.Marshal(d)
@@ -140,7 +133,7 @@ func (d *HistoricalTestData) SaveNew(ctx context.Context) error {
 // environment should not be nil.
 func (d *HistoricalTestData) Remove(ctx context.Context) error {
 	if d.env == nil {
-		return errors.New("cannot find with a nil environment")
+		return errors.New("cannot remove with a nil environment")
 	}
 
 	bucket, err := d.getBucket(ctx)
