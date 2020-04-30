@@ -407,17 +407,19 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, version
 	}
 
 
-
 	return append([]bson.M{
 		{
 			"$match": matchStage,
 		},
 		{
-			"$unwind": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-		},
-		{
-			"$match": bson.M{
-				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey, perfChangePointMeasurementKey): bson.M{"$regex": measurementRegex},
+			"$addFields": bson.M{
+				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
+					"$filter": bson.M{
+						"input": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
+						"as": "cp",
+						"cond": bson.M{"$regexMatch": bson.M{ "input": "$$cp.measurement", "regex": measurementRegex}},
+					},
+				},
 			},
 		},
 		{
