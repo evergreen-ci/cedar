@@ -18,16 +18,8 @@ import (
 // GET /perf/project/{projectID}/change_points_by_version
 
 type perfGetChangePointsByVersionHandler struct {
-	page             int
-	pageSize         int
-	variantRegex     string
-	versionRegex     string
-	taskRegex        string
-	testRegex        string
-	measurementRegex string
-	threadLevels     []int
-	projectId        string
-	sc               data.Connector
+	args data.GetChangePointsGroupedByVersionArgs
+	sc   data.Connector
 }
 
 func makeGetChangePointsByVersion(sc data.Connector) gimlet.RouteHandler {
@@ -45,36 +37,36 @@ func (h *perfGetChangePointsByVersionHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id from the http request.
 func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.Request) error {
-	h.projectId = gimlet.GetVars(r)["projectID"]
+	h.args.ProjectId = gimlet.GetVars(r)["projectID"]
 	vals := r.URL.Query()
 	catcher := grip.NewBasicCatcher()
 	var err error
 	page := vals.Get("page")
 	if page != "" {
-		h.page, err = strconv.Atoi(page)
+		h.args.Page, err = strconv.Atoi(page)
 		catcher.Add(err)
 	} else {
-		h.page = 0
+		h.args.Page = 0
 	}
 	pageSize := vals.Get("pageSize")
 	if pageSize != "" {
-		h.pageSize, err = strconv.Atoi(pageSize)
+		h.args.PageSize, err = strconv.Atoi(pageSize)
 		catcher.Add(err)
 	} else {
-		h.pageSize = 0
+		h.args.PageSize = 0
 	}
-	h.variantRegex = vals.Get("variantRegex")
-	h.versionRegex = vals.Get("versionRegex")
-	h.taskRegex = vals.Get("taskRegex")
-	h.testRegex = vals.Get("testRegex")
-	h.measurementRegex = vals.Get("measurementRegex")
+	h.args.VariantRegex = vals.Get("variantRegex")
+	h.args.VersionRegex = vals.Get("versionRegex")
+	h.args.TaskRegex = vals.Get("taskRegex")
+	h.args.TestRegex = vals.Get("testRegex")
+	h.args.MeasurementRegex = vals.Get("measurementRegex")
 	tls := vals.Get("threadLevels")
 	if tls != "" {
 		tlslice := strings.Split(tls, ",")
 		for _, tl := range tlslice {
 			intTl, err := strconv.Atoi(tl)
 			catcher.Add(err)
-			h.threadLevels = append(h.threadLevels, intTl)
+			h.args.ThreadLevels = append(h.args.ThreadLevels, intTl)
 		}
 	}
 	return catcher.Resolve()
@@ -82,14 +74,14 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 
 // Run calls FindLogMetadataByID and returns the log.
 func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {
-	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.projectId, h.page, h.page, h.variantRegex, h.versionRegex, h.taskRegex, h.testRegex, h.measurementRegex, h.threadLevels)
+	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.args)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.projectId)
+		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.args.ProjectId)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/project/{projectID}/change_points_by_version",
-			"id":      h.projectId,
+			"id":      h.args.ProjectId,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}

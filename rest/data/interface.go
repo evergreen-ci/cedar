@@ -17,7 +17,7 @@ type Connector interface {
 	////////////////////
 	// GetChangePointsByVersion returns changepoints grouped by version associated with
 	// the given project. Paginated.
-	GetChangePointsByVersion(context.Context, string, int, int, string, string, string, string, string, []int) (*model.APIChangePointGroupedByVersionResult, error)
+	GetChangePointsByVersion(context.Context, GetChangePointsGroupedByVersionArgs) (*model.APIChangePointGroupedByVersionResult, error)
 	// FindPerformanceResultById returns the performance result with the
 	// given id.
 	FindPerformanceResultById(context.Context, string) (*model.APIPerformanceResult, error)
@@ -108,3 +108,5 @@ type BuildloggerOptions struct {
 	Tail          int
 	SoftSizeLimit int
 }
+
+type GetChangePointsGroupedByVersionArgs = dbModel.GetChangePoinsGroupedByVersionArgs

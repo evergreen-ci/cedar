@@ -16,22 +16,22 @@ import (
 
 // GetChangePointsByVersion returns changepoints grouped by version associated with
 // the given project. Paginated.
-func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, projectId string, page, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
-	totalPages, err := model.GetTotalPagesForChangePointsGroupedByVersion(ctx, dbc.env, projectId, pageSize, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels)
+func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, args GetChangePointsGroupedByVersionArgs) (*dataModel.APIChangePointGroupedByVersionResult, error) {
+	totalPages, err := model.GetTotalPagesForChangePointsGroupedByVersion(ctx, dbc.env, args)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("Error getting total pages of changepoints for project '%s'", projectId),
+			Message:    fmt.Sprintf("Error getting total pages of changepoints for project '%s'", args.ProjectId),
 		}
 	}
-	changePointsGroupedByVersion, err := model.GetChangePointsGroupedByVersion(ctx, dbc.env, projectId, page, pageSize, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels)
+	changePointsGroupedByVersion, err := model.GetChangePointsGroupedByVersion(ctx, dbc.env, args)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("Error getting changepoints grouped by version for project '%s'", projectId),
+			Message:    fmt.Sprintf("Error getting changepoints grouped by version for project '%s'", args.ProjectId),
 		}
 	}
-	return dataModel.CreateAPIChangePointGroupedByVersionResult(changePointsGroupedByVersion, page, pageSize, totalPages), nil
+	return dataModel.CreateAPIChangePointGroupedByVersionResult(changePointsGroupedByVersion, args.Page, args.PageSize, totalPages), nil
 }
 
 ///////////////////////////////
@@ -40,11 +40,11 @@ func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, projectId 
 
 // GetChangePointsByVersion returns changepoints grouped by version associated with
 // the given project. Paginated.
-func (mc *MockConnector) GetChangePointsByVersion(ctx context.Context, projectId string, page, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevelRegex []int) (*dataModel.APIChangePointGroupedByVersionResult, error) {
+func (mc *MockConnector) GetChangePointsByVersion(ctx context.Context, args GetChangePointsGroupedByVersionArgs) (*dataModel.APIChangePointGroupedByVersionResult, error) {
 	return &dataModel.APIChangePointGroupedByVersionResult{
 		Versions:   nil,
-		Page:       page,
-		PageSize:   pageSize,
+		Page:       args.Page,
+		PageSize:   args.PageSize,
 		TotalPages: 0,
 	}, nil
 }
