@@ -160,7 +160,7 @@ func TestHistoricalTestDataFind(t *testing.T) {
 		assert.Equal(t, hd1.Durations, hd.Durations)
 		assert.Equal(t, hd1.AverageDuration, hd.AverageDuration)
 		assert.Equal(t, hd1.ArtifactType, hd.ArtifactType)
-		assert.Equal(t, hd1.LastUpdate.UTC().Round(time.Millisecond), hd.LastUpdate)
+		assert.Equal(t, hd1.LastUpdate.UTC().Truncate(time.Millisecond), hd.LastUpdate)
 		assert.True(t, hd.populated)
 		assert.Equal(t, tmpDir, hd.bucket)
 	})
