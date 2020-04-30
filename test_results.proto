@@ -6,11 +6,6 @@ option go_package = "internal";
 
 import "google/protobuf/timestamp.proto";
 
-message TestResultsData {
-  TestResultsInfo info = 1;
-  TestResultsStorage storage = 2;
-}
-
 message TestResultsInfo {
   string project = 1;
   string version = 2;
@@ -20,12 +15,6 @@ message TestResultsInfo {
   int32 execution = 6;
   string request_type = 7;
   bool mainline = 8;
-}
-
-enum TestResultsStorage {
-  TEST_RESULTS_STORAGE_S3 = 0;
-  TEST_RESULTS_STORAGE_GRIDFS = 1;
-  TEST_RESULTS_STORAGE_LOCAL = 2;
 }
 
 message TestResults {
@@ -53,7 +42,7 @@ message TestResultsResponse {
 }
 
 service CedarTestResults {
-  rpc CreateTestResultsRecord(TestResultsData) returns (TestResultsResponse);
+  rpc CreateTestResultsRecord(TestResultsInfo) returns (TestResultsResponse);
   rpc AddTestResults(TestResults) returns (TestResultsResponse);
   rpc StreamTestResults(stream TestResults) returns (TestResultsResponse);
   rpc CloseTestResultsRecord(TestResultsEndInfo) returns (TestResultsResponse);
