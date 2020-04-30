@@ -160,6 +160,7 @@ func TestHistoricalTestDataFind(t *testing.T) {
 		assert.Equal(t, hd1.Durations, hd.Durations)
 		assert.Equal(t, hd1.AverageDuration, hd.AverageDuration)
 		assert.Equal(t, hd1.ArtifactType, hd.ArtifactType)
+		assert.Equal(t, hd1.LastUpdate.UTC().Round(time.Millisecond), hd.LastUpdate)
 		assert.True(t, hd.populated)
 		assert.Equal(t, tmpDir, hd.bucket)
 	})
@@ -264,7 +265,9 @@ func TestHistoricalTestDataSave(t *testing.T) {
 		assert.Equal(t, hd.Durations, actual.Durations)
 		assert.Equal(t, hd.AverageDuration, actual.AverageDuration)
 		assert.Equal(t, hd.ArtifactType, actual.ArtifactType)
+		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
+		lastUpdate := hd.LastUpdate
 		hd.NumPass += 5
 		require.NoError(t, hd.Save(ctx))
 		r2, err := testBucket.Get(ctx, hd.getPath())
@@ -282,6 +285,7 @@ func TestHistoricalTestDataSave(t *testing.T) {
 		assert.Equal(t, hd.Durations, actual.Durations)
 		assert.Equal(t, hd.AverageDuration, actual.AverageDuration)
 		assert.Equal(t, hd.ArtifactType, actual.ArtifactType)
+		assert.True(t, lastUpdate.Before(actual.LastUpdate))
 	})
 }
 
@@ -361,7 +365,7 @@ func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 		TaskName:    utility.RandomString(),
 		TestName:    utility.RandomString(),
 		RequestType: utility.RandomString(),
-		Date:        time.Now(),
+		Date:        time.Now().UTC().Round(time.Millisecond),
 	}
 
 	data, err := CreateHistoricalTestData(info, PailLocal)
