@@ -183,7 +183,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByVariant() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "variant1", "", "", "", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -191,7 +191,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByVariant() {
 	s.Require().Equal(2, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "variant3", "", "", "", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -204,7 +204,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByVersion() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "version1", "", "", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -212,7 +212,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByVersion() {
 	s.Require().Equal(2, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "version3", "", "", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -225,7 +225,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByTask() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "task1", "", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -233,7 +233,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByTask() {
 	s.Require().Equal(2, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "task3", "", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -246,7 +246,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByTest() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "test1", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -254,7 +254,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByTest() {
 	s.Require().Equal(2, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "test3", "", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -267,7 +267,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByMeasurement() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "measurement", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -275,7 +275,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByMeasurement() {
 	s.Require().Equal(3, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "measurement1", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -283,7 +283,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByMeasurement() {
 	s.Require().Equal(2, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "measurement2", nil)
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -296,7 +296,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "", []int{10, 15})
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -304,7 +304,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	s.Require().Equal(3, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "", []int{10})
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -312,7 +312,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	s.Require().Equal(2, totalChangePoints)
 
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "", []int{15})
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints = 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -325,7 +325,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByEverything() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "variant1", "version1", "task1", "test1", "measurement1", []int{10})
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -338,7 +338,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByEverythingNoResults() {
 	pageSize := 100
 	projectId := "project1"
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "variant1", "version1", "task1", "test1", "measurement1", []int{2})
-	s.NoError(err)
+	s.Require().NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
@@ -354,7 +354,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersion() {
 	if err != nil {
 		print(err)
 	}
-	s.NoError(err)
+	s.Require().NoError(err)
 	s.Require().Equal(page, result.Page)
 	s.Require().Equal(pageSize, result.PageSize)
 	s.Require().Equal(1, result.TotalPages)
@@ -377,7 +377,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
 	if err != nil {
 		print(err)
 	}
-	s.NoError(err)
+	s.Require().NoError(err)
 	s.Require().Equal(page, result.Page)
 	s.Require().Equal(pageSize, result.PageSize)
 	s.Require().Equal(2, result.TotalPages)
@@ -387,7 +387,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
 		if err != nil {
 			print(err)
 		}
-		s.NoError(err)
+		s.Require().NoError(err)
 		s.Require().Equal(i, result.Page)
 		s.Require().Equal(pageSize, result.PageSize)
 		s.Require().Equal(2, result.TotalPages)
