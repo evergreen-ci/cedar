@@ -16,7 +16,7 @@ import (
 
 // GetChangePointsByVersion returns changepoints grouped by version associated with
 // the given project. Paginated.
-func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, args GetChangePointsGroupedByVersionArgs) (*dataModel.APIChangePointGroupedByVersionResult, error) {
+func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, args GetChangePointsGroupedByVersionOpts) (*dataModel.APIChangePointGroupedByVersionResult, error) {
 	totalPages, err := model.GetTotalPagesForChangePointsGroupedByVersion(ctx, dbc.env, args)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
@@ -40,7 +40,7 @@ func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, args GetCh
 
 // GetChangePointsByVersion returns changepoints grouped by version associated with
 // the given project. Paginated.
-func (mc *MockConnector) GetChangePointsByVersion(ctx context.Context, args GetChangePointsGroupedByVersionArgs) (*dataModel.APIChangePointGroupedByVersionResult, error) {
+func (mc *MockConnector) GetChangePointsByVersion(ctx context.Context, args GetChangePointsGroupedByVersionOpts) (*dataModel.APIChangePointGroupedByVersionResult, error) {
 	return &dataModel.APIChangePointGroupedByVersionResult{
 		Versions:   nil,
 		Page:       args.Page,

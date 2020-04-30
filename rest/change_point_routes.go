@@ -18,7 +18,7 @@ import (
 // GET /perf/project/{projectID}/change_points_by_version
 
 type perfGetChangePointsByVersionHandler struct {
-	args data.GetChangePointsGroupedByVersionArgs
+	args data.GetChangePointsGroupedByVersionOpts
 	sc   data.Connector
 }
 

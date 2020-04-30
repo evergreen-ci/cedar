@@ -182,7 +182,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByVariant() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId:    projectId,
 		Page:         page,
 		PageSize:     pageSize,
@@ -210,7 +210,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByVersion() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId:    projectId,
 		Page:         page,
 		PageSize:     pageSize,
@@ -238,7 +238,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByTask() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId: projectId,
 		Page:      page,
 		PageSize:  pageSize,
@@ -266,7 +266,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByTest() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId: projectId,
 		Page:      page,
 		PageSize:  pageSize,
@@ -294,7 +294,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByMeasurement() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId:        projectId,
 		Page:             page,
 		PageSize:         pageSize,
@@ -331,7 +331,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId:    projectId,
 		Page:         page,
 		PageSize:     pageSize,
@@ -368,7 +368,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByEverything() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId:        projectId,
 		Page:             page,
 		PageSize:         pageSize,
@@ -392,7 +392,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByEverythingNoResults() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId:        projectId,
 		Page:             page,
 		PageSize:         pageSize,
@@ -416,7 +416,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersion() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId: projectId,
 		Page:      page,
 		PageSize:  pageSize,
@@ -444,7 +444,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
 	page := 0
 	pageSize := 1
 	projectId := "project1"
-	args := GetChangePointsGroupedByVersionArgs{
+	args := GetChangePointsGroupedByVersionOpts{
 		ProjectId: projectId,
 		Page:      page,
 		PageSize:  pageSize,
@@ -459,7 +459,7 @@ func (s *ChangePointConnectorSuite) TestGetChangePointsByVersionPaging() {
 	s.Require().Equal(2, result.TotalPages)
 	seenPerfResults := []int{result.Versions[0].ChangePoints[0].Index}
 	for i := result.Page + 1; i < result.TotalPages; i++ {
-		args = GetChangePointsGroupedByVersionArgs{
+		args = GetChangePointsGroupedByVersionOpts{
 			ProjectId: projectId,
 			Page:      i,
 			PageSize:  pageSize,
