@@ -18,7 +18,7 @@ func (s *ChangePointConnectorSuite) createPerformanceResultsWithChangePoints() e
 	s.env = cedar.GetEnvironment()
 	s.Require().NotNil(s.env)
 	db := s.env.GetDB()
-	db.Drop(s.ctx)
+	s.Require().NoError(db.Drop(s.ctx))
 	s.Require().NotNil(db)
 
 	perfResults := []*model.PerformanceResult{
@@ -295,7 +295,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	page := 0
 	pageSize := 100
 	projectId := "project1"
-	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "", []int{10,15})
+	result, err := s.sc.GetChangePointsByVersion(s.ctx, projectId, page, pageSize, "", "", "", "", "", []int{10, 15})
 	s.NoError(err)
 	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {

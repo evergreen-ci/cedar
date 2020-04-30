@@ -25,7 +25,7 @@ type perfGetChangePointsByVersionHandler struct {
 	taskRegex        string
 	testRegex        string
 	measurementRegex string
-	threadLevels 	 []int
+	threadLevels     []int
 	projectId        string
 	sc               data.Connector
 }

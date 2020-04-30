@@ -370,7 +370,7 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 }
 
 func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, projectId string, pageSize int, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int) (int, error) {
-	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels,  bson.M{
+	pipe := appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex, threadLevels, bson.M{
 		"$count": "count",
 	})
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
@@ -393,19 +393,18 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 
 func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, versionRegex, taskRegex, testRegex, measurementRegex string, threadLevels []int, additionalSteps ...bson.M) []bson.M {
 	matchStage := bson.M{
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey): projectId,
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey): bson.M{"$regex": variantRegex},
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey): bson.M{"$regex": versionRegex},
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  projectId,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$regex": variantRegex},
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey):  bson.M{"$regex": versionRegex},
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$regex": taskRegex},
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$regex": testRegex},
 	}
 
-	if threadLevels  != nil {
+	if threadLevels != nil {
 		matchStage[bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey, "thread_level")] = bson.M{
 			"$in": threadLevels,
 		}
 	}
-
 
 	return append([]bson.M{
 		//Filter based on perf_result level properties
@@ -418,8 +417,8 @@ func appendAfterBaseGetChangePointsByVersionAgg(projectId, variantRegex, version
 				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
 					"$filter": bson.M{
 						"input": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-						"as": "cp",
-						"cond": bson.M{"$regexMatch": bson.M{ "input": "$$cp.measurement", "regex": measurementRegex}},
+						"as":    "cp",
+						"cond":  bson.M{"$regexMatch": bson.M{"input": "$$cp.measurement", "regex": measurementRegex}},
 					},
 				},
 			},
