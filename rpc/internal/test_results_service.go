@@ -37,8 +37,10 @@ func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *
 
 	record := model.CreateTestResults(info.Export(), conf.Bucket.TestResultsBucketType)
 	record.Setup(s.env)
-	return &TestResultsResponse{TestResultsRecordId: record.ID},
-		newRPCError(codes.Internal, errors.Wrap(record.SaveNew(ctx), "problem saving test results record"))
+	if err := record.SaveNew(ctx); err != nil {
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem saving test results record"))
+	}
+	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }
 
 // AddTestResults adds test results to an existing test results record.
@@ -61,15 +63,17 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 		exportedResults[i] = exportedResult
 	}
 
-	return &TestResultsResponse{TestResultsRecordId: record.ID},
-		newRPCError(codes.Internal, errors.Wrapf(record.Append(ctx, exportedResults), "problem appending test results for '%s'", results.TestResultsRecordId))
+	if err := record.Append(ctx, exportedResults); err != nil {
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending test results for '%s'", results.TestResultsRecordId))
+	}
+	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }
 
 // StreamTestResults adds test results via client-side streaming to an existing
 // test results record.
 func (s *testResultsService) StreamTestResults(stream CedarTestResults_StreamTestResultsServer) error {
+	var id string
 	ctx := stream.Context()
-	id := ""
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -110,6 +114,8 @@ func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *T
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding test results record for '%s'", info.TestResultsRecordId))
 	}
 
-	return &TestResultsResponse{TestResultsRecordId: record.ID},
-		newRPCError(codes.Internal, errors.Wrapf(record.Close(ctx), "problem closing test results with id %s", record.ID))
+	if err := record.Close(ctx); err != nil {
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem closing test results with id %s", record.ID))
+	}
+	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }
