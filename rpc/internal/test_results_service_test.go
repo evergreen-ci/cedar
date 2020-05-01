@@ -383,6 +383,73 @@ func TestStreamTestResults(t *testing.T) {
 	}
 }
 
+func TestCloseTestResultsRecord(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createTestResultsEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownTestResultsEnv(ctx, env))
+	}()
+	tmpDir, err := ioutil.TempDir(".", "test-results-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+	}()
+
+	info := getTestResultsInfo()
+	record := model.CreateTestResults(info.Export(), model.PailLocal)
+	record.Setup(env)
+	require.NoError(t, record.SaveNew(ctx))
+
+	for _, test := range []struct {
+		name   string
+		env    cedar.Environment
+		info   *TestResultsEndInfo
+		hasErr bool
+	}{
+		{
+			name:   "InvalidEnv",
+			info:   &TestResultsEndInfo{TestResultsRecordId: record.ID},
+			hasErr: true,
+		},
+		{
+			name:   "DNE",
+			env:    env,
+			info:   &TestResultsEndInfo{TestResultsRecordId: "DNE"},
+			hasErr: true,
+		},
+		{
+			name: "ValidData",
+			env:  env,
+			info: &TestResultsEndInfo{TestResultsRecordId: record.ID},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
+			require.NoError(t, startTestResultsService(ctx, test.env, port))
+			client, err := getTestResultsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+
+			resp, err := client.CloseTestResultsRecord(ctx, test.info)
+			if test.hasErr {
+				assert.Nil(t, resp)
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+
+				assert.Equal(t, test.info.TestResultsRecordId, resp.TestResultsRecordId)
+				r := &model.TestResults{ID: resp.TestResultsRecordId}
+				r.Setup(env)
+				require.NoError(t, r.Find(ctx))
+				assert.Equal(t, r.ID, r.Info.ID())
+				assert.True(t, time.Since(r.CompletedAt) <= time.Second)
+			}
+		})
+	}
+}
+
 func createTestResultsEnv() (cedar.Environment, error) {
 	testDB := "test-results-service-test"
 	env, err := cedar.NewEnvironment(context.Background(), testDB, &cedar.Configuration{

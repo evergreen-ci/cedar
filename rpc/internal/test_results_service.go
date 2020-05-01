@@ -101,5 +101,15 @@ func (s *testResultsService) StreamTestResults(stream CedarTestResults_StreamTes
 // completed at timestamp. This should be the last rcp call made on a test
 // results record.
 func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *TestResultsEndInfo) (*TestResultsResponse, error) {
-	return nil, newRPCError(codes.Unimplemented, errors.New("not implemented"))
+	record := &model.TestResults{ID: info.TestResultsRecordId}
+	record.Setup(s.env)
+	if err := record.Find(ctx); err != nil {
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding test results record for '%s'", info.TestResultsRecordId))
+	}
+
+	return &TestResultsResponse{TestResultsRecordId: record.ID},
+		newRPCError(codes.Internal, errors.Wrapf(record.Close(ctx), "problem closing test results with id %s", record.ID))
 }
