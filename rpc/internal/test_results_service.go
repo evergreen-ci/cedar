@@ -41,18 +41,18 @@ func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *
 
 // AddTestResults adds test results to an existing test results record.
 func (s *testResultsService) AddTestResults(ctx context.Context, results *TestResults) (*TestResultsResponse, error) {
-	return nil, nil
+	return nil, newRPCError(codes.Unimplemented, errors.New("not implemented"))
 }
 
 // StreamTestResults adds test results via client-side streaming to an existing
 // test results record.
 func (s *testResultsService) StreamTestResults(stream CedarTestResults_StreamTestResultsServer) error {
-	return nil
+	return newRPCError(codes.Unimplemented, errors.New("not implemented"))
 }
 
 // CloseTestResultsRecord "closes out" a test results record by setting the
 // completed at timestamp. This should be the last rcp call made on a test
 // results record.
 func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *TestResultsEndInfo) (*TestResultsResponse, error) {
-	return nil, nil
+	return nil, newRPCError(codes.Unimplemented, errors.New("not implemented"))
 }
