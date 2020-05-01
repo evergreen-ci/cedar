@@ -9,7 +9,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/codes"
 )
 
 type buildloggerService struct {
