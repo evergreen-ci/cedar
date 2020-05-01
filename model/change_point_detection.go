@@ -369,7 +369,7 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 	return catcher.Resolve()
 }
 
-type GetChangePointsGroupedByVersionOpts struct {
+type GetChangePointsGroupedByVersionOptions struct {
 	ProjectID        string
 	Page             int
 	PageSize         int
@@ -381,7 +381,7 @@ type GetChangePointsGroupedByVersionOpts struct {
 	ThreadLevels     []int
 }
 
-func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, args GetChangePointsGroupedByVersionOpts) (int, error) {
+func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, args GetChangePointsGroupedByVersionOptions) (int, error) {
 	pipe := appendAfterBaseGetChangePointsByVersionAgg(args, bson.M{
 		"$count": "count",
 	})
@@ -403,7 +403,7 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 	return 0, nil
 }
 
-func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVersionOpts, additionalSteps ...bson.M) []bson.M {
+func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVersionOptions, additionalSteps ...bson.M) []bson.M {
 	matchStage := bson.M{
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  args.ProjectID,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$regex": args.VariantRegex},
@@ -451,7 +451,7 @@ func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVer
 	}, additionalSteps...)
 }
 
-func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, args GetChangePointsGroupedByVersionOpts) ([]GetChangePointsGroupedByVersionResult, error) {
+func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, args GetChangePointsGroupedByVersionOptions) ([]GetChangePointsGroupedByVersionResult, error) {
 	pipe := appendAfterBaseGetChangePointsByVersionAgg(args, []bson.M{
 		{
 			"$sort": bson.M{

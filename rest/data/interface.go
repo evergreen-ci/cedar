@@ -109,4 +109,4 @@ type BuildloggerOptions struct {
 	SoftSizeLimit int
 }
 
-type GetChangePointsGroupedByVersionOpts = dbModel.GetChangePointsGroupedByVersionOpts
+type GetChangePointsGroupedByVersionOpts = dbModel.GetChangePointsGroupedByVersionOptions
