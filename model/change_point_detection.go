@@ -370,7 +370,7 @@ func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performance
 }
 
 type GetChangePointsGroupedByVersionOpts struct {
-	ProjectId        string
+	ProjectID        string
 	Page             int
 	PageSize         int
 	VariantRegex     string
@@ -405,7 +405,7 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 
 func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVersionOpts, additionalSteps ...bson.M) []bson.M {
 	matchStage := bson.M{
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  args.ProjectId,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  args.ProjectID,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$regex": args.VariantRegex},
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey):  bson.M{"$regex": args.VersionRegex},
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$regex": args.TaskRegex},

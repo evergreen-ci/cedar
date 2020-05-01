@@ -21,14 +21,14 @@ func (dbc *DBConnector) GetChangePointsByVersion(ctx context.Context, args GetCh
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("Error getting total pages of changepoints for project '%s'", args.ProjectId),
+			Message:    fmt.Sprintf("Error getting total pages of changepoints for project '%s'", args.ProjectID),
 		}
 	}
 	changePointsGroupedByVersion, err := model.GetChangePointsGroupedByVersion(ctx, dbc.env, args)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("Error getting changepoints grouped by version for project '%s'", args.ProjectId),
+			Message:    fmt.Sprintf("Error getting changepoints grouped by version for project '%s'", args.ProjectID),
 		}
 	}
 	return dataModel.CreateAPIChangePointGroupedByVersionResult(changePointsGroupedByVersion, args.Page, args.PageSize, totalPages), nil

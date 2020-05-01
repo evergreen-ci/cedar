@@ -37,7 +37,7 @@ func (h *perfGetChangePointsByVersionHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the id from the http request.
 func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.Request) error {
-	h.args.ProjectId = gimlet.GetVars(r)["projectID"]
+	h.args.ProjectID = gimlet.GetVars(r)["projectID"]
 	vals := r.URL.Query()
 	catcher := grip.NewBasicCatcher()
 	var err error
@@ -75,12 +75,12 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	changePointsByVersion, err := h.sc.GetChangePointsByVersion(ctx, h.args)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.args.ProjectId)
+		err = errors.Wrapf(err, "problem getting change points by version for project '%s'", h.args.ProjectID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/project/{projectID}/change_points_by_version",
-			"id":      h.args.ProjectId,
+			"id":      h.args.ProjectID,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
