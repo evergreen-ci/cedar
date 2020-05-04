@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -42,6 +43,7 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	catcher := grip.NewBasicCatcher()
 	var err error
 	page := vals.Get("page")
+	delete(vals, "page")
 	if page != "" {
 		h.args.Page, err = strconv.Atoi(page)
 		catcher.Add(err)
@@ -49,6 +51,7 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 		h.args.Page = 0
 	}
 	pageSize := vals.Get("pageSize")
+	delete(vals, "pageSize")
 	if pageSize != "" {
 		h.args.PageSize, err = strconv.Atoi(pageSize)
 		catcher.Add(err)
@@ -56,20 +59,38 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 		h.args.PageSize = 10
 	}
 	h.args.VariantRegex = vals.Get("variantRegex")
+	delete(vals, "variantRegex")
 	h.args.VersionRegex = vals.Get("versionRegex")
+	delete(vals, "versionRegex")
 	h.args.TaskRegex = vals.Get("taskRegex")
+	delete(vals, "taskRegex")
 	h.args.TestRegex = vals.Get("testRegex")
+	delete(vals, "testRegex")
 	h.args.MeasurementRegex = vals.Get("measurementRegex")
-	tls := vals.Get("threadLevels")
-	if tls != "" {
-		tlslice := strings.Split(tls, ",")
-		for _, tl := range tlslice {
-			intTl, err := strconv.Atoi(tl)
-			catcher.Add(err)
-			h.args.ThreadLevels = append(h.args.ThreadLevels, intTl)
+	delete(vals, "measurementRegex")
+	h.args.Arguments = map[string][]int{}
+	for k, v := range vals {
+		key := toSnakeCase(k)
+		val := v[0]
+		if val != "" {
+			valslice := strings.Split(val, ",")
+			for _, valEntry := range valslice {
+				intVal, err := strconv.Atoi(valEntry)
+				catcher.Add(err)
+				h.args.Arguments[key] = append(h.args.Arguments[key], intVal)
+			}
 		}
 	}
 	return catcher.Resolve()
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
 }
 
 func (h *perfGetChangePointsByVersionHandler) Run(ctx context.Context) gimlet.Responder {

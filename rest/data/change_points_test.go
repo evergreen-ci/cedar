@@ -332,10 +332,10 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	pageSize := 100
 	projectId := "project1"
 	args := GetChangePointsGroupedByVersionOpts{
-		ProjectID:    projectId,
-		Page:         page,
-		PageSize:     pageSize,
-		ThreadLevels: []int{10, 15},
+		ProjectID: projectId,
+		Page:      page,
+		PageSize:  pageSize,
+		Arguments: map[string][]int{"thread_level": {10, 15}},
 	}
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, args)
 	s.Require().NoError(err)
@@ -345,7 +345,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	}
 	s.Require().Equal(3, totalChangePoints)
 
-	args.ThreadLevels = []int{10}
+	args.Arguments = map[string][]int{"thread_level": {10}}
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, args)
 	s.Require().NoError(err)
 	totalChangePoints = 0
@@ -354,7 +354,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	}
 	s.Require().Equal(2, totalChangePoints)
 
-	args.ThreadLevels = []int{15}
+	args.Arguments = map[string][]int{"thread_level": {15}}
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, args)
 	s.Require().NoError(err)
 	totalChangePoints = 0
@@ -377,7 +377,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByEverything() {
 		TaskRegex:        "task1",
 		TestRegex:        "test1",
 		MeasurementRegex: "measurement1",
-		ThreadLevels:     []int{10, 15},
+		Arguments:        map[string][]int{"thread_level": {10, 15}},
 	}
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, args)
 	s.Require().NoError(err)
@@ -401,7 +401,7 @@ func (s *ChangePointConnectorSuite) TestFilteringByEverythingNoResults() {
 		TaskRegex:        "task1",
 		TestRegex:        "test1",
 		MeasurementRegex: "measurement1",
-		ThreadLevels:     []int{2},
+		Arguments:        map[string][]int{"thread_level": {2}},
 	}
 	result, err := s.sc.GetChangePointsByVersion(s.ctx, args)
 	s.Require().NoError(err)
