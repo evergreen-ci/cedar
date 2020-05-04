@@ -52,7 +52,7 @@ func ConvertToComposerWithLevel(p level.Priority, message interface{}) Composer 
 func convert(p level.Priority, message interface{}, overRideLevel bool) Composer {
 	switch message := message.(type) {
 	case Composer:
-		if overRideLevel || message.Priority() == level.Invalid {
+		if overRideLevel || message.Priority() != level.Invalid {
 			_ = message.SetPriority(p)
 		}
 		return message
@@ -72,10 +72,38 @@ func convert(p level.Priority, message interface{}, overRideLevel bool) Composer
 		return NewLineMessage(p, message...)
 	case []byte:
 		return NewBytesMessage(p, message)
-	case map[string]interface{}:
-		return NewFields(p, Fields(message))
 	case Fields:
 		return NewFields(p, message)
+	case map[string]interface{}:
+		return NewFields(p, Fields(message))
+	case [][]string:
+		grp := make([]Composer, len(message))
+		for idx := range message {
+			grp[idx] = newLinesFromStrings(p, message[idx])
+		}
+		out := NewGroupComposer(grp)
+		return out
+	case [][]byte:
+		grp := make([]Composer, len(message))
+		for idx := range message {
+			grp[idx] = NewBytesMessage(p, message[idx])
+		}
+		out := NewGroupComposer(grp)
+		return out
+	case []map[string]interface{}:
+		grp := make([]Composer, len(message))
+		for idx := range message {
+			grp[idx] = NewFields(p, message[idx])
+		}
+		out := NewGroupComposer(grp)
+		return out
+	case []Fields:
+		grp := make([]Composer, len(message))
+		for idx := range message {
+			grp[idx] = NewFields(p, message[idx])
+		}
+		out := NewGroupComposer(grp)
+		return out
 	case nil:
 		return NewLineMessage(p)
 	default:
