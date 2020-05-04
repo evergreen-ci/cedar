@@ -58,16 +58,21 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	} else {
 		h.args.PageSize = 10
 	}
-	h.args.VariantRegex = vals.Get("variantRegex")
-	delete(vals, "variantRegex")
-	h.args.VersionRegex = vals.Get("versionRegex")
-	delete(vals, "versionRegex")
-	h.args.TaskRegex = vals.Get("taskRegex")
-	delete(vals, "taskRegex")
-	h.args.TestRegex = vals.Get("testRegex")
-	delete(vals, "testRegex")
-	h.args.MeasurementRegex = vals.Get("measurementRegex")
-	delete(vals, "measurementRegex")
+	variantRegex := "variantRegex"
+	h.args.VariantRegex = vals.Get(variantRegex)
+	delete(vals, variantRegex)
+	versionRegex := "versionRegex"
+	h.args.VersionRegex = vals.Get(versionRegex)
+	delete(vals, versionRegex)
+	taskRegex := "taskRegex"
+	h.args.TaskRegex = vals.Get(taskRegex)
+	delete(vals, taskRegex)
+	testRegex := "testRegex"
+	h.args.TestRegex = vals.Get(testRegex)
+	delete(vals, testRegex)
+	measurementRegex := "measurementRegex"
+	h.args.MeasurementRegex = vals.Get(measurementRegex)
+	delete(vals, measurementRegex)
 	h.args.Arguments = map[string][]int{}
 	for k, v := range vals {
 		key := toSnakeCase(k)
