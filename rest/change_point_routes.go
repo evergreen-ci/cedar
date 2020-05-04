@@ -36,13 +36,22 @@ func (h *perfGetChangePointsByVersionHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
+const (
+	pageString       string = "page"
+	pageSizeString   string = "pageSize"
+	variantRegex     string = "variantRegex"
+	versionRegex     string = "versionRegex"
+	taskRegex        string = "taskRegex"
+	testRegex        string = "testRegex"
+	measurementRegex string = "measurementRegex"
+)
+
 // Parse fetches the id from the http request.
 func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.Request) error {
 	h.args.ProjectID = gimlet.GetVars(r)["projectID"]
 	vals := r.URL.Query()
 	catcher := grip.NewBasicCatcher()
 	var err error
-	pageString := "page"
 	page := vals.Get(pageString)
 	delete(vals, pageString)
 	if page != "" {
@@ -51,7 +60,6 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	} else {
 		h.args.Page = 0
 	}
-	pageSizeString := "pageSize"
 	pageSize := vals.Get(pageSizeString)
 	delete(vals, pageSizeString)
 	if pageSize != "" {
@@ -60,19 +68,14 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	} else {
 		h.args.PageSize = 10
 	}
-	variantRegex := "variantRegex"
 	h.args.VariantRegex = vals.Get(variantRegex)
 	delete(vals, variantRegex)
-	versionRegex := "versionRegex"
 	h.args.VersionRegex = vals.Get(versionRegex)
 	delete(vals, versionRegex)
-	taskRegex := "taskRegex"
 	h.args.TaskRegex = vals.Get(taskRegex)
 	delete(vals, taskRegex)
-	testRegex := "testRegex"
 	h.args.TestRegex = vals.Get(testRegex)
 	delete(vals, testRegex)
-	measurementRegex := "measurementRegex"
 	h.args.MeasurementRegex = vals.Get(measurementRegex)
 	delete(vals, measurementRegex)
 	h.args.Arguments = map[string][]int{}
