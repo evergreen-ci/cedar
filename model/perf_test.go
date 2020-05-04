@@ -656,6 +656,7 @@ func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 
 func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	// nodeA -> nodeB and nodeC, nodeB -> nodeD
+	s.Require().NoError(cedar.GetEnvironment().GetDB().Drop(s.ctx))
 	s.r = new(PerformanceResults)
 	s.r.Setup(cedar.GetEnvironment())
 

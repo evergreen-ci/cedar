@@ -5,13 +5,13 @@ import dbmodel "github.com/evergreen-ci/cedar/model"
 // APIChangePointGroupedByVersionResult describes a paginated list of changepoints
 // grouped by the version they each belong to.
 type APIChangePointGroupedByVersionResult struct {
-	Versions   []APIChangePointsWithVersion `json:"versions"`
+	Versions   []APIVersionWithChangePoints `json:"versions"`
 	Page       int                          `json:"page"`
 	PageSize   int                          `json:"page_size"`
 	TotalPages int                          `json:"total_pages"`
 }
 
-type APIChangePointsWithVersion struct {
+type APIVersionWithChangePoints struct {
 	VersionId    string                       `json:"version_id"`
 	ChangePoints []APIChangePointWithPerfData `json:"change_points"`
 }
@@ -27,7 +27,7 @@ type APIChangePointWithPerfData struct {
 }
 
 func CreateAPIChangePointGroupedByVersionResult(getChangePointsGroupedByVersionResult []dbmodel.GetChangePointsGroupedByVersionResult, page, pageSize, totalPages int) *APIChangePointGroupedByVersionResult {
-	changePointsGroupedByVersion := make([]APIChangePointsWithVersion, len(getChangePointsGroupedByVersionResult))
+	changePointsGroupedByVersion := make([]APIVersionWithChangePoints, len(getChangePointsGroupedByVersionResult))
 	for i, perfResultsWithVersion := range getChangePointsGroupedByVersionResult {
 		var apiChangePoints []APIChangePointWithPerfData
 		for _, perfResult := range perfResultsWithVersion.PerfResults {
@@ -45,7 +45,7 @@ func CreateAPIChangePointGroupedByVersionResult(getChangePointsGroupedByVersionR
 			}
 		}
 
-		changePointsGroupedByVersion[i] = APIChangePointsWithVersion{
+		changePointsGroupedByVersion[i] = APIVersionWithChangePoints{
 			VersionId:    perfResultsWithVersion.VersionID,
 			ChangePoints: apiChangePoints,
 		}
