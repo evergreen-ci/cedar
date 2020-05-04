@@ -42,16 +42,18 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	vals := r.URL.Query()
 	catcher := grip.NewBasicCatcher()
 	var err error
-	page := vals.Get("page")
-	delete(vals, "page")
+	pageString := "page"
+	page := vals.Get(pageString)
+	delete(vals, pageString)
 	if page != "" {
 		h.args.Page, err = strconv.Atoi(page)
 		catcher.Add(err)
 	} else {
 		h.args.Page = 0
 	}
-	pageSize := vals.Get("pageSize")
-	delete(vals, "pageSize")
+	pageSizeString := "pageSize"
+	pageSize := vals.Get(pageSizeString)
+	delete(vals, pageSizeString)
 	if pageSize != "" {
 		h.args.PageSize, err = strconv.Atoi(pageSize)
 		catcher.Add(err)
