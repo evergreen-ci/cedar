@@ -49,7 +49,8 @@ func (s *ChangePointSuite) TestGetVersionWithChangePointsRouteParsing() {
 	s.Require().Equal(rh.args.TaskRegex, "some_task")
 	s.Require().Equal(rh.args.TestRegex, "some_test")
 	s.Require().Equal(rh.args.MeasurementRegex, "some_measurement")
-	s.Require().Equal(rh.args.Arguments, map[string][]int{
+	arguments := map[string][]int{
 		"thread_level": {1, 2, 3},
-	})
+	}
+	s.Require().Equal(rh.args.Arguments, arguments)
 }
