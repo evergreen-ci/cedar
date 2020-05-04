@@ -60,7 +60,7 @@ func TestCreateAPIChangePointGroupedByVersionResult(t *testing.T) {
 			assert.Equal(t, perfResult.Info.Variant, changePoint.Variant)
 			assert.Equal(t, perfResult.Info.TaskName, changePoint.Task)
 			assert.Equal(t, perfResult.Info.TestName, changePoint.Test)
-			assert.Equal(t, perfResult.Info.Arguments["thread_level"], changePoint.ThreadLevel)
+			assert.Equal(t, perfResult.Info.Arguments, changePoint.Arguments)
 			assert.Equal(t, perfResult.ID, changePoint.PerfResultId)
 		}
 	})

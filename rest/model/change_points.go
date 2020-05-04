@@ -17,12 +17,12 @@ type APIVersionWithChangePoints struct {
 }
 
 type APIChangePointWithPerfData struct {
-	PerfResultId string `json:"perf_result_id"`
-	Project      string `json:"project"`
-	Task         string `json:"task"`
-	Test         string `json:"test"`
-	Variant      string `json:"variant"`
-	ThreadLevel  int32  `json:"thread_level"`
+	PerfResultId string           `json:"perf_result_id"`
+	Project      string           `json:"project"`
+	Task         string           `json:"task"`
+	Test         string           `json:"test"`
+	Variant      string           `json:"variant"`
+	Arguments    map[string]int32 `json:"arguments"`
 	dbmodel.ChangePoint
 }
 
@@ -38,7 +38,7 @@ func CreateAPIChangePointGroupedByVersionResult(getChangePointsGroupedByVersionR
 					Task:         perfResult.Info.TaskName,
 					Test:         perfResult.Info.TestName,
 					Variant:      perfResult.Info.Variant,
-					ThreadLevel:  perfResult.Info.Arguments["thread_level"],
+					Arguments:    perfResult.Info.Arguments,
 					ChangePoint:  dbChangePoint,
 				}
 				apiChangePoints = append(apiChangePoints, changePoint)
