@@ -464,7 +464,6 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 		{
 			"$limit": args.PageSize,
 		},
-		// It is sad, that $group can't handle $skips and $limits :(
 		{
 			"$lookup": bson.M{
 				"from":         perfResultCollection,
