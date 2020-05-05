@@ -385,7 +385,7 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 	pipe := appendAfterBaseGetChangePointsByVersionAgg(args, bson.M{
 		"$count": "count",
 	})
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, options.Aggregate().SetAllowDiskUse(true))
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return 0, errors.Wrap(err, "Cannot aggregate to get count of change points grouped by version")
 	}
@@ -444,7 +444,7 @@ func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVer
 		{
 			"$group": bson.M{
 				"_id":          "$info.version",
-				"perf_results": bson.M{"$push": "$$ROOT"},
+				"perf_results": bson.M{"$push": "$_id"},
 				"order":        bson.M{"$first": "$info.order"},
 			},
 		},
@@ -463,6 +463,15 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 		},
 		{
 			"$limit": args.PageSize,
+		},
+		// It is sad, that $group can't handle $skips and $limits :(
+		{
+			"$lookup": bson.M{
+				"from":         perfResultCollection,
+				"localField":   "perf_results",
+				"foreignField": "_id",
+				"as":           "perf_results",
+			},
 		},
 	}...)
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, options.Aggregate().SetAllowDiskUse(true))
