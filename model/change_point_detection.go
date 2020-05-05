@@ -474,7 +474,7 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 			},
 		},
 	}...)
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, options.Aggregate().SetAllowDiskUse(true))
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate to get change points grouped by version")
 	}
