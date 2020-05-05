@@ -385,7 +385,7 @@ func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar
 	pipe := appendAfterBaseGetChangePointsByVersionAgg(args, bson.M{
 		"$count": "count",
 	})
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, options.Aggregate().SetAllowDiskUse(true))
 	if err != nil {
 		return 0, errors.Wrap(err, "Cannot aggregate to get count of change points grouped by version")
 	}
@@ -465,7 +465,7 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 			"$limit": args.PageSize,
 		},
 	}...)
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, options.Aggregate().SetAllowDiskUse(true))
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot aggregate to get change points grouped by version")
 	}
