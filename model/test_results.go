@@ -358,6 +358,8 @@ func (id *TestResultsInfo) ID() string {
 // TestResult describes a single test result to be stored as a BSON object in
 // some type of pail bucket storage.
 type TestResult struct {
+	TaskID         string    `bson:"task_id"`
+	Execution      int       `bson:"execution"`
 	TestName       string    `bson:"test_name"`
 	Trial          int       `bson:"trial"`
 	Status         string    `bson:"status"`
