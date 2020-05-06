@@ -378,7 +378,7 @@ type GetChangePointsGroupedByVersionOptions struct {
 	TaskRegex        string
 	TestRegex        string
 	MeasurementRegex string
-	ThreadLevels     []int
+	Arguments        map[string][]int
 }
 
 func GetTotalPagesForChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment, args GetChangePointsGroupedByVersionOptions) (int, error) {
@@ -412,9 +412,9 @@ func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVer
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$regex": args.TestRegex},
 	}
 
-	if args.ThreadLevels != nil {
-		matchStage[bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey, "thread_level")] = bson.M{
-			"$in": args.ThreadLevels,
+	for arg, val := range args.Arguments {
+		matchStage[bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey, arg)] = bson.M{
+			"$in": val,
 		}
 	}
 
