@@ -444,7 +444,7 @@ func appendAfterBaseGetChangePointsByVersionAgg(args GetChangePointsGroupedByVer
 		{
 			"$group": bson.M{
 				"_id":          "$info.version",
-				"perf_results": bson.M{"$push": "$$ROOT"},
+				"perf_results": bson.M{"$push": "$_id"},
 				"order":        bson.M{"$first": "$info.order"},
 			},
 		},
@@ -463,6 +463,14 @@ func GetChangePointsGroupedByVersion(ctx context.Context, env cedar.Environment,
 		},
 		{
 			"$limit": args.PageSize,
+		},
+		{
+			"$lookup": bson.M{
+				"from":         perfResultCollection,
+				"localField":   "perf_results",
+				"foreignField": "_id",
+				"as":           "perf_results",
+			},
 		},
 	}...)
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
