@@ -210,7 +210,7 @@ func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {
 		if rh.(*logGetByIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
 			s.Equal(rh.(*logGetByIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
-			s.Nil(pages.Next)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -358,7 +358,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		if rh.(*logGetByTaskIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
 			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
-			s.Nil(pages.Next)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -391,7 +391,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		if rh.(*logGetByTaskIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
 			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
-			s.Nil(pages.Next)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -418,7 +418,7 @@ func (s *LogHandlerSuite) TestLogGetByTaskIDHandlerFound() {
 		if rh.(*logGetByTaskIDHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
 			s.Equal(rh.(*logGetByTaskIDHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
-			s.Nil(pages.Next)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -592,7 +592,7 @@ func (s *LogHandlerSuite) TestLogGetByTestNameHandlerFound() {
 		if rh.(*logGetByTestNameHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
 			s.Equal(rh.(*logGetByTestNameHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
-			s.Nil(pages.Next)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -764,7 +764,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		if rh.(*logGroupHandler).opts.SoftSizeLimit > 0 {
 			s.Require().NotNil(pages)
 			s.Equal(rh.(*logGroupHandler).opts.TimeRange.StartAt.Format(time.RFC3339Nano), pages.Prev.Key)
-			s.Nil(pages.Next)
+			s.Equal(it.Item().Timestamp.Format(time.RFC3339Nano), pages.Next.Key)
 		} else {
 			s.Nil(pages)
 		}
@@ -1072,7 +1072,7 @@ func TestNewBuildloggerResponder(t *testing.T) {
 		assert.Equal(t, gimlet.TEXT, resp.Format())
 		assert.Nil(t, resp.Pages())
 	})
-	t.Run("PaginatedWithNonZeroNext", func(t *testing.T) {
+	t.Run("Paginated", func(t *testing.T) {
 		resp := newBuildloggerResponder(data, last, next, true)
 		assert.Equal(t, data, resp.Data())
 		assert.Equal(t, gimlet.TEXT, resp.Format())
@@ -1095,21 +1095,4 @@ func TestNewBuildloggerResponder(t *testing.T) {
 		assert.Equal(t, expectedPrev, pages.Prev)
 		assert.Equal(t, expectedNext, pages.Next)
 	})
-	t.Run("PaginatedWithZeroNext", func(t *testing.T) {
-		resp := newBuildloggerResponder(data, last, time.Time{}, true)
-		assert.Equal(t, data, resp.Data())
-		assert.Equal(t, gimlet.TEXT, resp.Format())
-		pages := resp.Pages()
-		require.NotNil(t, pages)
-		expectedPrev := &gimlet.Page{
-			BaseURL:         baseURL,
-			KeyQueryParam:   "start",
-			LimitQueryParam: "limit",
-			Key:             last.Format(time.RFC3339Nano),
-			Relation:        "prev",
-		}
-		assert.Equal(t, expectedPrev, pages.Prev)
-		assert.Nil(t, pages.Next)
-	})
-
 }
