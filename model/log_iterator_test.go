@@ -70,6 +70,7 @@ func TestLogIterator(t *testing.T) {
 			},
 			test: func(t *testing.T, _ string, it LogIterator) {
 				assert.False(t, it.Next(ctx))
+				assert.True(t, it.Exhausted())
 				assert.NoError(t, it.Err())
 				assert.Zero(t, it.Item())
 				assert.NoError(t, it.Close())
@@ -106,6 +107,7 @@ func TestLogIterator(t *testing.T) {
 					count++
 				}
 				assert.Equal(t, len(lines), count)
+				assert.True(t, it.Exhausted())
 				assert.NoError(t, it.Err())
 				assert.NoError(t, it.Close())
 			},
@@ -124,6 +126,7 @@ func TestLogIterator(t *testing.T) {
 					count++
 				}
 				assert.Equal(t, 0, count)
+				assert.False(t, it.Exhausted())
 				assert.Error(t, it.Err())
 				assert.NoError(t, it.Close())
 			},
@@ -159,6 +162,7 @@ func TestLogIterator(t *testing.T) {
 					count++
 				}
 				assert.Equal(t, partialLinesLen, count)
+				assert.True(t, it.Exhausted())
 				assert.NoError(t, it.Err())
 				assert.NoError(t, it.Close())
 			},
