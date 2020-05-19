@@ -23,9 +23,12 @@ import (
 // LogIterator is an interface that enables iterating over lines of buildlogger
 // logs.
 type LogIterator interface {
-	// Next returns true if the iterator has not yet been exhausted, false
-	// otherwise.
+	// Next returns true if the iterator has not yet been exhausted or
+	// closed, false otherwise.
 	Next(context.Context) bool
+	// Exhausted returns true if the iterator has not yet been exhausted,
+	// regardless if it has been closed or not.
+	Exhausted() bool
 	// Err returns any errors that are captured by the iterator.
 	Err() error
 	// Item returns the current LogLine item held by the iterator.
@@ -55,6 +58,8 @@ type serializedIterator struct {
 	currentReader        *bufio.Reader
 	currentItem          LogLine
 	catcher              grip.Catcher
+	exhausted            bool
+	closed               bool
 }
 
 // NewSerializedLogIterator returns a LogIterator that serially fetches
@@ -87,9 +92,14 @@ func (i *serializedIterator) Reverse() LogIterator {
 func (i *serializedIterator) IsReversed() bool { return i.reverse }
 
 func (i *serializedIterator) Next(ctx context.Context) bool {
+	if i.closed {
+		return false
+	}
+
 	for {
 		if i.currentReader == nil && i.currentReverseReader == nil {
 			if i.keyIndex >= len(i.chunks) {
+				i.exhausted = true
 				return false
 			}
 
@@ -140,9 +150,11 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 		i.lineCount++
 
 		if item.Timestamp.After(i.timeRange.EndAt) && !i.reverse {
+			i.exhausted = true
 			return false
 		}
 		if item.Timestamp.Before(i.timeRange.StartAt) && i.reverse {
+			i.exhausted = true
 			return false
 		}
 
@@ -156,11 +168,14 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 	return true
 }
 
+func (i *serializedIterator) Exhausted() bool { return i.exhausted }
+
 func (i *serializedIterator) Err() error { return i.catcher.Resolve() }
 
 func (i *serializedIterator) Item() LogLine { return i.currentItem }
 
 func (i *serializedIterator) Close() error {
+	i.closed = true
 	if i.currentReadCloser != nil {
 		return i.currentReadCloser.Close()
 	}
@@ -185,6 +200,8 @@ type batchedIterator struct {
 	currentReader        *bufio.Reader
 	currentItem          LogLine
 	catcher              grip.Catcher
+	exhausted            bool
+	closed               bool
 }
 
 // NewBatchedLog returns a LogIterator that fetches batches (size set by the
@@ -235,7 +252,11 @@ func (i *batchedIterator) Reverse() LogIterator {
 func (i *batchedIterator) IsReversed() bool { return i.reverse }
 
 func (i *batchedIterator) getNextBatch(ctx context.Context) error {
-	if err := i.Close(); err != nil {
+	catcher := grip.NewBasicCatcher()
+	for _, r := range i.readers {
+		catcher.Add(r.Close())
+	}
+	if err := catcher.Resolve(); err != nil {
 		return errors.Wrap(err, "problem closing readers")
 	}
 
@@ -251,7 +272,7 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 	readers := map[string]io.ReadCloser{}
-	catcher := grip.NewBasicCatcher()
+	catcher = grip.NewBasicCatcher()
 
 	for j := 0; j < runtime.NumCPU(); j++ {
 		wg.Add(1)
@@ -287,9 +308,14 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 }
 
 func (i *batchedIterator) Next(ctx context.Context) bool {
+	if i.closed {
+		return false
+	}
+
 	for {
 		if i.currentReader == nil && i.currentReverseReader == nil {
 			if i.keyIndex >= len(i.chunks) {
+				i.exhausted = true
 				return false
 			}
 
@@ -340,9 +366,11 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 		i.lineCount++
 
 		if item.Timestamp.After(i.timeRange.EndAt) && !i.reverse {
+			i.exhausted = true
 			return false
 		}
 		if item.Timestamp.Before(i.timeRange.StartAt) && i.reverse {
+			i.exhausted = true
 			return false
 		}
 		if (item.Timestamp.After(i.timeRange.StartAt) || item.Timestamp.Equal(i.timeRange.StartAt)) &&
@@ -355,11 +383,14 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 	return true
 }
 
+func (i *batchedIterator) Exhausted() bool { return i.exhausted }
+
 func (i *batchedIterator) Err() error { return i.catcher.Resolve() }
 
 func (i *batchedIterator) Item() LogLine { return i.currentItem }
 
 func (i *batchedIterator) Close() error {
+	i.closed = true
 	catcher := grip.NewBasicCatcher()
 
 	for _, r := range i.readers {
@@ -429,6 +460,16 @@ func (i *mergingIterator) Next(ctx context.Context) bool {
 	}
 
 	return true
+}
+
+func (i *mergingIterator) Exhausted() bool {
+	for _, it := range i.iterators {
+		if it.Exhausted() {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (i *mergingIterator) init(ctx context.Context) {
