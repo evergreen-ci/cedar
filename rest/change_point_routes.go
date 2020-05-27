@@ -94,7 +94,6 @@ func (h *perfGetChangePointsByVersionHandler) Parse(_ context.Context, r *http.R
 	return catcher.Resolve()
 }
 
-
 func toSnakeCase(str string) string {
 	matchFirstCap := regexp.MustCompile("(.)([A-Z][a-z]+)")
 	matchAllCap := regexp.MustCompile("([a-z0-9])([A-Z])")
