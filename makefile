@@ -152,6 +152,7 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/aws/aws-sdk-go
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/davecgh/go-spew
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/gimlet
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/poplar/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/grip/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/mongo-go-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/stretchr/testify
