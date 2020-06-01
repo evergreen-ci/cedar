@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -114,6 +115,10 @@ type PerformanceResultSeriesID struct {
 	Task      string           `bson:"task"`
 	Test      string           `bson:"test"`
 	Arguments map[string]int32 `bson:"args"`
+}
+
+func (p PerformanceResultSeriesID) String() string {
+	return fmt.Sprintf("%s %s %s %s %v", p.Project, p.Variant, p.Task, p.Test, p.Arguments)
 }
 
 type TimeSeriesEntry struct {
@@ -328,7 +333,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 func ReplaceChangePoints(ctx context.Context, env cedar.Environment, performanceData *PerformanceData, mappedChangePoints map[string][]ChangePoint) error {
 	err := clearUntriagedChangePoints(ctx, env, performanceData.PerformanceResultId)
 	if err != nil {
-		return errors.Wrapf(err, "Unable to clear change points for measurement %s", performanceData.PerformanceResultId)
+		return errors.Wrapf(err, "Unable to clear change points for measurement %s", performanceData.PerformanceResultId.String())
 	}
 	catcher := grip.NewBasicCatcher()
 	for _, measurementData := range performanceData.Data {
