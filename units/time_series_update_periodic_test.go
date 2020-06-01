@@ -35,7 +35,7 @@ func tearDownPeriodicTest(env cedar.Environment) error {
 	return errors.WithStack(session.DB(conf.DatabaseName).DropDatabase())
 }
 
-func TestPeriodicChangePointsJob(t *testing.T) {
+func TestPeriodicTimeSeriesUpdateJob(t *testing.T) {
 	setupPeriodic()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -51,8 +51,8 @@ func TestPeriodicChangePointsJob(t *testing.T) {
 		bRollups, _ := makePerfResultsWithChangePoints("f", time.Now().UnixNano())
 		provisionDb(ctx, env, append(aRollups, bRollups...))
 
-		j := NewPeriodicChangePointJob("someId")
-		job := j.(*periodicChangePointJob)
+		j := NewPeriodicTimeSeriesUpdateJob("someId")
+		job := j.(*periodicTimeSeriesJob)
 		job.queue = queue.NewLocalLimitedSize(1, 100)
 		assert.NoError(t, job.queue.Start(ctx))
 		j.Run(ctx)

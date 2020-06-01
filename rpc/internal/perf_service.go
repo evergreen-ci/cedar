@@ -108,7 +108,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	}
 
 	if record.Info.Mainline {
-		processingJob := units.NewRecalculateChangePointsJob(record.Info.ToPerformanceResultSeriesID())
+		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {

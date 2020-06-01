@@ -109,22 +109,23 @@ func (ts TriageStatus) Validate() error {
 }
 
 type PerformanceResultSeriesID struct {
-	Project string `bson:"project"`
-	Variant string `bson:"variant"`
-	Task    string `bson:"task"`
-	Test    string `bson:"test"`
+	Project   string           `bson:"project"`
+	Variant   string           `bson:"variant"`
+	Task      string           `bson:"task"`
+	Test      string           `bson:"test"`
+	Arguments map[string]int32 `bson:"args"`
 }
 
 type TimeSeriesEntry struct {
 	PerfResultID string  `bson:"perf_result_id"`
 	Value        float64 `bson:"value"`
 	Order        int     `bson:"order"`
+	Version      string  `bson:"version"`
 }
 
 type MeasurementData struct {
-	Measurement  string            `bson:"measurement"`
-	TimeSeries   []TimeSeriesEntry `bson:"time_series"`
-	ChangePoints []ChangePoint     `bson:"change_points"`
+	Measurement string            `bson:"measurement"`
+	TimeSeries  []TimeSeriesEntry `bson:"time_series"`
 }
 
 type PerformanceData struct {
@@ -157,7 +158,7 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 	return nil
 }
 
-func GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
+func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -229,6 +230,7 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
 					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
 					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					"args":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
 				},
 			},
 		},
@@ -264,20 +266,6 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 		{
 			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
 		},
-		//Filter out any change points unrelated to this rollup
-		{
-			"$addFields": bson.M{
-				bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey): bson.M{
-					"$filter": bson.M{
-						"input": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-						"as":    "cp",
-						"cond": bson.M{
-							"$eq": bson.A{"$$cp.measurement", "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey)},
-						},
-					},
-				},
-			},
-		},
 		{
 			"$group": bson.M{
 				"_id": bson.M{
@@ -286,6 +274,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 					"task":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
 					"test":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 					"measurement": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
+					"args":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
 				},
 				"time_series": bson.M{
 					"$push": bson.M{
@@ -297,21 +286,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 						},
 						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
 						"perf_result_id": "$_id",
-					},
-				},
-				"change_points": bson.M{
-					"$push": "$" + bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisChangePointsKey),
-				},
-			},
-		},
-		// Flatten the change points into one array
-		{
-			"$addFields": bson.M{
-				"change_points": bson.M{
-					"$reduce": bson.M{
-						"input":        "$change_points",
-						"initialValue": bson.A{},
-						"in":           bson.M{"$concatArrays": bson.A{"$$value", "$$this"}},
+						"version":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey),
 					},
 				},
 			},
@@ -323,12 +298,12 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 					"variant": "$_id.variant",
 					"task":    "$_id.task",
 					"test":    "$_id.test",
+					"args":    "$_id.args",
 				},
 				"data": bson.M{
 					"$push": bson.M{
-						"measurement":   "$_id.measurement",
-						"time_series":   "$time_series",
-						"change_points": "$change_points",
+						"measurement": "$_id.measurement",
+						"time_series": "$time_series",
 					},
 				},
 			},

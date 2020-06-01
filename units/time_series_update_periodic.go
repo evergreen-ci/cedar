@@ -15,23 +15,23 @@ import (
 	"github.com/mongodb/grip"
 )
 
-const periodicChangePointJobName = "periodic-change-point-detection"
+const periodicTimeSeriesUpdateJobName = "periodic-time-series-update"
 
-type periodicChangePointJob struct {
+type periodicTimeSeriesJob struct {
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 	env       cedar.Environment
 	queue     amboy.Queue
 }
 
 func init() {
-	registry.AddJobType(periodicChangePointJobName, func() amboy.Job { return makePeriodicChangePointJob() })
+	registry.AddJobType(periodicTimeSeriesUpdateJobName, func() amboy.Job { return makePeriodicTimeSeriesUpdateJob() })
 }
 
-func makePeriodicChangePointJob() *periodicChangePointJob {
-	j := &periodicChangePointJob{
+func makePeriodicTimeSeriesUpdateJob() *periodicTimeSeriesJob {
+	j := &periodicTimeSeriesJob{
 		Base: &job.Base{
 			JobType: amboy.JobType{
-				Name:    periodicChangePointJobName,
+				Name:    periodicTimeSeriesUpdateJobName,
 				Version: 1,
 			},
 		},
@@ -40,13 +40,13 @@ func makePeriodicChangePointJob() *periodicChangePointJob {
 	return j
 }
 
-func NewPeriodicChangePointJob(id string) amboy.Job {
-	j := makePeriodicChangePointJob()
-	j.SetID(fmt.Sprintf("%s.%s", periodicChangePointJobName, id))
+func NewPeriodicTimeSeriesUpdateJob(id string) amboy.Job {
+	j := makePeriodicTimeSeriesUpdateJob()
+	j.SetID(fmt.Sprintf("%s.%s", periodicTimeSeriesUpdateJobName, id))
 	return j
 }
 
-func (j *periodicChangePointJob) Run(ctx context.Context) {
+func (j *periodicTimeSeriesJob) Run(ctx context.Context) {
 
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
@@ -56,12 +56,12 @@ func (j *periodicChangePointJob) Run(ctx context.Context) {
 	}
 	defer j.MarkComplete()
 	grip.Info("Scanning for performance data in need of analysis")
-	needUpdates, err := model.GetPerformanceResultSeriesIdsNeedingChangePointDetection(ctx, j.env)
+	needUpdates, err := model.GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx, j.env)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "Unable to get metrics needing change point detection"))
+		j.AddError(errors.Wrap(err, "Unable to get metrics needing time series update"))
 	}
 	for _, id := range needUpdates {
-		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewRecalculateChangePointsJob(id))
+		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewUpdateTimeSeriesJob(id))
 		if err != nil {
 			j.AddError(err)
 		}

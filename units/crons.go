@@ -87,7 +87,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 		if conf.Flags.DisableSignalProcessing {
 			return nil
 		}
-		job := NewPeriodicChangePointJob(utility.RoundPartOfMinute(0).Format(tsFormat))
+		job := NewPeriodicTimeSeriesUpdateJob(utility.RoundPartOfMinute(0).Format(tsFormat))
 		return queue.Put(ctx, job)
 	})
 
