@@ -3,6 +3,8 @@ package units
 import (
 	"context"
 	"fmt"
+	"sort"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
@@ -83,87 +85,47 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		}
 		j.performanceAnalysisService = perf.NewPerformanceAnalysisService(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
-	//performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
-	//if err != nil {
-	//	j.AddError(errors.Wrapf(err, "Unable to aggregate time perfData for project %s", j.PerformanceResultId.Project))
-	//	return
-	//}
-	//if performanceData == nil {
-	//	j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, j.PerformanceResultId))
-	//	return
-	//}
-	//for _, perfData := range performanceData.Data {
-	//sort.Slice(perfData.TimeSeries, func(i, j int) bool {
-	//	return perfData.TimeSeries[i].Order < perfData.TimeSeries[j].Order
-	//})
-	//series := perf.TimeSeriesModel{
-	//	Project:     performanceData.PerformanceResultId.Project,
-	//	Variant:     performanceData.PerformanceResultId.Variant,
-	//	Task:        performanceData.PerformanceResultId.Task,
-	//	Test:        performanceData.PerformanceResultId.Test,
-	//	Measurement: perfData.Measurement,
-	//}
-	//for k, v := range performanceData.PerformanceResultId.Arguments {
-	//	series.Arguments = append(series.Arguments, perf.ArgumentsModel{
-	//		Name:  k,
-	//		Value: v,
-	//	})
-	//}
-	//for _, item := range perfData.TimeSeries {
-	//	series.Data = append(series.Data, perf.TimeSeriesDataModel{
-	//		PerformanceResultID: item.PerfResultID,
-	//		Order:               item.Order,
-	//		Value:               item.Value,
-	//		Version:             item.Version,
-	//	})
-	//}
-	var data []perf.TimeSeriesDataModel
-	for i := 0; i < 50; i++ {
-		data = append(data, perf.TimeSeriesDataModel{
-			PerformanceResultID: "test1",
-			Order:               0,
-			Value:               10,
-			Version:             "version1",
-		})
-	}
-	for i := 0; i < 50; i++ {
-		data = append(data, perf.TimeSeriesDataModel{
-			PerformanceResultID: "test2",
-			Order:               0,
-			Value:               100,
-			Version:             "version2",
-		})
-	}
-	for i := 0; i < 50; i++ {
-		data = append(data, perf.TimeSeriesDataModel{
-			PerformanceResultID: "test3",
-			Order:               0,
-			Value:               500,
-			Version:             "version3",
-		})
-	}
-	for i := 0; i < 50; i++ {
-		data = append(data, perf.TimeSeriesDataModel{
-			PerformanceResultID: "test4",
-			Order:               0,
-			Value:               50,
-			Version:             "version4",
-		})
-	}
-	series := perf.TimeSeriesModel{
-		Project:     "projecta",
-		Variant:     "varianta",
-		Task:        "task",
-		Test:        "test",
-		Measurement: "measuremnt",
-		Arguments:   []perf.ArgumentsModel{},
-		Data:        data,
-	}
-
-	err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
+	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to update time series for perfData for project for %s", j.PerformanceResultId.Project))
+		j.AddError(errors.Wrapf(err, "Unable to aggregate time perfData for project %s", j.PerformanceResultId.Project))
 		return
 	}
-	//}
+	if performanceData == nil {
+		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, j.PerformanceResultId))
+		return
+	}
+	for _, perfData := range performanceData.Data {
+		sort.Slice(perfData.TimeSeries, func(i, j int) bool {
+			return perfData.TimeSeries[i].Order < perfData.TimeSeries[j].Order
+		})
+		series := perf.TimeSeriesModel{
+			Project:     performanceData.PerformanceResultId.Project,
+			Variant:     performanceData.PerformanceResultId.Variant,
+			Task:        performanceData.PerformanceResultId.Task,
+			Test:        performanceData.PerformanceResultId.Test,
+			Measurement: perfData.Measurement,
+		}
+		for k, v := range performanceData.PerformanceResultId.Arguments {
+			series.Arguments = append(series.Arguments, perf.ArgumentsModel{
+				Name:  k,
+				Value: v,
+			})
+		}
+		if series.Arguments == nil {
+			series.Arguments = make([]perf.ArgumentsModel, 0)
+		}
+		for _, item := range perfData.TimeSeries {
+			series.Data = append(series.Data, perf.TimeSeriesDataModel{
+				PerformanceResultID: item.PerfResultID,
+				Order:               item.Order,
+				Value:               item.Value,
+				Version:             item.Version,
+			})
+		}
+		err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
+		if err != nil {
+			j.AddError(errors.Wrapf(err, "Unable to update time series for perfData for project for %s", j.PerformanceResultId.Project))
+			return
+		}
+	}
 }

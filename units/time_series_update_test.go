@@ -13,7 +13,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type testResultsAndRollups struct {
@@ -41,12 +40,7 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 	return newVals
 }
 
-type changePointIndexPercentChange struct {
-	index         int
-	percentChange float64
-}
-
-func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, map[string][]changePointIndexPercentChange) {
+func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, [][]int) {
 	// deterministic testing on failure
 	grip.Debug("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
 	rand.Seed(seed)
@@ -133,30 +127,7 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 		i++
 	}
 
-	// time to map over change points
-	changePoints := map[string][]changePointIndexPercentChange{}
-	for measurement, cpIndices := range timeSeriesChangePoints {
-		measurementName := "measurement_" + strconv.Itoa(measurement)
-		cpsWithIndexAndPercentChange := make([]changePointIndexPercentChange, len(cpIndices))
-		currentTimeSeries := timeSeries[measurement]
-		for i, pointIndex := range cpIndices {
-			// No need to average over windows, since they are constant --> just use points before/after the change
-			percentChange := 100 * ((float64(currentTimeSeries[pointIndex]) / float64(currentTimeSeries[pointIndex-1])) - 1)
-			cpsWithIndexAndPercentChange[i] = changePointIndexPercentChange{index: pointIndex, percentChange: percentChange}
-		}
-
-		changePoints[measurementName] = append(changePoints[measurementName], cpsWithIndexAndPercentChange...)
-	}
-
-	return rollups, changePoints
-}
-
-func convertIntArrayToFloat64(input []int) []float64 {
-	floatArray := make([]float64, len(input))
-	for i, curInt := range input {
-		floatArray[i] = float64(curInt)
-	}
-	return floatArray
+	return rollups, timeSeries
 }
 
 func setupChangePointsTest() {
@@ -192,18 +163,6 @@ func (m *MockPerformanceAnalysisService) ReportUpdatedTimeSeries(ctx context.Con
 	return nil
 }
 
-func getPerformanceResultsWithChangePoints(ctx context.Context, env cedar.Environment, t *testing.T) []model.PerformanceResult {
-	// Get all perf results with change points
-	var result []model.PerformanceResult
-	filter := bson.M{
-		"analysis.change_points": bson.M{"$ne": []struct{}{}},
-	}
-	res, err := env.GetDB().Collection("perf_results").Find(ctx, filter)
-	require.NoError(t, err)
-	require.NoError(t, res.All(ctx, &result))
-	return result
-}
-
 func provisionDb(ctx context.Context, env cedar.Environment, rollups []testResultsAndRollups) {
 	for _, result := range rollups {
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
@@ -227,19 +186,38 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 	}()
 
 	t.Run("ReportsTimeSeries", func(t *testing.T) {
-		j := NewUpdateTimeSeriesJob(model.PerformanceResultSeriesID{
+		_ = env.GetDB().Drop(ctx)
+		rollups, timeSeries := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
+		provisionDb(ctx, env, rollups)
+
+		timeSeriesId := model.PerformanceResultSeriesID{
 			Project:   "projecta",
 			Variant:   "variant",
 			Task:      "task",
 			Test:      "test",
 			Arguments: map[string]int32{},
-		})
-		mockDetector := perf.NewPerformanceAnalysisService("http://localhost:8080", "", "")
+		}
+		j := NewUpdateTimeSeriesJob(timeSeriesId)
+		mockDetector := &MockPerformanceAnalysisService{}
 		job := j.(*timeSeriesUpdateJob)
 		job.performanceAnalysisService = mockDetector
 		job.conf = model.NewCedarConfig(env)
 		j.Run(ctx)
 		require.True(t, j.Status().Completed)
+		require.Equal(t, len(mockDetector.Calls), len(timeSeries))
+		for _, call := range mockDetector.Calls {
+			timeSeriesIndex, _ := strconv.Atoi(string(call.Measurement[len(call.Measurement)-1]))
+			require.Equal(t, timeSeriesId.Project, call.Project)
+			require.Equal(t, timeSeriesId.Variant, call.Variant)
+			require.Equal(t, timeSeriesId.Task, call.Task)
+			require.Equal(t, timeSeriesId.Test, call.Test)
+			require.Equal(t, len(timeSeriesId.Arguments), len(call.Arguments))
+			data := make([]int, len(call.Data))
+			for i, timeSeriesData := range call.Data {
+				data[i] = int(timeSeriesData.Value)
+			}
+			require.Equal(t, timeSeries[timeSeriesIndex], data)
+		}
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
