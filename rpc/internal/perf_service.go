@@ -14,6 +14,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/ftdc/events"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -54,6 +55,13 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	if err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts); err != nil {
 		return resp, errors.Wrap(err, "problem creating ftdc rollups job")
 	}
+
+	grip.Info(message.Fields{
+		"message":   "successfully added metric series",
+		"task_id":   result.GetId().GetTaskId(),
+		"execution": result.GetId().GetExecution(),
+		"project":   result.GetId().GetProject(),
+	})
 
 	resp.Success = true
 	return resp, nil
