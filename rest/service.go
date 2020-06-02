@@ -194,7 +194,8 @@ func (s *Service) addMiddleware() {
 
 	if s.Conf.Service.CORSOrigins != nil {
 		s.app.AddMiddleware(cors.New(cors.Options{
-			AllowedOrigins: s.Conf.Service.CORSOrigins,
+			AllowedOrigins:   s.Conf.Service.CORSOrigins,
+			AllowCredentials: true,
 		}))
 	}
 }
