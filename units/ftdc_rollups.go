@@ -155,7 +155,7 @@ func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *
 	if j.queue == nil {
 		j.queue = j.env.GetRemoteQueue()
 	}
-	processingJob := NewRecalculateChangePointsJob(result.Info.ToPerformanceResultSeriesID())
+	processingJob := NewUpdateTimeSeriesJob(result.Info.ToPerformanceResultSeriesID())
 
 	err := errors.Wrapf(amboy.EnqueueUniqueJob(ctx, j.queue, processingJob), "problem putting signal processing job %s on remote queue", j.ID())
 	if err != nil {

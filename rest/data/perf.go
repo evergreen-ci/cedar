@@ -250,7 +250,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	catcher := grip.NewBasicCatcher()
 
 	for _, id := range ids {
-		job := units.NewRecalculateChangePointsJob(id)
+		job := units.NewUpdateTimeSeriesJob(id)
 		err := amboy.EnqueueUniqueJob(ctx, queue, job)
 		if err != nil {
 			catcher.Add(errors.New(message.WrapError(err, message.Fields{

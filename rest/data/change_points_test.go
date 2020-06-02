@@ -290,43 +290,6 @@ func (s *ChangePointConnectorSuite) TestFilteringByTest() {
 	s.Require().Equal(1, totalChangePoints)
 }
 
-func (s *ChangePointConnectorSuite) TestFilteringByMeasurement() {
-	page := 0
-	pageSize := 100
-	projectId := "project1"
-	args := GetChangePointsGroupedByVersionOpts{
-		ProjectID:        projectId,
-		Page:             page,
-		PageSize:         pageSize,
-		MeasurementRegex: "measurement",
-	}
-	result, err := s.sc.GetChangePointsByVersion(s.ctx, args)
-	s.Require().NoError(err)
-	totalChangePoints := 0
-	for _, versionWithChangePoints := range result.Versions {
-		totalChangePoints += len(versionWithChangePoints.ChangePoints)
-	}
-	s.Require().Equal(3, totalChangePoints)
-
-	args.MeasurementRegex = "measurement1"
-	result, err = s.sc.GetChangePointsByVersion(s.ctx, args)
-	s.Require().NoError(err)
-	totalChangePoints = 0
-	for _, versionWithChangePoints := range result.Versions {
-		totalChangePoints += len(versionWithChangePoints.ChangePoints)
-	}
-	s.Require().Equal(2, totalChangePoints)
-
-	args.MeasurementRegex = "measurement2"
-	result, err = s.sc.GetChangePointsByVersion(s.ctx, args)
-	s.Require().NoError(err)
-	totalChangePoints = 0
-	for _, versionWithChangePoints := range result.Versions {
-		totalChangePoints += len(versionWithChangePoints.ChangePoints)
-	}
-	s.Require().Equal(1, totalChangePoints)
-}
-
 func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	page := 0
 	pageSize := 100
@@ -358,30 +321,6 @@ func (s *ChangePointConnectorSuite) TestFilteringByThreadLevel() {
 	result, err = s.sc.GetChangePointsByVersion(s.ctx, args)
 	s.Require().NoError(err)
 	totalChangePoints = 0
-	for _, versionWithChangePoints := range result.Versions {
-		totalChangePoints += len(versionWithChangePoints.ChangePoints)
-	}
-	s.Require().Equal(1, totalChangePoints)
-}
-
-func (s *ChangePointConnectorSuite) TestFilteringByEverything() {
-	page := 0
-	pageSize := 100
-	projectId := "project1"
-	args := GetChangePointsGroupedByVersionOpts{
-		ProjectID:        projectId,
-		Page:             page,
-		PageSize:         pageSize,
-		VariantRegex:     "variant1",
-		VersionRegex:     "version1",
-		TaskRegex:        "task1",
-		TestRegex:        "test1",
-		MeasurementRegex: "measurement1",
-		Arguments:        map[string][]int{"thread_level": {10, 15}},
-	}
-	result, err := s.sc.GetChangePointsByVersion(s.ctx, args)
-	s.Require().NoError(err)
-	totalChangePoints := 0
 	for _, versionWithChangePoints := range result.Versions {
 		totalChangePoints += len(versionWithChangePoints.ChangePoints)
 	}
