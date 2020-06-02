@@ -127,5 +127,6 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 			j.AddError(errors.Wrapf(err, "Unable to update time series for perfData %s", j.PerformanceResultId.String()))
 			return
 		}
+		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, performanceData.PerformanceResultId))
 	}
 }
