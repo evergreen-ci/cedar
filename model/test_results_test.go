@@ -312,11 +312,9 @@ func TestTestResultsDownload(t *testing.T) {
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: filepath.Join(testResultsCollection, tr.ID)})
 	require.NoError(t, err)
 
-	results := []TestResult{}
 	resultsMap := map[string]TestResult{}
 	for i := 0; i < 10; i++ {
 		result := getTestResult()
-		results = append(results, result)
 		resultsMap[result.TestName] = result
 		var data []byte
 		data, err = bson.Marshal(result)
@@ -363,9 +361,14 @@ func TestTestResultsDownload(t *testing.T) {
 		}
 
 		var results []TestResult
+		var iter TestResultsIterator
 		for i := 0; i < 10; i++ {
-			results, err = tr.Download(ctx)
+			iter, err = tr.Download(ctx)
 			require.NoError(t, err)
+			results = []TestResult{}
+			for iter.Next(ctx) {
+				results = append(results, iter.Item())
+			}
 			if len(results) == 10 {
 				break
 			}
