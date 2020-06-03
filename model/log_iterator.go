@@ -37,7 +37,6 @@ type Iterator interface {
 
 // LogIterator is an interface that enables iterating over lines of buildlogger
 // logs.
-// kim: NOTE: this can be used for TestResults iterator.
 type LogIterator interface {
 	Iterator
 	// Item returns the current LogLine item held by the iterator.

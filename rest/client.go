@@ -680,5 +680,3 @@ func (c *Client) RemovePerformanceResultById(ctx context.Context, id string) (st
 
 	return string(out), nil
 }
-
-// kim: TODO: add REST client methods here.

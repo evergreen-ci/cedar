@@ -7,12 +7,10 @@ import "github.com/mongodb/anser/bsonutil"
 // pail-backed offline log storage and the cedar-based log metadata storage.
 // The prefix field indicates the name of the "sub-bucket". The top level
 // bucket is accesible via the cedar.Environment interface.
-// kim: NOTE: this is used to find the test results in pail.
 type TestResultsArtifactInfo struct {
-	Type PailType `bson:"type"`
-	// kim: NOTE: this is hash of info struct + test name
-	Prefix  string `bson:"prefix"`
-	Version int    `bson:"version"`
+	Type    PailType `bson:"type"`
+	Prefix  string   `bson:"prefix"`
+	Version int      `bson:"version"`
 }
 
 var (

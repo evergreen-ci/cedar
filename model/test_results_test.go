@@ -296,6 +296,7 @@ func TestTestResultsAppend(t *testing.T) {
 	})
 }
 
+// kim: TODO: refactor
 func TestTestResultsDownload(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -363,9 +364,14 @@ func TestTestResultsDownload(t *testing.T) {
 		}
 
 		var results []TestResult
+		var iter TestResultsIterator
 		for i := 0; i < 10; i++ {
-			results, err = tr.Download(ctx)
+			iter, err = tr.Download(ctx)
 			require.NoError(t, err)
+			results = []TestResult{}
+			for iter.Next(ctx) {
+				results = append(results, iter.Item())
+			}
 			if len(results) == 10 {
 				break
 			}

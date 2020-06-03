@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"time"
 
@@ -25,12 +24,11 @@ const testResultsCollection = "test_results"
 
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
-	ID          string          `bson:"_id,omitempty"`
-	Info        TestResultsInfo `bson:"info"`
-	CreatedAt   time.Time       `bson:"created_at"`
-	CompletedAt time.Time       `bson:"completed_at"`
-	// kim: NOTE: this finds the test result artifact in S3.
-	Artifact TestResultsArtifactInfo `bson:"artifact"`
+	ID          string                  `bson:"_id,omitempty"`
+	Info        TestResultsInfo         `bson:"info"`
+	CreatedAt   time.Time               `bson:"created_at"`
+	CompletedAt time.Time               `bson:"completed_at"`
+	Artifact    TestResultsArtifactInfo `bson:"artifact"`
 
 	env       cedar.Environment
 	bucket    string
@@ -192,8 +190,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 // Download returns a TestResult slice with the corresponding results stored in
 // the offline blob storage. The TestResults should be populated and the
 // environment should not be nil.
-// kim: TODO: this should return an iterator (e.g. LogIterator)
-func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
+func (t *TestResults) Download(ctx context.Context) (TestResultsIterator, error) {
 	if !t.populated {
 		return nil, errors.New("cannot download with populated test results")
 	}
@@ -205,44 +202,12 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		t.ID = t.Info.ID()
 	}
 
-	bucket, prefix, err := t.getBucket(ctx)
+	bucket, err := t.getBucket(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	iter, err := bucket.List(ctx, "")
-	if err != nil {
-		return nil, errors.Wrap(err, "problem listing bucket items")
-	}
-
-	results := []TestResult{}
-	for iter.Next(ctx) {
-		r, err := iter.Item().Get(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "problem getting test result")
-		}
-		defer func() {
-			grip.Error(message.WrapError(r.Close(), message.Fields{
-				"message":  "problem closing bucket reader",
-				"bucket":   t.bucket,
-				"prefix":   prefix,
-				"path":     iter.Item(),
-				"location": t.Artifact.Type,
-			}))
-		}()
-
-		data, err := ioutil.ReadAll(r)
-		if err != nil {
-			return nil, errors.Wrap(err, "problem reading test result data")
-		}
-		result := TestResult{}
-		if err = bson.Unmarshal(data, &result); err != nil {
-			return nil, errors.Wrap(err, "problem unmarshalling bson test result")
-		}
-		results = append(results, result)
-	}
-
-	return results, nil
+	return NewTestResultsIterator(bucket), nil
 }
 
 // Close "closes out" by populating the completed_at field. The environment
@@ -280,12 +245,12 @@ func (t *TestResults) Close(ctx context.Context) error {
 	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
 }
 
-func (t *TestResults) getBucket(ctx context.Context) (pail.Bucket, string, error) {
+func (t *TestResults) getBucket(ctx context.Context) (pail.Bucket, error) {
 	if t.bucket == "" {
 		conf := &CedarConfig{}
 		conf.Setup(t.env)
 		if err := conf.Find(); err != nil {
-			return nil, "", errors.Wrap(err, "problem getting application configuration")
+			return nil, errors.Wrap(err, "problem getting application configuration")
 		}
 		t.bucket = conf.Bucket.TestResultsBucket
 	}
@@ -306,10 +271,10 @@ func (t *TestResults) getBucket(ctx context.Context) (pail.Bucket, string, error
 		true,
 	)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "problem creating bucket")
+		return nil, errors.Wrap(err, "problem creating bucket")
 	}
 
-	return bucket, prefix, nil
+	return bucket, nil
 }
 
 // TestResultsInfo describes information unique to a single task execution.

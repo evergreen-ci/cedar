@@ -6,7 +6,7 @@ import (
 
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/grip"
-	"github.com/pkg/errors"
+	"github.com/mongodb/grip/message"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -58,10 +58,10 @@ func (i *testResultsIterator) Next(ctx context.Context) bool {
 	defer func() {
 		grip.Error(message.WrapError(r.Close(), message.Fields{
 			"message": "could not close bucket reader",
-			"bucket": t.bucket,
-			"path": iter.Item().Name(),
+			"bucket":  i.bucket,
+			"path":    i.iter.Item().Name(),
 		}))
-	}
+	}()
 
 	data, err := ioutil.ReadAll(r)
 	if err != nil {

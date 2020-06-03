@@ -247,5 +247,4 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/meta").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogMetaByTestName(s.sc))
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogGroup(s.sc))
 
-	// kim: TODO: add REST routes here
 }
