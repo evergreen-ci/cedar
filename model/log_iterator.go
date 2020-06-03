@@ -20,9 +20,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LogIterator is an interface that enables iterating over lines of buildlogger
-// logs.
-type LogIterator interface {
+// Iterator represents a cursor for generic iteration over a sequence of items.
+type Iterator interface {
 	// Next returns true if the iterator has not yet been exhausted or
 	// closed, false otherwise.
 	Next(context.Context) bool
@@ -31,6 +30,16 @@ type LogIterator interface {
 	Exhausted() bool
 	// Err returns any errors that are captured by the iterator.
 	Err() error
+	// Close closes the iterator. This function should be called once the
+	// iterator is no longer needed.
+	Close() error
+}
+
+// LogIterator is an interface that enables iterating over lines of buildlogger
+// logs.
+// kim: NOTE: this can be used for TestResults iterator.
+type LogIterator interface {
+	Iterator
 	// Item returns the current LogLine item held by the iterator.
 	Item() LogLine
 	// Reverse returns a reversed copy of the iterator.
@@ -38,9 +47,6 @@ type LogIterator interface {
 	// IsReversed returns true if the iterator is in reverse order and
 	// false otherwise.
 	IsReversed() bool
-	// Close closes the iterator, this function should be called once the
-	// iterator is no longer needed.
-	Close() error
 }
 
 //////////////////////

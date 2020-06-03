@@ -1,0 +1,96 @@
+package model
+
+import (
+	"context"
+	"io/ioutil"
+
+	"github.com/evergreen-ci/pail"
+	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+)
+
+type TestResultsIterator interface {
+	Iterator
+	// Item returns the current TestResult item held by the iterator.
+	Item() TestResult
+}
+
+type testResultsIterator struct {
+	bucket      pail.Bucket
+	iter        pail.BucketIterator
+	currentItem TestResult
+	exhausted   bool
+	catcher     grip.Catcher
+}
+
+// NewTestResultsIterator returns an iterator
+func NewTestResultsIterator(bucket pail.Bucket) TestResultsIterator {
+	return &testResultsIterator{
+		bucket:  bucket,
+		catcher: grip.NewBasicCatcher(),
+	}
+}
+
+func (i *testResultsIterator) Next(ctx context.Context) bool {
+	if i.iter == nil {
+		iter, err := i.bucket.List(ctx, "")
+		if err != nil {
+			i.catcher.Wrap(err, "listing bucket contents")
+			return false
+		}
+		i.iter = iter
+	}
+
+	if i.exhausted {
+		return false
+	}
+	if !i.iter.Next(ctx) {
+		i.exhausted = true
+		return false
+	}
+
+	r, err := i.iter.Item().Get(ctx)
+	if err != nil {
+		i.catcher.Wrapf(err, "item '%s'", i.iter.Item().Name())
+		return false
+	}
+	defer func() {
+		grip.Error(message.WrapError(r.Close(), message.Fields{
+			"message": "could not close bucket reader",
+			"bucket": t.bucket,
+			"path": iter.Item().Name(),
+		}))
+	}
+
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		i.catcher.Wrapf(err, "reading test result '%s'", i.iter.Item().Name())
+		return false
+	}
+	var result TestResult
+	if err := bson.Unmarshal(data, &result); err != nil {
+		i.catcher.Wrapf(err, "unmarshalling test result '%s'", i.iter.Item().Name())
+		return false
+	}
+
+	i.currentItem = result
+
+	return true
+}
+
+func (i *testResultsIterator) Item() TestResult {
+	return i.currentItem
+}
+
+func (i *testResultsIterator) Exhausted() bool {
+	return i.exhausted
+}
+
+func (i *testResultsIterator) Err() error {
+	return i.catcher.Resolve()
+}
+
+func (i *testResultsIterator) Close() error {
+	return nil
+}

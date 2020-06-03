@@ -25,11 +25,12 @@ const testResultsCollection = "test_results"
 
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
-	ID          string                  `bson:"_id,omitempty"`
-	Info        TestResultsInfo         `bson:"info"`
-	CreatedAt   time.Time               `bson:"created_at"`
-	CompletedAt time.Time               `bson:"completed_at"`
-	Artifact    TestResultsArtifactInfo `bson:"artifact"`
+	ID          string          `bson:"_id,omitempty"`
+	Info        TestResultsInfo `bson:"info"`
+	CreatedAt   time.Time       `bson:"created_at"`
+	CompletedAt time.Time       `bson:"completed_at"`
+	// kim: NOTE: this finds the test result artifact in S3.
+	Artifact TestResultsArtifactInfo `bson:"artifact"`
 
 	env       cedar.Environment
 	bucket    string
@@ -191,6 +192,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 // Download returns a TestResult slice with the corresponding results stored in
 // the offline blob storage. The TestResults should be populated and the
 // environment should not be nil.
+// kim: TODO: this should return an iterator (e.g. LogIterator)
 func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	if !t.populated {
 		return nil, errors.New("cannot download with populated test results")

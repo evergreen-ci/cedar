@@ -828,6 +828,8 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	gimlet.WriteBinary(rw, payload)
 }
 
+// kim: TODO: implement REST routes here.
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // helper functions
