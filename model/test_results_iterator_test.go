@@ -40,6 +40,10 @@ func TestTestResultsIterator(t *testing.T) {
 			assert.False(t, iter.Next(ctx))
 			assert.Zero(t, iter.Err())
 		},
+		"ClosePreventsNext": func(ctx context.Context, t *testing.T, iter TestResultsIterator, results map[string]TestResult) {
+			require.NoError(t, iter.Close())
+			assert.False(t, iter.Next(ctx))
+		},
 	} {
 		t.Run(testName, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())

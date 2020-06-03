@@ -21,6 +21,7 @@ type testResultsIterator struct {
 	iter        pail.BucketIterator
 	currentItem TestResult
 	exhausted   bool
+	closed      bool
 	catcher     grip.Catcher
 }
 
@@ -33,6 +34,10 @@ func NewTestResultsIterator(bucket pail.Bucket) TestResultsIterator {
 }
 
 func (i *testResultsIterator) Next(ctx context.Context) bool {
+	if i.exhausted || i.closed {
+		return false
+	}
+
 	if i.iter == nil {
 		iter, err := i.bucket.List(ctx, "")
 		if err != nil {
@@ -40,10 +45,6 @@ func (i *testResultsIterator) Next(ctx context.Context) bool {
 			return false
 		}
 		i.iter = iter
-	}
-
-	if i.exhausted {
-		return false
 	}
 	if !i.iter.Next(ctx) {
 		i.exhausted = true
@@ -92,5 +93,6 @@ func (i *testResultsIterator) Err() error {
 }
 
 func (i *testResultsIterator) Close() error {
+	i.closed = true
 	return nil
 }
