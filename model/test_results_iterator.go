@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+// TestResultsIterator is an interface that enables iterating over test results.
 type TestResultsIterator interface {
 	Iterator
 	// Item returns the current TestResult item held by the iterator.
@@ -38,6 +39,12 @@ func (i *testResultsIterator) Next(ctx context.Context) bool {
 		return false
 	}
 
+	defer func() {
+		if i.catcher.HasErrors() {
+			i.catcher.Wrap(i.Close(), "closing iterator")
+		}
+	}()
+
 	if i.iter == nil {
 		iter, err := i.bucket.List(ctx, "")
 		if err != nil {
@@ -47,6 +54,7 @@ func (i *testResultsIterator) Next(ctx context.Context) bool {
 		i.iter = iter
 	}
 	if !i.iter.Next(ctx) {
+		i.catcher.Wrapf(i.iter.Err(), "iterating bucket contents")
 		i.exhausted = true
 		return false
 	}
