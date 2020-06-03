@@ -296,7 +296,6 @@ func TestTestResultsAppend(t *testing.T) {
 	})
 }
 
-// kim: TODO: refactor
 func TestTestResultsDownload(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -313,11 +312,9 @@ func TestTestResultsDownload(t *testing.T) {
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: filepath.Join(testResultsCollection, tr.ID)})
 	require.NoError(t, err)
 
-	results := []TestResult{}
 	resultsMap := map[string]TestResult{}
 	for i := 0; i < 10; i++ {
 		result := getTestResult()
-		results = append(results, result)
 		resultsMap[result.TestName] = result
 		var data []byte
 		data, err = bson.Marshal(result)
