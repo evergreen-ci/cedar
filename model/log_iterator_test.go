@@ -293,6 +293,27 @@ func TestMergeLogIterator(t *testing.T) {
 		assert.NoError(t, it.Err())
 		assert.NoError(t, it.Close())
 	})
+	t.Run("SomeExhausted", func(t *testing.T) {
+		chunks, _, err := GenerateTestLog(ctx, bucket, 100, 10)
+		require.NoError(t, err)
+		timeRange := TimeRange{
+			StartAt: chunks[0].Start,
+			EndAt:   chunks[len(chunks)-1].End,
+		}
+		it1 := NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+		it2 := NewBatchedLogIterator(bucket, chunks, 100, timeRange)
+		for it2.Next(ctx) {
+			// exhaust
+		}
+		require.True(t, it2.Exhausted())
+		it := NewMergingIterator(it1, it2)
+
+		assert.False(t, it.Exhausted())
+		for it.Next(ctx) {
+			// exhaust
+		}
+		assert.True(t, it.Exhausted())
+	})
 }
 
 func TestLogIteratorReader(t *testing.T) {
