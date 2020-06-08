@@ -453,13 +453,14 @@ func (i *mergingIterator) Next(ctx context.Context) bool {
 }
 
 func (i *mergingIterator) Exhausted() bool {
+	exhaustedCount := 0
 	for _, it := range i.iterators {
 		if it.Exhausted() {
-			return true
+			exhaustedCount += 1
 		}
 	}
 
-	return false
+	return exhaustedCount == len(i.iterators)
 }
 
 func (i *mergingIterator) init(ctx context.Context) {
