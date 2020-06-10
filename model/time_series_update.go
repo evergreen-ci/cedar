@@ -234,8 +234,3 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 	}
 	return &res[0], nil
 }
-
-type ChangePointInfo struct {
-	PerfResultID string `json:"perf_result_id"`
-	Measurement  string `json:"measurement"`
-}
