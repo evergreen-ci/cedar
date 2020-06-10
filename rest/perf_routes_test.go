@@ -113,7 +113,6 @@ func (s *PerfHandlerSuite) setup() {
 		"version":       makeGetPerfByVersion(&s.sc),
 		"children":      makeGetPerfChildren(&s.sc),
 		"change_points": makePerfSignalProcessingRecalculate(&s.sc),
-		"triage":        makePerfChangePointTriageMarkHandler(&s.sc),
 	}
 	s.apiResults = map[string]datamodel.APIPerformanceResult{}
 	for key, val := range s.sc.CachedPerformanceResults {

@@ -15,9 +15,6 @@ type Connector interface {
 	////////////////////
 	// PerformanceResult
 	////////////////////
-	// GetChangePointsByVersion returns changepoints grouped by version associated with
-	// the given project. Paginated.
-	GetChangePointsByVersion(context.Context, GetChangePointsGroupedByVersionOpts) (*model.APIChangePointGroupedByVersionResult, error)
 	// FindPerformanceResultById returns the performance result with the
 	// given id.
 	FindPerformanceResultById(context.Context, string) (*model.APIPerformanceResult, error)
@@ -44,8 +41,6 @@ type Connector interface {
 	// processing recalculation job has been scheduled for each type of
 	// test (project/variant/task/test combo).
 	ScheduleSignalProcessingRecalculateJobs(context.Context) error
-	// TriageChangePoints returns once all change points have been successfully marked
-	TriageChangePoints(ctx context.Context, changePoints []dbModel.ChangePointInfo, status string) error
 
 	//////////////////
 	// Buildlogger Log
@@ -108,5 +103,3 @@ type BuildloggerOptions struct {
 	Tail          int
 	SoftSizeLimit int
 }
-
-type GetChangePointsGroupedByVersionOpts = dbModel.GetChangePointsGroupedByVersionOptions
