@@ -23,6 +23,7 @@ func CreateNewDBConnector(env cedar.Environment) Connector {
 // a mock cedar service layer.
 type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
+	CachedTestResults        map[string]model.TestResults
 	ChildMap                 map[string][]string
 	CachedLogs               map[string]model.Log
 	Users                    map[string]bool
