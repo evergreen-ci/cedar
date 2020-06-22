@@ -66,7 +66,7 @@ func (t *TestResults) Setup(e cedar.Environment) { t.env = e }
 // IsNil returns if the TestResults is populated or not.
 func (t *TestResults) IsNil() bool { return !t.populated }
 
-// Find searches the database for the TestResults. The enviroment should not be
+// Find searches the database for the TestResults. The environment should not be
 // nil.
 func (t *TestResults) Find(ctx context.Context) error {
 	if t.env == nil {
