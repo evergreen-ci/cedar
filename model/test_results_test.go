@@ -80,6 +80,79 @@ func TestTestResultsFind(t *testing.T) {
 	})
 }
 
+func TestTestResultsFindByTaskID(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr1 := getTestResults()
+	tr1.Info.Execution = 0
+	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
+	require.NoError(t, err)
+
+	tr2 := getTestResults()
+	tr2.Info.TaskID = tr1.Info.TaskID
+	tr2.Info.Execution = 1
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
+	require.NoError(t, err)
+
+	t.Run("DNE", func(t *testing.T) {
+		tr := TestResults{}
+		tropts := TestResultsFindOptions{
+			TaskID:         "DNE",
+			EmptyExecution: true,
+		}
+		tr.Setup(env)
+		assert.Error(t, tr.FindByTaskID(ctx, tropts))
+	})
+	t.Run("NoEnv", func(t *testing.T) {
+		tr := TestResults{}
+		tropts := TestResultsFindOptions{
+			TaskID:         tr1.Info.TaskID,
+			Execution:      tr1.Info.Execution,
+			EmptyExecution: false,
+		}
+		assert.Error(t, tr.FindByTaskID(ctx, tropts))
+	})
+	t.Run("WithTaskIDandExecution", func(t *testing.T) {
+		tr := TestResults{}
+		tropts := TestResultsFindOptions{
+			TaskID:         tr1.Info.TaskID,
+			Execution:      tr1.Info.Execution,
+			EmptyExecution: false,
+		}
+		tr.Setup(env)
+		require.NoError(t, tr.FindByTaskID(ctx, tropts))
+		assert.Equal(t, tr1.ID, tr.ID)
+		assert.Equal(t, tr1.Info, tr.Info)
+		assert.Equal(t, tr1.Artifact, tr.Artifact)
+		assert.True(t, tr.populated)
+	})
+	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
+		tr := TestResults{}
+		tropts := TestResultsFindOptions{
+			TaskID:         tr2.Info.TaskID,
+			EmptyExecution: true,
+		}
+		tr.Setup(env)
+		require.NoError(t, tr.FindByTaskID(ctx, tropts))
+		assert.Equal(t, tr2.ID, tr.ID)
+		assert.Equal(t, tr2.Info, tr.Info)
+		assert.Equal(t, tr2.Artifact, tr.Artifact)
+		assert.True(t, tr.populated)
+	})
+	t.Run("WithoutTaskID", func(t *testing.T) {
+		tr := TestResults{}
+		tropts := TestResultsFindOptions{}
+		tr.Setup(env)
+		assert.Error(t, tr.FindByTaskID(ctx, tropts))
+	})
+}
+
 func TestTestResultsSaveNew(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()

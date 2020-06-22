@@ -18,6 +18,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const testResultsCollection = "test_results"
@@ -65,7 +66,7 @@ func (t *TestResults) Setup(e cedar.Environment) { t.env = e }
 // IsNil returns if the TestResults is populated or not.
 func (t *TestResults) IsNil() bool { return !t.populated }
 
-// Find searches the database for the TestResults. The enviromemt should not be
+// Find searches the database for the TestResults. The enviroment should not be
 // nil.
 func (t *TestResults) Find(ctx context.Context) error {
 	if t.env == nil {
@@ -86,6 +87,51 @@ func (t *TestResults) Find(ctx context.Context) error {
 	t.populated = true
 
 	return nil
+}
+
+// TestResultsFindOptions allows for querying with or without execution val
+type TestResultsFindOptions struct {
+	TaskID         string
+	Execution      int
+	EmptyExecution bool
+}
+
+// FindByTaskExecution searches the database for the TestResults associated with the provided task_id / execution pair.
+// The enviromemt should not be nil. If execution is empty, will default to most recent execution
+func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOptions) error {
+	if t.env == nil {
+		return errors.New("cannot find with a nil environment")
+	}
+
+	if opts.TaskID == "" {
+		return errors.New("cannot find without a task_id")
+	}
+
+	t.populated = false
+	findOneOpts := options.FindOne().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
+	err := t.env.GetDB().Collection(testResultsCollection).FindOne(ctx, createTestResultsFindQuery(opts), findOneOpts).Decode(t)
+	if db.ResultsNotFound(err) {
+		if opts.EmptyExecution {
+			return errors.Wrapf(err, "could not find test results record with task_id %s in the database", opts.TaskID)
+		} else {
+			return errors.Wrapf(err, "could not find test results record with task_id %s and execution %d in the database", opts.TaskID, opts.Execution)
+		}
+	} else if err != nil {
+		return errors.Wrap(err, "problem finding test results record")
+	}
+	t.populated = true
+
+	return nil
+}
+
+func createTestResultsFindQuery(opts TestResultsFindOptions) map[string]interface{} {
+	search := bson.M{
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID,
+	}
+	if !opts.EmptyExecution {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
+	}
+	return search
 }
 
 // SaveNew saves a new TestResults to the database, if a document with the same
