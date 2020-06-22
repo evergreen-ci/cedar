@@ -89,9 +89,6 @@ func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, 
 			ProcessedAt: createdAt,
 		},
 		populated: true,
-		Analysis: PerfAnalysis{
-			ChangePoints: []ChangePoint{},
-		},
 	}
 }
 

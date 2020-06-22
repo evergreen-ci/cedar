@@ -236,8 +236,6 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/perf/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetPerfByTaskId(s.sc))
 	s.app.AddRoute("/perf/task_name/{task_name}").Version(1).Get().RouteHandler(makeGetPerfByTaskName(s.sc))
 	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
-	s.app.AddRoute("/perf/project/{projectID}/change_points_by_version").Version(1).Get().RouteHandler(makeGetChangePointsByVersion(s.sc))
-	s.app.AddRoute("/perf/change_points/triage/mark").Version(1).Post().Wrap(checkUser).RouteHandler(makePerfChangePointTriageMarkHandler(s.sc))
 
 	s.app.AddRoute("/buildlogger/{id}").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogByID(s.sc))
 	s.app.AddRoute("/buildlogger/{id}/meta").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogMetaByID(s.sc))

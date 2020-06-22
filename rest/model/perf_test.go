@@ -248,23 +248,6 @@ func TestImport(t *testing.T) {
 					ProcessedAt: time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 				},
 				Analysis: dbmodel.PerfAnalysis{
-					ChangePoints: []dbmodel.ChangePoint{
-						{
-							Index:        0,
-							Measurement:  "some_measurement",
-							CalculatedOn: time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC),
-							Algorithm: dbmodel.AlgorithmInfo{
-								Name:    "e_divisive",
-								Version: 0,
-								Options: []dbmodel.AlgorithmOption{
-									{
-										Name:  "some_option",
-										Value: 5,
-									},
-								},
-							},
-						},
-					},
 					ProcessedAt: time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC),
 				},
 			},
@@ -346,23 +329,6 @@ func TestImport(t *testing.T) {
 					ProcessedAt: NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				},
 				Analysis: APIPerfAnalysis{
-					ChangePoints: []APIChangePoint{
-						{
-							Index:        0,
-							Measurement:  "some_measurement",
-							CalculatedOn: NewTime(time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC)),
-							Algorithm: APIAlgorithmInfo{
-								Name:    "e_divisive",
-								Version: 0,
-								Options: []APIAlgorithmOption{
-									{
-										Name:  "some_option",
-										Value: 5,
-									},
-								},
-							},
-						},
-					},
 					ProcessedAt: NewTime(time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				},
 			},
