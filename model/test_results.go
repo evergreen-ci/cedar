@@ -113,9 +113,8 @@ func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOpti
 	if db.ResultsNotFound(err) {
 		if opts.EmptyExecution {
 			return errors.Wrapf(err, "could not find test results record with task_id %s in the database", opts.TaskID)
-		} else {
-			return errors.Wrapf(err, "could not find test results record with task_id %s and execution %d in the database", opts.TaskID, opts.Execution)
 		}
+		return errors.Wrapf(err, "could not find test results record with task_id %s and execution %d in the database", opts.TaskID, opts.Execution)
 	} else if err != nil {
 		return errors.Wrap(err, "problem finding test results record")
 	}
