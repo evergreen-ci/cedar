@@ -89,7 +89,7 @@ func (t *TestResults) Find(ctx context.Context) error {
 	return nil
 }
 
-// TestResultsFindOptions allows for querying with or without execution val
+// TestResultsFindOptions allows for querying with or without execution val.
 type TestResultsFindOptions struct {
 	TaskID         string
 	Execution      int
@@ -97,7 +97,7 @@ type TestResultsFindOptions struct {
 }
 
 // FindByTaskExecution searches the database for the TestResults associated with the provided task_id / execution pair.
-// The enviromemt should not be nil. If execution is empty, will default to most recent execution
+// The environmemt should not be nil. If execution is empty, will default to most recent execution.
 func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOptions) error {
 	if t.env == nil {
 		return errors.New("cannot find with a nil environment")
