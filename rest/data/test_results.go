@@ -10,7 +10,7 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindTestResultsByTestName(ctx context.Context, opts TestResultsOptions) (model.APITestResult, error) {
+func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (model.APITestResult, error) {
 
 	// find by taskid, execution
 
@@ -19,7 +19,7 @@ func (dbc *DBConnector) FindTestResultsByTestName(ctx context.Context, opts Test
 	// get single by key = test name from bucket
 	// return not found error if not
 
-	// download item (llok at test_results_iterator)
+	// download item (look at test_results_iterator)
 
 	// return
 	return model.APITestResult{}, nil
@@ -29,7 +29,7 @@ func (dbc *DBConnector) FindTestResultsByTestName(ctx context.Context, opts Test
 // MockConnector Implementation
 ///////////////////////////////
 
-func (dbc *MockConnector) FindTestResultsByTestName(ctx context.Context, opts TestResultsOptions) (model.APITestResult, error) {
+func (dbc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (model.APITestResult, error) {
 
 	// find by taskid, execution
 
@@ -38,7 +38,7 @@ func (dbc *MockConnector) FindTestResultsByTestName(ctx context.Context, opts Te
 	// get single by key = test name from bucket
 	// return not found error if not
 
-	// download item (llok at test_results_iterator)
+	// download item (look at test_results_iterator)
 
 	// return
 	return model.APITestResult{}, nil
