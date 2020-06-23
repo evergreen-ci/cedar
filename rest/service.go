@@ -244,4 +244,6 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogByTestName(s.sc))
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/meta").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogMetaByTestName(s.sc))
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogGroup(s.sc))
+
+	s.app.AddRoute("/testresults/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetTestResultsByTestName(s.sc))
 }
