@@ -100,7 +100,7 @@ type Connector interface {
 	// by a task_id, an optional execution number, and the name of the desired test.
 	// If execution is not specified, this will return the test result from the most
 	// recent.
-	FindTestResultsByTestName(context.Context, TestResultsOptions) (model.APITestResult, error)
+	FindTestResultByTestName(context.Context, TestResultsOptions) (model.APITestResult, error)
 }
 
 type BuildloggerOptions struct {
