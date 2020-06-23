@@ -97,7 +97,7 @@ type TestResultsFindOptions struct {
 }
 
 // FindByTaskExecution searches the database for the TestResults associated with the provided task_id / execution pair.
-// The environmemt should not be nil. If execution is empty, will default to most recent execution.
+// The environment should not be nil. If execution is empty, will default to most recent execution.
 func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOptions) error {
 	if t.env == nil {
 		return errors.New("cannot find with a nil environment")
@@ -247,7 +247,7 @@ func (t *TestResults) Download(ctx context.Context) (TestResultsIterator, error)
 		t.ID = t.Info.ID()
 	}
 
-	bucket, err := t.getBucket(ctx)
+	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +290,9 @@ func (t *TestResults) Close(ctx context.Context) error {
 	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
 }
 
-func (t *TestResults) getBucket(ctx context.Context) (pail.Bucket, error) {
+// GetBucket returns a bucket of all testResults specified by the TestResults metadata
+// object it's called on. The environment should not be nil.
+func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 	if t.bucket == "" {
 		conf := &CedarConfig{}
 		conf.Setup(t.env)
