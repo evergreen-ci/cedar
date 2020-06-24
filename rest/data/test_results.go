@@ -14,49 +14,21 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-// FindTestResultsByTaskId queries the database to find the test
-// result with the given id.
-// func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, id string) (*dataModel.APIPerformanceResult, error) {
-// 	results := model.TestResult{}
-// 	results.Setup(dbc.env)
-// 	results.ID = id
-
-// 	if err := result.Find(ctx); err != nil {
-// 		return nil, gimlet.ErrorResponse{
-// 			StatusCode: http.StatusNotFound,
-// 			Message:    fmt.Sprintf("test result with id '%s' not found", id),
-// 		}
-// 	}
-
-// 	apiResult := dataModel.APIPerformanceResult{}
-// 	err := apiResult.Import(result)
-// 	if err != nil {
-// 		return nil, gimlet.ErrorResponse{
-// 			StatusCode: http.StatusInternalServerError,
-// 			Message:    fmt.Sprintf("corrupt data"),
-// 		}
-// 	}
-// 	return &apiResult, nil
-// }
-
 
 // FindTestResultsByTaskId queries the database to find all performance
 // results with the given taskId and that fall within interval, filtered by
 // tags.
-func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, taskId string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
+func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, taskId string, execution int, emptyExecution bool) ([]dataModel.APITestResult, error) {
 	results := model.TestResults{}
 	results.Setup(dbc.env)
 
 	options := model.TestResultsFindOptions{
-		Interval: interval,
-		Info: model.TestResultInfo{
-			TaskID: taskId,
-			Tags:   tags,
-		},
-		MaxDepth: 0,
+		TaskID: taskId,
+		Execution: execution,
+		EmptyExecution: emptyExecution,
 	}
 
-	if err := results.Find(ctx, options); err != nil {
+	if err := results.FindByTaskID(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    fmt.Sprintf("database error"),
@@ -69,15 +41,28 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, taskId stri
 		}
 	}
 
-	apiResults := make([]dataModel.APITestResult, len(results.Results))
-	for i, result := range results.Results {
-		err := apiResults[i].Import(result)
+	it, err := results.Download(ctx); 
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("database error"),
+		}
+	}
+
+	apiResults := make([]dataModel.APITestResult, 0)
+	i := 0
+	for it.Next(ctx) {
+		
+		// i, result := range it {
+		err := apiResults[i].Import(it.Item())
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
 				Message:    fmt.Sprintf("corrupt data"),
 			}
 		}
+		i++
 	}
+
 	return apiResults, nil
 }

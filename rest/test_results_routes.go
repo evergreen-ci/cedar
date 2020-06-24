@@ -58,7 +58,7 @@ func (h *testResultsGetByTaskIdHandler) Parse(_ context.Context, r *http.Request
 func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindTestResultsByTaskId(ctx, h.taskId, h.interval, h.tags...)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.taskId)
+		err = errors.Wrapf(err, "problem getting test results by task id '%s'", h.taskId)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
