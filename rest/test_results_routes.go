@@ -14,20 +14,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	testResultsStartAt = "started_after"
-	testResultsEndAt   = "finished_before"
-)
-
 ///////////////////////////////////////////////////////////////////////////////
 //
 // GET /testresults/task_id/{task_id}
 
 type testResultsGetByTaskIdHandler struct {
-	taskId   string
-	interval model.TimeRange
-	tags     []string
-	sc       data.Connector
+	taskId   		string
+	execution		int
+	emptyExecution 	bool
+	sc	       		data.Connector
 }
 
 func makeGetTestResultsByTaskId(sc data.Connector) gimlet.RouteHandler {
@@ -47,22 +42,26 @@ func (h *testResultsGetByTaskIdHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.taskId = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
 	var err error
-	h.interval, err = parseTimeRange(vals, testResultsStartAt, testResultsEndAt)
 	return err
 }
 
 // Run calls the data FindTestResultsByTaskId and function returns the
 // TestResults from the provider.
 func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindTestResultsByTaskId(ctx, h.taskId, h.interval, h.tags...)
+	options := model.TestResultsFindOptions{
+		TaskID: h.taskId,
+		Execution: h.execution,
+		EmptyExecution: h.emptyExecution,
+	}
+	
+	testResults, err := h.sc.FindTestResultsByTaskId(ctx, options)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting test results by task id '%s'", h.taskId)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
-			"route":   "/testResults/task_id/{task_id}",
+			"route":   "/testresults/task_id/{task_id}",
 			"task_id": h.taskId,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)

@@ -14,30 +14,14 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-
-// FindTestResultsByTaskId queries the database to find all performance
-// results with the given taskId and that fall within interval, filtered by
-// tags.
-func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, taskId string, execution int, emptyExecution bool) ([]dataModel.APITestResult, error) {
+func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options model.TestResultsFindOptions) ([]dataModel.APITestResult, error) {
 	results := model.TestResults{}
 	results.Setup(dbc.env)
-
-	options := model.TestResultsFindOptions{
-		TaskID: taskId,
-		Execution: execution,
-		EmptyExecution: emptyExecution,
-	}
 
 	if err := results.FindByTaskID(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
-		}
-	}
-	if results.IsNil() {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("test results with task_id '%s' not found", taskId),
+			Message:    fmt.Sprintf("failed to find results with task_id %s", options.TaskID),
 		}
 	}
 
@@ -45,15 +29,13 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, taskId stri
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    fmt.Sprintf("failed to download results with task_id %s", options.TaskID),
 		}
 	}
 
 	apiResults := make([]dataModel.APITestResult, 0)
 	i := 0
 	for it.Next(ctx) {
-		
-		// i, result := range it {
 		err := apiResults[i].Import(it.Item())
 		if err != nil {
 			return nil, gimlet.ErrorResponse{

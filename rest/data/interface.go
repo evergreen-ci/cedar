@@ -87,9 +87,9 @@ type Connector interface {
 	// TaskID, TestName, Tags, TimeRange, PrintTime, PrintPriority, and
 	// Limit are respected from BuildloggerOptions.
 	FindGroupedLogs(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
-	// FindTestResultsByTaskId queries the database to find the test
-	// result with the given id.
-	FindTestResultsByTaskId(context.Context, string, dbModel.TimeRange, ...string) ([]model.APITestResult, error)
+	// FindTestResultsByTaskId queries the database to find all test
+	// results with the given task id and execution
+	FindTestResultsByTaskId(context.Context, dbModel.TestResultsFindOptions) ([]model.APITestResult, error) 
 
 }
 
