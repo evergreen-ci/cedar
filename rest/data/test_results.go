@@ -36,7 +36,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "retrieving metadata")),
+			Message:    errors.Wrap(err, "retrieving metadata").Error(),
 		}
 	}
 
@@ -44,7 +44,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "getting bucket")),
+			Message:    errors.Wrap(err, "getting bucket").Error(),
 		}
 	}
 
@@ -78,7 +78,7 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
+			Message:    errors.Wrap(err, "problem creating bucket").Error(),
 		}
 	}
 
@@ -95,7 +95,7 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "retrieving test result")),
+			Message:    errors.Wrap(err, "retrieving test result").Error(),
 		}
 	}
 
@@ -103,7 +103,7 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "reading data")),
+			Message:    errors.Wrap(err, "reading data").Error(),
 		}
 	}
 
@@ -111,7 +111,7 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	if err := bson.Unmarshal(data, result); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "unmarshalling test result")),
+			Message:    errors.Wrap(err, "unmarshalling test result").Error(),
 		}
 	}
 
@@ -119,7 +119,7 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	if err := apiResult.Import(result); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf(fmt.Sprintf("%s", errors.Wrap(err, "converting test result to output format"))),
+			Message:    errors.Wrap(err, "converting test result to output format").Error(),
 		}
 	}
 

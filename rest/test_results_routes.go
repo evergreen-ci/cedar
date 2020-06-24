@@ -64,7 +64,7 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 	return catcher.Resolve()
 }
 
-// Run calls FindFindTestResultByTestName and returns the test result.
+// Run finds and returns the desired test result.
 func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	testResult, err := h.sc.FindTestResultByTestName(ctx, h.opts)
 	if err != nil {
