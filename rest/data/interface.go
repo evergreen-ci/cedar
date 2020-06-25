@@ -121,5 +121,3 @@ type TestResultsOptions struct {
 	Execution      int
 	EmptyExecution bool
 }
-
-type GetChangePointsGroupedByVersionOpts = dbModel.GetChangePointsGroupedByVersionOptions
