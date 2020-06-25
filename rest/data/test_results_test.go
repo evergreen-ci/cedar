@@ -163,9 +163,9 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 
 		tr, err := bucket.Get(s.ctx, opts.TestName)
 		s.Require().NoError(err)
-		defer func () { 
+		defer func() {
 			s.NoError(tr.Close())
-		}
+		}()
 
 		data, err := ioutil.ReadAll(tr)
 		s.Require().NoError(err)
