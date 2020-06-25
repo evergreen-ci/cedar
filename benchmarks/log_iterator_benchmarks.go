@@ -101,7 +101,7 @@ func uploadLog(ctx context.Context, logSize int) (string, error) {
 		RPCAddress: rpcAddress,
 		Insecure:   true,
 	}
-	logger, err := timber.MakeLogger(ctx, "benchmark", opts)
+	logger, err := timber.MakeLogger("benchmark", opts)
 	if err != nil {
 		return "", errors.Wrap(err, "problem creating buildlogger sender")
 	}

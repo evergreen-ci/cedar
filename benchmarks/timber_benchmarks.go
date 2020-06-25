@@ -152,7 +152,7 @@ func getBasicSenderBenchmark(logSize, maxBufferSize int) poplar.Benchmark {
 			Insecure:      true,
 			MaxBufferSize: maxBufferSize,
 		}
-		logger, err := timber.MakeLogger(ctx, "benchmark", opts)
+		logger, err := timber.MakeLogger("benchmark", opts)
 		if err != nil {
 			return errors.Wrap(err, "problem creating buildlogger sender")
 		}
