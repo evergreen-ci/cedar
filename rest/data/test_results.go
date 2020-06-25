@@ -138,5 +138,5 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 		}
 	}
 
-	return apiResult, nil
+	return apiResult, ctx.Err()
 }

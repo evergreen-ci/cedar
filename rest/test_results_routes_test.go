@@ -157,14 +157,9 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	actual, ok := resp.Data().(*model.APITestResult)
 	s.Require().True(ok)
-	s.Equal(&expected, actual)
-	fmt.Println("=================================================================")
-	fmt.Println(*resp.Data().(*model.APITestResult).TestName)
-	fmt.Println(*resp.Data().(*model.APITestResult).TaskID)
-	fmt.Println(resp.Data().(*model.APITestResult).Execution)
-	fmt.Println(*expected.TestName)
-	fmt.Println(*expected.TaskID)
-	fmt.Println(expected.Execution)
+	s.Equal(expected.TestName, actual.TestName)
+	s.Equal(expected.TaskID, actual.TaskID)
+	s.Equal(expected.Execution, actual.Execution)
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerNotFound() {
