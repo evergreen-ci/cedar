@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
@@ -57,9 +58,23 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 
 func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
 	var testResults *dbModel.TestResults
-	for _, tr := range mc.CachedTestResults {
-		if tr.Info.TaskID == opts.TaskID && (opts.EmptyExecution || tr.Info.Execution == opts.Execution) {
-			testResults = &tr
+
+	if opts.EmptyExecution {
+		var newest *dbModel.TestResults
+		for key, _ := range mc.CachedTestResults {
+			tr := mc.CachedTestResults[key]
+			if tr.Info.TaskID == opts.TaskID && (newest == nil || tr.Info.Execution > newest.Info.Execution) {
+				newest = &tr
+			}
+		}
+		testResults = newest
+	} else {
+		for key, _ := range mc.CachedTestResults {
+			tr := mc.CachedTestResults[key]
+			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == opts.Execution {
+				testResults = &tr
+				break
+			}
 		}
 	}
 
@@ -72,7 +87,7 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 
 	bucketOpts := pail.LocalOptions{
 		Path:   mc.Bucket,
-		Prefix: testResults.Artifact.Prefix,
+		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
@@ -107,15 +122,15 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 		}
 	}
 
-	var result *dbModel.TestResult
-	if err := bson.Unmarshal(data, result); err != nil {
+	var result dbModel.TestResult
+	if err := bson.Unmarshal(data, &result); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    errors.Wrap(err, "unmarshalling test result").Error(),
 		}
 	}
 
-	var apiResult *model.APITestResult
+	apiResult := &model.APITestResult{}
 	if err := apiResult.Import(result); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,

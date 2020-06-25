@@ -290,7 +290,7 @@ func (t *TestResults) Close(ctx context.Context) error {
 	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
 }
 
-// GetBucket returns a bucket of all testResults specified by the TestResults metadata
+// GetBucket returns a bucket of all test results specified by the TestResults metadata
 // object it's called on. The environment should not be nil.
 func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 	if t.bucket == "" {
