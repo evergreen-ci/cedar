@@ -37,7 +37,7 @@ func makeGetTestResultByTestName(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
-// Factory returns a pointer to a new testResultGetByTestNameHandler
+// Factory returns a pointer to a new testResultGetByTestNameHandler.
 func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	return &testResultGetByTestNameHandler{
 		sc: h.sc,
@@ -55,7 +55,6 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
-		h.opts.EmptyExecution = false
 		catcher.Add(err)
 	} else {
 		h.opts.EmptyExecution = true
