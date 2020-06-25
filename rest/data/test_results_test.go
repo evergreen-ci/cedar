@@ -163,10 +163,10 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 
 		tr, err := bucket.Get(s.ctx, opts.TestName)
 		s.Require().NoError(err)
-		s.NoError(tr.Close())
 
 		data, err := ioutil.ReadAll(tr)
 		s.Require().NoError(err)
+		s.NoError(tr.Close())
 
 		var result dbModel.TestResult
 		s.Require().NoError(bson.Unmarshal(data, &result))
