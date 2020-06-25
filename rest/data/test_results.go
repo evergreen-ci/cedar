@@ -103,10 +103,6 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 
 func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testName string) (*model.APITestResult, error) {
 	tr, err := bucket.Get(ctx, testName)
-	defer func() {
-		err := tr.Close()
-		grip.Warning(errors.Wrap(err, "some message"))
-	}()
 
 	if pail.IsKeyNotFoundError(err) {
 		return nil, gimlet.ErrorResponse{
@@ -119,6 +115,10 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 			Message:    errors.Wrap(err, "retrieving test result").Error(),
 		}
 	}
+	defer func() {
+		closeErr := tr.Close()
+		grip.Warning(errors.Wrap(closeErr, "some message"))
+	}()
 
 	data, err := ioutil.ReadAll(tr)
 	if err != nil {

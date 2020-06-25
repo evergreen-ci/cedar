@@ -164,13 +164,15 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 		s.Require().NoError(err)
 
 		tr, err := bucket.Get(s.ctx, opts.TestName)
-		defer func() {
-			err := tr.Close()
-			grip.Warning(errors.Wrap(err, "some message"))
-		}()
 		s.Require().NoError(err)
+		defer func() {
+			closeErr := tr.Close()
+			grip.Warning(errors.Wrap(closeErr, "some message"))
+		}()
 
 		data, err := ioutil.ReadAll(tr)
+		s.Require().NoError(err)
+
 		var result dbModel.TestResult
 		s.Require().NoError(bson.Unmarshal(data, &result))
 		expected := &model.APITestResult{}
