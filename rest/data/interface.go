@@ -113,6 +113,8 @@ type BuildloggerOptions struct {
 	SoftSizeLimit int
 }
 
+// TestResultsOptions holds all values required to find a specific TestResults
+// or TestResult object using connector functions.
 type TestResultsOptions struct {
 	TaskID         string
 	TestName       string
