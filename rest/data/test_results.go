@@ -38,7 +38,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, fmt.Sprintf("problem retrieving metadata for task id '%s'", opts.TaskID)).Error(),
+			Message:    errors.Wrapf(err, "problem retrieving metadata for task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -46,7 +46,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, fmt.Sprintf("problem creating bucket for task id '%s'", opts.TaskID)).Error(),
+			Message:    errors.Wrapf(err, "problem creating bucket for task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -94,7 +94,7 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, fmt.Sprintf("problem creating bucket for task id '%s'", opts.TaskID)).Error(),
+			Message:    errors.Wrapf(err, "problem creating bucket for task id '%s'", opts.TaskID).Error(),
 		}
 	}
 

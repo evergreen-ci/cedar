@@ -47,7 +47,6 @@ func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the task_id, test_name, and execution (if present)
 // from the http request.
 func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
-	catcher := grip.NewBasicCatcher()
 	var err error
 
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
@@ -55,12 +54,12 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
-		catcher.Add(err)
+		return err
 	} else {
 		h.opts.EmptyExecution = true
 	}
 
-	return catcher.Resolve()
+	return nil
 }
 
 // Run finds and returns the desired test result.
@@ -75,7 +74,7 @@ func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Respond
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.TestName,
 		}))
-		return gimlet.MakeJSONErrorResponder(err)
+		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(testResult)
 }
