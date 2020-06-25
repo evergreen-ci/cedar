@@ -12,6 +12,7 @@ import (
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -102,6 +103,11 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 
 func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testName string) (*model.APITestResult, error) {
 	tr, err := bucket.Get(ctx, testName)
+	defer func() {
+		err := tr.Close()
+		grip.Warning(errors.Wrap(err, "some message"))
+	}()
+
 	if pail.IsKeyNotFoundError(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,

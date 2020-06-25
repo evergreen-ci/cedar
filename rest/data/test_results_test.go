@@ -14,6 +14,8 @@ import (
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/pail"
+	"github.com/mongodb/grip"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -160,8 +162,14 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 		s.Require().NoError(testResults.FindByTaskID(s.ctx, findOpts))
 		bucket, err := testResults.GetBucket(s.ctx)
 		s.Require().NoError(err)
+
 		tr, err := bucket.Get(s.ctx, opts.TestName)
+		defer func() {
+			err := tr.Close()
+			grip.Warning(errors.Wrap(err, "some message"))
+		}()
 		s.Require().NoError(err)
+
 		data, err := ioutil.ReadAll(tr)
 		var result dbModel.TestResult
 		s.Require().NoError(bson.Unmarshal(data, &result))
