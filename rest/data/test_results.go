@@ -60,18 +60,13 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
 	var testResults *dbModel.TestResults
 
-	if opts.EmptyExecution {
-		var newest *dbModel.TestResults
-		for key, _ := range mc.CachedTestResults {
-			tr := mc.CachedTestResults[key]
-			if tr.Info.TaskID == opts.TaskID && (newest == nil || tr.Info.Execution > newest.Info.Execution) {
-				newest = &tr
+	for key, _ := range mc.CachedTestResults {
+		tr := mc.CachedTestResults[key]
+		if opts.EmptyExecution {
+			if tr.Info.TaskID == opts.TaskID && (testResults == nil || tr.Info.Execution > testResults.Info.Execution) {
+				testResults = &tr
 			}
-		}
-		testResults = newest
-	} else {
-		for key, _ := range mc.CachedTestResults {
-			tr := mc.CachedTestResults[key]
+		} else {
 			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == opts.Execution {
 				testResults = &tr
 				break
