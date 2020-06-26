@@ -44,6 +44,7 @@ func TestTestResultsConnectorSuiteMock(t *testing.T) {
 	}
 	suite.Run(t, s)
 }
+
 func (s *testResultsConnectorSuite) setup() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
@@ -58,6 +59,7 @@ func (s *testResultsConnectorSuite) setup() {
 	conf := dbModel.NewCedarConfig(s.env)
 	conf.Bucket = dbModel.BucketConfig{TestResultsBucket: s.tempDir}
 	s.Require().NoError(conf.Save())
+
 	testResultInfos := []dbModel.TestResultsInfo{
 		{
 			Project:     "test",
@@ -120,12 +122,14 @@ func (s *testResultsConnectorSuite) setup() {
 				TestStartTime:  time.Now().Add(-2 * time.Second),
 				TestEndTime:    time.Now().Add(-1 * time.Second),
 			}
+
 			data, err := bson.Marshal(result)
 			s.Require().NoError(err)
 			s.Require().NoError(bucket.Put(s.ctx, result.TestName, bytes.NewReader(data)))
 		}
 	}
 }
+
 func (s *testResultsConnectorSuite) TearDownSuite() {
 	defer s.cancel()
 	s.NoError(os.RemoveAll(s.tempDir))
@@ -170,9 +174,16 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 		s.Require().NoError(testResults.FindByTaskID(s.ctx, findOpts))
 		bucket, err := testResults.GetBucket(s.ctx)
 		s.Require().NoError(err)
+
 		tr, err := bucket.Get(s.ctx, opts.TestName)
 		s.Require().NoError(err)
+		defer func() {
+			s.NoError(tr.Close())
+		}()
+
 		data, err := ioutil.ReadAll(tr)
+		s.Require().NoError(err)
+
 		var result dbModel.TestResult
 		s.Require().NoError(bson.Unmarshal(data, &result))
 		expected := &model.APITestResult{}

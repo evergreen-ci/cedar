@@ -7,13 +7,12 @@ import (
 	"net/http"
 	"path/filepath"
 
-	dataModel "github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/gimlet"
-
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -22,7 +21,7 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]dataModel.APITestResult, error) {
+func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
 	results := dbModel.TestResults{}
 	results.Setup(dbc.env)
 
@@ -41,7 +40,7 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 		}
 	}
 
-	apiResults := make([]dataModel.APITestResult, 0)
+	apiResults := make([]model.APITestResult, 0)
 	i := 0
 	for it.Next(ctx) {
 		err := apiResults[i].Import(it.Item())
@@ -74,7 +73,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "retrieving metadata").Error(),
+			Message:    errors.Wrapf(err, "problem retrieving metadata for task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -82,7 +81,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "getting bucket").Error(),
+			Message:    errors.Wrapf(err, "problem creating bucket for task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -95,11 +94,11 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 
 // FindTestResultsByTaskId queries the mock cache to find all
 // test results with the given task id and execution
-func (mc *MockConnector) FindTestResultsByTaskId(_ context.Context, options dbModel.TestResultsFindOptions) ([]dataModel.APITestResult, error) {
-	results := []dataModel.APITestResult{}
+func (mc *MockConnector) FindTestResultsByTaskId(_ context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
+	results := []model.APITestResult{}
 	for _, result := range mc.CachedTestResults {
 		if result.Info.TaskID == options.TaskID && result.Info.Execution == options.Execution {
-			apiResult := dataModel.APITestResult{}
+			apiResult := model.APITestResult{}
 			err := apiResult.Import(result)
 			if err != nil {
 				return nil, gimlet.ErrorResponse{
@@ -124,18 +123,13 @@ func (mc *MockConnector) FindTestResultsByTaskId(_ context.Context, options dbMo
 func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
 	var testResults *dbModel.TestResults
 
-	if opts.EmptyExecution {
-		var newest *dbModel.TestResults
-		for key, _ := range mc.CachedTestResults {
-			tr := mc.CachedTestResults[key]
-			if tr.Info.TaskID == opts.TaskID && (newest == nil || tr.Info.Execution > newest.Info.Execution) {
-				newest = &tr
+	for key, _ := range mc.CachedTestResults {
+		tr := mc.CachedTestResults[key]
+		if opts.EmptyExecution {
+			if tr.Info.TaskID == opts.TaskID && (testResults == nil || tr.Info.Execution > testResults.Info.Execution) {
+				testResults = &tr
 			}
-		}
-		testResults = newest
-	} else {
-		for key, _ := range mc.CachedTestResults {
-			tr := mc.CachedTestResults[key]
+		} else {
 			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == opts.Execution {
 				testResults = &tr
 				break
@@ -158,7 +152,7 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "problem creating bucket").Error(),
+			Message:    errors.Wrapf(err, "problem creating bucket for task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -175,15 +169,18 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "retrieving test result").Error(),
+			Message:    errors.Wrap(err, "problem retrieving test result").Error(),
 		}
 	}
+	defer func() {
+		grip.Warning(errors.Wrap(tr.Close(), "problem closing file"))
+	}()
 
 	data, err := ioutil.ReadAll(tr)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "reading data").Error(),
+			Message:    errors.Wrap(err, "problem reading data").Error(),
 		}
 	}
 
@@ -191,7 +188,7 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	if err := bson.Unmarshal(data, &result); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "unmarshalling test result").Error(),
+			Message:    errors.Wrap(err, "problem unmarshalling test result").Error(),
 		}
 	}
 
@@ -199,7 +196,7 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 	if err := apiResult.Import(result); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "converting test result to output format").Error(),
+			Message:    errors.Wrap(err, "problem converting test result to output format").Error(),
 		}
 	}
 

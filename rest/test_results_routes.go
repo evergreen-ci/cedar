@@ -65,6 +65,10 @@ func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responde
 	return gimlet.NewJSONResponse(testResults)
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /testresults/test_name/{task_id}/{test_name}
+
 type testResultGetByTestNameHandler struct {
 	opts data.TestResultsOptions
 	sc   data.Connector
@@ -76,7 +80,7 @@ func makeGetTestResultByTestName(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
-// Factory returns a pointer to a new testResultGetByTestNameHandler
+// Factory returns a pointer to a new testResultGetByTestNameHandler.
 func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	return &testResultGetByTestNameHandler{
 		sc: h.sc,
@@ -86,7 +90,6 @@ func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the task_id, test_name, and execution (if present)
 // from the http request.
 func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
-	catcher := grip.NewBasicCatcher()
 	var err error
 
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
@@ -94,16 +97,15 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
-		h.opts.EmptyExecution = false
-		catcher.Add(err)
+		return err
 	} else {
 		h.opts.EmptyExecution = true
 	}
 
-	return catcher.Resolve()
+	return nil
 }
 
-// Run finds and returns the desired test result based on test name.
+// Run finds and returns the desired test result.
 func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	testResult, err := h.sc.FindTestResultByTestName(ctx, h.opts)
 	if err != nil {
@@ -115,7 +117,7 @@ func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Respond
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.TestName,
 		}))
-		return gimlet.MakeJSONErrorResponder(err)
+		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(testResult)
 }
