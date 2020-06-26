@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	dbModel "github.com/evergreen-ci/cedar/model"
-
-	//"github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/mgo.v2/bson"
@@ -90,19 +90,24 @@ func (s *testResultsConnectorSuite) setup() {
 			Mainline:    true,
 		},
 	}
+
 	for _, testResultsInfo := range testResultInfos {
 		testResults := dbModel.CreateTestResults(testResultsInfo, dbModel.PailLocal)
+
 		opts := pail.LocalOptions{
 			Path:   s.tempDir,
-			Prefix: testResults.Artifact.Prefix,
+			Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
 		}
 		bucket, err := pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
+
 		testResults.Setup(s.env)
-		s.Require().NoError(testResults.SaveNew(s.ctx))
+		err = testResults.SaveNew(s.ctx)
+
+		s.Require().NoError(err)
 		s.testResults[testResults.ID] = *testResults
+
 		for i := 0; i < 3; i++ {
-			// make test result
 			result := dbModel.TestResult{
 				TaskID:         testResults.Info.TaskID,
 				Execution:      testResults.Info.Execution,
@@ -127,20 +132,89 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultByTaskId() {
-	expectedID := s.testResults.TestResultsInfo.TaskID
+// func (s *testResultsConnectorSuite) TestFindTestResultByTaskId() {
+// 	expectedID := s.testResults.TestResultsInfo.TaskID
 
-	options := dbModel.TestResultsFindOptions{
-		TaskID:         h.options.TaskID,
-		Execution:      h.options.Execution,
-		EmptyExecution: h.options.EmptyExecution,
+// 	options := dbModel.TestResultsFindOptions{
+// 		TaskID:         h.options.TaskID,
+// 		Execution:      h.options.Execution,
+// 		EmptyExecution: h.options.EmptyExecution,
+// 	}
+
+// 	actualResult, err := s.sc.FindTestResultsByTaskId(s.ctx, options)
+// 	s.Require().NoError(err)
+// 	s.Equal(expectedID, actualResult.TaskID)
+
+// 	actualResult, err = s.sc.FindTestResultsByTaskId(s.ctx, options)
+// 	s.Require().NoError(err)
+// 	s.Equal(expectedID, *actualResult.Name)
+// }
+func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
+	optsList := []TestResultsOptions{{
+		TaskID:    "task1",
+		Execution: 1,
+		TestName:  "test1",
+	}, {
+		TaskID:         "task1",
+		EmptyExecution: true,
+		TestName:       "test1",
+	}}
+	for _, opts := range optsList {
+		testResults := dbModel.TestResults{}
+		testResults.Setup(s.env)
+		findOpts := dbModel.TestResultsFindOptions{
+			TaskID:         opts.TaskID,
+			Execution:      opts.Execution,
+			EmptyExecution: opts.EmptyExecution,
+		}
+		s.Require().NoError(testResults.FindByTaskID(s.ctx, findOpts))
+		bucket, err := testResults.GetBucket(s.ctx)
+		s.Require().NoError(err)
+		tr, err := bucket.Get(s.ctx, opts.TestName)
+		s.Require().NoError(err)
+		data, err := ioutil.ReadAll(tr)
+		var result dbModel.TestResult
+		s.Require().NoError(bson.Unmarshal(data, &result))
+		expected := &model.APITestResult{}
+		s.Require().NoError(expected.Import(result))
+
+		actual, err := s.sc.FindTestResultByTestName(s.ctx, opts)
+		s.Require().NoError(err)
+		s.Equal(expected, actual)
+	}
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
+	// test when metadata object doesn't exist
+	opts := TestResultsOptions{
+		TaskID:    "DNE",
+		Execution: 1,
+		TestName:  "test1",
 	}
 
-	actualResult, err := s.sc.FindTestResultsByTaskId(s.ctx, options)
-	s.Require().NoError(err)
-	s.Equal(expectedID, actualResult.TaskID)
+	result, err := s.sc.FindTestResultByTestName(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
 
-	actualResult, err = s.sc.FindTestResultsByTaskId(s.ctx, options)
-	s.Require().NoError(err)
-	s.Equal(expectedID, *actualResult.Name)
+	// test when test object doesn't exist
+	opts = TestResultsOptions{
+		TaskID:    "task1",
+		Execution: 1,
+		TestName:  "DNE",
+	}
+
+	result, err = s.sc.FindTestResultByTestName(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTestNameEmpty() {
+	opts := TestResultsOptions{
+		TaskID:    "task1",
+		Execution: 1,
+	}
+
+	result, err := s.sc.FindTestResultByTestName(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
 }

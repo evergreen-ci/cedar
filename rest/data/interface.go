@@ -87,10 +87,18 @@ type Connector interface {
 	// TaskID, TestName, Tags, TimeRange, PrintTime, PrintPriority, and
 	// Limit are respected from BuildloggerOptions.
 	FindGroupedLogs(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
+
+	///////////////
+	// Test Results
+	///////////////
 	// FindTestResultsByTaskId queries the database to find all test
 	// results with the given task id and execution
-	FindTestResultsByTaskId(context.Context, dbModel.TestResultsFindOptions) ([]model.APITestResult, error) 
-
+	FindTestResultsByTaskId(context.Context, dbModel.TestResultsFindOptions) ([]model.APITestResult, error)
+	// FindTestResultsByTestName finds the test result of a single test, specified
+	// by a task_id, an optional execution number, and the name of the desired test.
+	// If execution is not specified, this will return the test result from the most
+	// recent.
+	FindTestResultByTestName(context.Context, TestResultsOptions) (*model.APITestResult, error)
 }
 
 type BuildloggerOptions struct {
@@ -106,4 +114,13 @@ type BuildloggerOptions struct {
 	Limit         int
 	Tail          int
 	SoftSizeLimit int
+}
+
+// TestResultsOptions holds all values required to find a specific TestResults
+// or TestResult object using connector functions.
+type TestResultsOptions struct {
+	TaskID         string
+	TestName       string
+	Execution      int
+	EmptyExecution bool
 }
