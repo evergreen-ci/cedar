@@ -172,6 +172,8 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
 		catcher.Add(err)
+	} else {
+		h.opts.EmptyExecution = true
 	}
 	if len(vals[limit]) > 0 {
 		h.opts.Limit, err = strconv.Atoi(vals[limit][0])
@@ -232,6 +234,13 @@ func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) er
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	h.opts.Tags = vals[tags]
+	if len(vals[execution]) > 0 {
+		var err error
+		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		return err
+	} else {
+		h.opts.EmptyExecution = true
+	}
 
 	return nil
 }
@@ -292,6 +301,8 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
 		catcher.Add(err)
+	} else {
+		h.opts.EmptyExecution = true
 	}
 	if len(vals[limit]) > 0 {
 		h.opts.Limit, err = strconv.Atoi(vals[limit][0])
@@ -350,6 +361,13 @@ func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) 
 	h.opts.TestName = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
 	h.opts.Tags = vals[tags]
+	if len(vals[execution]) > 0 {
+		var err error
+		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		return err
+	} else {
+		h.opts.EmptyExecution = true
+	}
 
 	return nil
 }
@@ -421,6 +439,12 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.Tags = append(vals[tags], h.groupID)
 	h.opts.PrintTime = vals.Get(printTime) == trueString
 	h.opts.PrintPriority = vals.Get(printPriority) == trueString
+	if len(vals[execution]) > 0 {
+		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		catcher.Add(err)
+	} else {
+		h.opts.EmptyExecution = true
+	}
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
 		h.opts.TimeRange, err = parseTimeRange(vals, logStartAt, logEndAt)
 		catcher.Add(err)

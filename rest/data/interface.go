@@ -89,17 +89,20 @@ type Connector interface {
 	FindGroupedLogs(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 }
 
+// BuildloggerOptions contains arguments for buildlogger related Connector
+// functions.
 type BuildloggerOptions struct {
-	ID            string
-	TaskID        string
-	TestName      string
-	Execution     int
-	ProcessName   string
-	Tags          []string
-	TimeRange     dbModel.TimeRange
-	PrintTime     bool
-	PrintPriority bool
-	Limit         int
-	Tail          int
-	SoftSizeLimit int
+	ID             string
+	TaskID         string
+	TestName       string
+	Execution      int
+	EmptyExecution bool
+	ProcessName    string
+	Tags           []string
+	TimeRange      dbModel.TimeRange
+	PrintTime      bool
+	PrintPriority  bool
+	Limit          int
+	Tail           int
+	SoftSizeLimit  int
 }
