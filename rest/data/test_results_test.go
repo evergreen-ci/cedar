@@ -160,62 +160,39 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 // 	s.Equal(expectedID, *actualResult.Name)
 // }
 
-func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
-	optsList := []dbModel.TestResultsFindOptions{{
-		TaskID:    "task1",
-		Execution: 1,
-	}, {
-		TaskID:         "task1",
-		EmptyExecution: true,
-	}}
+// func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
+// 	optsList := []dbModel.TestResultsFindOptions{{
+// 		TaskID:    "task1",
+// 		Execution: 0,
+// 	}, {
+// 		TaskID:         "task1",
+// 		EmptyExecution: true,
+// 	}}
 
-	expectedResultsList := make([][]model.APITestResult, 0)
-	expectedResults := make([]model.APITestResult, 0)
-	expectedResultsKeys := [][]string{
-		{"task1_1_test1", "task1_1_test2", "task1_1_test3"},
-		{"task1_1_test1", "task1_1_test2", "task1_1_test3", "task1_0_test1", "task1_0_test2", "task1_0_test3"},
-	}
-	for _, testNum := range expectedResultsKeys {
-		for _, key := range testNum {
-			expectedResults = append(expectedResults, s.apiResults[key])
-		}
-		expectedResultsList = append(expectedResultsList, expectedResults)
-	}
+// 	expectedResultsList := make([][]model.APITestResult, 0)
+// 	expectedResults := make([]model.APITestResult, 0)
+// 	expectedResultsKeys := [][]string{
+// 		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+// 		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+// 	}
+// 	for _, testNum := range expectedResultsKeys {
+// 		for _, key := range testNum {
+// 			expectedResults = append(expectedResults, s.apiResults[key])
+// 		}
+// 		expectedResultsList = append(expectedResultsList, expectedResults)
+// 	}
 
-	i := 0
-	for _, opts := range optsList {
-		testResults := dbModel.TestResults{}
-		testResults.Setup(s.env)
+// 	i := 0
+// 	for _, opts := range optsList {
+// 		testResults := dbModel.TestResults{}
+// 		testResults.Setup(s.env)
 
-		// findOpts := dbModel.TestResultsFindOptions{
-		// 	TaskID:         opts.TaskID,
-		// 	Execution:      opts.Execution,
-		// 	EmptyExecution: opts.EmptyExecution,
-		// }
-
-		// s.Require().NoError(testResults.FindByTaskID(s.ctx, findOpts))
-		// bucket, err := testResults.GetBucket(s.ctx)
-		// s.Require().NoError(err)
-
-		// tr, err := bucket.Get(s.ctx, opts.TestName)
-		// s.Require().NoError(err)
-		// defer func() {
-		// 	s.NoError(tr.Close())
-		// }()
-
-		// data, err := ioutil.ReadAll(tr)
-		// s.Require().NoError(err)
-
-		// var result dbModel.TestResult
-		// s.Require().NoError(bson.Unmarshal(data, &result))
-		// expected := &model.APITestResult{}
-		// s.Require().NoError(expected.Import(result))
-		expected := expectedResultsList[i]
-		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-		s.Require().NoError(err)
-		s.Equal(expected, actual)
-	}
-}
+// 		expected := expectedResultsList[i]
+// 		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+// 		s.Require().NoError(err)
+// 		s.Equal(expected, actual)
+// 	}
+// }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 	optsList := []TestResultsOptions{{

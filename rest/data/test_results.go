@@ -43,7 +43,11 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 	apiResults := make([]model.APITestResult, 0)
 	i := 0
 	for it.Next(ctx) {
-		err := apiResults[i].Import(it.Item())
+		apiResult := model.APITestResult{}
+		err := apiResult.Import(it.Item())
+		// apiResult := apiResults[i].Import(it.Item())
+		apiResults = append(apiResults, apiResult)
+		// err := apiResults[i].Import(it.Item())
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
