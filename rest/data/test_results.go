@@ -41,11 +41,10 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 	}
 
 	apiResults := make([]model.APITestResult, 0)
-	i := 0
+	// i := 0
 	for it.Next(ctx) {
 		apiResult := model.APITestResult{}
 		err := apiResult.Import(it.Item())
-		// apiResult := apiResults[i].Import(it.Item())
 		apiResults = append(apiResults, apiResult)
 		// err := apiResults[i].Import(it.Item())
 		if err != nil {
@@ -54,7 +53,7 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 				Message:    fmt.Sprintf("corrupt data"),
 			}
 		}
-		i++
+		// i++
 	}
 
 	return apiResults, nil
@@ -98,30 +97,84 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 
 // FindTestResultsByTaskId queries the mock cache to find all
 // test results with the given task id and execution
-func (mc *MockConnector) FindTestResultsByTaskId(_ context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
-	results := []model.APITestResult{}
+func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
+	// var testResults *dbModel.TestResults
+	apiResults := []model.APITestResult{}
+
 	for _, result := range mc.CachedTestResults {
-		if result.Info.TaskID == options.TaskID && result.Info.Execution == options.Execution {
-			apiResult := model.APITestResult{}
-			err := apiResult.Import(result)
-			if err != nil {
-				return nil, gimlet.ErrorResponse{
-					StatusCode: http.StatusInternalServerError,
-					Message:    fmt.Sprintf("corrupt data"),
+		it, err := result.Download(ctx)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("failed to download results with task_id %s", options.TaskID),
+			}
+		}
+
+		for it.Next(ctx) {
+			result := it.Item()
+			if result.TaskID == options.TaskID {
+				if (options.EmptyExecution) || (result.Execution == options.Execution) {
+					apiResult := model.APITestResult{}
+					err := apiResult.Import(result)
+					if err != nil {
+						return nil, gimlet.ErrorResponse{
+							StatusCode: http.StatusInternalServerError,
+							Message:    fmt.Sprintf("corrupt data from MockConnector"),
+						}
+					}
+					apiResults = append(apiResults, apiResult)
 				}
 			}
 
-			results = append(results, apiResult)
 		}
+		// if result.Info.TaskID == options.TaskID {
+		// 	if ((options.EmptyExecution) && (result.Info.Execution > testResults.Info.Execution)) ||
+		// 		(result.Info.Execution == options.Execution) {
+		// 		// if (options.EmptyExecution) || (result.Info.Execution == options.Execution) {
+		// 		apiResult := model.APITestResult{}
+		// 		fmt.Println(apiResult)
+		// 		err := apiResult.Import(result)
+		// 		if err != nil {
+		// 			return nil, gimlet.ErrorResponse{
+		// 				StatusCode: http.StatusInternalServerError,
+		// 				Message:    fmt.Sprintf("corrupt data from MockConnector"),
+		// 			}
+		// 		}
+		// 		apiResults = append(apiResults, apiResult)
+		// 	}
+		// }
+		// if options.EmptyExecution {
+		// 	if result.Info.TaskID == options.TaskID && (testResults == nil || result.Info.Execution > testResults.Info.Execution) {
+		// 		testResults = &result
+		// 	}
+		// } else {
+		// 	if result.Info.TaskID == options.TaskID && result.Info.Execution == options.Execution {
+		// 		testResults = &result
+		// 		break
+		// 	}
+		// }
+		//
+		// if result.Info.TaskID == options.TaskID && result.Info.Execution == options.Execution {
+		// 	apiResult := model.APITestResult{}
+		// 	err := apiResult.Import(result)
+		// 	if err != nil {
+		// 		return nil, gimlet.ErrorResponse{
+		// 			StatusCode: http.StatusInternalServerError,
+		// 			Message:    fmt.Sprintf("corrupt data from MockConnector"),
+		// 		}
+		// 	}
+
+		// apiResults = append(apiResults, apiResult)
+		// }
 	}
 
-	if len(results) == 0 {
+	if len(apiResults) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("test result with task_id '%s' not found", options.TaskID),
+			Message:    fmt.Sprintf("Mock Connector test result with task_id '%s' not found", options.TaskID),
 		}
 	}
-	return results, nil
+	return apiResults, nil
 }
 
 func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {

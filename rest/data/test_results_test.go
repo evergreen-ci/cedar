@@ -144,6 +144,28 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
+
+	expectedResults := make([]model.APITestResult, 0)
+	expectedResultsKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
+
+	for _, key := range expectedResultsKeys {
+		expectedResults = append(expectedResults, s.apiResults[key])
+	}
+
+	// opts := dbModel.TestResultsFindOptions{
+	// 	TaskID:    "task1",
+	// 	Execution: 0,
+	// }
+
+	// testResults := dbModel.TestResults{}
+	// testResults.Setup(s.env)
+
+	// actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	// s.Require().NoError(err)
+	// s.Equal(expectedResults, actual)
+
+	// =========================================================
+
 	optsList := []dbModel.TestResultsFindOptions{{
 		TaskID:    "task1",
 		Execution: 0,
@@ -152,38 +174,49 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 		EmptyExecution: true,
 	}}
 
-	expectedResultsList := make([][]model.APITestResult, 0)
-	expectedResults := make([]model.APITestResult, 0)
-	expectedResultsKeys := [][]string{
-		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
-		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
-	}
-
-	for _, testNum := range expectedResultsKeys {
-		for _, key := range testNum {
-			expectedResults = append(expectedResults, s.apiResults[key])
-		}
-		expectedResultsList = append(expectedResultsList, expectedResults)
-	}
-
-	i := 0
 	for _, opts := range optsList {
 		testResults := dbModel.TestResults{}
 		testResults.Setup(s.env)
 
-		expected := expectedResultsList[i]
 		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
 		s.Require().NoError(err)
-
-		// for _, j := range expected {
-		// 	fmt.Println(model.FromAPIString(j.TaskID))
-		// }
-		s.Equal(expected, actual)
-		// s.Equal(expected.TestName, actual.TestName)
-		// s.Equal(expected.TaskID, actual.TaskID)
-		// s.Equal(expected.Execution, actual.Execution)
-		i++
+		s.Equal(expectedResults, actual)
 	}
+
+	//=======WITH OLD EXPECTED RESULTS LIST============
+
+	// expectedResultsList := make([][]model.APITestResult, 0)
+	// expectedResults := make([]model.APITestResult, 0)
+	// expectedResultsKeys := [][]string{
+	// 	{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+	// 	{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+	// }
+
+	// for _, testNum := range expectedResultsKeys {
+	// 	for _, key := range testNum {
+	// 		expectedResults = append(expectedResults, s.apiResults[key])
+	// 	}
+	// 	expectedResultsList = append(expectedResultsList, expectedResults)
+	// }
+
+	// i := 0
+	// for _, opts := range optsList {
+	// 	testResults := dbModel.TestResults{}
+	// 	testResults.Setup(s.env)
+
+	// 	expected := expectedResultsList[i]
+	// 	actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	// 	s.Require().NoError(err)
+
+	// 	// for _, j := range expected {
+	// 	// 	fmt.Println(model.FromAPIString(j.TaskID))
+	// 	// }
+	// 	s.Equal(expected, actual)
+	// 	// s.Equal(expected.TestName, actual.TestName)
+	// 	// s.Equal(expected.TaskID, actual.TaskID)
+	// 	// s.Equal(expected.Execution, actual.Execution)
+	// 	i++
+	// }
 
 }
 
