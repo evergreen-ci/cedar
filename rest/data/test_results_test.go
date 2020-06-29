@@ -94,6 +94,8 @@ func (s *testResultsConnectorSuite) setup() {
 		},
 	}
 
+	s.apiResults = map[string]model.APITestResult{}
+
 	for _, testResultsInfo := range testResultInfos {
 		testResults := dbModel.CreateTestResults(testResultsInfo, dbModel.PailLocal)
 
@@ -109,7 +111,6 @@ func (s *testResultsConnectorSuite) setup() {
 
 		s.Require().NoError(err)
 		s.testResults[testResults.ID] = *testResults
-		s.apiResults = map[string]model.APITestResult{}
 
 		for i := 0; i < 3; i++ {
 			result := dbModel.TestResult{
@@ -142,57 +143,49 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
-// func (s *testResultsConnectorSuite) TestFindTestResultByTaskId() {
-// 	expectedID := s.testResults.TestResultsInfo.TaskID
+func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
+	optsList := []dbModel.TestResultsFindOptions{{
+		TaskID:    "task1",
+		Execution: 0,
+	}, {
+		TaskID:         "task1",
+		EmptyExecution: true,
+	}}
 
-// 	options := dbModel.TestResultsFindOptions{
-// 		TaskID:         h.options.TaskID,
-// 		Execution:      h.options.Execution,
-// 		EmptyExecution: h.options.EmptyExecution,
-// 	}
+	expectedResultsList := make([][]model.APITestResult, 0)
+	expectedResults := make([]model.APITestResult, 0)
+	expectedResultsKeys := [][]string{
+		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+	}
 
-// 	actualResult, err := s.sc.FindTestResultsByTaskId(s.ctx, options)
-// 	s.Require().NoError(err)
-// 	s.Equal(expectedID, actualResult.TaskID)
+	for _, testNum := range expectedResultsKeys {
+		for _, key := range testNum {
+			expectedResults = append(expectedResults, s.apiResults[key])
+		}
+		expectedResultsList = append(expectedResultsList, expectedResults)
+	}
 
-// 	actualResult, err = s.sc.FindTestResultsByTaskId(s.ctx, options)
-// 	s.Require().NoError(err)
-// 	s.Equal(expectedID, *actualResult.Name)
-// }
+	i := 0
+	for _, opts := range optsList {
+		testResults := dbModel.TestResults{}
+		testResults.Setup(s.env)
 
-// func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
-// 	optsList := []dbModel.TestResultsFindOptions{{
-// 		TaskID:    "task1",
-// 		Execution: 0,
-// 	}, {
-// 		TaskID:         "task1",
-// 		EmptyExecution: true,
-// 	}}
+		expected := expectedResultsList[i]
+		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+		s.Require().NoError(err)
 
-// 	expectedResultsList := make([][]model.APITestResult, 0)
-// 	expectedResults := make([]model.APITestResult, 0)
-// 	expectedResultsKeys := [][]string{
-// 		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
-// 		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
-// 	}
-// 	for _, testNum := range expectedResultsKeys {
-// 		for _, key := range testNum {
-// 			expectedResults = append(expectedResults, s.apiResults[key])
-// 		}
-// 		expectedResultsList = append(expectedResultsList, expectedResults)
-// 	}
+		// for _, j := range expected {
+		// 	fmt.Println(model.FromAPIString(j.TaskID))
+		// }
+		s.Equal(expected, actual)
+		// s.Equal(expected.TestName, actual.TestName)
+		// s.Equal(expected.TaskID, actual.TaskID)
+		// s.Equal(expected.Execution, actual.Execution)
+		i++
+	}
 
-// 	i := 0
-// 	for _, opts := range optsList {
-// 		testResults := dbModel.TestResults{}
-// 		testResults.Setup(s.env)
-
-// 		expected := expectedResultsList[i]
-// 		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-// 		s.Require().NoError(err)
-// 		s.Equal(expected, actual)
-// 	}
-// }
+}
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 	optsList := []TestResultsOptions{{
