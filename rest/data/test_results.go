@@ -94,41 +94,58 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 
 // FindTestResultsByTaskId queries the mock cache to find all
 // test results with the given task id and execution
-func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
+func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
 	apiResults := []model.APITestResult{}
+	var testResults *dbModel.TestResults
 
-	for _, result := range mc.CachedTestResults {
-		it, err := result.Download(ctx)
+	for key, _ := range mc.CachedTestResults {
+		tr := mc.CachedTestResults[key]
+		if opts.EmptyExecution {
+			if tr.Info.TaskID == opts.TaskID && (testResults == nil || tr.Info.Execution > testResults.Info.Execution) {
+				testResults = &tr
+			}
+		} else {
+			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == opts.Execution {
+				testResults = &tr
+				break
+			}
+		}
+	}
+
+	if testResults == nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("tests with task id '%s' not found", opts.TaskID),
+		}
+	}
+
+	it, err := testResults.Download(ctx)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("failed to download results with task_id %s", opts.TaskID),
+		}
+	}
+
+	for it.Next(ctx) {
+		result := it.Item()
+
+		apiResult := model.APITestResult{}
+		err := apiResult.Import(result)
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("failed to download results with task_id %s", options.TaskID),
+				Message:    fmt.Sprintf("corrupt data from MockConnector"),
 			}
 		}
-
-		for it.Next(ctx) {
-			result := it.Item()
-			if (result.TaskID == options.TaskID) &&
-				((options.EmptyExecution) || (result.Execution == options.Execution)) {
-				apiResult := model.APITestResult{}
-				err := apiResult.Import(result)
-				if err != nil {
-					return nil, gimlet.ErrorResponse{
-						StatusCode: http.StatusInternalServerError,
-						Message:    fmt.Sprintf("corrupt data from MockConnector"),
-					}
-				}
-				apiResults = append(apiResults, apiResult)
-			}
-
-		}
+		apiResults = append(apiResults, apiResult)
 
 	}
 
 	if len(apiResults) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("Mock Connector test result with task_id '%s' not found", options.TaskID),
+			Message:    fmt.Sprintf("Mock Connector test result with task_id '%s' not found", opts.TaskID),
 		}
 	}
 	return apiResults, nil

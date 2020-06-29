@@ -152,36 +152,36 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 		expectedResults = append(expectedResults, s.apiResults[key])
 	}
 
-	// opts := dbModel.TestResultsFindOptions{
-	// 	TaskID:    "task1",
-	// 	Execution: 0,
-	// }
+	opts := dbModel.TestResultsFindOptions{
+		TaskID:    "task1",
+		Execution: 0,
+	}
 
-	// testResults := dbModel.TestResults{}
-	// testResults.Setup(s.env)
+	testResults := dbModel.TestResults{}
+	testResults.Setup(s.env)
 
-	// actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-	// s.Require().NoError(err)
-	// s.Equal(expectedResults, actual)
+	actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	s.Require().NoError(err)
+	s.Equal(expectedResults, actual)
 
 	// =========================================================
 
-	optsList := []dbModel.TestResultsFindOptions{{
-		TaskID:    "task1",
-		Execution: 0,
-	}, {
-		TaskID:         "task1",
-		EmptyExecution: true,
-	}}
+	// optsList := []dbModel.TestResultsFindOptions{{
+	// 	TaskID:    "task1",
+	// 	Execution: 0,
+	// }, {
+	// 	TaskID:         "task1",
+	// 	EmptyExecution: true,
+	// }}
 
-	for _, opts := range optsList {
-		testResults := dbModel.TestResults{}
-		testResults.Setup(s.env)
+	// for _, opts := range optsList {
+	// 	testResults := dbModel.TestResults{}
+	// 	testResults.Setup(s.env)
 
-		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-		s.Require().NoError(err)
-		s.Equal(expectedResults, actual)
-	}
+	// 	actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	// 	s.Require().NoError(err)
+	// 	s.Equal(expectedResults, actual)
+	// }
 
 }
 
