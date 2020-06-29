@@ -145,43 +145,54 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 
 func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 
-	expectedResults := make([]model.APITestResult, 0)
-	expectedResultsKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
+	expected := make([]model.APITestResult, 0)
+	expectedKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
 
-	for _, key := range expectedResultsKeys {
-		expectedResults = append(expectedResults, s.apiResults[key])
+	for _, key := range expectedKeys {
+		expected = append(expected, s.apiResults[key])
 	}
 
-	opts := dbModel.TestResultsFindOptions{
-		TaskID:    "task1",
-		Execution: 0,
-	}
+	// opts := dbModel.TestResultsFindOptions{
+	// 	TaskID:    "task1",
+	// 	Execution: 0,
+	// }
 
-	testResults := dbModel.TestResults{}
-	testResults.Setup(s.env)
+	// testResults := dbModel.TestResults{}
+	// testResults.Setup(s.env)
 
-	actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-	s.Require().NoError(err)
-	s.Equal(expectedResults, actual)
+	// actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	// s.Require().NoError(err)
+	// // s.Equal(expected, actual)
+	// for i := 0; i < len(actual); i++ {
+	// 	s.Equal(expected[i].TestName, actual[i].TestName)
+	// 	s.Equal(expected[i].TaskID, actual[i].TaskID)
+	// 	s.Equal(expected[i].Execution, actual[i].Execution)
+	// }
 
 	// =========================================================
 
-	// optsList := []dbModel.TestResultsFindOptions{{
-	// 	TaskID:    "task1",
-	// 	Execution: 0,
-	// }, {
-	// 	TaskID:         "task1",
-	// 	EmptyExecution: true,
-	// }}
+	optsList := []dbModel.TestResultsFindOptions{{
+		TaskID:    "task1",
+		Execution: 0,
+	}, {
+		TaskID:         "task1",
+		EmptyExecution: true,
+	}}
 
-	// for _, opts := range optsList {
-	// 	testResults := dbModel.TestResults{}
-	// 	testResults.Setup(s.env)
+	for _, opts := range optsList {
+		testResults := dbModel.TestResults{}
+		testResults.Setup(s.env)
 
-	// 	actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-	// 	s.Require().NoError(err)
-	// 	s.Equal(expectedResults, actual)
-	// }
+		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+		s.Require().NoError(err)
+		// s.Equal(expected, actual)
+		s.Equal(len(expected), len(actual))
+		for i := 0; i < len(actual); i++ {
+			s.Equal(expected[i].TestName, actual[i].TestName)
+			s.Equal(expected[i].TaskID, actual[i].TaskID)
+			s.Equal(expected[i].Execution, actual[i].Execution)
+		}
+	}
 
 }
 
