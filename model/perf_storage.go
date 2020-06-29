@@ -4,66 +4,7 @@ import (
 	"time"
 
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/pkg/errors"
 )
-
-type FileDataFormat string
-
-const (
-	FileFTDC FileDataFormat = "ftdc"
-	FileBSON FileDataFormat = "bson"
-	FileJSON FileDataFormat = "json"
-	FileCSV  FileDataFormat = "csv"
-	FileText FileDataFormat = "text"
-)
-
-func (ff FileDataFormat) Validate() error {
-	switch ff {
-	case FileFTDC, FileBSON, FileJSON, FileCSV:
-		return nil
-	default:
-		return errors.New("invalid data format")
-	}
-}
-
-type FileCompression string
-
-const (
-	FileUncompressed FileCompression = "none"
-	FileTarGz        FileCompression = "targz"
-	FileZip          FileCompression = "zip"
-	FileGz           FileCompression = "gz"
-	FileXz           FileCompression = "xz"
-)
-
-func (fc FileCompression) Validate() error {
-	switch fc {
-	case FileUncompressed, FileTarGz, FileZip, FileGz, FileXz:
-		return nil
-	default:
-		return errors.New("invalid compression format")
-	}
-
-}
-
-type FileSchema string
-
-const (
-	SchemaRawEvents       FileSchema = "raw-events"
-	SchemaCollapsedEvents FileSchema = "collapsed-events"
-	SchemaIntervalSummary FileSchema = "interval-summarization"
-	SchemaHistogram       FileSchema = "histogram"
-)
-
-func (fs FileSchema) Validate() error {
-	switch fs {
-	case SchemaRawEvents, SchemaIntervalSummary, SchemaCollapsedEvents, SchemaHistogram:
-		return nil
-	default:
-		return errors.New("invalid schema specified")
-	}
-
-}
 
 // ArtifactInfo is a type that describes an object in some kind of
 // offline storage, and is the bridge between pail-backed
@@ -87,7 +28,7 @@ type ArtifactInfo struct {
 var (
 	artifactInfoTypeKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Type")
 	artifactInfoPathKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Path")
-	artifactInfoSchmeaKey      = bsonutil.MustHaveTag(ArtifactInfo{}, "Schema")
+	artifactInfoSchemaKey      = bsonutil.MustHaveTag(ArtifactInfo{}, "Schema")
 	artifactInfoFormatKey      = bsonutil.MustHaveTag(ArtifactInfo{}, "Format")
 	artifactInfoCompressionKey = bsonutil.MustHaveTag(ArtifactInfo{}, "Compression")
 	artifactInfoTagsKey        = bsonutil.MustHaveTag(ArtifactInfo{}, "Tags")
