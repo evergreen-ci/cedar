@@ -41,19 +41,16 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 	}
 
 	apiResults := make([]model.APITestResult, 0)
-	// i := 0
 	for it.Next(ctx) {
 		apiResult := model.APITestResult{}
 		err := apiResult.Import(it.Item())
 		apiResults = append(apiResults, apiResult)
-		// err := apiResults[i].Import(it.Item())
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
 				Message:    fmt.Sprintf("corrupt data"),
 			}
 		}
-		// i++
 	}
 
 	return apiResults, nil
@@ -98,7 +95,6 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 // FindTestResultsByTaskId queries the mock cache to find all
 // test results with the given task id and execution
 func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
-	// var testResults *dbModel.TestResults
 	apiResults := []model.APITestResult{}
 
 	for _, result := range mc.CachedTestResults {
@@ -112,60 +108,21 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, options db
 
 		for it.Next(ctx) {
 			result := it.Item()
-			if result.TaskID == options.TaskID {
-				if (options.EmptyExecution) || (result.Execution == options.Execution) {
-					apiResult := model.APITestResult{}
-					err := apiResult.Import(result)
-					if err != nil {
-						return nil, gimlet.ErrorResponse{
-							StatusCode: http.StatusInternalServerError,
-							Message:    fmt.Sprintf("corrupt data from MockConnector"),
-						}
+			if (result.TaskID == options.TaskID) &&
+				((options.EmptyExecution) || (result.Execution == options.Execution)) {
+				apiResult := model.APITestResult{}
+				err := apiResult.Import(result)
+				if err != nil {
+					return nil, gimlet.ErrorResponse{
+						StatusCode: http.StatusInternalServerError,
+						Message:    fmt.Sprintf("corrupt data from MockConnector"),
 					}
-					apiResults = append(apiResults, apiResult)
 				}
+				apiResults = append(apiResults, apiResult)
 			}
 
 		}
-		// if result.Info.TaskID == options.TaskID {
-		// 	if ((options.EmptyExecution) && (result.Info.Execution > testResults.Info.Execution)) ||
-		// 		(result.Info.Execution == options.Execution) {
-		// 		// if (options.EmptyExecution) || (result.Info.Execution == options.Execution) {
-		// 		apiResult := model.APITestResult{}
-		// 		fmt.Println(apiResult)
-		// 		err := apiResult.Import(result)
-		// 		if err != nil {
-		// 			return nil, gimlet.ErrorResponse{
-		// 				StatusCode: http.StatusInternalServerError,
-		// 				Message:    fmt.Sprintf("corrupt data from MockConnector"),
-		// 			}
-		// 		}
-		// 		apiResults = append(apiResults, apiResult)
-		// 	}
-		// }
-		// if options.EmptyExecution {
-		// 	if result.Info.TaskID == options.TaskID && (testResults == nil || result.Info.Execution > testResults.Info.Execution) {
-		// 		testResults = &result
-		// 	}
-		// } else {
-		// 	if result.Info.TaskID == options.TaskID && result.Info.Execution == options.Execution {
-		// 		testResults = &result
-		// 		break
-		// 	}
-		// }
-		//
-		// if result.Info.TaskID == options.TaskID && result.Info.Execution == options.Execution {
-		// 	apiResult := model.APITestResult{}
-		// 	err := apiResult.Import(result)
-		// 	if err != nil {
-		// 		return nil, gimlet.ErrorResponse{
-		// 			StatusCode: http.StatusInternalServerError,
-		// 			Message:    fmt.Sprintf("corrupt data from MockConnector"),
-		// 		}
-		// 	}
 
-		// apiResults = append(apiResults, apiResult)
-		// }
 	}
 
 	if len(apiResults) == 0 {
