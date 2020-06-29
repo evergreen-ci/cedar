@@ -266,7 +266,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	its = append(its, it)
 
 	opts.TestName = ""
-	// need to set this to false since the last call to findLogsByTestaName
+	// Need to set this to false since the last call to findLogsByTestName
 	// has found the latest execution.
 	opts.EmptyExecution = false
 	it, err = dbc.findLogsByTestName(ctx, &opts)
@@ -592,7 +592,7 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	its = append(its, it)
 
 	opts.TestName = ""
-	// need to set this to false since the last call to findLogsByTestaName
+	// Need to set this to false since the last call to findLogsByTestName
 	// has found the latest execution.
 	opts.EmptyExecution = false
 	it, err = mc.findLogsByTestName(ctx, &opts)

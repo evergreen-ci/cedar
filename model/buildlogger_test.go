@@ -21,7 +21,7 @@ import (
 )
 
 func TestCreateLog(t *testing.T) {
-	log, _ := getTestLogs()
+	log, _ := getTestLogs(time.Now())
 	log.populated = true
 	createdLog := CreateLog(log.Info, PailS3)
 	assert.Equal(t, log.ID, createdLog.ID)
@@ -41,7 +41,7 @@ func TestBuildloggerFind(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestBuildloggerSaveNew(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := Log{
@@ -161,7 +161,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestBuildloggerRemove(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -420,7 +420,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -532,7 +532,7 @@ func TestBuildloggerClose(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -592,13 +592,10 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
-	time.Sleep(time.Millisecond)
-	log3, _ := getTestLogs()
-	time.Sleep(time.Millisecond)
-	log4, _ := getTestLogs()
-	time.Sleep(time.Millisecond)
-	log5, _ := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
+	log3, _ := getTestLogs(time.Now().Add(time.Minute))
+	log4, _ := getTestLogs(time.Now().Add(2 * time.Minute))
+	log5, _ := getTestLogs(time.Now().Add(3 * time.Minute))
 	log3.Info.TestName = "test2"
 	log3.ID = log3.Info.ID()
 	log4.Info.Execution = 1
@@ -771,11 +768,9 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		require.True(t, ok)
 		args := query.(bson.M)["$in"].([]bson.M)
 		for _, arg := range args {
-			count := 0
+			assert.Len(t, arg, 1)
 			for key, val := range arg {
 				assert.Equal(t, opts.Info.Arguments[key], val)
-				assert.Zero(t, count)
-				count++
 			}
 		}
 		assert.Len(t, args, len(opts.Info.Arguments))
@@ -806,11 +801,9 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		require.True(t, ok)
 		args := query.(bson.M)["$in"].([]bson.M)
 		for _, arg := range args {
-			count := 0
+			assert.Len(t, arg, 1)
 			for key, val := range arg {
 				assert.Equal(t, opts.Info.Arguments[key], val)
-				assert.Zero(t, count)
-				count++
 			}
 		}
 		assert.Len(t, args, len(opts.Info.Arguments))
@@ -840,7 +833,7 @@ func TestBuildloggerMerge(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -913,7 +906,7 @@ func TestBuildloggerMerge(t *testing.T) {
 	})
 }
 
-func getTestLogs() (*Log, *Log) {
+func getTestLogs(start time.Time) (*Log, *Log) {
 	log1 := &Log{
 		Info: LogInfo{
 			Project:  "project",
@@ -921,8 +914,8 @@ func getTestLogs() (*Log, *Log) {
 			TestName: "test1",
 			Mainline: true,
 		},
-		CreatedAt:   time.Now().Add(-24 * time.Hour),
-		CompletedAt: time.Now().Add(-23 * time.Hour),
+		CreatedAt:   start.Add(-24 * time.Hour),
+		CompletedAt: start.Add(-23 * time.Hour),
 		Artifact: LogArtifactInfo{
 			Type:    PailLocal,
 			Prefix:  "log1",
@@ -937,8 +930,8 @@ func getTestLogs() (*Log, *Log) {
 			TestName: "test2",
 			Mainline: true,
 		},
-		CreatedAt:   time.Now().Add(-2 * time.Hour),
-		CompletedAt: time.Now().Add(-time.Hour),
+		CreatedAt:   start.Add(-2 * time.Hour),
+		CompletedAt: start.Add(-time.Hour),
 		Artifact: LogArtifactInfo{
 			Type:    PailLocal,
 			Prefix:  "log1",
