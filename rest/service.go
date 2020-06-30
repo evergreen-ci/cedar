@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -10,6 +11,7 @@ import (
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/gimlet/cached"
+	"github.com/evergreen-ci/gimlet/ldap"
 	"github.com/evergreen-ci/gimlet/usercache"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
@@ -63,69 +65,6 @@ func (s *Service) Validate() error {
 		if s.queue == nil {
 			return errors.New("no queue defined")
 		}
-	}
-
-	if s.Conf.ServiceAuth.Enabled {
-		opts := usercache.ExternalOptions{
-			PutUserGetToken: func(gimlet.User) (string, error) {
-				return "", errors.New("cannot put new users in DB")
-			},
-			GetUserByToken: func(string) (gimlet.User, bool, error) {
-				return nil, false, errors.New("cannot get user by login token")
-			},
-			ClearUserToken: func(gimlet.User, bool) error {
-				return errors.New("cannot clear user login token")
-			},
-			GetUserByID: func(id string) (gimlet.User, bool, error) {
-				var user gimlet.User
-				user, _, err = model.GetUser(id)
-				if err != nil {
-					return nil, false, errors.Errorf("finding user")
-				}
-				return user, true, nil
-			},
-			GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
-				var user gimlet.User
-				user, _, err = model.GetUser(u.Username())
-				if err != nil {
-					return nil, errors.Wrap(err, "failed to find user and cannot create new one")
-				}
-				return user, nil
-			},
-		}
-
-		cache, err := usercache.NewExternal(opts)
-		if err != nil {
-			return errors.Wrap(err, "setting up user cache backed by DB")
-		}
-		s.UserManager, err = cached.NewUserManager(cache)
-		if err != nil {
-			return errors.Wrap(err, "creating user manager backed by DB")
-		}
-
-	} else if s.Conf.LDAP.URL != "" {
-
-	} else if s.Conf.NaiveAuth.AppAuth {
-		users := []gimlet.BasicUser{}
-		for _, user := range s.Conf.NaiveAuth.Users {
-			users = append(
-				users,
-				gimlet.BasicUser{
-					ID:           user.ID,
-					Name:         user.Name,
-					EmailAddress: user.EmailAddress,
-					Password:     user.Password,
-					Key:          user.Key,
-					AccessRoles:  user.AccessRoles,
-				},
-			)
-		}
-		s.UserManager, err = gimlet.NewBasicUserManager(users, nil)
-		if err != nil {
-			return errors.Wrap(err, "problem setting up basic user manager")
-		}
-	} else {
-		return errors.New("no user authentication set up")
 	}
 
 	if s.Conf.CA.SSLExpireAfter == 0 {
@@ -182,6 +121,243 @@ func (s *Service) Validate() error {
 		"service": s.RPCServers,
 	})
 	return nil
+}
+
+func (s *Service) setupUserAuth() error {
+	var usrMngrs []gimlet.UserManager
+	if s.Conf.ServiceAuth.Enabled {
+		usrMngr, err := s.setupServiceAuth()
+		if err != nil {
+			return errors.Wrap(err, "setting up service user auth")
+		}
+		usrMngrs = append(usrMngrs, usrMngr)
+	}
+	if s.Conf.LDAP.URL != "" {
+		usrMngr, err := s.setupLDAPAuth()
+		if err != nil {
+			return errors.Wrap(err, "setting up LDAP user auth")
+		}
+		usrMngrs = append(usrMngrs, usrMngr)
+	}
+	if s.Conf.NaiveAuth.AppAuth {
+		usrMngr, err := s.setupNaiveAuth()
+		if err != nil {
+			return errors.Wrap(err, "setting up naive user auth")
+		}
+		usrMngrs = append(usrMngrs, usrMngr)
+	}
+
+	if len(usrMngrs) == 0 {
+		return errors.New("no user authentication method could be set up")
+	}
+
+	// Using multiple read-only user managers is only a temporary change to
+	// migrate off of the dependence on the LDAP manager.
+	s.UserManager = gimlet.NewMultiUserManager(nil, usrMngrs)
+
+	return nil
+}
+
+func (s *Service) setupServiceAuth() (gimlet.UserManager, error) {
+	opts := usercache.ExternalOptions{
+		PutUserGetToken: func(gimlet.User) (string, error) {
+			grip.Debug(message.Fields{
+				"op":      "PutUserGetToken",
+				"context": "service user manager",
+			})
+			return "", errors.New("cannot put new users in DB")
+		},
+		GetUserByToken: func(string) (gimlet.User, bool, error) {
+			grip.Debug(message.Fields{
+				"op":      "GetUserByToken",
+				"context": "service user manager",
+			})
+			return nil, false, errors.New("cannot get user by login token")
+		},
+		ClearUserToken: func(gimlet.User, bool) error {
+			grip.Debug(message.Fields{
+				"op":      "ClearUserToken",
+				"context": "service user manager",
+			})
+			return errors.New("cannot clear user login token")
+		},
+		GetUserByID: func(id string) (gimlet.User, bool, error) {
+			msg := message.Fields{
+				"username": id,
+				"op":       "GetUserByID",
+				"context":  "service user manager",
+			}
+			var user gimlet.User
+			user, _, err := model.GetUser(id)
+			if err != nil {
+				msg["message"] = "failed to find user by ID"
+				grip.Debug(message.WrapError(err, msg))
+				return nil, false, errors.Errorf("finding user")
+			}
+			msg["message"] = "successfully found user by ID"
+			msg["user"] = fmt.Sprintf("%#v", user)
+			grip.Debug(msg)
+			return user, true, nil
+		},
+		GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
+			msg := message.Fields{
+				"user":     fmt.Sprintf("%#v", u),
+				"username": u.Username(),
+				"op":       "GetOrCreateUser",
+				"context":  "service user manager",
+			}
+			var user gimlet.User
+			user, _, err := model.GetUser(u.Username())
+			if err != nil {
+				msg["message"] = "failed to find existing user"
+				grip.Debug(message.WrapError(err, msg))
+				return nil, errors.Wrap(err, "failed to find user and cannot create new one")
+			}
+			msg["message"] = "successfully found existing user"
+			msg["user"] = fmt.Sprintf("%#v", u)
+			grip.Debug(msg)
+			return user, nil
+		},
+	}
+
+	cache, err := usercache.NewExternal(opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "setting up user cache backed by DB")
+	}
+	usrMngr, err := cached.NewUserManager(cache)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating user manager backed by DB")
+	}
+
+	return usrMngr, nil
+}
+
+func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
+	usrMngr, err := ldap.NewUserService(ldap.CreationOpts{
+		URL:          s.Conf.LDAP.URL,
+		Port:         s.Conf.LDAP.Port,
+		UserPath:     s.Conf.LDAP.UserPath,
+		ServicePath:  s.Conf.LDAP.ServicePath,
+		UserGroup:    s.Conf.LDAP.UserGroup,
+		ServiceGroup: s.Conf.LDAP.ServiceGroup,
+		ExternalCache: &usercache.ExternalOptions{
+			PutUserGetToken: func(u gimlet.User) (string, error) {
+				msg := message.Fields{
+					"user":     fmt.Sprintf("%#v", u),
+					"username": u.Username(),
+					"op":       "PutLoginCache",
+					"context":  "LDAP user manager",
+				}
+				token, err := model.PutLoginCache(u)
+				if err != nil {
+					msg["message"] = "failed to update login cache for user"
+					grip.Debug(message.WrapError(err, msg))
+					return "", errors.WithStack(err)
+				}
+				msg["message"] = "successfully updated login cache for user"
+				msg["token"] = token
+				grip.Debug(msg)
+				return token, nil
+			},
+			GetUserByToken: func(token string) (gimlet.User, bool, error) {
+				msg := message.Fields{
+					"token":   token,
+					"op":      "GetUserByToken",
+					"context": "LDAP user manager",
+				}
+				u, valid, err := model.GetLoginCache(token)
+				if err != nil {
+					msg["message"] = "failed to get user by token"
+					grip.Debug(message.WrapError(err, msg))
+					return nil, false, errors.WithStack(err)
+				}
+				msg["message"] = "successfully found user by token"
+				msg["user"] = fmt.Sprintf("%#v", u)
+				msg["username"] = u.Username()
+				msg["valid"] = valid
+				grip.Debug(msg)
+				return u, valid, nil
+			},
+			ClearUserToken: func(u gimlet.User, all bool) error {
+				msg := message.Fields{
+					"user":    fmt.Sprintf("%#v", u),
+					"all":     all,
+					"op":      "ClearUserToken",
+					"context": "LDAP user manager",
+				}
+				if err := model.ClearLoginCache(u, all); err != nil {
+					msg["message"] = "failed to clear user token"
+					grip.Debug(message.WrapError(err, msg))
+					return errors.WithStack(err)
+				}
+				msg["message"] = "successfully cleared user token"
+				grip.Debug(msg)
+				return nil
+			},
+			GetUserByID: func(id string) (gimlet.User, bool, error) {
+				msg := message.Fields{
+					"username": id,
+					"op":       "GetUserByID",
+					"context":  "LDAP user manager",
+				}
+				u, valid, err := model.GetUser(id)
+				if err != nil {
+					msg["message"] = "failed to find user by ID"
+					grip.Debug(message.WrapError(err, msg))
+					return u, valid, errors.WithStack(err)
+				}
+				msg["message"] = "successfully found user by ID"
+				msg["user"] = fmt.Sprintf("%#v", u)
+				msg["valid"] = valid
+				grip.Debug(msg)
+				return u, valid, nil
+			},
+			GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
+				msg := message.Fields{
+					"user":     fmt.Sprintf("%#v", u),
+					"username": u.Username(),
+					"op":       "GetOrCreateUser",
+					"context":  "LDAP user manager",
+				}
+				user, err := model.GetOrAddUser(u)
+				if err != nil {
+					msg["message"] = "failed to get existing or create new user"
+					grip.Debug(message.WrapError(err, msg))
+					return nil, errors.WithStack(err)
+				}
+				msg["message"] = "successfully found existing user or created new user"
+				msg["user"] = fmt.Sprintf("%#v", user)
+				grip.Debug(msg)
+				return user, nil
+			},
+		},
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "problem setting up ldap user manager")
+	}
+	return usrMngr, nil
+}
+
+func (s *Service) setupNaiveAuth() (gimlet.UserManager, error) {
+	users := []gimlet.BasicUser{}
+	for _, user := range s.Conf.NaiveAuth.Users {
+		users = append(
+			users,
+			gimlet.BasicUser{
+				ID:           user.ID,
+				Name:         user.Name,
+				EmailAddress: user.EmailAddress,
+				Password:     user.Password,
+				Key:          user.Key,
+				AccessRoles:  user.AccessRoles,
+			},
+		)
+	}
+	usrMngr, err := gimlet.NewBasicUserManager(users, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem setting up basic user manager")
+	}
+	return usrMngr, nil
 }
 
 func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
