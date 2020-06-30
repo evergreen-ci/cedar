@@ -68,23 +68,6 @@ func TestSystemMetricsFind(t *testing.T) {
 	})
 }
 
-// CreateSystemMetrics is the entry point for creating the metadata for
-// system metric time series data for a task execution. User specified
-// Prefix and Key will be written over.
-func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOptions) *SystemMetrics {
-	return &SystemMetrics{
-		ID:        info.ID(),
-		Info:      info,
-		CreatedAt: time.Now(),
-		Artifact: SystemMetricsArtifactInfo{
-			Prefix:  info.ID(),
-			Keys:    []string{},
-			Options: options,
-		},
-		populated: true,
-	}
-}
-
 func getSystemMetrics() *SystemMetrics {
 	info := SystemMetricsInfo{
 		Project:  utility.RandomString(),

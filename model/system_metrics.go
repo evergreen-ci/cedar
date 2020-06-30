@@ -38,6 +38,23 @@ var (
 	systemMetricsArtifactKey    = bsonutil.MustHaveTag(SystemMetrics{}, "Artifact")
 )
 
+// CreateSystemMetrics is the entry point for creating the metadata for
+// system metric time series data for a task execution. User specified
+// Prefix and Key will be written over.
+func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOptions) *SystemMetrics {
+	return &SystemMetrics{
+		ID:        info.ID(),
+		Info:      info,
+		CreatedAt: time.Now(),
+		Artifact: SystemMetricsArtifactInfo{
+			Prefix:  info.ID(),
+			Keys:    []string{},
+			Options: options,
+		},
+		populated: true,
+	}
+}
+
 // Setup sets the environment for the system metrics object.
 // The environment is required for numerous functions on SystemMetrics.
 func (sm *SystemMetrics) Setup(e cedar.Environment) { sm.env = e }
