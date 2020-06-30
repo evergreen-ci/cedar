@@ -77,14 +77,16 @@ func (s *Service) Validate() error {
 				return errors.New("cannot clear user login token")
 			},
 			GetUserByID: func(id string) (gimlet.User, bool, error) {
-				user, _, err := model.GetUser(id)
+				var user gimlet.User
+				user, _, err = model.GetUser(id)
 				if err != nil {
 					return nil, false, errors.Errorf("finding user")
 				}
 				return user, true, nil
 			},
 			GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
-				user, _, err := model.GetUser(u.Username())
+				var user gimlet.User
+				user, _, err = model.GetUser(u.Username())
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to find user and cannot create new one")
 				}
