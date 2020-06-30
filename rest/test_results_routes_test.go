@@ -143,6 +143,25 @@ func TestTestResultsHandlerSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func (s *TestResultsHandlerSuite) TestTestResultGetByTaskIdHandlerFound() {
+	rh := s.rh["test_name"]
+	rh.(*testResultGetByTestNameHandler).opts.TaskID = "task1"
+	rh.(*testResultGetByTestNameHandler).opts.TestName = "test1"
+	rh.(*testResultGetByTestNameHandler).opts.Execution = 0
+
+	expected, ok := s.apiResults["task10test1"] // retrieve stored apiTestResult
+	s.True(ok)
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	actual, ok := resp.Data().(*model.APITestResult)
+	s.Require().True(ok)
+	s.Equal(expected.TestName, actual.TestName)
+	s.Equal(expected.TaskID, actual.TaskID)
+	s.Equal(expected.Execution, actual.Execution)
+}
+
 func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
 	rh := s.rh["test_name"]
 	rh.(*testResultGetByTestNameHandler).opts.TaskID = "task1"

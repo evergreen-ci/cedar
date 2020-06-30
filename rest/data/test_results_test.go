@@ -144,33 +144,6 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
-
-	expected := make([]model.APITestResult, 0)
-	expectedKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
-
-	for _, key := range expectedKeys {
-		expected = append(expected, s.apiResults[key])
-	}
-
-	// opts := dbModel.TestResultsFindOptions{
-	// 	TaskID:    "task1",
-	// 	Execution: 0,
-	// }
-
-	// testResults := dbModel.TestResults{}
-	// testResults.Setup(s.env)
-
-	// actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
-	// s.Require().NoError(err)
-	// // s.Equal(expected, actual)
-	// for i := 0; i < len(actual); i++ {
-	// 	s.Equal(expected[i].TestName, actual[i].TestName)
-	// 	s.Equal(expected[i].TaskID, actual[i].TaskID)
-	// 	s.Equal(expected[i].Execution, actual[i].Execution)
-	// }
-
-	// =========================================================
-
 	optsList := []dbModel.TestResultsFindOptions{{
 		TaskID:    "task1",
 		Execution: 0,
@@ -179,21 +152,64 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 		EmptyExecution: true,
 	}}
 
+	expectedResultsList := make([][]model.APITestResult, 0)
+	expectedResults := make([]model.APITestResult, 0)
+	expectedResultsKeys := [][]string{
+		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+		{"task1_1_test0", "task1_1_test1", "task1_1_test2"},
+	}
+
+	for _, testNum := range expectedResultsKeys {
+		for _, key := range testNum {
+			expectedResults = append(expectedResults, s.apiResults[key])
+		}
+		expectedResultsList = append(expectedResultsList, expectedResults)
+		expectedResults = nil
+	}
+
+	fmt.Println(expectedResultsList)
+
+	i := 0
 	for _, opts := range optsList {
 		testResults := dbModel.TestResults{}
 		testResults.Setup(s.env)
 
+		expected := expectedResultsList[i]
+		fmt.Println()
+		fmt.Println(len(expected))
+
 		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
 		s.Require().NoError(err)
-		// s.Equal(expected, actual)
+
 		s.Equal(len(expected), len(actual))
-		for i := 0; i < len(actual); i++ {
-			s.Equal(expected[i].TestName, actual[i].TestName)
-			s.Equal(expected[i].TaskID, actual[i].TaskID)
-			s.Equal(expected[i].Execution, actual[i].Execution)
+		for j := 0; j < len(actual); j++ {
+			s.Equal(expected[j].TestName, actual[j].TestName)
+			s.Equal(expected[j].TaskID, actual[j].TaskID)
+			s.Equal(expected[j].Execution, actual[j].Execution)
 		}
+		i++
+	}
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdDNE() {
+	opts := dbModel.TestResultsFindOptions{
+		TaskID:    "DNE",
+		Execution: 1,
 	}
 
+	result, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdEmpty() {
+	opts := dbModel.TestResultsFindOptions{
+		Execution: 1,
+	}
+
+	result, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
