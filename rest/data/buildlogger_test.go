@@ -48,7 +48,7 @@ func (s *buildloggerConnectorSuite) setup() {
 	s.Require().NotNil(s.env)
 	db := s.env.GetDB()
 	s.Require().NotNil(db)
-	s.NoError(db.Drop(s.ctx))
+	s.Require().NoError(db.Drop(s.ctx))
 	s.logs = map[string]model.Log{}
 
 	// setup config
