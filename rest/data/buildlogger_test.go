@@ -48,6 +48,7 @@ func (s *buildloggerConnectorSuite) setup() {
 	s.Require().NotNil(s.env)
 	db := s.env.GetDB()
 	s.Require().NotNil(db)
+	s.Require().NoError(db.Drop(s.ctx))
 	s.logs = map[string]model.Log{}
 
 	// setup config
@@ -159,6 +160,21 @@ func (s *buildloggerConnectorSuite) setup() {
 			ProcessName: "mongod0",
 			Format:      model.LogFormatText,
 			Tags:        []string{"tag4"},
+			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:    0,
+			Mainline:    true,
+		},
+		{
+			Project:     "test",
+			Version:     "0",
+			Variant:     "linux",
+			TaskName:    "task0",
+			TaskID:      "task1",
+			Execution:   2,
+			TestName:    "test0",
+			ProcessName: "mongod0",
+			Format:      model.LogFormatText,
+			Tags:        []string{"tag1", "tag2", "tag3", "tag4"},
 			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
 			ExitCode:    0,
 			Mainline:    true,
@@ -288,9 +304,10 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 
 		apiLogs, err := s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 5)
+		s.Len(apiLogs, 4)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
+			s.Equal(opts.Info.Execution, apiLog.Info.Execution)
 		}
 
 		// with tags
@@ -313,9 +330,10 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 
 		apiLogs, err = s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 3)
+		s.Len(apiLogs, 2)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
+			s.Equal(opts.Info.Execution, apiLog.Info.Execution)
 		}
 
 		// with process name
@@ -354,9 +372,9 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NoError(err)
 		s.Equal(expected, data)
 
-		// tail and execution
+		// tail and latest execution
 		opts.Info.Execution = 0
-		opts.Empty.Execution = true
+		opts.LatestExecution = true
 		logs = model.Logs{}
 		logs.Setup(s.env)
 		s.Require().NoError(logs.Find(s.ctx, opts))
@@ -365,6 +383,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		s.Require().NotNil(it)
 
 		findOpts.Execution = 0
+		findOpts.EmptyExecution = true
 		findOpts.Tail = 100
 		data, _, paginated, err = s.sc.FindLogsByTaskID(s.ctx, findOpts)
 		s.Require().NoError(err)
@@ -374,6 +393,14 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTaskIDExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
+
+		apiLogs, err = s.sc.FindLogMetadataByTaskID(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.Len(apiLogs, 1)
+		for _, apiLog := range apiLogs {
+			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
+			s.Equal(2, apiLog.Info.Execution)
+		}
 	}
 }
 
@@ -436,10 +463,11 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 
 		apiLogs, err := s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 3)
+		s.Len(apiLogs, 2)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 			s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
+			s.Equal(opts.Info.Execution, apiLog.Info.Execution)
 		}
 
 		// with tags
@@ -462,10 +490,11 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 
 		apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
-		s.Len(apiLogs, 2)
+		s.Len(apiLogs, 1)
 		for _, apiLog := range apiLogs {
 			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 			s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
+			s.Equal(opts.Info.Execution, apiLog.Info.Execution)
 		}
 
 		// with process name
@@ -486,12 +515,16 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		s.Equal(expected, data)
 		s.Equal(it.Item().Timestamp, next)
 
-		// limit
+		// limit and latest execution
+		opts.LatestExecution = true
+		logs.Setup(s.env)
+		s.Require().NoError(logs.Find(s.ctx, opts))
 		it, err = logs.Merge(s.ctx)
 		s.Require().NoError(err)
 		s.Require().NotNil(it)
 
 		findOpts.Limit = 100
+		findOpts.EmptyExecution = true
 		data, _, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 		s.Require().NoError(err)
 		s.False(paginated)
@@ -500,6 +533,15 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameExists() {
 		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 		s.Require().NoError(err)
 		s.Equal(expected, data)
+
+		apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.Len(apiLogs, 1)
+		for _, apiLog := range apiLogs {
+			s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
+			s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
+			s.Equal(2, apiLog.Info.Execution)
+		}
 	}
 }
 
@@ -508,8 +550,8 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 		TimeRange: model.TimeRange{
 			EndAt: time.Now().Add(7 * 24 * time.Hour),
 		},
-		Info:  model.LogInfo{TaskID: "task1", Execution: 1},
-		Empty: model.EmptyLogInfo{TestName: true},
+		Info:          model.LogInfo{TaskID: "task1", Execution: 1},
+		EmptyTestName: true,
 	}
 	logs := model.Logs{}
 	logs.Setup(s.env)
@@ -539,6 +581,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	for _, apiLog := range apiLogs {
 		s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 		s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
+		s.Equal(opts.Info.Execution, apiLog.Info.Execution)
 	}
 
 	// with tags
@@ -565,14 +608,19 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	for _, apiLog := range apiLogs {
 		s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
 		s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
+		s.Equal(opts.Info.Execution, apiLog.Info.Execution)
 	}
 
-	// limit
+	// limit and latest execution
+	opts.LatestExecution = true
+	logs.Setup(s.env)
+	s.Require().NoError(logs.Find(s.ctx, opts))
 	it, err = logs.Merge(s.ctx)
 	s.Require().NoError(err)
 	s.Require().NotNil(it)
 
 	findOpts.Limit = 100
+	findOpts.EmptyExecution = true
 	data, _, paginated, err = s.sc.FindLogsByTestName(s.ctx, findOpts)
 	s.Require().NoError(err)
 	s.False(paginated)
@@ -581,6 +629,15 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 	expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
 	s.Require().NoError(err)
 	s.Equal(expected, data)
+
+	apiLogs, err = s.sc.FindLogMetadataByTestName(s.ctx, findOpts)
+	s.Require().NoError(err)
+	s.Len(apiLogs, 1)
+	for _, apiLog := range apiLogs {
+		s.Equal(opts.Info.TaskID, *apiLog.Info.TaskID)
+		s.Equal(opts.Info.TestName, *apiLog.Info.TestName)
+		s.Equal(1, apiLog.Info.Execution)
+	}
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogsByTestNameDNE() {
@@ -606,9 +663,10 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 				EndAt: time.Now().Add(7 * 24 * time.Hour),
 			},
 			Info: model.LogInfo{
-				TaskID:   "task1",
-				TestName: "test0",
-				Tags:     []string{"tag1"},
+				TaskID:    "task1",
+				TestName:  "test0",
+				Execution: 1,
+				Tags:      []string{"tag1"},
 			},
 		}
 		logs1 := model.Logs{}
@@ -619,10 +677,11 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		s.Require().NotNil(it1)
 
 		opts.Info = model.LogInfo{
-			TaskID: "task1",
-			Tags:   []string{"tag1"},
+			TaskID:    "task1",
+			Execution: 1,
+			Tags:      []string{"tag1"},
 		}
-		opts.Empty = model.EmptyLogInfo{TestName: true}
+		opts.EmptyTestName = true
 		logs2 := model.Logs{}
 		logs2.Setup(s.env)
 		s.Require().NoError(logs2.Find(s.ctx, opts))
@@ -634,6 +693,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
 			TestName:      "test0",
+			Execution:     1,
 			Tags:          opts.Info.Tags,
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
@@ -653,16 +713,19 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		s.Equal(expected, data)
 		s.Equal(it.Item().Timestamp, next)
 
-		// limit
+		// limit and latest execution
+		opts.Info.TestName = "test0"
+		opts.EmptyTestName = false
+		opts.LatestExecution = true
+		logs1.Setup(s.env)
+		s.Require().NoError(logs1.Find(s.ctx, opts))
 		it1, err = logs1.Merge(s.ctx)
 		s.Require().NoError(err)
 		s.Require().NotNil(it1)
-		it2, err = logs2.Merge(s.ctx)
-		s.Require().NoError(err)
-		s.Require().NotNil(it2)
-		it = model.NewMergingIterator(it1, it2)
+		it = model.NewMergingIterator(it1)
 
 		findOpts.Limit = 100
+		findOpts.EmptyExecution = true
 		data, _, paginated, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 		s.Require().NoError(err)
 		s.False(paginated)
@@ -681,8 +744,9 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 				EndAt: time.Now().Add(7 * 24 * time.Hour),
 			},
 			Info: model.LogInfo{
-				TaskID:   "task2",
-				TestName: "test1",
+				TaskID:    "task2",
+				TestName:  "test1",
+				Execution: 1,
 			},
 		}
 		logs := model.Logs{}
@@ -696,6 +760,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
 			TestName:      opts.Info.TestName,
+			Execution:     1,
 			Tags:          []string{"tag4"},
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,

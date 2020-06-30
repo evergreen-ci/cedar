@@ -509,7 +509,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	rh := s.rh["meta_task_id"]
 	rh.(*logMetaGetByTaskIDHandler).opts.TaskID = "task_id1"
 	expected := []model.APILog{
-		s.apiResults["abc"],
 		s.apiResults["def"],
 		s.apiResults["jkl"],
 		s.apiResults["mno"],
@@ -526,7 +525,7 @@ func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerFound() {
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Equal(append(expected[:1], expected[2:4]...), resp.Data())
+	s.Equal(expected[1:3], resp.Data())
 }
 
 func (s *LogHandlerSuite) TestLogMetaGetByTaskIDHandlerNotFound() {
@@ -665,7 +664,6 @@ func (s *LogHandlerSuite) TestLogMetaGetByTestNameHandlerFound() {
 	rh.(*logMetaGetByTestNameHandler).opts.TestName = "test1"
 	rh.(*logMetaGetByTestNameHandler).opts.Tags = []string{"tag1"}
 	expected := []model.APILog{
-		s.apiResults["abc"],
 		s.apiResults["jkl"],
 		s.apiResults["mno"],
 	}
@@ -734,24 +732,18 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 			rh.(*logGroupHandler).opts.SoftSizeLimit = softSizeLimit
 		}
 		it1 := dbModel.NewBatchedLogIterator(
-			s.buckets["abc"],
-			s.sc.CachedLogs["abc"].Artifact.Chunks,
-			batchSize,
-			rh.(*logGroupHandler).opts.TimeRange,
-		)
-		it2 := dbModel.NewBatchedLogIterator(
 			s.buckets["jkl"],
 			s.sc.CachedLogs["jkl"].Artifact.Chunks,
 			batchSize,
 			rh.(*logGroupHandler).opts.TimeRange,
 		)
-		it3 := dbModel.NewBatchedLogIterator(
+		it2 := dbModel.NewBatchedLogIterator(
 			s.buckets["mno"],
 			s.sc.CachedLogs["mno"].Artifact.Chunks,
 			batchSize,
 			rh.(*logGroupHandler).opts.TimeRange,
 		)
-		it := dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3))
+		it := dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1), dbModel.NewMergingIterator(it2))
 		r := dbModel.NewLogIteratorReader(context.TODO(), it, opts)
 		expected, err := ioutil.ReadAll(r)
 		s.Require().NoError(err)
@@ -771,18 +763,12 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 
 		// limit
 		it1 = dbModel.NewBatchedLogIterator(
-			s.buckets["abc"],
-			s.sc.CachedLogs["abc"].Artifact.Chunks,
-			batchSize,
-			rh.(*logGroupHandler).opts.TimeRange,
-		)
-		it2 = dbModel.NewBatchedLogIterator(
 			s.buckets["jkl"],
 			s.sc.CachedLogs["jkl"].Artifact.Chunks,
 			batchSize,
 			rh.(*logGroupHandler).opts.TimeRange,
 		)
-		it3 = dbModel.NewBatchedLogIterator(
+		it2 = dbModel.NewBatchedLogIterator(
 			s.buckets["mno"],
 			s.sc.CachedLogs["mno"].Artifact.Chunks,
 			batchSize,
@@ -793,7 +779,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		opts.Limit = rh.(*logGroupHandler).opts.Limit
 		r = dbModel.NewLogIteratorReader(
 			context.TODO(),
-			dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1, it2), dbModel.NewMergingIterator(it3)),
+			dbModel.NewMergingIterator(dbModel.NewMergingIterator(it1), dbModel.NewMergingIterator(it2)),
 			opts,
 		)
 		expected, err = ioutil.ReadAll(r)
