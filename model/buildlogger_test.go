@@ -594,12 +594,12 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	}()
 	log1, log2 := getTestLogs(time.Now())
 	log3, _ := getTestLogs(time.Now().Add(time.Minute))
-	log4, _ := getTestLogs(time.Now().Add(2 * time.Minute))
-	log5, _ := getTestLogs(time.Now().Add(3 * time.Minute))
 	log3.Info.TestName = "test2"
 	log3.ID = log3.Info.ID()
+	log4, _ := getTestLogs(time.Now().Add(2 * time.Minute))
 	log4.Info.Execution = 1
 	log4.ID = log4.Info.ID()
+	log5, _ := getTestLogs(time.Now().Add(3 * time.Minute))
 	log5.Info.TestName = "test2"
 	log5.Info.Execution = 1
 	log5.ID = log5.Info.ID()
