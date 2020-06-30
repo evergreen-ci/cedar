@@ -703,7 +703,6 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	}
 	key := user.GetAPIKey()
 	if key != "" {
-		s.umconf.AttachCookie(key, rw)
 		resp.Key = key
 		gimlet.WriteJSON(rw, resp)
 		return
@@ -727,7 +726,6 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.umconf.AttachCookie(key, rw)
 	resp.Key = key
 
 	gimlet.WriteJSON(rw, resp)
@@ -871,7 +869,6 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 		})
 		return "", false
 	}
-	s.umconf.AttachCookie(user.GetAPIKey(), rw)
 
 	return creds.Username, true
 }

@@ -489,7 +489,6 @@ func TestCuratorSend(t *testing.T) {
 			setup: func(t *testing.T) *exec.Cmd {
 				caData, err := restClient.GetRootCertificate(ctx)
 				require.NoError(t, err)
-				// kim: TODO: fix
 				userCertData, err := restClient.GetUserCertificate(ctx, os.Getenv("SERVICE_USER"), os.Getenv("SERVICE_PASSWORD"))
 				require.NoError(t, err)
 				userKeyData, err := restClient.GetUserCertificateKey(ctx, os.Getenv("SERVICE_USER"), os.Getenv("SERVICE_PASSWORD"))
