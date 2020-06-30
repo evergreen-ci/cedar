@@ -144,7 +144,7 @@ func TestTestResultsHandlerSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultGetByTaskIdHandlerFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerFound() {
 	rh := s.rh["task_id"]
 	rh.(*testResultsGetByTaskIdHandler).options.TaskID = "task1"
 	rh.(*testResultsGetByTaskIdHandler).options.Execution = 0
@@ -158,6 +158,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTaskIdHandlerFound() {
 	}
 
 	resp := rh.Run(context.TODO())
+	fmt.Println(resp.Data())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
 	actual, ok := resp.Data().([]model.APITestResult)
@@ -168,6 +169,28 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTaskIdHandlerFound() {
 		s.Equal(expected[j].TaskID, actual[j].TaskID)
 		s.Equal(expected[j].Execution, actual[j].Execution)
 	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerNotFound() {
+	rh := s.rh["task_id"]
+	rh.(*testResultsGetByTaskIdHandler).options.TaskID = "task1"
+	rh.(*testResultsGetByTaskIdHandler).options.Execution = 0
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["task_id"]
+	rh.(*testResultsGetByTaskIdHandler).options.TaskID = "task1"
+	rh.(*testResultsGetByTaskIdHandler).options.Execution = 0
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
@@ -218,6 +241,10 @@ func (s *TestResultsHandlerSuite) TestParse() {
 		urlString string
 		handler   string
 	}{
+		{
+			handler:   "task_id",
+			urlString: "http://cedar.mongodb.com/test_results/task_id/task_id1",
+		},
 		{
 			handler:   "test_name",
 			urlString: "http://cedar.mongodb.com/test_results/test_name/task_id1/test0",

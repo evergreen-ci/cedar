@@ -39,7 +39,16 @@ func (h *testResultsGetByTaskIdHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the task_id from the http request.
 func (h *testResultsGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+
 	h.options.TaskID = gimlet.GetVars(r)["task_id"]
+	vals := r.URL.Query()
+	if len(vals[execution]) > 0 {
+		h.options.Execution, err = strconv.Atoi(vals[execution][0])
+		return err
+	} else {
+		h.options.EmptyExecution = true
+	}
 	return nil
 }
 
