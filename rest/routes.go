@@ -695,29 +695,21 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	resp := &userAPIKeyResponse{Username: creds.Username}
 
-	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
-	if err != nil {
-		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
-		return
-	}
-
-	user, err := s.UserManager.GetUserByToken(r.Context(), token)
+	user, err := s.UserManager.GetUserByID(creds.Username)
 	if err != nil {
 		err = errors.Wrapf(err, "problem finding user '%s'", creds.Username)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return
 	}
-	s.umconf.AttachCookie(token, rw)
-
 	key := user.GetAPIKey()
 	if key != "" {
+		s.umconf.AttachCookie(key, rw)
 		resp.Key = key
 		gimlet.WriteJSON(rw, resp)
 		return
 	}
 
-	dbuser, ok := user.(*model.User)
+	dbUser, ok := user.(*model.User)
 	if !ok {
 		err = errors.Errorf("cannot generate key for user '%s'", creds.Username)
 		gimlet.WriteJSONResponse(rw, http.StatusInternalServerError, gimlet.ErrorResponse{
@@ -726,16 +718,18 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	dbUser.Setup(s.Environment)
 
-	dbuser.Setup(s.Environment)
-	key, err = dbuser.SetAPIKey()
+	key, err = dbUser.CreateAPIKey()
 	if err != nil {
 		err = errors.Errorf("problem generating key for user '%s'", creds.Username)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
+	s.umconf.AttachCookie(key, rw)
 	resp.Key = key
+
 	gimlet.WriteJSON(rw, resp)
 }
 
@@ -864,14 +858,7 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 		return "", false
 	}
 
-	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
-	if err != nil {
-		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
-		return "", false
-	}
-
-	user, err := s.UserManager.GetUserByToken(r.Context(), token)
+	user, err := s.UserManager.GetUserByID(creds.Username)
 	if err != nil {
 		err = errors.Wrapf(err, "problem finding user '%s'", creds.Username)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
@@ -884,7 +871,7 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 		})
 		return "", false
 	}
-	s.umconf.AttachCookie(token, rw)
+	s.umconf.AttachCookie(user.GetAPIKey(), rw)
 
 	return creds.Username, true
 }

@@ -45,6 +45,9 @@ func (s *ClientSuite) SetupSuite() {
 
 	s.env = cedar.GetEnvironment()
 	s.service.Environment = s.env
+	s.service.Conf.NaiveAuth = model.NaiveAuthConfig{
+		AppAuth: true,
+	}
 	require.NoError(s.env.SetRemoteQueue(queue.NewLocalLimitedSize(3, 1024)))
 	require.NoError(s.service.Validate())
 

@@ -60,6 +60,7 @@ functions:
       args: ["${make_args|}", "${target}"]
       add_expansions_to_env: true
       env:
+        # kim: TODO: remove and replace
         LDAP_USER: ${ldap_user}
         LDAP_PASSWORD: ${ldap_password}
         GOPATH: ${workdir}/gopath

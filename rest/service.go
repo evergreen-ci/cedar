@@ -9,7 +9,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/gimlet/ldap"
+	"github.com/evergreen-ci/gimlet/cached"
 	"github.com/evergreen-ci/gimlet/usercache"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
@@ -65,25 +65,44 @@ func (s *Service) Validate() error {
 		}
 	}
 
-	if s.Conf.LDAP.URL != "" {
-		s.UserManager, err = ldap.NewUserService(ldap.CreationOpts{
-			URL:          s.Conf.LDAP.URL,
-			Port:         s.Conf.LDAP.Port,
-			UserPath:     s.Conf.LDAP.UserPath,
-			ServicePath:  s.Conf.LDAP.ServicePath,
-			UserGroup:    s.Conf.LDAP.UserGroup,
-			ServiceGroup: s.Conf.LDAP.ServiceGroup,
-			ExternalCache: &usercache.ExternalOptions{
-				PutUserGetToken: model.PutLoginCache,
-				GetUserByToken:  model.GetLoginCache,
-				ClearUserToken:  model.ClearLoginCache,
-				GetUserByID:     model.GetUser,
-				GetOrCreateUser: model.GetOrAddUser,
+	if s.Conf.ServiceAuth.Enabled {
+		opts := usercache.ExternalOptions{
+			PutUserGetToken: func(gimlet.User) (string, error) {
+				return "", errors.New("cannot put new users in DB")
 			},
-		})
-		if err != nil {
-			return errors.Wrap(err, "problem setting up ldap user manager")
+			GetUserByToken: func(string) (gimlet.User, bool, error) {
+				return nil, false, errors.New("cannot get user by login token")
+			},
+			ClearUserToken: func(gimlet.User, bool) error {
+				return errors.New("cannot clear user login token")
+			},
+			GetUserByID: func(id string) (gimlet.User, bool, error) {
+				user, _, err := model.GetUser(id)
+				if err != nil {
+					return nil, false, errors.Errorf("finding user")
+				}
+				return user, true, nil
+			},
+			GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
+				user, _, err := model.GetUser(u.Username())
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to find user and cannot create new one")
+				}
+				return user, nil
+			},
 		}
+
+		cache, err := usercache.NewExternal(opts)
+		if err != nil {
+			return errors.Wrap(err, "setting up user cache backed by DB")
+		}
+		s.UserManager, err = cached.NewUserManager(cache)
+		if err != nil {
+			return errors.Wrap(err, "creating user manager backed by DB")
+		}
+
+	} else if s.Conf.LDAP.URL != "" {
+
 	} else if s.Conf.NaiveAuth.AppAuth {
 		users := []gimlet.BasicUser{}
 		for _, user := range s.Conf.NaiveAuth.Users {
@@ -103,6 +122,8 @@ func (s *Service) Validate() error {
 		if err != nil {
 			return errors.Wrap(err, "problem setting up basic user manager")
 		}
+	} else {
+		return errors.New("no user authentication set up")
 	}
 
 	if s.Conf.CA.SSLExpireAfter == 0 {
@@ -187,9 +208,7 @@ func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 
 func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
-
 	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, s.umconf))
-
 	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
 
 	if s.Conf.Service.CORSOrigins != nil {
