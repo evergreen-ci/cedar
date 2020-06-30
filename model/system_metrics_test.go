@@ -4,39 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 )
 
-// CreateSystemMetrics is the entry point for creating the metadata for
-// system metric time series data for a task execution.
-func CreateSystemMetrics(info SystemMetricsInfo, artifact SystemMetricsArtifactInfo) *SystemMetrics {
-	return &SystemMetrics{
-		ID:        info.ID(),
-		Info:      info,
-		CreatedAt: time.Now(),
-		Artifact: SystemMetricsArtifactInfo{
-			Type:        artifact.Type,
-			Prefix:      info.ID(),
-			Key:         "system_metrics",
-			Format:      artifact.Format,
-			Compression: artifact.Compression,
-			Schema:      artifact.Schema,
-		},
-		populated: true,
-	}
-}
-
-// Setup sets the sets the environment for the system metrics object.
-// The environment is required for numerous functions on SystemMetrics.
-func (sm *SystemMetrics) Setup(e cedar.Environment) { sm.env = e }
-
-// IsNil returns if the system metrics object is populated or not.
-func (sm *SystemMetrics) IsNil() bool { return !sm.populated }
-
 func TestCreateSystemMetrics(t *testing.T) {
-	expected, _ := getSystemMetrics()
+	expected := getSystemMetrics()
 	expected.populated = true
 	artifactInfo := expected.Artifact
 	artifactInfo.Prefix = ""
@@ -65,7 +38,7 @@ func getSystemMetrics() *SystemMetrics {
 		Info:        info,
 		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
-		Artifact: TestResultsArtifactInfo{
+		Artifact: SystemMetricsArtifactInfo{
 			Type:        PailLocal,
 			Prefix:      info.ID(),
 			Key:         "system_metrics",
