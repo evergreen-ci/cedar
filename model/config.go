@@ -158,11 +158,13 @@ var (
 
 // Credentials and other configuration information for pail Bucket usage.
 type BucketConfig struct {
-	AWSKey                string   `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
-	AWSSecret             string   `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
-	BuildLogsBucket       string   `bson:"build_logs_bucket" json:"build_logs_bucket" yaml:"build_logs_bucket"`
-	TestResultsBucket     string   `bson:"test_results_bucket" json:"test_results_bucket" yaml:"test_results_bucket"`
-	TestResultsBucketType PailType `bson:"test_results_bucket_type" json:"test_results_bucket_type" yaml:"test_results_bucket_type"`
+	AWSKey                  string   `bson:"aws_key" json:"aws_key" yaml:"aws_key"`
+	AWSSecret               string   `bson:"aws_secret" json:"aws_secret" yaml:"aws_secret"`
+	BuildLogsBucket         string   `bson:"build_logs_bucket" json:"build_logs_bucket" yaml:"build_logs_bucket"`
+	SystemMetricsBucket     string   `bson:"system_metrics_bucket" json:"system_metrics_bucket" yaml:"system_metrics_bucket"`
+	SystemMetricsBucketType string   `bson:"system_metrics_bucket_type" json:"system_metrics_bucket_type" yaml:"system_metrics_bucket_type"`
+	TestResultsBucket       string   `bson:"test_results_bucket" json:"test_results_bucket" yaml:"test_results_bucket"`
+	TestResultsBucketType   PailType `bson:"test_results_bucket_type" json:"test_results_bucket_type" yaml:"test_results_bucket_type"`
 }
 
 var (
