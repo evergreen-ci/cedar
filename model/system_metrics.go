@@ -14,11 +14,11 @@ import (
 // SystemMetrics describes metadata for the system metrics data for
 // a given task execution.
 type SystemMetrics struct {
-	ID          string            `bson:"_id,omitempty"`
-	Info        SystemMetricsInfo `bson:"info,omitempty"`
-	CreatedAt   time.Time         `bson:"created_at"`
-	CompletedAt time.Time         `bson:"completed_at"`
-	Artifact    ArtifactInfo      `bson:"artifact"`
+	ID          string                    `bson:"_id,omitempty"`
+	Info        SystemMetricsInfo         `bson:"info,omitempty"`
+	CreatedAt   time.Time                 `bson:"created_at"`
+	CompletedAt time.Time                 `bson:"completed_at"`
+	Artifact    SystemMetricsArtifactInfo `bson:"artifact"`
 
 	env       cedar.Environment
 	populated bool

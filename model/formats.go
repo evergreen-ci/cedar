@@ -14,7 +14,7 @@ const (
 
 func (ff FileDataFormat) Validate() error {
 	switch ff {
-	case FileFTDC, FileBSON, FileJSON, FileCSV:
+	case FileFTDC, FileBSON, FileJSON, FileCSV, FileText:
 		return nil
 	default:
 		return errors.New("invalid data format")

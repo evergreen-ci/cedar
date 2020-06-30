@@ -24,6 +24,7 @@ type SystemMetricsArtifactInfo struct {
 
 var (
 	metricsArtifactInfoTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Type")
+	metricsArtifactInfoPrefixKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
 	metricsArtifactInfoKeyKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Key")
 	metricsArtifactInfoSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Schema")
 	metricsArtifactInfoFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Format")
