@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -41,6 +38,36 @@ var (
 	systemMetricsArtifactKey    = bsonutil.MustHaveTag(SystemMetrics{}, "Artifact")
 )
 
+// Setup sets the environment for the system metrics object.
+// The environment is required for numerous functions on SystemMetrics.
+func (sm *SystemMetrics) Setup(e cedar.Environment) { sm.env = e }
+
+// IsNil returns if the system metrics object is populated or not.
+func (sm *SystemMetrics) IsNil() bool { return !sm.populated }
+
+// SystemMetricsInfo describes information unique to the system metrics for a task.
+type SystemMetricsInfo struct {
+	Project   string `bson:"project,omitempty"`
+	Version   string `bson:"version,omitempty"`
+	Variant   string `bson:"variant,omitempty"`
+	TaskName  string `bson:"task_name,omitempty"`
+	TaskID    string `bson:"task_id,omitempty"`
+	Execution int    `bson:"execution"`
+	Mainline  bool   `bson:"mainline"`
+	Schema    int    `bson:"schema,omitempty"`
+}
+
+var (
+	systemMetricsInfoProjectKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Project")
+	systemMetricsInfoVersionKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Version")
+	systemMetricsInfoVariantKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Variant")
+	systemMetricsInfoTaskNameKey  = bsonutil.MustHaveTag(SystemMetricsInfo{}, "TaskName")
+	systemMetricsInfoTaskIDKey    = bsonutil.MustHaveTag(SystemMetricsInfo{}, "TaskID")
+	systemMetricsInfoExecutionKey = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Execution")
+	systemMetricsInfoMainlineKey  = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Mainline")
+	systemMetricsInfoSchemaKey    = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Schema")
+)
+
 // Find searches the database for the system metrics object. The environment should
 // not be nil. Either the ID or full Info of the system metrics object needs to be
 // specified.
@@ -65,74 +92,6 @@ func (result *SystemMetrics) Find(ctx context.Context) error {
 
 	return nil
 }
-
-func TestSystemMetricsFind(t *testing.T) {
-	env := cedar.GetEnvironment()
-	db := env.GetDB()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	defer func() {
-		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
-	}()
-
-	sm1 := getSystemMetrics()
-	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, sm1)
-	require.NoError(t, err)
-	sm2 := getSystemMetrics()
-	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, sm2)
-	require.NoError(t, err)
-
-	t.Run("DNE", func(t *testing.T) {
-		sm := SystemMetrics{ID: "DNE"}
-		sm.Setup(env)
-		assert.Error(t, sm.Find(ctx))
-	})
-	t.Run("NoEnv", func(t *testing.T) {
-		sm := SystemMetrics{ID: sm1.ID}
-		assert.Error(t, sm.Find(ctx))
-	})
-	t.Run("WithID", func(t *testing.T) {
-		sm := SystemMetrics{ID: sm1.ID}
-		sm.Setup(env)
-		require.NoError(t, sm.Find(ctx))
-		assert.Equal(t, sm1.ID, sm.ID)
-		assert.Equal(t, sm1.Info, sm.Info)
-		assert.Equal(t, sm1.Artifact, sm.Artifact)
-		assert.True(t, sm.populated)
-	})
-	t.Run("WithoutID", func(t *testing.T) {
-		sm := SystemMetrics{Info: sm2.Info}
-		sm.Setup(env)
-		require.NoError(t, sm.Find(ctx))
-		assert.Equal(t, sm2.ID, sm.ID)
-		assert.Equal(t, sm2.Info, sm.Info)
-		assert.Equal(t, sm2.Artifact, sm.Artifact)
-		assert.True(t, sm.populated)
-	})
-}
-
-// SystemMetricsInfo describes information unique to the system metrics for a task.
-type SystemMetricsInfo struct {
-	Project   string `bson:"project,omitempty"`
-	Version   string `bson:"version,omitempty"`
-	Variant   string `bson:"variant,omitempty"`
-	TaskName  string `bson:"task_name,omitempty"`
-	TaskID    string `bson:"task_id,omitempty"`
-	Execution int    `bson:"execution"`
-	Mainline  bool   `bson:"mainline"`
-	Schema    int    `bson:"schema,omitempty"`
-}
-
-var (
-	systemMetricsInfoProjectKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Project")
-	systemMetricsInfoVersionKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Version")
-	systemMetricsInfoVariantKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Variant")
-	systemMetricsInfoTaskNameKey  = bsonutil.MustHaveTag(SystemMetricsInfo{}, "TaskName")
-	systemMetricsInfoTaskIDKey    = bsonutil.MustHaveTag(SystemMetricsInfo{}, "TaskID")
-	systemMetricsInfoExecutionKey = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Execution")
-	systemMetricsInfoMainlineKey  = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Mainline")
-	systemMetricsInfoSchemaKey    = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Schema")
-)
 
 // ID creates a unique hash for the system metrics for a task.
 func (id *SystemMetricsInfo) ID() string {

@@ -14,19 +14,25 @@ import (
 // interval summarizations, etc.) while the format field describes the
 // encoding of the file.
 type SystemMetricsArtifactInfo struct {
+	Prefix  string                       `bson:"prefix"`
+	Keys    []string                     `bson:"path"`
+	Options SystemMetricsArtifactOptions `bson:"options"`
+}
+
+// SystemMetricsArtifactOptions specifies the artifact options that
+// can be specified by the caller during object construction.
+type SystemMetricsArtifactOptions struct {
 	Type        PailType        `bson:"type"`
-	Prefix      string          `bson:"prefix"`
-	Key         string          `bson:"path"`
 	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`
 	Schema      FileSchema      `bson:"schema"`
 }
 
 var (
-	metricsArtifactInfoTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Type")
-	metricsArtifactInfoPrefixKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
-	metricsArtifactInfoKeyKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Key")
-	metricsArtifactInfoSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Schema")
-	metricsArtifactInfoFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Format")
-	metricsArtifactInfoCompressionKey = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Compression")
+	metricsArtifactInfoPrefixKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
+	metricsArtifactInfoKeysKey           = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Keys")
+	metricsArtifactOptionsTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Type")
+	metricsArtifactOptionsSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Schema")
+	metricsArtifactOptionsFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Format")
+	metricsArtifactOptionsCompressionKey = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Compression")
 )
