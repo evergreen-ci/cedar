@@ -94,6 +94,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
+		"task_id":   makeGetTestResultsByTaskId(&s.sc),
 		"test_name": makeGetTestResultByTestName(&s.sc),
 	}
 	s.apiResults = map[string]model.APITestResult{}
@@ -127,7 +128,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 			s.Require().NoError(s.buckets[key].Put(context.Background(), result.TestName, bytes.NewReader(data)))
 			apiResult := model.APITestResult{}
 			s.Require().NoError(apiResult.Import(result))
-			s.apiResults[fmt.Sprintf("%s%d%s", result.TaskID, result.Execution, result.TestName)] = apiResult
+			s.apiResults[fmt.Sprintf("%s_%d_%s", result.TaskID, result.Execution, result.TestName)] = apiResult
 		}
 	}
 }
@@ -144,22 +145,29 @@ func TestTestResultsHandlerSuite(t *testing.T) {
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultGetByTaskIdHandlerFound() {
-	rh := s.rh["test_name"]
-	rh.(*testResultGetByTestNameHandler).opts.TaskID = "task1"
-	rh.(*testResultGetByTestNameHandler).opts.TestName = "test1"
-	rh.(*testResultGetByTestNameHandler).opts.Execution = 0
+	rh := s.rh["task_id"]
+	rh.(*testResultsGetByTaskIdHandler).options.TaskID = "task1"
+	rh.(*testResultsGetByTaskIdHandler).options.Execution = 0
 
-	expected, ok := s.apiResults["task10test1"] // retrieve stored apiTestResult
-	s.True(ok)
+	expected := make([]model.APITestResult, 0)
+	expectedKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
+	for _, key := range expectedKeys {
+		expectedResult, ok := s.apiResults[key] // retrieve stored apiTestResult
+		s.True(ok)
+		expected = append(expected, expectedResult)
+	}
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	actual, ok := resp.Data().(*model.APITestResult)
+	actual, ok := resp.Data().([]model.APITestResult)
 	s.Require().True(ok)
-	s.Equal(expected.TestName, actual.TestName)
-	s.Equal(expected.TaskID, actual.TaskID)
-	s.Equal(expected.Execution, actual.Execution)
+	s.Equal(len(expected), len(actual))
+	for j := 0; j < len(actual); j++ {
+		s.Equal(expected[j].TestName, actual[j].TestName)
+		s.Equal(expected[j].TaskID, actual[j].TaskID)
+		s.Equal(expected[j].Execution, actual[j].Execution)
+	}
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
@@ -168,7 +176,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
 	rh.(*testResultGetByTestNameHandler).opts.TestName = "test1"
 	rh.(*testResultGetByTestNameHandler).opts.Execution = 0
 
-	expected, ok := s.apiResults["task10test1"] // retrieve stored apiTestResult
+	expected, ok := s.apiResults["task1_0_test1"] // retrieve stored apiTestResult
 	s.True(ok)
 
 	resp := rh.Run(context.TODO())

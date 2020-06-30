@@ -45,13 +45,7 @@ func (h *testResultsGetByTaskIdHandler) Parse(_ context.Context, r *http.Request
 
 // Run finds and returns the desired test result based on task id.
 func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
-	options := model.TestResultsFindOptions{
-		TaskID:         h.options.TaskID,
-		Execution:      h.options.Execution,
-		EmptyExecution: h.options.EmptyExecution,
-	}
-
-	testResults, err := h.sc.FindTestResultsByTaskId(ctx, options)
+	testResults, err := h.sc.FindTestResultsByTaskId(ctx, h.options)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting test results by task id '%s'", h.options.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
