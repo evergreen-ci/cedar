@@ -15,7 +15,7 @@ import (
 // encoding of the file.
 type SystemMetricsArtifactInfo struct {
 	Prefix  string                       `bson:"prefix"`
-	Key     []string                     `bson:"path"`
+	Keys    []string                     `bson:"path"`
 	Options SystemMetricsArtifactOptions `bson:"options"`
 }
 
@@ -29,10 +29,10 @@ type SystemMetricsArtifactOptions struct {
 }
 
 var (
-	metricsArtifactInfoTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Type")
-	metricsArtifactInfoPrefixKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
-	metricsArtifactInfoKeyKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Key")
-	metricsArtifactInfoSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Schema")
-	metricsArtifactInfoFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Format")
-	metricsArtifactInfoCompressionKey = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Compression")
+	metricsArtifactInfoPrefixKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
+	metricsArtifactInfoKeysKey           = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Keys")
+	metricsArtifactOptionsTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Type")
+	metricsArtifactOptionsSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Schema")
+	metricsArtifactOptionsFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Format")
+	metricsArtifactOptionsCompressionKey = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Compression")
 )

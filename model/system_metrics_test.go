@@ -37,7 +37,7 @@ func getSystemMetrics() *SystemMetrics {
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix: info.ID(),
-			Key:    []string{},
+			Keys:   []string{},
 			Options: SystemMetricsArtifactOptions{
 				Type:        PailLocal,
 				Format:      FileFTDC,

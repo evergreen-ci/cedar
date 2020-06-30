@@ -42,7 +42,7 @@ func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOp
 		CreatedAt: time.Now(),
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix:  info.ID(),
-			Key:     []string{},
+			Keys:    []string{},
 			Options: options,
 		},
 		populated: true,
