@@ -35,23 +35,18 @@ var (
 // CreateSystemMetrics is the entry point for creating the metadata for
 // system metric time series data for a task execution.
 func CreateSystemMetrics(info SystemMetricsInfo, artifact SystemMetricsArtifactInfo) *SystemMetrics {
+	artifact.Prefix = info.ID()
+	artifact.Key = "system_metrics"
 	return &SystemMetrics{
 		ID:        info.ID(),
 		Info:      info,
 		CreatedAt: time.Now(),
-		Artifact: SystemMetricsArtifactInfo{
-			Type:        artifact.Type,
-			Prefix:      info.ID(),
-			Key:         "system_metrics",
-			Format:      artifact.Format,
-			Compression: artifact.Compression,
-			Schema:      artifact.Schema,
-		},
+		Artifact:  artifact,
 		populated: true,
 	}
 }
 
-// Setup sets the sets the environment for the system metrics object.
+// Setup sets the environment for the system metrics object.
 // The environment is required for numerous functions on SystemMetrics.
 func (sm *SystemMetrics) Setup(e cedar.Environment) { sm.env = e }
 
