@@ -33,15 +33,18 @@ var (
 )
 
 // CreateSystemMetrics is the entry point for creating the metadata for
-// system metric time series data for a task execution.
-func CreateSystemMetrics(info SystemMetricsInfo, artifact SystemMetricsArtifactInfo) *SystemMetrics {
-	artifact.Prefix = info.ID()
-	artifact.Key = "system_metrics"
+// system metric time series data for a task execution. User specified
+// Prefix and Key will be written over.
+func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOptions) *SystemMetrics {
 	return &SystemMetrics{
 		ID:        info.ID(),
 		Info:      info,
 		CreatedAt: time.Now(),
-		Artifact:  artifact,
+		Artifact: SystemMetricsArtifactInfo{
+			Prefix:  info.ID(),
+			Key:     []string{},
+			Options: options,
+		},
 		populated: true,
 	}
 }

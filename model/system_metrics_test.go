@@ -11,10 +11,7 @@ import (
 func TestCreateSystemMetrics(t *testing.T) {
 	expected := getSystemMetrics()
 	expected.populated = true
-	artifactInfo := expected.Artifact
-	artifactInfo.Prefix = ""
-	artifactInfo.Key = ""
-	actual := CreateSystemMetrics(expected.Info, artifactInfo)
+	actual := CreateSystemMetrics(expected.Info, expected.Artifact.Options)
 	assert.Equal(t, expected.ID, actual.ID)
 	assert.Equal(t, expected.Info, actual.Info)
 	assert.Equal(t, expected.Artifact, actual.Artifact)
@@ -39,12 +36,14 @@ func getSystemMetrics() *SystemMetrics {
 		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
 		Artifact: SystemMetricsArtifactInfo{
-			Type:        PailLocal,
-			Prefix:      info.ID(),
-			Key:         "system_metrics",
-			Format:      FileFTDC,
-			Compression: FileUncompressed,
-			Schema:      SchemaRawEvents,
+			Prefix: info.ID(),
+			Key:    []string{},
+			Options: SystemMetricsArtifactOptions{
+				Type:        PailLocal,
+				Format:      FileFTDC,
+				Compression: FileUncompressed,
+				Schema:      SchemaRawEvents,
+			},
 		},
 	}
 }

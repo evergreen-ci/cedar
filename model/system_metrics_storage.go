@@ -14,9 +14,15 @@ import (
 // interval summarizations, etc.) while the format field describes the
 // encoding of the file.
 type SystemMetricsArtifactInfo struct {
+	Prefix  string   `bson:"prefix"`
+	Key     []string `bson:"path"`
+	Options SystemMetricsArtifactOptions
+}
+
+// SystemMetricsArtifactOptions specifies the artifact options that
+// can be specified by the caller during object construction.
+type SystemMetricsArtifactOptions struct {
 	Type        PailType        `bson:"type"`
-	Prefix      string          `bson:"prefix"`
-	Key         string          `bson:"path"`
 	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`
 	Schema      FileSchema      `bson:"schema"`
