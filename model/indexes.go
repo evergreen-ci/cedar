@@ -69,6 +69,11 @@ func GetRequiredIndexes() []SystemIndexes {
 			Collection: perfResultCollection,
 		},
 		{
+			Keys:       bson.D{{bsonutil.GetDottedKeyName(dbUserLoginCacheKey, loginCacheTokenKey), 1}},
+			Options:    bson.D{{"unique": true}},
+			Collection: userCollection,
+		},
+		{
 			Keys:       bson.D{{dbUserAPIKeyKey, 1}},
 			Collection: userCollection,
 		},
