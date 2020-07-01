@@ -14,15 +14,16 @@ import (
 
 const userCollection = "users"
 
-// Stores user information in database, resulting in a cache for the LDAP user manager.
+// Stores user information in database, resulting in a cache for the user
+// manager.
 type User struct {
 	ID           string     `bson:"_id"`
 	Display      string     `bson:"display_name"`
 	EmailAddress string     `bson:"email"`
 	CreatedAt    time.Time  `bson:"created_at"`
 	APIKey       string     `bson:"apikey"`
-	SystemRoles  []string   `bson:"roles"`
-	LoginCache   LoginCache `bson:"login_cache"`
+	SystemRoles  []string   `bson:"roles,omitempty"`
+	LoginCache   LoginCache `bson:"login_cache,omitempty"`
 
 	env       cedar.Environment
 	populated bool
@@ -98,7 +99,7 @@ func (u *User) DisplayName() string {
 	return u.ID
 }
 
-func (u *User) SetAPIKey() (string, error) {
+func (u *User) CreateAPIKey() (string, error) {
 	conf, session, err := cedar.GetSessionWithConfig(u.env)
 	if err != nil {
 		return "", errors.WithStack(err)
