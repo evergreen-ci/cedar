@@ -73,7 +73,7 @@ func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responde
 // GET /testresults/test_name/{task_id}/{test_name}
 
 type testResultGetByTestNameHandler struct {
-	opts data.TestResultsOptions
+	opts data.TestResultsTestNameOptions
 	sc   data.Connector
 }
 

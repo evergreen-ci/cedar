@@ -44,19 +44,19 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 	for it.Next(ctx) {
 		apiResult := model.APITestResult{}
 		err := apiResult.Import(it.Item())
-		apiResults = append(apiResults, apiResult)
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("corrupt data"),
+				Message:    fmt.Sprintf("failed to import result into APITestResult struct"),
 			}
 		}
+		apiResults = append(apiResults, apiResult)
 	}
 
 	return apiResults, nil
 }
 
-func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
+func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsTestNameOptions) (*model.APITestResult, error) {
 	dbOpts := dbModel.TestResultsFindOptions{
 		TaskID:         opts.TaskID,
 		Execution:      opts.Execution,
@@ -156,7 +156,7 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 	return apiResults, nil
 }
 
-func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
+func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsTestNameOptions) (*model.APITestResult, error) {
 	var testResults *dbModel.TestResults
 
 	for key, _ := range mc.CachedTestResults {

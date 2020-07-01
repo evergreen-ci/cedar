@@ -96,7 +96,7 @@ type TestResultsFindOptions struct {
 	EmptyExecution bool
 }
 
-// FindByTaskID searches the database for the TestResults associated with the provided task_id / execution pair.
+// FindByTaskID searches the database for the TestResults associated with the provided options.
 // The environment should not be nil. If execution is empty, it will default to most recent execution.
 func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOptions) error {
 	if t.env == nil {

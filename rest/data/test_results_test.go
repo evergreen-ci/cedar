@@ -167,23 +167,18 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 		expectedResults = nil
 	}
 
-	i := 0
-	for _, opts := range optsList {
-		testResults := dbModel.TestResults{}
-		testResults.Setup(s.env)
-
+	for i, opts := range optsList {
 		expected := expectedResultsList[i]
 
 		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
 		s.Require().NoError(err)
 
-		s.Equal(len(expected), len(actual))
+		s.Len(expected, len(actual))
 		for j := 0; j < len(actual); j++ {
 			s.Equal(expected[j].TestName, actual[j].TestName)
 			s.Equal(expected[j].TaskID, actual[j].TaskID)
 			s.Equal(expected[j].Execution, actual[j].Execution)
 		}
-		i++
 	}
 }
 
@@ -209,7 +204,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdEmpty() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
-	optsList := []TestResultsOptions{{
+	optsList := []TestResultsTestNameOptions{{
 		TaskID:    "task1",
 		Execution: 1,
 		TestName:  "test1",
@@ -252,7 +247,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
 	// test when metadata object doesn't exist
-	opts := TestResultsOptions{
+	opts := TestResultsTestNameOptions{
 		TaskID:    "DNE",
 		Execution: 1,
 		TestName:  "test1",
@@ -263,7 +258,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
 	s.Nil(result)
 
 	// test when test object doesn't exist
-	opts = TestResultsOptions{
+	opts = TestResultsTestNameOptions{
 		TaskID:    "task1",
 		Execution: 1,
 		TestName:  "DNE",
@@ -275,7 +270,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameEmpty() {
-	opts := TestResultsOptions{
+	opts := TestResultsTestNameOptions{
 		TaskID:    "task1",
 		Execution: 1,
 	}
