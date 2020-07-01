@@ -167,16 +167,12 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 		expectedResults = nil
 	}
 
-	fmt.Println(expectedResultsList)
-
 	i := 0
 	for _, opts := range optsList {
 		testResults := dbModel.TestResults{}
 		testResults.Setup(s.env)
 
 		expected := expectedResultsList[i]
-		fmt.Println()
-		fmt.Println(len(expected))
 
 		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
 		s.Require().NoError(err)
