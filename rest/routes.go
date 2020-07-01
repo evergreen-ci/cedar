@@ -185,18 +185,18 @@ type simpleLogRequest struct {
 	Content   string    `json:"content"`
 }
 
-type SimpleLogInjestionResponse struct {
+type SimpleLogIngestionResponse struct {
 	Errors []string `json:"errors,omitempty"`
 	JobID  string   `json:"jobId,omitempty"`
 	LogID  string   `json:"logId"`
 }
 
-func (s *Service) simpleLogInjestion(w http.ResponseWriter, r *http.Request) {
+func (s *Service) simpleLogIngestion(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := s.Environment.Context()
 	defer cancel()
 
 	req := &simpleLogRequest{}
-	resp := &SimpleLogInjestionResponse{}
+	resp := &SimpleLogIngestionResponse{}
 	resp.LogID = gimlet.GetVars(r)["id"]
 
 	if resp.LogID == "" {

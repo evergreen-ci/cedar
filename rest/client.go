@@ -224,7 +224,7 @@ func (c *Client) makeRequest(ctx context.Context, method, url string, body io.Re
 func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 	out := &StatusResponse{}
 
-	req, err := c.makeRequest(ctx, http.MethodGet, "/v1/status", nil)
+	req, err := c.makeRequest(ctx, http.MethodGet, "/v1/admin/status", nil)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -236,7 +236,7 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 	defer resp.Body.Close()
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading rstatus result")
+		return nil, errors.Wrap(err, "problem reading status result")
 	}
 
 	return out, nil
@@ -246,7 +246,7 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 //
 // Simple Log Example Handler
 
-func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increment int) (*SimpleLogInjestionResponse, error) {
+func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increment int) (*SimpleLogIngestionResponse, error) {
 	payload, err := json.Marshal(simpleLogRequest{
 		Time:      time.Now(),
 		Increment: increment,
@@ -268,7 +268,7 @@ func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increme
 	}
 	defer resp.Body.Close()
 
-	out := &SimpleLogInjestionResponse{}
+	out := &SimpleLogIngestionResponse{}
 
 	if err := gimlet.GetJSON(resp.Body, out); err != nil {
 		return nil, errors.Wrap(err, "problem parsing request")
