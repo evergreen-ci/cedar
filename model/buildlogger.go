@@ -519,6 +519,8 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 			bson.M{bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): opts.Group},
 			bson.M{bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): bson.M{"$in": opts.Info.Tags}},
 		}
+	} else if opts.Group != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = opts.Group
 	} else if len(opts.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": opts.Info.Tags}
 	}

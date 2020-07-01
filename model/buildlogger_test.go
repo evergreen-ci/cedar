@@ -599,7 +599,6 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	log2.ID = log2.Info.ID()
 	log3, log4 := getTestLogs(time.Now().Add(time.Minute))
 	log3.Info.TestName = "test2"
-	log3.Info.Tags = []string{"group"}
 	log3.ID = log3.Info.ID()
 	log4.Info.Tags = []string{"tag1"}
 	log4.ID = log4.Info.ID()
@@ -725,13 +724,12 @@ func TestBuildloggerFindLogs(t *testing.T) {
 			Group: "group",
 		}
 		require.NoError(t, logs.Find(ctx, opts))
-		require.Len(t, logs.Logs, 2)
-		assert.Equal(t, log3.ID, logs.Logs[0].ID)
-		assert.Equal(t, log1.ID, logs.Logs[1].ID)
+		require.Len(t, logs.Logs, 1)
+		assert.Equal(t, log1.ID, logs.Logs[0].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
-	t.Run("GroupWithTags", func(t *testing.T) {
+	t.Run("GroupWithOverlappingTags", func(t *testing.T) {
 		logs := Logs{}
 		logs.Setup(env)
 		opts := LogFindOptions{
