@@ -82,10 +82,9 @@ func prettyJSON(data interface{}) (string, error) {
 
 func postSimpleLog() cli.Command {
 	return cli.Command{
-		Name:   "simple-log-pipe",
-		Usage:  "posts a string",
-		Flags:  simpleLogIDFlags(),
-		Before: requireFileExists(simpleLogIDFlag),
+		Name:  "simple-log-pipe",
+		Usage: "posts a string",
+		Flags: simpleLogIDFlags(),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
@@ -145,10 +144,9 @@ func postSimpleLog() cli.Command {
 
 func getSimpleLog() cli.Command {
 	return cli.Command{
-		Name:   "get-simple-log",
-		Usage:  "prints json document for the simple log",
-		Flags:  simpleLogIDFlags(),
-		Before: requireFileExists(simpleLogIDFlag),
+		Name:  "get-simple-log",
+		Usage: "prints json document for the simple log",
+		Flags: simpleLogIDFlags(),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 			logID := c.String(simpleLogIDFlag)
