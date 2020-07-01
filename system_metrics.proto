@@ -37,7 +37,6 @@ message SystemMetricsData {
 
 message SystemMetricsSeriesEnd {
   string id = 1;
-  bool is_complete = 2;
   google.protobuf.Timestamp completed_at = 3;
 }
 
