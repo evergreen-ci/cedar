@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package cedar;
+
+option go_package = "internal";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message SystemMetrics {
+  SystemMetricsInfo info = 1;
+  SystemMetricsArtifactInfo artifact = 2;
+}
+
+message SystemMetricsInfo {
+  string project = 1;
+  string version = 2;
+  string variant = 3;
+  string task_name = 4;
+  string task_id = 5;
+  int32 execution = 6;
+  bool mainline = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message SystemMetricsArtifactInfo {
+  DataFormat format = 1;
+  SchemaType schema = 2;
+}
+
+enum DataFormat {
+  TEXT = 0;
+  FTDC = 1;
+  BSON = 2;
+  JSON = 3;
+  CSV = 4;
+}
+
+enum SchemaType {
+  RAW_EVENTS = 0;
+  COLLAPSED_EVENTS = 1;
+  INTERVAL_SUMMARIZATION = 2;
+  HISTOGRAM = 3;
+}
+
+message SystemMetricsData {
+  string id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  bytes data = 3;
+}
+
+message SystemMetricsSeriesEnd {
+  string id = 1;
+  bool is_complete = 2;
+  google.protobuf.Timestamp completed_at = 3;
+}
+
+message SystemMetricsResponse {
+  string id = 1;
+  bool success = 2;
+}
+
+
+service CedarSystemMetrics {
+  rpc CreateSystemMetricSeries(SystemMetrics) returns (SystemMetricsResponse);
+  rpc AddSystemMetrics(SystemMetricsData) returns (SystemMetricsResponse);
+  rpc StreamSystemMetrics(stream SystemMetricsData) returns (SystemMetricsResponse);
+  rpc CloseMetrics(SystemMetricsSeriesEnd) returns (SystemMetricsResponse);
+}
