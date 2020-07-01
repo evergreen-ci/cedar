@@ -92,8 +92,6 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 // MockConnector Implementation
 ///////////////////////////////
 
-// FindTestResultsByTaskId queries the mock cache to find all
-// test results with the given task id and execution
 func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
 	apiResults := []model.APITestResult{}
 	var testResults *dbModel.TestResults
