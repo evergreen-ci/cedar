@@ -719,7 +719,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 		rh := s.rh["group"]
 		rh.(*logGroupHandler).opts.TaskID = "task_id1"
 		rh.(*logGroupHandler).opts.TestName = "test1"
-		rh.(*logGroupHandler).groupID = "tag1"
+		rh.(*logGroupHandler).opts.Group = "tag1"
 		rh.(*logGroupHandler).opts.Tags = []string{"tag1"}
 		rh.(*logGroupHandler).opts.TimeRange = dbModel.TimeRange{
 			StartAt: time.Now().Add(-24 * time.Hour),
@@ -793,7 +793,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerFound() {
 
 		// only tests
 		rh.(*logGroupHandler).opts.TestName = "test2"
-		rh.(*logGroupHandler).groupID = "tag3"
+		rh.(*logGroupHandler).opts.Group = "tag3"
 		rh.(*logGroupHandler).opts.Tags = []string{"tag3"}
 		it = dbModel.NewBatchedLogIterator(
 			s.buckets["def"],
@@ -821,7 +821,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerNotFound() {
 	rh := s.rh["group"]
 	rh.(*logGroupHandler).opts.TaskID = "task_id1"
 	rh.(*logGroupHandler).opts.TestName = "DNE"
-	rh.(*logGroupHandler).groupID = "tag1"
+	rh.(*logGroupHandler).opts.Group = "tag1"
 	rh.(*logGroupHandler).opts.Tags = []string{"tag1"}
 	rh.(*logGroupHandler).opts.TimeRange = dbModel.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
@@ -839,7 +839,7 @@ func (s *LogHandlerSuite) TestLogGroupHandlerCtxErr() {
 	rh := s.rh["group"]
 	rh.(*logGroupHandler).opts.TaskID = "task_id1"
 	rh.(*logGroupHandler).opts.TestName = "test1"
-	rh.(*logGroupHandler).groupID = "tag1"
+	rh.(*logGroupHandler).opts.Group = "tag1"
 	rh.(*logGroupHandler).opts.Tags = []string{"tag1"}
 	rh.(*logGroupHandler).opts.TimeRange = dbModel.TimeRange{
 		StartAt: time.Now().Add(-24 * time.Hour),
@@ -982,7 +982,7 @@ func getLogTags(rh gimlet.RouteHandler, handler string) []string {
 	case "test_name":
 		return rh.(*logGetByTestNameHandler).opts.Tags
 	case "group":
-		return rh.(*logGroupHandler).opts.Tags[0 : len(rh.(*logGroupHandler).opts.Tags)-1]
+		return rh.(*logGroupHandler).opts.Tags
 	default:
 		return []string{}
 	}

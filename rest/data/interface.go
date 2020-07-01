@@ -107,6 +107,7 @@ type BuildloggerOptions struct {
 	Execution      int
 	EmptyExecution bool
 	ProcessName    string
+	Group          string
 	Tags           []string
 	TimeRange      dbModel.TimeRange
 	PrintTime      bool
