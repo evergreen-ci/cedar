@@ -751,8 +751,7 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	}()
 
 	var usr string
-	u := gimlet.GetUser(r.Context())
-	if u != nil {
+	if u := gimlet.GetUser(r.Context()); u != nil {
 		usr = u.Username()
 	} else {
 		var authorized bool
@@ -801,9 +800,15 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		logRequestError(r, err)
 	}()
 
-	usr, authorized := s.checkPayloadCreds(rw, r)
-	if !authorized {
-		return
+	var usr string
+	if u := gimlet.GetUser(r.Context()); u != nil {
+		usr = u.Username()
+	} else {
+		var authorized bool
+		usr, authorized = s.checkPayloadCreds(rw, r)
+		if !authorized {
+			return
+		}
 	}
 
 	if !certdepot.CheckPrivateKey(s.Depot, usr) {
@@ -851,6 +856,8 @@ type userAPIKeyResponse struct {
 	Key      string `json:"key"`
 }
 
+// TODO (EVG-9694): remove this, since the user should be authed through the
+// user middleware.
 func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (string, bool) {
 	var err error
 	defer func() {
