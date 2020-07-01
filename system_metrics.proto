@@ -25,7 +25,8 @@ message SystemMetricsInfo {
 
 message SystemMetricsArtifactInfo {
   DataFormat format = 1;
-  SchemaType schema = 2;
+  CompressionType compression = 2;
+  SchemaType schema = 3;
 }
 
 enum DataFormat {
@@ -34,6 +35,14 @@ enum DataFormat {
   BSON = 2;
   JSON = 3;
   CSV = 4;
+}
+
+enum CompressionType {
+  NONE = 0;
+  TARGZ = 1;
+  ZIP = 2;
+  GZ = 3;
+  XZ = 4;
 }
 
 enum SchemaType {
