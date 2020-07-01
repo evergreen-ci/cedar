@@ -100,7 +100,6 @@ func restServiceFlags(flags ...cli.Flag) []cli.Flag {
 		cli.IntFlag{
 			Name:  clientPortFlag,
 			Usage: "port for the remote cedar service.",
-			Value: 3000,
 		},
 	)
 

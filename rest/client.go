@@ -79,8 +79,10 @@ func (c *Client) initClient(opts ClientOptions) (*Client, error) {
 		return nil, err
 	}
 
-	if err := c.SetPort(opts.Port); err != nil {
-		return nil, err
+	if opts.Port != 0 {
+		if err := c.SetPort(opts.Port); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := c.SetPrefix(opts.Prefix); err != nil {
