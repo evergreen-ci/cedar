@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash"
@@ -9,7 +10,12 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
 )
+
+const systemMetricsCollection = "system_metrics"
 
 // SystemMetrics describes metadata for the system metrics data for
 // a given task execution.
@@ -78,6 +84,31 @@ var (
 	systemMetricsInfoMainlineKey  = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Mainline")
 	systemMetricsInfoSchemaKey    = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Schema")
 )
+
+// Find searches the database for the system metrics object. The environment should
+// not be nil. Either the ID or full Info of the system metrics object needs to be
+// specified.
+func (result *SystemMetrics) Find(ctx context.Context) error {
+	if result.env == nil {
+		return errors.New("cannot find with a nil environment")
+	}
+
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+	}
+
+	result.populated = false
+	err := result.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result)
+	if db.ResultsNotFound(err) {
+		return fmt.Errorf("could not find system metrics record in the database with id %s", result.ID)
+	} else if err != nil {
+		return errors.Wrapf(err, "problem finding system metrics with id %s", result.ID)
+	}
+
+	result.populated = true
+
+	return nil
+}
 
 // ID creates a unique hash for the system metrics for a task.
 func (id *SystemMetricsInfo) ID() string {

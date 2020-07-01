@@ -55,10 +55,12 @@ func TestTestResultsFind(t *testing.T) {
 		tr := TestResults{ID: "DNE"}
 		tr.Setup(env)
 		assert.Error(t, tr.Find(ctx))
+		assert.False(t, tr.populated)
 	})
 	t.Run("NoEnv", func(t *testing.T) {
 		tr := TestResults{ID: tr1.ID}
 		assert.Error(t, tr.Find(ctx))
+		assert.False(t, tr.populated)
 	})
 	t.Run("WithID", func(t *testing.T) {
 		tr := TestResults{ID: tr1.ID}
