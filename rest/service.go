@@ -60,6 +60,10 @@ func (s *Service) Validate() error {
 		return errors.New("programmer error; invalid user manager configuration")
 	}
 
+	if err = s.setupUserAuth(); err != nil {
+		return errors.Wrap(err, "setting up auth")
+	}
+
 	if s.queue == nil {
 		s.queue = s.Environment.GetRemoteQueue()
 		if s.queue == nil {
