@@ -159,7 +159,6 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerFound() {
 	}
 
 	resp := rh.Run(context.TODO())
-	fmt.Println(resp.Data())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
 	actual, ok := resp.Data().([]model.APITestResult)
@@ -296,6 +295,8 @@ func (s *TestResultsHandlerSuite) testParseDefaults(handler, urlString string) {
 
 func getTestResultsExecution(rh gimlet.RouteHandler, handler string) bool {
 	switch handler {
+	case "task_id":
+		return !rh.(*testResultsGetByTaskIdHandler).options.EmptyExecution
 	case "test_name":
 		return !rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
 	default:
