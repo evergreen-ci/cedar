@@ -124,36 +124,37 @@ func (s *Service) Validate() error {
 }
 
 func (s *Service) setupUserAuth() error {
-	var usrMngrs []gimlet.UserManager
+	var readOnly []gimlet.UserManager
+	var readWrite []gimlet.UserManager
 	if s.Conf.ServiceAuth.Enabled {
 		usrMngr, err := s.setupServiceAuth()
 		if err != nil {
 			return errors.Wrap(err, "setting up service user auth")
 		}
-		usrMngrs = append(usrMngrs, usrMngr)
+		readOnly = append(readOnly, usrMngr)
 	}
 	if s.Conf.LDAP.URL != "" {
 		usrMngr, err := s.setupLDAPAuth()
 		if err != nil {
 			return errors.Wrap(err, "setting up LDAP user auth")
 		}
-		usrMngrs = append(usrMngrs, usrMngr)
+		readWrite = append(readWrite, usrMngr)
 	}
 	if s.Conf.NaiveAuth.AppAuth {
 		usrMngr, err := s.setupNaiveAuth()
 		if err != nil {
 			return errors.Wrap(err, "setting up naive user auth")
 		}
-		usrMngrs = append(usrMngrs, usrMngr)
+		readOnly = append(readOnly, usrMngr)
 	}
 
-	if len(usrMngrs) == 0 {
+	if len(readOnly)+len(readWrite) == 0 {
 		return errors.New("no user authentication method could be set up")
 	}
 
 	// Using multiple read-only user managers is only a temporary change to
 	// migrate off of the dependence on the LDAP manager.
-	s.UserManager = gimlet.NewMultiUserManager(nil, usrMngrs)
+	s.UserManager = gimlet.NewMultiUserManager(readWrite, readOnly)
 
 	return nil
 }
@@ -409,6 +410,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/admin/service/flag/{flagName}/enabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagEnabled)
 	s.app.AddRoute("/admin/service/flag/{flagName}/disabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagDisabled)
 	s.app.AddRoute("/admin/ca").Version(1).Get().Handler(s.fetchRootCert)
+	// TODO (EVG-9694): delete this route
 	s.app.AddRoute("/admin/users/key").Version(1).Post().Get().Handler(s.fetchUserToken)
 	s.app.AddRoute("/admin/users/certificate").Version(1).Post().Get().Handler(s.fetchUserCert)
 	s.app.AddRoute("/admin/users/certificate/key").Version(1).Post().Get().Handler(s.fetchUserCertKey)

@@ -40,6 +40,21 @@ func requireStringFlag(name string) cli.BeforeFunc {
 	}
 }
 
+func requireOneFlag(names ...string) cli.BeforeFunc {
+	return func(c *cli.Context) error {
+		var numSet int
+		for _, name := range names {
+			if c.IsSet(name) {
+				numSet++
+			}
+		}
+		if numSet != 1 {
+			return errors.Errorf("must set exacty one flag from the following: %s", names)
+		}
+		return nil
+	}
+}
+
 func requireFileExists(name string) cli.BeforeFunc {
 	return func(c *cli.Context) error {
 		path := c.String(name)

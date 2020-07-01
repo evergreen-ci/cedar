@@ -671,6 +671,7 @@ func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 //
 // POST /admin/users/key
 
+// TODO (EVG-9694): delete this route
 func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
@@ -695,12 +696,20 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 
 	resp := &userAPIKeyResponse{Username: creds.Username}
 
-	user, err := s.UserManager.GetUserByID(creds.Username)
+	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
+	if err != nil {
+		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
+		return
+	}
+
+	user, err := s.UserManager.GetUserByToken(r.Context(), token)
 	if err != nil {
 		err = errors.Wrapf(err, "problem finding user '%s'", creds.Username)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
 		return
 	}
+
 	key := user.GetAPIKey()
 	if key != "" {
 		resp.Key = key
@@ -741,9 +750,16 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		logRequestError(r, err)
 	}()
 
-	usr, authorized := s.checkPayloadCreds(rw, r)
-	if !authorized {
-		return
+	var usr string
+	u := gimlet.GetUser(r.Context())
+	if u != nil {
+		usr = u.Username()
+	} else {
+		var authorized bool
+		usr, authorized = s.checkPayloadCreds(rw, r)
+		if !authorized {
+			return
+		}
 	}
 
 	opts := certdepot.CertificateOptions{
@@ -826,7 +842,8 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 
 type userCredentials struct {
 	Username string `json:"username"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
+	APIKey   string `json:"api_key,omitempty"`
 }
 
 type userAPIKeyResponse struct {
@@ -864,7 +881,22 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 	} else if user == nil {
 		err = errors.Errorf("user '%s' not defined", creds.Username)
 		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
-			Message:    "user not defined",
+			Message:    err.Error(),
+			StatusCode: http.StatusUnauthorized,
+		})
+		return "", false
+	}
+
+	if creds.APIKey != "" && user.GetAPIKey() == creds.APIKey {
+		return creds.Username, true
+	}
+
+	// This is only used to authenticate them in case they do not successfully
+	// authenticate with their API key.
+	_, err = s.UserManager.CreateUserToken(creds.Username, creds.Password)
+	if err != nil {
+		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+			Message:    fmt.Sprintf("invalid credentials for user '%s'", creds.Username),
 			StatusCode: http.StatusUnauthorized,
 		})
 		return "", false
