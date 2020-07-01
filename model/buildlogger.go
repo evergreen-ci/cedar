@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+
 	"fmt"
 	"hash"
 	"io"
@@ -513,10 +514,12 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 	if opts.Info.Format != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = opts.Info.Format
 	}
-	if opts.Group != "" {
-		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = opts.Group
-	}
-	if len(opts.Info.Tags) > 0 {
+	if opts.Group != "" && len(opts.Info.Tags) > 0 {
+		search["$and"] = []bson.M{
+			bson.M{bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): opts.Group},
+			bson.M{bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): bson.M{"$in": opts.Info.Tags}},
+		}
+	} else if len(opts.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": opts.Info.Tags}
 	}
 	if len(opts.Info.Arguments) > 0 {

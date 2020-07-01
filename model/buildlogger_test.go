@@ -597,19 +597,21 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	log1.ID = log1.Info.ID()
 	log2.Info.Tags = []string{"group", "tag1"}
 	log2.ID = log2.Info.ID()
-	log3, _ := getTestLogs(time.Now().Add(time.Minute))
+	log3, log4 := getTestLogs(time.Now().Add(time.Minute))
 	log3.Info.TestName = "test2"
 	log3.Info.Tags = []string{"group"}
 	log3.ID = log3.Info.ID()
-	log4, _ := getTestLogs(time.Now().Add(2 * time.Minute))
-	log4.Info.Execution = 1
+	log4.Info.Tags = []string{"tag1"}
 	log4.ID = log4.Info.ID()
-	log5, _ := getTestLogs(time.Now().Add(3 * time.Minute))
-	log5.Info.TestName = "test2"
+	log5, _ := getTestLogs(time.Now().Add(2 * time.Minute))
 	log5.Info.Execution = 1
 	log5.ID = log5.Info.ID()
+	log6, _ := getTestLogs(time.Now().Add(3 * time.Minute))
+	log6.Info.TestName = "test2"
+	log6.Info.Execution = 1
+	log6.ID = log6.Info.ID()
 
-	_, err := db.Collection(buildloggerCollection).InsertMany(ctx, []interface{}{log1, log2, log3, log4, log5})
+	_, err := db.Collection(buildloggerCollection).InsertMany(ctx, []interface{}{log1, log2, log3, log4, log5, log6})
 	require.NoError(t, err)
 
 	t.Run("NoEnv", func(t *testing.T) {
@@ -667,10 +669,11 @@ func TestBuildloggerFindLogs(t *testing.T) {
 			Info: LogInfo{Project: log1.Info.Project},
 		}
 		require.NoError(t, logs.Find(ctx, opts))
-		require.Len(t, logs.Logs, 3)
-		assert.Equal(t, log2.ID, logs.Logs[0].ID)
-		assert.Equal(t, log3.ID, logs.Logs[1].ID)
-		assert.Equal(t, log1.ID, logs.Logs[2].ID)
+		require.Len(t, logs.Logs, 4)
+		assert.Equal(t, log4.ID, logs.Logs[0].ID)
+		assert.Equal(t, log2.ID, logs.Logs[1].ID)
+		assert.Equal(t, log3.ID, logs.Logs[2].ID)
+		assert.Equal(t, log1.ID, logs.Logs[3].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
@@ -687,8 +690,8 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		}
 		require.NoError(t, logs.Find(ctx, opts))
 		require.Len(t, logs.Logs, 2)
-		assert.Equal(t, log2.ID, logs.Logs[0].ID)
-		assert.Equal(t, log3.ID, logs.Logs[1].ID)
+		assert.Equal(t, log4.ID, logs.Logs[0].ID)
+		assert.Equal(t, log2.ID, logs.Logs[1].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
@@ -705,8 +708,8 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		}
 		require.NoError(t, logs.Find(ctx, opts))
 		require.Len(t, logs.Logs, 2)
-		assert.Equal(t, log5.ID, logs.Logs[0].ID)
-		assert.Equal(t, log4.ID, logs.Logs[1].ID)
+		assert.Equal(t, log6.ID, logs.Logs[0].ID)
+		assert.Equal(t, log5.ID, logs.Logs[1].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
@@ -737,14 +740,14 @@ func TestBuildloggerFindLogs(t *testing.T) {
 				EndAt:   time.Now(),
 			},
 			Info: LogInfo{
-				TaskID: log1.Info.TaskID,
+				TaskID: log2.Info.TaskID,
 				Tags:   []string{"tag1", "tag2"},
 			},
 			Group: "group",
 		}
 		require.NoError(t, logs.Find(ctx, opts))
 		require.Len(t, logs.Logs, 1)
-		assert.Equal(t, log1.ID, logs.Logs[0].ID)
+		assert.Equal(t, log2.ID, logs.Logs[0].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
