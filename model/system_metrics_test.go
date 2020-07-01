@@ -43,10 +43,12 @@ func TestSystemMetricsFind(t *testing.T) {
 		sm := SystemMetrics{ID: "DNE"}
 		sm.Setup(env)
 		assert.Error(t, sm.Find(ctx))
+		assert.False(t, sm.populated)
 	})
 	t.Run("NoEnv", func(t *testing.T) {
 		sm := SystemMetrics{ID: sm1.ID}
 		assert.Error(t, sm.Find(ctx))
+		assert.False(t, sm.populated)
 	})
 	t.Run("WithID", func(t *testing.T) {
 		sm := SystemMetrics{ID: sm1.ID}

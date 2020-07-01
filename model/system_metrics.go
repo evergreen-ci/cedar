@@ -100,9 +100,9 @@ func (result *SystemMetrics) Find(ctx context.Context) error {
 	result.populated = false
 	err := result.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result)
 	if db.ResultsNotFound(err) {
-		return errors.New("could not find system metrics record in the database")
+		return fmt.Errorf("could not find system metrics record in the database with id %s", result.ID)
 	} else if err != nil {
-		return errors.Wrap(err, "problem finding system metrics")
+		return errors.Wrapf(err, "problem finding system metrics with id %s", result.ID)
 	}
 
 	result.populated = true
