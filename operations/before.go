@@ -16,7 +16,7 @@ import (
 
 var (
 	requireClientHostFlag = func(c *cli.Context) error {
-		if c.Parent().String(clientHostFlag) == "" {
+		if c.String(clientHostFlag) == "" {
 			return errors.New("host not specified for client")
 		}
 		return nil
@@ -24,7 +24,7 @@ var (
 
 	requireClientPortFlag = func(c *cli.Context) error {
 		// TODO consider validating
-		if c.Parent().Int(clientPortFlag) == 0 {
+		if c.Int(clientPortFlag) == 0 {
 			return errors.New("port not specified for client")
 		}
 		return nil

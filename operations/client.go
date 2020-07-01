@@ -47,7 +47,7 @@ func printStatus() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -92,7 +92,7 @@ func postSimpleLog() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -156,7 +156,7 @@ func getSimpleLog() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -201,7 +201,7 @@ func getSystemStatusEvents() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -250,7 +250,7 @@ func systemEvent() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -332,7 +332,7 @@ func systemInfoGet() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -374,7 +374,7 @@ func systemInfoSend() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -413,7 +413,7 @@ func systemInfoImport() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
