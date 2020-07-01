@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -754,10 +755,13 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
-	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	sort.Slice(s.r.Results, func(i, j int) bool {
+		return s.r.Results[i].ID < s.r.Results[j].ID
+	})
+	s.Equal(s.r.Results[3].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].ID, nodeD.ID)
+	s.Equal(s.r.Results[0].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
 
 	// Test min through max depth with $graphLookup
 	options = PerfFindOptions{
@@ -787,10 +791,13 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
-	s.Equal(s.r.Results[0].ID, nodeA.ID)
+	sort.Slice(s.r.Results, func(i, j int) bool {
+		return s.r.Results[i].ID < s.r.Results[j].ID
+	})
+	s.Equal(s.r.Results[3].ID, nodeA.ID)
 	s.Equal(s.r.Results[1].ID, nodeD.ID)
+	s.Equal(s.r.Results[0].Info.Parent, nodeA.ID)
 	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
 
 	// Test tag filtering with $graphLookup
 	options = PerfFindOptions{
