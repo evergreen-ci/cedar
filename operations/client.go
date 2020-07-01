@@ -60,7 +60,7 @@ func printStatus() cli.Command {
 			}
 
 			grip.Debug(status)
-			out, err := pretyJSON(status)
+			out, err := prettyJSON(status)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -71,7 +71,7 @@ func printStatus() cli.Command {
 	}
 }
 
-func pretyJSON(data interface{}) (string, error) {
+func prettyJSON(data interface{}) (string, error) {
 	out, err := json.MarshalIndent(data, "", "   ")
 	if err != nil {
 		return "", errors.Wrap(err, "problem rendering status result")
@@ -112,7 +112,7 @@ func postSimpleLog() cli.Command {
 						return errors.Wrapf(err, "problem sending batch %d for log '%s'",
 							inc, logID)
 					}
-					respRendered, err := pretyJSON(resp)
+					respRendered, err := prettyJSON(resp)
 					if err != nil {
 						return errors.WithStack(err)
 					}
@@ -130,7 +130,7 @@ func postSimpleLog() cli.Command {
 					return errors.Wrapf(err, "problem sending batch %d for log '%s'",
 						inc, logID)
 				}
-				respRendered, err := pretyJSON(resp)
+				respRendered, err := prettyJSON(resp)
 				if err != nil {
 					return errors.WithStack(err)
 				}
@@ -168,7 +168,7 @@ func getSimpleLog() cli.Command {
 				return errors.Wrapf(err, "problem getting log for '%s'", logID)
 			}
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -214,7 +214,7 @@ func getSystemStatusEvents() cli.Command {
 			}
 
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -272,7 +272,7 @@ func systemEvent() cli.Command {
 			}
 
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -353,7 +353,7 @@ func systemInfoGet() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			out, err := pretyJSON(msgs)
+			out, err := prettyJSON(msgs)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -389,7 +389,7 @@ func systemInfoSend() cli.Command {
 			}
 
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
