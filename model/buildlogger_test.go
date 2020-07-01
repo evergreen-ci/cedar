@@ -593,8 +593,13 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
 	log1, log2 := getTestLogs(time.Now())
+	log1.Info.Tags = []string{"group", "tag1", "tag2"}
+	log1.ID = log1.Info.ID()
+	log2.Info.Tags = []string{"group", "tag1"}
+	log2.ID = log2.Info.ID()
 	log3, _ := getTestLogs(time.Now().Add(time.Minute))
 	log3.Info.TestName = "test2"
+	log3.Info.Tags = []string{"group"}
 	log3.ID = log3.Info.ID()
 	log4, _ := getTestLogs(time.Now().Add(2 * time.Minute))
 	log4.Info.Execution = 1
@@ -702,6 +707,44 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		require.Len(t, logs.Logs, 2)
 		assert.Equal(t, log5.ID, logs.Logs[0].ID)
 		assert.Equal(t, log4.ID, logs.Logs[1].ID)
+		assert.True(t, logs.populated)
+		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+	t.Run("GroupNoTags", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: TimeRange{
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now(),
+			},
+			Info:  LogInfo{TaskID: log1.Info.TaskID},
+			Group: "group",
+		}
+		require.NoError(t, logs.Find(ctx, opts))
+		require.Len(t, logs.Logs, 2)
+		assert.Equal(t, log3.ID, logs.Logs[0].ID)
+		assert.Equal(t, log1.ID, logs.Logs[1].ID)
+		assert.True(t, logs.populated)
+		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+	t.Run("GroupWithTags", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: TimeRange{
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now(),
+			},
+			Info: LogInfo{
+				TaskID: log1.Info.TaskID,
+				Tags:   []string{"tag1", "tag2"},
+			},
+			Group: "group",
+		}
+		require.NoError(t, logs.Find(ctx, opts))
+		require.Len(t, logs.Logs, 1)
+		assert.Equal(t, log1.ID, logs.Logs[0].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
