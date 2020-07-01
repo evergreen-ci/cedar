@@ -31,8 +31,9 @@ message SystemMetricsArtifactInfo {
 
 message SystemMetricsData {
   string id = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  bytes data = 3;
+  int32 order = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  bytes data = 4;
 }
 
 message SystemMetricsSeriesEnd {

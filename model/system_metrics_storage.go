@@ -15,7 +15,7 @@ import (
 // encoding of the file.
 type SystemMetricsArtifactInfo struct {
 	Prefix  string                       `bson:"prefix"`
-	Keys    []string                     `bson:"path"`
+	Chunks  []string                     `bson:"path"`
 	Options SystemMetricsArtifactOptions `bson:"options"`
 }
 
@@ -30,7 +30,8 @@ type SystemMetricsArtifactOptions struct {
 
 var (
 	metricsArtifactInfoPrefixKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
-	metricsArtifactInfoKeysKey           = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Keys")
+	metricsArtifactInfoChunksKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Chunks")
+	metricsArtifactInfoOptionsKey        = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Options")
 	metricsArtifactOptionsTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Type")
 	metricsArtifactOptionsSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Schema")
 	metricsArtifactOptionsFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Format")
