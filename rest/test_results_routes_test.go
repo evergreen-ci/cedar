@@ -174,7 +174,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerFound() {
 
 func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).options.TaskID = "task1"
+	rh.(*testResultsGetByTaskIdHandler).options.TaskID = "DNE"
 	rh.(*testResultsGetByTaskIdHandler).options.Execution = 0
 
 	resp := rh.Run(context.TODO())

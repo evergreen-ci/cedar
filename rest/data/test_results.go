@@ -120,9 +120,8 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 	}
 
 	bucketOpts := pail.LocalOptions{
-		Path: mc.Bucket,
-		//Prefix: testResults.Artifact.Prefix,
-		Prefix: testResults.Info.TaskID,
+		Path:   mc.Bucket,
+		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
@@ -131,16 +130,7 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
 		}
 	}
-	fmt.Println(bucket)
 	it := dbModel.NewTestResultsIterator(bucket)
-	fmt.Println(it)
-	// it, err := testResults.Download(ctx)
-	// if err != nil {
-	// 	return nil, gimlet.ErrorResponse{
-	// 		StatusCode: http.StatusInternalServerError,
-	// 		Message:    fmt.Sprintf("MockConnector - failed to download results with task_id %s", opts.TaskID),
-	// 	}
-	// }
 
 	for it.Next(ctx) {
 		result := it.Item()
