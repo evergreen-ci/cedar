@@ -36,7 +36,7 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("failed to download results with task_id %s", options.TaskID),
+			Message:    errors.Wrapf(err, "failed to download results with task_id %s", options.TaskID).Error(),
 		}
 	}
 
@@ -47,7 +47,7 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("failed to import result into APITestResult struct"),
+				Message:    errors.Wrapf(err, "failed to import result into APITestResult struct").Error(),
 			}
 		}
 		apiResults = append(apiResults, apiResult)
@@ -127,7 +127,7 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
+			Message:    errors.Wrapf(err, "problem creating bucket").Error(),
 		}
 	}
 	it := dbModel.NewTestResultsIterator(bucket)
