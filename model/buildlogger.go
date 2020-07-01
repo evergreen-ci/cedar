@@ -426,37 +426,19 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	}
 
 	l.populated = false
-
-	var it *mongo.Cursor
-	var err error
-	query := createFindQuery(opts)
-	sort := bson.D{
+	findOpts := options.Find()
+	if opts.Limit > 0 {
+		findOpts.SetLimit(opts.Limit)
+	}
+	findOpts.SetSort(bson.D{
 		{Key: logInfoExecutionKey, Value: -1},
 		{Key: logCreatedAtKey, Value: -1},
-	}
-	if opts.Group != "" && len(opts.Info.Tags) > 0 {
-		pipeline := []bson.M{
-			bson.M{"$match": query},
-			bson.M{"$match": bson.M{
-				bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): bson.M{"$in": opts.Info.Tags},
-			}},
-			bson.M{"$sort": sort},
-		}
-		if opts.Limit > 0 {
-			pipeline = append(pipeline, bson.M{"$limit": opts.Limit})
-		}
-		it, err = l.env.GetDB().Collection(buildloggerCollection).Aggregate(ctx, pipeline)
-	} else {
-		findOpts := options.Find()
-		if opts.Limit > 0 {
-			findOpts.SetLimit(opts.Limit)
-		}
-		findOpts.SetSort(sort)
-		it, err = l.env.GetDB().Collection(buildloggerCollection).Find(ctx, query, findOpts)
-	}
+	})
+	it, err := l.env.GetDB().Collection(buildloggerCollection).Find(ctx, createFindQuery(opts), findOpts)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+
 	if err = it.All(ctx, &l.Logs); err != nil {
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(errors.WithStack(err))
@@ -465,7 +447,6 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	} else if err = it.Close(ctx); err != nil {
 		return errors.WithStack(err)
 	}
-
 	if len(l.Logs) > 0 {
 		l.timeRange = opts.TimeRange
 		l.populated = true
@@ -533,8 +514,9 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = opts.Info.Format
 	}
 	if opts.Group != "" {
-		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": []string{opts.Group}}
-	} else if len(opts.Info.Tags) > 0 {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = opts.Group
+	}
+	if len(opts.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": opts.Info.Tags}
 	}
 	if len(opts.Info.Arguments) > 0 {
