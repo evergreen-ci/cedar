@@ -21,7 +21,42 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
+func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
+	results := dbModel.TestResults{}
+	results.Setup(dbc.env)
+
+	if err := results.FindByTaskID(ctx, options); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    fmt.Sprintf("failed to find results with task_id %s", options.TaskID),
+		}
+	}
+
+	it, err := results.Download(ctx)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrapf(err, "failed to download results with task_id %s", options.TaskID).Error(),
+		}
+	}
+
+	apiResults := make([]model.APITestResult, 0)
+	for it.Next(ctx) {
+		apiResult := model.APITestResult{}
+		err := apiResult.Import(it.Item())
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    errors.Wrapf(err, "failed to import result into APITestResult struct").Error(),
+			}
+		}
+		apiResults = append(apiResults, apiResult)
+	}
+
+	return apiResults, nil
+}
+
+func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsTestNameOptions) (*model.APITestResult, error) {
 	dbOpts := dbModel.TestResultsFindOptions{
 		TaskID:         opts.TaskID,
 		Execution:      opts.Execution,
@@ -57,7 +92,69 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
+func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
+	apiResults := []model.APITestResult{}
+	var testResults *dbModel.TestResults
+
+	for key, _ := range mc.CachedTestResults {
+		tr := mc.CachedTestResults[key]
+		if opts.EmptyExecution {
+			if tr.Info.TaskID == opts.TaskID && (testResults == nil || tr.Info.Execution > testResults.Info.Execution) {
+				testResults = &tr
+			}
+		} else {
+			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == opts.Execution {
+				testResults = &tr
+				break
+			}
+		}
+	}
+
+	if testResults == nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("tests with task id '%s' not found", opts.TaskID),
+		}
+	}
+
+	bucketOpts := pail.LocalOptions{
+		Path:   mc.Bucket,
+		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+	}
+	bucket, err := pail.NewLocalBucket(bucketOpts)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrapf(err, "problem creating bucket").Error(),
+		}
+	}
+	it := dbModel.NewTestResultsIterator(bucket)
+
+	for it.Next(ctx) {
+		result := it.Item()
+
+		apiResult := model.APITestResult{}
+		err := apiResult.Import(result)
+		if err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    fmt.Sprintf("corrupt data from MockConnector"),
+			}
+		}
+		apiResults = append(apiResults, apiResult)
+
+	}
+
+	if len(apiResults) == 0 {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("Mock Connector test result with task_id '%s' not found", opts.TaskID),
+		}
+	}
+	return apiResults, nil
+}
+
+func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsTestNameOptions) (*model.APITestResult, error) {
 	var testResults *dbModel.TestResults
 
 	for key, _ := range mc.CachedTestResults {

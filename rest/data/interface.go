@@ -91,11 +91,14 @@ type Connector interface {
 	///////////////
 	// Test Results
 	///////////////
+	// FindTestResultsByTaskId queries the database to find all test
+	// results with the given options.
+	FindTestResultsByTaskId(context.Context, dbModel.TestResultsFindOptions) ([]model.APITestResult, error)
 	// FindTestResultsByTestName finds the test result of a single test, specified
-	// by a task_id, an optional execution number, and the name of the desired test.
+	// by the given options.
 	// If execution is not specified, this will return the test result from the most
 	// recent.
-	FindTestResultByTestName(context.Context, TestResultsOptions) (*model.APITestResult, error)
+	FindTestResultByTestName(context.Context, TestResultsTestNameOptions) (*model.APITestResult, error)
 }
 
 // BuildloggerOptions contains arguments for buildlogger related Connector
@@ -119,6 +122,15 @@ type BuildloggerOptions struct {
 // TestResultsOptions holds all values required to find a specific TestResults
 // or TestResult object using connector functions.
 type TestResultsOptions struct {
+	TaskID         string
+	TestName       string
+	Execution      int
+	EmptyExecution bool
+}
+
+// TestResultsTestNameOptions holds all values required to find a specific TestResults
+// or TestResult object using connector functions.
+type TestResultsTestNameOptions struct {
 	TaskID         string
 	TestName       string
 	Execution      int

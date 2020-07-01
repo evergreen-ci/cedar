@@ -25,8 +25,8 @@ type testResultsConnectorSuite struct {
 	env         cedar.Environment
 	testResults map[string]dbModel.TestResults
 	tempDir     string
-
 	suite.Suite
+	apiResults map[string]model.APITestResult
 }
 
 func TestTestResultsConnectorSuiteDB(t *testing.T) {
@@ -96,6 +96,8 @@ func (s *testResultsConnectorSuite) setup() {
 		},
 	}
 
+	s.apiResults = map[string]model.APITestResult{}
+
 	for _, testResultsInfo := range testResultInfos {
 		testResults := dbModel.CreateTestResults(testResultsInfo, dbModel.PailLocal)
 
@@ -126,6 +128,10 @@ func (s *testResultsConnectorSuite) setup() {
 				TestEndTime:    time.Now().Add(-1 * time.Second),
 			}
 
+			apiResult := model.APITestResult{}
+			s.Require().NoError(apiResult.Import(result))
+			s.apiResults[fmt.Sprintf("%s_%d_%s", result.TaskID, result.Execution, result.TestName)] = apiResult
+
 			data, err := bson.Marshal(result)
 			s.Require().NoError(err)
 			s.Require().NoError(bucket.Put(s.ctx, result.TestName, bytes.NewReader(data)))
@@ -139,8 +145,68 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
+func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
+	optsList := []dbModel.TestResultsFindOptions{{
+		TaskID:    "task1",
+		Execution: 0,
+	}, {
+		TaskID:         "task1",
+		EmptyExecution: true,
+	}}
+
+	expectedResultsList := make([][]model.APITestResult, 0)
+	expectedResults := make([]model.APITestResult, 0)
+	expectedResultsKeys := [][]string{
+		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
+		{"task1_1_test0", "task1_1_test1", "task1_1_test2"},
+	}
+
+	for _, testNum := range expectedResultsKeys {
+		for _, key := range testNum {
+			expectedResults = append(expectedResults, s.apiResults[key])
+		}
+		expectedResultsList = append(expectedResultsList, expectedResults)
+		expectedResults = nil
+	}
+
+	for i, opts := range optsList {
+		expected := expectedResultsList[i]
+
+		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+		s.Require().NoError(err)
+
+		s.Len(expected, len(actual))
+		for j := 0; j < len(actual); j++ {
+			s.Equal(expected[j].TestName, actual[j].TestName)
+			s.Equal(expected[j].TaskID, actual[j].TaskID)
+			s.Equal(expected[j].Execution, actual[j].Execution)
+		}
+	}
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdDNE() {
+	opts := dbModel.TestResultsFindOptions{
+		TaskID:    "DNE",
+		Execution: 1,
+	}
+
+	result, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdEmpty() {
+	opts := dbModel.TestResultsFindOptions{
+		Execution: 1,
+	}
+
+	result, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
-	optsList := []TestResultsOptions{{
+	optsList := []TestResultsTestNameOptions{{
 		TaskID:    "task1",
 		Execution: 1,
 		TestName:  "test1",
@@ -183,7 +249,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
 	// test when metadata object doesn't exist
-	opts := TestResultsOptions{
+	opts := TestResultsTestNameOptions{
 		TaskID:    "DNE",
 		Execution: 1,
 		TestName:  "test1",
@@ -194,7 +260,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
 	s.Nil(result)
 
 	// test when test object doesn't exist
-	opts = TestResultsOptions{
+	opts = TestResultsTestNameOptions{
 		TaskID:    "task1",
 		Execution: 1,
 		TestName:  "DNE",
@@ -206,7 +272,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameEmpty() {
-	opts := TestResultsOptions{
+	opts := TestResultsTestNameOptions{
 		TaskID:    "task1",
 		Execution: 1,
 	}

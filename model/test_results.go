@@ -96,7 +96,7 @@ type TestResultsFindOptions struct {
 	EmptyExecution bool
 }
 
-// FindByTaskID searches the database for the TestResults associated with the provided task_id / execution pair.
+// FindByTaskID searches the database for the TestResults associated with the provided options.
 // The environment should not be nil. If execution is empty, it will default to most recent execution.
 func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOptions) error {
 	if t.env == nil {
@@ -237,7 +237,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 // environment should not be nil.
 func (t *TestResults) Download(ctx context.Context) (TestResultsIterator, error) {
 	if !t.populated {
-		return nil, errors.New("cannot download with populated test results")
+		return nil, errors.New("cannot download without populated test results")
 	}
 	if t.env == nil {
 		return nil, errors.New("cannot download test results with a nil environment")
