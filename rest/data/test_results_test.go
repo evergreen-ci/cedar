@@ -35,6 +35,7 @@ func TestTestResultsConnectorSuiteDB(t *testing.T) {
 	s.sc = CreateNewDBConnector(s.env)
 	suite.Run(t, s)
 }
+
 func TestTestResultsConnectorSuiteMock(t *testing.T) {
 	s := new(testResultsConnectorSuite)
 	s.setup()
@@ -53,6 +54,7 @@ func (s *testResultsConnectorSuite) setup() {
 	db := s.env.GetDB()
 	s.Require().NotNil(db)
 	s.testResults = map[string]dbModel.TestResults{}
+
 	// setup config
 	var err error
 	s.tempDir, err = ioutil.TempDir(".", "testResults_connector")

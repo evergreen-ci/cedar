@@ -4,7 +4,7 @@ import "github.com/mongodb/anser/bsonutil"
 
 // TestResultsArtifactInfo describes a bucket of test results for a given task
 // execution stored in some kind of offline storage. It is the bridge between
-// pail-backed offline log storage and the cedar-based log metadata storage.
+// pail-backed offline test results storage and the cedar-based test results metadata storage.
 // The prefix field indicates the name of the "sub-bucket". The top level
 // bucket is accesible via the cedar.Environment interface.
 type TestResultsArtifactInfo struct {

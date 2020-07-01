@@ -36,7 +36,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	} else if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrapf(err, "problem finding log with id '%s'", opts.ID).Error(),
 		}
 	}
 
@@ -45,7 +45,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+			Message:    errors.Wrapf(err, "problem downloading log with id '%s'", opts.ID).Error(),
 		}
 	}
 
@@ -54,7 +54,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+			Message:    errors.Wrapf(err, "problem paginating log with id '%s'", opts.ID).Error(),
 		}
 	}
 
@@ -76,7 +76,7 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrapf(err, "problem finding log with id '%s'", id).Error(),
 		}
 	}
 
@@ -84,7 +84,7 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 	if err := apiLog.Import(log); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    "corrupt data",
+			Message:    errors.Wrapf(err, "corrupt data for log with id '%s'", id).Error(),
 		}
 	}
 
@@ -105,9 +105,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 			ProcessName: opts.ProcessName,
 			Tags:        opts.Tags,
 		},
-		Empty: dbModel.EmptyLogInfo{
-			Execution: opts.Execution == 0,
-		},
+		LatestExecution: opts.EmptyExecution,
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -119,7 +117,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	} else if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrapf(err, "problem finding logs with task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -128,7 +126,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+			Message:    errors.Wrapf(err, "problem downloading logs with task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -136,7 +134,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+			Message:    errors.Wrapf(err, "problem paginating logs with task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -151,9 +149,11 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 	dbOpts := dbModel.LogFindOptions{
 		TimeRange: dbModel.TimeRange{EndAt: time.Now()},
 		Info: dbModel.LogInfo{
-			TaskID: opts.TaskID,
-			Tags:   opts.Tags,
+			TaskID:    opts.TaskID,
+			Execution: opts.Execution,
+			Tags:      opts.Tags,
 		},
+		LatestExecution: opts.EmptyExecution,
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -165,7 +165,7 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrapf(err, "problem finding logs with task id '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -174,7 +174,7 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 		if err := apiLogs[i].Import(log); err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    "corrupt data",
+				Message:    errors.Wrapf(err, "corrupt data for logs with task id '%s'", opts.TaskID).Error(),
 			}
 		}
 	}
@@ -188,7 +188,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 		paginated bool
 	)
 
-	it, err := dbc.findLogsByTestName(ctx, opts, true)
+	it, err := dbc.findLogsByTestName(ctx, &opts)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
@@ -198,7 +198,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+			Message:    errors.Wrapf(err, "problem paginating logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -213,14 +213,16 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 	dbOpts := dbModel.LogFindOptions{
 		TimeRange: dbModel.TimeRange{EndAt: time.Now()},
 		Info: dbModel.LogInfo{
-			TaskID: opts.TaskID,
-			Tags:   opts.Tags,
+			TaskID:    opts.TaskID,
+			Execution: opts.Execution,
+			Tags:      opts.Tags,
 		},
+		LatestExecution: opts.EmptyExecution,
 	}
 	if opts.TestName != "" {
 		dbOpts.Info.TestName = opts.TestName
 	} else {
-		dbOpts.Empty = dbModel.EmptyLogInfo{TestName: true}
+		dbOpts.EmptyTestName = true
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -232,7 +234,7 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrapf(err, "problem finding logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -241,7 +243,7 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 		if err := apiLogs[i].Import(log); err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    "corrupt data",
+				Message:    errors.Wrapf(err, "corrupt data for logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 			}
 		}
 	}
@@ -256,17 +258,18 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	)
 
 	opts.ProcessName = ""
-	opts.Execution = 0
-
 	its := []dbModel.LogIterator{}
-	it, err := dbc.findLogsByTestName(ctx, opts, false)
+	it, err := dbc.findLogsByTestName(ctx, &opts)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
 	its = append(its, it)
 
 	opts.TestName = ""
-	it, err = dbc.findLogsByTestName(ctx, opts, false)
+	// Need to set this to false since the last call to findLogsByTestName
+	// has found the latest execution.
+	opts.EmptyExecution = false
+	it, err = dbc.findLogsByTestName(ctx, &opts)
 	if err == nil {
 		its = append(its, it)
 	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
@@ -279,7 +282,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem paginating log")),
+			Message:    errors.Wrapf(err, "problem paginating grouped logs with task id '%s', test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -290,7 +293,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	return data, next, paginated, nil
 }
 
-func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions, emptyExecution bool) (dbModel.LogIterator, error) {
+func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts *BuildloggerOptions) (dbModel.LogIterator, error) {
 	dbOpts := dbModel.LogFindOptions{
 		TimeRange: opts.TimeRange,
 		Info: dbModel.LogInfo{
@@ -299,15 +302,12 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts Buildlogger
 			Execution:   opts.Execution,
 			Tags:        opts.Tags,
 		},
-		Empty: dbModel.EmptyLogInfo{},
+		LatestExecution: opts.EmptyExecution,
 	}
 	if opts.TestName != "" {
 		dbOpts.Info.TestName = opts.TestName
 	} else {
-		dbOpts.Empty.TestName = true
-	}
-	if emptyExecution {
-		dbOpts.Empty.Execution = opts.Execution == 0
+		dbOpts.EmptyTestName = true
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -319,16 +319,17 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts Buildlogger
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrapf(err, "problem finding logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
+	opts.Execution = logs.Logs[0].Info.Execution
 
 	logs.Setup(dbc.env)
 	it, err := logs.Merge(ctx)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem downloading log")),
+			Message:    errors.Wrapf(err, "problem downloading logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -420,6 +421,9 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		}
 	}
 
+	if opts.EmptyExecution {
+		opts.Execution = getMaxExecution(logs)
+	}
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
 
 	its := []dbModel.LogIterator{}
@@ -480,10 +484,16 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts Build
 		}
 	}
 
+	if opts.EmptyExecution {
+		opts.Execution = getMaxExecution(logs)
+	}
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
 
 	apiLogs := []model.APILog{}
 	for _, log := range logs {
+		if opts.Execution != log.Info.Execution {
+			continue
+		}
 		if !containsTags(opts.Tags, log.Info.Tags) {
 			continue
 		}
@@ -506,7 +516,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 		paginated bool
 	)
 
-	it, err := mc.findLogsByTestName(ctx, opts, true)
+	it, err := mc.findLogsByTestName(ctx, &opts)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
@@ -541,10 +551,16 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts Bui
 		}
 	}
 
+	if opts.EmptyExecution {
+		opts.Execution = getMaxExecution(logs)
+	}
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
 
 	apiLogs := []model.APILog{}
 	for _, log := range logs {
+		if opts.Execution != log.Info.Execution {
+			continue
+		}
 		if !containsTags(opts.Tags, log.Info.Tags) {
 			continue
 		}
@@ -568,17 +584,18 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	)
 
 	opts.ProcessName = ""
-	opts.Execution = 0
-
 	its := []dbModel.LogIterator{}
-	it, err := mc.findLogsByTestName(ctx, opts, false)
+	it, err := mc.findLogsByTestName(ctx, &opts)
 	if err != nil {
 		return data, time.Time{}, paginated, err
 	}
 	its = append(its, it)
 
 	opts.TestName = ""
-	it, err = mc.findLogsByTestName(ctx, opts, false)
+	// Need to set this to false since the last call to findLogsByTestName
+	// has found the latest execution.
+	opts.EmptyExecution = false
+	it, err = mc.findLogsByTestName(ctx, &opts)
 	if err == nil {
 		its = append(its, it)
 	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
@@ -602,14 +619,11 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	return data, next, paginated, ctx.Err()
 }
 
-func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts BuildloggerOptions, emptyExecution bool) (dbModel.LogIterator, error) {
+func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts *BuildloggerOptions) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
 		if log.Info.TaskID == opts.TaskID && log.Info.TestName == opts.TestName && containsTags(opts.Tags, log.Info.Tags) {
 			if opts.ProcessName != "" && log.Info.ProcessName != opts.ProcessName {
-				continue
-			}
-			if emptyExecution && log.Info.Execution != opts.Execution {
 				continue
 			}
 			logs = append(logs, log)
@@ -623,10 +637,17 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts Buildlogge
 		}
 	}
 
+	if opts.EmptyExecution {
+		opts.Execution = getMaxExecution(logs)
+	}
 	sort.Slice(logs, func(i, j int) bool { return logs[i].CreatedAt.After(logs[j].CreatedAt) })
 
 	its := []dbModel.LogIterator{}
 	for _, log := range logs {
+		if opts.Execution != log.Info.Execution {
+			continue
+		}
+
 		bucketOpts := pail.LocalOptions{
 			Path:   mc.Bucket,
 			Prefix: log.Artifact.Prefix,
@@ -643,6 +664,17 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts Buildlogge
 	}
 
 	return dbModel.NewMergingIterator(its...), ctx.Err()
+}
+
+func getMaxExecution(logs []dbModel.Log) int {
+	max := 0
+	for _, log := range logs {
+		if log.Info.Execution > max {
+			max = log.Info.Execution
+		}
+	}
+
+	return max
 }
 
 func paginateData(ctx context.Context, it dbModel.LogIterator, opts BuildloggerOptions) ([]byte, bool, error) {

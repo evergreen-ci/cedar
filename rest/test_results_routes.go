@@ -3,11 +3,9 @@ package rest
 import (
 	"context"
 	"net/http"
-
 	"strconv"
 
 	"github.com/evergreen-ci/cedar/model"
-
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"

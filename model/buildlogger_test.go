@@ -21,7 +21,7 @@ import (
 )
 
 func TestCreateLog(t *testing.T) {
-	log, _ := getTestLogs()
+	log, _ := getTestLogs(time.Now())
 	log.populated = true
 	createdLog := CreateLog(log.Info, PailS3)
 	assert.Equal(t, log.ID, createdLog.ID)
@@ -41,7 +41,7 @@ func TestBuildloggerFind(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestBuildloggerSaveNew(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	t.Run("NoEnv", func(t *testing.T) {
 		l := Log{
@@ -161,7 +161,7 @@ func TestBuildloggerAppendLogChunkInfo(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestBuildloggerRemove(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -420,7 +420,7 @@ func TestBuildloggerDownload(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -532,7 +532,7 @@ func TestBuildloggerClose(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -592,11 +592,19 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
+	log3, _ := getTestLogs(time.Now().Add(time.Minute))
+	log3.Info.TestName = "test2"
+	log3.ID = log3.Info.ID()
+	log4, _ := getTestLogs(time.Now().Add(2 * time.Minute))
+	log4.Info.Execution = 1
+	log4.ID = log4.Info.ID()
+	log5, _ := getTestLogs(time.Now().Add(3 * time.Minute))
+	log5.Info.TestName = "test2"
+	log5.Info.Execution = 1
+	log5.ID = log5.Info.ID()
 
-	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
-	require.NoError(t, err)
-	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
+	_, err := db.Collection(buildloggerCollection).InsertMany(ctx, []interface{}{log1, log2, log3, log4, log5})
 	require.NoError(t, err)
 
 	t.Run("NoEnv", func(t *testing.T) {
@@ -654,9 +662,10 @@ func TestBuildloggerFindLogs(t *testing.T) {
 			Info: LogInfo{Project: log1.Info.Project},
 		}
 		require.NoError(t, logs.Find(ctx, opts))
-		require.Len(t, logs.Logs, 2)
+		require.Len(t, logs.Logs, 3)
 		assert.Equal(t, log2.ID, logs.Logs[0].ID)
-		assert.Equal(t, log1.ID, logs.Logs[1].ID)
+		assert.Equal(t, log3.ID, logs.Logs[1].ID)
+		assert.Equal(t, log1.ID, logs.Logs[2].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
@@ -669,11 +678,30 @@ func TestBuildloggerFindLogs(t *testing.T) {
 				EndAt:   time.Now(),
 			},
 			Info:  LogInfo{Project: log1.Info.Project},
-			Limit: 1,
+			Limit: 2,
 		}
 		require.NoError(t, logs.Find(ctx, opts))
-		require.Len(t, logs.Logs, 1)
+		require.Len(t, logs.Logs, 2)
 		assert.Equal(t, log2.ID, logs.Logs[0].ID)
+		assert.Equal(t, log3.ID, logs.Logs[1].ID)
+		assert.True(t, logs.populated)
+		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+	t.Run("LatestExecution", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: TimeRange{
+				StartAt: time.Now().Add(-48 * time.Hour),
+				EndAt:   time.Now(),
+			},
+			Info:            LogInfo{TaskID: log1.Info.TaskID},
+			LatestExecution: true,
+		}
+		require.NoError(t, logs.Find(ctx, opts))
+		require.Len(t, logs.Logs, 2)
+		assert.Equal(t, log5.ID, logs.Logs[0].ID)
+		assert.Equal(t, log4.ID, logs.Logs[1].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
@@ -736,16 +764,13 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		assert.Equal(t, opts.Info.ProcessName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
 		assert.Equal(t, opts.Info.Format, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
 		assert.Equal(t, bson.M{"$in": opts.Info.Tags}, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)])
-		assert.Equal(t, opts.Info.ExitCode, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)])
 		query, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)]
 		require.True(t, ok)
 		args := query.(bson.M)["$in"].([]bson.M)
 		for _, arg := range args {
-			count := 0
+			assert.Len(t, arg, 1)
 			for key, val := range arg {
 				assert.Equal(t, opts.Info.Arguments[key], val)
-				assert.Zero(t, count)
-				count++
 			}
 		}
 		assert.Len(t, args, len(opts.Info.Arguments))
@@ -759,48 +784,43 @@ func TestBuildloggerCreateFindQuery(t *testing.T) {
 		assert.False(t, ok)
 		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
 	})
+	t.Run("OmitFields", func(t *testing.T) {
+		opts.EmptyTestName = true
+		opts.LatestExecution = true
+		search := createFindQuery(opts)
+		assert.Equal(t, opts.Info.Project, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)])
+		assert.Equal(t, opts.Info.Version, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)])
+		assert.Equal(t, opts.Info.Variant, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)])
+		assert.Equal(t, opts.Info.TaskName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)])
+		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)])
+		assert.Equal(t, opts.Info.Trial, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)])
+		assert.Equal(t, opts.Info.ProcessName, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
+		assert.Equal(t, opts.Info.Format, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
+		assert.Equal(t, bson.M{"$in": opts.Info.Tags}, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)])
+		query, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoArgumentsKey)]
+		require.True(t, ok)
+		args := query.(bson.M)["$in"].([]bson.M)
+		for _, arg := range args {
+			assert.Len(t, arg, 1)
+			for key, val := range arg {
+				assert.Equal(t, opts.Info.Arguments[key], val)
+			}
+		}
+		assert.Len(t, args, len(opts.Info.Arguments))
+
+		_, ok = search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)]
+		assert.False(t, ok)
+	})
 	t.Run("EmptyInfo", func(t *testing.T) {
 		opts.Info = LogInfo{}
+		opts.EmptyTestName = false
+		opts.LatestExecution = false
 		search := createFindQuery(opts)
 		assert.Equal(t, search[logCreatedAtKey], bson.M{"$lte": opts.TimeRange.EndAt})
 		assert.Equal(t, search[logCompletedAtKey], bson.M{"$gte": opts.TimeRange.StartAt})
 		assert.Equal(t, true, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)])
-		assert.Len(t, search, 3)
-	})
-	t.Run("EmptyFields", func(t *testing.T) {
-		opts.Info = LogInfo{}
-		opts.Empty = EmptyLogInfo{
-			Project:     true,
-			Version:     true,
-			Variant:     true,
-			TaskName:    true,
-			TaskID:      true,
-			Execution:   true,
-			TestName:    true,
-			Trial:       true,
-			ProcessName: true,
-			Format:      true,
-			Tags:        true,
-			Arguments:   true,
-			ExitCode:    true,
-		}
-		search := createFindQuery(opts)
-		assert.Equal(t, search[logCreatedAtKey], bson.M{"$lte": opts.TimeRange.EndAt})
-		assert.Equal(t, search[logCompletedAtKey], bson.M{"$gte": opts.TimeRange.StartAt})
-		_, ok := search[bsonutil.GetDottedKeyName(logInfoKey, logInfoMainlineKey)]
-		assert.False(t, ok)
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProjectKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVersionKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoVariantKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskNameKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey)])
 		assert.Equal(t, 0, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTestNameKey)])
-		assert.Equal(t, 0, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTrialKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)])
-		assert.Equal(t, nil, search[bsonutil.GetDottedKeyName(logInfoKey, logInfoExitCodeKey)])
+		assert.Len(t, search, 4)
 	})
 }
 
@@ -813,7 +833,7 @@ func TestBuildloggerMerge(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
-	log1, log2 := getTestLogs()
+	log1, log2 := getTestLogs(time.Now())
 
 	_, err := db.Collection(buildloggerCollection).InsertOne(ctx, log1)
 	require.NoError(t, err)
@@ -886,15 +906,16 @@ func TestBuildloggerMerge(t *testing.T) {
 	})
 }
 
-func getTestLogs() (*Log, *Log) {
+func getTestLogs(start time.Time) (*Log, *Log) {
 	log1 := &Log{
 		Info: LogInfo{
 			Project:  "project",
+			TaskID:   "task1",
 			TestName: "test1",
 			Mainline: true,
 		},
-		CreatedAt:   time.Now().Add(-24 * time.Hour),
-		CompletedAt: time.Now().Add(-23 * time.Hour),
+		CreatedAt:   start.Add(-24 * time.Hour),
+		CompletedAt: start.Add(-23 * time.Hour),
 		Artifact: LogArtifactInfo{
 			Type:    PailLocal,
 			Prefix:  "log1",
@@ -905,11 +926,12 @@ func getTestLogs() (*Log, *Log) {
 	log2 := &Log{
 		Info: LogInfo{
 			Project:  "project",
+			TaskID:   "task2",
 			TestName: "test2",
 			Mainline: true,
 		},
-		CreatedAt:   time.Now().Add(-2 * time.Hour),
-		CompletedAt: time.Now().Add(-time.Hour),
+		CreatedAt:   start.Add(-2 * time.Hour),
+		CompletedAt: start.Add(-time.Hour),
 		Artifact: LogArtifactInfo{
 			Type:    PailLocal,
 			Prefix:  "log1",

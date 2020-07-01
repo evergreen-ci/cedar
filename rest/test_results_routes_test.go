@@ -126,7 +126,6 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 			data, err := bson.Marshal(result)
 			s.Require().NoError(err)
 			s.Require().NoError(s.buckets[key].Put(context.Background(), result.TestName, bytes.NewReader(data)))
-			// s.Require().NoError(s.buckets[key].Put(context.Background(), result.TaskID, bytes.NewReader(data)))
 			apiResult := model.APITestResult{}
 			s.Require().NoError(apiResult.Import(result))
 			s.apiResults[fmt.Sprintf("%s_%d_%s", result.TaskID, result.Execution, result.TestName)] = apiResult

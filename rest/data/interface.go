@@ -101,19 +101,31 @@ type Connector interface {
 	FindTestResultByTestName(context.Context, TestResultsTestNameOptions) (*model.APITestResult, error)
 }
 
+// BuildloggerOptions contains arguments for buildlogger related Connector
+// functions.
 type BuildloggerOptions struct {
-	ID            string
-	TaskID        string
-	TestName      string
-	Execution     int
-	ProcessName   string
-	Tags          []string
-	TimeRange     dbModel.TimeRange
-	PrintTime     bool
-	PrintPriority bool
-	Limit         int
-	Tail          int
-	SoftSizeLimit int
+	ID             string
+	TaskID         string
+	TestName       string
+	Execution      int
+	EmptyExecution bool
+	ProcessName    string
+	Tags           []string
+	TimeRange      dbModel.TimeRange
+	PrintTime      bool
+	PrintPriority  bool
+	Limit          int
+	Tail           int
+	SoftSizeLimit  int
+}
+
+// TestResultsOptions holds all values required to find a specific TestResults
+// or TestResult object using connector functions.
+type TestResultsOptions struct {
+	TaskID         string
+	TestName       string
+	Execution      int
+	EmptyExecution bool
 }
 
 // TestResultsTestNameOptions holds all values required to find a specific TestResults
