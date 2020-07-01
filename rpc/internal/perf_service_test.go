@@ -104,17 +104,17 @@ func setupAuthRestClient(ctx context.Context, host string, port int) (*rest.Clie
 		Host:     host,
 		Port:     port,
 		Prefix:   "rest",
-		Username: os.Getenv("SERVICE_USER"),
+		Username: os.Getenv("AUTH_USER"),
 	}
 	client, err := rest.NewClient(opts)
 	if err != nil {
 		return nil, err
 	}
-	if apiKey := os.Getenv("SERVICE_API_KEY"); apiKey != "" {
-		opts.ApiKey = os.Getenv("SERVICE_API_KEY")
+	if apiKey := os.Getenv("AUTH_API_KEY"); apiKey != "" {
+		opts.ApiKey = os.Getenv("AUTH_API_KEY")
 	} else {
 		var apiKey string
-		apiKey, err = client.GetAuthKey(ctx, os.Getenv("SERVICE_USER"), os.Getenv("SERVICE_PASSWORD"))
+		apiKey, err = client.GetAuthKey(ctx, os.Getenv("AUTH_USER"), os.Getenv("AUTH_PASSWORD"))
 		if err != nil {
 			return nil, errors.Wrap(err, "problem authenticating from environment")
 		}
@@ -494,9 +494,9 @@ func TestCuratorSend(t *testing.T) {
 			setup: func(t *testing.T) *exec.Cmd {
 				caData, err := restClient.GetRootCertificate(ctx)
 				require.NoError(t, err)
-				userCertData, err := restClient.GetUserCertificate(ctx, os.Getenv("SERVICE_USER"), os.Getenv("SERVICE_PASSWORD"), os.Getenv("SERVICE_API_KEY"))
+				userCertData, err := restClient.GetUserCertificate(ctx, os.Getenv("AUTH_USER"), os.Getenv("AUTH_PASSWORD"), os.Getenv("AUTH_API_KEY"))
 				require.NoError(t, err)
-				userKeyData, err := restClient.GetUserCertificateKey(ctx, os.Getenv("SERVICE_USER"), os.Getenv("SERVICE_PASSWORD"), os.Getenv("SERVICE_API_KEY"))
+				userKeyData, err := restClient.GetUserCertificateKey(ctx, os.Getenv("AUTH_USER"), os.Getenv("AUTH_PASSWORD"), os.Getenv("AUTH_API_KEY"))
 				require.NoError(t, err)
 				require.NoError(t, writeCerts(caData, caCert, userCertData, userCert, userKeyData, userKey))
 

@@ -60,8 +60,9 @@ functions:
       args: ["${make_args|}", "${target}"]
       add_expansions_to_env: true
       env:
-        SERVICE_USER: ${service_user}
-        SERVICE_PASSWORD: ${service_password}
+        AUTH_USER: ${auth_user}
+        AUTH_PASSWORD: ${auth_password}
+        AUTH_API_KEY: ${auth_api_key}
         GOPATH: ${workdir}/gopath
         UserProfile: C:\\cygwin\\home\\Administrator
         VENDOR_PKG: "github.com/${trigger_repo_owner}/${trigger_repo_name}"
