@@ -138,6 +138,7 @@ func (result *SystemMetrics) SaveNew(ctx context.Context) error {
 	})
 
 	return errors.Wrapf(err, "problem saving new system metrics result %s", result.ID)
+}
 
 // Append uploads a chunk of system metrics data to the offline blob storage bucket
 // configured for the system metrics and updates the metadata in the database to reflect
