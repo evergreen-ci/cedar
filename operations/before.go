@@ -14,22 +14,19 @@ import (
 // specific validation for flags, as well as some more generic helper
 // functions to generate and define these.
 
-var (
-	requireClientHostFlag = func(c *cli.Context) error {
-		if c.Parent().String(clientHostFlag) == "" {
-			return errors.New("host not specified for client")
-		}
-		return nil
+func requireClientHostFlag(c *cli.Context) error {
+	if c.String(clientHostFlag) == "" {
+		return errors.New("host not specified for client")
 	}
+	return nil
+}
 
-	requireClientPortFlag = func(c *cli.Context) error {
-		// TODO consider validating
-		if c.Parent().Int(clientPortFlag) == 0 {
-			return errors.New("port not specified for client")
-		}
-		return nil
+func setDefaultClientPortFlag(c *cli.Context) error {
+	if !c.IsSet(clientHostFlag) && !c.IsSet(clientPortFlag) {
+		return c.Set(clientPortFlag, "3000")
 	}
-)
+	return nil
+}
 
 func requireStringFlag(name string) cli.BeforeFunc {
 	return func(c *cli.Context) error {
