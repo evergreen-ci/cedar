@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -117,7 +117,7 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 // Append uploads a chunk of system metrics data to the offline blob storage bucket
 // configured for the system metrics and updates the metadata in the database to reflect
 // the uploaded data. The environment should not be nil.
-func (sm *SystemMetrics) Append(ctx context.Context, order int, data []byte) error {
+func (sm *SystemMetrics) Append(ctx context.Context, data []byte) error {
 	if sm.env == nil {
 		return errors.New("cannot not append system metrics data with a nil environment")
 	}
@@ -125,12 +125,14 @@ func (sm *SystemMetrics) Append(ctx context.Context, order int, data []byte) err
 		grip.Warning(message.Fields{
 			"collection": systemMetricsCollection,
 			"id":         sm.ID,
+			"task_id":    sm.Info.TaskID,
+			"execution":  sm.Info.Execution,
 			"message":    "append called with no system metrics data",
 		})
 		return nil
 	}
 
-	key := strconv.Itoa(order)
+	key := fmt.Sprint(utility.UnixMilli(time.Now()))
 
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
@@ -178,6 +180,8 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key st
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   systemMetricsCollection,
 		"id":           sm.ID,
+		"task_id":      sm.Info.TaskID,
+		"execution":    sm.Info.Execution,
 		"updateResult": updateResult,
 		"key":          key,
 		"op":           "append data chunk key to system metrics metadata",
