@@ -128,6 +128,8 @@ func (sm *SystemMetrics) Remove(ctx context.Context) error {
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   systemMetricsCollection,
 		"id":           sm.ID,
+		"task_id":      sm.Info.TaskID,
+		"execution":    sm.Info.Execution,
 		"deleteResult": deleteResult,
 		"op":           "remove system metrics record",
 	})
