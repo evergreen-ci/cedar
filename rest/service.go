@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -200,13 +199,11 @@ func (s *Service) setupServiceAuth() (gimlet.UserManager, error) {
 				return nil, false, errors.Errorf("finding user")
 			}
 			msg["message"] = "successfully found user by ID"
-			msg["user"] = fmt.Sprintf("%#v", user)
 			grip.Debug(msg)
 			return user, true, nil
 		},
 		GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
 			msg := message.Fields{
-				"user":     fmt.Sprintf("%#v", u),
 				"username": u.Username(),
 				"op":       "GetOrCreateUser",
 				"context":  "service user manager",
@@ -219,7 +216,6 @@ func (s *Service) setupServiceAuth() (gimlet.UserManager, error) {
 				return nil, errors.Wrap(err, "failed to find user and cannot create new one")
 			}
 			msg["message"] = "successfully found existing user"
-			msg["user"] = fmt.Sprintf("%#v", u)
 			grip.Debug(msg)
 			return user, nil
 		},
@@ -248,7 +244,6 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 		ExternalCache: &usercache.ExternalOptions{
 			PutUserGetToken: func(u gimlet.User) (string, error) {
 				msg := message.Fields{
-					"user":     fmt.Sprintf("%#v", u),
 					"username": u.Username(),
 					"op":       "PutLoginCache",
 					"context":  "LDAP user manager",
@@ -277,7 +272,6 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 					return nil, false, errors.WithStack(err)
 				}
 				msg["message"] = "successfully found user by token"
-				msg["user"] = fmt.Sprintf("%#v", u)
 				msg["username"] = u.Username()
 				msg["valid"] = valid
 				grip.Debug(msg)
@@ -285,7 +279,6 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 			},
 			ClearUserToken: func(u gimlet.User, all bool) error {
 				msg := message.Fields{
-					"user":    fmt.Sprintf("%#v", u),
 					"all":     all,
 					"op":      "ClearUserToken",
 					"context": "LDAP user manager",
@@ -312,14 +305,12 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 					return u, valid, errors.WithStack(err)
 				}
 				msg["message"] = "successfully found user by ID"
-				msg["user"] = fmt.Sprintf("%#v", u)
 				msg["valid"] = valid
 				grip.Debug(msg)
 				return u, valid, nil
 			},
 			GetOrCreateUser: func(u gimlet.User) (gimlet.User, error) {
 				msg := message.Fields{
-					"user":     fmt.Sprintf("%#v", u),
 					"username": u.Username(),
 					"op":       "GetOrCreateUser",
 					"context":  "LDAP user manager",
@@ -331,7 +322,6 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 					return nil, errors.WithStack(err)
 				}
 				msg["message"] = "successfully found existing user or created new user"
-				msg["user"] = fmt.Sprintf("%#v", user)
 				grip.Debug(msg)
 				return user, nil
 			},
