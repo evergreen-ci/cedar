@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"fmt"
@@ -9,8 +10,12 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -39,8 +44,7 @@ var (
 )
 
 // CreateSystemMetrics is the entry point for creating the metadata for
-// system metric time series data for a task execution. User specified
-// Prefix and Key will be written over.
+// system metric time series data for a task execution.
 func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOptions) *SystemMetrics {
 	return &SystemMetrics{
 		ID:        info.ID(),
@@ -48,7 +52,7 @@ func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOp
 		CreatedAt: time.Now(),
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix:  info.ID(),
-			Keys:    []string{},
+			Chunks:  []string{},
 			Options: options,
 		},
 		populated: true,
@@ -88,26 +92,105 @@ var (
 // Find searches the database for the system metrics object. The environment should
 // not be nil. Either the ID or full Info of the system metrics object needs to be
 // specified.
-func (result *SystemMetrics) Find(ctx context.Context) error {
-	if result.env == nil {
+func (sm *SystemMetrics) Find(ctx context.Context) error {
+	if sm.env == nil {
 		return errors.New("cannot find with a nil environment")
 	}
 
-	if result.ID == "" {
-		result.ID = result.Info.ID()
+	if sm.ID == "" {
+		sm.ID = sm.Info.ID()
 	}
 
-	result.populated = false
-	err := result.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result)
+	sm.populated = false
+	err := sm.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm.ID}).Decode(sm)
 	if db.ResultsNotFound(err) {
-		return fmt.Errorf("could not find system metrics record in the database with id %s", result.ID)
+		return fmt.Errorf("could not find system metrics record in the database with id %s", sm.ID)
 	} else if err != nil {
-		return errors.Wrapf(err, "problem finding system metrics with id %s", result.ID)
+		return errors.Wrapf(err, "problem finding system metrics with id %s", sm.ID)
 	}
 
-	result.populated = true
+	sm.populated = true
 
 	return nil
+}
+
+// Append uploads a chunk of system metrics data to the offline blob storage bucket
+// configured for the system metrics and updates the metadata in the database to reflect
+// the uploaded data. The environment should not be nil.
+func (sm *SystemMetrics) Append(ctx context.Context, data []byte) error {
+	if sm.env == nil {
+		return errors.New("cannot not append system metrics data with a nil environment")
+	}
+	if len(data) == 0 {
+		grip.Warning(message.Fields{
+			"collection": systemMetricsCollection,
+			"id":         sm.ID,
+			"task_id":    sm.Info.TaskID,
+			"execution":  sm.Info.Execution,
+			"message":    "append called with no system metrics data",
+		})
+		return nil
+	}
+
+	key := fmt.Sprint(utility.UnixMilli(time.Now()))
+
+	conf := &CedarConfig{}
+	conf.Setup(sm.env)
+	if err := conf.Find(); err != nil {
+		return errors.Wrap(err, "problem getting application configuration")
+	}
+	bucket, err := sm.Artifact.Options.Type.Create(
+		ctx,
+		sm.env,
+		conf.Bucket.SystemMetricsBucket,
+		sm.Artifact.Prefix,
+		string(pail.S3PermissionsPrivate),
+		true,
+	)
+	if err != nil {
+		return errors.Wrap(err, "problem creating bucket")
+	}
+	if err := bucket.Put(ctx, key, bytes.NewReader(data)); err != nil {
+		return errors.Wrap(err, "problem uploading system metrics data to bucket")
+	}
+
+	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, key), "problem updating system metrics metadata during upload")
+}
+
+// appendSystemMetricsChunkKey adds a new key to the system metrics's chunks array in the
+// database. The environment should not be nil.
+func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key string) error {
+	if sm.env == nil {
+		return errors.New("cannot append to a system metrics object with a nil environment")
+	}
+
+	if sm.ID == "" {
+		sm.ID = sm.Info.ID()
+	}
+
+	updateResult, err := sm.env.GetDB().Collection(systemMetricsCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": sm.ID},
+		bson.M{
+			"$push": bson.M{
+				bsonutil.GetDottedKeyName(systemMetricsArtifactKey, metricsArtifactInfoChunksKey): key,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   systemMetricsCollection,
+		"id":           sm.ID,
+		"task_id":      sm.Info.TaskID,
+		"execution":    sm.Info.Execution,
+		"updateResult": updateResult,
+		"key":          key,
+		"op":           "append data chunk key to system metrics metadata",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find system metrics object with id %s in the database", sm.ID)
+	}
+
+	return errors.Wrapf(err, "problem appending system metrics data chunk to %s", sm.ID)
 }
 
 // ID creates a unique hash for the system metrics for a task.

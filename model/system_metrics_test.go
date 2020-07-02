@@ -2,13 +2,21 @@ package model
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
+	"github.com/jpillora/backoff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestCreateSystemMetrics(t *testing.T) {
@@ -70,6 +78,169 @@ func TestSystemMetricsFind(t *testing.T) {
 	})
 }
 
+func TestSystemMetricsAppend(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "append-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	systemMetrics := getSystemMetrics()
+	systemMetrics.populated = true
+
+	chunk1 := []byte(utility.RandomString())
+	chunk2 := []byte(utility.RandomString())
+
+	t.Run("NoEnv", func(t *testing.T) {
+		sm := SystemMetrics{ID: systemMetrics.ID}
+		assert.Error(t, sm.Append(ctx, chunk1))
+	})
+	t.Run("DNE", func(t *testing.T) {
+		systemMetrics.Setup(env)
+		assert.Error(t, systemMetrics.Append(ctx, chunk1))
+	})
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics)
+	require.NoError(t, err)
+	t.Run("NoConfig", func(t *testing.T) {
+		systemMetrics.Setup(env)
+		assert.Error(t, systemMetrics.Append(ctx, chunk1))
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		systemMetrics.Setup(env)
+		assert.Error(t, systemMetrics.Append(ctx, chunk1))
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.SystemMetricsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("AppendToBucketAndDB", func(t *testing.T) {
+		systemMetrics.Setup(env)
+		require.NoError(t, systemMetrics.Append(ctx, chunk1))
+		require.NoError(t, systemMetrics.Append(ctx, chunk2))
+
+		b := &backoff.Backoff{
+			Min:    100 * time.Millisecond,
+			Max:    5 * time.Second,
+			Factor: 2,
+		}
+		var keyCheck map[string]string
+		for i := 0; i < 10; i++ {
+			keyCheck = map[string]string{}
+			iter, err := testBucket.List(ctx, systemMetrics.ID)
+			require.NoError(t, err)
+			for iter.Next(ctx) {
+				key, err := filepath.Rel(systemMetrics.ID, iter.Item().Name())
+				require.NoError(t, err)
+				r, err := iter.Item().Get(ctx)
+				require.NoError(t, err)
+				defer func() {
+					assert.NoError(t, r.Close())
+				}()
+				data, err := ioutil.ReadAll(r)
+				require.NoError(t, err)
+				keyCheck[string(data)] = key
+			}
+
+			if len(keyCheck) > 1 {
+				break
+			}
+			time.Sleep(b.Duration())
+		}
+		chunk1Key, ok1 := keyCheck[string(chunk1)]
+		chunk2Key, ok2 := keyCheck[string(chunk2)]
+		assert.True(t, ok1 && ok2)
+		chunk1Nanos, err1 := strconv.ParseInt(chunk1Key, 10, 64)
+		chunk2Nanos, err2 := strconv.ParseInt(chunk2Key, 10, 64)
+		assert.NoError(t, err1, err2)
+		assert.True(t, chunk1Nanos < chunk2Nanos)
+
+		sm := &SystemMetrics{}
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics.Info.ID()}).Decode(sm))
+		assert.Len(t, sm.Artifact.Chunks, 2)
+		assert.Equal(t, sm.Artifact.Chunks, []string{chunk1Key, chunk2Key})
+	})
+}
+
+func TestSystemMetricsAppendChunkKey(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	}()
+
+	key1 := fmt.Sprint(utility.UnixMilli(time.Now().Add(-20 * time.Second)))
+	key2 := fmt.Sprint(utility.UnixMilli(time.Now().Add(-10 * time.Second)))
+
+	systemMetrics1 := getSystemMetrics()
+	systemMetrics2 := getSystemMetrics()
+	systemMetrics2.Artifact.Chunks = []string{key1, key2}
+
+	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics1)
+	require.NoError(t, err)
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		sm := &SystemMetrics{ID: systemMetrics1.ID}
+		assert.Error(t, sm.appendSystemMetricsChunkKey(ctx, key1))
+	})
+	t.Run("DNE", func(t *testing.T) {
+		sm := &SystemMetrics{ID: "DNE"}
+		sm.Setup(env)
+		assert.Error(t, sm.appendSystemMetricsChunkKey(ctx, key1))
+	})
+	t.Run("PushToEmptyArray", func(t *testing.T) {
+		chunks := []string{key1, key2}
+		sm := &SystemMetrics{ID: systemMetrics1.ID}
+		sm.Setup(env)
+
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, chunks[0]))
+		updatedSystemMetrics := &SystemMetrics{}
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics1.ID}).Decode(updatedSystemMetrics))
+		assert.Equal(t, systemMetrics1.ID, updatedSystemMetrics.ID)
+		assert.Equal(t, systemMetrics1.Info, updatedSystemMetrics.Info)
+		assert.Equal(t, systemMetrics1.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
+		assert.Equal(t, chunks[:1], updatedSystemMetrics.Artifact.Chunks)
+
+		sm.Setup(env)
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, chunks[1]))
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics1.ID}).Decode(updatedSystemMetrics))
+		assert.Equal(t, systemMetrics1.ID, updatedSystemMetrics.ID)
+		assert.Equal(t, systemMetrics1.Info, updatedSystemMetrics.Info)
+		assert.Equal(t, systemMetrics1.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
+		assert.Equal(t, chunks, updatedSystemMetrics.Artifact.Chunks)
+	})
+	t.Run("PushToExistingArray", func(t *testing.T) {
+		sm := &SystemMetrics{ID: systemMetrics2.ID}
+		sm.Setup(env)
+
+		key3 := fmt.Sprint(utility.UnixMilli(time.Now()))
+
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, key3))
+		updatedSystemMetrics := &SystemMetrics{}
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics2.ID}).Decode(updatedSystemMetrics))
+		assert.Equal(t, systemMetrics2.ID, updatedSystemMetrics.ID)
+		assert.Equal(t, systemMetrics2.Info, updatedSystemMetrics.Info)
+		assert.Equal(t, systemMetrics2.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
+		assert.Equal(t, append(systemMetrics2.Artifact.Chunks, key3), updatedSystemMetrics.Artifact.Chunks)
+
+	})
+}
+
 func getSystemMetrics() *SystemMetrics {
 	info := SystemMetricsInfo{
 		Project:  utility.RandomString(),
@@ -87,7 +258,7 @@ func getSystemMetrics() *SystemMetrics {
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix: info.ID(),
-			Keys:   []string{},
+			Chunks: []string{},
 			Options: SystemMetricsArtifactOptions{
 				Type:        PailLocal,
 				Format:      FileFTDC,
