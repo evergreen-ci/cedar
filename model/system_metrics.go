@@ -114,6 +114,27 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	return nil
 }
 
+// Remove removes the log from the database. The environment should not be nil.
+func (sm *SystemMetrics) Remove(ctx context.Context) error {
+	if sm.env == nil {
+		return errors.New("cannot remove a system metrics record with a nil environment")
+	}
+
+	if sm.ID == "" {
+		sm.ID = sm.Info.ID()
+	}
+
+	deleteResult, err := sm.env.GetDB().Collection(systemMetricsCollection).DeleteOne(ctx, bson.M{"_id": sm.ID})
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   buildloggerCollection,
+		"id":           sm.ID,
+		"deleteResult": deleteResult,
+		"op":           "remove system metrics record",
+	})
+
+	return errors.Wrapf(err, "problem removing system metrics record with _id %s", sm.ID)
+}
+
 // Append uploads a chunk of system metrics data to the offline blob storage bucket
 // configured for the system metrics and updates the metadata in the database to reflect
 // the uploaded data. The environment should not be nil.
