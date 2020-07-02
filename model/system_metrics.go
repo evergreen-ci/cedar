@@ -11,6 +11,8 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -108,6 +110,32 @@ func (result *SystemMetrics) Find(ctx context.Context) error {
 	result.populated = true
 
 	return nil
+}
+
+// SaveNew saves a new system metrics result to the database. If a result with the
+// same ID already exists an error is returned. The result should be populated
+// and the environment should not be nil.
+func (result *SystemMetrics) SaveNew(ctx context.Context) error {
+	if !result.populated {
+		return errors.New("cannot save unpopulated system metrics result")
+	}
+	if result.env == nil {
+		return errors.New("cannot save with a nil environment")
+	}
+
+	if result.ID == "" {
+		result.ID = result.Info.ID()
+	}
+
+	insertResult, err := result.env.GetDB().Collection(systemMetricsCollection).InsertOne(ctx, result)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   systemMetricsCollection,
+		"id":           result.ID,
+		"insertResult": insertResult,
+		"op":           "save new system metrics result",
+	})
+
+	return errors.Wrapf(err, "problem saving new system metrics result %s", result.ID)
 }
 
 // ID creates a unique hash for the system metrics for a task.
