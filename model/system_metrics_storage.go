@@ -15,7 +15,7 @@ import (
 // encoding of the file.
 type SystemMetricsArtifactInfo struct {
 	Prefix  string                       `bson:"prefix"`
-	Chunks  []string                     `bson:"path"`
+	Chunks  []string                     `bson:"chunks"`
 	Options SystemMetricsArtifactOptions `bson:"options"`
 }
 
