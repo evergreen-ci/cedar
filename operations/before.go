@@ -21,6 +21,13 @@ func requireClientHostFlag(c *cli.Context) error {
 	return nil
 }
 
+func setDefaultClientPortFlag(c *cli.Context) error {
+	if !c.IsSet(clientHostFlag) && !c.IsSet(clientPortFlag) {
+		return c.Set(clientPortFlag, "3000")
+	}
+	return nil
+}
+
 func requireStringFlag(name string) cli.BeforeFunc {
 	return func(c *cli.Context) error {
 		if c.String(name) == "" {

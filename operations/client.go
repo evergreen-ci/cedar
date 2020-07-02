@@ -25,7 +25,7 @@ func Client() cli.Command {
 		Name:   "client",
 		Usage:  "run a simple cedar client",
 		Flags:  restServiceFlags(),
-		Before: mergeBeforeFuncs(requireClientHostFlag),
+		Before: mergeBeforeFuncs(requireClientHostFlag, setDefaultClientPortFlag),
 		Subcommands: []cli.Command{
 			printStatus(),
 			postSimpleLog(),
