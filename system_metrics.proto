@@ -47,7 +47,7 @@ message SystemMetricsResponse {
 
 
 service CedarSystemMetrics {
-  rpc CreateSystemMetricSeries(SystemMetrics) returns (SystemMetricsResponse);
+  rpc CreateSystemMetricRecord(SystemMetrics) returns (SystemMetricsResponse);
   rpc AddSystemMetrics(SystemMetricsData) returns (SystemMetricsResponse);
   rpc StreamSystemMetrics(stream SystemMetricsData) returns (SystemMetricsResponse);
   rpc CloseMetrics(SystemMetricsSeriesEnd) returns (SystemMetricsResponse);
