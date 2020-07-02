@@ -23,6 +23,7 @@ type CedarConfig struct {
 	Splunk         send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
 	Slack          SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
 	LDAP           LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
+	ServiceAuth    ServiceAuthConfig         `bson:"service_auth" json:"service_auth" yaml:"service_auth"`
 	NaiveAuth      NaiveAuthConfig           `bson:"naive_auth" json:"naive_auth" yaml:"naive_auth"`
 	CA             CAConfig                  `bson:"ca" json:"ca" yaml:"ca"`
 	Bucket         BucketConfig              `bson:"bucket" json:"bucket" yaml:"bucket"`
@@ -51,6 +52,8 @@ var (
 	cedarConfigurationSplunkKey         = bsonutil.MustHaveTag(CedarConfig{}, "Splunk")
 	cedarConfigurationSlackKey          = bsonutil.MustHaveTag(CedarConfig{}, "Slack")
 	cedarConfigurationLDAPKey           = bsonutil.MustHaveTag(CedarConfig{}, "LDAP")
+	cedarConfigurationServiceAuthKey    = bsonutil.MustHaveTag(CedarConfig{}, "ServiceAuth")
+	cedarConfigurationNaiveAuthKey      = bsonutil.MustHaveTag(CedarConfig{}, "NaiveAuth")
 	cedarConfigurationCAKey             = bsonutil.MustHaveTag(CedarConfig{}, "CA")
 	cedarConfigurationFlagsKey          = bsonutil.MustHaveTag(CedarConfig{}, "Flags")
 	cedarConfigurationServiceKey        = bsonutil.MustHaveTag(CedarConfig{}, "Service")
@@ -112,6 +115,10 @@ var (
 	cedarLDAPConfigGroupKey        = bsonutil.MustHaveTag(LDAPConfig{}, "UserGroup")
 	cedarLDAPConfigServiceGroupKey = bsonutil.MustHaveTag(LDAPConfig{}, "ServiceGroup")
 )
+
+type ServiceAuthConfig struct {
+	Enabled bool `bson:"enabled" json:"enabled" yaml:"enabled"`
+}
 
 type NaiveAuthConfig struct {
 	AppAuth bool              `bson:"app_auth" json:"app_auth" yaml:"app_auth"`

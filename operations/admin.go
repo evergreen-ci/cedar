@@ -39,7 +39,6 @@ func Admin() cli.Command {
 				Name:  "auth",
 				Usage: "manage user authentication",
 				Subcommands: []cli.Command{
-					getAPIKey(),
 					getUserCert(),
 					uploadCerts(),
 				},
@@ -109,6 +108,7 @@ func unsetFeatureFlag() cli.Command {
 	}
 }
 
+// TODO (EVG-9694): delete this command
 func getAPIKey() cli.Command {
 	const (
 		userNameFlag = "username"
@@ -163,6 +163,7 @@ func getUserCert() cli.Command {
 	const (
 		userNameFlag    = "username"
 		passwordFlag    = "password"
+		apiKeyFlag      = "api_key"
 		writeToFileFlag = "dump"
 	)
 
@@ -176,15 +177,19 @@ func getUserCert() cli.Command {
 			cli.StringFlag{
 				Name: passwordFlag,
 			},
+			cli.StringFlag{
+				Name: apiKeyFlag,
+			},
 			cli.BoolFlag{
 				Name:  writeToFileFlag,
 				Usage: "specify to write certificate files to a file",
 			},
 		),
-		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireStringFlag(passwordFlag)),
+		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireOneFlag(passwordFlag, apiKeyFlag)),
 		Action: func(c *cli.Context) error {
 			user := c.String(userNameFlag)
 			pass := c.String(passwordFlag)
+			apiKey := c.String(apiKeyFlag)
 			host := c.String(clientHostFlag)
 			port := c.Int(clientPortFlag)
 			writeToFile := c.Bool(writeToFileFlag)
@@ -220,7 +225,7 @@ func getUserCert() cli.Command {
 				fmt.Println(ca)
 			}
 
-			cert, err := client.GetUserCertificate(ctx, user, pass)
+			cert, err := client.GetUserCertificate(ctx, user, pass, apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate")
 			}
@@ -242,7 +247,7 @@ func getUserCert() cli.Command {
 				fmt.Println(cert)
 			}
 
-			key, err := client.GetUserCertificateKey(ctx, user, pass)
+			key, err := client.GetUserCertificateKey(ctx, user, pass, apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate key")
 			}

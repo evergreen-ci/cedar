@@ -503,6 +503,7 @@ func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, err
 	return out.State, nil
 }
 
+// TODO (EVG-9694): delete this method
 func (c *Client) GetAuthKey(ctx context.Context, username, password string) (string, error) {
 	url := c.getURL("/v1/admin/users/key")
 
@@ -607,12 +608,12 @@ func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCre
 	return string(out), nil
 }
 
-func (c *Client) GetUserCertificate(ctx context.Context, username, password string) (string, error) {
-	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate"), &userCredentials{Username: username, Password: password})
+func (c *Client) GetUserCertificate(ctx context.Context, username, password, apiKey string) (string, error) {
+	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate"), &userCredentials{Username: username, Password: password, APIKey: apiKey})
 }
 
-func (c *Client) GetUserCertificateKey(ctx context.Context, username, password string) (string, error) {
-	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), &userCredentials{Username: username, Password: password})
+func (c *Client) GetUserCertificateKey(ctx context.Context, username, password, apiKey string) (string, error) {
+	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), &userCredentials{Username: username, Password: password, APIKey: apiKey})
 }
 
 func (c *Client) FindPerformanceResultById(ctx context.Context, id string) (*model.APIPerformanceResult, error) {

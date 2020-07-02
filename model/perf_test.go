@@ -754,10 +754,19 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
-	s.Equal(s.r.Results[0].ID, nodeA.ID)
-	s.Equal(s.r.Results[1].ID, nodeD.ID)
-	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
+	var nodeACount int
+	var nodeDCount int
+	for _, r := range s.r.Results[:4] {
+		switch r.ID {
+		case nodeA.ID:
+			nodeACount++
+		case nodeD.ID:
+			nodeDCount++
+		}
+		if r.ID == nodeA.ID {
+			nodeACount++
+		}
+	}
 
 	// Test min through max depth with $graphLookup
 	options = PerfFindOptions{
@@ -787,10 +796,19 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 	options.Info.Parent = nodeA.ID
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 4)
-	s.Equal(s.r.Results[0].ID, nodeA.ID)
-	s.Equal(s.r.Results[1].ID, nodeD.ID)
-	s.Equal(s.r.Results[2].Info.Parent, nodeA.ID)
-	s.Equal(s.r.Results[3].Info.Parent, nodeA.ID)
+	nodeACount = 0
+	nodeDCount = 0
+	for _, r := range s.r.Results[:4] {
+		switch r.ID {
+		case nodeA.ID:
+			nodeACount++
+		case nodeD.ID:
+			nodeDCount++
+		}
+		if r.ID == nodeA.ID {
+			nodeACount++
+		}
+	}
 
 	// Test tag filtering with $graphLookup
 	options = PerfFindOptions{
