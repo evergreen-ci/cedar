@@ -396,3 +396,62 @@ func TestSystemMetricsSaveNew(t *testing.T) {
 		require.Error(t, sm.SaveNew(ctx))
 	})
 }
+
+func TestSystemMetricsClose(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := env.Context()
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	}()
+	sm1 := getSystemMetrics()
+	sm2 := getSystemMetrics()
+
+	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, sm1)
+	require.NoError(t, err)
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, sm2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		sm := &SystemMetrics{ID: sm1.ID, populated: true}
+		assert.Error(t, sm.Close(ctx, 0))
+	})
+	t.Run("DNE", func(t *testing.T) {
+		sm := &SystemMetrics{ID: "DNE"}
+		sm.Setup(env)
+		assert.Error(t, sm.Close(ctx, 0))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		e1 := 0
+		l1 := &SystemMetrics{ID: sm1.ID, populated: true}
+		l1.Setup(env)
+		require.NoError(t, l1.Close(ctx, e1))
+
+		updatedSystemMetrics := &SystemMetrics{}
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": sm1.ID}).Decode(updatedSystemMetrics))
+		assert.Equal(t, sm1.ID, updatedSystemMetrics.ID)
+		assert.Equal(t, sm1.ID, updatedSystemMetrics.Info.ID())
+		assert.Equal(t, sm1.CreatedAt.UTC().Round(time.Second), updatedSystemMetrics.CreatedAt.Round(time.Second))
+		assert.True(t, time.Since(updatedSystemMetrics.CompletedAt) <= time.Second)
+		assert.Equal(t, sm1.Info.Mainline, updatedSystemMetrics.Info.Mainline)
+		assert.Equal(t, sm1.Info.Schema, updatedSystemMetrics.Info.Schema)
+		assert.Equal(t, sm1.Artifact, updatedSystemMetrics.Artifact)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		e2 := 9
+		l2 := &SystemMetrics{Info: sm2.Info, populated: true}
+		l2.Setup(env)
+		require.NoError(t, l2.Close(ctx, e2))
+
+		updatedSystemMetrics := &SystemMetrics{}
+		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": sm2.ID}).Decode(updatedSystemMetrics))
+		assert.Equal(t, sm2.ID, updatedSystemMetrics.ID)
+		assert.Equal(t, sm2.ID, updatedSystemMetrics.Info.ID())
+		assert.Equal(t, sm2.CreatedAt.UTC().Round(time.Second), updatedSystemMetrics.CreatedAt.Round(time.Second))
+		assert.True(t, time.Since(updatedSystemMetrics.CompletedAt) <= time.Second)
+		assert.Equal(t, sm2.Info.Mainline, updatedSystemMetrics.Info.Mainline)
+		assert.Equal(t, sm2.Info.Schema, updatedSystemMetrics.Info.Schema)
+		assert.Equal(t, sm2.Artifact, updatedSystemMetrics.Artifact)
+	})
+}
