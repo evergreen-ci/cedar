@@ -409,9 +409,8 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 // GET /buildlogger/test_name/{task_id}/{test_name}/group/{group_id}
 
 type logGroupHandler struct {
-	opts    data.BuildloggerOptions
-	groupID string
-	sc      data.Connector
+	opts data.BuildloggerOptions
+	sc   data.Connector
 }
 
 func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
@@ -434,9 +433,9 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.TestName = gimlet.GetVars(r)["test_name"]
-	h.groupID = gimlet.GetVars(r)["group_id"]
+	h.opts.Group = gimlet.GetVars(r)["group_id"]
 	vals := r.URL.Query()
-	h.opts.Tags = append(vals[tags], h.groupID)
+	h.opts.Tags = vals[tags]
 	h.opts.PrintTime = vals.Get(printTime) == trueString
 	h.opts.PrintPriority = vals.Get(printPriority) == trueString
 	if len(vals[execution]) > 0 {
@@ -472,7 +471,7 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 				"route":     "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
 				"task_id":   h.opts.TaskID,
 				"test_name": h.opts.TestName,
-				"group_id":  h.groupID,
+				"group_id":  h.opts.Group,
 			}))
 			return gimlet.MakeJSONErrorResponder(err)
 		}
@@ -490,14 +489,14 @@ func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting grouped logs with task_id/test_name/group_id '%s/%s/%s'",
-			h.opts.TaskID, h.opts.TestName, h.groupID)
+			h.opts.TaskID, h.opts.TestName, h.opts.Group)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
 			"route":     "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.TestName,
-			"group_id":  h.groupID,
+			"group_id":  h.opts.Group,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
