@@ -114,6 +114,34 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	return nil
 }
 
+// SaveNew saves a new system metrics record to the database. If a record with the
+// same ID already exists an error is returned. The record should be populated
+// and the environment should not be nil.
+func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
+	if !sm.populated {
+		return errors.New("cannot save unpopulated system metrics record")
+	}
+	if sm.env == nil {
+		return errors.New("cannot save with a nil environment")
+	}
+
+	if sm.ID == "" {
+		sm.ID = sm.Info.ID()
+	}
+
+	insertResult, err := sm.env.GetDB().Collection(systemMetricsCollection).InsertOne(ctx, sm)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   systemMetricsCollection,
+		"id":           sm.ID,
+		"insertResult": insertResult,
+		"task_id":      sm.Info.TaskID,
+		"execution":    sm.Info.Execution,
+		"op":           "save new system metrics record",
+	})
+
+	return errors.Wrapf(err, "problem saving new system metrics record %s", sm.ID)
+}
+
 // Remove removes the system metrics record from the database. The environment should not be nil.
 func (sm *SystemMetrics) Remove(ctx context.Context) error {
 	if sm.env == nil {
