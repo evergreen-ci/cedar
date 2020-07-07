@@ -608,15 +608,22 @@ func TestBuildloggerFindLogs(t *testing.T) {
 	log3.ID = log3.Info.ID()
 	log4.Info.Tags = []string{"tag1"}
 	log4.ID = log4.Info.ID()
-	log5, _ := getTestLogs(time.Now().Add(2 * time.Minute))
+	log5, log6 := getTestLogs(time.Now().Add(-24 * time.Hour))
 	log5.Info.Execution = 1
 	log5.ID = log5.Info.ID()
-	log6, _ := getTestLogs(time.Now().Add(3 * time.Minute))
-	log6.Info.TestName = "test2"
 	log6.Info.Execution = 1
+	log6.Info.Tags = []string{"group"}
 	log6.ID = log6.Info.ID()
+	log7, log8 := getTestLogs(time.Now().Add(3 * time.Minute))
+	log7.Info.TestName = "test2"
+	log7.Info.Execution = 1
+	log7.ID = log7.Info.ID()
+	log8.Info.TestName = ""
+	log8.Info.Execution = 1
+	log8.Info.Tags = []string{"group"}
+	log8.ID = log8.Info.ID()
 
-	_, err := db.Collection(buildloggerCollection).InsertMany(ctx, []interface{}{log1, log2, log3, log4, log5, log6})
+	_, err := db.Collection(buildloggerCollection).InsertMany(ctx, []interface{}{log1, log2, log3, log4, log5, log6, log7, log8})
 	require.NoError(t, err)
 
 	t.Run("NoEnv", func(t *testing.T) {
@@ -687,7 +694,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs.Setup(env)
 		opts := LogFindOptions{
 			TimeRange: TimeRange{
-				StartAt: time.Now().Add(-48 * time.Hour),
+				StartAt: time.Now().Add(-78 * time.Hour),
 				EndAt:   time.Now(),
 			},
 			Info:  LogInfo{Project: log1.Info.Project},
@@ -705,7 +712,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		logs.Setup(env)
 		opts := LogFindOptions{
 			TimeRange: TimeRange{
-				StartAt: time.Now().Add(-48 * time.Hour),
+				StartAt: time.Now().Add(-78 * time.Hour),
 				EndAt:   time.Now(),
 			},
 			Info:            LogInfo{TaskID: log1.Info.TaskID},
@@ -713,7 +720,7 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		}
 		require.NoError(t, logs.Find(ctx, opts))
 		require.Len(t, logs.Logs, 2)
-		assert.Equal(t, log6.ID, logs.Logs[0].ID)
+		assert.Equal(t, log7.ID, logs.Logs[0].ID)
 		assert.Equal(t, log5.ID, logs.Logs[1].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
@@ -752,6 +759,27 @@ func TestBuildloggerFindLogs(t *testing.T) {
 		require.NoError(t, logs.Find(ctx, opts))
 		require.Len(t, logs.Logs, 1)
 		assert.Equal(t, log2.ID, logs.Logs[0].ID)
+		assert.True(t, logs.populated)
+		assert.Equal(t, opts.TimeRange, logs.timeRange)
+	})
+	t.Run("GroupDisjointTimes", func(t *testing.T) {
+		logs := Logs{}
+		logs.Setup(env)
+		opts := LogFindOptions{
+			TimeRange: TimeRange{
+				StartAt: time.Now().Add(-78 * time.Hour),
+				EndAt:   time.Now(),
+			},
+			Info: LogInfo{
+				TaskID: log6.Info.TaskID,
+			},
+			Group:           "group",
+			LatestExecution: true,
+		}
+		require.NoError(t, logs.Find(ctx, opts))
+		require.Len(t, logs.Logs, 2)
+		assert.Equal(t, log8.ID, logs.Logs[0].ID)
+		assert.Equal(t, log6.ID, logs.Logs[1].ID)
 		assert.True(t, logs.populated)
 		assert.Equal(t, opts.TimeRange, logs.timeRange)
 	})
