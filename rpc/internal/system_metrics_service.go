@@ -54,7 +54,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return newRPCError(codes.Aborted, errors.Wrapf(err, "stream aborted for id '%s'", chunk.Id))
+			return newRPCError(codes.Aborted, errors.Wrapf(err, "stream aborted for id '%s'", id))
 		}
 
 		chunk, err := stream.Recv()
@@ -62,18 +62,18 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 			return stream.SendAndClose(&SystemMetricsResponse{Id: id})
 		}
 		if err != nil {
-			return newRPCError(codes.Internal, errors.Wrapf(err, "error in stream for '%s'", chunk.Id))
+			return newRPCError(codes.Internal, errors.Wrapf(err, "error in stream for '%s'", id))
 		}
 
 		if id == "" {
-			id = chunk.Id
-		} else if chunk.Id != id {
+			id = id
+		} else if id != id {
 			return newRPCError(codes.Aborted, fmt.Errorf("systemMetrics ID %s in stream does not match reference %s, aborting", chunk.Id, id))
 		}
 
 		_, err = s.AddSystemMetrics(ctx, chunk)
 		if err != nil {
-			return newRPCError(codes.Internal, errors.Wrapf(err, "error in adding data for '%s'", chunk.Id))
+			return newRPCError(codes.Internal, errors.Wrapf(err, "error in adding data for '%s'", id))
 		}
 	}
 }
