@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+
 	"fmt"
 	"hash"
 	"io"
@@ -401,6 +402,7 @@ type Logs struct {
 type LogFindOptions struct {
 	TimeRange       TimeRange
 	Info            LogInfo
+	Group           string
 	EmptyTestName   bool
 	LatestExecution bool
 	Limit           int64
@@ -437,6 +439,7 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
+
 	if err = it.All(ctx, &l.Logs); err != nil {
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(errors.WithStack(err))
@@ -511,7 +514,14 @@ func createFindQuery(opts LogFindOptions) map[string]interface{} {
 	if opts.Info.Format != "" {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoFormatKey)] = opts.Info.Format
 	}
-	if len(opts.Info.Tags) > 0 {
+	if opts.Group != "" && len(opts.Info.Tags) > 0 {
+		search["$and"] = []bson.M{
+			bson.M{bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): opts.Group},
+			bson.M{bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): bson.M{"$in": opts.Info.Tags}},
+		}
+	} else if opts.Group != "" {
+		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = opts.Group
+	} else if len(opts.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey)] = bson.M{"$in": opts.Info.Tags}
 	}
 	if len(opts.Info.Arguments) > 0 {
