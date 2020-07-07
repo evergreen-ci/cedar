@@ -54,7 +54,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return newRPCError(codes.Aborted, err)
+			return newRPCError(codes.Aborted, errors.Wrapf(err, "stream aborted for id '%s'", chunk.Id))
 		}
 
 		chunk, err := stream.Recv()
@@ -62,7 +62,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 			return stream.SendAndClose(&SystemMetricsResponse{Id: id})
 		}
 		if err != nil {
-			return newRPCError(codes.Internal, err)
+			return newRPCError(codes.Internal, errors.Wrapf(err, "error in stream for '%s'", chunk.Id))
 		}
 
 		if id == "" {
@@ -73,7 +73,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 
 		_, err = s.AddSystemMetrics(ctx, chunk)
 		if err != nil {
-			return newRPCError(codes.Internal, err)
+			return newRPCError(codes.Internal, errors.Wrapf(err, "error in adding data for '%s'", chunk.Id))
 		}
 	}
 }
