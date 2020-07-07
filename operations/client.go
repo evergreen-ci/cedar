@@ -25,7 +25,7 @@ func Client() cli.Command {
 		Name:   "client",
 		Usage:  "run a simple cedar client",
 		Flags:  restServiceFlags(),
-		Before: mergeBeforeFuncs(requireClientHostFlag, requireClientPortFlag),
+		Before: mergeBeforeFuncs(requireClientHostFlag, setDefaultClientPortFlag),
 		Subcommands: []cli.Command{
 			printStatus(),
 			postSimpleLog(),
@@ -47,7 +47,7 @@ func printStatus() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -60,7 +60,7 @@ func printStatus() cli.Command {
 			}
 
 			grip.Debug(status)
-			out, err := pretyJSON(status)
+			out, err := prettyJSON(status)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -71,7 +71,7 @@ func printStatus() cli.Command {
 	}
 }
 
-func pretyJSON(data interface{}) (string, error) {
+func prettyJSON(data interface{}) (string, error) {
 	out, err := json.MarshalIndent(data, "", "   ")
 	if err != nil {
 		return "", errors.Wrap(err, "problem rendering status result")
@@ -82,17 +82,16 @@ func pretyJSON(data interface{}) (string, error) {
 
 func postSimpleLog() cli.Command {
 	return cli.Command{
-		Name:   "simple-log-pipe",
-		Usage:  "posts a string",
-		Flags:  simpleLogIDFlags(),
-		Before: requireFileExists(simpleLogIDFlag),
+		Name:  "simple-log-pipe",
+		Usage: "posts a string",
+		Flags: simpleLogIDFlags(),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -112,7 +111,7 @@ func postSimpleLog() cli.Command {
 						return errors.Wrapf(err, "problem sending batch %d for log '%s'",
 							inc, logID)
 					}
-					respRendered, err := pretyJSON(resp)
+					respRendered, err := prettyJSON(resp)
 					if err != nil {
 						return errors.WithStack(err)
 					}
@@ -130,7 +129,7 @@ func postSimpleLog() cli.Command {
 					return errors.Wrapf(err, "problem sending batch %d for log '%s'",
 						inc, logID)
 				}
-				respRendered, err := pretyJSON(resp)
+				respRendered, err := prettyJSON(resp)
 				if err != nil {
 					return errors.WithStack(err)
 				}
@@ -145,10 +144,9 @@ func postSimpleLog() cli.Command {
 
 func getSimpleLog() cli.Command {
 	return cli.Command{
-		Name:   "get-simple-log",
-		Usage:  "prints json document for the simple log",
-		Flags:  simpleLogIDFlags(),
-		Before: requireFileExists(simpleLogIDFlag),
+		Name:  "get-simple-log",
+		Usage: "prints json document for the simple log",
+		Flags: simpleLogIDFlags(),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 			logID := c.String(simpleLogIDFlag)
@@ -156,7 +154,7 @@ func getSimpleLog() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -168,7 +166,7 @@ func getSimpleLog() cli.Command {
 				return errors.Wrapf(err, "problem getting log for '%s'", logID)
 			}
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -201,7 +199,7 @@ func getSystemStatusEvents() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -214,7 +212,7 @@ func getSystemStatusEvents() cli.Command {
 			}
 
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -250,7 +248,7 @@ func systemEvent() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -272,7 +270,7 @@ func systemEvent() cli.Command {
 			}
 
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -332,7 +330,7 @@ func systemInfoGet() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -353,7 +351,7 @@ func systemInfoGet() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			out, err := pretyJSON(msgs)
+			out, err := prettyJSON(msgs)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -374,7 +372,7 @@ func systemInfoSend() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
@@ -389,7 +387,7 @@ func systemInfoSend() cli.Command {
 			}
 
 			grip.Debug(resp)
-			out, err := pretyJSON(resp)
+			out, err := prettyJSON(resp)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -413,7 +411,7 @@ func systemInfoImport() cli.Command {
 			opts := rest.ClientOptions{
 				Host:   c.Parent().String(clientHostFlag),
 				Port:   c.Parent().Int(clientPortFlag),
-				Prefix: "",
+				Prefix: "/rest",
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {

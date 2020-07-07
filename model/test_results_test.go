@@ -228,7 +228,7 @@ func TestTestResultsSaveNew(t *testing.T) {
 		assert.Equal(t, tr2.Artifact, saved.Artifact)
 	})
 	t.Run("AlreadyExists", func(t *testing.T) {
-		_, err := db.Collection(buildloggerCollection).ReplaceOne(ctx, bson.M{"_id": tr2.ID}, tr2, options.Replace().SetUpsert(true))
+		_, err := db.Collection(testResultsCollection).ReplaceOne(ctx, bson.M{"_id": tr2.ID}, tr2, options.Replace().SetUpsert(true))
 		require.NoError(t, err)
 
 		tr := TestResults{

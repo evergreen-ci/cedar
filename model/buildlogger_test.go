@@ -254,6 +254,12 @@ func TestBuildloggerRemove(t *testing.T) {
 	_, err = db.Collection(buildloggerCollection).InsertOne(ctx, log2)
 	require.NoError(t, err)
 
+	t.Run("NoEnv", func(t *testing.T) {
+		l := Log{
+			ID: log1.ID,
+		}
+		assert.Error(t, l.Remove(ctx))
+	})
 	t.Run("DNE", func(t *testing.T) {
 		l := Log{ID: "DNE"}
 		l.Setup(env)
