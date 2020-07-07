@@ -188,6 +188,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 		paginated bool
 	)
 
+	opts.Group = ""
 	it, err := dbc.findLogsByTestName(ctx, &opts)
 	if err != nil {
 		return data, time.Time{}, paginated, err
@@ -303,6 +304,7 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts *Buildlogge
 			Tags:        opts.Tags,
 		},
 		LatestExecution: opts.EmptyExecution,
+		Group:           opts.Group,
 	}
 	if opts.TestName != "" {
 		dbOpts.Info.TestName = opts.TestName
@@ -516,6 +518,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 		paginated bool
 	)
 
+	opts.Group = ""
 	it, err := mc.findLogsByTestName(ctx, &opts)
 	if err != nil {
 		return data, time.Time{}, paginated, err
