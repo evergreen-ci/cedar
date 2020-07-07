@@ -9,6 +9,54 @@ import (
 	"github.com/pkg/errors"
 )
 
+type RollupValues []*RollupValue
+
+func (l StorageLocation) Export() model.PailType {
+	switch l {
+	case StorageLocation_GRIDFS:
+		return model.PailLegacyGridFS
+	case StorageLocation_CEDAR_S3, StorageLocation_PROJECT_S3:
+		return model.PailS3
+	case StorageLocation_LOCAL, StorageLocation_EPHEMERAL:
+		return model.PailLocal
+	default:
+		return ""
+	}
+}
+
+func (t RollupType) Export() model.MetricType {
+	switch t {
+	case RollupType_THROUGHPUT:
+		return model.MetricTypeThroughput
+	case RollupType_LATENCY:
+		return model.MetricTypeLatency
+	case RollupType_MAX:
+		return model.MetricTypeMax
+	case RollupType_MEAN:
+		return model.MetricTypeMean
+	case RollupType_MEDIAN:
+		return model.MetricTypeMedian
+	case RollupType_MIN:
+		return model.MetricTypeMin
+	case RollupType_SUM:
+		return model.MetricTypeSum
+	case RollupType_STANDARD_DEVIATION:
+		return model.MetricTypeStdDev
+	case RollupType_PERCENTILE_50TH:
+		return model.MetricTypePercentile50
+	case RollupType_PERCENTILE_80TH:
+		return model.MetricTypePercentile80
+	case RollupType_PERCENTILE_90TH:
+		return model.MetricTypePercentile90
+	case RollupType_PERCENTILE_95TH:
+		return model.MetricTypePercentile95
+	case RollupType_PERCENTILE_99TH:
+		return model.MetricTypePercentile99
+	default:
+		return ""
+	}
+}
+
 func (m *ResultID) Export() model.PerformanceResultInfo {
 	return model.PerformanceResultInfo{
 		Project:   m.Project,
