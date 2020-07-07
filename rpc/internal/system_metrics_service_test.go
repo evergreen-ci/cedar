@@ -13,7 +13,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -38,143 +37,56 @@ func TestAddSystemMetrics(t *testing.T) {
 	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 	require.NoError(t, err)
 
-	sm := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.PailLocal)
-	sm.Setup(env)
-	require.NoError(t, sm.SaveNew(ctx))
+	systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
+		Type: model.PailLocal,
+	})
+	systemMetrics.Setup(env)
+	require.NoError(t, systemMetrics.SaveNew(ctx))
 
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
 		Path:   tempDir,
-		Prefix: sm.Artifact.Prefix,
+		Prefix: systemMetrics.Artifact.Prefix,
 	})
 	require.NoError(t, err)
 
 	for _, test := range []struct {
 		name        string
-		lines       *LogLines
+		chunk       *SystemMetricsData
 		env         cedar.Environment
 		invalidConf bool
 		hasErr      bool
 	}{
 		{
 			name: "ValidData",
-			lines: &LogLines{
-				LogId: sm.ID,
-				Lines: []*LogLine{
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the first system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the second system metrics data chunk.\n",
-					},
-					{
-						Priority:  10,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the third system metrics data chunk.\n",
-					},
-				},
+			chunk: &SystemMetricsData{
+				Id:   systemMetrics.ID,
+				Data: []byte("Byte chunk for valid data"),
 			},
 			env: env,
 		},
 		{
 			name: "LogDNE",
-			lines: &LogLines{
-				LogId: "DNE",
-				Lines: []*LogLine{
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the first system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the second system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the third system metrics data chunk.\n",
-					},
-				},
-			},
-			env:    env,
-			hasErr: true,
-		},
-		{
-			name: "InvalidTimestamp",
-			lines: &LogLines{
-				LogId: sm.ID,
-				Lines: []*LogLine{
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the first system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the second system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
-						Data:      "This is the third system metrics data chunk, which is invalid.\n",
-					},
-				},
+			chunk: &SystemMetricsData{
+				Id:   "DNE",
+				Data: []byte("Byte chunk when id doesn't exist"),
 			},
 			env:    env,
 			hasErr: true,
 		},
 		{
 			name: "InvalidEnv",
-			lines: &LogLines{
-				LogId: sm.ID,
-				Lines: []*LogLine{
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the first system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the second system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the third system metrics data chunk.\n",
-					},
-				},
+			chunk: &SystemMetricsData{
+				Id:   systemMetrics.ID,
+				Data: []byte("Byte chunk with no env"),
 			},
 			env:    nil,
 			hasErr: true,
 		},
 		{
 			name: "InvalidConf",
-			lines: &LogLines{
-				LogId: sm.ID,
-				Lines: []*LogLine{
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the first system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the second system metrics data chunk.\n",
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      "This is the third system metrics data chunk.\n",
-					},
-				},
+			chunk: &SystemMetricsData{
+				Id:   systemMetrics.ID,
+				Data: []byte("Byte chunk with no conf"),
 			},
 			env:         env,
 			invalidConf: true,
@@ -188,28 +100,28 @@ func TestAddSystemMetrics(t *testing.T) {
 			require.NoError(t, err)
 
 			if test.invalidConf {
-				conf.Bucket.BuildLogsBucket = ""
+				conf.Bucket.SystemMetricsBucket = ""
 			} else {
-				conf.Bucket.BuildLogsBucket = tempDir
+				conf.Bucket.SystemMetricsBucket = tempDir
 			}
 			conf.Setup(env)
 			require.NoError(t, conf.Save())
 
-			resp, err := client.AddSystemMetrics(ctx, test.lines)
+			resp, err := client.AddSystemMetrics(ctx, test.chunk)
 			if test.hasErr {
 				assert.Error(t, err)
 				assert.Nil(t, resp)
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
-				assert.Equal(t, test.lines.LogId, resp.LogId)
+				assert.Equal(t, test.chunk.Id, resp.Id)
 
-				l := &model.Log{ID: resp.LogId}
-				l.Setup(env)
-				require.NoError(t, l.Find(ctx))
-				assert.Equal(t, sm.ID, sm.Info.ID())
-				assert.Len(t, l.Artifact.Chunks, 1)
-				_, err := bucket.Get(ctx, l.Artifact.Chunks[0].Key)
+				sm := &model.SystemMetrics{ID: resp.Id}
+				sm.Setup(env)
+				require.NoError(t, sm.Find(ctx))
+				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
+				assert.Len(t, sm.Artifact.Chunks, 1)
+				_, err := bucket.Get(ctx, sm.Artifact.Chunks[0])
 				assert.NoError(t, err)
 			}
 		})
@@ -233,109 +145,58 @@ func TestStreamSystemMetrics(t *testing.T) {
 	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 	require.NoError(t, err)
 
-	sm := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.PailLocal)
-	sm.Setup(env)
-	require.NoError(t, sm.SaveNew(ctx))
-	log2 := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test2"}, model.PailLocal)
-	log2.Setup(env)
-	require.NoError(t, log2.SaveNew(ctx))
+	systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
+		Type: model.PailLocal,
+	})
+	systemMetrics.Setup(env)
+	require.NoError(t, systemMetrics.SaveNew(ctx))
+	systemMetrics2 := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test2"}, model.SystemMetricsArtifactOptions{
+		Type: model.PailLocal,
+	})
+	systemMetrics2.Setup(env)
+	require.NoError(t, systemMetrics2.SaveNew(ctx))
 
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
 		Path:   tempDir,
-		Prefix: sm.Artifact.Prefix,
+		Prefix: systemMetrics.Artifact.Prefix,
 	})
 	require.NoError(t, err)
 
 	for _, test := range []struct {
 		name        string
-		lines       []*LogLines
+		chunks      []*SystemMetricsData
 		env         cedar.Environment
 		invalidConf bool
 		hasErr      bool
 	}{
 		{
 			name: "ValidData",
-			lines: []*LogLines{
+			chunks: []*SystemMetricsData{
 				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the first system metrics data chunk.\n",
-						},
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the second system metrics data chunk.\n",
-						},
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the third system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics.ID,
+					Data: []byte("First byte chunk for valid data"),
 				},
 				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the fourth system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics.ID,
+					Data: []byte("Second byte chunk for valid data"),
 				},
 				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the fifth system metrics data chunk.\n",
-						},
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the sixth system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics.ID,
+					Data: []byte("Third byte chunk for valid data"),
 				},
 			},
 			env: env,
 		},
 		{
-			name: "DifferentLogIDs",
-			lines: []*LogLines{
+			name: "DifferentSystemMetricsIDs",
+			chunks: []*SystemMetricsData{
 				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the first system metrics data chunk.\n",
-						},
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the second system metrics data chunk.\n",
-						},
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the third system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics.ID,
+					Data: []byte("First byte chunk for different system metrics ids"),
 				},
 				{
-					LogId: log2.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the fourth system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics2.ID,
+					Data: []byte("Second byte chunk for different system metrics ids"),
 				},
 			},
 			env:    env,
@@ -343,33 +204,10 @@ func TestStreamSystemMetrics(t *testing.T) {
 		},
 		{
 			name: "LogDNE",
-			lines: []*LogLines{
+			chunks: []*SystemMetricsData{
 				{
-					LogId: "DNE",
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the first system metrics data chunk.\n",
-						},
-					},
-				},
-			},
-			env:    env,
-			hasErr: true,
-		},
-		{
-			name: "InvalidTimestamp",
-			lines: []*LogLines{
-				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
-							Data:      "This is the third system metrics data chunk, which is invalid.\n",
-						},
-					},
+					Id:   "DNE",
+					Data: []byte("First byte chunk for invalid system metrics ids"),
 				},
 			},
 			env:    env,
@@ -377,16 +215,10 @@ func TestStreamSystemMetrics(t *testing.T) {
 		},
 		{
 			name: "InvalidEnv",
-			lines: []*LogLines{
+			chunks: []*SystemMetricsData{
 				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the first system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics.ID,
+					Data: []byte("First byte chunk for invalid env"),
 				},
 			},
 			env:    nil,
@@ -394,16 +226,10 @@ func TestStreamSystemMetrics(t *testing.T) {
 		},
 		{
 			name: "InvalidConf",
-			lines: []*LogLines{
+			chunks: []*SystemMetricsData{
 				{
-					LogId: sm.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-							Data:      "This is the first system metrics data chunk.\n",
-						},
-					},
+					Id:   systemMetrics.ID,
+					Data: []byte("First byte chunk for invalid conf"),
 				},
 			},
 			env:         env,
@@ -418,9 +244,9 @@ func TestStreamSystemMetrics(t *testing.T) {
 			require.NoError(t, err)
 
 			if test.invalidConf {
-				conf.Bucket.BuildLogsBucket = ""
+				conf.Bucket.SystemMetricsBucket = ""
 			} else {
-				conf.Bucket.BuildLogsBucket = tempDir
+				conf.Bucket.SystemMetricsBucket = tempDir
 			}
 			conf.Setup(env)
 			require.NoError(t, conf.Save())
@@ -429,8 +255,8 @@ func TestStreamSystemMetrics(t *testing.T) {
 			require.NoError(t, err)
 
 			catcher := grip.NewBasicCatcher()
-			for i := 0; i < len(test.lines); i++ {
-				catcher.Add(stream.Send(test.lines[i]))
+			for i := 0; i < len(test.chunks); i++ {
+				catcher.Add(stream.Send(test.chunks[i]))
 			}
 			resp, err := stream.CloseAndRecv()
 			catcher.Add(err)
@@ -441,15 +267,15 @@ func TestStreamSystemMetrics(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
-				assert.Equal(t, test.lines[0].LogId, resp.LogId)
+				assert.Equal(t, test.chunks[0].Id, resp.Id)
 
-				l := &model.Log{ID: resp.LogId}
-				l.Setup(env)
-				require.NoError(t, l.Find(ctx))
-				assert.Equal(t, sm.ID, sm.Info.ID())
-				assert.Len(t, l.Artifact.Chunks, len(test.lines))
-				for _, chunk := range l.Artifact.Chunks {
-					_, err := bucket.Get(ctx, chunk.Key)
+				sm := &model.SystemMetrics{ID: resp.Id}
+				sm.Setup(env)
+				require.NoError(t, sm.Find(ctx))
+				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
+				assert.Len(t, sm.Artifact.Chunks, len(test.chunks))
+				for _, key := range sm.Artifact.Chunks {
+					_, err := bucket.Get(ctx, key)
 					assert.NoError(t, err)
 				}
 			}
