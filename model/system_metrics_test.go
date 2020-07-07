@@ -241,6 +241,51 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 	})
 }
 
+func TestSystemMetricsRemove(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	}()
+
+	sm1 := getSystemMetrics()
+	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, sm1)
+	require.NoError(t, err)
+	sm2 := getSystemMetrics()
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, sm2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		sm := SystemMetrics{
+			ID: sm1.ID,
+		}
+		assert.Error(t, sm.Remove(ctx))
+	})
+	t.Run("DNE", func(t *testing.T) {
+		sm := SystemMetrics{ID: "DNE"}
+		sm.Setup(env)
+		require.NoError(t, sm.Remove(ctx))
+	})
+	t.Run("WithID", func(t *testing.T) {
+		sm := SystemMetrics{ID: sm1.ID}
+		sm.Setup(env)
+		require.NoError(t, sm.Remove(ctx))
+
+		saved := &SystemMetrics{}
+		require.Error(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm1.ID}).Decode(saved))
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		sm := SystemMetrics{Info: sm2.Info}
+		sm.Setup(env)
+		require.NoError(t, sm.Remove(ctx))
+
+		saved := &SystemMetrics{}
+		require.Error(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm2.ID}).Decode(saved))
+	})
+}
+
 func getSystemMetrics() *SystemMetrics {
 	info := SystemMetricsInfo{
 		Project:  utility.RandomString(),
