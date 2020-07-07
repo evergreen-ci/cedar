@@ -2,6 +2,7 @@ package internal
 
 import (
 	context "context"
+	fmt "fmt"
 	"io"
 
 	"github.com/evergreen-ci/cedar"
@@ -61,18 +62,18 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 			return stream.SendAndClose(&SystemMetricsResponse{Id: id})
 		}
 		if err != nil {
-			return err
+			return newRPCError(codes.Internal, err)
 		}
 
 		if id == "" {
 			id = chunk.Id
 		} else if chunk.Id != id {
-			return newRPCError(codes.Aborted, errors.New("systemMetrics ID in stream does not match reference, aborting"))
+			return newRPCError(codes.Aborted, fmt.Errorf("systemMetrics ID %s in stream does not match reference %s, aborting", chunk.Id, id))
 		}
 
 		_, err = s.AddSystemMetrics(ctx, chunk)
 		if err != nil {
-			return err
+			return newRPCError(codes.Internal, err)
 		}
 	}
 }

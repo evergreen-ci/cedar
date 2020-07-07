@@ -593,8 +593,7 @@ func TestCloseLog(t *testing.T) {
 }
 
 func createBuildloggerEnv() (cedar.Environment, error) {
-	testDB := "buildlogger-service-test"
-	env, err := cedar.NewEnvironment(context.Background(), testDB, &cedar.Configuration{
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,

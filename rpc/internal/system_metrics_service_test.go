@@ -29,10 +29,10 @@ func TestAddSystemMetrics(t *testing.T) {
 		assert.NoError(t, teardownSystemMetricsEnv(ctx, env))
 	}()
 	tempDir, err := ioutil.TempDir(".", "system-metrics-test")
+	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tempDir))
 	}()
-	require.NoError(t, err)
 
 	conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 	require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestStreamSystemMetrics(t *testing.T) {
 			hasErr: true,
 		},
 		{
-			name: "LogDNE",
+			name: "SystemMetricsDNE",
 			chunks: []*SystemMetricsData{
 				{
 					Id:   "DNE",
@@ -284,8 +284,7 @@ func TestStreamSystemMetrics(t *testing.T) {
 }
 
 func createSystemMetricsEnv() (cedar.Environment, error) {
-	testDB := "system-metrics-service-test"
-	env, err := cedar.NewEnvironment(context.Background(), testDB, &cedar.Configuration{
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,
