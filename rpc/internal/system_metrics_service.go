@@ -66,8 +66,8 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 		}
 
 		if id == "" {
-			id = id
-		} else if id != id {
+			id = chunk.Id
+		} else if chunk.Id != id {
 			return newRPCError(codes.Aborted, fmt.Errorf("systemMetrics ID %s in stream does not match reference %s, aborting", chunk.Id, id))
 		}
 
