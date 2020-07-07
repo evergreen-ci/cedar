@@ -1,4 +1,4 @@
-sdffdsafdafdafdaasdffdafdssdasafdfdsafdafdadafdaasdffdasaffdadafdafdafdasfafdafdafdasfdafdsafsapackage internal
+package internal
 
 import (
 	context "context"
@@ -24,10 +24,10 @@ func AttachSystemMetricsService(env cedar.Environment, s *grpc.Server) {
 }
 
 //
-func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
-	sm := model.CreateSystemMetrics(*data.Info.Export(), *data.Artifact.Export())
+func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, data SystemMetrics) (*SystemMetricsResponse, error) {
+	sm := model.CreateSystemMetrics(data.Info.Export(), data.Artifact.Export())
 	sm.Setup(s.env)
-	return &SystemMetricsResponse{Id: sm.ID}, newRPCError(codes.Internal, errors.Wrap(sm.SaveNew(ctx), "problem saving log record"))
+	return &SystemMetricsResponse{Id: sm.ID}, newRPCError(codes.Internal, errors.Wrap(sm.SaveNew(ctx), "problem saving system metrics record"))
 }
 
 //
