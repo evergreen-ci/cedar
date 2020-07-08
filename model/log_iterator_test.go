@@ -315,6 +315,7 @@ func TestMergeLogIterator(t *testing.T) {
 		assert.True(t, it.Exhausted())
 		assert.NoError(t, it.Err())
 		assert.NoError(t, it.Close())
+		assert.NoError(t, it2.Close())
 	})
 }
 
