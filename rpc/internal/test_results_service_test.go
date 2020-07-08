@@ -451,8 +451,7 @@ func TestCloseTestResultsRecord(t *testing.T) {
 }
 
 func createTestResultsEnv() (cedar.Environment, error) {
-	testDB := "test-results-service-test"
-	env, err := cedar.NewEnvironment(context.Background(), testDB, &cedar.Configuration{
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,

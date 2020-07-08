@@ -432,7 +432,7 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 		findOpts.SetLimit(opts.Limit)
 	}
 	findOpts.SetSort(bson.D{
-		{Key: logInfoExecutionKey, Value: -1},
+		{Key: bsonutil.GetDottedKeyName(logInfoKey, logInfoExecutionKey), Value: -1},
 		{Key: logCreatedAtKey, Value: -1},
 	})
 	it, err := l.env.GetDB().Collection(buildloggerCollection).Find(ctx, createFindQuery(opts), findOpts)
