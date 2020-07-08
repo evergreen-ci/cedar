@@ -32,18 +32,18 @@ func (s *systemMetricsService) CreateSystemMetricRecord(context.Context, *System
 }
 
 // AddSystemMetrics adds system metrics data to an existing bucket.
-func (s *systemMetricsService) AddSystemMetrics(ctx context.Context, chunk *SystemMetricsData) (*SystemMetricsResponse, error) {
-	systemMetrics := &model.SystemMetrics{ID: chunk.Id}
+func (s *systemMetricsService) AddSystemMetrics(ctx context.Context, data *SystemMetricsData) (*SystemMetricsResponse, error) {
+	systemMetrics := &model.SystemMetrics{ID: data.Id}
 	systemMetrics.Setup(s.env)
 	if err := systemMetrics.Find(ctx); err != nil {
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding systemMetrics record for '%s'", chunk.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding systemMetrics record for '%s'", data.Id))
 	}
 
 	return &SystemMetricsResponse{Id: systemMetrics.ID},
-		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Append(ctx, chunk.Data), "problem appending systemMetrics data for '%s'", chunk.Id))
+		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Append(ctx, data.Data), "problem appending systemMetrics data for '%s'", data.Id))
 }
 
 // StreamSystemMetrics adds system metrics data via client-side streaming to an existing
