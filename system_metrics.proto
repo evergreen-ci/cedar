@@ -31,8 +31,7 @@ message SystemMetricsArtifactInfo {
 
 message SystemMetricsData {
   string id = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  bytes data = 3;
+  bytes data = 2;
 }
 
 message SystemMetricsSeriesEnd {
@@ -42,7 +41,6 @@ message SystemMetricsSeriesEnd {
 
 message SystemMetricsResponse {
   string id = 1;
-  bool success = 2;
 }
 
 
