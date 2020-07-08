@@ -246,7 +246,7 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key st
 
 // Close "closes out" the log by populating the completed_at and info.exit_code
 // fields. The environment should not be nil.
-func (sm *SystemMetrics) Close(ctx context.Context, exitCode int) error {
+func (sm *SystemMetrics) Close(ctx context.Context) error {
 	if sm.env == nil {
 		return errors.New("cannot close system metrics record with a nil environment")
 	}

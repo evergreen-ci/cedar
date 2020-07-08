@@ -5,6 +5,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -40,17 +41,16 @@ func (*systemMetricsService) StreamSystemMetrics(CedarSystemMetrics_StreamSystem
 	return nil
 }
 
-//
-// func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
-// 	systemMetrics := &model.SystemMetrics{ID: info.Id}
-// 	systemMetrics.Setup(s.env)
-// 	if err := systemMetrics.Find(ctx); err != nil {
-// 		if db.ResultsNotFound(err) {
-// 			return nil, newRPCError(codes.NotFound, err)
-// 		}
-// 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding system metrics record for '%s'", info.Id))
-// 	}
+func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
+	systemMetrics := &model.SystemMetrics{ID: info.Id}
+	systemMetrics.Setup(s.env)
+	if err := systemMetrics.Find(ctx); err != nil {
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding system metrics record for '%s'", info.Id))
+	}
 
-// 	return &SystemMetricsResponse{Id: systemMetrics.ID},
-// 		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Close(ctx, int(info.ExitCode)), "problem closing log with id %s", systemMetrics.ID))
-// }
+	return &SystemMetricsResponse{Id: systemMetrics.ID},
+		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Close(ctx), "problem closing system metrics record with id %s", systemMetrics.ID))
+}
