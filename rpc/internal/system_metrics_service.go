@@ -89,6 +89,9 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 	}
 }
 
+// CloseMetrics "closes out" a system metrics record by setting the
+// completed at timestamp. This should be the last rcp call made on a system
+// metrics record.
 func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
 	systemMetrics := &model.SystemMetrics{ID: info.Id}
 	systemMetrics.Setup(s.env)
