@@ -4,6 +4,7 @@ import (
 	"context"
 	fmt "fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -29,59 +31,144 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 		assert.NoError(t, teardownSystemMetricsEnv(ctx, env))
 	}()
 
-	for _, test := range []struct {
-		name        string
-		chunk       *SystemMetricsData
-		env         cedar.Environment
-		invalidConf bool
-		hasErr      bool
-	}{
-		{
-			name: "ValidData",
-			chunk: &SystemMetricsData{
-				Id:   systemMetrics.ID,
-				Data: []byte("Byte chunk for valid data"),
-			},
-			env: env,
-		},
-		{
-			name: "InvalidEnv",
-			chunk: &SystemMetricsData{
-				Id:   systemMetrics.ID,
-				Data: []byte("Byte chunk with no env"),
-			},
-			env:    nil,
-			hasErr: true,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			port := getPort()
-			require.NoError(t, startSystemMetricsService(ctx, test.env, port))
-			client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
-			require.NoError(t, err)
+	port := getPort()
+	require.NoError(t, startSystemMetricsService(ctx, env, port))
+	client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+	require.NoError(t, err)
+	port = getPort()
+	require.NoError(t, startSystemMetricsService(ctx, nil, port))
+	//invalidClient, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+	//require.NoError(t, err)
 
-			info := test.data.Info.Export()
-			resp, err := client.CreateSystemMetricsRecord(ctx, test.data)
-			if test.hasErr {
-				assert.Nil(t, resp)
-				assert.Error(t, err)
+	t.Run("NoConfig", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
 
-				log := &model.Log{ID: info.ID()}
-				log.Setup(env)
-				assert.Error(t, log.Find(ctx))
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, info.ID(), resp.LogId)
+		// model.CreateSystemMetrics((*info).Export(), model.SystemMetricsArtifactOptions{
+		// 	Type: model.PailLocal,
+		// })
 
-				log := &model.Log{ID: resp.LogId}
-				log.Setup(env)
-				require.NoError(t, log.Find(ctx))
-				assert.Equal(t, info, log.Info)
-				assert.Equal(t, test.data.Storage.Export(), log.Artifact.Type)
-				assert.True(t, time.Since(log.CreatedAt) <= time.Second)
-			}
-		})
-	}
+		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+
+		results := &model.SystemMetrics{ID: modelInfo.ID()}
+		results.Setup(env)
+		assert.Error(t, results.Find(ctx))
+	})
+
+	// conf := model.NewCedarConfig(env)
+	// require.NoError(t, conf.Save())
+	// t.Run("InvalidEnv", func(t *testing.T) {
+	// 	info := getTestResultsInfo()
+	// 	modelInfo := info.Export()
+
+	// 	resp, err := invalidClient.CreateTestResultsRecord(ctx, info)
+	// 	assert.Error(t, err)
+	// 	assert.Nil(t, resp)
+
+	// 	results := &model.TestResults{ID: modelInfo.ID()}
+	// 	results.Setup(env)
+	// 	assert.Error(t, results.Find(ctx))
+	// })
+	// t.Run("ConfigWithoutBucketType", func(t *testing.T) {
+	// 	info := getTestResultsInfo()
+	// 	modelInfo := info.Export()
+
+	// 	resp, err := client.CreateTestResultsRecord(ctx, info)
+	// 	require.NoError(t, err)
+	// 	require.NotNil(t, resp)
+
+	// 	results := &model.TestResults{ID: modelInfo.ID()}
+	// 	results.Setup(env)
+	// 	require.NoError(t, results.Find(ctx))
+	// 	assert.Equal(t, modelInfo.ID(), resp.TestResultsRecordId)
+	// 	assert.Equal(t, modelInfo, results.Info)
+	// 	assert.Equal(t, model.PailLocal, results.Artifact.Type)
+	// 	assert.True(t, time.Since(results.CreatedAt) <= time.Second)
+	// })
+	// conf.Bucket.TestResultsBucketType = model.PailS3
+	// require.NoError(t, conf.Save())
+	// t.Run("ConfigWithBucketType", func(t *testing.T) {
+	// 	info := getTestResultsInfo()
+	// 	modelInfo := info.Export()
+
+	// 	resp, err := client.CreateTestResultsRecord(ctx, info)
+	// 	require.NoError(t, err)
+	// 	require.NotNil(t, resp)
+
+	// 	results := &model.TestResults{ID: modelInfo.ID()}
+	// 	results.Setup(env)
+	// 	require.NoError(t, results.Find(ctx))
+	// 	assert.Equal(t, modelInfo.ID(), resp.TestResultsRecordId)
+	// 	assert.Equal(t, modelInfo, results.Info)
+	// 	assert.Equal(t, conf.Bucket.TestResultsBucketType, results.Artifact.Type)
+	// 	assert.True(t, time.Since(results.CreatedAt) <= time.Second)
+	// })
+
+	// systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
+	// 	Type: model.PailLocal,
+	// })
+	// systemMetrics.Setup(env)
+	// require.NoError(t, systemMetrics.SaveNew(ctx))
+
+	// for _, test := range []struct {
+	// 	name        string
+	// 	data        *SystemMetrics
+	// 	env         cedar.Environment
+	// 	invalidConf bool
+	// 	hasErr      bool
+	// }{
+	// 	{
+	// 		name: "ValidData",
+	// 		data: &SystemMetrics{
+	// 			Info: &SystemMetricsInfo{
+	// 				Project: "test",
+	// 			},
+	// 		},
+	// 		env: env,
+	// 	},
+	// 	{
+	// 		name: "InvalidEnv",
+	// 		data: &SystemMetrics{
+	// 			Info: &SystemMetricsInfo{
+	// 				Project: "test",
+	// 			},
+	// 		},
+	// 		env:    nil,
+	// 		hasErr: true,
+	// 	},
+	// } {
+	// 	t.Run(test.name, func(t *testing.T) {
+	// 		port := getPort()
+	// 		require.NoError(t, startSystemMetricsService(ctx, test.env, port))
+	// 		client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+	// 		require.NoError(t, err)
+
+	// 		//info := test.data.Info.Export()
+	// 		resp, err := client.CreateSystemMetricRecord(ctx, test.data)
+	// 		if test.hasErr {
+	// 			assert.Nil(t, resp)
+	// 			assert.Error(t, err)
+
+	// 			sm := &model.SystemMetrics{ID: resp.Id}
+	// 			sm.Setup(env)
+	// 			assert.Error(t, sm.Find(ctx))
+	// 		} else {
+	// 			require.NoError(t, err)
+	// 			// assert.Equal(t, info.ID(), resp.Id)
+	// 			// assert.Equal(t, test.chunk.Id, resp.Id)
+
+	// 			sm := &model.SystemMetrics{ID: resp.Id}
+	// 			sm.Setup(env)
+	// 			require.NoError(t, sm.Find(ctx))
+	// 			//assert.Equal(t, info, sm.Info)
+	// 			//assert.Equal(t, test.chunk.Data, sm.Artifact.Chunks)
+	// 			assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+	// 		}
+	// 	})
+	// }
 }
 
 func TestAddSystemMetrics(t *testing.T) {
@@ -394,4 +481,16 @@ func getSystemMetricsGRPCClient(ctx context.Context, address string, opts []grpc
 	}()
 
 	return NewCedarSystemMetricsClient(conn), nil
+}
+
+func getSystemMetricsInfo() *SystemMetricsInfo {
+	return &SystemMetricsInfo{
+		Project:   utility.RandomString(),
+		Version:   utility.RandomString(),
+		Variant:   utility.RandomString(),
+		TaskName:  utility.RandomString(),
+		TaskId:    utility.RandomString(),
+		Execution: rand.Int31n(5),
+		Mainline:  false,
+	}
 }

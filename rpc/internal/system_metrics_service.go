@@ -26,9 +26,19 @@ func AttachSystemMetricsService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarSystemMetricsServer(s, srv)
 }
 
-//
+// CreateSystemMetricRecord creates a new system metrics record in the database.
 func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
-	sm := model.CreateSystemMetrics(data.Info.Export(), data.Artifact.Export())
+	conf := model.NewCedarConfig(s.env)
+	if err := conf.Find(); err != nil {
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
+	}
+	if conf.Bucket.SystemMetricsBucketType == "" {
+		conf.Bucket.SystemMetricsBucketType = model.PailLocal
+	}
+	options := model.SystemMetricsArtifactOptions{Type: conf.Bucket.SystemMetricsBucketType}
+	sm := model.CreateSystemMetrics(data.Info.Export(), options)
+
+	//sm := model.CreateSystemMetrics(data.Info.Export(), data.Artifact.Export())
 	sm.Setup(s.env)
 	return &SystemMetricsResponse{Id: sm.ID}, newRPCError(codes.Internal, errors.Wrap(sm.SaveNew(ctx), "problem saving system metrics record"))
 }
