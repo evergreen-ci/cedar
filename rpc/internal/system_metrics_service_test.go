@@ -37,75 +37,74 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 	require.NoError(t, err)
 	port = getPort()
 	require.NoError(t, startSystemMetricsService(ctx, nil, port))
-	//invalidClient, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
-	//require.NoError(t, err)
+	invalidClient, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+	require.NoError(t, err)
 
 	t.Run("NoConfig", func(t *testing.T) {
 		info := getSystemMetricsInfo()
 		modelInfo := info.Export()
 		systemMetrics := &SystemMetrics{Info: info}
 
-		// model.CreateSystemMetrics((*info).Export(), model.SystemMetricsArtifactOptions{
-		// 	Type: model.PailLocal,
-		// })
-
 		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 
-		results := &model.SystemMetrics{ID: modelInfo.ID()}
-		results.Setup(env)
-		assert.Error(t, results.Find(ctx))
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		assert.Error(t, sm.Find(ctx))
 	})
 
-	// conf := model.NewCedarConfig(env)
-	// require.NoError(t, conf.Save())
-	// t.Run("InvalidEnv", func(t *testing.T) {
-	// 	info := getTestResultsInfo()
-	// 	modelInfo := info.Export()
+	conf := model.NewCedarConfig(env)
+	require.NoError(t, conf.Save())
+	t.Run("InvalidEnv", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
 
-	// 	resp, err := invalidClient.CreateTestResultsRecord(ctx, info)
-	// 	assert.Error(t, err)
-	// 	assert.Nil(t, resp)
+		resp, err := invalidClient.CreateSystemMetricRecord(ctx, systemMetrics)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
 
-	// 	results := &model.TestResults{ID: modelInfo.ID()}
-	// 	results.Setup(env)
-	// 	assert.Error(t, results.Find(ctx))
-	// })
-	// t.Run("ConfigWithoutBucketType", func(t *testing.T) {
-	// 	info := getTestResultsInfo()
-	// 	modelInfo := info.Export()
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		assert.Error(t, sm.Find(ctx))
+	})
+	t.Run("ConfigWithoutBucketType", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
 
-	// 	resp, err := client.CreateTestResultsRecord(ctx, info)
-	// 	require.NoError(t, err)
-	// 	require.NotNil(t, resp)
+		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
 
-	// 	results := &model.TestResults{ID: modelInfo.ID()}
-	// 	results.Setup(env)
-	// 	require.NoError(t, results.Find(ctx))
-	// 	assert.Equal(t, modelInfo.ID(), resp.TestResultsRecordId)
-	// 	assert.Equal(t, modelInfo, results.Info)
-	// 	assert.Equal(t, model.PailLocal, results.Artifact.Type)
-	// 	assert.True(t, time.Since(results.CreatedAt) <= time.Second)
-	// })
-	// conf.Bucket.TestResultsBucketType = model.PailS3
-	// require.NoError(t, conf.Save())
-	// t.Run("ConfigWithBucketType", func(t *testing.T) {
-	// 	info := getTestResultsInfo()
-	// 	modelInfo := info.Export()
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		require.NoError(t, sm.Find(ctx))
+		assert.Equal(t, modelInfo.ID(), resp.Id)
+		assert.Equal(t, modelInfo, sm.Info)
+		assert.Equal(t, model.PailLocal, sm.Artifact.Options.Type)
+		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+	})
+	conf.Bucket.TestResultsBucketType = model.PailS3
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithBucketType", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
 
-	// 	resp, err := client.CreateTestResultsRecord(ctx, info)
-	// 	require.NoError(t, err)
-	// 	require.NotNil(t, resp)
+		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
 
-	// 	results := &model.TestResults{ID: modelInfo.ID()}
-	// 	results.Setup(env)
-	// 	require.NoError(t, results.Find(ctx))
-	// 	assert.Equal(t, modelInfo.ID(), resp.TestResultsRecordId)
-	// 	assert.Equal(t, modelInfo, results.Info)
-	// 	assert.Equal(t, conf.Bucket.TestResultsBucketType, results.Artifact.Type)
-	// 	assert.True(t, time.Since(results.CreatedAt) <= time.Second)
-	// })
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		require.NoError(t, sm.Find(ctx))
+		assert.Equal(t, modelInfo.ID(), resp.Id)
+		assert.Equal(t, modelInfo, sm.Info)
+		assert.Equal(t, model.PailLocal, sm.Artifact.Options.Type)
+		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+	})
 
 	// systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
 	// 	Type: model.PailLocal,
