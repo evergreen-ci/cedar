@@ -105,69 +105,6 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 		assert.Equal(t, model.PailLocal, sm.Artifact.Options.Type)
 		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
 	})
-
-	// systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
-	// 	Type: model.PailLocal,
-	// })
-	// systemMetrics.Setup(env)
-	// require.NoError(t, systemMetrics.SaveNew(ctx))
-
-	// for _, test := range []struct {
-	// 	name        string
-	// 	data        *SystemMetrics
-	// 	env         cedar.Environment
-	// 	invalidConf bool
-	// 	hasErr      bool
-	// }{
-	// 	{
-	// 		name: "ValidData",
-	// 		data: &SystemMetrics{
-	// 			Info: &SystemMetricsInfo{
-	// 				Project: "test",
-	// 			},
-	// 		},
-	// 		env: env,
-	// 	},
-	// 	{
-	// 		name: "InvalidEnv",
-	// 		data: &SystemMetrics{
-	// 			Info: &SystemMetricsInfo{
-	// 				Project: "test",
-	// 			},
-	// 		},
-	// 		env:    nil,
-	// 		hasErr: true,
-	// 	},
-	// } {
-	// 	t.Run(test.name, func(t *testing.T) {
-	// 		port := getPort()
-	// 		require.NoError(t, startSystemMetricsService(ctx, test.env, port))
-	// 		client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
-	// 		require.NoError(t, err)
-
-	// 		//info := test.data.Info.Export()
-	// 		resp, err := client.CreateSystemMetricRecord(ctx, test.data)
-	// 		if test.hasErr {
-	// 			assert.Nil(t, resp)
-	// 			assert.Error(t, err)
-
-	// 			sm := &model.SystemMetrics{ID: resp.Id}
-	// 			sm.Setup(env)
-	// 			assert.Error(t, sm.Find(ctx))
-	// 		} else {
-	// 			require.NoError(t, err)
-	// 			// assert.Equal(t, info.ID(), resp.Id)
-	// 			// assert.Equal(t, test.chunk.Id, resp.Id)
-
-	// 			sm := &model.SystemMetrics{ID: resp.Id}
-	// 			sm.Setup(env)
-	// 			require.NoError(t, sm.Find(ctx))
-	// 			//assert.Equal(t, info, sm.Info)
-	// 			//assert.Equal(t, test.chunk.Data, sm.Artifact.Chunks)
-	// 			assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
-	// 		}
-	// 	})
-	// }
 }
 
 func TestAddSystemMetrics(t *testing.T) {
@@ -460,10 +397,8 @@ func TestCloseMetrics(t *testing.T) {
 			env:  env,
 		},
 		{
-			name: "SystemMetricsDNE",
-			info: &SystemMetricsSeriesEnd{
-				Id: "DNE",
-			},
+			name:   "SystemMetricsDNE",
+			info:   &SystemMetricsSeriesEnd{Id: "DNE"},
 			env:    env,
 			hasErr: true,
 		},
@@ -493,6 +428,7 @@ func TestCloseMetrics(t *testing.T) {
 				sm.Setup(env)
 				require.NoError(t, sm.Find(ctx))
 				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
+				assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
 			}
 		})
 	}
