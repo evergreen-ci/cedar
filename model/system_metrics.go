@@ -266,7 +266,7 @@ func (sm *SystemMetrics) Close(ctx context.Context) error {
 		},
 	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   buildloggerCollection,
+		"collection":   systemMetricsCollection,
 		"id":           sm.ID,
 		"task_id":      sm.Info.TaskID,
 		"execution":    sm.Info.Execution,
