@@ -433,6 +433,71 @@ func TestStreamSystemMetrics(t *testing.T) {
 	}
 }
 
+func TestCloseMetrics(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createSystemMetricsEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownSystemMetricsEnv(ctx, env))
+	}()
+
+	systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
+		Type: model.PailLocal,
+	})
+	systemMetrics.Setup(env)
+	require.NoError(t, systemMetrics.SaveNew(ctx))
+
+	for _, test := range []struct {
+		name   string
+		info   *SystemMetricsSeriesEnd
+		env    cedar.Environment
+		hasErr bool
+	}{
+		{
+			name: "ValidData",
+			info: &SystemMetricsSeriesEnd{Id: systemMetrics.ID},
+			env:  env,
+		},
+		{
+			name: "SystemMetricsDNE",
+			info: &SystemMetricsSeriesEnd{
+				Id: "DNE",
+			},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name:   "InvalidEnv",
+			info:   &SystemMetricsSeriesEnd{Id: systemMetrics.ID},
+			env:    nil,
+			hasErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
+			require.NoError(t, startSystemMetricsService(ctx, test.env, port))
+			client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+
+			resp, err := client.CloseMetrics(ctx, test.info)
+			if test.hasErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, systemMetrics.ID, resp.Id)
+
+				sm := &model.SystemMetrics{ID: resp.Id}
+				sm.Setup(env)
+				require.NoError(t, sm.Find(ctx))
+				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
+			}
+		})
+	}
+}
+
 func createSystemMetricsEnv() (cedar.Environment, error) {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",

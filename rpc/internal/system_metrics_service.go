@@ -38,7 +38,6 @@ func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, dat
 	options := model.SystemMetricsArtifactOptions{Type: conf.Bucket.SystemMetricsBucketType}
 	sm := model.CreateSystemMetrics(data.Info.Export(), options)
 
-	//sm := model.CreateSystemMetrics(data.Info.Export(), data.Artifact.Export())
 	sm.Setup(s.env)
 	return &SystemMetricsResponse{Id: sm.ID}, newRPCError(codes.Internal, errors.Wrap(sm.SaveNew(ctx), "problem saving system metrics record"))
 }
