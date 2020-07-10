@@ -432,7 +432,6 @@ func TestSystemMetricsClose(t *testing.T) {
 		assert.Equal(t, sm1.ID, updatedSystemMetrics.ID)
 		assert.Equal(t, sm1.ID, updatedSystemMetrics.Info.ID())
 		assert.WithinDuration(t, sm1.CreatedAt.UTC(), updatedSystemMetrics.CreatedAt, time.Second)
-		//assert.Equal(t, sm1.CreatedAt.UTC().Round(time.Second), updatedSystemMetrics.CreatedAt.Round(time.Second))
 		assert.True(t, time.Since(updatedSystemMetrics.CompletedAt) <= time.Second)
 		assert.Equal(t, sm1.Info.Mainline, updatedSystemMetrics.Info.Mainline)
 		assert.Equal(t, sm1.Info.Schema, updatedSystemMetrics.Info.Schema)

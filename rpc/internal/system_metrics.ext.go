@@ -22,7 +22,6 @@ func (sm SystemMetricsInfo) Export() model.SystemMetricsInfo {
 // type in the model package.
 func (sm SystemMetricsArtifactInfo) Export() model.SystemMetricsArtifactOptions {
 	return model.SystemMetricsArtifactOptions{
-		Format:      sm.Format.Export(),
 		Compression: sm.Compression.Export(),
 		Schema:      sm.Schema.Export(),
 	}
