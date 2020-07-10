@@ -33,7 +33,7 @@ func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, dat
 		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
 	}
 	if conf.Bucket.SystemMetricsBucketType == "" {
-		conf.Bucket.SystemMetricsBucketType = model.PailLocal
+		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
 	}
 	options := model.SystemMetricsArtifactOptions{Type: conf.Bucket.SystemMetricsBucketType}
 	sm := model.CreateSystemMetrics(data.Info.Export(), options)
@@ -90,7 +90,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 }
 
 // CloseMetrics "closes out" a system metrics record by setting the
-// completed at timestamp. This should be the last rcp call made on a system
+// completed at timestamp. This should be the last rpc call made on a system
 // metrics record.
 func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
 	systemMetrics := &model.SystemMetrics{ID: info.Id}

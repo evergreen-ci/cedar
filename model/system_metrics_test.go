@@ -415,40 +415,39 @@ func TestSystemMetricsClose(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		sm := &SystemMetrics{ID: sm1.ID, populated: true}
-		assert.Error(t, sm.Close(ctx, 0))
+		assert.Error(t, sm.Close(ctx))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		sm := &SystemMetrics{ID: "DNE"}
 		sm.Setup(env)
-		assert.Error(t, sm.Close(ctx, 0))
+		assert.Error(t, sm.Close(ctx))
 	})
 	t.Run("WithID", func(t *testing.T) {
-		e1 := 0
 		l1 := &SystemMetrics{ID: sm1.ID, populated: true}
 		l1.Setup(env)
-		require.NoError(t, l1.Close(ctx, e1))
+		require.NoError(t, l1.Close(ctx))
 
 		updatedSystemMetrics := &SystemMetrics{}
-		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": sm1.ID}).Decode(updatedSystemMetrics))
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm1.ID}).Decode(updatedSystemMetrics))
 		assert.Equal(t, sm1.ID, updatedSystemMetrics.ID)
 		assert.Equal(t, sm1.ID, updatedSystemMetrics.Info.ID())
-		assert.Equal(t, sm1.CreatedAt.UTC().Round(time.Second), updatedSystemMetrics.CreatedAt.Round(time.Second))
+		assert.WithinDuration(t, sm1.CreatedAt.UTC(), updatedSystemMetrics.CreatedAt, time.Second)
+		//assert.Equal(t, sm1.CreatedAt.UTC().Round(time.Second), updatedSystemMetrics.CreatedAt.Round(time.Second))
 		assert.True(t, time.Since(updatedSystemMetrics.CompletedAt) <= time.Second)
 		assert.Equal(t, sm1.Info.Mainline, updatedSystemMetrics.Info.Mainline)
 		assert.Equal(t, sm1.Info.Schema, updatedSystemMetrics.Info.Schema)
 		assert.Equal(t, sm1.Artifact, updatedSystemMetrics.Artifact)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
-		e2 := 9
 		l2 := &SystemMetrics{Info: sm2.Info, populated: true}
 		l2.Setup(env)
-		require.NoError(t, l2.Close(ctx, e2))
+		require.NoError(t, l2.Close(ctx))
 
 		updatedSystemMetrics := &SystemMetrics{}
-		require.NoError(t, db.Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": sm2.ID}).Decode(updatedSystemMetrics))
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm2.ID}).Decode(updatedSystemMetrics))
 		assert.Equal(t, sm2.ID, updatedSystemMetrics.ID)
 		assert.Equal(t, sm2.ID, updatedSystemMetrics.Info.ID())
-		assert.Equal(t, sm2.CreatedAt.UTC().Round(time.Second), updatedSystemMetrics.CreatedAt.Round(time.Second))
+		assert.WithinDuration(t, sm2.CreatedAt.UTC(), updatedSystemMetrics.CreatedAt, time.Second)
 		assert.True(t, time.Since(updatedSystemMetrics.CompletedAt) <= time.Second)
 		assert.Equal(t, sm2.Info.Mainline, updatedSystemMetrics.Info.Mainline)
 		assert.Equal(t, sm2.Info.Schema, updatedSystemMetrics.Info.Schema)

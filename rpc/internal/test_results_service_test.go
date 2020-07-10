@@ -71,16 +71,12 @@ func TestCreateTestResultsRecord(t *testing.T) {
 		modelInfo := info.Export()
 
 		resp, err := client.CreateTestResultsRecord(ctx, info)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
 
 		results := &model.TestResults{ID: modelInfo.ID()}
 		results.Setup(env)
-		require.NoError(t, results.Find(ctx))
-		assert.Equal(t, modelInfo.ID(), resp.TestResultsRecordId)
-		assert.Equal(t, modelInfo, results.Info)
-		assert.Equal(t, model.PailLocal, results.Artifact.Type)
-		assert.True(t, time.Since(results.CreatedAt) <= time.Second)
+		assert.Error(t, results.Find(ctx))
 	})
 	conf.Bucket.TestResultsBucketType = model.PailS3
 	require.NoError(t, conf.Save())

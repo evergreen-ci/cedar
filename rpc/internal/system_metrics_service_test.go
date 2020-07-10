@@ -75,18 +75,15 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 		systemMetrics := &SystemMetrics{Info: info}
 
 		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
 
 		sm := &model.SystemMetrics{ID: modelInfo.ID()}
 		sm.Setup(env)
-		require.NoError(t, sm.Find(ctx))
-		assert.Equal(t, modelInfo.ID(), resp.Id)
-		assert.Equal(t, modelInfo, sm.Info)
-		assert.Equal(t, model.PailLocal, sm.Artifact.Options.Type)
-		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+		assert.Error(t, sm.Find(ctx))
+
 	})
-	conf.Bucket.TestResultsBucketType = model.PailS3
+	conf.Bucket.SystemMetricsBucketType = model.PailS3
 	require.NoError(t, conf.Save())
 	t.Run("ConfigWithBucketType", func(t *testing.T) {
 		info := getSystemMetricsInfo()
@@ -102,7 +99,7 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 		require.NoError(t, sm.Find(ctx))
 		assert.Equal(t, modelInfo.ID(), resp.Id)
 		assert.Equal(t, modelInfo, sm.Info)
-		assert.Equal(t, model.PailLocal, sm.Artifact.Options.Type)
+		assert.Equal(t, conf.Bucket.SystemMetricsBucketType, sm.Artifact.Options.Type)
 		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
 	})
 }

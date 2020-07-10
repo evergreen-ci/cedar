@@ -244,8 +244,8 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key st
 	return errors.Wrapf(err, "problem appending system metrics data chunk to %s", sm.ID)
 }
 
-// Close "closes out" the log by populating the completed_at and info.exit_code
-// fields. The environment should not be nil.
+// Close "closes out" the log by populating the completed_at field.
+// The environment should not be nil.
 func (sm *SystemMetrics) Close(ctx context.Context) error {
 	if sm.env == nil {
 		return errors.New("cannot close system metrics record with a nil environment")
