@@ -22,9 +22,8 @@ message SystemMetricsInfo {
 }
 
 message SystemMetricsArtifactInfo {
-  DataFormat format = 1;
-  CompressionType compression = 2;
-  SchemaType schema = 3;
+  CompressionType compression = 1;
+  SchemaType schema = 2;
 }
 
 message SystemMetricsData {
