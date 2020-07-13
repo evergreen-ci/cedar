@@ -26,9 +26,20 @@ func AttachSystemMetricsService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarSystemMetricsServer(s, srv)
 }
 
-//
-func (s *systemMetricsService) CreateSystemMetricRecord(context.Context, *SystemMetrics) (*SystemMetricsResponse, error) {
-	return nil, nil
+// CreateSystemMetricRecord creates a new system metrics record in the database.
+func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
+	conf := model.NewCedarConfig(s.env)
+	if err := conf.Find(); err != nil {
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
+	}
+	if conf.Bucket.SystemMetricsBucketType == "" {
+		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
+	}
+	options := model.SystemMetricsArtifactOptions{Type: conf.Bucket.SystemMetricsBucketType}
+	sm := model.CreateSystemMetrics(data.Info.Export(), options)
+
+	sm.Setup(s.env)
+	return &SystemMetricsResponse{Id: sm.ID}, newRPCError(codes.Internal, errors.Wrap(sm.SaveNew(ctx), "problem saving system metrics record"))
 }
 
 // AddSystemMetrics adds system metrics data to an existing bucket.
@@ -78,7 +89,19 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 	}
 }
 
-//
-func (*systemMetricsService) CloseMetrics(context.Context, *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
-	return nil, nil
+// CloseMetrics "closes out" a system metrics record by setting the
+// completed at timestamp. This should be the last rpc call made on a system
+// metrics record.
+func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
+	systemMetrics := &model.SystemMetrics{ID: info.Id}
+	systemMetrics.Setup(s.env)
+	if err := systemMetrics.Find(ctx); err != nil {
+		if db.ResultsNotFound(err) {
+			return nil, newRPCError(codes.NotFound, err)
+		}
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding system metrics record for '%s'", info.Id))
+	}
+
+	return &SystemMetricsResponse{Id: systemMetrics.ID},
+		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Close(ctx), "problem closing system metrics record with id %s", systemMetrics.ID))
 }

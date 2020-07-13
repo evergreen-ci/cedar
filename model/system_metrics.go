@@ -244,6 +244,44 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key st
 	return errors.Wrapf(err, "problem appending system metrics data chunk to %s", sm.ID)
 }
 
+// Close "closes out" the log by populating the completed_at field.
+// The environment should not be nil.
+func (sm *SystemMetrics) Close(ctx context.Context) error {
+	if sm.env == nil {
+		return errors.New("cannot close system metrics record with a nil environment")
+	}
+
+	if sm.ID == "" {
+		sm.ID = sm.Info.ID()
+	}
+
+	completedAt := time.Now()
+	updateResult, err := sm.env.GetDB().Collection(systemMetricsCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": sm.ID},
+		bson.M{
+			"$set": bson.M{
+				systemMetricsCompletedAtKey: completedAt,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   systemMetricsCollection,
+		"id":           sm.ID,
+		"task_id":      sm.Info.TaskID,
+		"execution":    sm.Info.Execution,
+		"completed_at": completedAt,
+		"updateResult": updateResult,
+		"op":           "close system metrics record",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find system metrics record with id %s in the database", sm.ID)
+	}
+
+	return errors.Wrapf(err, "problem closing system metrics record with id %s", sm.ID)
+
+}
+
 // ID creates a unique hash for the system metrics for a task.
 func (id *SystemMetricsInfo) ID() string {
 	var hash hash.Hash

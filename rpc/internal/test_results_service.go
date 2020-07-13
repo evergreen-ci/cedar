@@ -32,7 +32,7 @@ func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *
 		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
 	}
 	if conf.Bucket.TestResultsBucketType == "" {
-		conf.Bucket.TestResultsBucketType = model.PailLocal
+		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
 	}
 
 	record := model.CreateTestResults(info.Export(), conf.Bucket.TestResultsBucketType)
@@ -102,7 +102,7 @@ func (s *testResultsService) StreamTestResults(stream CedarTestResults_StreamTes
 }
 
 // CloseTestResultsRecord "closes out" a test results record by setting the
-// completed at timestamp. This should be the last rcp call made on a test
+// completed at timestamp. This should be the last rpc call made on a test
 // results record.
 func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *TestResultsEndInfo) (*TestResultsResponse, error) {
 	record := &model.TestResults{ID: info.TestResultsRecordId}

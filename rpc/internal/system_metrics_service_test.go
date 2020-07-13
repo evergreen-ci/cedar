@@ -4,6 +4,7 @@ import (
 	"context"
 	fmt "fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,12 +14,95 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	grpc "google.golang.org/grpc"
 )
+
+func TestCreateSystemMetricRecord(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createSystemMetricsEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownSystemMetricsEnv(ctx, env))
+	}()
+
+	port := getPort()
+	require.NoError(t, startSystemMetricsService(ctx, env, port))
+	client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+	require.NoError(t, err)
+	port = getPort()
+	require.NoError(t, startSystemMetricsService(ctx, nil, port))
+	invalidClient, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+	require.NoError(t, err)
+
+	t.Run("NoConfig", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
+
+		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		assert.Error(t, sm.Find(ctx))
+	})
+
+	conf := model.NewCedarConfig(env)
+	require.NoError(t, conf.Save())
+	t.Run("InvalidEnv", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
+
+		resp, err := invalidClient.CreateSystemMetricRecord(ctx, systemMetrics)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		assert.Error(t, sm.Find(ctx))
+	})
+	t.Run("ConfigWithoutBucketType", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
+
+		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		assert.Error(t, sm.Find(ctx))
+
+	})
+	conf.Bucket.SystemMetricsBucketType = model.PailS3
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithBucketType", func(t *testing.T) {
+		info := getSystemMetricsInfo()
+		modelInfo := info.Export()
+		systemMetrics := &SystemMetrics{Info: info}
+
+		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		sm := &model.SystemMetrics{ID: modelInfo.ID()}
+		sm.Setup(env)
+		require.NoError(t, sm.Find(ctx))
+		assert.Equal(t, modelInfo.ID(), resp.Id)
+		assert.Equal(t, modelInfo, sm.Info)
+		assert.Equal(t, conf.Bucket.SystemMetricsBucketType, sm.Artifact.Options.Type)
+		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+	})
+}
 
 func TestAddSystemMetrics(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -283,6 +367,70 @@ func TestStreamSystemMetrics(t *testing.T) {
 	}
 }
 
+func TestCloseMetrics(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, err := createSystemMetricsEnv()
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, teardownSystemMetricsEnv(ctx, env))
+	}()
+
+	systemMetrics := model.CreateSystemMetrics(model.SystemMetricsInfo{Project: "test"}, model.SystemMetricsArtifactOptions{
+		Type: model.PailLocal,
+	})
+	systemMetrics.Setup(env)
+	require.NoError(t, systemMetrics.SaveNew(ctx))
+
+	for _, test := range []struct {
+		name   string
+		info   *SystemMetricsSeriesEnd
+		env    cedar.Environment
+		hasErr bool
+	}{
+		{
+			name: "ValidData",
+			info: &SystemMetricsSeriesEnd{Id: systemMetrics.ID},
+			env:  env,
+		},
+		{
+			name:   "SystemMetricsDNE",
+			info:   &SystemMetricsSeriesEnd{Id: "DNE"},
+			env:    env,
+			hasErr: true,
+		},
+		{
+			name:   "InvalidEnv",
+			info:   &SystemMetricsSeriesEnd{Id: systemMetrics.ID},
+			env:    nil,
+			hasErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			port := getPort()
+			require.NoError(t, startSystemMetricsService(ctx, test.env, port))
+			client, err := getSystemMetricsGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+
+			resp, err := client.CloseMetrics(ctx, test.info)
+			if test.hasErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, systemMetrics.ID, resp.Id)
+
+				sm := &model.SystemMetrics{ID: resp.Id}
+				sm.Setup(env)
+				require.NoError(t, sm.Find(ctx))
+				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
+				assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+			}
+		})
+	}
+}
+
 func createSystemMetricsEnv() (cedar.Environment, error) {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
 		MongoDBURI:    "mongodb://localhost:27017",
@@ -330,4 +478,16 @@ func getSystemMetricsGRPCClient(ctx context.Context, address string, opts []grpc
 	}()
 
 	return NewCedarSystemMetricsClient(conn), nil
+}
+
+func getSystemMetricsInfo() *SystemMetricsInfo {
+	return &SystemMetricsInfo{
+		Project:   utility.RandomString(),
+		Version:   utility.RandomString(),
+		Variant:   utility.RandomString(),
+		TaskName:  utility.RandomString(),
+		TaskId:    utility.RandomString(),
+		Execution: rand.Int31n(5),
+		Mainline:  false,
+	}
 }
