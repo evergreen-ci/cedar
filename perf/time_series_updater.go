@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ArgumentsModel is the structure of a arbitrary argument of a TimeSeries.
+// ArgumentsModel is the structure of an arbitrary argument of a TimeSeries.
 type ArgumentsModel struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"`
