@@ -40,6 +40,7 @@ func makePeriodicTimeSeriesUpdateJob() *periodicTimeSeriesJob {
 	return j
 }
 
+// NewPeriodicTimeSeriesUpdateJob creates a new amboy job to periodically update time series.
 func NewPeriodicTimeSeriesUpdateJob(id string) amboy.Job {
 	j := makePeriodicTimeSeriesUpdateJob()
 	j.SetID(fmt.Sprintf("%s.%s", periodicTimeSeriesUpdateJobName, id))

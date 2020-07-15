@@ -45,6 +45,7 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 	return j
 }
 
+// NewUpdateTimeSeriesJob creates a new amboy job to update a time series.
 func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeTimeSeriesJob()
 	// Every ten minutes at most
