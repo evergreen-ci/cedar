@@ -52,7 +52,7 @@ func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOp
 		CreatedAt: time.Now(),
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix:  info.ID(),
-			Chunks:  []string{},
+			Chunks:  map[string][]string{},
 			Options: options,
 		},
 		populated: true,
@@ -168,9 +168,12 @@ func (sm *SystemMetrics) Remove(ctx context.Context) error {
 // Append uploads a chunk of system metrics data to the offline blob storage bucket
 // configured for the system metrics and updates the metadata in the database to reflect
 // the uploaded data. The environment should not be nil.
-func (sm *SystemMetrics) Append(ctx context.Context, data []byte) error {
+func (sm *SystemMetrics) Append(ctx context.Context, metricType string, data []byte) error {
 	if sm.env == nil {
 		return errors.New("cannot not append system metrics data with a nil environment")
+	}
+	if metricType == "" {
+		return errors.New("must specify the type of metric data")
 	}
 	if len(data) == 0 {
 		grip.Warning(message.Fields{
@@ -183,7 +186,7 @@ func (sm *SystemMetrics) Append(ctx context.Context, data []byte) error {
 		return nil
 	}
 
-	key := fmt.Sprint(utility.UnixMilli(time.Now()))
+	key := metricType + fmt.Sprint(utility.UnixMilli(time.Now()))
 
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
@@ -205,14 +208,22 @@ func (sm *SystemMetrics) Append(ctx context.Context, data []byte) error {
 		return errors.Wrap(err, "problem uploading system metrics data to bucket")
 	}
 
-	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, key), "problem updating system metrics metadata during upload")
+	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, metricType, key), "problem updating system metrics metadata during upload")
 }
 
 // appendSystemMetricsChunkKey adds a new key to the system metrics's chunks array in the
 // database. The environment should not be nil.
-func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key string) error {
+func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metricType, key string) error {
 	if sm.env == nil {
 		return errors.New("cannot append to a system metrics object with a nil environment")
+	}
+
+	if metricType == "" {
+		return errors.New("must specify metric type")
+	}
+
+	if key == "" {
+		return errors.New("must specify key")
 	}
 
 	if sm.ID == "" {
@@ -224,10 +235,11 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, key st
 		bson.M{"_id": sm.ID},
 		bson.M{
 			"$push": bson.M{
-				bsonutil.GetDottedKeyName(systemMetricsArtifactKey, metricsArtifactInfoChunksKey): key,
+				bsonutil.GetDottedKeyName(systemMetricsArtifactKey, metricsArtifactInfoChunksKey, metricType): key,
 			},
 		},
 	)
+
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   systemMetricsCollection,
 		"id":           sm.ID,

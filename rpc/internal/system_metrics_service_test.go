@@ -144,6 +144,7 @@ func TestAddSystemMetrics(t *testing.T) {
 			name: "ValidData",
 			chunk: &SystemMetricsData{
 				Id:   systemMetrics.ID,
+				Type: "Test",
 				Data: []byte("Byte chunk for valid data"),
 			},
 			env: env,
@@ -152,6 +153,7 @@ func TestAddSystemMetrics(t *testing.T) {
 			name: "LogDNE",
 			chunk: &SystemMetricsData{
 				Id:   "DNE",
+				Type: "Test",
 				Data: []byte("Byte chunk when id doesn't exist"),
 			},
 			env:    env,
@@ -161,6 +163,7 @@ func TestAddSystemMetrics(t *testing.T) {
 			name: "InvalidEnv",
 			chunk: &SystemMetricsData{
 				Id:   systemMetrics.ID,
+				Type: "Test",
 				Data: []byte("Byte chunk with no env"),
 			},
 			env:    nil,
@@ -170,6 +173,7 @@ func TestAddSystemMetrics(t *testing.T) {
 			name: "InvalidConf",
 			chunk: &SystemMetricsData{
 				Id:   systemMetrics.ID,
+				Type: "Test",
 				Data: []byte("Byte chunk with no conf"),
 			},
 			env:         env,
@@ -205,7 +209,7 @@ func TestAddSystemMetrics(t *testing.T) {
 				require.NoError(t, sm.Find(ctx))
 				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
 				assert.Len(t, sm.Artifact.Chunks, 1)
-				_, err := bucket.Get(ctx, sm.Artifact.Chunks[0])
+				_, err := bucket.Get(ctx, sm.Artifact.Chunks["Test"][0])
 				assert.NoError(t, err)
 			}
 		})
@@ -258,14 +262,17 @@ func TestStreamSystemMetrics(t *testing.T) {
 			chunks: []*SystemMetricsData{
 				{
 					Id:   systemMetrics.ID,
+					Type: "Test",
 					Data: []byte("First byte chunk for valid data"),
 				},
 				{
 					Id:   systemMetrics.ID,
+					Type: "Test",
 					Data: []byte("Second byte chunk for valid data"),
 				},
 				{
 					Id:   systemMetrics.ID,
+					Type: "Test",
 					Data: []byte("Third byte chunk for valid data"),
 				},
 			},
@@ -276,10 +283,12 @@ func TestStreamSystemMetrics(t *testing.T) {
 			chunks: []*SystemMetricsData{
 				{
 					Id:   systemMetrics.ID,
+					Type: "Test",
 					Data: []byte("First byte chunk for different system metrics ids"),
 				},
 				{
 					Id:   systemMetrics2.ID,
+					Type: "Test",
 					Data: []byte("Second byte chunk for different system metrics ids"),
 				},
 			},
@@ -291,6 +300,7 @@ func TestStreamSystemMetrics(t *testing.T) {
 			chunks: []*SystemMetricsData{
 				{
 					Id:   "DNE",
+					Type: "Test",
 					Data: []byte("First byte chunk for invalid system metrics ids"),
 				},
 			},
@@ -302,6 +312,7 @@ func TestStreamSystemMetrics(t *testing.T) {
 			chunks: []*SystemMetricsData{
 				{
 					Id:   systemMetrics.ID,
+					Type: "Test",
 					Data: []byte("First byte chunk for invalid env"),
 				},
 			},
@@ -313,6 +324,7 @@ func TestStreamSystemMetrics(t *testing.T) {
 			chunks: []*SystemMetricsData{
 				{
 					Id:   systemMetrics.ID,
+					Type: "Test",
 					Data: []byte("First byte chunk for invalid conf"),
 				},
 			},
@@ -357,8 +369,8 @@ func TestStreamSystemMetrics(t *testing.T) {
 				sm.Setup(env)
 				require.NoError(t, sm.Find(ctx))
 				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
-				assert.Len(t, sm.Artifact.Chunks, len(test.chunks))
-				for _, key := range sm.Artifact.Chunks {
+				assert.Len(t, sm.Artifact.Chunks["Test"], len(test.chunks))
+				for _, key := range sm.Artifact.Chunks["Test"] {
 					_, err := bucket.Get(ctx, key)
 					assert.NoError(t, err)
 				}

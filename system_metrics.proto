@@ -28,7 +28,8 @@ message SystemMetricsArtifactInfo {
 
 message SystemMetricsData {
   string id = 1;
-  bytes data = 2;
+  string type = 2;
+  bytes data = 3;
 }
 
 message SystemMetricsSeriesEnd {
