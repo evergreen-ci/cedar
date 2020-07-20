@@ -103,24 +103,24 @@ func TestSystemMetricsAppend(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		sm := SystemMetrics{ID: systemMetrics.ID}
-		assert.Error(t, sm.Append(ctx, chunk1))
+		assert.Error(t, sm.Append(ctx, "Test", chunk1))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		systemMetrics.Setup(env)
-		assert.Error(t, systemMetrics.Append(ctx, chunk1))
+		assert.Error(t, systemMetrics.Append(ctx, "Test", chunk1))
 	})
 	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics)
 	require.NoError(t, err)
 	t.Run("NoConfig", func(t *testing.T) {
 		systemMetrics.Setup(env)
-		assert.Error(t, systemMetrics.Append(ctx, chunk1))
+		assert.Error(t, systemMetrics.Append(ctx, "Test", chunk1))
 	})
 	conf := &CedarConfig{populated: true}
 	conf.Setup(env)
 	require.NoError(t, conf.Save())
 	t.Run("ConfigWithoutBucket", func(t *testing.T) {
 		systemMetrics.Setup(env)
-		assert.Error(t, systemMetrics.Append(ctx, chunk1))
+		assert.Error(t, systemMetrics.Append(ctx, "Test", chunk1))
 	})
 	conf.Setup(env)
 	require.NoError(t, conf.Find())
@@ -128,8 +128,8 @@ func TestSystemMetricsAppend(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("AppendToBucketAndDB", func(t *testing.T) {
 		systemMetrics.Setup(env)
-		require.NoError(t, systemMetrics.Append(ctx, chunk1))
-		require.NoError(t, systemMetrics.Append(ctx, chunk2))
+		require.NoError(t, systemMetrics.Append(ctx, "Test", chunk1))
+		require.NoError(t, systemMetrics.Append(ctx, "Test", chunk2))
 
 		b := &backoff.Backoff{
 			Min:    100 * time.Millisecond,
@@ -162,15 +162,17 @@ func TestSystemMetricsAppend(t *testing.T) {
 		chunk1Key, ok1 := keyCheck[string(chunk1)]
 		chunk2Key, ok2 := keyCheck[string(chunk2)]
 		assert.True(t, ok1 && ok2)
-		chunk1Nanos, err1 := strconv.ParseInt(chunk1Key, 10, 64)
-		chunk2Nanos, err2 := strconv.ParseInt(chunk2Key, 10, 64)
+		assert.Equal(t, "Test-", chunk1Key[:5])
+		assert.Equal(t, "Test-", chunk2Key[:5])
+		chunk1Nanos, err1 := strconv.ParseInt(chunk1Key[5:], 10, 64)
+		chunk2Nanos, err2 := strconv.ParseInt(chunk2Key[5:], 10, 64)
 		assert.NoError(t, err1, err2)
 		assert.True(t, chunk1Nanos < chunk2Nanos)
 
 		sm := &SystemMetrics{}
 		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics.Info.ID()}).Decode(sm))
-		assert.Len(t, sm.Artifact.Chunks, 2)
-		assert.Equal(t, sm.Artifact.Chunks, []string{chunk1Key, chunk2Key})
+		assert.Len(t, sm.Artifact.Chunks["Test"], 2)
+		assert.Equal(t, sm.Artifact.Chunks["Test"], []string{chunk1Key, chunk2Key})
 	})
 }
 
@@ -183,12 +185,14 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
 
-	key1 := fmt.Sprint(utility.UnixMilli(time.Now().Add(-20 * time.Second)))
-	key2 := fmt.Sprint(utility.UnixMilli(time.Now().Add(-10 * time.Second)))
+	key1 := "Test-" + fmt.Sprint(utility.UnixMilli(time.Now().Add(-20*time.Second)))
+	key2 := "Test-" + fmt.Sprint(utility.UnixMilli(time.Now().Add(-10*time.Second)))
 
 	systemMetrics1 := getSystemMetrics()
 	systemMetrics2 := getSystemMetrics()
-	systemMetrics2.Artifact.Chunks = []string{key1, key2}
+	systemMetrics2.Artifact.Chunks = map[string][]string{
+		"Test": {key1, key2},
+	}
 
 	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics1)
 	require.NoError(t, err)
@@ -197,48 +201,59 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		sm := &SystemMetrics{ID: systemMetrics1.ID}
-		assert.Error(t, sm.appendSystemMetricsChunkKey(ctx, key1))
+		assert.Error(t, sm.appendSystemMetricsChunkKey(ctx, "Test", key1))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		sm := &SystemMetrics{ID: "DNE"}
 		sm.Setup(env)
-		assert.Error(t, sm.appendSystemMetricsChunkKey(ctx, key1))
+		assert.Error(t, sm.appendSystemMetricsChunkKey(ctx, "Test", key1))
 	})
 	t.Run("PushToEmptyArray", func(t *testing.T) {
-		chunks := []string{key1, key2}
+		chunks := map[string][]string{
+			"Test": {key1, key2},
+		}
 		sm := &SystemMetrics{ID: systemMetrics1.ID}
 		sm.Setup(env)
 
-		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, chunks[0]))
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, "Test", chunks["Test"][0]))
 		updatedSystemMetrics := &SystemMetrics{}
 		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics1.ID}).Decode(updatedSystemMetrics))
 		assert.Equal(t, systemMetrics1.ID, updatedSystemMetrics.ID)
 		assert.Equal(t, systemMetrics1.Info, updatedSystemMetrics.Info)
 		assert.Equal(t, systemMetrics1.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
-		assert.Equal(t, chunks[:1], updatedSystemMetrics.Artifact.Chunks)
+		assert.Equal(t, chunks["Test"][:1], updatedSystemMetrics.Artifact.Chunks["Test"])
 
 		sm.Setup(env)
-		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, chunks[1]))
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, "Test", chunks["Test"][1]))
 		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics1.ID}).Decode(updatedSystemMetrics))
 		assert.Equal(t, systemMetrics1.ID, updatedSystemMetrics.ID)
 		assert.Equal(t, systemMetrics1.Info, updatedSystemMetrics.Info)
 		assert.Equal(t, systemMetrics1.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
-		assert.Equal(t, chunks, updatedSystemMetrics.Artifact.Chunks)
+		assert.Equal(t, chunks["Test"], updatedSystemMetrics.Artifact.Chunks["Test"])
 	})
 	t.Run("PushToExistingArray", func(t *testing.T) {
 		sm := &SystemMetrics{ID: systemMetrics2.ID}
 		sm.Setup(env)
 
-		key3 := fmt.Sprint(utility.UnixMilli(time.Now()))
+		key3 := "Test" + fmt.Sprint(utility.UnixMilli(time.Now()))
 
-		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, key3))
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, "Test", key3))
 		updatedSystemMetrics := &SystemMetrics{}
 		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics2.ID}).Decode(updatedSystemMetrics))
 		assert.Equal(t, systemMetrics2.ID, updatedSystemMetrics.ID)
 		assert.Equal(t, systemMetrics2.Info, updatedSystemMetrics.Info)
 		assert.Equal(t, systemMetrics2.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
-		assert.Equal(t, append(systemMetrics2.Artifact.Chunks, key3), updatedSystemMetrics.Artifact.Chunks)
+		assert.Equal(t, append(systemMetrics2.Artifact.Chunks["Test"], key3), updatedSystemMetrics.Artifact.Chunks["Test"])
 
+		key4 := "DifferentType" + fmt.Sprint(utility.UnixMilli(time.Now()))
+		require.NoError(t, sm.appendSystemMetricsChunkKey(ctx, "DifferentType", key4))
+		updatedSystemMetrics = &SystemMetrics{}
+		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": systemMetrics2.ID}).Decode(updatedSystemMetrics))
+		assert.Equal(t, systemMetrics2.ID, updatedSystemMetrics.ID)
+		assert.Equal(t, systemMetrics2.Info, updatedSystemMetrics.Info)
+		assert.Equal(t, systemMetrics2.Artifact.Prefix, updatedSystemMetrics.Artifact.Prefix)
+		assert.Equal(t, 1, len(updatedSystemMetrics.Artifact.Chunks["DifferentType"]))
+		assert.Equal(t, []string{key4}, updatedSystemMetrics.Artifact.Chunks["DifferentType"])
 	})
 }
 
@@ -304,7 +319,7 @@ func getSystemMetrics() *SystemMetrics {
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix: info.ID(),
-			Chunks: []string{},
+			Chunks: map[string][]string{},
 			Options: SystemMetricsArtifactOptions{
 				Type:        PailLocal,
 				Format:      FileFTDC,

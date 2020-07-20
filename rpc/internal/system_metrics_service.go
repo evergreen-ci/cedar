@@ -54,7 +54,7 @@ func (s *systemMetricsService) AddSystemMetrics(ctx context.Context, data *Syste
 	}
 
 	return &SystemMetricsResponse{Id: systemMetrics.ID},
-		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Append(ctx, data.Data), "problem appending systemMetrics data for '%s'", data.Id))
+		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Append(ctx, data.Type, data.Data), "problem appending systemMetrics data for '%s'", data.Id))
 }
 
 // StreamSystemMetrics adds system metrics data via client-side streaming to an existing
