@@ -162,10 +162,10 @@ func TestSystemMetricsAppend(t *testing.T) {
 		chunk1Key, ok1 := keyCheck[string(chunk1)]
 		chunk2Key, ok2 := keyCheck[string(chunk2)]
 		assert.True(t, ok1 && ok2)
-		assert.Equal(t, "Test", chunk1Key[:4])
-		assert.Equal(t, "Test", chunk2Key[:4])
-		chunk1Nanos, err1 := strconv.ParseInt(chunk1Key[4:], 10, 64)
-		chunk2Nanos, err2 := strconv.ParseInt(chunk2Key[4:], 10, 64)
+		assert.Equal(t, "Test-", chunk1Key[:5])
+		assert.Equal(t, "Test-", chunk2Key[:5])
+		chunk1Nanos, err1 := strconv.ParseInt(chunk1Key[5:], 10, 64)
+		chunk2Nanos, err2 := strconv.ParseInt(chunk2Key[5:], 10, 64)
 		assert.NoError(t, err1, err2)
 		assert.True(t, chunk1Nanos < chunk2Nanos)
 
@@ -185,8 +185,8 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
 
-	key1 := "Test" + fmt.Sprint(utility.UnixMilli(time.Now().Add(-20*time.Second)))
-	key2 := "Test" + fmt.Sprint(utility.UnixMilli(time.Now().Add(-10*time.Second)))
+	key1 := "Test-" + fmt.Sprint(utility.UnixMilli(time.Now().Add(-20*time.Second)))
+	key2 := "Test-" + fmt.Sprint(utility.UnixMilli(time.Now().Add(-10*time.Second)))
 
 	systemMetrics1 := getSystemMetrics()
 	systemMetrics2 := getSystemMetrics()
