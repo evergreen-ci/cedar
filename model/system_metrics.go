@@ -186,7 +186,7 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, data []b
 		return nil
 	}
 
-	key := metricType + fmt.Sprint(utility.UnixMilli(time.Now()))
+	key := fmt.Sprintf("%s-%v", metricType, utility.UnixMilli(time.Now()))
 
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
