@@ -15,11 +15,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ArgumentsModel is the structure of an arbitrary argument of a TimeSeries.
 type ArgumentsModel struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"`
 }
 
+// TimeSeriesDataModel is a single data point on a time series.
 type TimeSeriesDataModel struct {
 	PerformanceResultID string  `json:"cedar_perf_result_id"`
 	Order               int     `json:"order"`
@@ -27,6 +29,7 @@ type TimeSeriesDataModel struct {
 	Version             string  `json:"version"`
 }
 
+// TimeSeriesModel is the representation of the meta information and data points that make up a time series.
 type TimeSeriesModel struct {
 	Project     string                `json:"project"`
 	Variant     string                `json:"variant"`
@@ -37,6 +40,7 @@ type TimeSeriesModel struct {
 	Data        []TimeSeriesDataModel `json:"data"`
 }
 
+// PerformanceAnalysisService is the interface for the Performance Analysis Service.
 type PerformanceAnalysisService interface {
 	ReportUpdatedTimeSeries(context.Context, TimeSeriesModel) error
 }
@@ -47,10 +51,12 @@ type performanceAnalysisAndTriageClient struct {
 	baseURL string
 }
 
+// NewPerformanceAnalysisService creates a new PerformanceAnalysisService.
 func NewPerformanceAnalysisService(baseURL, user string, token string) PerformanceAnalysisService {
 	return &performanceAnalysisAndTriageClient{user: user, token: token, baseURL: baseURL}
 }
 
+// ReportUpdatedTimeSeries takes a TimeSeriesModel and tries to report its data to a PerformanceAnalysisService.
 func (spc *performanceAnalysisAndTriageClient) ReportUpdatedTimeSeries(ctx context.Context, series TimeSeriesModel) error {
 	startAt := time.Now()
 
