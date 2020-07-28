@@ -67,7 +67,7 @@ generate-points:$(buildDir)/generate-points
 	./$<
 $(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
 	@mkdir -p $(buildDir)
-	@$(goEnv) $(gobin) build -o $@ $<
+	@GOOS=$(go env GOOS) $(goEnv) $(gobin) build -o $@ $<
 # end dependency installation tools
 
 
