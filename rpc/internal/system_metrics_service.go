@@ -26,8 +26,8 @@ func AttachSystemMetricsService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarSystemMetricsServer(s, srv)
 }
 
-// CreateSystemMetricRecord creates a new system metrics record in the database.
-func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
+// CreateSystemMetricsRecord creates a new system metrics record in the database.
+func (s *systemMetricsService) CreateSystemMetricsRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
 	conf := model.NewCedarConfig(s.env)
 	if err := conf.Find(); err != nil {
 		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
@@ -35,7 +35,8 @@ func (s *systemMetricsService) CreateSystemMetricRecord(ctx context.Context, dat
 	if conf.Bucket.SystemMetricsBucketType == "" {
 		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
 	}
-	options := model.SystemMetricsArtifactOptions{Type: conf.Bucket.SystemMetricsBucketType}
+	options := data.Artifact.Export()
+	options.Type = conf.Bucket.SystemMetricsBucketType
 	sm := model.CreateSystemMetrics(data.Info.Export(), options)
 
 	sm.Setup(s.env)
@@ -90,8 +91,8 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 }
 
 // CloseMetrics "closes out" a system metrics record by setting the
-// completed at timestamp. This should be the last rpc call made on a system
-// metrics record.
+// completed at timestamp and success boolean. This should be the last
+// rpc call made on a system metrics record.
 func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMetricsSeriesEnd) (*SystemMetricsResponse, error) {
 	systemMetrics := &model.SystemMetrics{ID: info.Id}
 	systemMetrics.Setup(s.env)
@@ -101,7 +102,6 @@ func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMet
 		}
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding system metrics record for '%s'", info.Id))
 	}
-
 	return &SystemMetricsResponse{Id: systemMetrics.ID},
-		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Close(ctx), "problem closing system metrics record with id %s", systemMetrics.ID))
+		newRPCError(codes.Internal, errors.Wrapf(systemMetrics.Close(ctx, info.Success), "problem closing system metrics record with id %s", systemMetrics.ID))
 }

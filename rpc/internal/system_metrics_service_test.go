@@ -22,7 +22,7 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-func TestCreateSystemMetricRecord(t *testing.T) {
+func TestCreateSystemMetricsRecord(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	env, err := createSystemMetricsEnv()
@@ -42,10 +42,14 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 
 	t.Run("NoConfig", func(t *testing.T) {
 		info := getSystemMetricsInfo()
+		artifact := getSystemMetricsArtifactInfo()
 		modelInfo := info.Export()
-		systemMetrics := &SystemMetrics{Info: info}
+		systemMetrics := &SystemMetrics{
+			Info:     info,
+			Artifact: artifact,
+		}
 
-		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		resp, err := client.CreateSystemMetricsRecord(ctx, systemMetrics)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 
@@ -58,10 +62,14 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("InvalidEnv", func(t *testing.T) {
 		info := getSystemMetricsInfo()
+		artifact := getSystemMetricsArtifactInfo()
 		modelInfo := info.Export()
-		systemMetrics := &SystemMetrics{Info: info}
+		systemMetrics := &SystemMetrics{
+			Info:     info,
+			Artifact: artifact,
+		}
 
-		resp, err := invalidClient.CreateSystemMetricRecord(ctx, systemMetrics)
+		resp, err := invalidClient.CreateSystemMetricsRecord(ctx, systemMetrics)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 
@@ -71,10 +79,14 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 	})
 	t.Run("ConfigWithoutBucketType", func(t *testing.T) {
 		info := getSystemMetricsInfo()
+		artifact := getSystemMetricsArtifactInfo()
 		modelInfo := info.Export()
-		systemMetrics := &SystemMetrics{Info: info}
+		systemMetrics := &SystemMetrics{
+			Info:     info,
+			Artifact: artifact,
+		}
 
-		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		resp, err := client.CreateSystemMetricsRecord(ctx, systemMetrics)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 
@@ -87,10 +99,14 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("ConfigWithBucketType", func(t *testing.T) {
 		info := getSystemMetricsInfo()
+		artifact := getSystemMetricsArtifactInfo()
 		modelInfo := info.Export()
-		systemMetrics := &SystemMetrics{Info: info}
+		systemMetrics := &SystemMetrics{
+			Info:     info,
+			Artifact: artifact,
+		}
 
-		resp, err := client.CreateSystemMetricRecord(ctx, systemMetrics)
+		resp, err := client.CreateSystemMetricsRecord(ctx, systemMetrics)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
@@ -100,6 +116,9 @@ func TestCreateSystemMetricRecord(t *testing.T) {
 		assert.Equal(t, modelInfo.ID(), resp.Id)
 		assert.Equal(t, modelInfo, sm.Info)
 		assert.Equal(t, conf.Bucket.SystemMetricsBucketType, sm.Artifact.Options.Type)
+		assert.Equal(t, model.FileUncompressed, sm.Artifact.Options.Compression)
+		assert.Equal(t, model.SchemaRawEvents, sm.Artifact.Options.Schema)
+		assert.Equal(t, model.FileFTDC, sm.Artifact.Options.Format)
 		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
 	})
 }
@@ -402,8 +421,11 @@ func TestCloseMetrics(t *testing.T) {
 	}{
 		{
 			name: "ValidData",
-			info: &SystemMetricsSeriesEnd{Id: systemMetrics.ID},
-			env:  env,
+			info: &SystemMetricsSeriesEnd{
+				Id:      systemMetrics.ID,
+				Success: true,
+			},
+			env: env,
 		},
 		{
 			name:   "SystemMetricsDNE",
@@ -436,8 +458,9 @@ func TestCloseMetrics(t *testing.T) {
 				sm := &model.SystemMetrics{ID: resp.Id}
 				sm.Setup(env)
 				require.NoError(t, sm.Find(ctx))
-				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
+				assert.Equal(t, systemMetrics.ID, sm.Info.ID())
 				assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
+				assert.Equal(t, test.info.Success, sm.Info.Success)
 			}
 		})
 	}
@@ -501,5 +524,13 @@ func getSystemMetricsInfo() *SystemMetricsInfo {
 		TaskId:    utility.RandomString(),
 		Execution: rand.Int31n(5),
 		Mainline:  false,
+	}
+}
+
+func getSystemMetricsArtifactInfo() *SystemMetricsArtifactInfo {
+	return &SystemMetricsArtifactInfo{
+		Compression: CompressionType_NONE,
+		Format:      DataFormat_FTDC,
+		Schema:      SchemaType_RAW_EVENTS,
 	}
 }

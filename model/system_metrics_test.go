@@ -302,34 +302,6 @@ func TestSystemMetricsRemove(t *testing.T) {
 	})
 }
 
-func getSystemMetrics() *SystemMetrics {
-	info := SystemMetricsInfo{
-		Project:  utility.RandomString(),
-		Version:  utility.RandomString(),
-		Variant:  utility.RandomString(),
-		TaskName: utility.RandomString(),
-		TaskID:   utility.RandomString(),
-		Mainline: true,
-		Schema:   0,
-	}
-	return &SystemMetrics{
-		ID:          info.ID(),
-		Info:        info,
-		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
-		CompletedAt: time.Now().UTC().Round(time.Millisecond),
-		Artifact: SystemMetricsArtifactInfo{
-			Prefix: info.ID(),
-			Chunks: map[string][]string{},
-			Options: SystemMetricsArtifactOptions{
-				Type:        PailLocal,
-				Format:      FileFTDC,
-				Compression: FileUncompressed,
-				Schema:      SchemaRawEvents,
-			},
-		},
-	}
-}
-
 func TestSystemMetricsSaveNew(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -430,17 +402,17 @@ func TestSystemMetricsClose(t *testing.T) {
 
 	t.Run("NoEnv", func(t *testing.T) {
 		sm := &SystemMetrics{ID: sm1.ID, populated: true}
-		assert.Error(t, sm.Close(ctx))
+		assert.Error(t, sm.Close(ctx, true))
 	})
 	t.Run("DNE", func(t *testing.T) {
 		sm := &SystemMetrics{ID: "DNE"}
 		sm.Setup(env)
-		assert.Error(t, sm.Close(ctx))
+		assert.Error(t, sm.Close(ctx, true))
 	})
 	t.Run("WithID", func(t *testing.T) {
 		l1 := &SystemMetrics{ID: sm1.ID, populated: true}
 		l1.Setup(env)
-		require.NoError(t, l1.Close(ctx))
+		require.NoError(t, l1.Close(ctx, true))
 
 		updatedSystemMetrics := &SystemMetrics{}
 		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm1.ID}).Decode(updatedSystemMetrics))
@@ -451,11 +423,12 @@ func TestSystemMetricsClose(t *testing.T) {
 		assert.Equal(t, sm1.Info.Mainline, updatedSystemMetrics.Info.Mainline)
 		assert.Equal(t, sm1.Info.Schema, updatedSystemMetrics.Info.Schema)
 		assert.Equal(t, sm1.Artifact, updatedSystemMetrics.Artifact)
+		assert.Equal(t, true, updatedSystemMetrics.Info.Success)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		l2 := &SystemMetrics{Info: sm2.Info, populated: true}
 		l2.Setup(env)
-		require.NoError(t, l2.Close(ctx))
+		require.NoError(t, l2.Close(ctx, true))
 
 		updatedSystemMetrics := &SystemMetrics{}
 		require.NoError(t, db.Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm2.ID}).Decode(updatedSystemMetrics))
@@ -466,5 +439,35 @@ func TestSystemMetricsClose(t *testing.T) {
 		assert.Equal(t, sm2.Info.Mainline, updatedSystemMetrics.Info.Mainline)
 		assert.Equal(t, sm2.Info.Schema, updatedSystemMetrics.Info.Schema)
 		assert.Equal(t, sm2.Artifact, updatedSystemMetrics.Artifact)
+		assert.Equal(t, true, updatedSystemMetrics.Info.Success)
 	})
+}
+
+func getSystemMetrics() *SystemMetrics {
+	info := SystemMetricsInfo{
+		Project:  utility.RandomString(),
+		Version:  utility.RandomString(),
+		Variant:  utility.RandomString(),
+		TaskName: utility.RandomString(),
+		TaskID:   utility.RandomString(),
+		Mainline: true,
+		Schema:   0,
+		Success:  true,
+	}
+	return &SystemMetrics{
+		ID:          info.ID(),
+		Info:        info,
+		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
+		CompletedAt: time.Now().UTC().Round(time.Millisecond),
+		Artifact: SystemMetricsArtifactInfo{
+			Prefix: info.ID(),
+			Chunks: map[string][]string{},
+			Options: SystemMetricsArtifactOptions{
+				Type:        PailLocal,
+				Format:      FileFTDC,
+				Compression: FileUncompressed,
+				Schema:      SchemaRawEvents,
+			},
+		},
+	}
 }
