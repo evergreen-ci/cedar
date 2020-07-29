@@ -24,5 +24,6 @@ func (sm SystemMetricsArtifactInfo) Export() model.SystemMetricsArtifactOptions 
 	return model.SystemMetricsArtifactOptions{
 		Compression: sm.Compression.Export(),
 		Schema:      sm.Schema.Export(),
+		Format:      sm.Format.Export(),
 	}
 }

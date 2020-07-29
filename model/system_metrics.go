@@ -76,6 +76,7 @@ type SystemMetricsInfo struct {
 	Execution int    `bson:"execution"`
 	Mainline  bool   `bson:"mainline"`
 	Schema    int    `bson:"schema,omitempty"`
+	Success   bool   `bson:"success,omitempty"`
 }
 
 var (
@@ -87,6 +88,7 @@ var (
 	systemMetricsInfoExecutionKey = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Execution")
 	systemMetricsInfoMainlineKey  = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Mainline")
 	systemMetricsInfoSchemaKey    = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Schema")
+	systemMetricsInfoSuccessKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Success")
 )
 
 // Find searches the database for the system metrics object. The environment should
@@ -258,7 +260,7 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 
 // Close "closes out" the log by populating the completed_at field.
 // The environment should not be nil.
-func (sm *SystemMetrics) Close(ctx context.Context) error {
+func (sm *SystemMetrics) Close(ctx context.Context, success bool) error {
 	if sm.env == nil {
 		return errors.New("cannot close system metrics record with a nil environment")
 	}
@@ -274,6 +276,7 @@ func (sm *SystemMetrics) Close(ctx context.Context) error {
 		bson.M{
 			"$set": bson.M{
 				systemMetricsCompletedAtKey: completedAt,
+				bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoSuccessKey): success,
 			},
 		},
 	)
