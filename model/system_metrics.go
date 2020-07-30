@@ -177,8 +177,8 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format F
 	if metricType == "" {
 		return errors.New("must specify the type of metric data")
 	}
-	if format.Validate() != nil {
-		return errors.New("invalid data format")
+	if err := format.Validate(); err != nil {
+		return errors.Wrapf(err, "invalid data format: %s", format)
 	}
 	if len(data) == 0 {
 		grip.Warning(message.Fields{

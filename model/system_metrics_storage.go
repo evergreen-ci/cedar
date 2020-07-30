@@ -11,8 +11,7 @@ import (
 // bucket is accesible via the cedar.Environment interface.
 //
 // The schema field describes the format of the data (raw, collapsed,
-// interval summarizations, etc.) while the format field describes the
-// encoding of the file.
+// interval summarizations, etc.).å
 type SystemMetricsArtifactInfo struct {
 	Prefix       string                       `bson:"prefix"`
 	MetricChunks map[string]MetricChunks      `bson:"metric_chunks"`
@@ -28,7 +27,9 @@ type MetricChunks struct {
 }
 
 // SystemMetricsArtifactOptions specifies the artifact options that
-// can be specified by the caller during object construction.
+// can be specified by the caller during object construction. The schema
+// field describes the format of the data (raw, collapsed, interval
+// summarizations, etc.).
 type SystemMetricsArtifactOptions struct {
 	Type        PailType        `bson:"type"`
 	Compression FileCompression `bson:"compression"`
