@@ -170,12 +170,15 @@ func (sm *SystemMetrics) Remove(ctx context.Context) error {
 // Append uploads a chunk of system metrics data to the offline blob storage bucket
 // configured for the system metrics and updates the metadata in the database to reflect
 // the uploaded data. The environment should not be nil.
-func (sm *SystemMetrics) Append(ctx context.Context, metricType string, data []byte) error {
+func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format FileDataFormat, data []byte) error {
 	if sm.env == nil {
 		return errors.New("cannot not append system metrics data with a nil environment")
 	}
 	if metricType == "" {
 		return errors.New("must specify the type of metric data")
+	}
+	if format.Validate() != nil {
+		return errors.New("invalid data format")
 	}
 	if len(data) == 0 {
 		grip.Warning(message.Fields{
@@ -210,12 +213,12 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, data []b
 		return errors.Wrap(err, "problem uploading system metrics data to bucket")
 	}
 
-	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, metricType, key), "problem updating system metrics metadata during upload")
+	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, metricType, format, key), "problem updating system metrics metadata during upload")
 }
 
 // appendSystemMetricsChunkKey adds a new key to the system metrics's chunks array in the
 // database. The environment should not be nil.
-func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metricType, key string) error {
+func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metricType string, format FileDataFormat, key string) error {
 	if sm.env == nil {
 		return errors.New("cannot append to a system metrics object with a nil environment")
 	}
@@ -232,12 +235,22 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 		sm.ID = sm.Info.ID()
 	}
 
+	mc, ok := sm.Artifact.MetricChunks[key]
+	if ok && mc.Format != format {
+		return errors.New("data format must match previous data")
+	}
+
 	updateResult, err := sm.env.GetDB().Collection(systemMetricsCollection).UpdateOne(
 		ctx,
 		bson.M{"_id": sm.ID},
 		bson.M{
 			"$push": bson.M{
-				bsonutil.GetDottedKeyName(systemMetricsArtifactKey, metricsArtifactInfoChunksKey, metricType): key,
+				bsonutil.GetDottedKeyName(systemMetricsArtifactKey, metricsArtifactInfoMetricChunksKey,
+					metricType, metricsMetricChunksChunksKey): key,
+			},
+			"$set": bson.M{
+				bsonutil.GetDottedKeyName(systemMetricsArtifactKey, metricsArtifactInfoMetricChunksKey,
+					metricType, metricsMetricChunksFormatKey): format,
 			},
 		},
 	)

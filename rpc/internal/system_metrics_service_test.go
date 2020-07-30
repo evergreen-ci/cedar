@@ -118,7 +118,6 @@ func TestCreateSystemMetricsRecord(t *testing.T) {
 		assert.Equal(t, conf.Bucket.SystemMetricsBucketType, sm.Artifact.Options.Type)
 		assert.Equal(t, model.FileUncompressed, sm.Artifact.Options.Compression)
 		assert.Equal(t, model.SchemaRawEvents, sm.Artifact.Options.Schema)
-		assert.Equal(t, model.FileFTDC, sm.Artifact.Options.Format)
 		assert.True(t, time.Since(sm.CreatedAt) <= time.Second)
 	})
 }
@@ -162,18 +161,20 @@ func TestAddSystemMetrics(t *testing.T) {
 		{
 			name: "ValidData",
 			chunk: &SystemMetricsData{
-				Id:   systemMetrics.ID,
-				Type: "Test",
-				Data: []byte("Byte chunk for valid data"),
+				Id:     systemMetrics.ID,
+				Type:   "Test",
+				Format: DataFormat_FTDC,
+				Data:   []byte("Byte chunk for valid data"),
 			},
 			env: env,
 		},
 		{
 			name: "LogDNE",
 			chunk: &SystemMetricsData{
-				Id:   "DNE",
-				Type: "Test",
-				Data: []byte("Byte chunk when id doesn't exist"),
+				Id:     "DNE",
+				Type:   "Test",
+				Format: DataFormat_FTDC,
+				Data:   []byte("Byte chunk when id doesn't exist"),
 			},
 			env:    env,
 			hasErr: true,
@@ -181,9 +182,10 @@ func TestAddSystemMetrics(t *testing.T) {
 		{
 			name: "InvalidEnv",
 			chunk: &SystemMetricsData{
-				Id:   systemMetrics.ID,
-				Type: "Test",
-				Data: []byte("Byte chunk with no env"),
+				Id:     systemMetrics.ID,
+				Type:   "Test",
+				Format: DataFormat_FTDC,
+				Data:   []byte("Byte chunk with no env"),
 			},
 			env:    nil,
 			hasErr: true,
@@ -191,9 +193,10 @@ func TestAddSystemMetrics(t *testing.T) {
 		{
 			name: "InvalidConf",
 			chunk: &SystemMetricsData{
-				Id:   systemMetrics.ID,
-				Type: "Test",
-				Data: []byte("Byte chunk with no conf"),
+				Id:     systemMetrics.ID,
+				Type:   "Test",
+				Format: DataFormat_FTDC,
+				Data:   []byte("Byte chunk with no conf"),
 			},
 			env:         env,
 			invalidConf: true,
@@ -227,8 +230,10 @@ func TestAddSystemMetrics(t *testing.T) {
 				sm.Setup(env)
 				require.NoError(t, sm.Find(ctx))
 				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
-				assert.Len(t, sm.Artifact.Chunks, 1)
-				_, err := bucket.Get(ctx, sm.Artifact.Chunks["Test"][0])
+				require.Contains(t, sm.Artifact.MetricChunks, "Test")
+				assert.Len(t, sm.Artifact.MetricChunks["Test"].Chunks, 1)
+				assert.Equal(t, sm.Artifact.MetricChunks["Test"].Format, model.FileFTDC)
+				_, err := bucket.Get(ctx, sm.Artifact.MetricChunks["Test"].Chunks[0])
 				assert.NoError(t, err)
 			}
 		})
@@ -280,19 +285,22 @@ func TestStreamSystemMetrics(t *testing.T) {
 			name: "ValidData",
 			chunks: []*SystemMetricsData{
 				{
-					Id:   systemMetrics.ID,
-					Type: "Test",
-					Data: []byte("First byte chunk for valid data"),
+					Id:     systemMetrics.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("First byte chunk for valid data"),
 				},
 				{
-					Id:   systemMetrics.ID,
-					Type: "Test",
-					Data: []byte("Second byte chunk for valid data"),
+					Id:     systemMetrics.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("Second byte chunk for valid data"),
 				},
 				{
-					Id:   systemMetrics.ID,
-					Type: "Test",
-					Data: []byte("Third byte chunk for valid data"),
+					Id:     systemMetrics.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("Third byte chunk for valid data"),
 				},
 			},
 			env: env,
@@ -301,14 +309,16 @@ func TestStreamSystemMetrics(t *testing.T) {
 			name: "DifferentSystemMetricsIDs",
 			chunks: []*SystemMetricsData{
 				{
-					Id:   systemMetrics.ID,
-					Type: "Test",
-					Data: []byte("First byte chunk for different system metrics ids"),
+					Id:     systemMetrics.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("First byte chunk for different system metrics ids"),
 				},
 				{
-					Id:   systemMetrics2.ID,
-					Type: "Test",
-					Data: []byte("Second byte chunk for different system metrics ids"),
+					Id:     systemMetrics2.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("Second byte chunk for different system metrics ids"),
 				},
 			},
 			env:    env,
@@ -318,9 +328,10 @@ func TestStreamSystemMetrics(t *testing.T) {
 			name: "SystemMetricsDNE",
 			chunks: []*SystemMetricsData{
 				{
-					Id:   "DNE",
-					Type: "Test",
-					Data: []byte("First byte chunk for invalid system metrics ids"),
+					Id:     "DNE",
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("First byte chunk for invalid system metrics ids"),
 				},
 			},
 			env:    env,
@@ -330,9 +341,10 @@ func TestStreamSystemMetrics(t *testing.T) {
 			name: "InvalidEnv",
 			chunks: []*SystemMetricsData{
 				{
-					Id:   systemMetrics.ID,
-					Type: "Test",
-					Data: []byte("First byte chunk for invalid env"),
+					Id:     systemMetrics.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("First byte chunk for invalid env"),
 				},
 			},
 			env:    nil,
@@ -342,9 +354,10 @@ func TestStreamSystemMetrics(t *testing.T) {
 			name: "InvalidConf",
 			chunks: []*SystemMetricsData{
 				{
-					Id:   systemMetrics.ID,
-					Type: "Test",
-					Data: []byte("First byte chunk for invalid conf"),
+					Id:     systemMetrics.ID,
+					Type:   "Test",
+					Format: DataFormat_FTDC,
+					Data:   []byte("First byte chunk for invalid conf"),
 				},
 			},
 			env:         env,
@@ -388,8 +401,11 @@ func TestStreamSystemMetrics(t *testing.T) {
 				sm.Setup(env)
 				require.NoError(t, sm.Find(ctx))
 				assert.Equal(t, systemMetrics.ID, systemMetrics.Info.ID())
-				assert.Len(t, sm.Artifact.Chunks["Test"], len(test.chunks))
-				for _, key := range sm.Artifact.Chunks["Test"] {
+				require.Contains(t, sm.Artifact.MetricChunks, "Test")
+				assert.Len(t, sm.Artifact.MetricChunks["Test"].Chunks, len(test.chunks))
+				assert.Equal(t, sm.Artifact.MetricChunks["Test"].Format, model.FileFTDC)
+
+				for _, key := range sm.Artifact.MetricChunks["Test"].Chunks {
 					_, err := bucket.Get(ctx, key)
 					assert.NoError(t, err)
 				}
@@ -530,7 +546,6 @@ func getSystemMetricsInfo() *SystemMetricsInfo {
 func getSystemMetricsArtifactInfo() *SystemMetricsArtifactInfo {
 	return &SystemMetricsArtifactInfo{
 		Compression: CompressionType_NONE,
-		Format:      DataFormat_FTDC,
 		Schema:      SchemaType_RAW_EVENTS,
 	}
 }
