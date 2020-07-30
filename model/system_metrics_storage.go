@@ -14,26 +14,34 @@ import (
 // interval summarizations, etc.) while the format field describes the
 // encoding of the file.
 type SystemMetricsArtifactInfo struct {
-	Prefix  string                       `bson:"prefix"`
-	Chunks  map[string][]string          `bson:"chunks"`
-	Options SystemMetricsArtifactOptions `bson:"options"`
+	Prefix       string                       `bson:"prefix"`
+	MetricChunks map[string]MetricChunks      `bson:"metric_chunks"`
+	Options      SystemMetricsArtifactOptions `bson:"options"`
+}
+
+// MetricChunks represents the chunks of data for a particular type of metric.
+// Chunks are the keys of the data objects in storage and Format indicates
+// the storage format of the data.
+type MetricChunks struct {
+	Chunks []string       `bson:"chunks"`
+	Format FileDataFormat `bson:"format"`
 }
 
 // SystemMetricsArtifactOptions specifies the artifact options that
 // can be specified by the caller during object construction.
 type SystemMetricsArtifactOptions struct {
 	Type        PailType        `bson:"type"`
-	Format      FileDataFormat  `bson:"format"`
 	Compression FileCompression `bson:"compression"`
 	Schema      FileSchema      `bson:"schema"`
 }
 
 var (
 	metricsArtifactInfoPrefixKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Prefix")
-	metricsArtifactInfoChunksKey         = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Chunks")
+	metricsArtifactInfoMetricChunksKey   = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "MetricChunks")
 	metricsArtifactInfoOptionsKey        = bsonutil.MustHaveTag(SystemMetricsArtifactInfo{}, "Options")
 	metricsArtifactOptionsTypeKey        = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Type")
 	metricsArtifactOptionsSchemaKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Schema")
-	metricsArtifactOptionsFormatKey      = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Format")
 	metricsArtifactOptionsCompressionKey = bsonutil.MustHaveTag(SystemMetricsArtifactOptions{}, "Compression")
+	metricsMetricChunksChunksKey         = bsonutil.MustHaveTag(MetricChunks{}, "Chunks")
+	metricsMetricChunksFormatKey         = bsonutil.MustHaveTag(MetricChunks{}, "Format")
 )

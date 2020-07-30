@@ -51,9 +51,9 @@ func CreateSystemMetrics(info SystemMetricsInfo, options SystemMetricsArtifactOp
 		Info:      info,
 		CreatedAt: time.Now(),
 		Artifact: SystemMetricsArtifactInfo{
-			Prefix:  info.ID(),
-			Chunks:  map[string][]string{},
-			Options: options,
+			Prefix:       info.ID(),
+			MetricChunks: map[string]MetricChunks{},
+			Options:      options,
 		},
 		populated: true,
 	}
