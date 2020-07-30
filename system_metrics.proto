@@ -24,13 +24,13 @@ message SystemMetricsInfo {
 message SystemMetricsArtifactInfo {
   CompressionType compression = 1;
   SchemaType schema = 2;
-  DataFormat format = 3;
 }
 
 message SystemMetricsData {
   string id = 1;
   string type = 2;
-  bytes data = 3;
+  DataFormat format = 3;
+  bytes data = 4;
 }
 
 message SystemMetricsSeriesEnd {
