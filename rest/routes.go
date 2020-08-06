@@ -671,7 +671,6 @@ func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 //
 // POST /admin/users/key
 
-// TODO (EVG-9694): delete this route
 func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
@@ -681,7 +680,10 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	creds := &userCredentials{}
 	if err = gimlet.GetJSON(r.Body, creds); err != nil {
 		err = errors.Wrap(err, "problem reading request body")
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
+		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+			Message:    "request did not contain credentials",
+			StatusCode: http.StatusUnauthorized,
+		})
 		return
 	}
 
@@ -699,7 +701,10 @@ func (s *Service) fetchUserToken(rw http.ResponseWriter, r *http.Request) {
 	token, err := s.UserManager.CreateUserToken(creds.Username, creds.Password)
 	if err != nil {
 		err = errors.Wrapf(err, "problem creating user token for '%s'", creds.Username)
-		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(err))
+		gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+			Message:    "could not authenticate user",
+			StatusCode: http.StatusUnauthorized,
+		})
 		return
 	}
 
@@ -871,7 +876,6 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 type userCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password,omitempty"`
-	APIKey   string `json:"api_key,omitempty"`
 }
 
 type userAPIKeyResponse struct {
@@ -879,8 +883,6 @@ type userAPIKeyResponse struct {
 	Key      string `json:"key"`
 }
 
-// TODO (EVG-9694): remove this, since the user should be authed through the
-// user middleware.
 func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (string, error) {
 	var err error
 	defer func() {
@@ -902,10 +904,6 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 		return "", errors.Wrapf(err, "problem finding user '%s'", creds.Username)
 	} else if user == nil {
 		return "", errors.Errorf("user '%s' not defined", creds.Username)
-	}
-
-	if creds.APIKey != "" && user.GetAPIKey() == creds.APIKey {
-		return creds.Username, nil
 	}
 
 	// This is only used to authenticate them in case they do not successfully

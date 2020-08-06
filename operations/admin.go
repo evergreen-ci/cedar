@@ -111,7 +111,6 @@ func unsetFeatureFlag() cli.Command {
 func getUserCert() cli.Command {
 	const (
 		userNameFlag    = "username"
-		passwordFlag    = "password"
 		apiKeyFlag      = "api_key"
 		writeToFileFlag = "dump"
 	)
@@ -124,9 +123,6 @@ func getUserCert() cli.Command {
 				Name: userNameFlag,
 			},
 			cli.StringFlag{
-				Name: passwordFlag,
-			},
-			cli.StringFlag{
 				Name: apiKeyFlag,
 			},
 			cli.BoolFlag{
@@ -134,10 +130,9 @@ func getUserCert() cli.Command {
 				Usage: "specify to write certificate files to a file",
 			},
 		),
-		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireOneFlag(passwordFlag, apiKeyFlag)),
+		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), apiKeyFlag),
 		Action: func(c *cli.Context) error {
 			user := c.String(userNameFlag)
-			pass := c.String(passwordFlag)
 			apiKey := c.String(apiKeyFlag)
 			host := c.String(clientHostFlag)
 			port := c.Int(clientPortFlag)
@@ -174,7 +169,7 @@ func getUserCert() cli.Command {
 				fmt.Println(ca)
 			}
 
-			cert, err := client.GetUserCertificate(ctx, user, pass, apiKey)
+			cert, err := client.GetUserCertificate(ctx, user, apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate")
 			}
@@ -196,7 +191,7 @@ func getUserCert() cli.Command {
 				fmt.Println(cert)
 			}
 
-			key, err := client.GetUserCertificateKey(ctx, user, pass, apiKey)
+			key, err := client.GetUserCertificateKey(ctx, user, apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate key")
 			}

@@ -534,16 +534,13 @@ func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 	return string(out), nil
 }
 
-func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCredentials) (string, error) {
-	payload, err := json.Marshal(creds)
-	if err != nil {
-		return "", errors.Wrap(err, "problem building payload")
-	}
-
-	req, err := c.makeRequest(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
+func (c *Client) authCredRequest(ctx context.Context, url, username, apiKey string) (string, error) {
+	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "problem building request")
 	}
+	req.Header.Set(cedar.APIUserHeader, username)
+	req.Header.Set(cedar.APIKeyHeader, apiKey)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -568,12 +565,12 @@ func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCre
 	return string(out), nil
 }
 
-func (c *Client) GetUserCertificate(ctx context.Context, username, password, apiKey string) (string, error) {
-	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate"), &userCredentials{Username: username, Password: password, APIKey: apiKey})
+func (c *Client) GetUserCertificate(ctx context.Context, username, apiKey string) (string, error) {
+	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate"), username, apiKey)
 }
 
-func (c *Client) GetUserCertificateKey(ctx context.Context, username, password, apiKey string) (string, error) {
-	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), &userCredentials{Username: username, Password: password, APIKey: apiKey})
+func (c *Client) GetUserCertificateKey(ctx context.Context, username, apiKey string) (string, error) {
+	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), username, apiKey)
 }
 
 func (c *Client) FindPerformanceResultById(ctx context.Context, id string) (*model.APIPerformanceResult, error) {
