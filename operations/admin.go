@@ -130,7 +130,7 @@ func getUserCert() cli.Command {
 				Usage: "specify to write certificate files to a file",
 			},
 		),
-		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), apiKeyFlag),
+		Before: requireStringFlag(userNameFlag),
 		Action: func(c *cli.Context) error {
 			user := c.String(userNameFlag)
 			apiKey := c.String(apiKeyFlag)
