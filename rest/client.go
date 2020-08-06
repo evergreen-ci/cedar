@@ -545,7 +545,8 @@ func (c *Client) authCredRequest(ctx context.Context, url, username, password, a
 		req.Header.Set(cedar.APIKeyHeader, apiKey)
 	} else if password != "" {
 		creds := userCredentials{Username: username, Password: password}
-		payload, err := json.Marshal(creds)
+		var payload []byte
+		payload, err = json.Marshal(creds)
 		if err != nil {
 			return "", errors.Wrap(err, "marshalling user credentials")
 		}
@@ -559,7 +560,8 @@ func (c *Client) authCredRequest(ctx context.Context, url, username, password, a
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(resp.Body)
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return "", errors.Wrap(err, "reading response body")
 		}
