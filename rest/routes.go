@@ -765,7 +765,10 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 		})
 	} else {
 		if usr, err = s.checkPayloadCreds(rw, r); err != nil {
-			gimlet.WriteTextResponse(rw, http.StatusUnauthorized, "payload credentials were invalid")
+			gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+				Message:    "payload credentials were invalid",
+				StatusCode: http.StatusUnauthorized,
+			})
 			return
 		}
 		grip.Info(message.Fields{
@@ -834,7 +837,10 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		usr = u.Username()
 	} else {
 		if usr, err = s.checkPayloadCreds(rw, r); err != nil {
-			gimlet.WriteTextResponse(rw, http.StatusUnauthorized, "payload credentials were invalid")
+			gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
+				Message:    "payload credentials were invalid",
+				StatusCode: http.StatusUnauthorized,
+			})
 			return
 		}
 	}
