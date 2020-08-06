@@ -108,57 +108,6 @@ func unsetFeatureFlag() cli.Command {
 	}
 }
 
-// TODO (EVG-9694): delete this command
-func getAPIKey() cli.Command {
-	const (
-		userNameFlag = "username"
-		passwordFlag = "password"
-	)
-
-	return cli.Command{
-		Name:  "key",
-		Usage: "get an api key for a given username/password",
-		Flags: restServiceFlags(
-			cli.StringFlag{
-				Name: userNameFlag,
-			},
-			cli.StringFlag{
-				Name: passwordFlag,
-			},
-		),
-		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireStringFlag(passwordFlag)),
-		Action: func(c *cli.Context) error {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			opts := rest.ClientOptions{
-				Host:   c.String(clientHostFlag),
-				Port:   c.Int(clientPortFlag),
-				Prefix: "rest",
-			}
-			client, err := rest.NewClient(opts)
-			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
-			}
-
-			user := c.String(userNameFlag)
-			pass := c.String(passwordFlag)
-
-			key, err := client.GetAuthKey(ctx, user, pass)
-			if err != nil {
-				return errors.Wrap(err, "problem generating token")
-			}
-
-			grip.Notice(message.Fields{
-				"op":   "generated api token",
-				"user": user,
-				"key":  key,
-			})
-			return nil
-		},
-	}
-}
-
 func getUserCert() cli.Command {
 	const (
 		userNameFlag    = "username"

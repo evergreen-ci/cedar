@@ -505,48 +505,6 @@ func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, err
 	return out.State, nil
 }
 
-// TODO (EVG-9694): delete this method
-func (c *Client) GetAuthKey(ctx context.Context, username, password string) (string, error) {
-	url := c.getURL("/v1/admin/users/key")
-
-	creds := &userCredentials{Username: username, Password: password}
-	payload, err := json.Marshal(creds)
-	if err != nil {
-		return "", errors.Wrap(err, "problem building payload")
-	}
-
-	req, err := c.makeRequest(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
-	if err != nil {
-		return "", errors.Wrap(err, "problem building request")
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return "", errors.Wrap(err, "problem with request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		srverr := gimlet.ErrorResponse{}
-		if err := gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return "", errors.Wrap(err, "problem parsing error message")
-		}
-
-		return "", srverr
-	}
-
-	out := &userAPIKeyResponse{}
-	if err := gimlet.GetJSON(resp.Body, out); err != nil {
-		return "", errors.Wrap(err, "problem parsing response")
-	}
-
-	if username != out.Username {
-		return "", errors.New("service error: mismatched usernames")
-	}
-
-	return out.Key, nil
-}
-
 func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 	req, err := c.makeRequest(ctx, http.MethodGet, c.getURL("/v1/admin/ca"), nil)
 	if err != nil {
