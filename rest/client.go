@@ -505,48 +505,6 @@ func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, err
 	return out.State, nil
 }
 
-// TODO (EVG-9694): delete this method
-func (c *Client) GetAuthKey(ctx context.Context, username, password string) (string, error) {
-	url := c.getURL("/v1/admin/users/key")
-
-	creds := &userCredentials{Username: username, Password: password}
-	payload, err := json.Marshal(creds)
-	if err != nil {
-		return "", errors.Wrap(err, "problem building payload")
-	}
-
-	req, err := c.makeRequest(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
-	if err != nil {
-		return "", errors.Wrap(err, "problem building request")
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return "", errors.Wrap(err, "problem with request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		srverr := gimlet.ErrorResponse{}
-		if err := gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return "", errors.Wrap(err, "problem parsing error message")
-		}
-
-		return "", srverr
-	}
-
-	out := &userAPIKeyResponse{}
-	if err := gimlet.GetJSON(resp.Body, out); err != nil {
-		return "", errors.Wrap(err, "problem parsing response")
-	}
-
-	if username != out.Username {
-		return "", errors.New("service error: mismatched usernames")
-	}
-
-	return out.Key, nil
-}
-
 func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 	req, err := c.makeRequest(ctx, http.MethodGet, c.getURL("/v1/admin/ca"), nil)
 	if err != nil {
@@ -576,15 +534,23 @@ func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 	return string(out), nil
 }
 
-func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCredentials) (string, error) {
-	payload, err := json.Marshal(creds)
-	if err != nil {
-		return "", errors.Wrap(err, "problem building payload")
-	}
-
-	req, err := c.makeRequest(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
+func (c *Client) authCredRequest(ctx context.Context, url, username, password, apiKey string) (string, error) {
+	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "problem building request")
+	}
+
+	if apiKey != "" {
+		req.Header.Set(cedar.APIUserHeader, username)
+		req.Header.Set(cedar.APIKeyHeader, apiKey)
+	} else if password != "" {
+		creds := userCredentials{Username: username, Password: password}
+		var payload []byte
+		payload, err = json.Marshal(creds)
+		if err != nil {
+			return "", errors.Wrap(err, "marshalling user credentials")
+		}
+		req.Body = ioutil.NopCloser(bytes.NewBuffer(payload))
 	}
 
 	resp, err := c.client.Do(req)
@@ -594,9 +560,14 @@ func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCre
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", errors.Wrap(err, "reading response body")
+		}
 		srverr := gimlet.ErrorResponse{}
-		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return "", errors.Wrap(err, "problem parsing error message")
+		if err = json.Unmarshal(body, &srverr); err != nil {
+			return "", errors.Errorf("received response: %s", body)
 		}
 
 		return "", srverr
@@ -611,11 +582,11 @@ func (c *Client) authCredRequest(ctx context.Context, url string, creds *userCre
 }
 
 func (c *Client) GetUserCertificate(ctx context.Context, username, password, apiKey string) (string, error) {
-	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate"), &userCredentials{Username: username, Password: password, APIKey: apiKey})
+	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate"), username, password, apiKey)
 }
 
 func (c *Client) GetUserCertificateKey(ctx context.Context, username, password, apiKey string) (string, error) {
-	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), &userCredentials{Username: username, Password: password, APIKey: apiKey})
+	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), username, password, apiKey)
 }
 
 func (c *Client) FindPerformanceResultById(ctx context.Context, id string) (*model.APIPerformanceResult, error) {

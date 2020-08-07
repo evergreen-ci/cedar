@@ -105,20 +105,11 @@ func setupAuthRestClient(ctx context.Context, host string, port int) (*rest.Clie
 		Port:     port,
 		Prefix:   "rest",
 		Username: os.Getenv("AUTH_USER"),
+		ApiKey:   os.Getenv("AUTH_API_KEY"),
 	}
 	client, err := rest.NewClient(opts)
 	if err != nil {
 		return nil, err
-	}
-	if apiKey := os.Getenv("AUTH_API_KEY"); apiKey != "" {
-		opts.ApiKey = os.Getenv("AUTH_API_KEY")
-	} else {
-		var apiKey string
-		apiKey, err = client.GetAuthKey(ctx, os.Getenv("AUTH_USER"), os.Getenv("AUTH_PASSWORD"))
-		if err != nil {
-			return nil, errors.Wrap(err, "problem authenticating from environment")
-		}
-		opts.ApiKey = apiKey
 	}
 
 	client, err = rest.NewClientFromExisting(client.Client(), opts)
@@ -541,7 +532,6 @@ func TestCertificateGeneration(t *testing.T) {
 	user := "evergreen"
 	invalidUser := "invalid"
 	pass := "password"
-	apiKey := "apikey"
 	certDB := "certDepot"
 	collName := "depot"
 	env := cedar.GetEnvironment()
@@ -610,7 +600,7 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NotEmpty(t, u.CertReq)
 	})
 	t.Run("CertificateGeneration", func(t *testing.T) {
-		crt, err := restClient.GetUserCertificate(ctx, user, pass, apiKey)
+		crt, err := restClient.GetUserCertificate(ctx, user, pass, "")
 		assert.NoError(t, err)
 		assert.NotEmpty(t, crt)
 		u := &certdepot.User{}
@@ -619,14 +609,14 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.NotEmpty(t, u.PrivateKey)
 		assert.NotEmpty(t, u.CertReq)
 
-		key, err := restClient.GetUserCertificateKey(ctx, user, pass, apiKey)
+		key, err := restClient.GetUserCertificateKey(ctx, user, pass, "")
 		assert.NoError(t, err)
 		assert.Equal(t, u.PrivateKey, key)
 
 		require.NoError(t, session.DB(certDB).C(collName).RemoveId(user))
 	})
 	t.Run("KeyGeneration", func(t *testing.T) {
-		key, err := restClient.GetUserCertificateKey(ctx, user, pass, apiKey)
+		key, err := restClient.GetUserCertificateKey(ctx, user, pass, "")
 		assert.NoError(t, err)
 		u := &certdepot.User{}
 		require.NoError(t, session.DB(certDB).C(collName).FindId(user).One(u))
@@ -634,7 +624,7 @@ func TestCertificateGeneration(t *testing.T) {
 		assert.Equal(t, u.PrivateKey, key)
 		assert.NotEmpty(t, u.CertReq)
 
-		crt, err := restClient.GetUserCertificate(ctx, user, pass, apiKey)
+		crt, err := restClient.GetUserCertificate(ctx, user, pass, "")
 		assert.NoError(t, err)
 		assert.Equal(t, u.Cert, crt)
 	})
@@ -662,7 +652,7 @@ func TestCertificateGeneration(t *testing.T) {
 		oldCrtPayload, err := oldCrt.Export()
 		require.NoError(t, err)
 
-		crtPayload, err := restClient.GetUserCertificate(ctx, user, pass, apiKey)
+		crtPayload, err := restClient.GetUserCertificate(ctx, user, pass, "")
 		assert.NoError(t, err)
 		assert.NotEqual(t, oldCrtPayload, crtPayload)
 
@@ -676,9 +666,9 @@ func TestCertificateGeneration(t *testing.T) {
 	t.Run("CertificateHandshakeValidUser", func(t *testing.T) {
 		ca, err := restClient.GetRootCertificate(ctx)
 		require.NoError(t, err)
-		crt, err := restClient.GetUserCertificate(ctx, user, pass, apiKey)
+		crt, err := restClient.GetUserCertificate(ctx, user, pass, "")
 		require.NoError(t, err)
-		key, err := restClient.GetUserCertificateKey(ctx, user, pass, apiKey)
+		key, err := restClient.GetUserCertificateKey(ctx, user, pass, "")
 		require.NoError(t, err)
 		grpcClient, err := getTLSGRPCClient(ctx, localAddress, []byte(ca), []byte(crt), []byte(key))
 		require.NoError(t, err)
@@ -696,9 +686,9 @@ func TestCertificateGeneration(t *testing.T) {
 	t.Run("CertficiateHandshakeInvalidUser", func(t *testing.T) {
 		ca, err := restClient.GetRootCertificate(ctx)
 		require.NoError(t, err)
-		crt, err := restClient.GetUserCertificate(ctx, invalidUser, pass, apiKey)
+		crt, err := restClient.GetUserCertificate(ctx, invalidUser, pass, "")
 		require.NoError(t, err)
-		key, err := restClient.GetUserCertificateKey(ctx, invalidUser, pass, apiKey)
+		key, err := restClient.GetUserCertificateKey(ctx, invalidUser, pass, "")
 		require.NoError(t, err)
 		grpcClient, err := getTLSGRPCClient(ctx, localAddress, []byte(ca), []byte(crt), []byte(key))
 		require.NoError(t, err)
