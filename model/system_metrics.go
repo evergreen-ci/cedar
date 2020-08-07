@@ -425,7 +425,7 @@ func (s *SystemMetricsReader) Read(p []byte) (int, error) {
 		}
 		s.readerIndex += 1
 
-		n = s.writeToBuffer([]byte(data), p, n)
+		n = s.writeToBuffer(data, p, n)
 		if n == len(p) {
 			return n, nil
 		}
