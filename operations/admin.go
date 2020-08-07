@@ -169,7 +169,7 @@ func getUserCert() cli.Command {
 				fmt.Println(ca)
 			}
 
-			cert, err := client.GetUserCertificate(ctx, user, apiKey)
+			cert, err := client.GetUserCertificate(ctx, user, "", apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate")
 			}
@@ -191,7 +191,7 @@ func getUserCert() cli.Command {
 				fmt.Println(cert)
 			}
 
-			key, err := client.GetUserCertificateKey(ctx, user, apiKey)
+			key, err := client.GetUserCertificateKey(ctx, user, "", apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate key")
 			}
