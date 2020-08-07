@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -16,6 +19,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -271,6 +275,42 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 	return errors.Wrapf(err, "problem appending system metrics data chunk to %s", sm.ID)
 }
 
+// Download returns an io.Reader for the system metrics data of the specified type.
+func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (*SystemMetricsReader, error) {
+	if sm.env == nil {
+		return nil, errors.New("cannot download system metrics with a nil environment")
+	}
+
+	if sm.ID == "" {
+		sm.ID = sm.Info.ID()
+	}
+
+	conf := &CedarConfig{}
+	conf.Setup(sm.env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.Wrap(err, "problem getting application configuration")
+	}
+
+	bucket, err := sm.Artifact.Options.Type.Create(
+		ctx,
+		sm.env,
+		conf.Bucket.SystemMetricsBucket,
+		sm.Artifact.Prefix,
+		string(pail.S3PermissionsPrivate),
+		false,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem creating bucket")
+	}
+
+	chunks, ok := sm.Artifact.MetricChunks[metricType]
+	if !ok {
+		return nil, fmt.Errorf("Invalid metric type %s for id %s", metricType, sm.ID)
+	}
+
+	return NewSystemMetricsReader(ctx, bucket, chunks, 2), nil
+}
+
 // Close "closes out" the log by populating the completed_at field.
 // The environment should not be nil.
 func (sm *SystemMetrics) Close(ctx context.Context, success bool) error {
@@ -327,4 +367,149 @@ func (id *SystemMetricsInfo) ID() string {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+// NewSystemMetricsReader returns an io.Reader for the chunks of a particular metric
+// in a provided bucket.
+func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks MetricChunks, batchSize int) *SystemMetricsReader {
+	return &SystemMetricsReader{
+		ctx:       ctx,
+		bucket:    bucket,
+		batchSize: batchSize,
+		chunks:    chunks.Chunks,
+		format:    chunks.Format,
+	}
+}
+
+// SystemMetricsReader is a batched, parallelized io.Reader for system metrics data.
+type SystemMetricsReader struct {
+	ctx         context.Context
+	bucket      pail.Bucket
+	batchSize   int
+	chunks      []string
+	chunkIndex  int
+	readerIndex int
+	readers     map[string]io.ReadCloser
+	leftOver    []byte
+	format      FileDataFormat
+	buffer      []byte
+	exhausted   bool
+}
+
+// Format returns the format of the data being read.
+func (s *SystemMetricsReader) Format() FileDataFormat { return s.format }
+
+// Read fills the buffer p with the next data, returning the number of bytes read.
+// If there are no bytes to read, an EOF error is returned.
+func (s *SystemMetricsReader) Read(p []byte) (int, error) {
+	n := 0
+
+	if s.leftOver != nil {
+		data := s.leftOver
+		s.leftOver = nil
+		n = s.writeToBuffer(data, p, n)
+		if n == len(p) {
+			return n, nil
+		}
+	}
+
+	for s.readerIndex < len(s.chunks) {
+		if s.readerIndex > s.chunkIndex {
+			if err := s.getNextBatch(); err != nil {
+				return n, errors.Wrapf(err, "problem loading data")
+			}
+		}
+		data, err := ioutil.ReadAll(s.readers[s.chunks[s.readerIndex]])
+		if err != nil {
+			return n, errors.Wrapf(err, "problem reading data for chunk %s", s.chunks[s.readerIndex])
+		}
+		s.readerIndex += 1
+
+		n = s.writeToBuffer([]byte(data), p, n)
+		if n == len(p) {
+			return n, nil
+		}
+	}
+
+	catcher := grip.NewBasicCatcher()
+	for _, r := range s.readers {
+		catcher.Add(r.Close())
+	}
+	if catcher.HasErrors() {
+		return n, catcher.Resolve()
+	}
+
+	return n, io.EOF
+}
+
+func (s *SystemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
+	if len(buffer) == 0 {
+		return 0
+	}
+
+	m := len(data)
+	if n+m > len(buffer) {
+		m = len(buffer) - n
+		s.leftOver = data[m:]
+	}
+	_ = copy(buffer[n:n+m], data[:m])
+
+	return n + m
+}
+
+func (s *SystemMetricsReader) getNextBatch() error {
+	catcher := grip.NewBasicCatcher()
+	for _, r := range s.readers {
+		catcher.Add(r.Close())
+	}
+	if err := catcher.Resolve(); err != nil {
+		return errors.Wrap(err, "problem closing readers")
+	}
+
+	end := s.chunkIndex + s.batchSize
+	if end > len(s.chunks) {
+		end = len(s.chunks)
+	}
+
+	work := make(chan string, end-s.chunkIndex)
+	for _, chunk := range s.chunks[s.chunkIndex:end] {
+		work <- chunk
+	}
+	close(work)
+	var wg sync.WaitGroup
+	var mux sync.Mutex
+	readers := map[string]io.ReadCloser{}
+	catcher = grip.NewBasicCatcher()
+
+	for j := 0; j < runtime.NumCPU(); j++ {
+		wg.Add(1)
+		go func() {
+			defer func() {
+				var err error
+				catcher.Add(recovery.HandlePanicWithError(recover(), err))
+				wg.Done()
+			}()
+
+			for chunk := range work {
+				if err := s.ctx.Err(); err != nil {
+					catcher.Add(err)
+					return
+				} else {
+					r, err := s.bucket.Get(s.ctx, chunk)
+					if err != nil {
+						catcher.Add(err)
+						return
+					}
+					mux.Lock()
+					readers[chunk] = r
+					mux.Unlock()
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	s.chunkIndex = end
+	s.readers = readers
+	return errors.Wrap(catcher.Resolve(), "problem downloading system metrics data")
 }
