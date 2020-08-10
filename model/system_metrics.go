@@ -275,8 +275,9 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 	return errors.Wrapf(err, "problem appending system metrics data chunk to %s", sm.ID)
 }
 
-// Download returns an io.Reader for the system metrics data of the specified type.
-func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (*SystemMetricsReader, error) {
+// Download returns a system metrics reader for the system metrics data of the
+// specified type.
+func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.Reader, error) {
 	if sm.env == nil {
 		return nil, errors.New("cannot download system metrics with a nil environment")
 	}
@@ -369,10 +370,10 @@ func (id *SystemMetricsInfo) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-// NewSystemMetricsReader returns an io.Reader for the chunks of a particular metric
-// in a provided bucket.
-func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks MetricChunks, batchSize int) *SystemMetricsReader {
-	return &SystemMetricsReader{
+// NewSystemMetricsReader returns a system metrics reader for the chunks of a
+// particular metric.
+func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks MetricChunks, batchSize int) io.Reader {
+	return &systemMetricsReader{
 		ctx:       ctx,
 		bucket:    bucket,
 		batchSize: batchSize,
@@ -381,8 +382,9 @@ func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks Metr
 	}
 }
 
-// SystemMetricsReader is a batched, parallelized io.Reader for system metrics data.
-type SystemMetricsReader struct {
+// systemMetricsReader is a batched, parallelized io.Reader for system metrics
+// data.
+type systemMetricsReader struct {
 	ctx         context.Context
 	bucket      pail.Bucket
 	batchSize   int
@@ -396,12 +398,7 @@ type SystemMetricsReader struct {
 	exhausted   bool
 }
 
-// Format returns the format of the data being read.
-func (s *SystemMetricsReader) Format() FileDataFormat { return s.format }
-
-// Read fills the buffer p with the next data, returning the number of bytes read.
-// If there are no bytes to read, an EOF error is returned.
-func (s *SystemMetricsReader) Read(p []byte) (int, error) {
+func (s *systemMetricsReader) Read(p []byte) (int, error) {
 	n := 0
 
 	if s.leftOver != nil {
@@ -414,11 +411,12 @@ func (s *SystemMetricsReader) Read(p []byte) (int, error) {
 	}
 
 	for s.readerIndex < len(s.chunks) {
-		if s.readerIndex > s.chunkIndex {
+		if s.readerIndex >= s.chunkIndex {
 			if err := s.getNextBatch(); err != nil {
 				return n, errors.Wrapf(err, "problem loading data")
 			}
 		}
+
 		data, err := ioutil.ReadAll(s.readers[s.chunks[s.readerIndex]])
 		if err != nil {
 			return n, errors.Wrapf(err, "problem reading data for chunk %s", s.chunks[s.readerIndex])
@@ -442,7 +440,7 @@ func (s *SystemMetricsReader) Read(p []byte) (int, error) {
 	return n, io.EOF
 }
 
-func (s *SystemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
+func (s *systemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
 	if len(buffer) == 0 {
 		return 0
 	}
@@ -457,7 +455,7 @@ func (s *SystemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
 	return n + m
 }
 
-func (s *SystemMetricsReader) getNextBatch() error {
+func (s *systemMetricsReader) getNextBatch() error {
 	catcher := grip.NewBasicCatcher()
 	for _, r := range s.readers {
 		catcher.Add(r.Close())
@@ -479,13 +477,12 @@ func (s *SystemMetricsReader) getNextBatch() error {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 	readers := map[string]io.ReadCloser{}
-	catcher = grip.NewBasicCatcher()
 
 	for j := 0; j < runtime.NumCPU(); j++ {
 		wg.Add(1)
 		go func() {
+			var err error
 			defer func() {
-				var err error
 				catcher.Add(recovery.HandlePanicWithError(recover(), err))
 				wg.Done()
 			}()
@@ -494,16 +491,16 @@ func (s *SystemMetricsReader) getNextBatch() error {
 				if err := s.ctx.Err(); err != nil {
 					catcher.Add(err)
 					return
-				} else {
-					r, err := s.bucket.Get(s.ctx, chunk)
-					if err != nil {
-						catcher.Add(err)
-						return
-					}
-					mux.Lock()
-					readers[chunk] = r
-					mux.Unlock()
 				}
+
+				r, err := s.bucket.Get(s.ctx, chunk)
+				if err != nil {
+					catcher.Add(err)
+					return
+				}
+				mux.Lock()
+				readers[chunk] = r
+				mux.Unlock()
 			}
 		}()
 	}

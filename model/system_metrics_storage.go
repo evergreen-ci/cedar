@@ -5,13 +5,15 @@ import (
 )
 
 // SystemMetricsArtifactInfo describes a bucket of system metrics time-series
-// data for a given task execution. It is the bridge between
-// pail-backed offline metrics storage and the cedar-based metrics metadata storage.
+// data for a given task execution. It is the bridge between pail-backed
+// offline metrics storage and the cedar-based metrics metadata storage.
+
 // The prefix field indicates the name of the "sub-bucket". The top level
 // bucket is accesible via the cedar.Environment interface.
 //
 // The schema field describes the format of the data (raw, collapsed,
-// interval summarizations, etc.).å
+// interval summarizations, etc.) while the format field describes the encoding
+// of the file.
 type SystemMetricsArtifactInfo struct {
 	Prefix       string                       `bson:"prefix"`
 	MetricChunks map[string]MetricChunks      `bson:"metric_chunks"`
@@ -26,10 +28,10 @@ type MetricChunks struct {
 	Format FileDataFormat `bson:"format"`
 }
 
-// SystemMetricsArtifactOptions specifies the artifact options that
-// can be specified by the caller during object construction. The schema
-// field describes the format of the data (raw, collapsed, interval
-// summarizations, etc.).
+// SystemMetricsArtifactOptions specifies the artifact options that can be
+// specified by the caller during object construction. The schema field
+// describes the format of the data (raw, collapsed, interval summarizations,
+// etc.).
 type SystemMetricsArtifactOptions struct {
 	Type        PailType        `bson:"type"`
 	Compression FileCompression `bson:"compression"`

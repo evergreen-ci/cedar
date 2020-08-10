@@ -461,10 +461,12 @@ func TestSystemMetricsDownload(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		assert.Equal(t, expectedBucket, reader.bucket)
-		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, reader.chunks)
-		assert.Equal(t, 2, reader.batchSize)
-		assert.Equal(t, FileText, reader.Format())
+		rawReader, ok := reader.(*systemMetricsReader)
+		require.True(t, ok)
+		assert.Equal(t, expectedBucket, rawReader.bucket)
+		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
+		assert.Equal(t, 2, rawReader.batchSize)
+		assert.Equal(t, FileText, rawReader.format)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		systemMetrics2.ID = ""
@@ -484,10 +486,12 @@ func TestSystemMetricsDownload(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		assert.Equal(t, expectedBucket, reader.bucket)
-		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, reader.chunks)
-		assert.Equal(t, 2, reader.batchSize)
-		assert.Equal(t, FileText, reader.Format())
+		rawReader, ok := reader.(*systemMetricsReader)
+		require.True(t, ok)
+		assert.Equal(t, expectedBucket, rawReader.bucket)
+		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
+		assert.Equal(t, 2, rawReader.batchSize)
+		assert.Equal(t, FileText, rawReader.format)
 	})
 }
 
@@ -561,15 +565,22 @@ func TestSystemMetricsReader(t *testing.T) {
 	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
 	require.NoError(t, err)
 
-	keys, data, err := GenerateSystemMetrics(ctx, bucket, 2)
+	keys, data, err := GenerateSystemMetrics(ctx, bucket, 5)
 	require.NoError(t, err)
-	fullData := append(data[keys[0]], data[keys[1]]...)
+	fullData := []byte{}
+	for _, key := range keys {
+		fullData = append(fullData, data[key]...)
+	}
 
 	t.Run("Read", func(t *testing.T) {
-		r := NewSystemMetricsReader(ctx, bucket, MetricChunks{
-			Chunks: keys,
-			Format: FileText,
-		}, 2)
+
+		r := &systemMetricsReader{
+			ctx:       ctx,
+			bucket:    bucket,
+			batchSize: 2,
+			chunks:    keys,
+			format:    FileText,
+		}
 		nTotal := 0
 		readData := []byte{}
 		p := make([]byte, 10)
@@ -584,8 +595,7 @@ func TestSystemMetricsReader(t *testing.T) {
 			}
 			require.NoError(t, err)
 		}
-		assert.Equal(t, 32, nTotal)
-
+		assert.Equal(t, len(fullData), nTotal)
 		assert.Equal(t, readData, fullData)
 
 		n, err := r.Read(p)
