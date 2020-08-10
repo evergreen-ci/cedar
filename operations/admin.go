@@ -108,61 +108,9 @@ func unsetFeatureFlag() cli.Command {
 	}
 }
 
-// TODO (EVG-9694): delete this command
-func getAPIKey() cli.Command {
-	const (
-		userNameFlag = "username"
-		passwordFlag = "password"
-	)
-
-	return cli.Command{
-		Name:  "key",
-		Usage: "get an api key for a given username/password",
-		Flags: restServiceFlags(
-			cli.StringFlag{
-				Name: userNameFlag,
-			},
-			cli.StringFlag{
-				Name: passwordFlag,
-			},
-		),
-		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireStringFlag(passwordFlag)),
-		Action: func(c *cli.Context) error {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			opts := rest.ClientOptions{
-				Host:   c.String(clientHostFlag),
-				Port:   c.Int(clientPortFlag),
-				Prefix: "rest",
-			}
-			client, err := rest.NewClient(opts)
-			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
-			}
-
-			user := c.String(userNameFlag)
-			pass := c.String(passwordFlag)
-
-			key, err := client.GetAuthKey(ctx, user, pass)
-			if err != nil {
-				return errors.Wrap(err, "problem generating token")
-			}
-
-			grip.Notice(message.Fields{
-				"op":   "generated api token",
-				"user": user,
-				"key":  key,
-			})
-			return nil
-		},
-	}
-}
-
 func getUserCert() cli.Command {
 	const (
 		userNameFlag    = "username"
-		passwordFlag    = "password"
 		apiKeyFlag      = "api_key"
 		writeToFileFlag = "dump"
 	)
@@ -175,9 +123,6 @@ func getUserCert() cli.Command {
 				Name: userNameFlag,
 			},
 			cli.StringFlag{
-				Name: passwordFlag,
-			},
-			cli.StringFlag{
 				Name: apiKeyFlag,
 			},
 			cli.BoolFlag{
@@ -185,10 +130,9 @@ func getUserCert() cli.Command {
 				Usage: "specify to write certificate files to a file",
 			},
 		),
-		Before: mergeBeforeFuncs(requireStringFlag(userNameFlag), requireOneFlag(passwordFlag, apiKeyFlag)),
+		Before: requireStringFlag(userNameFlag),
 		Action: func(c *cli.Context) error {
 			user := c.String(userNameFlag)
-			pass := c.String(passwordFlag)
 			apiKey := c.String(apiKeyFlag)
 			host := c.String(clientHostFlag)
 			port := c.Int(clientPortFlag)
@@ -225,7 +169,7 @@ func getUserCert() cli.Command {
 				fmt.Println(ca)
 			}
 
-			cert, err := client.GetUserCertificate(ctx, user, pass, apiKey)
+			cert, err := client.GetUserCertificate(ctx, user, "", apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate")
 			}
@@ -247,7 +191,7 @@ func getUserCert() cli.Command {
 				fmt.Println(cert)
 			}
 
-			key, err := client.GetUserCertificateKey(ctx, user, pass, apiKey)
+			key, err := client.GetUserCertificateKey(ctx, user, "", apiKey)
 			if err != nil {
 				return errors.Wrap(err, "problem resolving certificate key")
 			}

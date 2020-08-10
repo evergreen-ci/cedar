@@ -61,7 +61,6 @@ functions:
       add_expansions_to_env: true
       env:
         AUTH_USER: ${auth_user}
-        AUTH_PASSWORD: ${auth_password}
         AUTH_API_KEY: ${auth_api_key}
         GOPATH: ${workdir}/gopath
         UserProfile: C:\\cygwin\\home\\Administrator
