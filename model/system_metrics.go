@@ -383,7 +383,9 @@ func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks Metr
 }
 
 // systemMetricsReader is a batched, parallelized io.Reader for system metrics
-// data.
+// data. The data is typically found in chunks on a remote data source, such as
+// AWS S3, and thus batches are downloaded in parallel as they are read for
+// efficiency.
 type systemMetricsReader struct {
 	ctx         context.Context
 	bucket      pail.Bucket
@@ -399,34 +401,16 @@ type systemMetricsReader struct {
 }
 
 func (s *systemMetricsReader) Read(p []byte) (int, error) {
-	n := 0
+	var err error
 
-	if s.leftOver != nil {
-		data := s.leftOver
-		s.leftOver = nil
-		n = s.writeToBuffer(data, p, n)
-		if n == len(p) {
-			return n, nil
-		}
+	n := s.writeLeftOverToBuffer(p)
+	if n == len(p) {
+		return n, nil
 	}
 
-	for s.readerIndex < len(s.chunks) {
-		if s.readerIndex >= s.chunkIndex {
-			if err := s.getNextBatch(); err != nil {
-				return n, errors.Wrapf(err, "problem loading data")
-			}
-		}
-
-		data, err := ioutil.ReadAll(s.readers[s.chunks[s.readerIndex]])
-		if err != nil {
-			return n, errors.Wrapf(err, "problem reading data for chunk %s", s.chunks[s.readerIndex])
-		}
-		s.readerIndex += 1
-
-		n = s.writeToBuffer(data, p, n)
-		if n == len(p) {
-			return n, nil
-		}
+	n, err = s.readChunks(p, n)
+	if n == len(p) || err != nil {
+		return n, err
 	}
 
 	catcher := grip.NewBasicCatcher()
@@ -440,6 +424,47 @@ func (s *systemMetricsReader) Read(p []byte) (int, error) {
 	return n, io.EOF
 }
 
+// readChunks iterates through the chunks of data, as io.Reader interfaces, and
+// reads as much data as possible from them. If necessary, this function will
+// fetch the next batch of readers from the remote data source.
+func (s *systemMetricsReader) readChunks(buffer []byte, n int) (int, error) {
+	for s.readerIndex < len(s.chunks) {
+		if s.readerIndex >= s.chunkIndex {
+			if err := s.getNextBatch(); err != nil {
+				return n, errors.Wrapf(err, "problem loading data")
+			}
+		}
+
+		data, err := ioutil.ReadAll(s.readers[s.chunks[s.readerIndex]])
+		if err != nil {
+			return n, errors.Wrapf(err, "problem reading data for chunk %s", s.chunks[s.readerIndex])
+		}
+		s.readerIndex += 1
+
+		n = s.writeToBuffer(data, buffer, n)
+		if n == len(buffer) {
+			break
+		}
+	}
+
+	return n, nil
+}
+
+// writeLeftOverToBuffer writes the left over data, if any, from the last call
+// to Read to the given buffer.
+func (s *systemMetricsReader) writeLeftOverToBuffer(buffer []byte) int {
+	if s.leftOver != nil {
+		data := s.leftOver
+		s.leftOver = nil
+		return s.writeToBuffer(data, buffer, 0)
+	}
+
+	return 0
+}
+
+// writeToBuffer writes as much of the given data as possible to the given
+// buffer. Any left over data is saved and written to the buffer on the next
+// call to Read.
 func (s *systemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
 	if len(buffer) == 0 {
 		return 0
@@ -455,6 +480,8 @@ func (s *systemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
 	return n + m
 }
 
+// getNextBatch fetches, in parallel, the configured number of files from the
+// remote data source.
 func (s *systemMetricsReader) getNextBatch() error {
 	catcher := grip.NewBasicCatcher()
 	for _, r := range s.readers {
