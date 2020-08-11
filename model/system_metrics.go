@@ -398,6 +398,8 @@ type systemMetricsReader struct {
 	format      FileDataFormat
 	buffer      []byte
 	exhausted   bool
+	mux         sync.Mutex
+	wg          sync.WaitGroup
 }
 
 func (s *systemMetricsReader) Read(p []byte) (int, error) {
@@ -501,38 +503,40 @@ func (s *systemMetricsReader) getNextBatch() error {
 		work <- chunk
 	}
 	close(work)
-	var wg sync.WaitGroup
-	var mux sync.Mutex
 	readers := map[string]io.ReadCloser{}
 
 	for j := 0; j < runtime.NumCPU(); j++ {
-		wg.Add(1)
-		go func() {
-			defer func() {
-				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "recover system metrics reader goroutine panic"))
-				wg.Done()
-			}()
-
-			for chunk := range work {
-				if err := s.ctx.Err(); err != nil {
-					catcher.Add(err)
-					return
-				}
-
-				r, err := s.bucket.Get(s.ctx, chunk)
-				if err != nil {
-					catcher.Add(err)
-					return
-				}
-				mux.Lock()
-				readers[chunk] = r
-				mux.Unlock()
-			}
-		}()
+		s.wg.Add(1)
+		go s.getChunks(work, readers, catcher)
 	}
-	wg.Wait()
+	s.wg.Wait()
 
 	s.chunkIndex = end
 	s.readers = readers
 	return errors.Wrap(catcher.Resolve(), "problem downloading system metrics data")
+}
+
+// getChunks performs the actual work to download and read the chunks from the
+// remote data source.
+func (s *systemMetricsReader) getChunks(work chan string, readers map[string]io.ReadCloser, catcher grip.Catcher) {
+	defer func() {
+		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "recover system metrics reader goroutine panic"))
+		s.wg.Done()
+	}()
+
+	for chunk := range work {
+		if err := s.ctx.Err(); err != nil {
+			catcher.Add(err)
+			return
+		}
+
+		r, err := s.bucket.Get(s.ctx, chunk)
+		if err != nil {
+			catcher.Add(err)
+			return
+		}
+		s.mux.Lock()
+		readers[chunk] = r
+		s.mux.Unlock()
+	}
 }
