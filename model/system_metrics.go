@@ -508,9 +508,8 @@ func (s *systemMetricsReader) getNextBatch() error {
 	for j := 0; j < runtime.NumCPU(); j++ {
 		wg.Add(1)
 		go func() {
-			var err error
 			defer func() {
-				catcher.Add(recovery.HandlePanicWithError(recover(), err))
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "recover system metrics reader goroutine panic"))
 				wg.Done()
 			}()
 
