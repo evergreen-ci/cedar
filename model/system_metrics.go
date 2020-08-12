@@ -121,7 +121,8 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	return nil
 }
 
-// SystemMetricsFindOptions allows for querying with or without execution val.
+// SystemMetricsFindOptions allows for querying by task id with or without an
+// execution value.
 type SystemMetricsFindOptions struct {
 	TaskID         string
 	Execution      int
