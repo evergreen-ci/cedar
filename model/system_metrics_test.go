@@ -260,6 +260,7 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
