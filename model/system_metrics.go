@@ -22,6 +22,7 @@ import (
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const systemMetricsCollection = "system_metrics"
@@ -95,9 +96,9 @@ var (
 	systemMetricsInfoSuccessKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Success")
 )
 
-// Find searches the database for the system metrics object. The environment should
-// not be nil. Either the ID or full Info of the system metrics object needs to be
-// specified.
+// Find searches the database for the system metrics object. The environment
+// should not be nil. Either the ID or full Info of the system metrics object
+// needs to be specified.
 func (sm *SystemMetrics) Find(ctx context.Context) error {
 	if sm.env == nil {
 		return errors.New("cannot find with a nil environment")
@@ -120,9 +121,54 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	return nil
 }
 
-// SaveNew saves a new system metrics record to the database. If a record with the
-// same ID already exists an error is returned. The record should be populated
-// and the environment should not be nil.
+// SystemMetricsFindOptions allows for querying with or without execution val.
+type SystemMetricsFindOptions struct {
+	TaskID         string
+	Execution      int
+	EmptyExecution bool
+}
+
+// FindByTaskID searches the database for the SystemMetrics object associated
+// with the provided options. The environment should not be nil. If execution
+// is empty, it will default to most recent execution.
+func (t *SystemMetrics) FindByTaskID(ctx context.Context, opts SystemMetricsFindOptions) error {
+	if t.env == nil {
+		return errors.New("cannot find with a nil environment")
+	}
+
+	if opts.TaskID == "" {
+		return errors.New("cannot find without a task id")
+	}
+
+	t.populated = false
+	findOneOpts := options.FindOne().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoExecutionKey), Value: -1}})
+	err := t.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, createSystemMetricsFindQuery(opts), findOneOpts).Decode(t)
+	if db.ResultsNotFound(err) {
+		if opts.EmptyExecution {
+			return errors.Wrapf(err, "could not find system metrics record with task_id %s in the database", opts.TaskID)
+		}
+		return errors.Wrapf(err, "could not find system metrics record with task_id %s and execution %d in the database", opts.TaskID, opts.Execution)
+	} else if err != nil {
+		return errors.Wrap(err, "problem finding system metrics record")
+	}
+	t.populated = true
+
+	return nil
+}
+
+func createSystemMetricsFindQuery(opts SystemMetricsFindOptions) map[string]interface{} {
+	search := bson.M{
+		bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoTaskIDKey): opts.TaskID,
+	}
+	if !opts.EmptyExecution {
+		search[bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoExecutionKey)] = opts.Execution
+	}
+	return search
+}
+
+// SaveNew saves a new system metrics record to the database. If a record with
+// the same ID already exists an error is returned. The record should be
+// populated and the environment should not be nil.
 func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
 	if !sm.populated {
 		return errors.New("cannot save unpopulated system metrics record")
@@ -148,7 +194,8 @@ func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
 	return errors.Wrapf(err, "problem saving new system metrics record %s", sm.ID)
 }
 
-// Remove removes the system metrics record from the database. The environment should not be nil.
+// Remove removes the system metrics record from the database. The environment
+// should not be nil.
 func (sm *SystemMetrics) Remove(ctx context.Context) error {
 	if sm.env == nil {
 		return errors.New("cannot remove a system metrics record with a nil environment")
@@ -171,9 +218,9 @@ func (sm *SystemMetrics) Remove(ctx context.Context) error {
 	return errors.Wrapf(err, "problem removing system metrics record with _id %s", sm.ID)
 }
 
-// Append uploads a chunk of system metrics data to the offline blob storage bucket
-// configured for the system metrics and updates the metadata in the database to reflect
-// the uploaded data. The environment should not be nil.
+// Append uploads a chunk of system metrics data to the offline blob storage
+// bucket configured for the system metrics and updates the metadata in the
+// database to reflect the uploaded data. The environment should not be nil.
 func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format FileDataFormat, data []byte) error {
 	if sm.env == nil {
 		return errors.New("cannot not append system metrics data with a nil environment")
@@ -220,8 +267,8 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format F
 	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, metricType, format, key), "problem updating system metrics metadata during upload")
 }
 
-// appendSystemMetricsChunkKey adds a new key to the system metrics's chunks array in the
-// database. The environment should not be nil.
+// appendSystemMetricsChunkKey adds a new key to the system metrics's chunks
+// array in the database. The environment should not be nil.
 func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metricType string, format FileDataFormat, key string) error {
 	if sm.env == nil {
 		return errors.New("cannot append to a system metrics object with a nil environment")
@@ -312,8 +359,8 @@ func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.Re
 	return NewSystemMetricsReader(ctx, bucket, chunks, 2), nil
 }
 
-// Close "closes out" the log by populating the completed_at field.
-// The environment should not be nil.
+// Close "closes out" the log by populating the completed_at field. The
+// environment should not be nil.
 func (sm *SystemMetrics) Close(ctx context.Context, success bool) error {
 	if sm.env == nil {
 		return errors.New("cannot close system metrics record with a nil environment")

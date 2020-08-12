@@ -81,6 +81,80 @@ func TestSystemMetricsFind(t *testing.T) {
 	})
 }
 
+func TestSystemMetricsFindByTaskID(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	}()
+
+	sm1 := getSystemMetrics()
+	sm1.Info.Execution = 0
+	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, sm1)
+	require.NoError(t, err)
+
+	sm2 := getSystemMetrics()
+	sm2.Info.TaskID = sm1.Info.TaskID
+	sm2.Info.Execution = 1
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, sm2)
+	require.NoError(t, err)
+
+	t.Run("DNE", func(t *testing.T) {
+		sm := SystemMetrics{}
+		opts := SystemMetricsFindOptions{
+			TaskID:         "DNE",
+			EmptyExecution: true,
+		}
+		sm.Setup(env)
+		assert.Error(t, sm.FindByTaskID(ctx, opts))
+		assert.False(t, sm.populated)
+	})
+	t.Run("NoEnv", func(t *testing.T) {
+		sm := SystemMetrics{}
+		opts := SystemMetricsFindOptions{
+			TaskID:    sm1.Info.TaskID,
+			Execution: sm1.Info.Execution,
+		}
+		assert.Error(t, sm.FindByTaskID(ctx, opts))
+		assert.False(t, sm.populated)
+	})
+	t.Run("WithTaskIDAndExecution", func(t *testing.T) {
+		sm := SystemMetrics{}
+		opts := SystemMetricsFindOptions{
+			TaskID:    sm1.Info.TaskID,
+			Execution: sm1.Info.Execution,
+		}
+		sm.Setup(env)
+		require.NoError(t, sm.FindByTaskID(ctx, opts))
+		assert.Equal(t, sm1.ID, sm.ID)
+		assert.Equal(t, sm1.Info, sm.Info)
+		assert.Equal(t, sm1.Artifact, sm.Artifact)
+		assert.True(t, sm.populated)
+	})
+	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
+		sm := SystemMetrics{}
+		opts := SystemMetricsFindOptions{
+			TaskID:         sm2.Info.TaskID,
+			EmptyExecution: true,
+		}
+		sm.Setup(env)
+		require.NoError(t, sm.FindByTaskID(ctx, opts))
+		assert.Equal(t, sm2.ID, sm.ID)
+		assert.Equal(t, sm2.Info, sm.Info)
+		assert.Equal(t, sm2.Artifact, sm.Artifact)
+		assert.True(t, sm.populated)
+	})
+	t.Run("WithoutTaskID", func(t *testing.T) {
+		sm := SystemMetrics{}
+		opts := SystemMetricsFindOptions{}
+		sm.Setup(env)
+		assert.Error(t, sm.FindByTaskID(ctx, opts))
+		assert.False(t, sm.populated)
+	})
+}
+
 func TestSystemMetricsAppend(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
