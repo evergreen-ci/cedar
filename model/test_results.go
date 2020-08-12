@@ -89,7 +89,8 @@ func (t *TestResults) Find(ctx context.Context) error {
 	return nil
 }
 
-// TestResultsFindOptions allows for querying with or without execution val.
+// TestResultsFindOptions allows for querying by task id  with or without an
+// execution value.
 type TestResultsFindOptions struct {
 	TaskID         string
 	Execution      int

@@ -115,19 +115,17 @@ func TestTestResultsFindByTaskID(t *testing.T) {
 	t.Run("NoEnv", func(t *testing.T) {
 		tr := TestResults{}
 		tropts := TestResultsFindOptions{
-			TaskID:         tr1.Info.TaskID,
-			Execution:      tr1.Info.Execution,
-			EmptyExecution: false,
+			TaskID:    tr1.Info.TaskID,
+			Execution: tr1.Info.Execution,
 		}
 		assert.Error(t, tr.FindByTaskID(ctx, tropts))
 		assert.False(t, tr.populated)
 	})
-	t.Run("WithTaskIDandExecution", func(t *testing.T) {
+	t.Run("WithTaskIDAndExecution", func(t *testing.T) {
 		tr := TestResults{}
 		tropts := TestResultsFindOptions{
-			TaskID:         tr1.Info.TaskID,
-			Execution:      tr1.Info.Execution,
-			EmptyExecution: false,
+			TaskID:    tr1.Info.TaskID,
+			Execution: tr1.Info.Execution,
 		}
 		tr.Setup(env)
 		require.NoError(t, tr.FindByTaskID(ctx, tropts))
