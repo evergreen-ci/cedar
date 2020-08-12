@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,7 +27,8 @@ func TestCreateSystemMetrics(t *testing.T) {
 	actual := CreateSystemMetrics(expected.Info, expected.Artifact.Options)
 	assert.Equal(t, expected.ID, actual.ID)
 	assert.Equal(t, expected.Info, actual.Info)
-	assert.Equal(t, expected.Artifact, actual.Artifact)
+	assert.Equal(t, expected.ID, actual.Artifact.Prefix)
+	assert.Equal(t, expected.Artifact.Options, actual.Artifact.Options)
 	assert.True(t, time.Since(actual.CreatedAt) <= time.Second)
 	assert.Zero(t, actual.CompletedAt)
 	assert.True(t, actual.populated)
@@ -391,6 +393,109 @@ func TestSystemMetricsSaveNew(t *testing.T) {
 	})
 }
 
+func TestSystemMetricsDownload(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+	systemMetrics1 := getSystemMetrics()
+	systemMetrics2 := getSystemMetrics()
+
+	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics1)
+	require.NoError(t, err)
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics2)
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		sm := SystemMetrics{
+			ID:        systemMetrics1.ID,
+			populated: true,
+		}
+		reader, err := sm.Download(ctx, "TestType1")
+		assert.Error(t, err)
+		assert.Nil(t, reader)
+	})
+	t.Run("NoConfig", func(t *testing.T) {
+		sm := SystemMetrics{
+			ID:        "DNE",
+			populated: true,
+		}
+		sm.Setup(env)
+		reader, err := sm.Download(ctx, "TestType1")
+		assert.Error(t, err)
+		assert.Nil(t, reader)
+	})
+	conf := &CedarConfig{
+		populated: true,
+		Bucket:    BucketConfig{SystemMetricsBucket: "."},
+	}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("NoArtifact", func(t *testing.T) {
+		sm := SystemMetrics{
+			ID:        systemMetrics1.ID,
+			populated: true,
+		}
+		sm.Setup(env)
+		reader, err := sm.Download(ctx, "None")
+		assert.Error(t, err)
+		assert.Nil(t, reader)
+	})
+	t.Run("WithID", func(t *testing.T) {
+		systemMetrics2.populated = true
+		systemMetrics2.Setup(env)
+		reader, err := systemMetrics2.Download(ctx, "TestType1")
+		require.NoError(t, err)
+		require.NotNil(t, reader)
+
+		expectedBucket, err := systemMetrics2.Artifact.Options.Type.Create(
+			ctx,
+			systemMetrics2.env,
+			conf.Bucket.SystemMetricsBucket,
+			systemMetrics2.Artifact.Prefix,
+			string(pail.S3PermissionsPrivate),
+			false,
+		)
+		require.NoError(t, err)
+
+		rawReader, ok := reader.(*systemMetricsReader)
+		require.True(t, ok)
+		assert.Equal(t, expectedBucket, rawReader.bucket)
+		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
+		assert.Equal(t, 2, rawReader.batchSize)
+		assert.Equal(t, FileText, rawReader.format)
+	})
+	t.Run("WithoutID", func(t *testing.T) {
+		systemMetrics2.ID = ""
+		systemMetrics2.populated = true
+		systemMetrics2.Setup(env)
+		reader, err := systemMetrics2.Download(ctx, "TestType1")
+		require.NoError(t, err)
+		require.NotNil(t, reader)
+
+		expectedBucket, err := systemMetrics2.Artifact.Options.Type.Create(
+			ctx,
+			systemMetrics2.env,
+			conf.Bucket.SystemMetricsBucket,
+			systemMetrics2.Artifact.Prefix,
+			string(pail.S3PermissionsPrivate),
+			false,
+		)
+		require.NoError(t, err)
+
+		rawReader, ok := reader.(*systemMetricsReader)
+		require.True(t, ok)
+		assert.Equal(t, expectedBucket, rawReader.bucket)
+		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
+		assert.Equal(t, 2, rawReader.batchSize)
+		assert.Equal(t, FileText, rawReader.format)
+	})
+}
+
 func TestSystemMetricsClose(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -450,6 +555,69 @@ func TestSystemMetricsClose(t *testing.T) {
 	})
 }
 
+func TestSystemMetricsReader(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "system-metrics-reader-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+	}()
+	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	keys, data, err := GenerateSystemMetrics(ctx, bucket, 5)
+	require.NoError(t, err)
+	fullData := []byte{}
+	for _, key := range keys {
+		fullData = append(fullData, data[key]...)
+	}
+
+	t.Run("Read", func(t *testing.T) {
+
+		r := &systemMetricsReader{
+			ctx:       ctx,
+			bucket:    bucket,
+			batchSize: 2,
+			chunks:    keys,
+			format:    FileText,
+		}
+		nTotal := 0
+		readData := []byte{}
+		p := make([]byte, 10)
+		for {
+			n, err := r.Read(p)
+			nTotal += n
+			readData = append(readData, p[:n]...)
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		assert.Equal(t, len(fullData), nTotal)
+		assert.Equal(t, readData, fullData)
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+	t.Run("ContextError", func(t *testing.T) {
+		errCtx, errCancel := context.WithCancel(context.Background())
+		errCancel()
+
+		r := NewSystemMetricsReader(errCtx, bucket, MetricChunks{
+			Chunks: keys,
+			Format: FileText,
+		}, 2)
+		p := make([]byte, 101)
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+	})
+}
+
 func getSystemMetrics() *SystemMetrics {
 	info := SystemMetricsInfo{
 		Project:  utility.RandomString(),
@@ -467,8 +635,17 @@ func getSystemMetrics() *SystemMetrics {
 		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
 		Artifact: SystemMetricsArtifactInfo{
-			Prefix:       info.ID(),
-			MetricChunks: map[string]MetricChunks{},
+			Prefix: info.ID(),
+			MetricChunks: map[string]MetricChunks{
+				"TestType1": MetricChunks{
+					Chunks: []string{"TestType1-first", "TestType1-second"},
+					Format: FileText,
+				},
+				"TestType2": MetricChunks{
+					Chunks: []string{"TestType2-first", "TestType2-second"},
+					Format: FileText,
+				},
+			},
 			Options: SystemMetricsArtifactOptions{
 				Type:        PailLocal,
 				Compression: FileUncompressed,
