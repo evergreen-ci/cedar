@@ -39,6 +39,7 @@ func TestSystemMetricsFind(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
@@ -537,7 +538,7 @@ func TestSystemMetricsDownload(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		rawReader, ok := reader.(*systemMetricsReader)
+		rawReader, ok := reader.(*systemMetricsReadCloser)
 		require.True(t, ok)
 		assert.Equal(t, expectedBucket, rawReader.bucket)
 		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
@@ -562,7 +563,7 @@ func TestSystemMetricsDownload(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		rawReader, ok := reader.(*systemMetricsReader)
+		rawReader, ok := reader.(*systemMetricsReadCloser)
 		require.True(t, ok)
 		assert.Equal(t, expectedBucket, rawReader.bucket)
 		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
@@ -630,7 +631,7 @@ func TestSystemMetricsClose(t *testing.T) {
 	})
 }
 
-func TestSystemMetricsReader(t *testing.T) {
+func TestSystemMetricsReadCloser(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	tmpDir, err := ioutil.TempDir(".", "system-metrics-reader-test")
@@ -650,7 +651,7 @@ func TestSystemMetricsReader(t *testing.T) {
 
 	t.Run("Read", func(t *testing.T) {
 
-		r := &systemMetricsReader{
+		r := &systemMetricsReadCloser{
 			ctx:       ctx,
 			bucket:    bucket,
 			batchSize: 2,
@@ -677,12 +678,13 @@ func TestSystemMetricsReader(t *testing.T) {
 		n, err := r.Read(p)
 		assert.Zero(t, n)
 		assert.Error(t, err)
+		assert.NoError(t, r.Close())
 	})
 	t.Run("ContextError", func(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewSystemMetricsReader(errCtx, bucket, MetricChunks{
+		r := NewSystemMetricsReadCloser(errCtx, bucket, MetricChunks{
 			Chunks: keys,
 			Format: FileText,
 		}, 2)
@@ -690,6 +692,7 @@ func TestSystemMetricsReader(t *testing.T) {
 		n, err := r.Read(p)
 		assert.Zero(t, n)
 		assert.Error(t, err)
+		assert.NoError(t, r.Close())
 	})
 }
 

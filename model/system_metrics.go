@@ -357,7 +357,7 @@ func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.Re
 		return nil, fmt.Errorf("Invalid metric type %s for id %s", metricType, sm.ID)
 	}
 
-	return NewSystemMetricsReader(ctx, bucket, chunks, 2), nil
+	return NewSystemMetricsReadCloser(ctx, bucket, chunks, 2), nil
 }
 
 // Close "closes out" the log by populating the completed_at field. The
@@ -418,10 +418,10 @@ func (id *SystemMetricsInfo) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-// NewSystemMetricsReader returns a system metrics reader for the chunks of a
-// particular metric.
-func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks MetricChunks, batchSize int) io.Reader {
-	return &systemMetricsReader{
+// NewSystemMetricsReadCloser returns a system metrics reader for the chunks of
+// a particular metric.
+func NewSystemMetricsReadCloser(ctx context.Context, bucket pail.Bucket, chunks MetricChunks, batchSize int) io.ReadCloser {
+	return &systemMetricsReadCloser{
 		ctx:       ctx,
 		bucket:    bucket,
 		batchSize: batchSize,
@@ -430,11 +430,11 @@ func NewSystemMetricsReader(ctx context.Context, bucket pail.Bucket, chunks Metr
 	}
 }
 
-// systemMetricsReader is a batched, parallelized io.Reader for system metrics
-// data. The data is typically found in chunks on a remote data source, such as
-// AWS S3, and thus batches are downloaded in parallel as they are read for
-// efficiency.
-type systemMetricsReader struct {
+// systemMetricsReadCloser is a batched, parallelized io.ReadCloser for system
+// metrics data. The data is typically found in chunks on a remote data source,
+// such as AWS S3, and thus batches are downloaded in parallel as they are read
+// for efficiency.
+type systemMetricsReadCloser struct {
 	ctx         context.Context
 	bucket      pail.Bucket
 	batchSize   int
@@ -450,7 +450,7 @@ type systemMetricsReader struct {
 	wg          sync.WaitGroup
 }
 
-func (s *systemMetricsReader) Read(p []byte) (int, error) {
+func (s *systemMetricsReadCloser) Read(p []byte) (int, error) {
 	var err error
 
 	n := s.writeLeftOverToBuffer(p)
@@ -467,6 +467,7 @@ func (s *systemMetricsReader) Read(p []byte) (int, error) {
 	for _, r := range s.readers {
 		catcher.Add(r.Close())
 	}
+	s.readers = map[string]io.ReadCloser{}
 	if catcher.HasErrors() {
 		return n, catcher.Resolve()
 	}
@@ -477,7 +478,7 @@ func (s *systemMetricsReader) Read(p []byte) (int, error) {
 // readChunks iterates through the chunks of data, as io.Reader interfaces, and
 // reads as much data as possible from them. If necessary, this function will
 // fetch the next batch of readers from the remote data source.
-func (s *systemMetricsReader) readChunks(buffer []byte, n int) (int, error) {
+func (s *systemMetricsReadCloser) readChunks(buffer []byte, n int) (int, error) {
 	for s.readerIndex < len(s.chunks) {
 		if s.readerIndex >= s.chunkIndex {
 			if err := s.getNextBatch(); err != nil {
@@ -502,7 +503,7 @@ func (s *systemMetricsReader) readChunks(buffer []byte, n int) (int, error) {
 
 // writeLeftOverToBuffer writes the left over data, if any, from the last call
 // to Read to the given buffer.
-func (s *systemMetricsReader) writeLeftOverToBuffer(buffer []byte) int {
+func (s *systemMetricsReadCloser) writeLeftOverToBuffer(buffer []byte) int {
 	if s.leftOver != nil {
 		data := s.leftOver
 		s.leftOver = nil
@@ -515,7 +516,7 @@ func (s *systemMetricsReader) writeLeftOverToBuffer(buffer []byte) int {
 // writeToBuffer writes as much of the given data as possible to the given
 // buffer. Any left over data is saved and written to the buffer on the next
 // call to Read.
-func (s *systemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
+func (s *systemMetricsReadCloser) writeToBuffer(data, buffer []byte, n int) int {
 	if len(buffer) == 0 {
 		return 0
 	}
@@ -532,7 +533,7 @@ func (s *systemMetricsReader) writeToBuffer(data, buffer []byte, n int) int {
 
 // getNextBatch fetches, in parallel, the configured number of files from the
 // remote data source.
-func (s *systemMetricsReader) getNextBatch() error {
+func (s *systemMetricsReadCloser) getNextBatch() error {
 	catcher := grip.NewBasicCatcher()
 	for _, r := range s.readers {
 		catcher.Add(r.Close())
@@ -566,7 +567,7 @@ func (s *systemMetricsReader) getNextBatch() error {
 
 // getChunks performs the actual work to download and read the chunks from the
 // remote data source.
-func (s *systemMetricsReader) getChunks(work chan string, readers map[string]io.ReadCloser, catcher grip.Catcher) {
+func (s *systemMetricsReadCloser) getChunks(work chan string, readers map[string]io.ReadCloser, catcher grip.Catcher) {
 	defer func() {
 		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "recover system metrics reader goroutine panic"))
 		s.wg.Done()
@@ -587,4 +588,13 @@ func (s *systemMetricsReader) getChunks(work chan string, readers map[string]io.
 		readers[chunk] = r
 		s.mux.Unlock()
 	}
+}
+
+func (s *systemMetricsReadCloser) Close() error {
+	catcher := grip.NewBasicCatcher()
+	for _, r := range s.readers {
+		catcher.Add(r.Close())
+	}
+
+	return catcher.Resolve()
 }
