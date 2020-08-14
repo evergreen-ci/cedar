@@ -697,7 +697,7 @@ func TestSystemMetricsReadCloser(t *testing.T) {
 	})
 }
 
-func getSystemMetrics() *SystemMetrics {
+func GetSystemMetrics() *SystemMetrics {
 	info := SystemMetricsInfo{
 		Project:  utility.RandomString(),
 		Version:  utility.RandomString(),
