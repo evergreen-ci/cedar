@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"io"
 	"time"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
@@ -99,6 +100,13 @@ type Connector interface {
 	// If execution is not specified, this will return the test result from the most
 	// recent.
 	FindTestResultByTestName(context.Context, TestResultsTestNameOptions) (*model.APITestResult, error)
+
+	/////////////////
+	// System Metrics
+	/////////////////
+	// FindSystemMetricsByType returns the raw data for the given task id,
+	// execution, and metric type combination.
+	FindSystemMetricsByType(context.Context, string, dbModel.SystemMetricsFindOptions) (io.ReadCloser, error)
 }
 
 // BuildloggerOptions contains arguments for buildlogger related Connector
