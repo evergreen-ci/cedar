@@ -31,8 +31,8 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType 
 		}
 	}
 
-	// check that the metric is valid so we can return the appropriate err
-	// code.
+	// check that the metric is valid so we can return the appropriate
+	// error code.
 	_, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
@@ -40,7 +40,6 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType 
 			Message:    fmt.Sprintf("metric type '%s' for task id '%s' not found", metricType, opts.TaskID),
 		}
 	}
-	sm.Setup(dbc.env)
 	r, err := sm.Download(ctx, metricType)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
@@ -64,11 +63,9 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType
 			if val.Info.TaskID == opts.TaskID && (sm == nil || val.Info.Execution > sm.Info.Execution) {
 				sm = &val
 			}
-		} else {
-			if val.Info.TaskID == opts.TaskID && val.Info.Execution == opts.Execution {
-				sm = &val
-				break
-			}
+		} else if val.Info.TaskID == opts.TaskID && val.Info.Execution == opts.Execution {
+			sm = &val
+			break
 		}
 	}
 	if sm == nil {
@@ -78,8 +75,8 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType
 		}
 	}
 
-	// check that the metric is valid so we can return the appropriate err
-	// code.
+	// check that the metric is valid so we can return the appropriate
+	// error code.
 	_, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
 		return nil, gimlet.ErrorResponse{

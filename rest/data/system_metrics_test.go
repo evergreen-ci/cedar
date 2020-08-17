@@ -135,6 +135,15 @@ func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeNotFound() {
 	s.Error(err)
 	s.Nil(r)
 
+	// execution DNE
+	opts = dbModel.SystemMetricsFindOptions{
+		TaskID:    "task1",
+		Execution: 5,
+	}
+	r, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	s.Error(err)
+	s.Nil(r)
+
 	// metric type DNE
 	opts.TaskID = "task1"
 	r, err = s.sc.FindSystemMetricsByType(s.ctx, "DNE", opts)
