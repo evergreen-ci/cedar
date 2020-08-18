@@ -8,6 +8,7 @@ import (
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
@@ -77,21 +78,25 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType
 
 	// check that the metric is valid so we can return the appropriate
 	// error code.
-	_, ok := sm.Artifact.MetricChunks[metricType]
+	chunks, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("metric type '%s' for task id '%s' not found", metricType, opts.TaskID),
 		}
 	}
-	sm.Setup(mc.env)
-	r, err := sm.Download(ctx, metricType)
+
+	bucketOpts := pail.LocalOptions{
+		Path:   mc.Bucket,
+		Prefix: sm.Artifact.Prefix,
+	}
+	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "problem downloading raw system metrics data for task id '%s'", opts.TaskID).Error(),
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
 		}
 	}
 
-	return r, nil
+	return dbModel.NewSystemMetricsReadCloser(ctx, bucket, chunks, 2), nil
 }
