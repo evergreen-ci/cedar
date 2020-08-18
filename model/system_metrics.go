@@ -325,7 +325,7 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 
 // Download returns a system metrics reader for the system metrics data of the
 // specified type.
-func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.Reader, error) {
+func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.ReadCloser, error) {
 	if sm.env == nil {
 		return nil, errors.New("cannot download system metrics with a nil environment")
 	}
