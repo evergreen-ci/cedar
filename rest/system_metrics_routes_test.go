@@ -134,8 +134,8 @@ func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	r, ok := resp.Data().(io.ReadCloser)
 	s.Require().True(ok)
-	defer r.Close()
 	data, err := ioutil.ReadAll(r)
+	s.NoError(r.Close())
 	s.Require().NoError(err)
 	s.Equal([]byte("task1-1"), data)
 
@@ -148,8 +148,8 @@ func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	r, ok = resp.Data().(io.ReadCloser)
 	s.Require().True(ok)
-	defer r.Close()
 	data, err = ioutil.ReadAll(r)
+	s.NoError(r.Close())
 	s.Require().NoError(err)
 	s.Equal([]byte("task1-0"), data)
 }
