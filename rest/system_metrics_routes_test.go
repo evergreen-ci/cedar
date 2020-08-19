@@ -14,6 +14,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -88,7 +89,7 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 	for key, val := range s.sc.CachedSystemMetrics {
 		val.Artifact.MetricChunks = map[string]dbModel.MetricChunks{
 			"uptime": dbModel.MetricChunks{
-				Chunks: []string{fmt.Sprintf("%v", time.Now())},
+				Chunks: []string{fmt.Sprintf("%v", time.Now().Unix())},
 				Format: dbModel.FileText,
 			},
 		}
@@ -115,7 +116,7 @@ func TestSystemMetricsHandlerSuite(t *testing.T) {
 	tempDir, err := ioutil.TempDir(".", "system-metrics")
 	s.Require().NoError(err)
 	defer func() {
-		s.NoError(os.RemoveAll(tempDir))
+		assert.NoError(t, os.RemoveAll(tempDir))
 	}()
 	s.setup(tempDir)
 	suite.Run(t, s)
