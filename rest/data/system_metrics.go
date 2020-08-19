@@ -3,13 +3,14 @@ package data
 import (
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -17,7 +18,7 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) (io.ReadCloser, error) {
+func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) ([]byte, error) {
 	sm := &dbModel.SystemMetrics{}
 	sm.Setup(dbc.env)
 	if err := sm.FindByTaskID(ctx, opts); db.ResultsNotFound(err) {
@@ -49,14 +50,18 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType 
 		}
 	}
 
-	return r, nil
+	catcher := grip.NewBasicCatcher()
+	data, err := ioutil.ReadAll(r)
+	catcher.Add(errors.Wrap(err, "problem reading data"))
+	catcher.Add(errors.Wrap(r.Close(), "problem closing read closer"))
+	return data, catcher.Resolve()
 }
 
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) (io.ReadCloser, error) {
+func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) ([]byte, error) {
 	var sm *dbModel.SystemMetrics
 	for key := range mc.CachedSystemMetrics {
 		val := mc.CachedSystemMetrics[key]
@@ -98,5 +103,10 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType
 		}
 	}
 
-	return dbModel.NewSystemMetricsReadCloser(ctx, bucket, chunks, 2), nil
+	catcher := grip.NewBasicCatcher()
+	r := dbModel.NewSystemMetricsReadCloser(ctx, bucket, chunks, 2)
+	data, err := ioutil.ReadAll(r)
+	catcher.Add(errors.Wrap(err, "problem reading data"))
+	catcher.Add(errors.Wrap(r.Close(), "problem closing read closer"))
+	return data, catcher.Resolve()
 }

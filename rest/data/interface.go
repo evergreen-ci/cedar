@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"io"
 	"time"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
@@ -106,7 +105,7 @@ type Connector interface {
 	/////////////////
 	// FindSystemMetricsByType returns the raw data for the given task id,
 	// execution, and metric type combination.
-	FindSystemMetricsByType(context.Context, string, dbModel.SystemMetricsFindOptions) (io.ReadCloser, error)
+	FindSystemMetricsByType(context.Context, string, dbModel.SystemMetricsFindOptions) ([]byte, error)
 }
 
 // BuildloggerOptions contains arguments for buildlogger related Connector

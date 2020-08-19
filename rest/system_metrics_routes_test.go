@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -132,12 +131,7 @@ func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	r, ok := resp.Data().(io.ReadCloser)
-	s.Require().True(ok)
-	data, err := ioutil.ReadAll(r)
-	s.NoError(r.Close())
-	s.Require().NoError(err)
-	s.Equal([]byte("task1-1"), data)
+	s.Equal([]byte("task1-1"), resp.Data())
 
 	// execution
 	rh.(*systemMetricsGetByTypeHandler).opts.Execution = 0
@@ -146,12 +140,7 @@ func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	r, ok = resp.Data().(io.ReadCloser)
-	s.Require().True(ok)
-	data, err = ioutil.ReadAll(r)
-	s.NoError(r.Close())
-	s.Require().NoError(err)
-	s.Equal([]byte("task1-0"), data)
+	s.Equal([]byte("task1-0"), resp.Data())
 }
 
 func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeNotFound() {
