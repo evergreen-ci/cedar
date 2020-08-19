@@ -3,12 +3,14 @@ package data
 import (
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 )
 
@@ -16,7 +18,7 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) (io.ReadCloser, error) {
+func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) ([]byte, error) {
 	sm := &dbModel.SystemMetrics{}
 	sm.Setup(dbc.env)
 	if err := sm.FindByTaskID(ctx, opts); db.ResultsNotFound(err) {
@@ -48,14 +50,18 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, metricType 
 		}
 	}
 
-	return r, nil
+	catcher := grip.NewBasicCatcher()
+	data, err := ioutil.ReadAll(r)
+	catcher.Add(errors.Wrap(err, "problem reading data"))
+	catcher.Add(errors.Wrap(r.Close(), "problem closing read closer"))
+	return data, catcher.Resolve()
 }
 
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) (io.ReadCloser, error) {
+func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType string, opts dbModel.SystemMetricsFindOptions) ([]byte, error) {
 	var sm *dbModel.SystemMetrics
 	for key := range mc.CachedSystemMetrics {
 		val := mc.CachedSystemMetrics[key]
@@ -77,21 +83,30 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType
 
 	// check that the metric is valid so we can return the appropriate
 	// error code.
-	_, ok := sm.Artifact.MetricChunks[metricType]
+	chunks, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    fmt.Sprintf("metric type '%s' for task id '%s' not found", metricType, opts.TaskID),
 		}
 	}
-	sm.Setup(mc.env)
-	r, err := sm.Download(ctx, metricType)
+
+	bucketOpts := pail.LocalOptions{
+		Path:   mc.Bucket,
+		Prefix: sm.Artifact.Prefix,
+	}
+	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "problem downloading raw system metrics data for task id '%s'", opts.TaskID).Error(),
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
 		}
 	}
 
-	return r, nil
+	catcher := grip.NewBasicCatcher()
+	r := dbModel.NewSystemMetricsReadCloser(ctx, bucket, chunks, 2)
+	data, err := ioutil.ReadAll(r)
+	catcher.Add(errors.Wrap(err, "problem reading data"))
+	catcher.Add(errors.Wrap(r.Close(), "problem closing read closer"))
+	return data, catcher.Resolve()
 }

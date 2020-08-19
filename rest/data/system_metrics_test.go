@@ -109,18 +109,14 @@ func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeFound() {
 		TaskID:         "task1",
 		EmptyExecution: true,
 	}
-	r, err := s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
-	s.Require().NoError(err)
-	data, err := ioutil.ReadAll(r)
+	data, err := s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
 	s.Require().NoError(err)
 	s.Equal("execution 1", string(data))
 
 	// execution specified
 	opts.Execution = 0
 	opts.EmptyExecution = false
-	r, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
-	s.Require().NoError(err)
-	data, err = ioutil.ReadAll(r)
+	data, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
 	s.Require().NoError(err)
 	s.Equal("execution 0", string(data))
 }
@@ -131,22 +127,19 @@ func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeNotFound() {
 		TaskID:         "DNE",
 		EmptyExecution: true,
 	}
-	r, err := s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	_, err := s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
 	s.Error(err)
-	s.Nil(r)
 
 	// execution DNE
 	opts = dbModel.SystemMetricsFindOptions{
 		TaskID:    "task1",
 		Execution: 5,
 	}
-	r, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	_, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
 	s.Error(err)
-	s.Nil(r)
 
 	// metric type DNE
 	opts.TaskID = "task1"
-	r, err = s.sc.FindSystemMetricsByType(s.ctx, "DNE", opts)
+	_, err = s.sc.FindSystemMetricsByType(s.ctx, "DNE", opts)
 	s.Error(err)
-	s.Nil(r)
 }
