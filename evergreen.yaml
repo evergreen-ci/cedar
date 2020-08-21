@@ -29,28 +29,6 @@ functions:
     params:
       files:
         - "gopath/src/github.com/evergreen-ci/cedar/build/output.*"
-  set-up-credentials:
-    command: shell.exec
-    type: setup
-    params:
-      silent: true
-      script: |
-        if [ "Windows_NT" == "$OS" ]; then
-          export AWS_DIR=/home/Administrator/.aws
-        else
-          export AWS_DIR=$HOME/.aws
-        fi
-
-        mkdir $AWS_DIR
-        cat <<EOF > $AWS_DIR/config
-        [default]
-        region = us-east-1
-        EOF
-        cat <<EOF > $AWS_DIR/credentials
-        [default]
-        aws_access_key_id = ${aws_key}
-        aws_secret_access_key = ${aws_secret}
-        EOF
   run-make:
     command: subprocess.exec
     type: test
@@ -62,6 +40,8 @@ functions:
       env:
         AUTH_USER: ${auth_user}
         AUTH_API_KEY: ${auth_api_key}
+        AWS_ACCESS_KEY_ID: ${aws_key}
+        AWS_SECRET_ACCESS_KEY: ${aws_secret}
         GOPATH: ${workdir}/gopath
         UserProfile: C:\\cygwin\\home\\Administrator
         VENDOR_PKG: "github.com/${trigger_repo_owner}/${trigger_repo_name}"
@@ -217,7 +197,6 @@ task_groups:
       - func: get-project
       - func: set-up-mongodb
       - func: set-up-curator
-      - func: set-up-credentials
       - func: run-make
         vars: { target: "cedar" }
     setup_task:
