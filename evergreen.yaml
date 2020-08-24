@@ -35,7 +35,7 @@ functions:
     params:
       working_dir: gopath/src/github.com/evergreen-ci/cedar/
       binary: make
-      args: ["${make_args|}", "${target}"]
+      args: ["${target}"]
       add_expansions_to_env: true
       env:
         AUTH_USER: ${auth_user}
@@ -43,9 +43,6 @@ functions:
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
         GOPATH: ${workdir}/gopath
-        UserProfile: C:\\cygwin\\home\\Administrator
-        VENDOR_PKG: "github.com/${trigger_repo_owner}/${trigger_repo_name}"
-        VENDOR_REVISION: ${trigger_revision}
   set-up-mongodb:
     - command: subprocess.exec
       type: setup
@@ -217,6 +214,7 @@ buildvariants:
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     expansions:
+      DISABLE_COVERAGE: true
       RACE_DETECTOR: true
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
       GO_BIN_PATH: /opt/golang/go1.13/bin/go
@@ -272,7 +270,7 @@ buildvariants:
     expansions:
       MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2012plus-4.2.0.zip
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: "C:\\golang\\go1.13\\bin\\go"
-      GOROOT: "C:\\golang\\go1.13"
+      GO_BIN_PATH: C:/golang/go1.13/bin/go
+      GOROOT: C:/golang/go1.13
       curator_build: windows-64
     tasks: [ "testGroup" ]
