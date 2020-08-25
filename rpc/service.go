@@ -121,6 +121,7 @@ func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
 	internal.AttachPerfService(env, srv)
 	internal.AttachBuildloggerService(env, srv)
 	internal.AttachTestResultsService(env, srv)
+	internal.AttachSystemMetricsService(env, srv)
 
 	return srv, nil
 }
