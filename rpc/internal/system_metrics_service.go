@@ -51,9 +51,11 @@ func (s *systemMetricsService) AddSystemMetrics(ctx context.Context, data *Syste
 	systemMetrics.Setup(s.env)
 	if err := systemMetrics.Find(ctx); err != nil {
 		grip.Error(message.WrapError(err, message.Fields{
-			"message": "could not find system metrics",
-			"op":      "adding system metrics",
-			"context": "system metrics gRPC service",
+			"message":    "could not find system metrics",
+			"chunk_id":   data.Id,
+			"chunk_type": data.Type,
+			"op":         "adding system metrics",
+			"context":    "system metrics gRPC service",
 		}))
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
@@ -63,14 +65,18 @@ func (s *systemMetricsService) AddSystemMetrics(ctx context.Context, data *Syste
 
 	err := systemMetrics.Append(ctx, data.Type, data.Format.Export(), data.Data)
 	grip.Error(message.WrapError(err, message.Fields{
-		"message": "error appending system metrics",
-		"op":      "adding system metrics",
-		"context": "system metrics gRPC service",
+		"message":    "error appending system metrics",
+		"chunk_id":   data.Id,
+		"chunk_type": data.Type,
+		"op":         "adding system metrics",
+		"context":    "system metrics gRPC service",
 	}))
 	grip.InfoWhen(err == nil, message.Fields{
-		"message": "successfully added system metrics",
-		"op":      "adding system metrics",
-		"context": "system metrics gRPC service",
+		"message":    "successfully added system metrics",
+		"chunk_id":   data.Id,
+		"chunk_type": data.Type,
+		"op":         "adding system metrics",
+		"context":    "system metrics gRPC service",
 	})
 	return &SystemMetricsResponse{Id: systemMetrics.ID},
 		newRPCError(codes.Internal, errors.Wrapf(err, "problem appending systemMetrics data for '%s'", data.Id))
