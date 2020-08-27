@@ -592,6 +592,7 @@ func TestSystemMetricsDownload(t *testing.T) {
 		for _, key := range keys {
 			fullData = append(fullData, data[key]...)
 		}
+		chunkSize := len(fullData) / len(keys)
 		systemMetrics2.Artifact.MetricChunks["pagination"] = MetricChunks{
 			Chunks: keys,
 			Format: FileText,
@@ -601,10 +602,10 @@ func TestSystemMetricsDownload(t *testing.T) {
 
 		readData, idx, err := systemMetrics2.DownloadWithPagination(ctx, SystemMetricsDownloadOptions{
 			MetricType: "pagination",
-			PageSize:   33,
+			PageSize:   chunkSize + 1,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, fullData[:64], readData)
+		assert.Equal(t, fullData[:2*chunkSize], readData)
 		assert.Equal(t, 2, idx)
 
 		// read the rest
@@ -614,7 +615,7 @@ func TestSystemMetricsDownload(t *testing.T) {
 			StartIndex: 2,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, fullData[64:], readData)
+		assert.Equal(t, fullData[2*chunkSize:], readData)
 		assert.Equal(t, len(keys), idx)
 
 		// read nothing
@@ -705,6 +706,7 @@ func TestSystemMetricsReadCloser(t *testing.T) {
 	for _, key := range keys {
 		fullData = append(fullData, data[key]...)
 	}
+	chunkSize := len(fullData) / len(keys)
 
 	t.Run("Read", func(t *testing.T) {
 		r := &systemMetricsReadCloser{
@@ -741,7 +743,7 @@ func TestSystemMetricsReadCloser(t *testing.T) {
 			ctx:       ctx,
 			bucket:    bucket,
 			batchSize: 2,
-			pageSize:  33,
+			pageSize:  chunkSize + 1,
 			chunks:    keys,
 			format:    FileText,
 		}
@@ -759,8 +761,8 @@ func TestSystemMetricsReadCloser(t *testing.T) {
 			}
 			require.NoError(t, err)
 		}
-		assert.Equal(t, 64, nTotal)
-		assert.Equal(t, readData, fullData[:64])
+		assert.Equal(t, 2*chunkSize, nTotal)
+		assert.Equal(t, readData, fullData[:2*chunkSize])
 
 		n, err := r.Read(p)
 		assert.Zero(t, n)
