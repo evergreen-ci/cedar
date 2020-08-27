@@ -57,8 +57,8 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 	return chunks, lines, nil
 }
 
-// GenerateSystemMetrics is a convenience function to generate a specified number of
-// 16 byte random system metrics data chunks in the specified bucket.
+// GenerateSystemMetrics is a convenience function to generate a specified
+// number of 32 byte random system metrics data chunks in the specified bucket.
 func GenerateSystemMetrics(ctx context.Context, bucket pail.Bucket, num int) ([]string, map[string][]byte, error) {
 	keys := []string{}
 	dataChunks := map[string][]byte{}
