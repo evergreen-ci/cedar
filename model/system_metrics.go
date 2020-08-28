@@ -326,8 +326,61 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 // Download returns a system metrics reader for the system metrics data of the
 // specified type.
 func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.ReadCloser, error) {
+	bucket, chunks, err := sm.download(ctx, metricType)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSystemMetricsReadCloser(ctx, SystemMetricsReadCloserOptions{
+		Bucket:    bucket,
+		Chunks:    chunks,
+		BatchSize: 2,
+	}), nil
+}
+
+// SystemMetricsDownloadOptions contains the arguments for downloading system
+// metrics with pagination.
+type SystemMetricsDownloadOptions struct {
+	MetricType string
+	PageSize   int
+	StartIndex int
+}
+
+// DownloadWithPagination downloads system metrics with a soft size limit. The
+// data along with the next unread chunk index is returned, chunks are never
+// partially read.
+func (sm *SystemMetrics) DownloadWithPagination(ctx context.Context, opts SystemMetricsDownloadOptions) ([]byte, int, error) {
+	bucket, chunks, err := sm.download(ctx, opts.MetricType)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if opts.StartIndex >= len(chunks.Chunks) {
+		return nil, opts.StartIndex, nil
+	}
+	chunks = MetricChunks{
+		Chunks: chunks.Chunks[opts.StartIndex:],
+		Format: chunks.Format,
+	}
+
+	r := newSystemMetricsReadCloser(ctx, SystemMetricsReadCloserOptions{
+		Bucket:    bucket,
+		Chunks:    chunks,
+		BatchSize: 2,
+		PageSize:  opts.PageSize,
+	})
+	defer r.Close()
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "problem reading system metrics data")
+	}
+
+	return data, opts.StartIndex + r.readerIndex, nil
+}
+
+func (sm *SystemMetrics) download(ctx context.Context, metricType string) (pail.Bucket, MetricChunks, error) {
 	if sm.env == nil {
-		return nil, errors.New("cannot download system metrics with a nil environment")
+		return nil, MetricChunks{}, errors.New("cannot download system metrics with a nil environment")
 	}
 
 	if sm.ID == "" {
@@ -337,7 +390,7 @@ func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.Re
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
 	if err := conf.Find(); err != nil {
-		return nil, errors.Wrap(err, "problem getting application configuration")
+		return nil, MetricChunks{}, errors.Wrap(err, "problem getting application configuration")
 	}
 
 	bucket, err := sm.Artifact.Options.Type.Create(
@@ -349,15 +402,15 @@ func (sm *SystemMetrics) Download(ctx context.Context, metricType string) (io.Re
 		false,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem creating bucket")
+		return nil, MetricChunks{}, errors.Wrap(err, "problem creating bucket")
 	}
 
 	chunks, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
-		return nil, fmt.Errorf("Invalid metric type %s for id %s", metricType, sm.ID)
+		return nil, MetricChunks{}, fmt.Errorf("invalid metric type %s for id %s", metricType, sm.ID)
 	}
 
-	return NewSystemMetricsReadCloser(ctx, bucket, chunks, 2), nil
+	return bucket, chunks, nil
 }
 
 // Close "closes out" the log by populating the completed_at field. The
@@ -418,26 +471,43 @@ func (id *SystemMetricsInfo) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
+// SystemMetricsReadCloserOptions contains the arguments for creating a system
+// metrics read closer.
+type SystemMetricsReadCloserOptions struct {
+	Bucket    pail.Bucket
+	Chunks    MetricChunks
+	BatchSize int
+	PageSize  int
+}
+
 // NewSystemMetricsReadCloser returns a system metrics reader for the chunks of
 // a particular metric.
-func NewSystemMetricsReadCloser(ctx context.Context, bucket pail.Bucket, chunks MetricChunks, batchSize int) io.ReadCloser {
+func NewSystemMetricsReadCloser(ctx context.Context, opts SystemMetricsReadCloserOptions) io.ReadCloser {
+	return newSystemMetricsReadCloser(ctx, opts)
+}
+
+func newSystemMetricsReadCloser(ctx context.Context, opts SystemMetricsReadCloserOptions) *systemMetricsReadCloser {
 	return &systemMetricsReadCloser{
 		ctx:       ctx,
-		bucket:    bucket,
-		batchSize: batchSize,
-		chunks:    chunks.Chunks,
-		format:    chunks.Format,
+		bucket:    opts.Bucket,
+		batchSize: opts.BatchSize,
+		pageSize:  opts.PageSize,
+		chunks:    opts.Chunks.Chunks,
+		format:    opts.Chunks.Format,
 	}
 }
 
 // systemMetricsReadCloser is a batched, parallelized io.ReadCloser for system
 // metrics data. The data is typically found in chunks on a remote data source,
 // such as AWS S3, and thus batches are downloaded in parallel as they are read
-// for efficiency.
+// for efficiency. If pageSize is not zero and reached, no more chunks will be
+// downloaded.
 type systemMetricsReadCloser struct {
 	ctx         context.Context
 	bucket      pail.Bucket
 	batchSize   int
+	pageSize    int
+	totalRead   int
 	chunks      []string
 	chunkIndex  int
 	readerIndex int
@@ -480,6 +550,10 @@ func (s *systemMetricsReadCloser) Read(p []byte) (int, error) {
 // fetch the next batch of readers from the remote data source.
 func (s *systemMetricsReadCloser) readChunks(buffer []byte, n int) (int, error) {
 	for s.readerIndex < len(s.chunks) {
+		if s.pageSize > 0 && s.totalRead >= s.pageSize {
+			break
+		}
+
 		if s.readerIndex >= s.chunkIndex {
 			if err := s.getNextBatch(); err != nil {
 				return n, errors.Wrapf(err, "problem loading data")
@@ -528,6 +602,7 @@ func (s *systemMetricsReadCloser) writeToBuffer(data, buffer []byte, n int) int 
 	}
 	_ = copy(buffer[n:n+m], data[:m])
 
+	s.totalRead += m
 	return n + m
 }
 

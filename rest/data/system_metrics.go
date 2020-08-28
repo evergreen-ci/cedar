@@ -104,7 +104,11 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, metricType
 	}
 
 	catcher := grip.NewBasicCatcher()
-	r := dbModel.NewSystemMetricsReadCloser(ctx, bucket, chunks, 2)
+	r := dbModel.NewSystemMetricsReadCloser(ctx, dbModel.SystemMetricsReadCloserOptions{
+		Bucket:    bucket,
+		Chunks:    chunks,
+		BatchSize: 2,
+	})
 	data, err := ioutil.ReadAll(r)
 	catcher.Add(errors.Wrap(err, "problem reading data"))
 	catcher.Add(errors.Wrap(r.Close(), "problem closing read closer"))

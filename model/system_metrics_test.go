@@ -481,8 +481,13 @@ func TestSystemMetricsDownload(t *testing.T) {
 	}()
 	systemMetrics1 := getSystemMetrics()
 	systemMetrics2 := getSystemMetrics()
+	tmpDir, err := ioutil.TempDir(".", "system-metrics-pagination")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+	}()
 
-	_, err := db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics1)
+	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics1)
 	require.NoError(t, err)
 	_, err = db.Collection(systemMetricsCollection).InsertOne(ctx, systemMetrics2)
 	require.NoError(t, err)
@@ -508,7 +513,7 @@ func TestSystemMetricsDownload(t *testing.T) {
 	})
 	conf := &CedarConfig{
 		populated: true,
-		Bucket:    BucketConfig{SystemMetricsBucket: "."},
+		Bucket:    BucketConfig{SystemMetricsBucket: tmpDir},
 	}
 	conf.Setup(env)
 	require.NoError(t, conf.Save())
@@ -570,6 +575,58 @@ func TestSystemMetricsDownload(t *testing.T) {
 		assert.Equal(t, systemMetrics2.Artifact.MetricChunks["TestType1"].Chunks, rawReader.chunks)
 		assert.Equal(t, 2, rawReader.batchSize)
 		assert.Equal(t, FileText, rawReader.format)
+	})
+	t.Run("WithPagination", func(t *testing.T) {
+		bucket, err := systemMetrics2.Artifact.Options.Type.Create(
+			ctx,
+			env,
+			conf.Bucket.SystemMetricsBucket,
+			systemMetrics2.Artifact.Prefix,
+			string(pail.S3PermissionsPrivate),
+			false,
+		)
+		require.NoError(t, err)
+		keys, data, err := GenerateSystemMetrics(ctx, bucket, 5)
+		require.NoError(t, err)
+		fullData := []byte{}
+		for _, key := range keys {
+			fullData = append(fullData, data[key]...)
+		}
+		chunkSize := len(fullData) / len(keys)
+		systemMetrics2.Artifact.MetricChunks["pagination"] = MetricChunks{
+			Chunks: keys,
+			Format: FileText,
+		}
+		systemMetrics2.populated = true
+		systemMetrics2.Setup(env)
+
+		readData, idx, err := systemMetrics2.DownloadWithPagination(ctx, SystemMetricsDownloadOptions{
+			MetricType: "pagination",
+			PageSize:   chunkSize + 1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, fullData[:2*chunkSize], readData)
+		assert.Equal(t, 2, idx)
+
+		// read the rest
+		readData, idx, err = systemMetrics2.DownloadWithPagination(ctx, SystemMetricsDownloadOptions{
+			MetricType: "pagination",
+			PageSize:   200,
+			StartIndex: 2,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, fullData[2*chunkSize:], readData)
+		assert.Equal(t, len(keys), idx)
+
+		// read nothing
+		readData, idx, err = systemMetrics2.DownloadWithPagination(ctx, SystemMetricsDownloadOptions{
+			MetricType: "pagination",
+			PageSize:   100,
+			StartIndex: len(keys),
+		})
+		require.NoError(t, err)
+		assert.Empty(t, readData)
+		assert.Equal(t, len(keys), idx)
 	})
 }
 
@@ -649,9 +706,9 @@ func TestSystemMetricsReadCloser(t *testing.T) {
 	for _, key := range keys {
 		fullData = append(fullData, data[key]...)
 	}
+	chunkSize := len(fullData) / len(keys)
 
 	t.Run("Read", func(t *testing.T) {
-
 		r := &systemMetricsReadCloser{
 			ctx:       ctx,
 			bucket:    bucket,
@@ -681,14 +738,50 @@ func TestSystemMetricsReadCloser(t *testing.T) {
 		assert.Error(t, err)
 		assert.NoError(t, r.Close())
 	})
+	t.Run("ReadWithPageSizeSet", func(t *testing.T) {
+		r := &systemMetricsReadCloser{
+			ctx:       ctx,
+			bucket:    bucket,
+			batchSize: 2,
+			pageSize:  chunkSize + 1,
+			chunks:    keys,
+			format:    FileText,
+		}
+		nTotal := 0
+		readData := []byte{}
+		p := make([]byte, 10)
+		for {
+			n, err := r.Read(p)
+			nTotal += n
+			readData = append(readData, p[:n]...)
+			require.True(t, n >= 0)
+			require.True(t, n <= len(p))
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		assert.Equal(t, 2*chunkSize, nTotal)
+		assert.Equal(t, readData, fullData[:2*chunkSize])
+
+		n, err := r.Read(p)
+		assert.Zero(t, n)
+		assert.Error(t, err)
+		assert.NoError(t, r.Close())
+	})
 	t.Run("ContextError", func(t *testing.T) {
 		errCtx, errCancel := context.WithCancel(context.Background())
 		errCancel()
 
-		r := NewSystemMetricsReadCloser(errCtx, bucket, MetricChunks{
-			Chunks: keys,
-			Format: FileText,
-		}, 2)
+		opts := SystemMetricsReadCloserOptions{
+			Bucket: bucket,
+			Chunks: MetricChunks{
+				Chunks: keys,
+				Format: FileText,
+			},
+			BatchSize: 2,
+		}
+		r := NewSystemMetricsReadCloser(errCtx, opts)
 		p := make([]byte, 101)
 		n, err := r.Read(p)
 		assert.Zero(t, n)
