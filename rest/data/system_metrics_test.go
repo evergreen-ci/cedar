@@ -91,7 +91,8 @@ func (s *systemMetricsConnectorSuite) setup() {
 		systemMetrics := dbModel.CreateSystemMetrics(taskInfo, opts)
 		systemMetrics.Setup(s.env)
 		s.Require().NoError(systemMetrics.SaveNew(s.ctx))
-		s.Require().NoError(systemMetrics.Append(s.ctx, "uptime", dbModel.FileText, []byte(fmt.Sprintf("execution %d", taskInfo.Execution))))
+		s.Require().NoError(systemMetrics.Append(s.ctx, "uptime", dbModel.FileText, []byte(fmt.Sprintf("execution %d\n", taskInfo.Execution))))
+		s.Require().NoError(systemMetrics.Append(s.ctx, "uptime", dbModel.FileText, []byte("chunk2")))
 		s.Require().NoError(systemMetrics.Find(s.ctx))
 		s.systemMetrics[systemMetrics.ID] = *systemMetrics
 	}
@@ -105,41 +106,65 @@ func (s *systemMetricsConnectorSuite) TearDownSuite() {
 
 func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeFound() {
 	// no execution
-	opts := dbModel.SystemMetricsFindOptions{
+	findOpts := dbModel.SystemMetricsFindOptions{
 		TaskID:         "task1",
 		EmptyExecution: true,
 	}
-	data, err := s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	downloadOpts := dbModel.SystemMetricsDownloadOptions{MetricType: "uptime"}
+	data, nextIdx, err := s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
 	s.Require().NoError(err)
-	s.Equal("execution 1", string(data))
+	s.Equal("execution 1\nchunk2", string(data))
+	s.Equal(2, nextIdx)
 
 	// execution specified
-	opts.Execution = 0
-	opts.EmptyExecution = false
-	data, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	findOpts.Execution = 0
+	findOpts.EmptyExecution = false
+	data, nextIdx, err = s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
 	s.Require().NoError(err)
-	s.Equal("execution 0", string(data))
+	s.Equal("execution 0\nchunk2", string(data))
+	s.Equal(2, nextIdx)
+
+	// paginated
+	downloadOpts.PageSize = 5
+	data, nextIdx, err = s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
+	s.Require().NoError(err)
+	s.Equal("execution 0\n", string(data))
+	s.Equal(1, nextIdx)
+
+	downloadOpts.StartIndex = 1
+	data, nextIdx, err = s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
+	s.Require().NoError(err)
+	s.Equal("chunk2", string(data))
+	s.Equal(2, nextIdx)
+
+	downloadOpts.StartIndex = 2
+	data, nextIdx, err = s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
+	s.Require().NoError(err)
+	s.Nil(data)
+	s.Equal(2, nextIdx)
 }
 
 func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeNotFound() {
 	// task id DNE
-	opts := dbModel.SystemMetricsFindOptions{
+	findOpts := dbModel.SystemMetricsFindOptions{
 		TaskID:         "DNE",
 		EmptyExecution: true,
 	}
-	_, err := s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	downloadOpts := dbModel.SystemMetricsDownloadOptions{MetricType: "uptime"}
+	_, _, err := s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
 	s.Error(err)
 
 	// execution DNE
-	opts = dbModel.SystemMetricsFindOptions{
+	findOpts = dbModel.SystemMetricsFindOptions{
 		TaskID:    "task1",
 		Execution: 5,
 	}
-	_, err = s.sc.FindSystemMetricsByType(s.ctx, "uptime", opts)
+	_, _, err = s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
 	s.Error(err)
 
 	// metric type DNE
-	opts.TaskID = "task1"
-	_, err = s.sc.FindSystemMetricsByType(s.ctx, "DNE", opts)
+	findOpts.TaskID = "task1"
+	downloadOpts.MetricType = "DNE"
+	_, _, err = s.sc.FindSystemMetricsByType(s.ctx, findOpts, downloadOpts)
 	s.Error(err)
 }

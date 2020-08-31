@@ -104,8 +104,9 @@ type Connector interface {
 	// System Metrics
 	/////////////////
 	// FindSystemMetricsByType returns the raw data for the given task id,
-	// execution, and metric type combination.
-	FindSystemMetricsByType(context.Context, string, dbModel.SystemMetricsFindOptions) ([]byte, error)
+	// execution, and metric type combination. It also returns the next
+	// index to use for pagination.
+	FindSystemMetricsByType(context.Context, dbModel.SystemMetricsFindOptions, dbModel.SystemMetricsDownloadOptions) ([]byte, int, error)
 }
 
 // BuildloggerOptions contains arguments for buildlogger related Connector

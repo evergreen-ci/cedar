@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -89,7 +89,7 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 	for key, val := range s.sc.CachedSystemMetrics {
 		val.Artifact.MetricChunks = map[string]dbModel.MetricChunks{
 			"uptime": dbModel.MetricChunks{
-				Chunks: []string{fmt.Sprintf("%v", time.Now().Unix())},
+				Chunks: []string{"chunk1", "chunk2"},
 				Format: dbModel.FileText,
 			},
 		}
@@ -101,8 +101,10 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 		}
 		bucket, err := pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
-		data := []byte(fmt.Sprintf("%s-%d", val.Info.TaskID, val.Info.Execution))
-		s.Require().NoError(bucket.Put(context.TODO(), val.Artifact.MetricChunks["uptime"].Chunks[0], bytes.NewReader(data)))
+		chunk1 := []byte(fmt.Sprintf("%s-%d\n", val.Info.TaskID, val.Info.Execution))
+		chunk2 := []byte("chunk2")
+		s.Require().NoError(bucket.Put(context.TODO(), val.Artifact.MetricChunks["uptime"].Chunks[0], bytes.NewReader(chunk1)))
+		s.Require().NoError(bucket.Put(context.TODO(), val.Artifact.MetricChunks["uptime"].Chunks[1], bytes.NewReader(chunk2)))
 	}
 
 	s.rh = map[string]gimlet.RouteHandler{
@@ -125,50 +127,104 @@ func TestSystemMetricsHandlerSuite(t *testing.T) {
 func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
 	// no execution
 	rh := s.rh["type"]
-	rh.(*systemMetricsGetByTypeHandler).opts.TaskID = "task1"
-	rh.(*systemMetricsGetByTypeHandler).opts.EmptyExecution = true
-	rh.(*systemMetricsGetByTypeHandler).metricType = "uptime"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.TaskID = "task1"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.EmptyExecution = true
+	rh.(*systemMetricsGetByTypeHandler).downloadOpts.MetricType = "uptime"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Equal([]byte("task1-1"), resp.Data())
+	s.Equal([]byte("task1-1\nchunk2"), resp.Data())
 
 	// execution
-	rh.(*systemMetricsGetByTypeHandler).opts.Execution = 0
-	rh.(*systemMetricsGetByTypeHandler).opts.EmptyExecution = false
+	rh.(*systemMetricsGetByTypeHandler).findOpts.Execution = 0
+	rh.(*systemMetricsGetByTypeHandler).findOpts.EmptyExecution = false
 
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusOK, resp.Status())
-	s.Equal([]byte("task1-0"), resp.Data())
+	s.Equal([]byte("task1-0\nchunk2"), resp.Data())
+
+	// pagination
+	rh.(*systemMetricsGetByTypeHandler).downloadOpts.PageSize = 5
+	resp = rh.Run(context.TODO())
+	s.Equal(http.StatusOK, resp.Status())
+	s.Equal([]byte("task1-0\n"), resp.Data())
+
+	rh.(*systemMetricsGetByTypeHandler).downloadOpts.StartIndex = 1
+	resp = rh.Run(context.TODO())
+	s.Equal(http.StatusOK, resp.Status())
+	s.Equal([]byte("chunk2"), resp.Data())
 }
 
 func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeNotFound() {
 	// task id DNE
 	rh := s.rh["type"]
-	rh.(*systemMetricsGetByTypeHandler).opts.TaskID = "DNE"
-	rh.(*systemMetricsGetByTypeHandler).opts.Execution = 0
-	rh.(*systemMetricsGetByTypeHandler).metricType = "uptime"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.TaskID = "DNE"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.Execution = 0
+	rh.(*systemMetricsGetByTypeHandler).downloadOpts.MetricType = "uptime"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusNotFound, resp.Status())
 
 	// execution DNE
-	rh.(*systemMetricsGetByTypeHandler).opts.TaskID = "task1"
-	rh.(*systemMetricsGetByTypeHandler).opts.Execution = 5
+	rh.(*systemMetricsGetByTypeHandler).findOpts.TaskID = "task1"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.Execution = 5
 
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusNotFound, resp.Status())
 
 	// metric DNE
-	rh.(*systemMetricsGetByTypeHandler).opts.TaskID = "task1"
-	rh.(*systemMetricsGetByTypeHandler).opts.Execution = 0
-	rh.(*systemMetricsGetByTypeHandler).metricType = "DNE"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.TaskID = "task1"
+	rh.(*systemMetricsGetByTypeHandler).findOpts.Execution = 0
+	rh.(*systemMetricsGetByTypeHandler).downloadOpts.MetricType = "DNE"
 
 	resp = rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.Equal(http.StatusNotFound, resp.Status())
+}
+
+func TestNewSystemMetricsResponder(t *testing.T) {
+	data := []byte("data")
+	t.Run("PaginatedWithNonZeroNext", func(t *testing.T) {
+		resp := newSystemMetricsResponder(data, 0, 5)
+		assert.Equal(t, data, resp.Data())
+		assert.Equal(t, gimlet.TEXT, resp.Format())
+		pages := resp.Pages()
+		require.NotNil(t, pages)
+		expectedPrev := &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   startIndex,
+			LimitQueryParam: limit,
+			Key:             string(0),
+			Relation:        "prev",
+		}
+		expectedNext := &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   startIndex,
+			LimitQueryParam: limit,
+			Key:             string(5),
+			Relation:        "next",
+		}
+		assert.Equal(t, expectedPrev, pages.Prev)
+		assert.Equal(t, expectedNext, pages.Next)
+	})
+	t.Run("PaginatedWithZeroNext", func(t *testing.T) {
+		resp := newSystemMetricsResponder(data, 5, 5)
+		assert.Equal(t, data, resp.Data())
+		assert.Equal(t, gimlet.TEXT, resp.Format())
+		pages := resp.Pages()
+		require.NotNil(t, pages)
+		expectedPrev := &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   startIndex,
+			LimitQueryParam: limit,
+			Key:             string(5),
+			Relation:        "prev",
+		}
+		assert.Equal(t, expectedPrev, pages.Prev)
+		assert.Nil(t, pages.Next)
+	})
 }

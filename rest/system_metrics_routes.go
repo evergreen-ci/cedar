@@ -13,14 +13,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+var startIndex = "start_index"
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // GET /system_metrics/type/{task_id}/{type}
 
 type systemMetricsGetByTypeHandler struct {
-	metricType string
-	opts       model.SystemMetricsFindOptions
-	sc         data.Connector
+	metricType   string
+	findOpts     model.SystemMetricsFindOptions
+	downloadOpts model.SystemMetricsDownloadOptions
+	sc           data.Connector
 }
 
 func makeGetSystemMetricsByType(sc data.Connector) gimlet.RouteHandler {
@@ -40,16 +43,23 @@ func (h *systemMetricsGetByTypeHandler) Factory() gimlet.RouteHandler {
 func (h *systemMetricsGetByTypeHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
-	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
-	h.metricType = gimlet.GetVars(r)["type"]
+	h.findOpts.TaskID = gimlet.GetVars(r)["task_id"]
+	h.downloadOpts.MetricType = gimlet.GetVars(r)["type"]
 	vals := r.URL.Query()
+	h.downloadOpts.PageSize = softSizeLimit
 	if len(vals[execution]) > 0 {
-		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		h.findOpts.Execution, err = strconv.Atoi(vals[execution][0])
 		if err != nil {
 			return err
 		}
 	} else {
-		h.opts.EmptyExecution = true
+		h.findOpts.EmptyExecution = true
+	}
+	if len(vals[startIndex]) > 0 {
+		h.downloadOpts.StartIndex, err = strconv.Atoi(vals[startIndex][0])
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -58,18 +68,47 @@ func (h *systemMetricsGetByTypeHandler) Parse(_ context.Context, r *http.Request
 // Run finds and returns the desired system metric data based on task id and
 // metric type.
 func (h *systemMetricsGetByTypeHandler) Run(ctx context.Context) gimlet.Responder {
-	data, err := h.sc.FindSystemMetricsByType(ctx, h.metricType, h.opts)
+	data, nextIdx, err := h.sc.FindSystemMetricsByType(ctx, h.findOpts, h.downloadOpts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting metric type '%s' for task id '%s'", h.metricType, h.opts.TaskID)
+		err = errors.Wrapf(err, "problem getting metric type '%s' for task id '%s'", h.downloadOpts.MetricType, h.findOpts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":     gimlet.GetRequestID(ctx),
 			"method":      "GET",
 			"route":       "/system_metrics/type/{task_id}/{type}",
-			"task_id":     h.opts.TaskID,
-			"metric_type": h.metricType,
+			"task_id":     h.findOpts.TaskID,
+			"metric_type": h.downloadOpts.MetricType,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return gimlet.NewTextResponse(data)
+	return newSystemMetricsResponder(data, h.downloadOpts.StartIndex, nextIdx)
+}
+
+func newSystemMetricsResponder(data []byte, startIdx, nextIdx int) gimlet.Responder {
+	resp := gimlet.NewTextResponse(data)
+
+	pages := &gimlet.ResponsePages{
+		Prev: &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   startIndex,
+			LimitQueryParam: limit,
+			Key:             string(startIdx),
+			Relation:        "prev",
+		},
+	}
+	if startIdx != nextIdx {
+		pages.Next = &gimlet.Page{
+			BaseURL:         baseURL,
+			KeyQueryParam:   startIndex,
+			LimitQueryParam: limit,
+			Key:             string(nextIdx),
+			Relation:        "next",
+		}
+	}
+
+	if err := resp.SetPages(pages); err != nil {
+		return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem setting response pages"))
+	}
+
+	return resp
 }
