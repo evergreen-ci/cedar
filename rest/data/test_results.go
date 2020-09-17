@@ -52,6 +52,12 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 		}
 		apiResults = append(apiResults, apiResult)
 	}
+	if err := it.Err(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "iterating through test results").Error(),
+		}
+	}
 
 	return apiResults, nil
 }
@@ -142,7 +148,12 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 			}
 		}
 		apiResults = append(apiResults, apiResult)
-
+	}
+	if err := it.Err(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "iterating through test results").Error(),
+		}
 	}
 
 	if len(apiResults) == 0 {
