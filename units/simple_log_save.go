@@ -105,7 +105,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	doc := &model.LogSegment{
 		LogID:   j.LogID,
 		Segment: j.Increment,
-		URL:     fmt.Sprintf("https://%s.s3.amazonaws.com/%s", conf.BucketName, s3Key),
+		URL:     fmt.Sprintf("http://%s.s3.amazonaws.com/%s", conf.BucketName, s3Key),
 		Bucket:  conf.BucketName,
 		KeyName: s3Key,
 		Metrics: model.LogMetrics{
