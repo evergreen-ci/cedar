@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"path/filepath"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -303,18 +302,11 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 		t.bucket = conf.Bucket.TestResultsBucket
 	}
 
-	var prefix string
-	if t.Artifact.Type == PailLocal {
-		prefix = filepath.Join(testResultsCollection, t.Artifact.Prefix)
-	} else {
-		prefix = fmt.Sprintf("%s/%s", testResultsCollection, t.Artifact.Prefix)
-	}
-
 	bucket, err := t.Artifact.Type.Create(
 		ctx,
 		t.env,
 		t.bucket,
-		prefix,
+		t.Artifact.Prefix,
 		string(pail.S3PermissionsPrivate),
 		true,
 	)
