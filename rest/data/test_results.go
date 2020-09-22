@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
@@ -125,7 +124,7 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 
 	bucketOpts := pail.LocalOptions{
 		Path:   mc.Bucket,
-		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+		Prefix: testResults.Artifact.Prefix,
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
@@ -191,7 +190,7 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 
 	bucketOpts := pail.LocalOptions{
 		Path:   mc.Bucket,
-		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+		Prefix: testResults.Artifact.Prefix,
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
