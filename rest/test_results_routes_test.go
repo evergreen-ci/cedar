@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -103,7 +102,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		var err error
 		opts := pail.LocalOptions{
 			Path:   s.sc.Bucket,
-			Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+			Prefix: testResults.Artifact.Prefix,
 		}
 
 		s.buckets[key], err = pail.NewLocalBucket(opts)
