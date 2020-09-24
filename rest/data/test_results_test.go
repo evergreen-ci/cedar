@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -103,7 +102,7 @@ func (s *testResultsConnectorSuite) setup() {
 
 		opts := pail.LocalOptions{
 			Path:   s.tempDir,
-			Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+			Prefix: testResults.Artifact.Prefix,
 		}
 		bucket, err := pail.NewLocalBucket(opts)
 		s.Require().NoError(err)

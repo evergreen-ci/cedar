@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
@@ -51,6 +50,12 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 			}
 		}
 		apiResults = append(apiResults, apiResult)
+	}
+	if err := it.Err(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "iterating through test results").Error(),
+		}
 	}
 
 	return apiResults, nil
@@ -119,7 +124,7 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 
 	bucketOpts := pail.LocalOptions{
 		Path:   mc.Bucket,
-		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+		Prefix: testResults.Artifact.Prefix,
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
@@ -142,7 +147,12 @@ func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts dbMod
 			}
 		}
 		apiResults = append(apiResults, apiResult)
-
+	}
+	if err := it.Err(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "iterating through test results").Error(),
+		}
 	}
 
 	if len(apiResults) == 0 {
@@ -180,7 +190,7 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 
 	bucketOpts := pail.LocalOptions{
 		Path:   mc.Bucket,
-		Prefix: filepath.Join("test_results", testResults.Artifact.Prefix),
+		Prefix: testResults.Artifact.Prefix,
 	}
 	bucket, err := pail.NewLocalBucket(bucketOpts)
 	if err != nil {
