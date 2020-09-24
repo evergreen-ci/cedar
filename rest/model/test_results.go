@@ -1,6 +1,9 @@
 package model
 
 import (
+	"strconv"
+	"strings"
+
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
@@ -28,7 +31,7 @@ func (a *APITestResult) Import(i interface{}) error {
 		a.TestName = ToAPIString(tr.TestName)
 		a.Trial = tr.Trial
 		a.Status = ToAPIString(tr.Status)
-		a.LogURL = ToAPIString(tr.LogURL)
+		a.LogURL = ToAPIString(strings.Join([]string{"test_log", tr.TaskID, strconv.Itoa(tr.Execution), tr.TestName}, "/"))
 		a.LineNum = tr.LineNum
 		a.TaskCreateTime = NewTime(tr.TaskCreateTime)
 		a.TestStartTime = NewTime(tr.TestStartTime)

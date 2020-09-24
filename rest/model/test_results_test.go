@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -20,7 +21,6 @@ func TestTestResultImport(t *testing.T) {
 			TestName:       "test_name",
 			Trial:          3,
 			Status:         "pass",
-			LogURL:         "https://cedar.mongodb.com",
 			LineNum:        102,
 			TaskCreateTime: time.Now().Add(-time.Hour),
 			TestStartTime:  time.Now().Add(-30 * time.Minute),
@@ -32,7 +32,7 @@ func TestTestResultImport(t *testing.T) {
 			TestName:       ToAPIString(tr.TestName),
 			Trial:          tr.Trial,
 			Status:         ToAPIString(tr.Status),
-			LogURL:         ToAPIString(tr.LogURL),
+			LogURL:         ToAPIString(fmt.Sprintf("test_log/%s/%d/%s", tr.TaskID, tr.Execution, tr.TestName)),
 			LineNum:        tr.LineNum,
 			TaskCreateTime: NewTime(tr.TaskCreateTime),
 			TestStartTime:  NewTime(tr.TestStartTime),

@@ -41,7 +41,6 @@ func (t TestResult) Export() (model.TestResult, error) {
 		TestName:       t.TestName,
 		Trial:          int(t.Trial),
 		Status:         t.Status,
-		LogURL:         t.LogUrl,
 		LineNum:        int(t.LineNum),
 		TaskCreateTime: taskCreateTime,
 		TestStartTime:  testStartTime,
