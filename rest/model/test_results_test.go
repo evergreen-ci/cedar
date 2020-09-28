@@ -32,7 +32,7 @@ func TestTestResultImport(t *testing.T) {
 			TestName:       ToAPIString(tr.TestName),
 			Trial:          tr.Trial,
 			Status:         ToAPIString(tr.Status),
-			LogURL:         ToAPIString(fmt.Sprintf("test_log/%s/%d/%s", tr.TaskID, tr.Execution, tr.TestName)),
+			LogURL:         ToAPIString(fmt.Sprintf("https://cedar.mongodb.com/rest/v1/buildlogger/test_name/%s/%s?execution=%d", tr.TaskID, tr.TestName, tr.Execution)),
 			LineNum:        tr.LineNum,
 			TaskCreateTime: NewTime(tr.TaskCreateTime),
 			TestStartTime:  NewTime(tr.TestStartTime),

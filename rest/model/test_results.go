@@ -31,7 +31,17 @@ func (a *APITestResult) Import(i interface{}) error {
 		a.TestName = ToAPIString(tr.TestName)
 		a.Trial = tr.Trial
 		a.Status = ToAPIString(tr.Status)
-		a.LogURL = ToAPIString(strings.Join([]string{"test_log", tr.TaskID, strconv.Itoa(tr.Execution), tr.TestName}, "/"))
+		a.LogURL = ToAPIString(strings.Join([]string{
+			"https://cedar.mongodb.com",
+			"rest",
+			"v1",
+			"buildlogger",
+			"test_name",
+			tr.TaskID,
+			tr.TestName + "?execution=" + strconv.Itoa(
+				tr.Execution,
+			),
+		}, "/"))
 		a.LineNum = tr.LineNum
 		a.TaskCreateTime = NewTime(tr.TaskCreateTime)
 		a.TestStartTime = NewTime(tr.TestStartTime)
