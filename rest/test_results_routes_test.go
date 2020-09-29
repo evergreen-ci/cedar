@@ -115,7 +115,6 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 				TestName:       fmt.Sprintf("test%d", i),
 				Trial:          0,
 				Status:         "teststatus",
-				LogURL:         "testurl",
 				LineNum:        0,
 				TaskCreateTime: time.Now().Add(-3 * time.Second),
 				TestStartTime:  time.Now().Add(-2 * time.Second),

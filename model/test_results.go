@@ -370,7 +370,6 @@ type TestResult struct {
 	TestName       string    `bson:"test_name"`
 	Trial          int       `bson:"trial"`
 	Status         string    `bson:"status"`
-	LogURL         string    `bson:"log_url"`
 	LineNum        int       `bson:"line_num"`
 	TaskCreateTime time.Time `bson:"task_create_time"`
 	TestStartTime  time.Time `bson:"test_start_time"`
