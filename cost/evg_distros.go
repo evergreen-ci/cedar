@@ -32,7 +32,7 @@ type EvergreenDistroCost struct {
 // GetDistros returns a slice of the names of all distros from the
 // Evergreen API.
 func (c *EvergreenClient) GetDistros(ctx context.Context) ([]string, error) {
-	data, link, err := c.get(ctx, "/distros")
+	data, link, err := c.Get(ctx, "/distros")
 	if err != nil {
 		if c.allowIncompleteResults {
 			return []string{}, nil
@@ -123,7 +123,7 @@ func (c *EvergreenClient) GetDistroCost(ctx context.Context, distroID string, st
 	st := startAt.Format("2006-01-02T15:04:05Z07:00")
 	dur := strings.TrimRight(fmt.Sprintf("%s ", duration), "0s ")
 
-	data, link, err := c.get(ctx, "/cost/distro/"+distroID+"?starttime="+st+"&duration="+dur)
+	data, link, err := c.Get(ctx, "/cost/distro/"+distroID+"?starttime="+st+"&duration="+dur)
 	if link != "" {
 		return nil, errors.New("/cost/distro should not be a paginated route")
 	}

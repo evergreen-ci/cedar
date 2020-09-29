@@ -11,6 +11,7 @@ type OperationalFlags struct {
 	DisableCostReportingJob         bool `bson:"disable_cost_reporting" json:"disable_cost_reporting" yaml:"disable_cost_reporting"`
 	DisableInternalMetricsReporting bool `bson:"disable_internal_metrics_reporting" json:"disable_internal_metrics_reporting" yaml:"disable_internal_metrics_reporting"`
 	DisableSignalProcessing         bool `bson:"disable_signal_processing" json:"disable_signal_processing" yaml:"disable_signal_processing"`
+	DisableHistoricalStats          bool `bson:"disable_historical_stats" json:"disable_historical_stats" yaml:"disable_historical_stats"`
 
 	env cedar.Environment
 }

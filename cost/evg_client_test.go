@@ -32,11 +32,9 @@ func (s *ClientSuite) SetupSuite() {
 }
 
 func (s *ClientSuite) TestDoReqFunction() {
-	//Construct Client
+	client := NewEvergreenClient(s.client, s.info)
 
-	Client := NewEvergreenClient(s.client, s.info)
-
-	resp, err := Client.doReq(context.TODO(), "GET", "/hosts")
+	resp, err := client.doReq(context.TODO(), "GET", "/hosts")
 	s.NoError(err)
 	if s.NotNil(resp) {
 		s.Equal(resp.StatusCode, 200)
@@ -58,19 +56,15 @@ func (s *ClientSuite) TestGetRelFunction() {
 }
 
 func (s *ClientSuite) TestGetPathFunction() {
-	Client := NewEvergreenClient(s.client, s.info)
+	client := NewEvergreenClient(s.client, s.info)
 	link := "<https://evergreen.mongodb.com/rest/v2/hosts?limit=100>; rel=\"next\""
-	path, err := Client.getPath(link)
+	path, err := client.getPath(link)
 	s.Nil(err)
 	s.Equal(path, "/rest/v2/hosts?limit=100")
-	// TODO: ADD THIS BACK IN FOR PRODUCTION EVERGREEN.
-	// link = "<https://thisiswrong.com/limit=100>; rel=\"next\""
-	// _, err = Client.getPath(link)
-	// s.NotNil(err)
 }
 
 func (s *ClientSuite) TestGetFunction() {
-	Client := NewEvergreenClient(s.client, s.info)
-	_, _, err := Client.get(context.Background(), "/hosts")
+	client := NewEvergreenClient(s.client, s.info)
+	_, _, err := client.Get(context.Background(), "/hosts")
 	s.Nil(err)
 }
