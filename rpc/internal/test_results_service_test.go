@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func TestCreateTestResultsRecord(t *testing.T) {
@@ -209,6 +210,18 @@ func TestAddTestResults(t *testing.T) {
 				require.NoError(t, err)
 				count := 0
 				for it.Next(ctx) {
+					reader, err := it.Item().Get(ctx)
+					require.NoError(t, err)
+					defer func() {
+						assert.NoError(t, reader.Close())
+					}()
+					b, err := ioutil.ReadAll(reader)
+					require.NoError(t, err)
+					var tr model.TestResult
+					require.NoError(t, bson.Unmarshal(b, &tr))
+					assert.Equal(t, r.Info.TaskID, tr.TaskID)
+					assert.Equal(t, r.Info.Execution, tr.Execution)
+
 					count++
 				}
 				assert.Equal(t, 3, count)

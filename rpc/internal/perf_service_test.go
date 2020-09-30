@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -428,6 +429,10 @@ func TestAttachResultData(t *testing.T) {
 }
 
 func TestCuratorSend(t *testing.T) {
+	if skip, _ := strconv.ParseBool(os.Getenv("SKIP_INTEGRATION_TESTS")); skip {
+		t.Skip("SKIP_INTEGRATION_TESTS is set, skipping integration test with Curator")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
