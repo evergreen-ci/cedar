@@ -197,9 +197,9 @@ func (c *EvergreenClient) getPath(link string) (string, error) {
 	return path, nil
 }
 
-// get performs a GET request for path, transforms the response body to JSON,
-//and parses the link for the next page (this is empty if there is no next page)
-func (c *EvergreenClient) get(ctx context.Context, path string) ([]byte, string, error) {
+// Get performs a GET request for path, transforms the response body to JSON,
+// and parses the link for the next page (this is empty if there is no next page)
+func (c *EvergreenClient) Get(ctx context.Context, path string) ([]byte, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	link := ""

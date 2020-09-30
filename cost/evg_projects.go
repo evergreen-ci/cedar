@@ -53,7 +53,7 @@ func (c *EvergreenClient) getProjects(ctx context.Context) <-chan projectWorkUni
 	go func() {
 		path := "projects"
 		for {
-			data, link, err := c.get(ctx, path)
+			data, link, err := c.Get(ctx, path)
 			if err != nil {
 				output <- projectWorkUnit{
 					err: err,
@@ -96,7 +96,7 @@ func (c *EvergreenClient) getTaskCostsByProject(ctx context.Context, projectID, 
 		path := "cost/project/" + projectID + "/tasks?starttime=" + starttime +
 			"&limit=20&duration=" + duration
 		for {
-			data, link, err := c.get(ctx, path)
+			data, link, err := c.Get(ctx, path)
 			if err != nil {
 				output <- taskWorkUnit{
 					err: err,

@@ -61,16 +61,23 @@ var (
 )
 
 type EvergreenConfig struct {
-	URL             string `bson:"url" json:"url" yaml:"url"`
-	AuthTokenCookie string `bson:"auth_token_cookie" json:"auth_token_cookie" yaml:"auth_token_cookie"`
-	HeaderKeyName   string `bson:"header_key_name" json:"header_key_name" yaml:"header_key_name"`
-	HeaderUserName  string `bson:"header_user_name" json:"header_user_name" yaml:"header_user_name"`
-	Domain          string `bson:"domain" json:"domain" yaml:"domain"`
+	URL               string `bson:"url" json:"url" yaml:"url"`
+	AuthTokenCookie   string `bson:"auth_token_cookie" json:"auth_token_cookie" yaml:"auth_token_cookie"`
+	HeaderKeyName     string `bson:"header_key_name" json:"header_key_name" yaml:"header_key_name"`
+	HeaderUserName    string `bson:"header_user_name" json:"header_user_name" yaml:"header_user_name"`
+	Domain            string `bson:"domain" json:"domain" yaml:"domain"`
+	ServiceUserName   string `bson:"service_user_name" json:"service_user_name" yaml:"service_user_name"`
+	ServiceUserAPIKey string `bson:"service_user_api_key" json:"service_user_api_key" yaml:"service_user_api_key"`
 }
 
 var (
 	cedarEvergreenConfigURLKey             = bsonutil.MustHaveTag(EvergreenConfig{}, "URL")
 	cedarEvergreenConfigAuthTokenCookieKey = bsonutil.MustHaveTag(EvergreenConfig{}, "AuthTokenCookie")
+	cedarEvergreenConfigHeaderKeyName      = bsonutil.MustHaveTag(EvergreenConfig{}, "HeaderKeyName")
+	cedarEvergreenConfigHeaderUserName     = bsonutil.MustHaveTag(EvergreenConfig{}, "HeaderUserName")
+	cedarEvergreenConfigDomain             = bsonutil.MustHaveTag(EvergreenConfig{}, "Domain")
+	cedarEvergreenConfigServiceUserName    = bsonutil.MustHaveTag(EvergreenConfig{}, "ServiceUserName")
+	cedarEvergreenConfigServiceUserAPIKey  = bsonutil.MustHaveTag(EvergreenConfig{}, "ServiceUserAPIKey")
 )
 
 type ChangeDetectorConfig struct {
