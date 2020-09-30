@@ -60,6 +60,8 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 		if err != nil {
 			return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem exporting test result"))
 		}
+		exportedResult.TaskID = record.Info.TaskID
+		exportedResult.Execution = record.Info.Execution
 		exportedResults[i] = exportedResult
 	}
 
