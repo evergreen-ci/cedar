@@ -18,6 +18,7 @@ type SystemIndexes struct {
 }
 
 // GetRequiredIndexes returns required indexes for the Cedar database.
+// IMPORTANT: this should be updated whenever an index is created.
 func GetRequiredIndexes() []SystemIndexes {
 	return []SystemIndexes{
 		{
@@ -130,6 +131,28 @@ func GetRequiredIndexes() []SystemIndexes {
 				{logCreatedAtKey, -1},
 			},
 			Collection: buildloggerCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoTaskIDKey), 1},
+				{bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoExecutionKey), 1},
+			},
+			Collection: systemMetricsCollection,
+		},
+		{
+			Keys: bson.D{
+				{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey), 1},
+				{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), 1},
+			},
+			Collection: testResultsCollection,
+		},
+		{
+			Keys:       bson.D{{dbUserAPIKeyKey, 1}},
+			Collection: userCollection,
+		},
+		{
+			Keys:       bson.D{{bsonutil.GetDottedKeyName(dbUserLoginCacheKey, loginCacheTokenKey), 1}},
+			Collection: userCollection,
 		},
 	}
 }

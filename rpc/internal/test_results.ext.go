@@ -10,14 +10,15 @@ import (
 // the model package.
 func (t TestResultsInfo) Export() model.TestResultsInfo {
 	return model.TestResultsInfo{
-		Project:     t.Project,
-		Version:     t.Version,
-		Variant:     t.Variant,
-		TaskName:    t.TaskName,
-		TaskID:      t.TaskId,
-		Execution:   int(t.Execution),
-		RequestType: t.RequestType,
-		Mainline:    t.Mainline,
+		Project:         t.Project,
+		Version:         t.Version,
+		Variant:         t.Variant,
+		TaskName:        t.TaskName,
+		DisplayTaskName: t.DisplayTaskName,
+		TaskID:          t.TaskId,
+		Execution:       int(t.Execution),
+		RequestType:     t.RequestType,
+		Mainline:        t.Mainline,
 	}
 }
 

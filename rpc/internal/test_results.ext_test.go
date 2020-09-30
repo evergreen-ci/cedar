@@ -11,14 +11,15 @@ import (
 
 func TestTestResultsInfoExport(t *testing.T) {
 	info := TestResultsInfo{
-		Project:     "project",
-		Version:     "version",
-		Variant:     "variant",
-		TaskName:    "task_name",
-		TaskId:      "task_id",
-		Execution:   1,
-		RequestType: "request_type",
-		Mainline:    true,
+		Project:         "project",
+		Version:         "version",
+		Variant:         "variant",
+		TaskName:        "task_name",
+		DisplayTaskName: "display_task_name",
+		TaskId:          "task_id",
+		Execution:       1,
+		RequestType:     "request_type",
+		Mainline:        true,
 	}
 
 	modelInfo := info.Export()
@@ -26,6 +27,7 @@ func TestTestResultsInfoExport(t *testing.T) {
 	assert.Equal(t, info.Version, modelInfo.Version)
 	assert.Equal(t, info.Variant, modelInfo.Variant)
 	assert.Equal(t, info.TaskName, modelInfo.TaskName)
+	assert.Equal(t, info.DisplayTaskName, modelInfo.DisplayTaskName)
 	assert.Equal(t, info.TaskId, modelInfo.TaskID)
 	assert.Equal(t, int(info.Execution), modelInfo.Execution)
 	assert.Equal(t, info.RequestType, modelInfo.RequestType)
