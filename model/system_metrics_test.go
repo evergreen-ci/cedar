@@ -14,7 +14,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
-	"github.com/jpillora/backoff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -39,7 +38,7 @@ func TestSystemMetricsFind(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
@@ -87,7 +86,7 @@ func TestSystemMetricsFindByTaskID(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
@@ -162,6 +161,8 @@ func TestSystemMetricsAppend(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	require.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	tmpDir, err := ioutil.TempDir(".", "append-test")
 	require.NoError(t, err)
 	defer func() {
@@ -209,42 +210,36 @@ func TestSystemMetricsAppend(t *testing.T) {
 		require.NoError(t, systemMetrics.Append(ctx, "Test", FileText, chunk1))
 		require.NoError(t, systemMetrics.Append(ctx, "Test", FileText, chunk2))
 
-		b := &backoff.Backoff{
-			Min:    100 * time.Millisecond,
-			Max:    5 * time.Second,
-			Factor: 2,
-		}
-		var keyCheck map[string]string
-		for i := 0; i < 10; i++ {
-			keyCheck = map[string]string{}
-			iter, err := testBucket.List(ctx, systemMetrics.ID)
+		keyCheck := map[string]string{}
+		iter, err := testBucket.List(ctx, systemMetrics.ID)
+		require.NoError(t, err)
+		for iter.Next(ctx) {
+			var key string
+			key, err = filepath.Rel(systemMetrics.ID, iter.Item().Name())
 			require.NoError(t, err)
-			for iter.Next(ctx) {
-				key, err := filepath.Rel(systemMetrics.ID, iter.Item().Name())
-				require.NoError(t, err)
-				r, err := iter.Item().Get(ctx)
-				require.NoError(t, err)
-				defer func() {
-					assert.NoError(t, r.Close())
-				}()
-				data, err := ioutil.ReadAll(r)
-				require.NoError(t, err)
-				keyCheck[string(data)] = key
-			}
-
-			if len(keyCheck) > 1 {
-				break
-			}
-			time.Sleep(b.Duration())
+			var r io.ReadCloser
+			r, err = iter.Item().Get(ctx)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, r.Close())
+			}()
+			var data []byte
+			data, err = ioutil.ReadAll(r)
+			require.NoError(t, err)
+			keyCheck[string(data)] = key
 		}
+
 		chunk1Key, ok1 := keyCheck[string(chunk1)]
 		chunk2Key, ok2 := keyCheck[string(chunk2)]
-		assert.True(t, ok1 && ok2)
+		require.True(t, ok1 && ok2)
+		require.True(t, len(chunk1Key) > 5, "chunk 1 key length: %d", len(chunk1Key))
+		require.True(t, len(chunk2Key) > 5, "chunk 2 key length: %d", len(chunk2Key))
 		assert.Equal(t, "Test-", chunk1Key[:5])
 		assert.Equal(t, "Test-", chunk2Key[:5])
-		chunk1Nanos, err1 := strconv.ParseInt(chunk1Key[5:], 10, 64)
-		chunk2Nanos, err2 := strconv.ParseInt(chunk2Key[5:], 10, 64)
-		assert.NoError(t, err1, err2)
+		chunk1Nanos, err := strconv.ParseInt(chunk1Key[5:], 10, 64)
+		require.NoError(t, err)
+		chunk2Nanos, err := strconv.ParseInt(chunk2Key[5:], 10, 64)
+		require.NoError(t, err)
 		assert.True(t, chunk1Nanos < chunk2Nanos)
 
 		sm := &SystemMetrics{}
@@ -260,7 +255,7 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
@@ -271,7 +266,7 @@ func TestSystemMetricsAppendChunkKey(t *testing.T) {
 	systemMetrics1 := getSystemMetrics()
 	systemMetrics2 := getSystemMetrics()
 	systemMetrics2.Artifact.MetricChunks = map[string]MetricChunks{
-		"Test": MetricChunks{
+		"Test": {
 			Chunks: []string{key1, key2},
 			Format: FileText,
 		},
@@ -348,6 +343,7 @@ func TestSystemMetricsRemove(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
@@ -393,6 +389,7 @@ func TestSystemMetricsSaveNew(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()
@@ -475,6 +472,8 @@ func TestSystemMetricsDownload(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
+	require.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
@@ -635,6 +634,7 @@ func TestSystemMetricsClose(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := env.Context()
 	defer cancel()
+	require.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(systemMetricsCollection).Drop(ctx))
 	}()

@@ -14,7 +14,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
-	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -243,7 +242,7 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format F
 		return nil
 	}
 
-	key := fmt.Sprintf("%s-%v", metricType, utility.UnixMilli(time.Now()))
+	key := fmt.Sprintf("%s-%d", metricType, time.Now().UnixNano())
 
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
