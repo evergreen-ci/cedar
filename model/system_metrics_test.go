@@ -214,14 +214,17 @@ func TestSystemMetricsAppend(t *testing.T) {
 		iter, err := testBucket.List(ctx, systemMetrics.ID)
 		require.NoError(t, err)
 		for iter.Next(ctx) {
-			key, err := filepath.Rel(systemMetrics.ID, iter.Item().Name())
+			var key string
+			key, err = filepath.Rel(systemMetrics.ID, iter.Item().Name())
 			require.NoError(t, err)
-			r, err := iter.Item().Get(ctx)
+			var r io.ReadCloser
+			r, err = iter.Item().Get(ctx)
 			require.NoError(t, err)
 			defer func() {
 				assert.NoError(t, r.Close())
 			}()
-			data, err := ioutil.ReadAll(r)
+			var data []byte
+			data, err = ioutil.ReadAll(r)
 			require.NoError(t, err)
 			keyCheck[string(data)] = key
 		}
