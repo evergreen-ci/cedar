@@ -14,7 +14,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
-	"github.com/jpillora/backoff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -211,34 +210,22 @@ func TestSystemMetricsAppend(t *testing.T) {
 		require.NoError(t, systemMetrics.Append(ctx, "Test", FileText, chunk1))
 		require.NoError(t, systemMetrics.Append(ctx, "Test", FileText, chunk2))
 
-		b := &backoff.Backoff{
-			Min:    100 * time.Millisecond,
-			Max:    5 * time.Second,
-			Factor: 2,
-		}
-		var keyCheck map[string]string
-		for i := 0; i < 10; i++ {
-			keyCheck = map[string]string{}
-			iter, err := testBucket.List(ctx, systemMetrics.ID)
+		keyCheck := map[string]string{}
+		iter, err := testBucket.List(ctx, systemMetrics.ID)
+		require.NoError(t, err)
+		for iter.Next(ctx) {
+			key, err := filepath.Rel(systemMetrics.ID, iter.Item().Name())
 			require.NoError(t, err)
-			for iter.Next(ctx) {
-				key, err := filepath.Rel(systemMetrics.ID, iter.Item().Name())
-				require.NoError(t, err)
-				r, err := iter.Item().Get(ctx)
-				require.NoError(t, err)
-				defer func() {
-					assert.NoError(t, r.Close())
-				}()
-				data, err := ioutil.ReadAll(r)
-				require.NoError(t, err)
-				keyCheck[string(data)] = key
-			}
-
-			if len(keyCheck) > 1 {
-				break
-			}
-			time.Sleep(b.Duration())
+			r, err := iter.Item().Get(ctx)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, r.Close())
+			}()
+			data, err := ioutil.ReadAll(r)
+			require.NoError(t, err)
+			keyCheck[string(data)] = key
 		}
+
 		chunk1Key, ok1 := keyCheck[string(chunk1)]
 		chunk2Key, ok2 := keyCheck[string(chunk2)]
 		require.True(t, ok1 && ok2)
