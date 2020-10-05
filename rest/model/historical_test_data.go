@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
@@ -11,8 +13,8 @@ type APIHistoricalTestData struct {
 	Info            APIHistoricalTestDataInfo `json:"info"`
 	NumPass         int                       `json:"num_pass"`
 	NumFail         int                       `json:"num_fail"`
-	Durations       []float64                 `json:"durations"`
-	AverageDuration float64                   `json:"average_duration"`
+	Durations       []time.Duration           `json:"durations"`
+	AverageDuration time.Duration             `json:"average_duration"`
 	LastUpdate      APITime                   `json:"last_update"`
 }
 

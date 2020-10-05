@@ -3,7 +3,6 @@ package model
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -24,10 +23,10 @@ type HistoricalTestData struct {
 	Info            HistoricalTestDataInfo `bson:"info"`
 	NumPass         int                    `bson:"num_pass"`
 	NumFail         int                    `bson:"num_fail"`
-	Durations       []float64              `bson:"durations"`
-	AverageDuration float64                `bson:"average_duration"`
+	Durations       []time.Duration        `bson:"durations"`
+	AverageDuration time.Duration          `bson:"average_duration"`
 	LastUpdate      time.Time              `bson:"last_update"`
-	ArtifactType    PailType               `bson:"artifact_type"`
+	ArtifactType    PailType               `bson:"-"`
 
 	env       cedar.Environment
 	bucket    string
@@ -175,12 +174,16 @@ func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error)
 	return bucket, nil
 }
 
+// HistoricalTestDataDateFormat represents the standard timestamp format for
+// historical test data, which is rounded to the nearest day (YYYY-MM-DD).
+const HistoricalTestDataDateFormat = "2006-01-02"
+
 func (d *HistoricalTestData) getPath() string {
 	i := d.Info
 	if d.ArtifactType == PailLocal {
-		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, fmt.Sprintf("%d", i.Date.Unix()))
+		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Format(HistoricalTestDataDateFormat))
 	}
-	return fmt.Sprintf("%s/%s/%s/%s/%s/%d", i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Unix())
+	return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Format(HistoricalTestDataDateFormat))
 }
 
 // HistoricalTestDataInfo describes information unique to a single test
