@@ -15,12 +15,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-const historicalTestDataCollection = "historical_test_stats"
-
 // HistoricalTestData describes aggregated test result data for a given date
 // range.
 type HistoricalTestData struct {
-	Info            HistoricalTestDataInfo `bson:"info"`
+	Info            HistoricalTestDataInfo `bson:"-"`
 	NumPass         int                    `bson:"num_pass"`
 	NumFail         int                    `bson:"num_fail"`
 	Durations       []time.Duration        `bson:"durations"`
@@ -75,7 +73,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r, err := bucket.Get(ctx, d.getPath())
+	r, err := bucket.Get(ctx, d.Path())
 	if err != nil {
 		return errors.Wrap(err, "problem getting data from bucket")
 	}
@@ -84,7 +82,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 			"message":  "problem closing bucket reader",
 			"bucket":   d.bucket,
 			"prefix":   "",
-			"path":     d.getPath(),
+			"path":     d.Path(),
 			"location": d.ArtifactType,
 		}))
 	}()
@@ -123,7 +121,7 @@ func (d *HistoricalTestData) Save(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "problem marshalling historical test data")
 	}
-	if err = bucket.Put(ctx, d.getPath(), bytes.NewReader(data)); err != nil {
+	if err = bucket.Put(ctx, d.Path(), bytes.NewReader(data)); err != nil {
 		return errors.Wrap(err, "problem saving historical test data to bucket")
 	}
 
@@ -142,7 +140,7 @@ func (d *HistoricalTestData) Remove(ctx context.Context) error {
 		return err
 	}
 
-	err = bucket.Remove(ctx, d.getPath())
+	err = bucket.Remove(ctx, d.Path())
 	if pail.IsKeyNotFoundError(err) {
 		return nil
 	}
@@ -156,14 +154,14 @@ func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error)
 		if err := conf.Find(); err != nil {
 			return nil, errors.Wrap(err, "problem getting application configuration")
 		}
-		d.bucket = conf.Bucket.TestResultsBucket
+		d.bucket = conf.Bucket.HistoricalTestDataBucket
 	}
 
 	bucket, err := d.ArtifactType.Create(
 		ctx,
 		d.env,
 		d.bucket,
-		historicalTestDataCollection,
+		"",
 		string(pail.S3PermissionsPrivate),
 		true,
 	)
@@ -178,7 +176,8 @@ func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error)
 // historical test data, which is rounded to the nearest day (YYYY-MM-DD).
 const HistoricalTestDataDateFormat = "2006-01-02"
 
-func (d *HistoricalTestData) getPath() string {
+// Path returns the path to the historical test data within the remote storage.
+func (d *HistoricalTestData) Path() string {
 	i := d.Info
 	if d.ArtifactType == PailLocal {
 		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Format(HistoricalTestDataDateFormat))

@@ -102,33 +102,35 @@ func (j *historicalTestDataJob) Run(ctx context.Context) {
 		return
 	}
 
-	td, err := model.CreateHistoricalTestData(j.Info, model.PailS3)
+	htd, err := model.CreateHistoricalTestData(j.Info, conf.Bucket.HistoricalTestDataBucketType)
 	if err != nil {
 		j.AddError(errors.Wrap(err, "creating historical test data"))
 		return
 	}
-	if err := td.Find(ctx); err == nil {
+	htd.Setup(j.env)
+	if err := htd.Find(ctx); err != nil {
 		// If the key does not yet exist, the test data model will be
 		// invalidated by Find(), so we have to re-create it. Otherwise, the
 		// job will fail to add the new key into S3 later.
-		td, err = model.CreateHistoricalTestData(j.Info, model.PailS3)
+		htd, err = model.CreateHistoricalTestData(j.Info, conf.Bucket.HistoricalTestDataBucketType)
 		if err != nil {
 			j.AddError(errors.Wrap(err, "creating historical test data"))
 			return
 		}
+		htd.Setup(j.env)
 	}
 
 	switch j.Result.Status {
 	case "pass":
-		td.NumPass += 1
+		htd.NumPass += 1
 		dur := j.Result.TestEndTime.Sub(j.Result.TestStartTime)
-		td.AverageDuration = (time.Duration(len(td.Durations))*td.AverageDuration + dur) / time.Duration(len(td.Durations)+1)
-		td.Durations = append(td.Durations, dur)
+		htd.AverageDuration = (time.Duration(len(htd.Durations))*htd.AverageDuration + dur) / time.Duration(len(htd.Durations)+1)
+		htd.Durations = append(htd.Durations, dur)
 	case "fail", "silentfail":
-		td.NumFail += 1
+		htd.NumFail += 1
 	}
 
-	if err := td.Save(ctx); err != nil {
+	if err := htd.Save(ctx); err != nil {
 		j.AddError(errors.Wrap(err, "saving updated historical test data"))
 		return
 	}
@@ -158,7 +160,7 @@ func (j *historicalTestDataJob) shouldNoop(ctx context.Context, conf *model.Ceda
 // job's task name.
 func (j *historicalTestDataJob) shouldSkipTask(settings *historicalTestDataProjectSettings) (skip bool, err error) {
 	for _, pattern := range j.settings.FilesIgnoredFromCache {
-		pattern := strings.TrimSpace(pattern)
+		pattern = strings.TrimSpace(pattern)
 		if pattern == "" {
 			continue
 		}
