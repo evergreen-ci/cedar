@@ -84,6 +84,9 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			require.NoError(t, err)
 			htdr, err := bucket.Get(ctx, htd.Path())
 			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, htdr.Close())
+			}()
 			b, err := ioutil.ReadAll(htdr)
 			require.NoError(t, err)
 			htd = &model.HistoricalTestData{}
@@ -118,6 +121,9 @@ func TestHistoricalTestDataJob(t *testing.T) {
 
 			htdr, err := bucket.Get(ctx, htd.Path())
 			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, htdr.Close())
+			}()
 			b, err := ioutil.ReadAll(htdr)
 			require.NoError(t, err)
 			htd = &model.HistoricalTestData{}
