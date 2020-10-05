@@ -1,8 +1,6 @@
 package model
 
 import (
-	"time"
-
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
@@ -13,8 +11,8 @@ type APIHistoricalTestData struct {
 	Info            APIHistoricalTestDataInfo `json:"info"`
 	NumPass         int                       `json:"num_pass"`
 	NumFail         int                       `json:"num_fail"`
-	Durations       []time.Duration           `json:"durations"`
-	AverageDuration time.Duration             `json:"average_duration"`
+	Durations       []float64                 `json:"durations"`
+	AverageDuration float64                   `json:"average_duration"`
 	LastUpdate      APITime                   `json:"last_update"`
 }
 
@@ -26,8 +24,11 @@ func (a *APIHistoricalTestData) Import(i interface{}) error {
 		a.Info = getHistoricalTestDataInfo(hd.Info)
 		a.NumPass = hd.NumPass
 		a.NumFail = hd.NumFail
-		a.Durations = hd.Durations
-		a.AverageDuration = hd.AverageDuration
+		// This route returns durations as floating-point seconds.
+		for _, dur := range hd.Durations {
+			a.Durations = append(a.Durations, dur.Seconds())
+		}
+		a.AverageDuration = hd.AverageDuration.Seconds()
 		a.LastUpdate = NewTime(hd.LastUpdate)
 	default:
 		return errors.New("incorrect type when converting to APIHistoricalTestData type")
