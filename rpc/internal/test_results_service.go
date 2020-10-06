@@ -6,7 +6,10 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -68,6 +71,15 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 	if err := record.Append(ctx, exportedResults); err != nil {
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending test results for '%s'", results.TestResultsRecordId))
 	}
+
+	for _, res := range exportedResults {
+		grip.Error(message.WrapError(s.env.GetRemoteQueue().Put(ctx, units.NewHistoricalTestDataJob(s.env, record.Info, res)), message.Fields{
+			"message":     "failed to enqueue historical test data job",
+			"info":        record.Info,
+			"test_result": res,
+		}))
+	}
+
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }
 
