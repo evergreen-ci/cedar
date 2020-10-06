@@ -24,8 +24,11 @@ func (a *APIHistoricalTestData) Import(i interface{}) error {
 		a.Info = getHistoricalTestDataInfo(hd.Info)
 		a.NumPass = hd.NumPass
 		a.NumFail = hd.NumFail
-		a.Durations = hd.Durations
-		a.AverageDuration = hd.AverageDuration
+		// This route returns durations as floating-point seconds.
+		for _, dur := range hd.Durations {
+			a.Durations = append(a.Durations, dur.Seconds())
+		}
+		a.AverageDuration = hd.AverageDuration.Seconds()
 		a.LastUpdate = NewTime(hd.LastUpdate)
 	default:
 		return errors.New("incorrect type when converting to APIHistoricalTestData type")

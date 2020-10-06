@@ -25,9 +25,13 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			},
 			NumPass:         2,
 			NumFail:         2,
-			Durations:       []float64{2.4, 2.65, 0.23, 1.34},
-			AverageDuration: 1.655,
+			Durations:       []time.Duration{2, 2, 5, 3},
+			AverageDuration: 3,
 			LastUpdate:      time.Now(),
+		}
+		var durSecs []float64
+		for _, dur := range tr.Durations {
+			durSecs = append(durSecs, dur.Seconds())
 		}
 		expected := &APIHistoricalTestData{
 			Info: APIHistoricalTestDataInfo{
@@ -40,8 +44,8 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			},
 			NumPass:         tr.NumPass,
 			NumFail:         tr.NumFail,
-			Durations:       tr.Durations,
-			AverageDuration: tr.AverageDuration,
+			Durations:       durSecs,
+			AverageDuration: tr.AverageDuration.Seconds(),
 			LastUpdate:      NewTime(tr.LastUpdate),
 		}
 		apiHistoricalTestData := &APIHistoricalTestData{}
