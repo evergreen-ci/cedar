@@ -162,7 +162,8 @@ func GetRequiredIndexes() []SystemIndexes {
 	}
 }
 
-// CheckIndexes checks that all the given indexes are in the database.
+// CheckIndexes checks that all the given indexes are in the database. It does
+// not check specifically for any index options (e.g. unique indexes).
 func CheckIndexes(ctx context.Context, db *mongo.Database, indexes []SystemIndexes) error {
 	found := map[string]bool{}
 	for _, index := range indexes {
@@ -219,6 +220,8 @@ func getCollIndexes(ctx context.Context, db *mongo.Database, collName string) ([
 	if err != nil {
 		return nil, errors.Wrapf(err, "listing indexes for collection '%s'", collName)
 	}
+	defer cursor.Close(ctx)
+
 	var collIndexes []dbIndex
 	if err := cursor.All(ctx, &collIndexes); err != nil {
 		return nil, errors.Wrapf(err, "getting all indexes for collection '%s'", collName)
