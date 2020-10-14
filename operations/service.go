@@ -165,6 +165,10 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
+			if err := model.CheckIndexes(ctx, env.GetDB(), model.GetRequiredIndexes()); err != nil {
+				grip.Error(errors.Wrap(err, "missing expected database indexes"))
+			}
+
 			ctx, cancel = context.WithCancel(context.Background())
 			defer cancel()
 			env.RegisterCloser("web-services-closer", func(_ context.Context) error {
