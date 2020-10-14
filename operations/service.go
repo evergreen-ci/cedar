@@ -166,7 +166,8 @@ func Service() cli.Command {
 			}
 
 			if err := model.CheckIndexes(ctx, env.GetDB(), model.GetRequiredIndexes()); err != nil {
-				grip.Error(errors.Wrap(err, "missing expected database indexes"))
+				runningLocally := c.String(dbURIFlag) == "mongodb://localhost:27017"
+				grip.ErrorWhen(!runningLocally, errors.Wrap(err, "missing expected database indexes"))
 			}
 
 			ctx, cancel = context.WithCancel(context.Background())
