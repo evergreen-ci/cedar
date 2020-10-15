@@ -116,6 +116,7 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/pmezard/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/github.com/stretchr/
 	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/gopkg.in/yaml.v2/
+	rm -rf vendor/github.com/evergreen-ci/gimlet/vendor/go.mongodb.org/mongo-driver/
 	rm -rf vendor/github.com/evergreen-ci/pail/vendor/
 	rm -rf vendor/github.com/evergreen-ci/poplar/vendor/github.com/evergreen-ci/pail/
 	rm -rf vendor/github.com/evergreen-ci/poplar/vendor/github.com/golang/protobuf/
@@ -146,7 +147,6 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/gimlet
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/poplar/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/grip/
-	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/mongodb/mongo-go-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/stretchr/testify
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/tychoish/gimlet/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/urfave/cli/
@@ -165,7 +165,6 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/anser/vendor/go.mongodb.org/mongo-driver
 	rm -rf vendor/github.com/mongodb/anser/vendor/gopkg.in/mgo.v2
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/mongodb/grip/
-	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/mongodb/mongo-go-driver/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/pkg/errors/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/satori/go.uuid/
 	rm -rf vendor/github.com/mongodb/ftdc/vendor/github.com/satori/go.uuid/gss
