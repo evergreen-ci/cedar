@@ -19,8 +19,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/grpc"
-	"gopkg.in/mgo.v2/bson"
 )
 
 func TestCreateTestResultsRecord(t *testing.T) {
