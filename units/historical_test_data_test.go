@@ -12,7 +12,7 @@ import (
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func setupEnv(ctx context.Context, t *testing.T) {

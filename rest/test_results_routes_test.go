@@ -17,7 +17,7 @@ import (
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type TestResultsHandlerSuite struct {
@@ -33,7 +33,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 	s.sc = data.MockConnector{
 		Bucket: tempDir,
 		CachedTestResults: map[string]dbModel.TestResults{
-			"abc": dbModel.TestResults{
+			"abc": {
 				ID: "abc",
 				Info: dbModel.TestResultsInfo{
 					Project:     "test",
@@ -52,7 +52,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 					Prefix: "abc",
 				},
 			},
-			"def": dbModel.TestResults{
+			"def": {
 				ID: "def",
 				Info: dbModel.TestResultsInfo{
 					Project:     "test",
@@ -71,7 +71,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 					Prefix: "def",
 				},
 			},
-			"ghi": dbModel.TestResults{
+			"ghi": {
 				ID: "ghi",
 				Info: dbModel.TestResultsInfo{
 					Project:     "test",

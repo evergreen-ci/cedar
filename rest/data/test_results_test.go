@@ -14,7 +14,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type testResultsConnectorSuite struct {
