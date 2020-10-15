@@ -165,6 +165,13 @@ func Service() cli.Command {
 				return errors.WithStack(err)
 			}
 
+			if c.String(dbURIFlag) != "mongodb://localhost:27017" {
+				// Check indexes in production only.
+				if err := model.CheckIndexes(ctx, env.GetDB(), model.GetRequiredIndexes()); err != nil {
+					grip.Error(errors.Wrap(err, "missing expected database indexes"))
+				}
+			}
+
 			ctx, cancel = context.WithCancel(context.Background())
 			defer cancel()
 			env.RegisterCloser("web-services-closer", func(_ context.Context) error {

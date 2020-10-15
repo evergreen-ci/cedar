@@ -13,7 +13,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 /////////////////////////////
