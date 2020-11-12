@@ -15,7 +15,7 @@ import (
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /test_results/task_id/{task_id}
+// GET /testresults/task_id/{task_id}
 
 type testResultsGetByTaskIdHandler struct {
 	options model.TestResultsFindOptions
@@ -68,7 +68,7 @@ func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responde
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /test_results/test_name/{task_id}/{test_name}
+// GET /testresults/test_name/{task_id}/{test_name}
 
 type testResultGetByTestNameHandler struct {
 	opts data.TestResultsTestNameOptions
