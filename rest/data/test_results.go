@@ -31,7 +31,7 @@ func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbM
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "failed to find results with task_id %s", options.TaskID),
+			Message:    errors.Wrapf(err, "failed to find results with task_id %s", options.TaskID).Error(),
 		}
 	}
 
