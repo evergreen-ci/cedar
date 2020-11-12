@@ -23,11 +23,15 @@ import (
 func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, options dbModel.TestResultsFindOptions) ([]model.APITestResult, error) {
 	results := dbModel.TestResults{}
 	results.Setup(dbc.env)
-
-	if err := results.FindByTaskID(ctx, options); err != nil {
+	if err := results.FindByTaskID(ctx, options); db.ResultsNotFound(err) {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    fmt.Sprintf("test results for task id '%s' not found", options.TaskID),
+		}
+	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("failed to find results with task_id %s", options.TaskID),
+			Message:    errors.Wrapf(err, "failed to find results with task_id %s", options.TaskID).Error(),
 		}
 	}
 
