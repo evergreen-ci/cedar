@@ -139,6 +139,9 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		result.ID = result.Info.ID()
 	}
 
+	rollups := result.Rollups.Stats
+	result.Rollups.Stats = []PerfRollupValue{}
+
 	insertResult, err := result.env.GetDB().Collection(perfResultCollection).InsertOne(ctx, result)
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   perfResultCollection,
@@ -146,8 +149,11 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		"insertResult": insertResult,
 		"op":           "save new performance result",
 	})
+	if err != nil {
+		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
+	}
 
-	return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
+	return result.MergeRollups(ctx, rollups)
 }
 
 // AppendArtifacts appends new artifacts to an existing performance result. The

@@ -126,7 +126,6 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 				},
 			})
 	}
-
 	if err != nil {
 		return errors.Wrap(err, "problem adding rollup")
 	}
