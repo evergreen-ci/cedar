@@ -291,6 +291,19 @@ func (s *perfRollupSuite) TestUpdateExistingEntry() {
 	s.Equal(out.Rollups.Stats[0].Value, 12.24)
 	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
 
+	s.Require().NoError(s.r.Add(s.ctx, PerfRollupValue{
+		Name:          "mean",
+		Version:       4,
+		Value:         24.12,
+		MetricType:    MetricTypeMax,
+		UserSubmitted: true,
+	}))
+	s.Require().NoError(c.FindOne(s.ctx, search).Decode(&out))
+	s.Require().Len(out.Rollups.Stats, 1)
+	s.Equal(out.Rollups.Stats[0].Version, 4)
+	s.Equal(out.Rollups.Stats[0].Value, 24.12)
+	s.Equal(out.Rollups.Stats[0].UserSubmitted, true)
+
 	s.NoError(s.r.Add(s.ctx, PerfRollupValue{
 		Name:          "mean",
 		Version:       5,

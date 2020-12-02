@@ -131,7 +131,8 @@ func TestPerfSaveNew(t *testing.T) {
 		assert.Equal(t, result1.ID, savedResult.ID)
 		assert.Equal(t, result1.Info, savedResult.Info)
 		assert.Equal(t, result1.Artifacts, savedResult.Artifacts)
-		assert.Equal(t, result1.Rollups, savedResult.Rollups)
+		assert.Equal(t, result1.Rollups.Stats, savedResult.Rollups.Stats)
+		assert.True(t, time.Since(savedResult.Rollups.ProcessedAt) < time.Minute)
 	})
 	t.Run("WithoutID", func(t *testing.T) {
 		savedResult := &PerformanceResult{}
