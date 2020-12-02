@@ -680,11 +680,6 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	var usr string
 	if u := gimlet.GetUser(r.Context()); u != nil {
 		usr = u.Username()
-		grip.Info(message.Fields{
-			"message": "authed successfully using API key",
-			"user":    u.Username(),
-			"op":      "fetchUserCert",
-		})
 	} else {
 		if usr, err = s.checkPayloadCreds(rw, r); err != nil {
 			gimlet.WriteJSONResponse(rw, http.StatusUnauthorized, gimlet.ErrorResponse{
@@ -693,11 +688,6 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		grip.Info(message.Fields{
-			"message": "authed successfully using credentials payload",
-			"user":    usr,
-			"op":      "fetchUserCert",
-		})
 	}
 
 	opts := certdepot.CertificateOptions{
@@ -709,11 +699,6 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	_, err = opts.CreateCertificateOnExpiration(s.Depot, s.Conf.CA.SSLRenewalBefore)
 	if err != nil {
 		err = errors.Wrapf(err, "problem updating certificate for '%s'", usr)
-		grip.Info(message.WrapError(err, message.Fields{
-			"message": "failed to create certificate on expiration",
-			"user":    usr,
-			"op":      "fetchUserCert",
-		}))
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
@@ -721,22 +706,12 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	crt, err := certdepot.GetCertificate(s.Depot, usr)
 	if err != nil {
 		err = errors.Wrapf(err, "problem fetching certificate for '%s'", usr)
-		grip.Info(message.WrapError(err, message.Fields{
-			"message": "failed to get user certificate",
-			"user":    usr,
-			"op":      "fetchUserCert",
-		}))
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := crt.Export()
 	if err != nil {
 		err = errors.Wrapf(err, "problem exporting certificate for '%s'", usr)
-		grip.Info(message.WrapError(err, message.Fields{
-			"message": "failed to export certificate to bytes",
-			"user":    usr,
-			"op":      "fetchUserCert",
-		}))
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
