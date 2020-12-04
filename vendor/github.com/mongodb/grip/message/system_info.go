@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime"
 
@@ -100,7 +101,11 @@ func NewSystemInfo(priority level.Priority, message string) Composer {
 	if err != nil {
 		s.saveError("cpu_times", err)
 	} else {
-		s.CPUPercent = percent[0]
+		if len(percent) == 0 {
+			s.saveError("cpu_times", errors.New("empty cpu percent slice"))
+		} else {
+			s.CPUPercent = percent[0]
+		}
 	}
 
 	vmstat, err := mem.VirtualMemory()
