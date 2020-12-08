@@ -2,20 +2,22 @@ package model
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // MessageEntry represents an entry for a "message" of a topic in the database.
-// ForeignID is the id of a document located in another collection used by the
-// Topic interface to extract the actual message. The id of each message entry
-// is an int sequentially incremented for each message published to the topic.
 type MessageEntry struct {
+	// ForeignID is the id of a document located in another collection used by the
+	// Topic interface to extract the actual message. The id of each message entry
+	// is an int sequentially incremented for each message published to the topic.
 	ForeignID string `bson:"foreign_id"`
 
 	// ResumeToken and Error should be checked when watching a topic.
@@ -81,11 +83,13 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 		defer close(data)
 
 		for cs.Next(ctx) {
+			defer recovery.LogStackTraceAndContinue(fmt.Sprintf("watching topic %s", topic.Name()))
+
 			resumeToken = []byte(cs.ResumeToken())
 			entry := MessageEntry{}
 			entry.ResumeToken = resumeToken
 
-			if err = cs.Decode(cs); err != nil {
+			if err = cs.Decode(&entry); err != nil {
 				entry.Err = errors.Wrapf(err, "problem decoding message entry for topic %s", topic.Name())
 				data <- entry
 				break
@@ -95,7 +99,7 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(cs.Err())
-		catcher.Add(cs.Close(nil))
+		catcher.Add(cs.Close(context.Background()))
 		if catcher.HasErrors() {
 			data <- MessageEntry{
 				ResumeToken: resumeToken,
