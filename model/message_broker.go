@@ -91,10 +91,16 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 
 			if err = cs.Decode(&entry); err != nil {
 				entry.Err = errors.Wrapf(err, "problem decoding message entry for topic %s", topic.Name())
-				data <- entry
+			}
+
+			select {
+			case data <- entry:
+				if entry.Err != nil {
+					break
+				}
+			case <-ctx.Done():
 				break
 			}
-			data <- entry
 		}
 
 		catcher := grip.NewBasicCatcher()
