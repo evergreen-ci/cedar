@@ -159,6 +159,10 @@ func GetRequiredIndexes() []SystemIndexes {
 			Keys:       bson.D{{Key: bsonutil.GetDottedKeyName(dbUserLoginCacheKey, loginCacheTokenKey), Value: 1}},
 			Collection: userCollection,
 		},
+		{
+			Keys:       bson.D{{Key: messageEntryTopicKey, Value: 1}},
+			Collection: topicsCollection,
+		},
 	}
 }
 

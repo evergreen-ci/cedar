@@ -5,25 +5,37 @@ import (
 	"fmt"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const topicsCollection = "topics"
+
 // MessageEntry represents an entry for a "message" of a topic in the database.
 type MessageEntry struct {
-	// ForeignID is the id of a document located in another collection used by the
-	// Topic interface to extract the actual message. The id of each message entry
-	// is an int sequentially incremented for each message published to the topic.
+	// Topic is the name of the topic.
+	Topic string `bson:"topic"`
+	// ForeignID is the id of a document located in another collection used
+	// by the Topic interface to extract the actual message. The id of each
+	// message entry is an int sequentially incremented for each message
+	// published to the topic.
 	ForeignID string `bson:"foreign_id"`
 
 	// ResumeToken and Error should be checked when watching a topic.
 	ResumeToken []byte `bson:"-"`
 	Err         error  `bson:"-"`
 }
+
+var (
+	messageEntryTopicKey     = bsonutil.MustHaveTag(MessageEntry{}, "Topic")
+	messageEntryForeignIDKey = bsonutil.MustHaveTag(MessageEntry{}, "ForeignID")
+)
 
 // PublishToTopic creates a new message entry with the given id in the
 // corresponding collection for the given topic. If the topic does not exist in
@@ -53,10 +65,11 @@ func WatchTopic(ctx context.Context, env cedar.Environment, name string, resumeT
 // publishToTopic creates a new message entry with the foreign ID in the
 // corresponding collection for the given topic.
 func publishToTopic(ctx context.Context, env cedar.Environment, topic Topic, foreignID string) error {
-	entry := &MessageEntry{ForeignID: foreignID}
-	// TODO: should there be a collection per topic? Or, rather, one
-	// collection for all topics, indexed by topic names.
-	insertResult, err := env.GetDB().Collection(topic.Name()).InsertOne(ctx, entry)
+	entry := &MessageEntry{
+		Topic:     topic.Name(),
+		ForeignID: foreignID,
+	}
+	insertResult, err := env.GetDB().Collection(topicsCollection).InsertOne(ctx, entry)
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":   topic.Name(),
 		"insertResult": insertResult,
@@ -71,7 +84,11 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 	if len(resumeToken) > 0 {
 		opts = opts.SetResumeAfter(resumeToken)
 	}
-	cs, err := env.GetDB().Collection(topic.Name()).Watch(ctx, mongo.Pipeline{}, opts)
+	cs, err := env.GetDB().Collection(topicsCollection).Watch(
+		ctx,
+		mongo.Pipeline{{{"$match", bson.D{{messageEntryTopicKey, topic.Name()}}}}},
+		opts,
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "problem getting change streams for topic %s", topic.Name())
 	}
