@@ -21,8 +21,8 @@ type MessageEntry struct {
 	ForeignID string `bson:"foreign_id"`
 
 	// ResumeToken and Error should be checked when watching a topic.
-	ResumeToken []byte
-	Err         error
+	ResumeToken []byte `bson:"-"`
+	Err         error  `bson:"-"`
 }
 
 // PublishToTopic creates a new message entry with the given id in the
