@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package cedar;
+
+option go_package = "internal";
+
+message SubscribeRequest {
+  string topic = 1;
+  bytes resume_token = 2;
+}
+
+message SubscribeResponse {
+  string topic = 1;
+  bytes resume_token = 2;
+  bytes msg = 3;
+  string error_msg = 4;
+}
+
+
+service Subscriber {
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}

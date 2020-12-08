@@ -20,7 +20,7 @@ type MessageEntry struct {
 
 	// ResumeToken and Error should be checked when watching a topic.
 	ResumeToken []byte
-	Error       error
+	Err         error
 }
 
 // PublishToTopic creates a new message entry with the given id in the
@@ -78,13 +78,15 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 	// TODO: figure out appropriate buffer size.
 	data := make(chan MessageEntry, 100)
 	go func() {
+		defer close(data)
+
 		for cs.Next(ctx) {
 			resumeToken = []byte(cs.ResumeToken())
 			entry := MessageEntry{}
 			entry.ResumeToken = resumeToken
 
 			if err = cs.Decode(cs); err != nil {
-				entry.Error = errors.Wrapf(err, "problem decoding message entry for topic %s", topic.Name())
+				entry.Err = errors.Wrapf(err, "problem decoding message entry for topic %s", topic.Name())
 				data <- entry
 				break
 			}
@@ -97,7 +99,7 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 		if catcher.HasErrors() {
 			data <- MessageEntry{
 				ResumeToken: resumeToken,
-				Error:       errors.Wrapf(catcher.Resolve(), "cursor error for topic %s", topic.Name()),
+				Err:         errors.Wrapf(catcher.Resolve(), "cursor error for topic %s", topic.Name()),
 			}
 		}
 	}()
