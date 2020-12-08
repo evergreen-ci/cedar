@@ -79,11 +79,10 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 	// TODO: figure out appropriate buffer size.
 	data := make(chan MessageEntry, 100)
 	go func() {
+		defer recovery.LogStackTraceAndContinue(fmt.Sprintf("watching topic %s", topic.Name()))
 		defer close(data)
 
 		for cs.Next(ctx) {
-			defer recovery.LogStackTraceAndContinue(fmt.Sprintf("watching topic %s", topic.Name()))
-
 			resumeToken = []byte(cs.ResumeToken())
 			entry := MessageEntry{}
 			entry.ResumeToken = resumeToken
