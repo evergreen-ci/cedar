@@ -67,7 +67,6 @@ func publishToTopic(ctx context.Context, env cedar.Environment, topic Topic, for
 }
 
 func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeToken []byte) (chan MessageEntry, error) {
-	// TODO: Maybe need to set options FullDocument -> options.UpdateLookup.
 	opts := options.ChangeStream()
 	if len(resumeToken) > 0 {
 		opts = opts.SetResumeAfter(resumeToken)
