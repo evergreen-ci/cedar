@@ -85,9 +85,11 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 	cs, err := env.GetDB().Collection(topicsCollection).Watch(
 		ctx,
 		mongo.Pipeline{{{
-			Key: "$match", Value: bson.D{{
-				Key: messageEntryTopicKey, Value: topic.Name()},
-			},
+			Key: "$match",
+			Value: bson.D{{
+				Key:   bsonutil.GetDottedKeyName("fullDocument", messageEntryTopicKey),
+				Value: topic.Name(),
+			}},
 		}}},
 		opts,
 	)
@@ -102,17 +104,19 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 		defer close(data)
 
 		for cs.Next(ctx) {
+			event := struct {
+				Entry MessageEntry `bson:"fullDocument"`
+			}{}
 			resumeToken = []byte(cs.ResumeToken())
-			entry := MessageEntry{}
-			entry.ResumeToken = resumeToken
+			event.Entry.ResumeToken = resumeToken
 
-			if err = cs.Decode(&entry); err != nil {
-				entry.Err = errors.Wrapf(err, "problem decoding message entry for topic %s", topic.Name())
+			if err = cs.Decode(&event); err != nil {
+				event.Entry.Err = errors.Wrapf(err, "problem decoding message entry for topic %s", topic.Name())
 			}
 
 			select {
-			case data <- entry:
-				if entry.Err != nil {
+			case data <- event.Entry:
+				if event.Entry.Err != nil {
 					break
 				}
 			case <-ctx.Done():
