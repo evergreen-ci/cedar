@@ -86,7 +86,11 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 	}
 	cs, err := env.GetDB().Collection(topicsCollection).Watch(
 		ctx,
-		mongo.Pipeline{{{"$match", bson.D{{messageEntryTopicKey, topic.Name()}}}}},
+		mongo.Pipeline{{{
+			Key: "$match", Value: bson.D{{
+				Key: messageEntryTopicKey, Value: topic.Name()},
+			},
+		}}},
 		opts,
 	)
 	if err != nil {
