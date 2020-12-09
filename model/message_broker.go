@@ -22,9 +22,7 @@ type MessageEntry struct {
 	// Topic is the name of the topic.
 	Topic string `bson:"topic"`
 	// ForeignID is the id of a document located in another collection used
-	// by the Topic interface to extract the actual message. The id of each
-	// message entry is an int sequentially incremented for each message
-	// published to the topic.
+	// by the Topic interface to extract the actual message.
 	ForeignID string `bson:"foreign_id"`
 
 	// ResumeToken and Error should be checked when watching a topic.
@@ -71,9 +69,9 @@ func publishToTopic(ctx context.Context, env cedar.Environment, topic Topic, for
 	}
 	insertResult, err := env.GetDB().Collection(topicsCollection).InsertOne(ctx, entry)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   topic.Name(),
+		"collection":   topicsCollection,
 		"insertResult": insertResult,
-		"op":           "publish to a topic",
+		"op":           fmt.Sprintf("publish to topic %s", topic.Name()),
 	})
 
 	return errors.Wrapf(err, "problem publishing to topic %s", topic.Name())
@@ -82,7 +80,7 @@ func publishToTopic(ctx context.Context, env cedar.Environment, topic Topic, for
 func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeToken []byte) (chan MessageEntry, error) {
 	opts := options.ChangeStream()
 	if len(resumeToken) > 0 {
-		opts = opts.SetResumeAfter(resumeToken)
+		opts = opts.SetStartAfter(resumeToken)
 	}
 	cs, err := env.GetDB().Collection(topicsCollection).Watch(
 		ctx,
@@ -126,9 +124,12 @@ func watchTopic(ctx context.Context, env cedar.Environment, topic Topic, resumeT
 		catcher.Add(cs.Err())
 		catcher.Add(cs.Close(context.Background()))
 		if catcher.HasErrors() {
-			data <- MessageEntry{
+			select {
+			case data <- MessageEntry{
 				ResumeToken: resumeToken,
 				Err:         errors.Wrapf(catcher.Resolve(), "cursor error for topic %s", topic.Name()),
+			}:
+			case <-ctx.Done():
 			}
 		}
 	}()
