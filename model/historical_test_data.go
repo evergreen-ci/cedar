@@ -190,7 +190,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 	return nil
 }
 
-// Remove deletes the HistoricalTestData file from databse. The environment
+// Remove deletes the HistoricalTestData file from database. The environment
 // should not be nil.
 func (d *HistoricalTestData) Remove(ctx context.Context) error {
 	if d.env == nil {
