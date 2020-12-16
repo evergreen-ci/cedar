@@ -91,7 +91,7 @@ func TestCreateHistoricalTestData(t *testing.T) {
 		assert.Zero(t, htd.NumPass)
 		assert.Zero(t, htd.NumFail)
 		assert.Zero(t, htd.AverageDuration)
-		assert.True(t, time.Since(htd.LastUpdate) <= time.Second)
+		assert.Zero(t, htd.LastUpdate)
 		assert.True(t, htd.populated)
 	})
 }
