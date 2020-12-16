@@ -52,7 +52,7 @@ imports:
 - name: github.com/evergreen-ci/birch
   version: 41460e161385a5b0be93a0c3b86ebf29ff85a9c7
 - name: go.mongodb.org/mongo-driver
-  version: 305bc4a5e4131420fe8ba5628e6faa9e6ade4e86
+  version: 24febe4e929bdf17a5139c19daae871d71bdb184
 
 - name: github.com/papertrail/go-tail
   version: 973c153b04319fc4604d847b09861a5730cbbde2

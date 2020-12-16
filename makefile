@@ -196,9 +196,11 @@ vendor-clean:
 	rm -rf vendor/github.com/stretchr/testify/vendor/
 	rm -rf vendor/go.mongodb.org/mongo-driver/data/
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/davecgh/go-spew/
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/pkg/errors/
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/github.com/stretchr/
-	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/net
-	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/text
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/net/
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/text/
+	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/golang.org/x/sys/
 	rm -rf vendor/go.mongodb.org/mongo-driver/vendor/gopkg.in/yaml.v2/
 	rm -rf vendor/gopkg.in/mgo.v2/harness/
 	rm -rf vendor/github.com/mongodb/grip/vendor/github.com/google/uuid/
