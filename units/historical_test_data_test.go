@@ -115,6 +115,7 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			assert.Zero(t, htd.NumFail)
 			assert.WithinDuration(t, htd.LastUpdate, time.Now(), time.Minute)
 
+			require.NoError(t, htd.Remove(ctx))
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
