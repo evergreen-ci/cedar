@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/cost"
@@ -46,17 +45,9 @@ func NewHistoricalTestDataJob(env cedar.Environment, info model.TestResultsInfo,
 		Date:        tr.TestEndTime.UTC(),
 	}
 
-	j.SetScopes([]string{
-		j.Info.Project,
-		j.Info.Variant,
-		taskName,
-		j.Info.TestName,
-		j.Info.RequestType,
-		j.Info.Date.Format(model.HistoricalTestDataDateFormat),
-	})
-
 	return j
 }
+
 func makeHistoricalTestDataJob() *historicalTestDataJob {
 	j := &historicalTestDataJob{
 		Base: job.Base{
@@ -102,38 +93,13 @@ func (j *historicalTestDataJob) Run(ctx context.Context) {
 		return
 	}
 
-	htd, err := model.CreateHistoricalTestData(j.Info, conf.Bucket.HistoricalTestDataBucketType)
+	htd, err := model.CreateHistoricalTestData(j.Info)
 	if err != nil {
 		j.AddError(errors.Wrap(err, "creating historical test data"))
 		return
 	}
 	htd.Setup(j.env)
-	if err := htd.Find(ctx); err != nil {
-		// If the key does not yet exist, the test data model will be
-		// invalidated by Find(), so we have to re-create it. Otherwise, the
-		// job will fail to add the new key into S3 later.
-		htd, err = model.CreateHistoricalTestData(j.Info, conf.Bucket.HistoricalTestDataBucketType)
-		if err != nil {
-			j.AddError(errors.Wrap(err, "creating historical test data"))
-			return
-		}
-		htd.Setup(j.env)
-	}
-
-	switch j.Result.Status {
-	case "pass":
-		htd.NumPass += 1
-		dur := j.Result.TestEndTime.Sub(j.Result.TestStartTime)
-		htd.AverageDuration = (time.Duration(len(htd.Durations))*htd.AverageDuration + dur) / time.Duration(len(htd.Durations)+1)
-		htd.Durations = append(htd.Durations, dur)
-	case "fail", "silentfail":
-		htd.NumFail += 1
-	}
-
-	if err := htd.Save(ctx); err != nil {
-		j.AddError(errors.Wrap(err, "saving updated historical test data"))
-		return
-	}
+	j.AddError(errors.Wrap(htd.Update(ctx, j.Result), "updating historical test data"))
 }
 
 // shouldNoop checks if this job must run for this project and task, depending

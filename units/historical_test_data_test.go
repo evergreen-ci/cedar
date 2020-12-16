@@ -2,17 +2,13 @@ package units
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func setupEnv(ctx context.Context, t *testing.T) {
@@ -69,67 +65,51 @@ func TestHistoricalTestDataJob(t *testing.T) {
 		return j
 	}
 
-	for testName, testCase := range map[string]func(ctx context.Context, t *testing.T, env cedar.Environment, bucket pail.Bucket){
-		"CreatesNewHistoricalTestData": func(ctx context.Context, t *testing.T, env cedar.Environment, bucket pail.Bucket) {
+	for testName, testCase := range map[string]func(ctx context.Context, t *testing.T, env cedar.Environment){
+		"CreatesNewHistoricalTestData": func(ctx context.Context, t *testing.T, env cedar.Environment) {
 			info := makeInfo()
 			tr := makeResult()
 			j := makeJob(t, env, info, tr)
 
 			j.Run(ctx)
-			// It will error because it cannot query the Evergreen API, but the
-			// job should still continue.
+			// It will error because it cannot query the Evergreen
+			// API, but the job should still continue.
 			assert.NotZero(t, j.Error())
 
-			htd, err := model.CreateHistoricalTestData(j.Info, model.PailLocal)
+			htd, err := model.CreateHistoricalTestData(j.Info)
 			require.NoError(t, err)
-			htdr, err := bucket.Get(ctx, htd.Path())
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, htdr.Close())
-			}()
-			b, err := ioutil.ReadAll(htdr)
-			require.NoError(t, err)
-			htd = &model.HistoricalTestData{}
-			require.NoError(t, bson.Unmarshal(b, &htd))
+			htd.Setup(env)
+			require.NoError(t, htd.Find(ctx))
 
-			dur := tr.TestEndTime.Sub(tr.TestStartTime)
-			assert.Equal(t, []time.Duration{dur}, htd.Durations)
+			dur := tr.TestEndTime.Sub(tr.TestStartTime).Seconds()
 			assert.Equal(t, dur, htd.AverageDuration)
 			assert.Equal(t, 1, htd.NumPass)
 			assert.Zero(t, htd.NumFail)
 			assert.WithinDuration(t, htd.LastUpdate, time.Now(), time.Minute)
+
+			require.NoError(t, htd.Remove(ctx))
 		},
-		"UpdatesExistingHistoricalTestData": func(ctx context.Context, t *testing.T, env cedar.Environment, bucket pail.Bucket) {
+		"UpdatesExistingHistoricalTestData": func(ctx context.Context, t *testing.T, env cedar.Environment) {
 			info := makeInfo()
 			tr := makeResult()
 
 			j := makeJob(t, env, info, tr)
 
-			htd, err := model.CreateHistoricalTestData(j.Info, model.PailLocal)
+			htd, err := model.CreateHistoricalTestData(j.Info)
 			require.NoError(t, err)
 			htd.Setup(env)
-			htd.NumPass = 1
-			dur := tr.TestEndTime.Sub(tr.TestStartTime)
-			htd.Durations = []time.Duration{dur}
-			htd.AverageDuration = dur
-			require.NoError(t, htd.Save(ctx))
+			require.NoError(t, htd.Update(ctx, tr))
 
 			j.Run(ctx)
-			// It will error because it cannot query the Evergreen API, but the
-			// job should still continue.
+			// It will error because it cannot query the Evergreen
+			// API, but the job should still continue.
 			assert.NotZero(t, j.Error())
 
-			htdr, err := bucket.Get(ctx, htd.Path())
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, htdr.Close())
-			}()
-			b, err := ioutil.ReadAll(htdr)
-			require.NoError(t, err)
-			htd = &model.HistoricalTestData{}
-			require.NoError(t, bson.Unmarshal(b, &htd))
+			htd = &model.HistoricalTestData{ID: htd.ID}
+			htd.Setup(env)
+			require.NoError(t, htd.Find(ctx))
 
-			assert.Equal(t, []time.Duration{dur, dur}, htd.Durations)
+			dur := tr.TestEndTime.Sub(tr.TestStartTime).Seconds()
 			assert.Equal(t, dur, htd.AverageDuration)
 			assert.Equal(t, 2, htd.NumPass)
 			assert.Zero(t, htd.NumFail)
@@ -141,23 +121,10 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			tmpDir, err := ioutil.TempDir("", "historical-test-data-job")
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, os.RemoveAll(tmpDir))
-			}()
-
-			bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
-			require.NoError(t, err)
-
-			env := cedar.GetEnvironment()
 			conf := model.NewCedarConfig(env)
-			conf.Bucket = model.BucketConfig{
-				HistoricalTestDataBucket:     tmpDir,
-				HistoricalTestDataBucketType: model.PailLocal,
-			}
 			require.NoError(t, conf.Save())
-			testCase(ctx, t, env, bucket)
+			env := cedar.GetEnvironment()
+			testCase(ctx, t, env)
 		})
 	}
 }
