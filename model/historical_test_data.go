@@ -23,7 +23,7 @@ const historicalTestDataCollection = "historical_test_data"
 // HistoricalTestData describes aggregated test result data for a given date
 // range.
 type HistoricalTestData struct {
-	ID              string                 `bson:"_id,omitempty"`
+	ID              string                 `bson:"_id"`
 	Info            HistoricalTestDataInfo `bson:"info"`
 	NumPass         int                    `bson:"num_pass"`
 	NumFail         int                    `bson:"num_fail"`
