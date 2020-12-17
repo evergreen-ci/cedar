@@ -18,6 +18,7 @@ var rollupsMap = map[string]RollupFactory{
 	latencyAverageName:      &latencyAverage{},
 	sizeAverageName:         &sizeAverage{},
 	operationThroughputName: &operationThroughput{},
+	documentThroughputName:  &documentThroughput{},
 	sizeThroughputName:      &sizeThroughput{},
 	errorThroughputName:     &errorThroughput{},
 	latencyPercentileName:   &latencyPercentile{},
@@ -26,6 +27,7 @@ var rollupsMap = map[string]RollupFactory{
 	durationSumName:         &durationSum{},
 	errorsSumName:           &errorsSum{},
 	operationsSumName:       &operationsSum{},
+	documentsSumName:        &documentsSum{},
 	sizeSumName:             &sizeSum{},
 	overheadSumName:         &overheadSum{},
 }
