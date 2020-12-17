@@ -81,8 +81,8 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			htd.Setup(env)
 			require.NoError(t, htd.Find(ctx))
 
-			dur := tr.TestEndTime.Sub(tr.TestStartTime).Seconds()
-			assert.Equal(t, dur, htd.AverageDuration)
+			dur := tr.TestEndTime.Sub(tr.TestStartTime)
+			assert.EqualValues(t, dur, htd.AverageDuration)
 			assert.Equal(t, 1, htd.NumPass)
 			assert.Zero(t, htd.NumFail)
 			assert.WithinDuration(t, htd.LastUpdate, time.Now(), time.Minute)
@@ -109,8 +109,8 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			htd.Setup(env)
 			require.NoError(t, htd.Find(ctx))
 
-			dur := tr.TestEndTime.Sub(tr.TestStartTime).Seconds()
-			assert.Equal(t, dur, htd.AverageDuration)
+			dur := tr.TestEndTime.Sub(tr.TestStartTime)
+			assert.EqualValues(t, dur, htd.AverageDuration)
 			assert.Equal(t, 2, htd.NumPass)
 			assert.Zero(t, htd.NumFail)
 			assert.WithinDuration(t, htd.LastUpdate, time.Now(), time.Minute)
