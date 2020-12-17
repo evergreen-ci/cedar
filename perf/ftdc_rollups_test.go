@@ -46,7 +46,7 @@ func TestCalculateDefaultRollups(t *testing.T) {
 				assert.Equal(t, []model.PerfRollupValue{}, actual)
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, 19, len(actual))
+				assert.Equal(t, 21, len(actual))
 				assert.NoError(t, err)
 			}
 		})
@@ -57,10 +57,12 @@ func TestCalcFunctions(t *testing.T) {
 	s := &PerformanceStatistics{
 		counters: struct {
 			operationsTotal int64
+			documentsTotal  int64
 			sizeTotal       int64
 			errorsTotal     int64
 		}{
 			operationsTotal: 10,
+			documentsTotal:  5,
 			sizeTotal:       1000,
 			errorsTotal:     5,
 		},
@@ -145,6 +147,22 @@ func TestCalcFunctions(t *testing.T) {
 				float64(s.counters.operationsTotal) / s.timers.totalWallTime.Seconds(),
 			},
 			expectedVersion:     operationThroughputVersion,
+			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
+			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
+				original := s.timers.totalWallTime
+				s.timers.totalWallTime = 0
+				rollups := f.Calc(s, u)
+				s.timers.totalWallTime = original
+				return rollups
+			},
+		},
+		{
+			name:    documentThroughputName,
+			factory: &documentThroughput{},
+			expectedValues: []interface{}{
+				float64(s.counters.documentsTotal) / s.timers.totalWallTime.Seconds(),
+			},
+			expectedVersion:     documentThroughputVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeThroughput},
 			zeroValue: func(f RollupFactory, u bool) []model.PerfRollupValue {
 				original := s.timers.totalWallTime
@@ -259,6 +277,13 @@ func TestCalcFunctions(t *testing.T) {
 			factory:             &operationsSum{},
 			expectedValues:      []interface{}{s.counters.operationsTotal},
 			expectedVersion:     operationsSumVersion,
+			expectedMetricTypes: []model.MetricType{model.MetricTypeSum},
+		},
+		{
+			name:                documentsSumName,
+			factory:             &documentsSum{},
+			expectedValues:      []interface{}{s.counters.documentsTotal},
+			expectedVersion:     documentsSumVersion,
 			expectedMetricTypes: []model.MetricType{model.MetricTypeSum},
 		},
 		{
