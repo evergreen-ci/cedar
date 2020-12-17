@@ -1,39 +1,51 @@
 package model
 
 import (
-	"bytes"
 	"context"
-	"io/ioutil"
-	"path/filepath"
+	"crypto/sha1"
+	"fmt"
+	"hash"
+	"io"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/pail"
+	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+const historicalTestDataCollection = "historical_test_data"
 
 // HistoricalTestData describes aggregated test result data for a given date
 // range.
 type HistoricalTestData struct {
-	Info            HistoricalTestDataInfo `bson:"-"`
+	ID              string                 `bson:"_id"`
+	Info            HistoricalTestDataInfo `bson:"info"`
 	NumPass         int                    `bson:"num_pass"`
 	NumFail         int                    `bson:"num_fail"`
-	Durations       []time.Duration        `bson:"durations"`
 	AverageDuration time.Duration          `bson:"average_duration"`
 	LastUpdate      time.Time              `bson:"last_update"`
-	ArtifactType    PailType               `bson:"-"`
 
 	env       cedar.Environment
-	bucket    string
 	populated bool
 }
 
+var (
+	historicalTestDataIDKey              = bsonutil.MustHaveTag(HistoricalTestData{}, "ID")
+	historicalTestDataInfoKey            = bsonutil.MustHaveTag(HistoricalTestData{}, "Info")
+	historicalTestDataNumPassKey         = bsonutil.MustHaveTag(HistoricalTestData{}, "NumPass")
+	historicalTestDataNumFailKey         = bsonutil.MustHaveTag(HistoricalTestData{}, "NumFail")
+	historicalTestDataAverageDurationKey = bsonutil.MustHaveTag(HistoricalTestData{}, "AverageDuration")
+	historicalTestDataLastUpdateKey      = bsonutil.MustHaveTag(HistoricalTestData{}, "LastUpdate")
+)
+
 // CreateHistoricalTestData is an entry point for creating a new
 // HistoricalTestData.
-func CreateHistoricalTestData(info HistoricalTestDataInfo, artifactStorageType PailType) (*HistoricalTestData, error) {
+func CreateHistoricalTestData(info HistoricalTestDataInfo) (*HistoricalTestData, error) {
 	if err := info.validate(); err != nil {
 		return nil, err
 	}
@@ -47,10 +59,9 @@ func CreateHistoricalTestData(info HistoricalTestDataInfo, artifactStorageType P
 	)
 
 	return &HistoricalTestData{
-		Info:         info,
-		LastUpdate:   time.Now(),
-		ArtifactType: artifactStorageType,
-		populated:    true,
+		ID:        info.ID(),
+		Info:      info,
+		populated: true,
 	}, nil
 }
 
@@ -61,129 +72,149 @@ func (d *HistoricalTestData) Setup(e cedar.Environment) { d.env = e }
 // IsNil returns if the HistoricalTestData is populated or not.
 func (d *HistoricalTestData) IsNil() bool { return !d.populated }
 
-// Find searches the globally configured pail bucket for the
-// HistoricalTestData. The enviromemt should not be nil.
+// Find searches the database for the HistoricalTestData by ID. The enviromemt
+// should not be nil.
 func (d *HistoricalTestData) Find(ctx context.Context) error {
 	if d.env == nil {
 		return errors.New("cannot find with a nil environment")
 	}
 
-	d.populated = false
-	bucket, err := d.getBucket(ctx)
-	if err != nil {
-		return err
+	if d.ID == "" {
+		d.ID = d.Info.ID()
 	}
-	r, err := bucket.Get(ctx, d.Path())
-	if err != nil {
-		return errors.Wrap(err, "problem getting data from bucket")
-	}
-	defer func() {
-		grip.Error(message.WrapError(r.Close(), message.Fields{
-			"message":  "problem closing bucket reader",
-			"bucket":   d.bucket,
-			"prefix":   "",
-			"path":     d.Path(),
-			"location": d.ArtifactType,
-		}))
-	}()
 
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return errors.Wrap(err, "problem reading data")
-	}
-	if err = bson.Unmarshal(data, d); err != nil {
-		return errors.Wrap(err, "problem unmarshalling data")
+	d.populated = false
+	err := d.env.GetDB().Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": d.ID}).Decode(d)
+	if db.ResultsNotFound(err) {
+		return errors.Wrapf(err, "could not find historical test data record with id %s in the database", d.ID)
+	} else if err != nil {
+		return errors.Wrap(err, "problem finding historical test data record")
 	}
 	d.populated = true
 
 	return nil
 }
 
-// Save saves HistoricalTestData to the Pail backed storage. The
-// HistoricalTestData should be populated and the environment should not be
-// nil.
-func (d *HistoricalTestData) Save(ctx context.Context) error {
+// Update updates the HistoricalTestData with the new data. If the
+// HistoricalTestData does not exist, it is created. The HistoricalTestData
+// should be populated and the environment should not be nil.
+func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) error {
 	if !d.populated {
-		return errors.New("cannot save unpopulated historical test data")
+		return errors.New("cannot update unpopulated historical test data")
 	}
 	if d.env == nil {
-		return errors.New("cannot save with a nil environment")
+		return errors.New("cannot update with a nil environment")
 	}
 
-	d.LastUpdate = time.Now()
+	if d.ID == "" {
+		d.ID = d.Info.ID()
+	}
 
-	bucket, err := d.getBucket(ctx)
+	d.populated = false
+
+	query := bson.M{
+		historicalTestDataIDKey:   d.ID,
+		historicalTestDataInfoKey: d.Info,
+	}
+	pipeline := []bson.M{
+		{"$set": bson.M{historicalTestDataLastUpdateKey: "$$NOW"}},
+	}
+	switch result.Status {
+	case "pass":
+		pipeline = append(
+			pipeline,
+			bson.M{"$set": bson.M{
+				historicalTestDataAverageDurationKey: bson.M{"$toLong": bson.M{"$cond": bson.M{
+					"if": bson.M{"$gte": []interface{}{fmt.Sprintf("$%s", historicalTestDataAverageDurationKey), 1}},
+					"then": bson.M{"$divide": []interface{}{
+						bson.M{"$add": []interface{}{
+							result.TestEndTime.Sub(result.TestStartTime),
+							bson.M{"$multiply": []interface{}{
+								fmt.Sprintf("$%s", historicalTestDataNumPassKey),
+								fmt.Sprintf("$%s", historicalTestDataAverageDurationKey),
+							}},
+						}},
+						bson.M{"$add": []interface{}{
+							fmt.Sprintf("$%s", historicalTestDataNumPassKey),
+							1,
+						}},
+					}},
+					"else": result.TestEndTime.Sub(result.TestStartTime),
+				}}},
+			}},
+			bson.M{"$set": bson.M{
+				historicalTestDataNumPassKey: bson.M{"$cond": bson.M{
+					"if": bson.M{"$gte": []interface{}{fmt.Sprintf("$%s", historicalTestDataNumPassKey), 0}},
+					"then": bson.M{"$add": []interface{}{
+						fmt.Sprintf("$%s", historicalTestDataNumPassKey),
+						1,
+					}},
+					"else": 1,
+				}},
+			}},
+		)
+	case "fail", "silentfail":
+		pipeline = append(
+			pipeline,
+			bson.M{"$set": bson.M{
+				historicalTestDataNumFailKey: bson.M{"$cond": bson.M{
+					"if": bson.M{"$gte": []interface{}{fmt.Sprintf("$%s", historicalTestDataNumFailKey), 0}},
+					"then": bson.M{"$add": []interface{}{
+						fmt.Sprintf("$%s", historicalTestDataNumFailKey),
+						1,
+					}},
+					"else": 1,
+				}},
+			}},
+		)
+	}
+
+	err := d.env.GetDB().Collection(historicalTestDataCollection).FindOneAndUpdate(
+		ctx,
+		query,
+		pipeline,
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+		options.FindOneAndUpdate().SetUpsert(true),
+	).Decode(d)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection": historicalTestDataCollection,
+		"id":         d.ID,
+		"op":         "update historical test data record",
+	})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "problem updating historical test data with id %s", d.ID)
 	}
 
-	data, err := bson.Marshal(d)
-	if err != nil {
-		return errors.Wrap(err, "problem marshalling historical test data")
-	}
-	if err = bucket.Put(ctx, d.Path(), bytes.NewReader(data)); err != nil {
-		return errors.Wrap(err, "problem saving historical test data to bucket")
-	}
+	d.populated = true
 
 	return nil
 }
 
-// Remove deletes the HistoricalTestData file from the Pail backed storage. The
-// environment should not be nil.
+// Remove deletes the HistoricalTestData file from database. The environment
+// should not be nil.
 func (d *HistoricalTestData) Remove(ctx context.Context) error {
 	if d.env == nil {
 		return errors.New("cannot remove with a nil environment")
 	}
 
-	bucket, err := d.getBucket(ctx)
-	if err != nil {
-		return err
+	if d.ID == "" {
+		d.ID = d.Info.ID()
 	}
 
-	err = bucket.Remove(ctx, d.Path())
-	if pail.IsKeyNotFoundError(err) {
-		return nil
-	}
-	return errors.Wrap(err, "problem removing historical test data file")
-}
+	deleteResult, err := d.env.GetDB().Collection(historicalTestDataCollection).DeleteOne(ctx, bson.M{"_id": d.ID})
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":   historicalTestDataCollection,
+		"id":           d.ID,
+		"deleteResult": deleteResult,
+		"op":           "remove historical test data record",
+	})
 
-func (d *HistoricalTestData) getBucket(ctx context.Context) (pail.Bucket, error) {
-	if d.bucket == "" {
-		conf := &CedarConfig{}
-		conf.Setup(d.env)
-		if err := conf.Find(); err != nil {
-			return nil, errors.Wrap(err, "problem getting application configuration")
-		}
-		d.bucket = conf.Bucket.HistoricalTestDataBucket
-	}
-
-	bucket, err := d.ArtifactType.Create(
-		ctx,
-		d.env,
-		d.bucket,
-		"",
-		string(pail.S3PermissionsPrivate),
-		true,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem creating bucket")
-	}
-
-	return bucket, nil
+	return errors.Wrapf(err, "problem removing test results record with id %s", d.ID)
 }
 
 // HistoricalTestDataDateFormat represents the standard timestamp format for
 // historical test data, which is rounded to the nearest day (YYYY-MM-DD).
 const HistoricalTestDataDateFormat = "2006-01-02"
-
-// Path returns the path to the historical test data within the remote storage.
-func (d *HistoricalTestData) Path() string {
-	i := d.Info
-	if d.ArtifactType == PailLocal {
-		return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Format(HistoricalTestDataDateFormat))
-	}
-	return filepath.Join(i.Project, i.Variant, i.TaskName, i.TestName, i.RequestType, i.Date.Format(HistoricalTestDataDateFormat))
-}
 
 // HistoricalTestDataInfo describes information unique to a single test
 // statistics document.
@@ -194,6 +225,26 @@ type HistoricalTestDataInfo struct {
 	TestName    string    `bson:"test_name"`
 	RequestType string    `bson:"request_type"`
 	Date        time.Time `bson:"date"`
+	Schema      int       `bson:"schema,omitempty"`
+}
+
+// ID creates a unique hash for a HistoricalTestData record.
+func (id *HistoricalTestDataInfo) ID() string {
+	var hash hash.Hash
+
+	if id.Schema == 0 {
+		hash = sha1.New()
+		_, _ = io.WriteString(hash, id.Project)
+		_, _ = io.WriteString(hash, id.Variant)
+		_, _ = io.WriteString(hash, id.TaskName)
+		_, _ = io.WriteString(hash, id.TestName)
+		_, _ = io.WriteString(hash, id.RequestType)
+		_, _ = io.WriteString(hash, id.Date.Format(HistoricalTestDataDateFormat))
+	} else {
+		panic("unsupported schema")
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func (i *HistoricalTestDataInfo) validate() error {
