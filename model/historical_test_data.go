@@ -72,8 +72,8 @@ func (d *HistoricalTestData) Setup(e cedar.Environment) { d.env = e }
 // IsNil returns if the HistoricalTestData is populated or not.
 func (d *HistoricalTestData) IsNil() bool { return !d.populated }
 
-// Find searches the database for the HistoricalTestData. The enviromemt should
-// not be nil.
+// Find searches the database for the HistoricalTestData by ID. The enviromemt
+// should not be nil.
 func (d *HistoricalTestData) Find(ctx context.Context) error {
 	if d.env == nil {
 		return errors.New("cannot find with a nil environment")
@@ -96,8 +96,8 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 }
 
 // Update updates the HistoricalTestData with the new data. If the
-// HistoricalTestData, it is created. The HistoricalTestData should be
-// populated and the environment should not be nil.
+// HistoricalTestData does not exist, it is created. The HistoricalTestData
+// should be populated and the environment should not be nil.
 func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) error {
 	if !d.populated {
 		return errors.New("cannot update unpopulated historical test data")
@@ -128,7 +128,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 					"if": bson.M{"$gte": []interface{}{fmt.Sprintf("$%s", historicalTestDataAverageDurationKey), 1}},
 					"then": bson.M{"$divide": []interface{}{
 						bson.M{"$add": []interface{}{
-							result.TestEndTime.Sub(result.TestStartTime).Seconds(),
+							result.TestEndTime.Sub(result.TestStartTime),
 							bson.M{"$multiply": []interface{}{
 								fmt.Sprintf("$%s", historicalTestDataNumPassKey),
 								fmt.Sprintf("$%s", historicalTestDataAverageDurationKey),
@@ -139,7 +139,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 							1,
 						}},
 					}},
-					"else": result.TestEndTime.Sub(result.TestStartTime).Seconds(),
+					"else": result.TestEndTime.Sub(result.TestStartTime),
 				}},
 			}},
 			bson.M{"$set": bson.M{

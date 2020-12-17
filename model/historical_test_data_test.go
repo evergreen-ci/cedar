@@ -176,7 +176,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 1, actual.NumPass)
 		assert.Equal(t, 0, actual.NumFail)
-		assert.Equal(t, 2*time.Minute.Seconds(), actual.AverageDuration)
+		assert.Equal(t, 2*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
 		// pass
@@ -191,7 +191,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 2, actual.NumPass)
 		assert.Equal(t, 0, actual.NumFail)
-		assert.Equal(t, 4*time.Minute.Seconds(), actual.AverageDuration)
+		assert.Equal(t, 4*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
 		// fail
@@ -206,7 +206,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 2, actual.NumPass)
 		assert.Equal(t, 1, actual.NumFail)
-		assert.Equal(t, 4*time.Minute.Seconds(), actual.AverageDuration)
+		assert.Equal(t, 4*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
 		// silent fail
@@ -221,7 +221,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 2, actual.NumPass)
 		assert.Equal(t, 2, actual.NumFail)
-		assert.Equal(t, 4*time.Minute.Seconds(), actual.AverageDuration)
+		assert.Equal(t, 4*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 	})
 }

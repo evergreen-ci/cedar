@@ -25,7 +25,7 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			},
 			NumPass:         2,
 			NumFail:         2,
-			AverageDuration: 3,
+			AverageDuration: 30 * float64(time.Second),
 			LastUpdate:      time.Now(),
 		}
 		expected := &APIHistoricalTestData{
@@ -39,7 +39,7 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			},
 			NumPass:         tr.NumPass,
 			NumFail:         tr.NumFail,
-			AverageDuration: tr.AverageDuration,
+			AverageDuration: time.Duration(tr.AverageDuration).Seconds(),
 			LastUpdate:      NewTime(tr.LastUpdate),
 		}
 		apiHistoricalTestData := &APIHistoricalTestData{}

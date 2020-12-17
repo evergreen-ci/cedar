@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
@@ -23,7 +25,7 @@ func (a *APIHistoricalTestData) Import(i interface{}) error {
 		a.Info = getHistoricalTestDataInfo(hd.Info)
 		a.NumPass = hd.NumPass
 		a.NumFail = hd.NumFail
-		a.AverageDuration = hd.AverageDuration
+		a.AverageDuration = time.Duration(hd.AverageDuration).Seconds()
 		a.LastUpdate = NewTime(hd.LastUpdate)
 	default:
 		return errors.New("incorrect type when converting to APIHistoricalTestData type")
