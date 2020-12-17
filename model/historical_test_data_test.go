@@ -176,7 +176,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 1, actual.NumPass)
 		assert.Equal(t, 0, actual.NumFail)
-		assert.EqualValues(t, 2*time.Minute, actual.AverageDuration)
+		assert.Equal(t, 2*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
 		// pass
@@ -191,7 +191,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 2, actual.NumPass)
 		assert.Equal(t, 0, actual.NumFail)
-		assert.EqualValues(t, 4*time.Minute, actual.AverageDuration)
+		assert.Equal(t, 4*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
 		// fail
@@ -206,7 +206,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 2, actual.NumPass)
 		assert.Equal(t, 1, actual.NumFail)
-		assert.EqualValues(t, 4*time.Minute, actual.AverageDuration)
+		assert.Equal(t, 4*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 
 		// silent fail
@@ -221,7 +221,7 @@ func TestHistoricalTestDataUpdate(t *testing.T) {
 		require.NoError(t, db.Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": hd.ID}).Decode(actual))
 		assert.Equal(t, 2, actual.NumPass)
 		assert.Equal(t, 2, actual.NumFail)
-		assert.EqualValues(t, 4*time.Minute, actual.AverageDuration)
+		assert.Equal(t, 4*time.Minute, actual.AverageDuration)
 		assert.True(t, time.Since(actual.LastUpdate) <= time.Second)
 	})
 }
@@ -276,12 +276,12 @@ func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 	data, err := CreateHistoricalTestData(info)
 	require.NoError(t, err)
 	data.NumPass = rand.Intn(1000)
-	var total float64
+	var total time.Duration
 	data.NumFail = rand.Intn(1000)
 	for i := 0; i < data.NumPass; i++ {
-		total += rand.Float64() * 10000
+		total += time.Duration(rand.Float64()) * 10000
 	}
-	data.AverageDuration = total / float64(data.NumPass)
+	data.AverageDuration = total / time.Duration(data.NumPass)
 
 	return data
 }

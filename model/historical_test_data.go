@@ -27,7 +27,7 @@ type HistoricalTestData struct {
 	Info            HistoricalTestDataInfo `bson:"info"`
 	NumPass         int                    `bson:"num_pass"`
 	NumFail         int                    `bson:"num_fail"`
-	AverageDuration float64                `bson:"average_duration"`
+	AverageDuration time.Duration          `bson:"average_duration"`
 	LastUpdate      time.Time              `bson:"last_update"`
 
 	env       cedar.Environment
@@ -124,7 +124,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 		pipeline = append(
 			pipeline,
 			bson.M{"$set": bson.M{
-				historicalTestDataAverageDurationKey: bson.M{"$cond": bson.M{
+				historicalTestDataAverageDurationKey: bson.M{"$toLong": bson.M{"$cond": bson.M{
 					"if": bson.M{"$gte": []interface{}{fmt.Sprintf("$%s", historicalTestDataAverageDurationKey), 1}},
 					"then": bson.M{"$divide": []interface{}{
 						bson.M{"$add": []interface{}{
@@ -140,7 +140,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 						}},
 					}},
 					"else": result.TestEndTime.Sub(result.TestStartTime),
-				}},
+				}}},
 			}},
 			bson.M{"$set": bson.M{
 				historicalTestDataNumPassKey: bson.M{"$cond": bson.M{
