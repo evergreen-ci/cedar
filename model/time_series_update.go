@@ -192,12 +192,14 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 			"$sort": bson.M{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoExecutionKey): 1},
 		},
 		{
-			"_id": bson.M{
-				"task_id": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+			"$group": bson.M{
+				"_id": bson.M{
+					"task_id": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey),
+				},
+				"id":      bson.M{"$last": "$_id"},
+				"info":    bson.M{"$last": "$" + perfInfoKey},
+				"rollups": bson.M{"$last": "$" + perfRollupsKey},
 			},
-			"id":      bson.M{"$last": "_id"},
-			"info":    bson.M{"$last": perfInfoKey},
-			"rollups": bson.M{"$last": perfRollupsKey},
 		},
 		{
 			"$unwind": "$" + bsonutil.GetDottedKeyName("rollups", perfRollupsStatsKey),
