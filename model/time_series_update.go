@@ -189,29 +189,42 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 			},
 		},
 		{
-			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
+			"$sort": bson.M{bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoExecutionKey): 1},
 		},
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"project":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
-					"measurement": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
-					"args":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
+					"task_id": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey),
+				},
+				"id":      bson.M{"$last": "$_id"},
+				"info":    bson.M{"$last": "$" + perfInfoKey},
+				"rollups": bson.M{"$last": "$" + perfRollupsKey},
+			},
+		},
+		{
+			"$unwind": "$" + bsonutil.GetDottedKeyName("rollups", perfRollupsStatsKey),
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"project":     "$" + bsonutil.GetDottedKeyName("info", perfResultInfoProjectKey),
+					"variant":     "$" + bsonutil.GetDottedKeyName("info", perfResultInfoVariantKey),
+					"task":        "$" + bsonutil.GetDottedKeyName("info", perfResultInfoTaskNameKey),
+					"test":        "$" + bsonutil.GetDottedKeyName("info", perfResultInfoTestNameKey),
+					"measurement": "$" + bsonutil.GetDottedKeyName("rollups", perfRollupsStatsKey, perfRollupValueNameKey),
+					"args":        "$" + bsonutil.GetDottedKeyName("info", perfResultInfoArgumentsKey),
 				},
 				"time_series": bson.M{
 					"$push": bson.M{
 						"value": bson.M{
 							"$ifNull": bson.A{
-								"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
+								"$" + bsonutil.GetDottedKeyName("rollups", perfRollupsStatsKey, perfRollupValueValueKey),
 								0,
 							},
 						},
-						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
-						"perf_result_id": "$_id",
-						"version":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey),
+						"order":          "$" + bsonutil.GetDottedKeyName("info", perfResultInfoOrderKey),
+						"perf_result_id": "$id",
+						"version":        "$" + bsonutil.GetDottedKeyName("info", perfResultInfoVersionKey),
 					},
 				},
 			},
