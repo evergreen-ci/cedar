@@ -263,6 +263,150 @@ func TestHistoricalTestDataRemove(t *testing.T) {
 	})
 }
 
+func TestHTDGroupByValidate(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		groupBy HTDGroupBy
+		hasErr  bool
+	}{
+		{
+			name:    "Invalid",
+			groupBy: "invalid",
+			hasErr:  true,
+		},
+		{
+			name:    "Test",
+			groupBy: HTDGroupByTest,
+		},
+		{
+			name:    "Task",
+			groupBy: HTDGroupByTask,
+		},
+		{
+			name:    "Variant",
+			groupBy: HTDGroupByVariant,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.groupBy.validate()
+			if test.hasErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHTDSortValidate(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		sort   HTDSort
+		hasErr bool
+	}{
+		{
+			name:   "Invalid",
+			sort:   "invalid",
+			hasErr: true,
+		},
+		{
+			name: "Earliest",
+			sort: HTDSortEarliestFirst,
+		},
+		{
+			name: "Latest",
+			sort: HTDSortLatestFirst,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.sort.validate()
+			if test.hasErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHTDStartAtValidate(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		startAt *HTDStartAt
+		groupBy HTDGroupBy
+		hasErr  bool
+	}{
+		{
+			name: "InvalidDate",
+			startAt: &HTDStartAt{
+				Date:    time.Date(2020, time.December, 18, 5, 0, 0, 0, time.UTC),
+				Variant: "variant",
+				Task:    "task",
+				Test:    "test",
+			},
+			hasErr: true,
+		},
+		{
+			name: "MissingTest",
+			startAt: &HTDStartAt{
+				Date:    utility.GetUTCDay(time.Now()),
+				Variant: "variant",
+				Task:    "task",
+			},
+			hasErr: true,
+		},
+		{
+			name: "MissingVariantWhenGroupByVariant",
+			startAt: &HTDStartAt{
+				Date: utility.GetUTCDay(time.Now()),
+				Task: "task",
+				Test: "test",
+			},
+			groupBy: HTDGroupByVariant,
+			hasErr:  true,
+		},
+		{
+			name: "MissingTaskWhenGroupByVariant",
+			startAt: &HTDStartAt{
+				Date:    utility.GetUTCDay(time.Now()),
+				Variant: "variant",
+				Test:    "test",
+			},
+			groupBy: HTDGroupByVariant,
+			hasErr:  true,
+		},
+		{
+			name: "MissingTaskWhenGroupByTask",
+			startAt: &HTDStartAt{
+				Date:    utility.GetUTCDay(time.Now()),
+				Variant: "variant",
+				Test:    "test",
+			},
+			groupBy: HTDGroupByTask,
+			hasErr:  true,
+		},
+
+		{
+			name: "GroupByTaskNoVariant",
+			startAt: &HTDStartAt{
+				Date: utility.GetUTCDay(time.Now()),
+				Task: "task",
+				Test: "test",
+			},
+			groupBy: HTDGroupByTask,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.startAt.validate(test.groupBy)
+			if test.hasErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 	info := HistoricalTestDataInfo{
 		Project:     utility.RandomString(),
