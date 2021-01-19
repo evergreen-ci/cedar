@@ -274,6 +274,50 @@ func (i *HistoricalTestDataInfo) validate() error {
 // Find aggregation
 ///////////////////
 
+// AggregatedHistoricalTestData represents aggregated test execution data.
+type AggregatedHistoricalTestData struct {
+	TestName string    `bson:"test_name"`
+	TaskName string    `bson:"task_name"`
+	Variant  string    `bson:"variant"`
+	Date     time.Time `bson:"date"`
+
+	NumPass     int       `bson:"num_pass"`
+	NumFail     int       `bson:"num_fail"`
+	AvgDuration float64   `bson:"avg_duration"`
+	LastUpdate  time.Time `bson:"last_update"`
+}
+
+var (
+	aggregatedHistoricalTestDataTestNameKey    = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "TestName")
+	aggregatedHistoricalTestDataTaskNameKey    = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "TaskName")
+	aggregatedHistoricalTestDataVariantKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "Variant")
+	aggregatedHistoricalTestDataDateKey        = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "Date")
+	aggregatedHistoricalTestDataNumPassKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "NumPass")
+	aggregatedHistoricalTestDataNumFailKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "NumFail")
+	aggregatedHistoricalTestDataAvgDurationKey = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "AvgDuration")
+	aggregatedHistoricalTestDataLastUpdateKey  = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "LastUpdate")
+)
+
+// GetHistoricalTestData queries the historical test data using a filter.
+func GetHistoricalTestData(ctx context.Context, env cedar.Environment, filter HistoricalTestDataFilter) ([]AggregatedHistoricalTestData, error) {
+	err := filter.validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "the provided HistoricalTestDataFilter is invalid")
+	}
+
+	var data []AggregatedHistoricalTestData
+	pipeline := filter.queryPipeline()
+	cursor, err := env.GetDB().Collection(historicalTestDataCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem aggregating test data")
+	}
+	if err = cursor.All(ctx, &data); err != nil {
+		return nil, errors.Wrap(err, "problem unmarshaling aggregated test data")
+	}
+
+	return data, nil
+}
+
 const htdMaxQueryLimit = 1001
 
 // HTDGroupBy represents the possible groupings of historical test data.
@@ -538,40 +582,79 @@ func buildHTDGroupId(groupBy HTDGroupBy) bson.M {
 	return id
 }
 
+// getNextDate returns the date of the grouping period following the one
+// specified in startAt.
+func (f HistoricalTestDataFilter) getNextDate() time.Time {
+	numDays := time.Duration(f.GroupNumDays) * 24 * time.Hour
+	if f.Sort == HTDSortLatestFirst {
+		return f.StartAt.Date.Add(-numDays)
+	} else {
+		return f.StartAt.Date.Add(numDays)
+	}
+}
+
 // buildTestPaginationOrBranches builds an expression for the conditions
 // imposed by the filter StartAt field.
-func (filter HistoricalTestDataFilter) buildTestPaginationOrBranches() []bson.M {
-	var dateDescending = filter.Sort == SortLatestFirst
+func (f HistoricalTestDataFilter) buildTestPaginationOrBranches() []bson.M {
+	var dateDescending = f.Sort == HTDSortLatestFirst
 	var nextDate interface{}
 
-	if filter.GroupNumDays > 1 {
-		nextDate = filter.getNextDate()
+	if f.GroupNumDays > 1 {
+		nextDate = f.getNextDate()
 	}
 
-	var fields []PaginationField
-
-	switch filter.GroupBy {
-	case HTDGroupByTest:
-		fields = []PaginationField{
-			{Field: DbTestStatsIdDateKeyFull, Descending: dateDescending, Strict: true, Value: filter.StartAt.Date, NextValue: nextDate},
-			{Field: DbTestStatsIdTestFileKeyFull, Strict: false, Value: filter.StartAt.Test},
-		}
-	case HTDGroupByTask:
-		fields = []PaginationField{
-			{Field: DbTestStatsIdDateKeyFull, Descending: dateDescending, Strict: true, Value: filter.StartAt.Date, NextValue: nextDate},
-			{Field: DbTestStatsIdTaskNameKeyFull, Strict: true, Value: filter.StartAt.Task},
-			{Field: DbTestStatsIdTestFileKeyFull, Strict: false, Value: filter.StartAt.Test},
-		}
+	fields := []htdPaginationField{
+		{
+			field:      bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey),
+			descending: dateDescending,
+			strict:     true,
+			value:      f.StartAt.Date,
+			nextValue:  nextDate,
+		},
+	}
+	switch f.GroupBy {
 	case HTDGroupByVariant:
-		fields = []PaginationField{
-			{Field: DbTestStatsIdDateKeyFull, Descending: dateDescending, Strict: true, Value: filter.StartAt.Date, NextValue: nextDate},
-			{Field: DbTestStatsIdBuildVariantKeyFull, Strict: true, Value: filter.StartAt.BuildVariant},
-			{Field: DbTestStatsIdTaskNameKeyFull, Strict: true, Value: filter.StartAt.Task},
-			{Field: DbTestStatsIdTestFileKeyFull, Strict: false, Value: filter.StartAt.Test},
-		}
+		fields = append(fields, htdPaginationField{
+			field:  bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey),
+			strict: true,
+			value:  f.StartAt.Variant,
+		})
+		fallthrough
+	case HTDGroupByTask:
+		fields = append(fields, htdPaginationField{
+			field:  bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey),
+			strict: true,
+			value:  f.StartAt.Task,
+		})
+		fallthrough
+	case HTDGroupByTest:
+		fields = append(fields, htdPaginationField{
+			field:  bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey),
+			strict: false,
+			value:  f.StartAt.Test,
+		})
 	}
 
-	return
+	return buildPaginationOrBranches(fields)
+}
+
+// buildPaginationOrBranches builds and returns the $or branches of the
+// pagination constraints. fields is an array of field names, they must be in
+// the same order as the sort order.
+func buildPaginationOrBranches(fields []htdPaginationField) []bson.M {
+	baseConstraints := bson.M{}
+	branches := []bson.M{}
+
+	for _, field := range fields {
+		branch := bson.M{}
+		for k, v := range baseConstraints {
+			branch[k] = v
+		}
+		branch[field.field] = field.getNextExpression()
+		branches = append(branches, branch)
+		baseConstraints[field.field] = field.getEqExpression()
+	}
+	return branches
 }
 
 // dateBoundaries returns the date boundaries when splitting the period between
@@ -604,4 +687,66 @@ func sortDateOrder(sort HTDSort) int {
 	} else {
 		return 1
 	}
+}
+
+// htdPaginationField represents a historical test data document field that is
+// used to determine where to resume during pagination.
+type htdPaginationField struct {
+	field      string
+	descending bool
+	strict     bool
+	value      interface{}
+	nextValue  interface{}
+}
+
+// getEqExpression returns an expression that can be used to match the
+// documents which have the same field value or are in the same range as this
+// htdPaginationField.
+func (pf htdPaginationField) getEqExpression() interface{} {
+	if pf.nextValue == nil {
+		return pf.value
+	}
+	if pf.descending {
+		return bson.M{
+			"$lte": pf.value,
+			"$gt":  pf.nextValue,
+		}
+	} else {
+		return bson.M{
+			"$gte": pf.value,
+			"$lt":  pf.nextValue,
+		}
+	}
+}
+
+// getNextExpression returns an expression that can be used to match the
+// documents which have a field value greater or smaller than the this
+// htdPaginationField.
+func (pf htdPaginationField) getNextExpression() bson.M {
+	var operator string
+	var value interface{}
+	var strict bool
+
+	if pf.nextValue != nil {
+		value = pf.nextValue
+		strict = false
+	} else {
+		value = pf.value
+		strict = pf.strict
+	}
+
+	if pf.descending {
+		if strict {
+			operator = "$lt"
+		} else {
+			operator = "$lte"
+		}
+	} else {
+		if strict {
+			operator = "$gt"
+		} else {
+			operator = "$gte"
+		}
+	}
+	return bson.M{operator: value}
 }
