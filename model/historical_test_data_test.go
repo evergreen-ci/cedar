@@ -407,6 +407,65 @@ func TestHTDStartAtValidate(t *testing.T) {
 	}
 }
 
+func TestGetHistoricalTestData(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(historicalTestDataCollection).Drop(ctx))
+	}()
+
+	for _, test := range []struct {
+		name string
+		data []*HistoricalTestData
+		test func()
+	}{
+		{
+			name: "EmptyCollection",
+			test: func() {
+				docs, err := GetHistoricalTestData(ctx, env, getBaseHTDFilter())
+				require.NoError(t, err)
+				require.Empty(t, docs)
+
+			},
+		},
+		{
+			name: "OneDocument",
+			data: []*HistoricalTestData{
+				{
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:     10,
+					NumFail:     2,
+					AvgDuration: 12.22,
+				},
+			},
+			test: func() {
+				docs, err := GetHistoricalTestData(ctx, env, getBaseHTDFilter())
+				require.NoError(t, err)
+				require.Empty(t, docs)
+
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.NoError(t, db.Collection(historicalTestDataCollection).Drop(ctx))
+			if len(test.data) > 0 {
+				_, err := db.Collection(historicalTestDataCollection).InsertMany(ctx, data)
+				require.NoError(t, err)
+			}
+			test.test()
+		})
+	}
+}
+
 func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 	info := HistoricalTestDataInfo{
 		Project:     utility.RandomString(),
@@ -428,4 +487,27 @@ func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 	data.AverageDuration = total / time.Duration(data.NumPass)
 
 	return data
+}
+
+var (
+	baseDay = time.Date(2018, 7, 15, 0, 0, 0, 0, time.UTC)
+	day1    = baseDay
+	day2    = baseDay.Add(24 * time.Hour)
+	day8    = baseDay.Add(7 * 24 * time.Hour)
+)
+
+func getBaseHTDFilter() HistoricalTestDataFilter {
+	return HistoricalTestDataFilter{
+		AfterDate:    day1,
+		BeforeDate:   day8,
+		GroupNumDays: 1,
+		Project:      "p1",
+		Requesters:   []string{"r1", "r2"},
+		Tests:        []string{"test1", "test2"},
+		Tasks:        []string{"task1", "task2"},
+		Variants:     []string{"v1", "v2"},
+		GroupBy:      HTDGroupByVariant,
+		Sort:         HTDSortEarliestFirst,
+		Limit:        htdMaxQueryLimit,
+	}
 }
