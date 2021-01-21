@@ -417,23 +417,20 @@ func TestGetHistoricalTestData(t *testing.T) {
 	}()
 
 	for _, test := range []struct {
-		name string
-		data []*HistoricalTestData
-		test func()
+		name     string
+		filter   func() HistoricalTestDataFilter
+		data     []interface{}
+		expected []AggregatedHistoricalTestData
 	}{
 		{
-			name: "EmptyCollection",
-			test: func() {
-				docs, err := GetHistoricalTestData(ctx, env, getBaseHTDFilter())
-				require.NoError(t, err)
-				require.Empty(t, docs)
-
-			},
+			name:   "EmptyCollection",
+			filter: getBaseHTDFilter,
 		},
 		{
-			name: "OneDocument",
-			data: []*HistoricalTestData{
-				{
+			name:   "OneDocument",
+			filter: getBaseHTDFilter,
+			data: []interface{}{
+				&HistoricalTestData{
 					Info: HistoricalTestDataInfo{
 						Project:     "p1",
 						Variant:     "v1",
@@ -442,26 +439,549 @@ func TestGetHistoricalTestData(t *testing.T) {
 						RequestType: "r1",
 						Date:        day1,
 					},
-					NumPass:     10,
-					NumFail:     2,
-					AvgDuration: 12.22,
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
 				},
 			},
-			test: func() {
-				docs, err := GetHistoricalTestData(ctx, env, getBaseHTDFilter())
-				require.NoError(t, err)
-				require.Empty(t, docs)
-
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+			},
+		},
+		{
+			name:   "TwoDocuments",
+			filter: getBaseHTDFilter,
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day2,
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+			},
+		},
+		{
+			name:   "FilterScope",
+			filter: getBaseHTDFilter,
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+				&HistoricalTestData{
+					ID: "three",
+					Info: HistoricalTestDataInfo{
+						Project:     "p3",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         1,
+					NumFail:         1,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "four",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r3",
+						Date:        day1,
+					},
+					NumPass:         1,
+					NumFail:         1,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "five",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test3",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         1,
+					NumFail:         1,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "six",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task3",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         1,
+					NumFail:         1,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "seven",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v3",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         1,
+					NumFail:         1,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "eight",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v3",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day8,
+					},
+					NumPass:         1,
+					NumFail:         1,
+					AverageDuration: time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day2,
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+			},
+		},
+		{
+			name: "SortEarliestFirst",
+			filter: func() HistoricalTestDataFilter {
+				filter := getBaseHTDFilter()
+				filter.Sort = HTDSortEarliestFirst
+				return filter
+			},
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day2,
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+			},
+		},
+		{
+			name: "SortLatestFirst",
+			filter: func() HistoricalTestDataFilter {
+				filter := getBaseHTDFilter()
+				filter.Sort = HTDSortLatestFirst
+				return filter
+			},
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day2,
+					NumPass:         20,
+					NumFail:         7,
+					AverageDuration: 2 * time.Second,
+				},
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+			},
+		},
+		{
+			name: "GroupNumDays",
+			filter: func() HistoricalTestDataFilter {
+				filter := getBaseHTDFilter()
+				filter.GroupNumDays = 2
+				return filter
+			},
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: 6 * time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         10,
+					NumFail:         7,
+					AverageDuration: 5 * time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         20,
+					NumFail:         9,
+					AverageDuration: 5500 * time.Millisecond,
+				},
+			},
+		},
+		{
+			name: "GroupByVariant",
+			filter: func() HistoricalTestDataFilter {
+				filter := getBaseHTDFilter()
+				filter.GroupNumDays = 2
+				filter.GroupBy = HTDGroupByVariant
+				return filter
+			},
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: 6 * time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         10,
+					NumFail:         7,
+					AverageDuration: 5 * time.Second,
+				},
+				&HistoricalTestData{
+					ID: "three",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v2",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         2,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v1",
+					Date:            day1,
+					NumPass:         20,
+					NumFail:         9,
+					AverageDuration: 5500 * time.Millisecond,
+				},
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Variant:         "v2",
+					Date:            day1,
+					NumPass:         2,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+			},
+		},
+		{
+			name: "GroupByTask",
+			filter: func() HistoricalTestDataFilter {
+				filter := getBaseHTDFilter()
+				filter.GroupNumDays = 2
+				filter.GroupBy = HTDGroupByTask
+				return filter
+			},
+			data: []interface{}{
+				&HistoricalTestData{
+					ID: "one",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day1,
+					},
+					NumPass:         10,
+					NumFail:         2,
+					AverageDuration: 6 * time.Second,
+				},
+				&HistoricalTestData{
+					ID: "two",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v1",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         10,
+					NumFail:         7,
+					AverageDuration: 5 * time.Second,
+				},
+				&HistoricalTestData{
+					ID: "three",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v2",
+						TaskName:    "task1",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         4,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+				&HistoricalTestData{
+					ID: "four",
+					Info: HistoricalTestDataInfo{
+						Project:     "p1",
+						Variant:     "v2",
+						TaskName:    "task2",
+						TestName:    "test1",
+						RequestType: "r1",
+						Date:        day2,
+					},
+					NumPass:         2,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
+			},
+			expected: []AggregatedHistoricalTestData{
+				{
+					TestName:        "test1",
+					TaskName:        "task1",
+					Date:            day1,
+					NumPass:         24,
+					NumFail:         11,
+					AverageDuration: 4750 * time.Millisecond,
+				},
+				{
+					TestName:        "test1",
+					TaskName:        "task2",
+					Date:            day1,
+					NumPass:         2,
+					NumFail:         2,
+					AverageDuration: time.Second,
+				},
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			require.NoError(t, db.Collection(historicalTestDataCollection).Drop(ctx))
 			if len(test.data) > 0 {
-				_, err := db.Collection(historicalTestDataCollection).InsertMany(ctx, data)
+				_, err := db.Collection(historicalTestDataCollection).InsertMany(ctx, test.data)
 				require.NoError(t, err)
 			}
-			test.test()
+
+			docs, err := GetHistoricalTestData(ctx, env, test.filter())
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, docs)
 		})
 	}
 }

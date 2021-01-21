@@ -281,10 +281,10 @@ type AggregatedHistoricalTestData struct {
 	Variant  string    `bson:"variant"`
 	Date     time.Time `bson:"date"`
 
-	NumPass     int       `bson:"num_pass"`
-	NumFail     int       `bson:"num_fail"`
-	AvgDuration float64   `bson:"avg_duration"`
-	LastUpdate  time.Time `bson:"last_update"`
+	NumPass         int           `bson:"num_pass"`
+	NumFail         int           `bson:"num_fail"`
+	AverageDuration time.Duration `bson:"avg_duration"`
+	LastUpdate      time.Time     `bson:"last_update"`
 }
 
 var (
@@ -294,7 +294,7 @@ var (
 	aggregatedHistoricalTestDataDateKey        = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "Date")
 	aggregatedHistoricalTestDataNumPassKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "NumPass")
 	aggregatedHistoricalTestDataNumFailKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "NumFail")
-	aggregatedHistoricalTestDataAvgDurationKey = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "AvgDuration")
+	aggregatedHistoricalTestDataAvgDurationKey = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "AverageDuration")
 	aggregatedHistoricalTestDataLastUpdateKey  = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "LastUpdate")
 )
 
@@ -472,9 +472,9 @@ func (f HistoricalTestDataFilter) queryPipeline() []bson.M {
 			f.GroupNumDays,
 		),
 		{"$group": bson.M{
-			"_id":                        buildHTDGroupId(f.GroupBy),
-			historicalTestDataNumPassKey: bson.M{"$sum": "$" + historicalTestDataNumPassKey},
-			historicalTestDataNumFailKey: bson.M{"$sum": "$" + historicalTestDataNumFailKey},
+			"_id":                                  buildHTDGroupId(f.GroupBy),
+			aggregatedHistoricalTestDataNumPassKey: bson.M{"$sum": "$" + historicalTestDataNumPassKey},
+			aggregatedHistoricalTestDataNumFailKey: bson.M{"$sum": "$" + historicalTestDataNumFailKey},
 			"total_duration_pass": bson.M{
 				"$sum": bson.M{
 					"$multiply": []interface{}{
@@ -485,25 +485,25 @@ func (f HistoricalTestDataFilter) queryPipeline() []bson.M {
 			},
 		}},
 		{"$project": bson.M{
-			historicalTestDataInfoTestNameKey: "$_id." + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey),
-			historicalTestDataInfoTaskNameKey: "$_id." + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey),
-			historicalTestDataInfoVariantKey:  "$_id." + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey),
-			historicalTestDataInfoDateKey:     "$_id." + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey),
-			historicalTestDataNumPassKey:      1,
-			historicalTestDataNumFailKey:      1,
-			historicalTestDataAverageDurationKey: bson.M{
+			aggregatedHistoricalTestDataTestNameKey: "$_id." + aggregatedHistoricalTestDataTestNameKey,
+			aggregatedHistoricalTestDataTaskNameKey: "$_id." + aggregatedHistoricalTestDataTaskNameKey,
+			aggregatedHistoricalTestDataVariantKey:  "$_id." + aggregatedHistoricalTestDataVariantKey,
+			aggregatedHistoricalTestDataDateKey:     "$_id." + aggregatedHistoricalTestDataDateKey,
+			aggregatedHistoricalTestDataNumPassKey:  1,
+			aggregatedHistoricalTestDataNumFailKey:  1,
+			aggregatedHistoricalTestDataAvgDurationKey: bson.M{"$toLong": bson.M{
 				"$cond": bson.M{
-					"if":   bson.M{"$ne": []interface{}{"$" + historicalTestDataNumPassKey, 0}},
-					"then": bson.M{"$divide": []interface{}{"$total_duration_pass", "$" + historicalTestDataNumPassKey}},
+					"if":   bson.M{"$ne": []interface{}{"$" + aggregatedHistoricalTestDataNumPassKey, 0}},
+					"then": bson.M{"$divide": []interface{}{"$total_duration_pass", "$" + aggregatedHistoricalTestDataNumPassKey}},
 					"else": nil,
 				},
-			},
+			}},
 		}},
 		{"$sort": bson.D{
-			{Key: historicalTestDataInfoDateKey, Value: sortDateOrder(f.Sort)},
-			{Key: historicalTestDataInfoVariantKey, Value: 1},
-			{Key: historicalTestDataInfoTaskNameKey, Value: 1},
-			{Key: historicalTestDataInfoTestNameKey, Value: 1},
+			{Key: aggregatedHistoricalTestDataDateKey, Value: sortDateOrder(f.Sort)},
+			{Key: aggregatedHistoricalTestDataVariantKey, Value: 1},
+			{Key: aggregatedHistoricalTestDataTaskNameKey, Value: 1},
+			{Key: aggregatedHistoricalTestDataTestNameKey, Value: 1},
 		}},
 		{"$limit": f.Limit},
 	}
@@ -568,16 +568,16 @@ func buildAddFieldsDateStage(fieldName string, inputDateFieldName string, start 
 // buildHTDGroupId builds the _id field for the $group stage corresponding to
 // the HTDGroupBy value.
 func buildHTDGroupId(groupBy HTDGroupBy) bson.M {
-	id := bson.M{historicalTestDataInfoDateKey: "$" + historicalTestDataInfoDateKey}
+	id := bson.M{aggregatedHistoricalTestDataDateKey: "$" + historicalTestDataInfoDateKey}
 	switch groupBy {
 	case HTDGroupByVariant:
-		id[historicalTestDataInfoVariantKey] = "$" + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey)
+		id[aggregatedHistoricalTestDataVariantKey] = "$" + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey)
 		fallthrough
 	case HTDGroupByTask:
-		id[historicalTestDataInfoTaskNameKey] = "$" + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey)
+		id[aggregatedHistoricalTestDataTaskNameKey] = "$" + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey)
 		fallthrough
 	case HTDGroupByTest:
-		id[historicalTestDataInfoTestNameKey] = "$" + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey)
+		id[aggregatedHistoricalTestDataTestNameKey] = "$" + bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey)
 	}
 	return id
 }
