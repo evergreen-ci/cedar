@@ -277,8 +277,8 @@ func (i *HistoricalTestDataInfo) validate() error {
 // AggregatedHistoricalTestData represents aggregated test execution data.
 type AggregatedHistoricalTestData struct {
 	TestName string    `bson:"test_name"`
-	TaskName string    `bson:"task_name"`
-	Variant  string    `bson:"variant"`
+	TaskName string    `bson:"task_name,omitempty"`
+	Variant  string    `bson:"variant,omitempty"`
 	Date     time.Time `bson:"date"`
 
 	NumPass         int           `bson:"num_pass"`
@@ -331,9 +331,7 @@ const (
 
 func (gb HTDGroupBy) validate() error {
 	switch gb {
-	case HTDGroupByVariant:
-	case HTDGroupByTask:
-	case HTDGroupByTest:
+	case HTDGroupByVariant, HTDGroupByTask, HTDGroupByTest:
 	default:
 		return errors.Errorf("invalid HTDGroupBy value: %s", gb)
 	}
@@ -351,8 +349,7 @@ const (
 
 func (s HTDSort) validate() error {
 	switch s {
-	case HTDSortEarliestFirst:
-	case HTDSortLatestFirst:
+	case HTDSortEarliestFirst, HTDSortLatestFirst:
 	default:
 		return errors.Errorf("invalid HTDSort value: %s", s)
 	}
@@ -370,28 +367,20 @@ type HTDStartAt struct {
 }
 
 func (s *HTDStartAt) validate(groupBy HTDGroupBy) error {
-	catcher := grip.NewBasicCatcher()
 	if s == nil {
-		catcher.New("StartAt should not be nil")
-	}
-	if !s.Date.Equal(utility.GetUTCDay(s.Date)) {
-		catcher.New("invalid StartAt Date value")
-	}
-	if len(s.Test) == 0 {
-		catcher.New("missing StartAt Test value")
-	}
-	switch groupBy {
-	case HTDGroupByVariant:
-		if len(s.Variant) == 0 {
-			catcher.New("missing StartAt Variant value")
-		}
-		fallthrough
-	case HTDGroupByTask:
-		if len(s.Task) == 0 {
-			catcher.New("missing StartAt Task value")
-		}
+		return errors.New("StartAt should not be nil")
 	}
 
+	catcher := grip.NewBasicCatcher()
+	catcher.NewWhen(!s.Date.Equal(utility.GetUTCDay(s.Date)), "invalid StartAt Date value")
+	catcher.NewWhen(len(s.Test) == 0, "missing StartAt Test value")
+	switch groupBy {
+	case HTDGroupByVariant:
+		catcher.NewWhen(len(s.Variant) == 0, "missing StartAt Variant value")
+		fallthrough
+	case HTDGroupByTask:
+		catcher.NewWhen(len(s.Task) == 0, "missing StartAt Task value")
+	}
 	return catcher.Resolve()
 }
 
@@ -415,46 +404,27 @@ type HistoricalTestDataFilter struct {
 }
 
 func (f *HistoricalTestDataFilter) validate() error {
-	catcher := grip.NewBasicCatcher()
 	if f == nil {
-		catcher.New("historical test data filter should not be nil")
+		return errors.New("historical test data filter should not be nil")
 	}
 
-	if len(f.Requesters) == 0 {
-		catcher.New("missing Requesters values")
-	}
-	if f.GroupNumDays <= 0 {
-		catcher.New("invalid GroupNumDays value")
-	}
-	if f.Limit > htdMaxQueryLimit || f.Limit <= 0 {
-		catcher.New("invalid Limit value")
-	}
-	if f.StartAt != nil {
-		catcher.Add(f.StartAt.validate(f.GroupBy))
-	}
-	if len(f.Tests) == 0 && len(f.Tasks) == 0 {
-		catcher.New("missing Tests or Tasks values")
-	}
-
+	catcher := grip.NewBasicCatcher()
+	catcher.NewWhen(len(f.Requesters) == 0, "missing Requesters values")
+	catcher.NewWhen(f.GroupNumDays <= 0, "invalid GroupNumDays value")
+	catcher.NewWhen(f.Limit > htdMaxQueryLimit || f.Limit <= 0, "invalid Limit value")
+	catcher.AddWhen(f.StartAt != nil, f.StartAt.validate(f.GroupBy))
+	catcher.NewWhen(len(f.Tests) == 0 && len(f.Tasks) == 0, "missing Tests or Tasks values")
 	catcher.Add(f.Sort.validate())
 	catcher.Add(f.GroupBy.validate())
 	catcher.Add(f.validateDates())
-
 	return catcher.Resolve()
 }
 
 func (f *HistoricalTestDataFilter) validateDates() error {
 	catcher := grip.NewBasicCatcher()
-	if !f.AfterDate.Equal(utility.GetUTCDay(f.AfterDate)) {
-		catcher.New("invalid AfterDate value")
-	}
-	if !f.BeforeDate.Equal(utility.GetUTCDay(f.BeforeDate)) {
-		catcher.New("invalid BeforeDate value")
-	}
-	if !f.BeforeDate.After(f.AfterDate) {
-		catcher.New("invalid AfterDate/BeforeDate values")
-	}
-
+	catcher.NewWhen(!f.AfterDate.Equal(utility.GetUTCDay(f.AfterDate)), "invalid AfterDate value")
+	catcher.NewWhen(!f.BeforeDate.Equal(utility.GetUTCDay(f.BeforeDate)), "invalid BeforeDate value")
+	catcher.NewWhen(!f.BeforeDate.After(f.AfterDate), "invalid AfterDate/BeforeDate values")
 	return catcher.Resolve()
 }
 
@@ -639,8 +609,8 @@ func (f HistoricalTestDataFilter) buildTestPaginationOrBranches() []bson.M {
 }
 
 // buildPaginationOrBranches builds and returns the $or branches of the
-// pagination constraints. fields is an array of field names, they must be in
-// the same order as the sort order.
+// pagination constraints. fields is an array of field names, and they must be
+// in the same order as the sort order.
 func buildPaginationOrBranches(fields []htdPaginationField) []bson.M {
 	baseConstraints := bson.M{}
 	branches := []bson.M{}
@@ -720,7 +690,7 @@ func (pf htdPaginationField) getEqExpression() interface{} {
 }
 
 // getNextExpression returns an expression that can be used to match the
-// documents which have a field value greater or smaller than the this
+// documents which have a field value greater or smaller than this
 // htdPaginationField.
 func (pf htdPaginationField) getNextExpression() bson.M {
 	var operator string
