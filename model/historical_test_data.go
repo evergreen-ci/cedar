@@ -284,7 +284,6 @@ type AggregatedHistoricalTestData struct {
 	NumPass         int           `bson:"num_pass"`
 	NumFail         int           `bson:"num_fail"`
 	AverageDuration time.Duration `bson:"avg_duration"`
-	LastUpdate      time.Time     `bson:"last_update"`
 }
 
 var (
@@ -295,7 +294,6 @@ var (
 	aggregatedHistoricalTestDataNumPassKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "NumPass")
 	aggregatedHistoricalTestDataNumFailKey     = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "NumFail")
 	aggregatedHistoricalTestDataAvgDurationKey = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "AverageDuration")
-	aggregatedHistoricalTestDataLastUpdateKey  = bsonutil.MustHaveTag(AggregatedHistoricalTestData{}, "LastUpdate")
 )
 
 // GetHistoricalTestData queries the historical test data using a filter.
