@@ -22,7 +22,6 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			NumPass:         2,
 			NumFail:         2,
 			AverageDuration: 30 * time.Second,
-			LastUpdate:      time.Now(),
 		}
 		expected := &APIAggregatedHistoricalTestData{
 			TestName:        ToAPIString(tr.TestName),
@@ -32,7 +31,6 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			NumPass:         tr.NumPass,
 			NumFail:         tr.NumFail,
 			AverageDuration: tr.AverageDuration.Seconds(),
-			LastUpdate:      NewTime(tr.LastUpdate),
 		}
 		api := &APIAggregatedHistoricalTestData{}
 		assert.NoError(t, api.Import(tr))

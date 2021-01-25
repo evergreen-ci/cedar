@@ -16,7 +16,6 @@ type APIAggregatedHistoricalTestData struct {
 	NumPass         int     `json:"num_pass"`
 	NumFail         int     `json:"num_fail"`
 	AverageDuration float64 `json:"average_duration"`
-	LastUpdate      APITime `json:"last_update"`
 }
 
 // Import transforms an AggregatedHistoricalTestData object into an
@@ -31,7 +30,6 @@ func (a *APIAggregatedHistoricalTestData) Import(i interface{}) error {
 		a.NumPass = hd.NumPass
 		a.NumFail = hd.NumFail
 		a.AverageDuration = hd.AverageDuration.Seconds()
-		a.LastUpdate = NewTime(hd.LastUpdate)
 	default:
 		return errors.New("incorrect type when converting to APIHistoricalTestData type")
 	}
