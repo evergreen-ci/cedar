@@ -94,11 +94,18 @@ type Connector interface {
 	// FindTestResultsByTaskId queries the database to find all test
 	// results with the given options.
 	FindTestResultsByTaskId(context.Context, dbModel.TestResultsFindOptions) ([]model.APITestResult, error)
-	// FindTestResultByTestName finds the test result of a single test, specified
-	// by the given options.
-	// If execution is not specified, this will return the test result from the most
-	// recent.
+	// FindTestResultByTestName finds the test result of a single test,
+	// specified by the given options.
+	// If execution is not specified, this will return the test result from
+	// the most recent.
 	FindTestResultByTestName(context.Context, TestResultsTestNameOptions) (*model.APITestResult, error)
+
+	///////////////////////
+	// Historical Test Data
+	///////////////////////
+	// GetHistoricalTestData queries the historical test data using a
+	// filter.
+	GetHistoricalTestData(context.Context, dbModel.HistoricalTestDataFilter) ([]model.APIAggregatedHistoricalTestData, error)
 
 	/////////////////
 	// System Metrics
