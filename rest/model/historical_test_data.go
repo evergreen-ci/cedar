@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strings"
+
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/pkg/errors"
 )
@@ -34,4 +36,29 @@ func (a *APIAggregatedHistoricalTestData) Import(i interface{}) error {
 		return errors.New("incorrect type when converting to APIHistoricalTestData type")
 	}
 	return nil
+}
+
+// StartAtKey returns the start_at key parameter that can be used to paginate
+// and start at this element.
+func (a *APIAggregatedHistoricalTestData) StartAtKey() string {
+	return HTDStartAtKey{
+		date:     a.Date.String(),
+		variant:  FromAPIString(a.Variant),
+		taskName: FromAPIString(a.TaskName),
+		testName: FromAPIString(a.TestName),
+	}.String()
+}
+
+// HTDStartAtKey is a struct used to build the start_at key parameter for
+// pagination.
+type HTDStartAtKey struct {
+	date     string
+	variant  string
+	taskName string
+	testName string
+}
+
+func (s HTDStartAtKey) String() string {
+	elements := []string{s.date, s.variant, s.taskName, s.testName}
+	return strings.Join(elements, "|")
 }

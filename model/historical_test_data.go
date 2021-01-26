@@ -298,7 +298,7 @@ var (
 
 // GetHistoricalTestData queries the historical test data using a filter.
 func GetHistoricalTestData(ctx context.Context, env cedar.Environment, filter HistoricalTestDataFilter) ([]AggregatedHistoricalTestData, error) {
-	err := filter.validate()
+	err := filter.Validate()
 	if err != nil {
 		return nil, errors.Wrap(err, "the provided HistoricalTestDataFilter is invalid")
 	}
@@ -401,7 +401,8 @@ type HistoricalTestDataFilter struct {
 	Sort         HTDSort
 }
 
-func (f *HistoricalTestDataFilter) validate() error {
+// Validate ensures that the HistoricalTestDataFilter is valid.
+func (f *HistoricalTestDataFilter) Validate() error {
 	if f == nil {
 		return errors.New("historical test data filter should not be nil")
 	}
