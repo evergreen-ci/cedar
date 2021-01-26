@@ -107,7 +107,9 @@ func (h *historicalTestDataHandler) Run(ctx context.Context) gimlet.Responder {
 				"problem paginating response"))
 		}
 	}
-	resp.AddData(data[:lastIndex])
+	if err = resp.AddData(data[:lastIndex]); err != nil {
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem creating response"))
+	}
 
 	return resp
 }
@@ -145,6 +147,9 @@ func (h *htdFilterHandler) parse(vals url.Values) error {
 	}
 
 	h.filter.StartAt, err = h.readStartAt(vals.Get("start_at"))
+	if err != nil {
+		return err
+	}
 
 	h.filter.GroupBy, err = h.readGroupBy(vals.Get("group_by"))
 	if err != nil {
@@ -236,7 +241,7 @@ func (h *htdFilterHandler) readRequesters(requesters []string) ([]string, error)
 		case htdAPIRequesterAdhoc:
 			requesterValues = append(requesterValues, cedar.AdHocRequester)
 		default:
-			return nil, errors.Errorf("Invalid requester value %v", requester)
+			return nil, errors.Errorf("invalid requester value %v", requester)
 		}
 	}
 	return requesterValues, nil
@@ -266,7 +271,7 @@ func (h *htdFilterHandler) readInt(intString string, min, max, defaultValue int)
 	}
 
 	if value < min || value > max {
-		return 0, errors.New("Invalid int parameter value")
+		return 0, errors.New("invalid int parameter value")
 	}
 	return value, nil
 }

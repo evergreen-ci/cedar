@@ -81,7 +81,7 @@ func TestHTDDataHandlerRun(t *testing.T) {
 	assert.Nil(t, resp.Pages())
 
 	// pagination
-	handler.filter = dbModel.HistoricalTestDataFilter{Limit: 2}
+	handler.filter = dbModel.HistoricalTestDataFilter{Limit: 3}
 	resp = handler.Run(context.Background())
 	assert.NotNil(t, resp)
 	assert.Equal(t, http.StatusOK, resp.Status())
