@@ -331,5 +331,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/test_results/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByTaskId(s.sc))
 	s.app.AddRoute("/test_results/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetTestResultByTestName(s.sc))
 
+	s.app.AddRoute("/historical_test_data/{project_id}").Version(1).Get().RouteHandler(makeGetHistoricalTestData(s.sc))
+
 	s.app.AddRoute("/system_metrics/type/{task_id}/{type}").Version(1).Get().RouteHandler(makeGetSystemMetricsByType(s.sc))
 }

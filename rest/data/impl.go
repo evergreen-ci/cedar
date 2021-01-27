@@ -26,6 +26,7 @@ type MockConnector struct {
 	ChildMap                 map[string][]string
 	CachedLogs               map[string]model.Log
 	CachedTestResults        map[string]model.TestResults
+	CachedHistoricalTestData []model.AggregatedHistoricalTestData
 	CachedSystemMetrics      map[string]model.SystemMetrics
 	Users                    map[string]bool
 	Bucket                   string

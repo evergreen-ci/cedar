@@ -1634,7 +1634,7 @@ func getHistoricalTestData(t *testing.T) *HistoricalTestData {
 
 	data, err := CreateHistoricalTestData(info)
 	require.NoError(t, err)
-	data.NumPass = rand.Intn(1000)
+	data.NumPass = rand.Intn(1000) + 1
 	var total time.Duration
 	data.NumFail = rand.Intn(1000)
 	for i := 0; i < data.NumPass; i++ {
