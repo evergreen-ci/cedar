@@ -50,7 +50,7 @@ const (
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /historical_test_data/<project_id>
+// GET /historical_test_data/{project_id}
 
 type historicalTestDataHandler struct {
 	sc data.Connector
