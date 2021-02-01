@@ -3,6 +3,8 @@ updated: 2016-06-16T14:14:58.047959949-04:00
 imports:
 - name: golang.org/x/exp
   version: 8460e604b9de9da5834c9f198cadf9dca4b05cac
+- name: golang.org/x/oauth2
+  version: f047394b6d14284165300fd82dad67edb3a4d7f6
 - name: github.com/pkg/errors
   version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 
