@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,18 +57,18 @@ func TestBuildloggerImport(t *testing.T) {
 		}
 		log.ID = log.Info.ID()
 		expected := &APILog{
-			ID: ToAPIString(log.ID),
+			ID: utility.ToStringPtr(log.ID),
 			Info: APILogInfo{
-				Project:     ToAPIString(log.Info.Project),
-				Version:     ToAPIString(log.Info.Version),
-				Variant:     ToAPIString(log.Info.Variant),
-				TaskName:    ToAPIString(log.Info.TaskName),
-				TaskID:      ToAPIString(log.Info.TaskID),
+				Project:     utility.ToStringPtr(log.Info.Project),
+				Version:     utility.ToStringPtr(log.Info.Version),
+				Variant:     utility.ToStringPtr(log.Info.Variant),
+				TaskName:    utility.ToStringPtr(log.Info.TaskName),
+				TaskID:      utility.ToStringPtr(log.Info.TaskID),
 				Execution:   log.Info.Execution,
-				TestName:    ToAPIString(log.Info.TestName),
+				TestName:    utility.ToStringPtr(log.Info.TestName),
 				Trial:       3,
-				ProcessName: ToAPIString(log.Info.ProcessName),
-				Format:      ToAPIString(string(log.Info.Format)),
+				ProcessName: utility.ToStringPtr(log.Info.ProcessName),
+				Format:      utility.ToStringPtr(string(log.Info.Format)),
 				Tags:        log.Info.Tags,
 				Arguments:   log.Info.Arguments,
 				ExitCode:    2,
@@ -76,18 +77,18 @@ func TestBuildloggerImport(t *testing.T) {
 			CompletedAt: NewTime(log.CompletedAt),
 			Duration:    log.CompletedAt.Sub(log.CreatedAt).Seconds(),
 			Artifact: APILogArtifactInfo{
-				Type:    ToAPIString(string(log.Artifact.Type)),
-				Prefix:  ToAPIString(log.Artifact.Prefix),
+				Type:    utility.ToStringPtr(string(log.Artifact.Type)),
+				Prefix:  utility.ToStringPtr(log.Artifact.Prefix),
 				Version: 2,
 				Chunks: []APILogChunkInfo{
 					{
-						Key:      ToAPIString(log.Artifact.Chunks[0].Key),
+						Key:      utility.ToStringPtr(log.Artifact.Chunks[0].Key),
 						NumLines: 200,
 						Start:    NewTime(log.Artifact.Chunks[0].Start),
 						End:      NewTime(log.Artifact.Chunks[0].End),
 					},
 					{
-						Key:      ToAPIString(log.Artifact.Chunks[1].Key),
+						Key:      utility.ToStringPtr(log.Artifact.Chunks[1].Key),
 						NumLines: 101,
 						Start:    NewTime(log.Artifact.Chunks[1].Start),
 						End:      NewTime(log.Artifact.Chunks[1].End),

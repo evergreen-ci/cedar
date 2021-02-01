@@ -1,13 +1,22 @@
 package utility
 
 import (
+	"context"
 	"crypto/tls"
+	"encoding/json"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/rehttp"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/jpillora/backoff"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
+	"github.com/pkg/errors"
+	"golang.org/x/oauth2"
 )
 
 const httpClientTimeout = 5 * time.Minute
@@ -49,11 +58,23 @@ func newConfiguredBaseTransport() *http.Transport {
 
 }
 
+func setupOauth2HTTPClient(token string, client *http.Client) *http.Client {
+	client.Transport = &oauth2.Transport{
+		Base: client.Transport,
+		Source: oauth2.ReuseTokenSource(nil, oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: token},
+		)),
+	}
+	return client
+}
+
 // GetHTTPClient produces default HTTP client from the pool,
 // constructing a new client if needed. Always pair calls to
 // GetHTTPClient with defered calls to PutHTTPClient.
 func GetHTTPClient() *http.Client { return httpClientPool.Get().(*http.Client) }
 
+// PutHTTPClient returns the client to the pool, automatically
+// reconfiguring the transport.
 func PutHTTPClient(c *http.Client) {
 	c.Timeout = httpClientTimeout
 
@@ -64,6 +85,11 @@ func PutHTTPClient(c *http.Client) {
 	case *rehttp.Transport:
 		c.Transport = transport.RoundTripper
 		PutHTTPClient(c)
+		return
+	case *oauth2.Transport:
+		c.Transport = transport.Base
+		PutHTTPClient(c)
+		return
 	default:
 		c.Transport = newConfiguredBaseTransport()
 	}
@@ -83,6 +109,7 @@ type HTTPRetryConfiguration struct {
 	Methods         []string
 	Statuses        []int
 	Errors          []error
+	ErrorStrings    []string
 }
 
 // NewDefaultHTTPRetryConf constructs a HTTPRetryConfiguration object
@@ -143,6 +170,17 @@ func GetHTTPRetryableClient(conf HTTPRetryConfiguration) *http.Client {
 		}))
 	}
 
+	if len(conf.ErrorStrings) > 0 {
+		statusRetries = append(statusRetries, rehttp.RetryIsErr(func(err error) bool {
+			for _, errToCheck := range conf.ErrorStrings {
+				if err.Error() == errToCheck {
+					return true
+				}
+			}
+			return false
+		}))
+	}
+
 	retryFns := []rehttp.RetryFn{rehttp.RetryAny(statusRetries...)}
 
 	if len(conf.Methods) > 0 {
@@ -165,4 +203,158 @@ func GetHTTPRetryableClient(conf HTTPRetryConfiguration) *http.Client {
 // calls to PutHTTPClient.
 func GetDefaultHTTPRetryableClient() *http.Client {
 	return GetHTTPRetryableClient(NewDefaultHTTPRetryConf())
+}
+
+// HTTPRetryFunction makes it possible to write customizable retry
+// logic. Returning true if the request should be retried again and
+// false otherwise.
+type HTTPRetryFunction func(index int, req *http.Request, resp *http.Response, err error) bool
+
+// HTTPDelayFunction makes it possible to write customizable retry
+// backoff logic, by allowing you to evaluate the previous request and
+// response and return the duration to wait before the next request.
+type HTTPDelayFunction func(index int, req *http.Request, resp *http.Response, err error) time.Duration
+
+func makeRetryFn(in HTTPRetryFunction) rehttp.RetryFn {
+	return func(attempt rehttp.Attempt) bool {
+		return in(attempt.Index, attempt.Request, attempt.Response, attempt.Error)
+	}
+}
+
+func makeDelayFn(in HTTPDelayFunction) rehttp.DelayFn {
+	return func(attempt rehttp.Attempt) time.Duration {
+		return in(attempt.Index, attempt.Request, attempt.Response, attempt.Error)
+	}
+}
+
+// GetCustomHTTPRetryableClient allows you to generate an HTTP client
+// that automatically retries failed request based on the provided
+// custom logic.
+func GetCustomHTTPRetryableClient(retry HTTPRetryFunction, delay HTTPDelayFunction) *http.Client {
+	client := GetHTTPClient()
+	client.Transport = rehttp.NewTransport(client.Transport, makeRetryFn(retry), makeDelayFn(delay))
+	return client
+}
+
+// GetOAuth2HTTPClient produces an HTTP client that will supply OAuth2
+// credentials with all requests. There is no validation of the
+// token, and you should always call PutHTTPClient to return the
+// client to the pool when you're done with it.
+func GetOAuth2HTTPClient(oauthToken string) *http.Client {
+	return setupOauth2HTTPClient(oauthToken, GetHTTPClient())
+}
+
+// GetOauth2DefaultHTTPRetryableClient constructs an HTTP client that
+// supplies OAuth2 credentials with all requests, retrying failed
+// requests automatically according to the default retryable
+// options. There is no validation of the token, and you should always
+// call PutHTTPClient to return the client to the pool when you're
+// done with it.
+func GetOauth2DefaultHTTPRetryableClient(oauthToken string) *http.Client {
+	return setupOauth2HTTPClient(oauthToken, GetDefaultHTTPRetryableClient())
+}
+
+// GetOauth2HTTPRetryableClient constructs an HTTP client that
+// supplies OAuth2 credentials with all requests, retrying failed
+// requests automatically according to the configuration
+// provided. There is no validation of the token, and you should
+// always call PutHTTPClient to return the client to the pool when
+// you're done with it.
+func GetOauth2HTTPRetryableClient(oauthToken string, conf HTTPRetryConfiguration) *http.Client {
+	return setupOauth2HTTPClient(oauthToken, GetHTTPRetryableClient(conf))
+}
+
+// GetOauth2HTTPRetryableClient constructs an HTTP client that
+// supplies OAuth2 credentials with all requests, retrying failed
+// requests automatically according to definitions of the provided
+// functions. There is no validation of the token, and you should
+// always call PutHTTPClient to return the client to the pool when
+// you're done with it.
+func GetOauth2CustomHTTPRetryableClient(token string, retry HTTPRetryFunction, delay HTTPDelayFunction) *http.Client {
+	return setupOauth2HTTPClient(token, GetCustomHTTPRetryableClient(retry, delay))
+}
+
+// TemporayError defines an interface for use in retryable HTTP
+// clients to identify certain errors as Temporary.
+type TemporaryError interface {
+	error
+	Temporary() bool
+}
+
+// IsTemporaryError returns true if the error object is also a
+// temporary error.
+func IsTemporaryError(err error) bool {
+	if terr, ok := err.(TemporaryError); ok {
+		return terr.Temporary()
+	}
+	return false
+}
+
+// RespErrorf attempts to read a gimlet.ErrorResponse from the response body
+// JSON. If successful, it returns the gimlet.ErrorResponse wrapped with the
+// HTTP status code and the formatted error message. Otherwise, it returns an
+// error message with the HTTP status and raw response body.
+func RespErrorf(resp *http.Response, format string, args ...interface{}) error {
+	if resp == nil {
+		return errors.Errorf(format, args)
+	}
+	wrapError := func(err error) error {
+		err = errors.Wrapf(err, "HTTP status code %d", resp.StatusCode)
+		return errors.Wrapf(err, format, args...)
+	}
+
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return wrapError(errors.Wrap(err, "could not read response body"))
+	}
+
+	respErr := gimlet.ErrorResponse{}
+	if err = json.Unmarshal(b, &respErr); err != nil {
+		return wrapError(errors.Errorf("received response: %s", string(b)))
+	}
+
+	return wrapError(respErr)
+}
+
+// RetryRequest takes an http.Request and makes the request until it's successful,
+// hits a max number of retries, or times out
+func RetryRequest(ctx context.Context, r *http.Request, maxAttempts int, minBackoff, maxBackoff time.Duration) (*http.Response, error) {
+	var dur time.Duration
+	b := backoff.Backoff{
+		Min:    minBackoff,
+		Max:    maxBackoff,
+		Factor: 2,
+		Jitter: true,
+	}
+	r = r.WithContext(ctx)
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	client := GetDefaultHTTPRetryableClient()
+	defer PutHTTPClient(client)
+	for i := 1; i <= maxAttempts; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, errors.New("request canceled")
+		case <-timer.C:
+			resp, err := client.Do(r)
+			if err != nil {
+				grip.Warning(message.WrapError(err, message.Fields{
+					"message":   "error response from server",
+					"attempt":   i,
+					"max":       maxAttempts,
+					"wait_secs": b.ForAttempt(float64(i)).Seconds(),
+				}))
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return resp, nil
+			} else if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+				return resp, errors.Errorf("server returned status %f", resp.StatusCode)
+			}
+
+			// if we get here it should most likely be a 5xx status code
+			dur = b.Duration()
+			timer.Reset(dur)
+		}
+	}
+	return nil, errors.Errorf("Failed to make request after %d attempts", maxAttempts)
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,12 +28,12 @@ func TestTestResultImport(t *testing.T) {
 			TestEndTime:    time.Now(),
 		}
 		expected := &APITestResult{
-			TaskID:         ToAPIString(tr.TaskID),
+			TaskID:         utility.ToStringPtr(tr.TaskID),
 			Execution:      tr.Execution,
-			TestName:       ToAPIString(tr.TestName),
+			TestName:       utility.ToStringPtr(tr.TestName),
 			Trial:          tr.Trial,
-			Status:         ToAPIString(tr.Status),
-			LogURL:         ToAPIString(fmt.Sprintf("https://cedar.mongodb.com/rest/v1/buildlogger/test_name/%s/%s?execution=%d", tr.TaskID, tr.TestName, tr.Execution)),
+			Status:         utility.ToStringPtr(tr.Status),
+			LogURL:         utility.ToStringPtr(fmt.Sprintf("https://cedar.mongodb.com/rest/v1/buildlogger/test_name/%s/%s?execution=%d", tr.TaskID, tr.TestName, tr.Execution)),
 			LineNum:        tr.LineNum,
 			TaskCreateTime: NewTime(tr.TaskCreateTime),
 			TestStartTime:  NewTime(tr.TestStartTime),
