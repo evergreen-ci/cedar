@@ -142,6 +142,7 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/timber/vendor/golang.org/x/text/
 	rm -rf vendor/github.com/evergreen-ci/timber/vendor/google.golang.org/genproto/
 	rm -rf vendor/github.com/evergreen-ci/timber/vendor/google.golang.org/grpc/
+	rm -rf vendor/github.com/evergreen-ci/utility/gitignore.go
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/aws/aws-sdk-go
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/davecgh/go-spew
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/gimlet
