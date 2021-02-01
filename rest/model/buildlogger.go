@@ -2,12 +2,13 @@ package model
 
 import (
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 )
 
 // APILog describes metadata for a buildlogger log.
 type APILog struct {
-	ID          APIString          `json:"id,omitempty"`
+	ID          *string            `json:"id,omitempty"`
 	Info        APILogInfo         `json:"info,omitempty"`
 	CreatedAt   APITime            `json:"created_at"`
 	CompletedAt APITime            `json:"completed_at"`
@@ -19,7 +20,7 @@ type APILog struct {
 func (apiResult *APILog) Import(i interface{}) error {
 	switch l := i.(type) {
 	case dbmodel.Log:
-		apiResult.ID = ToAPIString(l.ID)
+		apiResult.ID = utility.ToStringPtr(l.ID)
 		apiResult.Info = getLogInfo(l.Info)
 		apiResult.CreatedAt = NewTime(l.CreatedAt)
 		apiResult.CompletedAt = NewTime(l.CompletedAt)
@@ -33,16 +34,16 @@ func (apiResult *APILog) Import(i interface{}) error {
 
 // APILogInfo describes information unique to a single buildlogger log.
 type APILogInfo struct {
-	Project     APIString         `json:"project,omitempty"`
-	Version     APIString         `json:"version,omitempty"`
-	Variant     APIString         `json:"variant,omitempty"`
-	TaskName    APIString         `json:"task_name,omitempty"`
-	TaskID      APIString         `json:"task_id,omitempty"`
+	Project     *string           `json:"project,omitempty"`
+	Version     *string           `json:"version,omitempty"`
+	Variant     *string           `json:"variant,omitempty"`
+	TaskName    *string           `json:"task_name,omitempty"`
+	TaskID      *string           `json:"task_id,omitempty"`
 	Execution   int               `json:"execution"`
-	TestName    APIString         `json:"test_name,omitempty"`
+	TestName    *string           `json:"test_name,omitempty"`
 	Trial       int               `json:"trial"`
-	ProcessName APIString         `json:"proc_name,omitempty"`
-	Format      APIString         `json:"format,omitempty"`
+	ProcessName *string           `json:"proc_name,omitempty"`
+	Format      *string           `json:"format,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Arguments   map[string]string `json:"args,omitempty"`
 	ExitCode    int               `json:"exit_code,omitempty"`
@@ -50,16 +51,16 @@ type APILogInfo struct {
 
 func getLogInfo(l dbmodel.LogInfo) APILogInfo {
 	return APILogInfo{
-		Project:     ToAPIString(l.Project),
-		Version:     ToAPIString(l.Version),
-		Variant:     ToAPIString(l.Variant),
-		TaskName:    ToAPIString(l.TaskName),
-		TaskID:      ToAPIString(l.TaskID),
+		Project:     utility.ToStringPtr(l.Project),
+		Version:     utility.ToStringPtr(l.Version),
+		Variant:     utility.ToStringPtr(l.Variant),
+		TaskName:    utility.ToStringPtr(l.TaskName),
+		TaskID:      utility.ToStringPtr(l.TaskID),
 		Execution:   l.Execution,
-		TestName:    ToAPIString(l.TestName),
+		TestName:    utility.ToStringPtr(l.TestName),
 		Trial:       l.Trial,
-		ProcessName: ToAPIString(l.ProcessName),
-		Format:      ToAPIString(string(l.Format)),
+		ProcessName: utility.ToStringPtr(l.ProcessName),
+		Format:      utility.ToStringPtr(string(l.Format)),
 		Tags:        l.Tags,
 		Arguments:   l.Arguments,
 		ExitCode:    l.ExitCode,
@@ -71,8 +72,8 @@ func getLogInfo(l dbmodel.LogInfo) APILogInfo {
 // the cedar-based log metadata storage. The prefix field indicates the name of
 // the "sub-bucket".
 type APILogArtifactInfo struct {
-	Type    APIString         `json:"type"`
-	Prefix  APIString         `json:"prefix"`
+	Type    *string           `json:"type"`
+	Prefix  *string           `json:"prefix"`
 	Version int               `json:"version"`
 	Chunks  []APILogChunkInfo `json:"chunks,omitempty"`
 }
@@ -84,8 +85,8 @@ func getLogArtifactInfo(l dbmodel.LogArtifactInfo) APILogArtifactInfo {
 	}
 
 	return APILogArtifactInfo{
-		Type:    ToAPIString(string(l.Type)),
-		Prefix:  ToAPIString(l.Prefix),
+		Type:    utility.ToStringPtr(string(l.Type)),
+		Prefix:  utility.ToStringPtr(l.Prefix),
 		Version: l.Version,
 		Chunks:  chunks,
 	}
@@ -94,15 +95,15 @@ func getLogArtifactInfo(l dbmodel.LogArtifactInfo) APILogArtifactInfo {
 // APILogChunkInfo describes a chunk of log lines stored in pail-backed offline
 // storage.
 type APILogChunkInfo struct {
-	Key      APIString `json:"key"`
-	NumLines int       `json:"num_lines"`
-	Start    APITime   `json:"start"`
-	End      APITime   `json:"end"`
+	Key      *string `json:"key"`
+	NumLines int     `json:"num_lines"`
+	Start    APITime `json:"start"`
+	End      APITime `json:"end"`
 }
 
 func getLogChunkInfo(l dbmodel.LogChunkInfo) APILogChunkInfo {
 	return APILogChunkInfo{
-		Key:      ToAPIString(l.Key),
+		Key:      utility.ToStringPtr(l.Key),
 		NumLines: l.NumLines,
 		Start:    NewTime(l.Start),
 		End:      NewTime(l.End),

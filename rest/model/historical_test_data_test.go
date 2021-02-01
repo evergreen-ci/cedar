@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,9 +25,9 @@ func TestHistoricalTestDataImport(t *testing.T) {
 			AverageDuration: 30 * time.Second,
 		}
 		expected := &APIAggregatedHistoricalTestData{
-			TestName:        ToAPIString(tr.TestName),
-			TaskName:        ToAPIString(tr.TaskName),
-			Variant:         ToAPIString(tr.Variant),
+			TestName:        utility.ToStringPtr(tr.TestName),
+			TaskName:        utility.ToStringPtr(tr.TaskName),
+			Variant:         utility.ToStringPtr(tr.Variant),
 			Date:            NewTime(tr.Date),
 			NumPass:         tr.NumPass,
 			NumFail:         tr.NumFail,

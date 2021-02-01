@@ -8,6 +8,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy/queue"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
@@ -476,7 +477,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	actualResult, err = s.sc.FindPerformanceResultsByTaskName(s.ctx, "", expectedTaskName, "v", tr, 0)
 	s.NoError(err)
 	s.Require().Len(actualResult, 1)
-	s.Equal(actualResult[0].Info.Variant, dataModel.ToAPIString("v"))
+	s.Equal(actualResult[0].Info.Variant, utility.ToStringPtr("v"))
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskNameDoesNotExist() {

@@ -26,7 +26,7 @@ imports:
   version: c2e93f3ae59f2904160ceaab466009f965df46d6
 
 - name: github.com/evergreen-ci/utility
-  version: 9938f38271e64913944adb515431c7c7729bd01b
+  version: aaeb41d8ac416e8989f5d3175d2c2b607bed1aed
 - name: github.com/mongodb/amboy
   version: 07fdffff5b8c8491ee70e9e25b1f89fe29c168de
 - name: github.com/mongodb/grip

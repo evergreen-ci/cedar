@@ -2,6 +2,7 @@ package model
 
 import (
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 
 	"github.com/pkg/errors"
 )
@@ -9,7 +10,7 @@ import (
 // APIPerformanceResult describes a single result of a performance test from
 // Evergreen.
 type APIPerformanceResult struct {
-	Name        APIString                `json:"name"`
+	Name        *string                  `json:"name"`
 	Info        APIPerformanceResultInfo `json:"info"`
 	CreatedAt   APITime                  `json:"created_at"`
 	CompletedAt APITime                  `json:"completed_at"`
@@ -27,7 +28,7 @@ type APIPerfAnalysis struct {
 func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 	switch r := i.(type) {
 	case dbmodel.PerformanceResult:
-		apiResult.Name = ToAPIString(r.ID)
+		apiResult.Name = utility.ToStringPtr(r.ID)
 		apiResult.CreatedAt = NewTime(r.CreatedAt)
 		apiResult.CompletedAt = NewTime(r.CompletedAt)
 		apiResult.Info = getPerformanceResultInfo(r.Info)
@@ -52,32 +53,32 @@ func (apiResult *APIPerformanceResult) Export(i interface{}) (interface{}, error
 // APIPerformanceResultInfo describes information unique to a single
 // performance result.
 type APIPerformanceResultInfo struct {
-	Project   APIString        `json:"project"`
-	Version   APIString        `json:"version"`
+	Project   *string          `json:"project"`
+	Version   *string          `json:"version"`
 	Order     int              `json:"order"`
-	Variant   APIString        `json:"variant"`
-	TaskName  APIString        `json:"task_name"`
-	TaskID    APIString        `json:"task_id"`
+	Variant   *string          `json:"variant"`
+	TaskName  *string          `json:"task_name"`
+	TaskID    *string          `json:"task_id"`
 	Execution int              `json:"execution"`
-	TestName  APIString        `json:"test_name"`
+	TestName  *string          `json:"test_name"`
 	Trial     int              `json:"trial"`
-	Parent    APIString        `json:"parent"`
+	Parent    *string          `json:"parent"`
 	Tags      []string         `json:"tags"`
 	Arguments map[string]int32 `json:"args"`
 }
 
 func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceResultInfo {
 	return APIPerformanceResultInfo{
-		Project:   ToAPIString(r.Project),
-		Version:   ToAPIString(r.Version),
+		Project:   utility.ToStringPtr(r.Project),
+		Version:   utility.ToStringPtr(r.Version),
 		Order:     r.Order,
-		Variant:   ToAPIString(r.Variant),
-		TaskName:  ToAPIString(r.TaskName),
-		TaskID:    ToAPIString(r.TaskID),
+		Variant:   utility.ToStringPtr(r.Variant),
+		TaskName:  utility.ToStringPtr(r.TaskName),
+		TaskID:    utility.ToStringPtr(r.TaskID),
 		Execution: r.Execution,
-		TestName:  ToAPIString(r.TestName),
+		TestName:  utility.ToStringPtr(r.TestName),
 		Trial:     r.Trial,
-		Parent:    ToAPIString(r.Parent),
+		Parent:    utility.ToStringPtr(r.Parent),
 		Tags:      r.Tags,
 		Arguments: r.Arguments,
 	}
@@ -87,30 +88,30 @@ func getPerformanceResultInfo(r dbmodel.PerformanceResultInfo) APIPerformanceRes
 // storage, and is the bridge between pail-backed offline-storage and the
 // cedar-based metadata storage.
 type APIArtifactInfo struct {
-	Type        APIString `json:"type"`
-	Bucket      APIString `json:"bucket"`
-	Prefix      APIString `json:"prefix"`
-	Path        APIString `json:"path"`
-	Format      APIString `json:"format"`
-	Compression APIString `json:"compression"`
-	Schema      APIString `json:"schema"`
-	Tags        []string  `json:"tags"`
-	CreatedAt   APITime   `json:"created_at"`
-	DownloadURL APIString `json:"download_url"`
+	Type        *string  `json:"type"`
+	Bucket      *string  `json:"bucket"`
+	Prefix      *string  `json:"prefix"`
+	Path        *string  `json:"path"`
+	Format      *string  `json:"format"`
+	Compression *string  `json:"compression"`
+	Schema      *string  `json:"schema"`
+	Tags        []string `json:"tags"`
+	CreatedAt   APITime  `json:"created_at"`
+	DownloadURL *string  `json:"download_url"`
 }
 
 func getArtifactInfo(r dbmodel.ArtifactInfo) APIArtifactInfo {
 	return APIArtifactInfo{
-		Type:        ToAPIString(string(r.Type)),
-		Bucket:      ToAPIString(r.Bucket),
-		Prefix:      ToAPIString(r.Prefix),
-		Path:        ToAPIString(r.Path),
-		Format:      ToAPIString(string(r.Format)),
-		Compression: ToAPIString(string(r.Compression)),
-		Schema:      ToAPIString(string(r.Schema)),
+		Type:        utility.ToStringPtr(string(r.Type)),
+		Bucket:      utility.ToStringPtr(r.Bucket),
+		Prefix:      utility.ToStringPtr(r.Prefix),
+		Path:        utility.ToStringPtr(r.Path),
+		Format:      utility.ToStringPtr(string(r.Format)),
+		Compression: utility.ToStringPtr(string(r.Compression)),
+		Schema:      utility.ToStringPtr(string(r.Schema)),
 		Tags:        r.Tags,
 		CreatedAt:   NewTime(r.CreatedAt),
-		DownloadURL: ToAPIString(r.GetDownloadURL()),
+		DownloadURL: utility.ToStringPtr(r.GetDownloadURL()),
 	}
 }
 
@@ -124,7 +125,7 @@ type APIPerfRollups struct {
 // APIPerfRollupValue describes a single "rollup", see APIPerfRollups for more
 // information.
 type APIPerfRollupValue struct {
-	Name          APIString   `json:"name"`
+	Name          *string     `json:"name"`
 	Value         interface{} `json:"val"`
 	Version       int         `json:"version"`
 	UserSubmitted bool        `json:"user"`
@@ -152,7 +153,7 @@ func getAnalysis(r dbmodel.PerfAnalysis) APIPerfAnalysis {
 
 func getPerfRollupValue(r dbmodel.PerfRollupValue) APIPerfRollupValue {
 	return APIPerfRollupValue{
-		Name:          ToAPIString(r.Name),
+		Name:          utility.ToStringPtr(r.Name),
 		Value:         r.Value,
 		Version:       r.Version,
 		UserSubmitted: r.UserSubmitted,

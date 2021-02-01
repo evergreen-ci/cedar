@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,16 +38,16 @@ func TestImportHelperFunctions(t *testing.T) {
 				Schema: 1,
 			},
 			expectedOutput: APIPerformanceResultInfo{
-				Project:   ToAPIString("project"),
-				Version:   ToAPIString("version"),
+				Project:   utility.ToStringPtr("project"),
+				Version:   utility.ToStringPtr("version"),
 				Order:     1,
-				TaskName:  ToAPIString("taskname"),
-				TaskID:    ToAPIString("taskid"),
+				TaskName:  utility.ToStringPtr("taskname"),
+				TaskID:    utility.ToStringPtr("taskid"),
 				Execution: 1,
-				TestName:  ToAPIString("testname"),
-				Variant:   ToAPIString("foo"),
+				TestName:  utility.ToStringPtr("testname"),
+				Variant:   utility.ToStringPtr("foo"),
 				Trial:     1,
-				Parent:    ToAPIString("parent"),
+				Parent:    utility.ToStringPtr("parent"),
 				Tags:      []string{"tag0", "tag1", "tag2"},
 				Arguments: map[string]int32{
 					"argument0": 0,
@@ -69,13 +70,13 @@ func TestImportHelperFunctions(t *testing.T) {
 				CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 			},
 			expectedOutput: &APIArtifactInfo{
-				Type:        ToAPIString(string(dbmodel.PailS3)),
-				Bucket:      ToAPIString("bucket"),
-				Prefix:      ToAPIString("prefix"),
-				Path:        ToAPIString("path"),
-				Format:      ToAPIString(string(dbmodel.FileFTDC)),
-				Compression: ToAPIString(string(dbmodel.FileZip)),
-				Schema:      ToAPIString(string(dbmodel.SchemaCollapsedEvents)),
+				Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
+				Bucket:      utility.ToStringPtr("bucket"),
+				Prefix:      utility.ToStringPtr("prefix"),
+				Path:        utility.ToStringPtr("path"),
+				Format:      utility.ToStringPtr(string(dbmodel.FileFTDC)),
+				Compression: utility.ToStringPtr(string(dbmodel.FileZip)),
+				Schema:      utility.ToStringPtr(string(dbmodel.SchemaCollapsedEvents)),
 				Tags:        []string{"tag0", "tag1", "tag2"},
 				CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 			},
@@ -88,7 +89,7 @@ func TestImportHelperFunctions(t *testing.T) {
 				Version: 1,
 			},
 			expectedOutput: APIPerfRollupValue{
-				Name:    ToAPIString("name"),
+				Name:    utility.ToStringPtr("name"),
 				Value:   "value",
 				Version: 1,
 			},
@@ -119,18 +120,18 @@ func TestImportHelperFunctions(t *testing.T) {
 			expectedOutput: APIPerfRollups{
 				Stats: []APIPerfRollupValue{
 					APIPerfRollupValue{
-						Name:    ToAPIString("stat0"),
+						Name:    utility.ToStringPtr("stat0"),
 						Value:   "value0",
 						Version: 1,
 					},
 					APIPerfRollupValue{
-						Name:          ToAPIString("stat1"),
+						Name:          utility.ToStringPtr("stat1"),
 						Value:         "value1",
 						Version:       2,
 						UserSubmitted: true,
 					},
 					APIPerfRollupValue{
-						Name:    ToAPIString("stat2"),
+						Name:    utility.ToStringPtr("stat2"),
 						Value:   "value2",
 						Version: 3,
 					},
@@ -147,7 +148,7 @@ func TestImportHelperFunctions(t *testing.T) {
 			case dbmodel.ArtifactInfo:
 				output = getArtifactInfo(i)
 				expected := test.expectedOutput.(*APIArtifactInfo)
-				expected.DownloadURL = ToAPIString(i.GetDownloadURL())
+				expected.DownloadURL = utility.ToStringPtr(i.GetDownloadURL())
 				test.expectedOutput = *expected
 			case dbmodel.PerfRollupValue:
 				output = getPerfRollupValue(i)
@@ -252,18 +253,18 @@ func TestImport(t *testing.T) {
 				},
 			},
 			expected: APIPerformanceResult{
-				Name: ToAPIString("ID"),
+				Name: utility.ToStringPtr("ID"),
 				Info: APIPerformanceResultInfo{
-					Project:   ToAPIString("project"),
-					Version:   ToAPIString("version"),
+					Project:   utility.ToStringPtr("project"),
+					Version:   utility.ToStringPtr("version"),
 					Order:     1,
-					TaskName:  ToAPIString("taskname"),
-					TaskID:    ToAPIString("taskid"),
+					TaskName:  utility.ToStringPtr("taskname"),
+					TaskID:    utility.ToStringPtr("taskid"),
 					Execution: 1,
-					TestName:  ToAPIString("testname"),
+					TestName:  utility.ToStringPtr("testname"),
 					Trial:     1,
-					Variant:   ToAPIString(""),
-					Parent:    ToAPIString("parent"),
+					Variant:   utility.ToStringPtr(""),
+					Parent:    utility.ToStringPtr("parent"),
 					Tags:      []string{"tag0", "tag1", "tag2"},
 					Arguments: map[string]int32{
 						"argument0": 0,
@@ -275,35 +276,35 @@ func TestImport(t *testing.T) {
 				CompletedAt: NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				Artifacts: []APIArtifactInfo{
 					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailS3)),
-						Bucket:      ToAPIString("bucket0"),
-						Prefix:      ToAPIString(""),
-						Path:        ToAPIString("path0"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
+						Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
+						Bucket:      utility.ToStringPtr("bucket0"),
+						Prefix:      utility.ToStringPtr(""),
+						Path:        utility.ToStringPtr("path0"),
+						Format:      utility.ToStringPtr(string(dbmodel.FileFTDC)),
+						Compression: utility.ToStringPtr(string(dbmodel.FileZip)),
+						Schema:      utility.ToStringPtr(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailS3)),
-						Bucket:      ToAPIString("bucket1"),
-						Prefix:      ToAPIString("prefix1"),
-						Path:        ToAPIString("path1"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
+						Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
+						Bucket:      utility.ToStringPtr("bucket1"),
+						Prefix:      utility.ToStringPtr("prefix1"),
+						Path:        utility.ToStringPtr("path1"),
+						Format:      utility.ToStringPtr(string(dbmodel.FileFTDC)),
+						Compression: utility.ToStringPtr(string(dbmodel.FileZip)),
+						Schema:      utility.ToStringPtr(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
 					APIArtifactInfo{
-						Type:        ToAPIString(string(dbmodel.PailS3)),
-						Bucket:      ToAPIString("bucket2"),
-						Prefix:      ToAPIString("prefix2"),
-						Path:        ToAPIString("path2"),
-						Format:      ToAPIString(string(dbmodel.FileFTDC)),
-						Compression: ToAPIString(string(dbmodel.FileZip)),
-						Schema:      ToAPIString(string(dbmodel.SchemaRawEvents)),
+						Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
+						Bucket:      utility.ToStringPtr("bucket2"),
+						Prefix:      utility.ToStringPtr("prefix2"),
+						Path:        utility.ToStringPtr("path2"),
+						Format:      utility.ToStringPtr(string(dbmodel.FileFTDC)),
+						Compression: utility.ToStringPtr(string(dbmodel.FileZip)),
+						Schema:      utility.ToStringPtr(string(dbmodel.SchemaRawEvents)),
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   NewTime(time.Date(2015, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
@@ -311,17 +312,17 @@ func TestImport(t *testing.T) {
 				Rollups: APIPerfRollups{
 					Stats: []APIPerfRollupValue{
 						APIPerfRollupValue{
-							Name:    ToAPIString("stat0"),
+							Name:    utility.ToStringPtr("stat0"),
 							Value:   "value0",
 							Version: 1,
 						},
 						APIPerfRollupValue{
-							Name:    ToAPIString("stat1"),
+							Name:    utility.ToStringPtr("stat1"),
 							Value:   "value1",
 							Version: 2,
 						},
 						APIPerfRollupValue{
-							Name:    ToAPIString("stat2"),
+							Name:    utility.ToStringPtr("stat2"),
 							Value:   "value2",
 							Version: 3,
 						},
@@ -348,7 +349,7 @@ func TestImport(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				for i := range test.expected.Artifacts {
-					test.expected.Artifacts[i].DownloadURL = ToAPIString(test.input.(dbmodel.PerformanceResult).Artifacts[i].GetDownloadURL())
+					test.expected.Artifacts[i].DownloadURL = utility.ToStringPtr(test.input.(dbmodel.PerformanceResult).Artifacts[i].GetDownloadURL())
 				}
 			}
 			assert.Equal(t, test.expected, apiPerformanceResult)

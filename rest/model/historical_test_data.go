@@ -4,16 +4,17 @@ import (
 	"strings"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 )
 
 // APIAggregatedHistoricalTestData describes aggregated test result data for a
 // given date range.
 type APIAggregatedHistoricalTestData struct {
-	TestName APIString `json:"test_name"`
-	TaskName APIString `json:"task_name,omitempty"`
-	Variant  APIString `json:"variant,omitempty"`
-	Date     APITime   `json:"date"`
+	TestName *string `json:"test_name"`
+	TaskName *string `json:"task_name,omitempty"`
+	Variant  *string `json:"variant,omitempty"`
+	Date     APITime `json:"date"`
 
 	NumPass         int     `json:"num_pass"`
 	NumFail         int     `json:"num_fail"`
@@ -25,9 +26,9 @@ type APIAggregatedHistoricalTestData struct {
 func (a *APIAggregatedHistoricalTestData) Import(i interface{}) error {
 	switch hd := i.(type) {
 	case dbmodel.AggregatedHistoricalTestData:
-		a.TestName = ToAPIString(hd.TestName)
-		a.TaskName = ToAPIString(hd.TaskName)
-		a.Variant = ToAPIString(hd.Variant)
+		a.TestName = utility.ToStringPtr(hd.TestName)
+		a.TaskName = utility.ToStringPtr(hd.TaskName)
+		a.Variant = utility.ToStringPtr(hd.Variant)
 		a.Date = NewTime(hd.Date)
 		a.NumPass = hd.NumPass
 		a.NumFail = hd.NumFail
@@ -43,9 +44,9 @@ func (a *APIAggregatedHistoricalTestData) Import(i interface{}) error {
 func (a *APIAggregatedHistoricalTestData) StartAtKey() string {
 	return HTDStartAtKey{
 		date:     a.Date.String(),
-		variant:  FromAPIString(a.Variant),
-		taskName: FromAPIString(a.TaskName),
-		testName: FromAPIString(a.TestName),
+		variant:  utility.FromStringPtr(a.Variant),
+		taskName: utility.FromStringPtr(a.TaskName),
+		testName: utility.FromStringPtr(a.TestName),
 	}.String()
 }
 

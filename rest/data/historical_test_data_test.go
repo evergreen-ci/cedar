@@ -20,17 +20,17 @@ func TestHistoricalTestDataConnectorDB(t *testing.T) {
 	t.Run("GetHistoricalTestData", func(t *testing.T) {
 		expected := []model.APIAggregatedHistoricalTestData{
 			{
-				TestName:        model.ToAPIString("test1"),
-				TaskName:        model.ToAPIString("task1"),
-				Variant:         model.ToAPIString("v1"),
+				TestName:        utility.ToStringPtr("test1"),
+				TaskName:        utility.ToStringPtr("task1"),
+				Variant:         utility.ToStringPtr("v1"),
 				Date:            model.NewTime(utility.GetUTCDay(time.Now())),
 				NumPass:         1,
 				AverageDuration: time.Second.Seconds(),
 			},
 			{
-				TestName:        model.ToAPIString("test2"),
-				TaskName:        model.ToAPIString("task2"),
-				Variant:         model.ToAPIString("v1"),
+				TestName:        utility.ToStringPtr("test2"),
+				TaskName:        utility.ToStringPtr("task2"),
+				Variant:         utility.ToStringPtr("v1"),
 				Date:            model.NewTime(utility.GetUTCDay(time.Now())),
 				NumPass:         1,
 				AverageDuration: time.Second.Seconds(),
