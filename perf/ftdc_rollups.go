@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const maxDurationsSize = 250000000
+
 type PerformanceStatistics struct {
 	counters struct {
 		operationsTotal int64
@@ -72,9 +74,9 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 					extractValues(convertToFloats(metric.Values), lastValue)...,
 				)
 				// In order to avoid memory panics, reject
-				// anything larger than 4GB.
-				if len(perfStats.timers.extractedDurations) > 500000000 {
-					return nil, errors.New("size of ftdc file exceeds 4GB")
+				// anything larger than 2GB.
+				if len(perfStats.timers.extractedDurations) > maxDurationsSize {
+					return nil, errors.New("size of ftdc file exceeds 2GB")
 				}
 				lastValue = float64(metric.Values[len(metric.Values)-1])
 				perfStats.timers.durationTotal = time.Duration(metric.Values[len(metric.Values)-1])
