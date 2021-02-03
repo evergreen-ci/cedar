@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -25,6 +26,8 @@ type serviceConf struct {
 	bucket      string
 	dbName      string
 	queueName   string
+	dbUser      string
+	dbPwd       string
 }
 
 func (c *serviceConf) export() *cedar.Configuration {
@@ -35,6 +38,8 @@ func (c *serviceConf) export() *cedar.Configuration {
 		MongoDBURI:         c.mongodbURI,
 		DisableRemoteQueue: c.localQueue,
 		NumWorkers:         c.numWorkers,
+		DBUser:             c.dbUser,
+		DBPwd:              c.dbPwd,
 	}
 }
 
@@ -131,11 +136,15 @@ func (c *serviceConf) setup(ctx context.Context) error {
 }
 
 func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) *serviceConf {
+	envUser := os.Getenv("MONGO_USER")
+	envPwd := os.Getenv("MONGO_PWD")
 	return &serviceConf{
 		numWorkers: numWorkers,
 		localQueue: localQueue,
 		mongodbURI: mongodbURI,
 		bucket:     bucket,
 		dbName:     dbName,
+		dbUser:     envUser,
+		dbPwd:      envPwd,
 	}
 }
