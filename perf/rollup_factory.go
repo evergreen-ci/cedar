@@ -14,11 +14,11 @@ type RollupFactory interface {
 	Calc(*PerformanceStatistics, bool) []model.PerfRollupValue
 }
 
+// TODO: Should this be a registry?
 var rollupsMap = map[string]RollupFactory{
 	latencyAverageName:      &latencyAverage{},
 	sizeAverageName:         &sizeAverage{},
 	operationThroughputName: &operationThroughput{},
-	documentThroughputName:  &documentThroughput{},
 	sizeThroughputName:      &sizeThroughput{},
 	errorThroughputName:     &errorThroughput{},
 	latencyPercentileName:   &latencyPercentile{},
@@ -27,11 +27,11 @@ var rollupsMap = map[string]RollupFactory{
 	durationSumName:         &durationSum{},
 	errorsSumName:           &errorsSum{},
 	operationsSumName:       &operationsSum{},
-	documentsSumName:        &documentsSum{},
 	sizeSumName:             &sizeSum{},
 	overheadSumName:         &overheadSum{},
 }
 
+// TODO: Which function of the two following is better?
 func RollupsMap() map[string]RollupFactory {
 	return rollupsMap
 }
@@ -44,7 +44,6 @@ var defaultRollups = []RollupFactory{
 	&latencyAverage{},
 	&sizeAverage{},
 	&operationThroughput{},
-	&documentThroughput{},
 	&sizeThroughput{},
 	&errorThroughput{},
 	&latencyPercentile{},
@@ -53,7 +52,6 @@ var defaultRollups = []RollupFactory{
 	&durationSum{},
 	&errorsSum{},
 	&operationsSum{},
-	&documentsSum{},
 	&sizeSum{},
 	&overheadSum{},
 }
@@ -136,31 +134,6 @@ func (f *operationThroughput) Calc(s *PerformanceStatistics, user bool) []model.
 
 	if s.timers.totalWallTime > 0 {
 		rollup.Value = float64(s.counters.operationsTotal) / s.timers.totalWallTime.Seconds()
-	}
-
-	return []model.PerfRollupValue{rollup}
-}
-
-type documentThroughput struct{}
-
-const (
-	documentThroughputName    = "DocumentThroughput"
-	documentThroughputVersion = 0
-)
-
-func (f *documentThroughput) Type() string    { return documentThroughputName }
-func (f *documentThroughput) Names() []string { return []string{documentThroughputName} }
-func (f *documentThroughput) Version() int    { return documentThroughputVersion }
-func (f *documentThroughput) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	rollup := model.PerfRollupValue{
-		Name:          documentThroughputName,
-		Version:       documentThroughputVersion,
-		MetricType:    model.MetricTypeThroughput,
-		UserSubmitted: user,
-	}
-
-	if s.timers.totalWallTime > 0 {
-		rollup.Value = float64(s.counters.documentsTotal) / s.timers.totalWallTime.Seconds()
 	}
 
 	return []model.PerfRollupValue{rollup}
@@ -422,28 +395,6 @@ func (f *operationsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 			Name:          operationsSumName,
 			Value:         s.counters.operationsTotal,
 			Version:       operationsSumVersion,
-			MetricType:    model.MetricTypeSum,
-			UserSubmitted: user,
-		},
-	}
-}
-
-type documentsSum struct{}
-
-const (
-	documentsSumName    = "DocumentsTotal"
-	documentsSumVersion = 0
-)
-
-func (f *documentsSum) Type() string    { return documentsSumName }
-func (f *documentsSum) Names() []string { return []string{documentsSumName} }
-func (f *documentsSum) Version() int    { return documentsSumVersion }
-func (f *documentsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
-	return []model.PerfRollupValue{
-		model.PerfRollupValue{
-			Name:          documentsSumName,
-			Value:         s.counters.documentsTotal,
-			Version:       documentsSumVersion,
 			MetricType:    model.MetricTypeSum,
 			UserSubmitted: user,
 		},
