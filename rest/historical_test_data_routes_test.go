@@ -90,6 +90,7 @@ func TestHTDDataHandlerRun(t *testing.T) {
 	require.NoError(t, lastDoc.Import(sc.CachedHistoricalTestData[2]))
 	assert.Equal(t, lastDoc.StartAtKey(), resp.Pages().Next.Key)
 
+	// no data
 	sc.CachedHistoricalTestData = []dbModel.AggregatedHistoricalTestData{}
 	resp = handler.Run(context.Background())
 	require.NotNil(t, resp)
