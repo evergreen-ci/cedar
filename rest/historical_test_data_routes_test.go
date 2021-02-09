@@ -76,19 +76,25 @@ func TestHTDDataHandlerRun(t *testing.T) {
 
 	handler.filter = dbModel.HistoricalTestDataFilter{Limit: 4}
 	resp := handler.Run(context.Background())
-	assert.NotNil(t, resp)
+	require.NotNil(t, resp)
 	assert.Equal(t, http.StatusOK, resp.Status())
 	assert.Nil(t, resp.Pages())
 
 	// pagination
 	handler.filter = dbModel.HistoricalTestDataFilter{Limit: 3}
 	resp = handler.Run(context.Background())
-	assert.NotNil(t, resp)
+	require.NotNil(t, resp)
 	assert.Equal(t, http.StatusOK, resp.Status())
 	assert.NotNil(t, resp.Pages())
 	lastDoc := model.APIAggregatedHistoricalTestData{}
 	require.NoError(t, lastDoc.Import(sc.CachedHistoricalTestData[2]))
 	assert.Equal(t, lastDoc.StartAtKey(), resp.Pages().Next.Key)
+
+	sc.CachedHistoricalTestData = []dbModel.AggregatedHistoricalTestData{}
+	resp = handler.Run(context.Background())
+	require.NotNil(t, resp)
+	assert.Equal(t, http.StatusNotFound, resp.Status())
+	assert.Nil(t, resp.Data)
 }
 
 func TestHTDReadStartAt(t *testing.T) {

@@ -85,6 +85,12 @@ func (h *historicalTestDataHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem to fetching historical test data"))
 	}
+	if len(data) == 0 {
+		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
+			Message:    "No historical test data found",
+			StatusCode: http.StatusNotFound,
+		})
+	}
 
 	resp := gimlet.NewJSONResponse(nil)
 	requestLimit := h.filter.Limit - 1
