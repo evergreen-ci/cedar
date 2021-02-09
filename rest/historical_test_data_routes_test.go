@@ -95,7 +95,6 @@ func TestHTDDataHandlerRun(t *testing.T) {
 	resp = handler.Run(context.Background())
 	require.NotNil(t, resp)
 	assert.Equal(t, http.StatusNotFound, resp.Status())
-	assert.Nil(t, resp.Data())
 }
 
 func TestHTDReadStartAt(t *testing.T) {
