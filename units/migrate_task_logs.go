@@ -3,11 +3,10 @@ package units
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/perf"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -51,11 +50,11 @@ func makeMigrateTaskLogsJob() *migrateTaskLogsJob {
 	return j
 }
 
-func NewMigrateTaskLogsJob(factories []perf.RollupFactory) amboy.Job {
+func NewMigrateTaskLogsJob() amboy.Job {
 	j := makeMigrateTaskLogsJob()
 
-	// TODO: round this down to hour?
-	j.SetID(fmt.Sprintf("%s.%s", migrateTaskLogsJobName, time.Now()))
+	ts := utility.RoundPartOfMinute(0).Format(tsFormat)
+	j.SetID(fmt.Sprintf("%s.%s", migrateTaskLogsJobName, ts))
 
 	return j
 }
