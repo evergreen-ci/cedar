@@ -985,6 +985,7 @@ func TestBuildloggerMerge(t *testing.T) {
 	})
 }
 
+// TODO: Remove this test once the task log migration is complete (EVG-13831).
 func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
