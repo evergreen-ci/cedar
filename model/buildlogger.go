@@ -616,6 +616,11 @@ func findOutdatedTaskLogs(ctx context.Context, env cedar.Environment) ([]Log, er
 	if err := conf.Find(); err != nil {
 		return nil, errors.WithStack(err)
 	}
+	limit := conf.LogMigrationLimit
+	if limit <= 0 {
+		// Default limit to 1000.
+		limit = 1000
+	}
 
 	query := bson.M{
 		bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey): bson.M{
