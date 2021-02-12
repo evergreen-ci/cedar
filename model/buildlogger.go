@@ -563,3 +563,93 @@ func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 
 	return NewMergingIterator(iterators...), nil
 }
+
+// TODO: Remove the following once task log migration is complete (EVG-13831).
+const (
+	// Task log types.
+	AgentLog  = "agent_log"
+	TaskLog   = "task_log"
+	SystemLog = "system_log"
+)
+
+// FindAndUpdateOutdatedTaskLogs finds evergreen task logs in the database
+// with the log type (agent, system, or task) in the info.proc_name field and
+// updates those documents to have the log type in the tags array.
+func FindAndUpdateOutdatedTaskLogs(ctx context.Context, env cedar.Environment) error {
+	if env == nil {
+		return errors.New("cannot find and update outdated task logs with a nil env")
+	}
+
+	logs, err := findOutdatedTaskLogs(ctx, env)
+	if err != nil {
+		return err
+	}
+
+	var (
+		agentLogs  []string
+		taskLogs   []string
+		systemLogs []string
+	)
+	for _, log := range logs {
+		switch log.Info.ProcessName {
+		case AgentLog:
+			agentLogs = append(agentLogs, log.ID)
+		case TaskLog:
+			taskLogs = append(taskLogs, log.ID)
+		case SystemLog:
+			systemLogs = append(systemLogs, log.ID)
+		}
+	}
+
+	if err = updateOutdatedTaskLogs(ctx, env, agentLogs, AgentLog); err != nil {
+		return err
+	}
+	if err = updateOutdatedTaskLogs(ctx, env, taskLogs, TaskLog); err != nil {
+		return err
+	}
+	return updateOutdatedTaskLogs(ctx, env, systemLogs, SystemLog)
+}
+
+func findOutdatedTaskLogs(ctx context.Context, env cedar.Environment) ([]Log, error) {
+	conf := &CedarConfig{}
+	conf.Setup(env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	query := bson.M{
+		bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey): bson.M{
+			"$in": []string{AgentLog, TaskLog, SystemLog},
+		},
+		bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): bson.M{
+			"$nin": []string{AgentLog, TaskLog, SystemLog},
+		},
+	}
+	opts := options.Find().SetLimit(conf.LogMigrationLimit)
+	it, err := env.GetDB().Collection(buildloggerCollection).Find(ctx, query, opts)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var logs []Log
+	if err = it.All(ctx, &logs); err != nil {
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(errors.WithStack(err))
+		catcher.Add(errors.WithStack(it.Close(ctx)))
+		return nil, catcher.Resolve()
+	} else if err = it.Close(ctx); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return logs, nil
+}
+
+func updateOutdatedTaskLogs(ctx context.Context, env cedar.Environment, ids []string, logType string) error {
+	match := bson.M{"_id": bson.M{"$in": ids}}
+	update := bson.M{"$push": bson.M{
+		bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): logType,
+	}}
+	_, err := env.GetDB().Collection(buildloggerCollection).UpdateMany(ctx, match, update)
+
+	return errors.WithStack(err)
+}
