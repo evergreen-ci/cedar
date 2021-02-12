@@ -10,6 +10,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip/level"
@@ -981,6 +982,137 @@ func TestBuildloggerMerge(t *testing.T) {
 
 		assert.Equal(t, NewMergingIterator(it1, it2), it)
 		assert.NoError(t, it.Close())
+	})
+}
+
+func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
+	env := cedar.GetEnvironment()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	db := env.GetDB()
+	defer func() {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+
+	logs := []interface{}{
+		&Log{
+			ID: "one",
+			Info: LogInfo{
+				ProcessName: AgentLog,
+				Tags:        []string{"tag1", "tag2", "tag3"},
+			},
+		},
+		&Log{
+			ID: "two",
+			Info: LogInfo{
+				ProcessName: AgentLog,
+			},
+		},
+		&Log{
+			ID: "three",
+			Info: LogInfo{
+				ProcessName: AgentLog,
+				Tags:        []string{"tag1"},
+			},
+		},
+		&Log{
+			ID: "four",
+			Info: LogInfo{
+				ProcessName: TaskLog,
+				Tags:        []string{"tag1", "tag2", "tag3"},
+			},
+		},
+		&Log{
+			ID: "five",
+			Info: LogInfo{
+				ProcessName: TaskLog,
+			},
+		},
+		&Log{
+			ID: "six",
+			Info: LogInfo{
+				ProcessName: TaskLog,
+				Tags:        []string{"tag1"},
+			},
+		},
+		&Log{
+			ID: "seven",
+			Info: LogInfo{
+				ProcessName: SystemLog,
+				Tags:        []string{"tag1", "tag2", "tag3"},
+			},
+		},
+		&Log{
+			ID: "eight",
+			Info: LogInfo{
+				ProcessName: SystemLog,
+			},
+		},
+		&Log{
+			ID: "nine",
+			Info: LogInfo{
+				ProcessName: SystemLog,
+				Tags:        []string{"tag1"},
+			},
+		},
+	}
+
+	t.Run("NoEnv", func(t *testing.T) {
+		assert.Error(t, FindAndUpdateOutdatedTaskLogs(ctx, nil))
+	})
+	t.Run("NoConfig", func(t *testing.T) {
+		assert.Error(t, FindAndUpdateOutdatedTaskLogs(ctx, env))
+	})
+	conf := &CedarConfig{
+		populated: true,
+	}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("DefaultLimit", func(t *testing.T) {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+		_, err := db.Collection(buildloggerCollection).InsertMany(ctx, logs)
+		require.NoError(t, err)
+
+		require.NoError(t, FindAndUpdateOutdatedTaskLogs(ctx, env))
+		var updatedLogs []Log
+		it, err := db.Collection(buildloggerCollection).Find(ctx, bson.M{})
+		require.NoError(t, err)
+		defer func() {
+			assert.NoError(t, it.Close(ctx))
+		}()
+		require.NoError(t, it.All(ctx, &updatedLogs))
+		require.Len(t, updatedLogs, 9)
+
+		for _, log := range updatedLogs {
+			assert.True(t, utility.StringSliceContains(log.Info.Tags, log.Info.ProcessName))
+		}
+	})
+	t.Run("WithLimit", func(t *testing.T) {
+		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
+		_, err := db.Collection(buildloggerCollection).InsertMany(ctx, logs)
+		require.NoError(t, err)
+		conf.LogMigrationLimit = 3
+		conf.Setup(env)
+		require.NoError(t, conf.Save())
+
+		require.NoError(t, FindAndUpdateOutdatedTaskLogs(ctx, env))
+		var updatedLogs []Log
+		it, err := db.Collection(buildloggerCollection).Find(ctx, bson.M{})
+		require.NoError(t, err)
+		defer func() {
+			assert.NoError(t, it.Close(ctx))
+		}()
+		require.NoError(t, it.All(ctx, &updatedLogs))
+		require.Len(t, updatedLogs, 9)
+
+		count := 0
+		for _, log := range updatedLogs {
+			if utility.StringSliceContains(log.Info.Tags, log.Info.ProcessName) {
+				count += 1
+			}
+		}
+		assert.Equal(t, 3, count)
 	})
 }
 

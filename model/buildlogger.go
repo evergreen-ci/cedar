@@ -650,6 +650,10 @@ func findOutdatedTaskLogs(ctx context.Context, env cedar.Environment) ([]Log, er
 }
 
 func updateOutdatedTaskLogs(ctx context.Context, env cedar.Environment, ids []string, logType string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
 	match := bson.M{"_id": bson.M{"$in": ids}}
 	update := bson.M{"$push": bson.M{
 		bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): logType,
