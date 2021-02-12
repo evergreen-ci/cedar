@@ -27,9 +27,10 @@ const (
 )
 
 type migrateTaskLogsJob struct {
+	Limit    int64 `bson:"limit" json:"limit" yaml:"limit"`
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env      cedar.Environment
-	queue    amboy.Queue
+
+	env cedar.Environment
 }
 
 func init() {
@@ -50,13 +51,19 @@ func makeMigrateTaskLogsJob() *migrateTaskLogsJob {
 	return j
 }
 
-func NewMigrateTaskLogsJob() amboy.Job {
+func NewMigrateTaskLogsJob(limit int64) (amboy.Job, error) {
+	if limit <= 0 {
+		return nil, errors.New("task log migration limit must be greater than 0")
+	}
+
 	j := makeMigrateTaskLogsJob()
 
 	ts := utility.RoundPartOfMinute(0).Format(tsFormat)
 	j.SetID(fmt.Sprintf("%s.%s", migrateTaskLogsJobName, ts))
+	j.SetScopes([]string{migrateTaskLogsJobName})
+	j.Limit = limit
 
-	return j
+	return j, nil
 }
 
 func (j *migrateTaskLogsJob) Run(ctx context.Context) {
@@ -65,10 +72,7 @@ func (j *migrateTaskLogsJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-	if j.queue == nil {
-		j.queue = j.env.GetRemoteQueue()
-	}
 
-	j.AddError(errors.Wrap(model.FindAndUpdateOutdatedTaskLogs(ctx, j.env),
+	j.AddError(errors.Wrap(model.FindAndUpdateOutdatedTaskLogs(ctx, j.env, j.Limit),
 		"problem finding and updating outdated task logs"))
 }

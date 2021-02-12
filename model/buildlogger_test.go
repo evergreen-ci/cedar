@@ -993,7 +993,6 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 	db := env.GetDB()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
 
 	logs := []interface{}{
@@ -1060,22 +1059,14 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 	}
 
 	t.Run("NoEnv", func(t *testing.T) {
-		assert.Error(t, FindAndUpdateOutdatedTaskLogs(ctx, nil))
+		assert.Error(t, FindAndUpdateOutdatedTaskLogs(ctx, nil, 1000))
 	})
-	t.Run("NoConfig", func(t *testing.T) {
-		assert.Error(t, FindAndUpdateOutdatedTaskLogs(ctx, env))
-	})
-	conf := &CedarConfig{
-		populated: true,
-	}
-	conf.Setup(env)
-	require.NoError(t, conf.Save())
-	t.Run("DefaultLimit", func(t *testing.T) {
+	t.Run("BigLimit", func(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 		_, err := db.Collection(buildloggerCollection).InsertMany(ctx, logs)
 		require.NoError(t, err)
 
-		require.NoError(t, FindAndUpdateOutdatedTaskLogs(ctx, env))
+		require.NoError(t, FindAndUpdateOutdatedTaskLogs(ctx, env, 1000))
 		var updatedLogs []Log
 		it, err := db.Collection(buildloggerCollection).Find(ctx, bson.M{})
 		require.NoError(t, err)
@@ -1089,15 +1080,12 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 			assert.True(t, utility.StringSliceContains(log.Info.Tags, log.Info.ProcessName))
 		}
 	})
-	t.Run("WithLimit", func(t *testing.T) {
+	t.Run("SmallLimit", func(t *testing.T) {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
 		_, err := db.Collection(buildloggerCollection).InsertMany(ctx, logs)
 		require.NoError(t, err)
-		conf.LogMigrationLimit = 3
-		conf.Setup(env)
-		require.NoError(t, conf.Save())
 
-		require.NoError(t, FindAndUpdateOutdatedTaskLogs(ctx, env))
+		require.NoError(t, FindAndUpdateOutdatedTaskLogs(ctx, env, 3))
 		var updatedLogs []Log
 		it, err := db.Collection(buildloggerCollection).Find(ctx, bson.M{})
 		require.NoError(t, err)
