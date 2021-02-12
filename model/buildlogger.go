@@ -630,7 +630,7 @@ func findOutdatedTaskLogs(ctx context.Context, env cedar.Environment) ([]Log, er
 			"$nin": []string{AgentLog, TaskLog, SystemLog},
 		},
 	}
-	opts := options.Find().SetLimit(conf.LogMigrationLimit)
+	opts := options.Find().SetLimit(limit)
 	it, err := env.GetDB().Collection(buildloggerCollection).Find(ctx, query, opts)
 	if err != nil {
 		return nil, errors.WithStack(err)
