@@ -2,7 +2,6 @@ package units
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -42,7 +41,7 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 }
 
 func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, [][]int) {
-	// Deterministic testing on failure.
+	// deterministic testing on failure
 	grip.Debug("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
 	rand.Seed(seed)
 	numTimeSeries := rand.Intn(10) + 1
@@ -50,12 +49,12 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 	timeSeriesChangePoints := make([][]int, numTimeSeries)
 	timeSeries := make([][]int, numTimeSeries)
 
-	// Generate series of random length in range [100, 300].
+	// generate series of random length in range [100, 300]
 	for i := 0; i < numTimeSeries; i++ {
 		timeSeriesLengths[i] = rand.Intn(201) + 100
 	}
 
-	// Sprinkle in some random change points.
+	// sprinkle in some random change points
 	for measurement, length := range timeSeriesLengths {
 		remainingPoints := length
 		for remainingPoints > 0 {
@@ -63,15 +62,14 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 				remainingPoints = 0
 				continue
 			}
-			// Make sure there are 10 points on either side of the
-			// change point.
+			// make sure there are 10 points on either side of the cp
 			changePoint := rand.Intn(remainingPoints-20) + 10
 			timeSeriesChangePoints[measurement] = append(timeSeriesChangePoints[measurement], changePoint+length-remainingPoints)
 			remainingPoints = remainingPoints - changePoint
 		}
 	}
 
-	// Create the time series.
+	// let's create our time series
 	for measurement, length := range timeSeriesLengths {
 		changePoints := timeSeriesChangePoints[measurement]
 		startingPoint := 0
@@ -89,33 +87,27 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 		}
 	}
 
-	// Measurements/rollups can be added/removed over time, so we should
-	// chop up and group our time series randomly.
+	// measurements/rollups can be added/removed over time, so we should chop up and group our time series randomly
 	consumed := make([]int, numTimeSeries)
 	var finishedConsuming []int
 	var rollups []testResultsAndRollups
 
 	i := 0
-	measurementCount := 0
 	for len(finishedConsuming) != numTimeSeries {
-		// Let's record a random number of measurements this run, drawn
-		// from [1, numTimeSeries-len(finishedConsuming)].
+		// Let's record a random number of measurements this run, drawn from [1, numTimeSeries-len(finishedConsuming)]
 		measurementsThisRun := rand.Intn(numTimeSeries-len(finishedConsuming)) + 1
-		// Get measurements that aren't yet finished being persisted.
+		// Get measurements that aren't yet finished being persisted
 		measurements := generateDistinctRandoms(finishedConsuming, 0, numTimeSeries-1, measurementsThisRun)
-		measurementCount += len(measurements)
 
 		newRollup := testResultsAndRollups{
 			info: &model.PerformanceResultInfo{
-				Project:   "project" + unique,
-				Variant:   "variant",
-				Version:   "version" + strconv.Itoa(i+1),
-				Order:     i + 1,
-				TestName:  "test",
-				TaskName:  "task",
-				TaskID:    fmt.Sprintf("task_id_%d", i),
-				Execution: 1,
-				Mainline:  true,
+				Project:  "project" + unique,
+				Variant:  "variant",
+				Version:  "version" + strconv.Itoa(i+1),
+				Order:    i + 1,
+				TestName: "test",
+				TaskName: "task",
+				Mainline: true,
 			},
 		}
 
@@ -132,26 +124,6 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 			}
 		}
 		rollups = append(rollups, newRollup)
-
-		// Add the same rollup, but with a lesser execution. This
-		// should be ignored.
-		similarRollup := testResultsAndRollups{
-			info: &model.PerformanceResultInfo{
-				Project:   newRollup.info.Project,
-				Variant:   newRollup.info.Variant,
-				Version:   newRollup.info.Version,
-				Order:     newRollup.info.Order,
-				TestName:  newRollup.info.TestName,
-				TaskName:  newRollup.info.TaskName,
-				TaskID:    newRollup.info.TaskID,
-				Execution: 0,
-				Mainline:  newRollup.info.Mainline,
-			},
-			rollups: make([]model.PerfRollupValue, len(newRollup.rollups)),
-		}
-		copy(similarRollup.rollups, newRollup.rollups)
-		rollups = append(rollups, similarRollup)
-
 		i++
 	}
 
@@ -232,8 +204,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		job.conf = model.NewCedarConfig(env)
 		j.Run(ctx)
 		require.True(t, j.Status().Completed)
-		require.NoError(t, j.Error())
-		require.Equal(t, len(timeSeries), len(mockDetector.Calls))
+		require.Equal(t, len(mockDetector.Calls), len(timeSeries))
 		for _, call := range mockDetector.Calls {
 			timeSeriesIndex, _ := strconv.Atoi(string(call.Measurement[len(call.Measurement)-1]))
 			require.Equal(t, timeSeriesId.Project, call.Project)
