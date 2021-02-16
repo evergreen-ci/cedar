@@ -649,7 +649,7 @@ func updateOutdatedTaskLogs(ctx context.Context, env cedar.Environment, ids []st
 
 	match := bson.M{"_id": bson.M{"$in": ids}}
 	update := bson.M{
-		"$push": bson.M{
+		"$addToSet": bson.M{
 			bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): logType,
 		},
 		"$unset": bson.M{
