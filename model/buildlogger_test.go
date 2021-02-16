@@ -999,6 +999,7 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		&Log{
 			ID: "one",
 			Info: LogInfo{
+				Project:     AgentLog,
 				ProcessName: AgentLog,
 				Tags:        []string{"tag1", "tag2", "tag3"},
 			},
@@ -1006,12 +1007,14 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		&Log{
 			ID: "two",
 			Info: LogInfo{
+				Project:     AgentLog,
 				ProcessName: AgentLog,
 			},
 		},
 		&Log{
 			ID: "three",
 			Info: LogInfo{
+				Project:     AgentLog,
 				ProcessName: AgentLog,
 				Tags:        []string{"tag1"},
 			},
@@ -1019,6 +1022,7 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		&Log{
 			ID: "four",
 			Info: LogInfo{
+				Project:     TaskLog,
 				ProcessName: TaskLog,
 				Tags:        []string{"tag1", "tag2", "tag3"},
 			},
@@ -1026,12 +1030,14 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		&Log{
 			ID: "five",
 			Info: LogInfo{
+				Project:     TaskLog,
 				ProcessName: TaskLog,
 			},
 		},
 		&Log{
 			ID: "six",
 			Info: LogInfo{
+				Project:     TaskLog,
 				ProcessName: TaskLog,
 				Tags:        []string{"tag1"},
 			},
@@ -1039,6 +1045,7 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		&Log{
 			ID: "seven",
 			Info: LogInfo{
+				Project:     SystemLog,
 				ProcessName: SystemLog,
 				Tags:        []string{"tag1", "tag2", "tag3"},
 			},
@@ -1046,12 +1053,14 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		&Log{
 			ID: "eight",
 			Info: LogInfo{
+				Project:     SystemLog,
 				ProcessName: SystemLog,
 			},
 		},
 		&Log{
 			ID: "nine",
 			Info: LogInfo{
+				Project:     SystemLog,
 				ProcessName: SystemLog,
 				Tags:        []string{"tag1"},
 			},
@@ -1077,7 +1086,8 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		require.Len(t, updatedLogs, 9)
 
 		for _, log := range updatedLogs {
-			assert.True(t, utility.StringSliceContains(log.Info.Tags, log.Info.ProcessName))
+			assert.True(t, utility.StringSliceContains(log.Info.Tags, log.Info.Project))
+			assert.Empty(t, log.Info.ProcessName)
 		}
 	})
 	t.Run("SmallLimit", func(t *testing.T) {
@@ -1095,13 +1105,18 @@ func TestFindAndUpdateOutdatedTaskLogs(t *testing.T) {
 		require.NoError(t, it.All(ctx, &updatedLogs))
 		require.Len(t, updatedLogs, 9)
 
-		count := 0
+		updatedCount := 0
+		outdatedCount := 0
 		for _, log := range updatedLogs {
-			if utility.StringSliceContains(log.Info.Tags, log.Info.ProcessName) {
-				count += 1
+			if utility.StringSliceContains(log.Info.Tags, log.Info.Project) && log.Info.ProcessName == "" {
+				updatedCount += 1
+			}
+			if !utility.StringSliceContains(log.Info.Tags, log.Info.ProcessName) && log.Info.ProcessName != "" {
+				outdatedCount += 1
 			}
 		}
-		assert.Equal(t, 3, count)
+		assert.Equal(t, 3, updatedCount)
+		assert.Equal(t, 6, outdatedCount)
 	})
 }
 
