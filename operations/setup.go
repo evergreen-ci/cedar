@@ -11,6 +11,7 @@ import (
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -73,7 +74,7 @@ func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
 	if conf.Splunk.Populated() {
 		sender, err = send.NewSplunkLogger("cedar", conf.Splunk, logLevel)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem building plunk logger")
+			return nil, errors.Wrap(err, "problem building splunk logger")
 		}
 		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
 			return nil, errors.Wrap(err, "problem configuring error handler")
@@ -135,16 +136,50 @@ func (c *serviceConf) setup(ctx context.Context) error {
 	return nil
 }
 
-func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) *serviceConf {
-	envUser := os.Getenv("MONGO_USER")
-	envPwd := os.Getenv("MONGO_PWD")
+type dbCreds struct {
+	dbUser string `yaml:"mdb_database_username"`
+	dbPwd  string `yaml:"mdb_database_password"`
+}
+
+func loadCredsFromYAML(filePath string) (*dbCreds, error) {
+	creds := &dbCreds{}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		grip.Error(err)
+		return nil, err
+	}
+	defer file.Close()
+
+	decoder := yaml.NewDecoder(file)
+
+	if err := decoder.Decode(&creds); err != nil {
+		return nil, err
+	}
+
+	return creds, nil
+}
+
+func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string) *serviceConf {
+
+	// should I return an error?
+	creds := &dbCreds{}
+	var err error
+	if dbCredFile != "" {
+
+		creds, err = loadCredsFromYAML(dbCredFile)
+		if err != nil {
+			grip.Error(err)
+		}
+	}
+
 	return &serviceConf{
 		numWorkers: numWorkers,
 		localQueue: localQueue,
 		mongodbURI: mongodbURI,
 		bucket:     bucket,
 		dbName:     dbName,
-		dbUser:     envUser,
-		dbPwd:      envPwd,
+		dbUser:     creds.dbUser,
+		dbPwd:      creds.dbPwd,
 	}
 }
