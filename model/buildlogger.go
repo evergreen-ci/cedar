@@ -627,9 +627,6 @@ func findOutdatedTaskLogs(ctx context.Context, env cedar.Environment, limit int6
 		bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey): bson.M{
 			"$in": []string{AgentLog, TaskLog, SystemLog},
 		},
-		bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): bson.M{
-			"$nin": []string{AgentLog, TaskLog, SystemLog},
-		},
 	}
 	opts := options.Find().SetLimit(limit)
 	it, err := env.GetDB().Collection(buildloggerCollection).Find(ctx, query, opts)
@@ -651,9 +648,14 @@ func updateOutdatedTaskLogs(ctx context.Context, env cedar.Environment, ids []st
 	}
 
 	match := bson.M{"_id": bson.M{"$in": ids}}
-	update := bson.M{"$push": bson.M{
-		bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): logType,
-	}}
+	update := bson.M{
+		"$push": bson.M{
+			bsonutil.GetDottedKeyName(logInfoKey, logInfoTagsKey): logType,
+		},
+		"$unset": bson.M{
+			bsonutil.GetDottedKeyName(logInfoKey, logInfoProcessNameKey): "",
+		},
+	}
 	_, err := env.GetDB().Collection(buildloggerCollection).UpdateMany(ctx, match, update)
 
 	return errors.WithStack(err)
