@@ -21,7 +21,15 @@ func TestGlobalEnvironment(t *testing.T) {
 	first.(*envState).name = "cedar-init"
 	assert.Exactly(t, globalEnv, GetEnvironment())
 
-	env, err := NewEnvironment(context.TODO(), "second", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
+	conf := &Configuration{
+		MongoDBURI:   "mongodb://localhost:27017",
+		NumWorkers:   2,
+		DatabaseName: testDatabaseName,
+		DBUser:       "myUserAdmin",
+		DBPwd:        "default",
+	}
+
+	env, err := NewEnvironment(context.TODO(), "second", conf)
 	assert.NoError(t, err)
 	SetEnvironment(env)
 	second := GetEnvironment()
@@ -38,20 +46,20 @@ func TestDatabaseSessionAccessor(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is nil")
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017"})
+	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", DBUser: "myUserAdmin", DBPwd: "default"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amboy workers")
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
+	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DBUser: "myUserAdmin", DBPwd: "default"})
 	assert.NoError(t, err)
 	env.(*envState).client = nil
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session is nil")
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
+	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DBUser: "myUserAdmin", DBPwd: "default"})
 	assert.NoError(t, err)
 	conf, db, err := GetSessionWithConfig(env)
 	assert.NoError(t, err)
@@ -115,6 +123,8 @@ func TestEnvironmentConfiguration(t *testing.T) {
 				MongoDBDialTimeout: time.Second,
 				SocketTimeout:      10 * time.Second,
 				DatabaseName:       testDatabaseName,
+				DBUser:             "myUserAdmin",
+				DBPwd:              "default",
 			}
 			test(t, conf)
 		})

@@ -146,6 +146,8 @@ func TestCostReport(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DBUser:                  "myUserAdmin",
+				DBPwd:                   "default",
 			})
 			require.NoError(t, err)
 
@@ -168,6 +170,8 @@ func TestCostReport(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DBUser:                  "myUserAdmin",
+				DBPwd:                   "default",
 			})
 			require.NoError(t, err)
 

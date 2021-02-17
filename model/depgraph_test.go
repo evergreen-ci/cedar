@@ -43,6 +43,8 @@ func TestGraphMetadata(t *testing.T) {
 				SocketTimeout:      time.Minute,
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
+				DBUser:             "myUserAdmin",
+				DBPwd:              "default",
 			})
 			require.NoError(t, err)
 
@@ -66,6 +68,8 @@ func TestGraphMetadata(t *testing.T) {
 				SocketTimeout:      time.Minute,
 				NumWorkers:         2,
 				DisableRemoteQueue: true,
+				DBUser:             "myUserAdmin",
+				DBPwd:              "default",
 			})
 			require.NoError(t, err)
 

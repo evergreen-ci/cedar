@@ -19,6 +19,8 @@ func init() {
 		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
+		DBUser:             "myUserAdmin",
+		DBPwd:              "default",
 	})
 	if err != nil {
 		panic(err)
@@ -54,6 +56,8 @@ func TestCedarConfig(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DBUser:                  "myUserAdmin",
+				DBPwd:                   "default",
 			})
 			require.NoError(t, err)
 
@@ -77,6 +81,8 @@ func TestCedarConfig(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DBUser:                  "myUserAdmin",
+				DBPwd:                   "default",
 			})
 			require.NoError(t, err)
 

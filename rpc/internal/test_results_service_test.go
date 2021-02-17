@@ -465,12 +465,15 @@ func createTestResultsEnv() (cedar.Environment, error) {
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
+		DBUser:        "myUserAdmin",
+		DBPwd:         "default",
 	})
 
 	return env, err
 }
 
 func teardownTestResultsEnv(ctx context.Context, env cedar.Environment) error {
+	//TODO: fix this test
 	return errors.WithStack(env.GetDB().Drop(ctx))
 }
 

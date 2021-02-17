@@ -57,6 +57,8 @@ func TestCostConfig(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DBUser:                  "myUserAdmin",
+				DBPwd:                   "default",
 			})
 			require.NoError(t, err)
 
@@ -82,6 +84,8 @@ func TestCostConfig(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DBUser:                  "myUserAdmin",
+				DBPwd:                   "default",
 			})
 			require.NoError(t, err)
 

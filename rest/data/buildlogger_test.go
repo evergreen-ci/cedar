@@ -26,6 +26,7 @@ type buildloggerConnectorSuite struct {
 
 func TestBuildloggerConnectorSuiteDB(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
+
 	s.setup()
 	s.sc = CreateNewDBConnector(s.env)
 	suite.Run(t, s)
@@ -46,6 +47,7 @@ func (s *buildloggerConnectorSuite) setup() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
 	s.Require().NotNil(s.env)
+
 	db := s.env.GetDB()
 	s.Require().NotNil(db)
 	s.Require().NoError(db.Drop(s.ctx))

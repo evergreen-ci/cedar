@@ -23,6 +23,8 @@ func init() {
 		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
+		DBUser:             "myUserAdmin",
+		DBPwd:              "default",
 	})
 	if err != nil {
 		panic(err)

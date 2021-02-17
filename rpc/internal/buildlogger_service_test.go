@@ -598,6 +598,8 @@ func createBuildloggerEnv() (cedar.Environment, error) {
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
+		DBUser:        "myUserAdmin",
+		DBPwd:         "default",
 	})
 
 	return env, err

@@ -24,6 +24,8 @@ func TestHistoricalTestDataJob(t *testing.T) {
 		DisableLocalQueue:       true,
 		DisableRemoteQueue:      true,
 		DisableRemoteQueueGroup: true,
+		DBUser:                  "myUserAdmin",
+		DBPwd:                   "default",
 	})
 	require.NoError(t, err)
 	cedar.SetEnvironment(env)

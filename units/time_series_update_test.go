@@ -137,6 +137,8 @@ func setupChangePointsTest() {
 		DatabaseName:  dbName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
+		DBUser:        "myUserAdmin",
+		DBPwd:         "default",
 	})
 	if err != nil {
 		panic(err)
