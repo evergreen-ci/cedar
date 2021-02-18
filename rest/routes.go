@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -42,8 +43,11 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.queue != nil {
+		statsCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
 		resp.QueueRunning = s.queue.Info().Started
-		resp.QueueStats = s.queue.Stats(ctx)
+		resp.QueueStats = s.queue.Stats(statsCtx)
 	}
 
 	gimlet.WriteJSON(w, resp)
