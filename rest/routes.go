@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
-	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
@@ -26,10 +24,8 @@ import (
 // GET /status
 
 type StatusResponse struct {
-	Revision     string           `json:"revision"`
-	QueueStats   amboy.QueueStats `json:"queue,omitempty"`
-	QueueRunning bool             `json:"running"`
-	RPCInfo      []string         `json:"rpc_service"`
+	Revision string   `json:"revision"`
+	RPCInfo  []string `json:"rpc_service"`
 }
 
 // statusHandler processes the GET request for
@@ -40,14 +36,6 @@ func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
 	resp := &StatusResponse{
 		Revision: cedar.BuildRevision,
 		RPCInfo:  s.RPCServers,
-	}
-
-	if s.queue != nil {
-		statsCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-
-		resp.QueueRunning = s.queue.Info().Started
-		resp.QueueStats = s.queue.Stats(statsCtx)
 	}
 
 	gimlet.WriteJSON(w, resp)
