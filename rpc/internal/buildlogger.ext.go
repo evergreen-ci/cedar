@@ -50,7 +50,7 @@ func (l LogLine) Export() (model.LogLine, error) {
 	return model.LogLine{
 		Priority:  level.Priority(l.Priority),
 		Timestamp: ts,
-		Data:      l.Data,
+		Data:      string(l.Data),
 	}, nil
 }
 

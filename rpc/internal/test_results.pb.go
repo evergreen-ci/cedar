@@ -391,11 +391,11 @@ var fileDescriptor_cdf98c574c2f8ed6 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConnInterface
+var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+const _ = grpc.SupportPackageIsVersion4
 
 // CedarTestResultsClient is the client API for CedarTestResults service.
 //
@@ -408,10 +408,10 @@ type CedarTestResultsClient interface {
 }
 
 type cedarTestResultsClient struct {
-	cc grpc.ClientConnInterface
+	cc *grpc.ClientConn
 }
 
-func NewCedarTestResultsClient(cc grpc.ClientConnInterface) CedarTestResultsClient {
+func NewCedarTestResultsClient(cc *grpc.ClientConn) CedarTestResultsClient {
 	return &cedarTestResultsClient{cc}
 }
 
