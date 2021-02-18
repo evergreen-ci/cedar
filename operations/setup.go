@@ -137,8 +137,8 @@ func (c *serviceConf) setup(ctx context.Context) error {
 }
 
 type dbCreds struct {
-	dbUser string `yaml:"mdb_database_username"`
-	dbPwd  string `yaml:"mdb_database_password"`
+	DBUser string `yaml:"mdb_database_username"`
+	DBPwd  string `yaml:"mdb_database_password"`
 }
 
 func loadCredsFromYAML(filePath string) (*dbCreds, error) {
@@ -179,7 +179,7 @@ func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName 
 		mongodbURI: mongodbURI,
 		bucket:     bucket,
 		dbName:     dbName,
-		dbUser:     creds.dbUser,
-		dbPwd:      creds.dbPwd,
+		dbUser:     creds.DBUser,
+		dbPwd:      creds.DBPwd,
 	}
 }
