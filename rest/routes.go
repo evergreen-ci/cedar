@@ -30,9 +30,6 @@ type StatusResponse struct {
 
 // statusHandler processes the GET request for
 func (s *Service) statusHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := s.Environment.Context()
-	defer cancel()
-
 	resp := &StatusResponse{
 		Revision: cedar.BuildRevision,
 		RPCInfo:  s.RPCServers,
