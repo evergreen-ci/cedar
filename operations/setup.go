@@ -162,7 +162,6 @@ func loadCredsFromYAML(filePath string) (*dbCreds, error) {
 
 func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string) *serviceConf {
 
-	// should I return an error?
 	creds := &dbCreds{}
 	var err error
 	if dbCredFile != "" {
