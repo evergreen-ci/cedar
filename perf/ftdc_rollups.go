@@ -13,6 +13,7 @@ const maxDurationsSize = 250000000
 type PerformanceStatistics struct {
 	counters struct {
 		operationsTotal int64
+		documentsTotal  int64
 		sizeTotal       int64
 		errorsTotal     int64
 	}
@@ -61,6 +62,8 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 			switch name := metric.Key(); name {
 			case "counters.ops":
 				perfStats.counters.operationsTotal = metric.Values[len(metric.Values)-1]
+			case "counters.n":
+				perfStats.counters.documentsTotal = metric.Values[len(metric.Values)-1]
 			case "counters.size":
 				perfStats.counters.sizeTotal = metric.Values[len(metric.Values)-1]
 			case "counters.errors":
@@ -92,7 +95,7 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 				}
 				t := metric.Values[len(metric.Values)-1]
 				end = time.Unix(t/1000, t%1000*1000000)
-			case "counters.n", "id":
+			case "id":
 				continue
 			default:
 				return nil, errors.Errorf("unknown field name %s", name)
