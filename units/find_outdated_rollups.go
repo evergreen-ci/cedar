@@ -94,6 +94,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 		factories = append(factories, factory)
 	}
 
+	count := 0
 	results := model.PerformanceResults{}
 	results.Setup(j.env)
 	for i, factory := range factories {
@@ -107,6 +108,14 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 			for _, result := range results.Results {
 				if _, ok := j.seenIDs[result.ID]; !ok {
 					j.createFTDCRollupsJobs(ctx, factories[i:], result)
+
+					count += 1
+					if count >= 1000 {
+						// Stop job after updating 1000
+						// results to avoid
+						// overwhelming amboy queue.
+						return
+					}
 				}
 			}
 		}
