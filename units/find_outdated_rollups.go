@@ -17,6 +17,7 @@ import (
 
 const (
 	findOutdatedRollupsJobName = "find-outdated-rollups"
+	maxOutdatedPerfResults     = 1000
 )
 
 type findOutdatedRollupsJob struct {
@@ -110,10 +111,11 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 					j.createFTDCRollupsJobs(ctx, factories[i:], result)
 
 					count += 1
-					if count >= 1000 {
-						// Stop job after updating 1000
-						// results to avoid
-						// overwhelming amboy queue.
+					if count >= maxOutdatedPerfResults {
+						// Stop job after processing a
+						// max number of results to
+						// avoid overwhelming the amboy
+						// queue.
 						return
 					}
 				}
