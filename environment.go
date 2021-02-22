@@ -58,20 +58,17 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			SetSocketTimeout(conf.SocketTimeout).
 			SetServerSelectionTimeout(conf.SocketTimeout).
 			SetMonitor(apm.NewLoggingMonitor(ctx, time.Minute, apm.NewBasicMonitor(&apm.MonitorConfig{AllTags: true})).DriverAPM())
-
 		if conf.HasAuth() {
 			credential := options.Credential{
 				Username: conf.DBUser,
 				Password: conf.DBPwd,
 			}
-
 			opts.SetAuth(credential)
 		}
 		env.client, err = mongo.NewClient(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem constructing mongodb client")
 		}
-
 		if err = env.client.Ping(ctx, nil); err != nil {
 			connctx, cancel := context.WithTimeout(ctx, conf.MongoDBDialTimeout)
 			defer cancel()
