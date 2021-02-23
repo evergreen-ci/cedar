@@ -55,22 +55,48 @@ func TestTestResultsIterator(t *testing.T) {
 			}()
 
 			tr := getTestResults()
-			testBucket, err := pail.NewLocalBucket(pail.LocalOptions{
+			testBucket1, err := pail.NewLocalBucket(pail.LocalOptions{
 				Path:   tmpDir,
 				Prefix: filepath.Join(testResultsCollection, tr.ID),
 			})
 			require.NoError(t, err)
-
-			results := map[string]TestResult{}
+			results1 := map[string]TestResult{}
 			for i := 0; i < numResults; i++ {
 				result := getTestResult()
-				results[result.TestName] = result
+				results1[result.TestName] = result
 				data, err := bson.Marshal(result)
 				require.NoError(t, err)
-				require.NoError(t, testBucket.Put(ctx, result.TestName, bytes.NewReader(data)))
+				require.NoError(t, testBucket1.Put(ctx, result.TestName, bytes.NewReader(data)))
 			}
 
-			testCase(ctx, t, NewTestResultsIterator(testBucket), results)
+			tr = getTestResults()
+			testBucket2, err := pail.NewLocalBucket(pail.LocalOptions{
+				Path:   tmpDir,
+				Prefix: filepath.Join(testResultsCollection, tr.ID),
+			})
+			require.NoError(t, err)
+			results2 := map[string]TestResult{}
+			for i := 0; i < numResults; i++ {
+				result := getTestResult()
+				results2[result.TestName] = result
+				data, err := bson.Marshal(result)
+				require.NoError(t, err)
+				require.NoError(t, testBucket2.Put(ctx, result.TestName, bytes.NewReader(data)))
+			}
+			for testName, result := range results1 {
+				results2[testName] = result
+			}
+
+			t.Run("Single", func(t *testing.T) {
+				testCase(ctx, t, NewTestResultsIterator(testBucket1), results1)
+			})
+			t.Run("Multi", func(t *testing.T) {
+				it := NewMultiTestResultsIterator(
+					NewTestResultsIterator(testBucket1),
+					NewTestResultsIterator(testBucket2),
+				)
+				testCase(ctx, t, it, results2)
+			})
 		})
 	}
 }
