@@ -64,8 +64,8 @@ func TestTestResultsIterator(t *testing.T) {
 			for i := 0; i < numResults; i++ {
 				result := getTestResult()
 				results1[result.TestName] = result
-				data, err := bson.Marshal(result)
-				require.NoError(t, err)
+				data, marshalErr := bson.Marshal(result)
+				require.NoError(t, marshalErr)
 				require.NoError(t, testBucket1.Put(ctx, result.TestName, bytes.NewReader(data)))
 			}
 
@@ -79,8 +79,8 @@ func TestTestResultsIterator(t *testing.T) {
 			for i := 0; i < numResults; i++ {
 				result := getTestResult()
 				results2[result.TestName] = result
-				data, err := bson.Marshal(result)
-				require.NoError(t, err)
+				data, marshalErr := bson.Marshal(result)
+				require.NoError(t, marshalErr)
 				require.NoError(t, testBucket2.Put(ctx, result.TestName, bytes.NewReader(data)))
 			}
 			for testName, result := range results1 {
