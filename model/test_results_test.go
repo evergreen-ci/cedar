@@ -513,6 +513,8 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, tr1.ID, results[0].ID)
 		assert.Equal(t, tr1.Info, results[0].Info)
 		assert.Equal(t, tr1.Artifact, results[0].Artifact)
+		assert.True(t, results[0].populated)
+		assert.Equal(t, env, results[0].env)
 	})
 	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
 		opts := TestResultsFindOptions{
@@ -525,6 +527,8 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, tr2.ID, results[0].ID)
 		assert.Equal(t, tr2.Info, results[0].Info)
 		assert.Equal(t, tr2.Artifact, results[0].Artifact)
+		assert.True(t, results[0].populated)
+		assert.Equal(t, env, results[0].env)
 	})
 	t.Run("WithDisplayTaskNameAndExecution", func(t *testing.T) {
 		opts := TestResultsFindOptions{DisplayTaskName: "display"}
@@ -536,12 +540,16 @@ func TestFindTestResults(t *testing.T) {
 				assert.Equal(t, tr1.ID, result.ID)
 				assert.Equal(t, tr1.Info, result.Info)
 				assert.Equal(t, tr1.Artifact, result.Artifact)
+				assert.True(t, result.populated)
+				assert.Equal(t, env, result.env)
 				count++
 			}
 			if result.ID == tr3.ID {
 				assert.Equal(t, tr3.ID, result.ID)
 				assert.Equal(t, tr3.Info, result.Info)
 				assert.Equal(t, tr3.Artifact, result.Artifact)
+				assert.True(t, result.populated)
+				assert.Equal(t, env, result.env)
 				count++
 			}
 		}
@@ -558,6 +566,8 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, tr2.ID, results[0].ID)
 		assert.Equal(t, tr2.Info, results[0].Info)
 		assert.Equal(t, tr2.Artifact, results[0].Artifact)
+		assert.True(t, results[0].populated)
+		assert.Equal(t, env, results[0].env)
 	})
 }
 

@@ -407,11 +407,13 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 	}
 
 	execution := results[0].Info.Execution
-	for i, result := range results {
-		if result.Info.Execution != execution {
+	for i := range results {
+		if results[i].Info.Execution != execution {
 			results = results[:i]
 			break
 		}
+		results[i].populated = true
+		results[i].env = env
 	}
 
 	return results, nil
@@ -429,8 +431,6 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 
 	its := make([]TestResultsIterator, len(results))
 	for i, result := range results {
-		result.populated = true
-		result.env = env
 		its[i], err = result.Download(ctx)
 		if err != nil {
 			return nil, err
