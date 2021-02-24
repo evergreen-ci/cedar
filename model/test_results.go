@@ -17,6 +17,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -86,51 +87,6 @@ func (t *TestResults) Find(ctx context.Context) error {
 	t.populated = true
 
 	return nil
-}
-
-// TestResultsFindOptions allows for querying by task id  with or without an
-// execution value.
-type TestResultsFindOptions struct {
-	TaskID         string
-	Execution      int
-	EmptyExecution bool
-}
-
-// FindByTaskID searches the database for the TestResults associated with the provided options.
-// The environment should not be nil. If execution is empty, it will default to most recent execution.
-func (t *TestResults) FindByTaskID(ctx context.Context, opts TestResultsFindOptions) error {
-	if t.env == nil {
-		return errors.New("cannot find with a nil environment")
-	}
-
-	if opts.TaskID == "" {
-		return errors.New("cannot find without a task_id")
-	}
-
-	t.populated = false
-	findOneOpts := options.FindOne().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
-	err := t.env.GetDB().Collection(testResultsCollection).FindOne(ctx, createTestResultsFindQuery(opts), findOneOpts).Decode(t)
-	if db.ResultsNotFound(err) {
-		if opts.EmptyExecution {
-			return errors.Wrapf(err, "could not find test results record with task_id %s in the database", opts.TaskID)
-		}
-		return errors.Wrapf(err, "could not find test results record with task_id %s and execution %d in the database", opts.TaskID, opts.Execution)
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding test results record")
-	}
-	t.populated = true
-
-	return nil
-}
-
-func createTestResultsFindQuery(opts TestResultsFindOptions) map[string]interface{} {
-	search := bson.M{
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID,
-	}
-	if !opts.EmptyExecution {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
-	}
-	return search
 }
 
 // SaveNew saves a new TestResults to the database, if a document with the same
@@ -377,4 +333,109 @@ type TestResult struct {
 	TaskCreateTime time.Time `bson:"task_create_time"`
 	TestStartTime  time.Time `bson:"test_start_time"`
 	TestEndTime    time.Time `bson:"test_end_time"`
+}
+
+// TestResultsFindOptions allows for querying for test results with or without
+// an execution value.
+type TestResultsFindOptions struct {
+	TaskID          string
+	DisplayTaskName string
+	Execution       int
+	EmptyExecution  bool
+}
+
+func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
+	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
+	if opts.TaskID != "" {
+		findOpts = findOpts.SetLimit(1)
+	}
+
+	return findOpts
+}
+
+func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
+	search := bson.M{}
+	if opts.TaskID != "" {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
+	} else {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskNameKey)] = opts.DisplayTaskName
+	}
+	if !opts.EmptyExecution {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
+	}
+
+	return search
+}
+
+func (opts *TestResultsFindOptions) createErrorMessage() string {
+	var msg string
+	if opts.TaskID != "" {
+		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
+	} else {
+		msg = fmt.Sprintf("could not find test results records with display task name %s", opts.DisplayTaskName)
+	}
+	if !opts.EmptyExecution {
+		msg += fmt.Sprintf(" and execution %d", opts.Execution)
+	}
+	msg += " in the database"
+
+	return msg
+}
+
+// FindTestResults searches the database for the TestResults associated with
+// the provided options. The environment should not be nil. If execution is
+// empty, it will default to most recent execution.
+func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResults, error) {
+	if env == nil {
+		return nil, errors.New("cannot find with a nil environment")
+	}
+
+	if opts.TaskID == "" && opts.DisplayTaskName == "" {
+		return nil, errors.New("cannot find without a task_id or display_task_name")
+	}
+
+	results := []TestResults{}
+	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
+	if err != nil {
+		return nil, errors.Wrap(err, "finding test results record(s)")
+	}
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, errors.Wrap(err, "decoding test result record(s)")
+	}
+	if len(results) == 0 {
+		return nil, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
+	}
+
+	execution := results[0].Info.Execution
+	for i, result := range results {
+		if result.Info.Execution != execution {
+			results = results[:i]
+			break
+		}
+	}
+
+	return results, nil
+}
+
+// FindAndDownloadTestResults searches the database for the TestResults
+// associated with the provided options and returns a TestResultsIterator with
+// the downloaded test results. The environment should not be nil. If execution
+// is empty it will default to most recent execution.
+func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsIterator, error) {
+	results, err := FindTestResults(ctx, env, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	its := make([]TestResultsIterator, len(results))
+	for i, result := range results {
+		result.populated = true
+		result.env = env
+		its[i], err = result.Download(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return NewMultiTestResultsIterator(its...), nil
 }

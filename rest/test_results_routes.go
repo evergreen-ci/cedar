@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
@@ -18,8 +17,8 @@ import (
 // GET /test_results/task_id/{task_id}
 
 type testResultsGetByTaskIdHandler struct {
-	options model.TestResultsFindOptions
-	sc      data.Connector
+	opts data.TestResultsOptions
+	sc   data.Connector
 }
 
 func makeGetTestResultsByTaskId(sc data.Connector) gimlet.RouteHandler {
@@ -39,27 +38,27 @@ func (h *testResultsGetByTaskIdHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
-	h.options.TaskID = gimlet.GetVars(r)["task_id"]
+	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
-		h.options.Execution, err = strconv.Atoi(vals[execution][0])
+		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
 		return err
 	} else {
-		h.options.EmptyExecution = true
+		h.opts.EmptyExecution = true
 	}
 	return nil
 }
 
 // Run finds and returns the desired test result based on task id.
 func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
-	testResults, err := h.sc.FindTestResultsByTaskId(ctx, h.options)
+	testResults, err := h.sc.FindTestResultsByTaskId(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results by task id '%s'", h.options.TaskID)
+		err = errors.Wrapf(err, "problem getting test results by task id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/testresults/task_id/{task_id}",
-			"task_id": h.options.TaskID,
+			"task_id": h.opts.TaskID,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
@@ -71,7 +70,7 @@ func (h *testResultsGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responde
 // GET /test_results/test_name/{task_id}/{test_name}
 
 type testResultGetByTestNameHandler struct {
-	opts data.TestResultsTestNameOptions
+	opts data.TestResultsOptions
 	sc   data.Connector
 }
 

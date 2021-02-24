@@ -81,80 +81,6 @@ func TestTestResultsFind(t *testing.T) {
 	})
 }
 
-func TestTestResultsFindByTaskID(t *testing.T) {
-	env := cedar.GetEnvironment()
-	db := env.GetDB()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	defer func() {
-		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
-	}()
-
-	tr1 := getTestResults()
-	tr1.Info.Execution = 0
-	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
-	require.NoError(t, err)
-
-	tr2 := getTestResults()
-	tr2.Info.TaskID = tr1.Info.TaskID
-	tr2.Info.Execution = 1
-	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
-	require.NoError(t, err)
-
-	t.Run("DNE", func(t *testing.T) {
-		tr := TestResults{}
-		tropts := TestResultsFindOptions{
-			TaskID:         "DNE",
-			EmptyExecution: true,
-		}
-		tr.Setup(env)
-		assert.Error(t, tr.FindByTaskID(ctx, tropts))
-		assert.False(t, tr.populated)
-	})
-	t.Run("NoEnv", func(t *testing.T) {
-		tr := TestResults{}
-		tropts := TestResultsFindOptions{
-			TaskID:    tr1.Info.TaskID,
-			Execution: tr1.Info.Execution,
-		}
-		assert.Error(t, tr.FindByTaskID(ctx, tropts))
-		assert.False(t, tr.populated)
-	})
-	t.Run("WithTaskIDAndExecution", func(t *testing.T) {
-		tr := TestResults{}
-		tropts := TestResultsFindOptions{
-			TaskID:    tr1.Info.TaskID,
-			Execution: tr1.Info.Execution,
-		}
-		tr.Setup(env)
-		require.NoError(t, tr.FindByTaskID(ctx, tropts))
-		assert.Equal(t, tr1.ID, tr.ID)
-		assert.Equal(t, tr1.Info, tr.Info)
-		assert.Equal(t, tr1.Artifact, tr.Artifact)
-		assert.True(t, tr.populated)
-	})
-	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
-		tr := TestResults{}
-		tropts := TestResultsFindOptions{
-			TaskID:         tr2.Info.TaskID,
-			EmptyExecution: true,
-		}
-		tr.Setup(env)
-		require.NoError(t, tr.FindByTaskID(ctx, tropts))
-		assert.Equal(t, tr2.ID, tr.ID)
-		assert.Equal(t, tr2.Info, tr.Info)
-		assert.Equal(t, tr2.Artifact, tr.Artifact)
-		assert.True(t, tr.populated)
-	})
-	t.Run("WithoutTaskID", func(t *testing.T) {
-		tr := TestResults{}
-		tropts := TestResultsFindOptions{}
-		tr.Setup(env)
-		assert.Error(t, tr.FindByTaskID(ctx, tropts))
-		assert.False(t, tr.populated)
-	})
-}
-
 func TestTestResultsSaveNew(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
@@ -512,6 +438,126 @@ func TestTestResultsClose(t *testing.T) {
 		assert.True(t, time.Since(updated.CompletedAt) <= time.Second)
 		assert.Equal(t, tr1.Info, updated.Info)
 		assert.Equal(t, tr1.Artifact, updated.Artifact)
+	})
+}
+
+func TestFindTestResults(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr1 := getTestResults()
+	tr1.Info.DisplayTaskName = "display"
+	tr1.Info.Execution = 0
+	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
+	require.NoError(t, err)
+
+	tr2 := getTestResults()
+	tr2.Info.DisplayTaskName = "display"
+	tr2.Info.TaskID = tr1.Info.TaskID
+	tr2.Info.Execution = 1
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
+	require.NoError(t, err)
+
+	tr3 := getTestResults()
+	tr3.Info.DisplayTaskName = "display"
+	tr3.Info.Execution = 0
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
+	require.NoError(t, err)
+
+	t.Run("NoTaskIDOrDisplayTaskName", func(t *testing.T) {
+		opts := TestResultsFindOptions{}
+		results, err := FindTestResults(ctx, env, opts)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+	})
+	t.Run("TaskIDDNE", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			TaskID:         "DNE",
+			EmptyExecution: true,
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+	})
+	t.Run("DisplayTaskNameDNE", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			DisplayTaskName: "DNE",
+			EmptyExecution:  true,
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+	})
+	t.Run("NoEnv", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			TaskID:    tr1.Info.TaskID,
+			Execution: tr1.Info.Execution,
+		}
+		results, err := FindTestResults(ctx, nil, opts)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+	})
+	t.Run("WithTaskIDAndExecution", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			TaskID:    tr1.Info.TaskID,
+			Execution: tr1.Info.Execution,
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.NotEmpty(t, results)
+		assert.Equal(t, tr1.ID, results[0].ID)
+		assert.Equal(t, tr1.Info, results[0].Info)
+		assert.Equal(t, tr1.Artifact, results[0].Artifact)
+	})
+	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			TaskID:         tr2.Info.TaskID,
+			EmptyExecution: true,
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.NotEmpty(t, results)
+		assert.Equal(t, tr2.ID, results[0].ID)
+		assert.Equal(t, tr2.Info, results[0].Info)
+		assert.Equal(t, tr2.Artifact, results[0].Artifact)
+	})
+	t.Run("WithDisplayTaskNameAndExecution", func(t *testing.T) {
+		opts := TestResultsFindOptions{DisplayTaskName: "display"}
+		results, err := FindTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		count := 0
+		for _, result := range results {
+			if result.ID == tr1.ID {
+				assert.Equal(t, tr1.ID, result.ID)
+				assert.Equal(t, tr1.Info, result.Info)
+				assert.Equal(t, tr1.Artifact, result.Artifact)
+				count++
+			}
+			if result.ID == tr3.ID {
+				assert.Equal(t, tr3.ID, result.ID)
+				assert.Equal(t, tr3.Info, result.Info)
+				assert.Equal(t, tr3.Artifact, result.Artifact)
+				count++
+			}
+		}
+		assert.Equal(t, 2, count)
+	})
+	t.Run("WithDisplayTaskNameWithoutExecution", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			DisplayTaskName: "display",
+			EmptyExecution:  true,
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.Equal(t, tr2.ID, results[0].ID)
+		assert.Equal(t, tr2.Info, results[0].Info)
+		assert.Equal(t, tr2.Artifact, results[0].Artifact)
 	})
 }
 
