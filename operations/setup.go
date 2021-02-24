@@ -146,7 +146,6 @@ func loadCredsFromYAML(filePath string) (*dbCreds, error) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		grip.Error(err)
 		return nil, err
 	}
 	defer file.Close()
@@ -165,11 +164,8 @@ func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName 
 	creds := &dbCreds{}
 	var err error
 	if dbCredFile != "" {
-
 		creds, err = loadCredsFromYAML(dbCredFile)
-		if err != nil {
-			grip.Error(err)
-		}
+		grip.Error(err)
 	}
 
 	return &serviceConf{
