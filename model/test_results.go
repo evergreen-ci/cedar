@@ -384,7 +384,7 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 
 // FindTestResults searches the database for the TestResults associated with
 // the provided options. The environment should not be nil. If execution is
-// empty, it will default to most recent execution.
+// empty, it will default to the most recent execution.
 func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResults, error) {
 	if env == nil {
 		return nil, errors.New("cannot find with a nil environment")
@@ -420,7 +420,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 // FindAndDownloadTestResults searches the database for the TestResults
 // associated with the provided options and returns a TestResultsIterator with
 // the downloaded test results. The environment should not be nil. If execution
-// is empty it will default to most recent execution.
+// is empty it will default to the most recent execution.
 func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsIterator, error) {
 	results, err := FindTestResults(ctx, env, opts)
 	if err != nil {

@@ -561,6 +561,91 @@ func TestFindTestResults(t *testing.T) {
 	})
 }
 
+func TestFindAndDownloadTestResults(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "find-and-download-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+	}()
+	conf := &CedarConfig{
+		Bucket:    BucketConfig{TestResultsBucket: tmpDir},
+		populated: true,
+	}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+
+	tr1 := getTestResults()
+	tr1.Info.DisplayTaskName = "display"
+	tr1.Info.Execution = 0
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr1)
+	require.NoError(t, err)
+	testBucket1, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr1.ID})
+	require.NoError(t, err)
+
+	resultsMap := map[string]TestResult{}
+	for i := 0; i < 10; i++ {
+		result := getTestResult()
+		resultsMap[result.TestName] = result
+		var data []byte
+		data, err = bson.Marshal(result)
+		require.NoError(t, err)
+		require.NoError(t, testBucket1.Put(ctx, result.TestName, bytes.NewReader(data)))
+	}
+
+	tr2 := getTestResults()
+	tr2.Info.DisplayTaskName = "display"
+	tr2.Info.Execution = 0
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
+	require.NoError(t, err)
+	testBucket2, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr2.ID})
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		result := getTestResult()
+		resultsMap[result.TestName] = result
+		var data []byte
+		data, err = bson.Marshal(result)
+		require.NoError(t, err)
+		require.NoError(t, testBucket2.Put(ctx, result.TestName, bytes.NewReader(data)))
+	}
+
+	b := &backoff.Backoff{
+		Min:    100 * time.Millisecond,
+		Max:    5 * time.Second,
+		Factor: 2,
+	}
+	var results []TestResult
+	var iter TestResultsIterator
+	for i := 0; i < 10; i++ {
+		opts := TestResultsFindOptions{DisplayTaskName: "display"}
+		iter, err = FindAndDownloadTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.NotNil(t, iter)
+
+		results = []TestResult{}
+		for iter.Next(ctx) {
+			results = append(results, iter.Item())
+		}
+		if len(results) == 20 {
+			break
+		}
+
+		time.Sleep(b.Duration())
+	}
+
+	require.Len(t, results, 20)
+	for _, result := range results {
+		expected, ok := resultsMap[result.TestName]
+		require.True(t, ok)
+		assert.Equal(t, expected, result)
+	}
+}
+
 func getTestResults() *TestResults {
 	info := TestResultsInfo{
 		Project:     utility.RandomString(),
