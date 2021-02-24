@@ -17,6 +17,10 @@ type TestResultsIterator interface {
 	Item() TestResult
 }
 
+//////////////////
+// Single Iterator
+//////////////////
+
 type testResultsIterator struct {
 	bucket      pail.Bucket
 	iter        pail.BucketIterator
@@ -26,7 +30,7 @@ type testResultsIterator struct {
 	catcher     grip.Catcher
 }
 
-// NewTestResultsIterator returns an iterator
+// NewTestResultsIterator returns a TestResultsIterator.
 func NewTestResultsIterator(bucket pail.Bucket) TestResultsIterator {
 	return &testResultsIterator{
 		bucket:  bucket,
@@ -101,6 +105,70 @@ func (i *testResultsIterator) Err() error {
 }
 
 func (i *testResultsIterator) Close() error {
+	i.closed = true
+	return nil
+}
+
+/////////////////
+// Multi Iterator
+/////////////////
+
+type multiTestResultsIterator struct {
+	its         []TestResultsIterator
+	current     int
+	currentItem TestResult
+	exhausted   bool
+	closed      bool
+	catcher     grip.Catcher
+}
+
+// NewMultiTestResultsIterator returns a TestResultsIterator that iterates over
+// over multiple TestResultsIterators.
+func NewMultiTestResultsIterator(its ...TestResultsIterator) TestResultsIterator {
+	return &multiTestResultsIterator{
+		its:       its,
+		exhausted: len(its) == 0,
+		catcher:   grip.NewBasicCatcher(),
+	}
+}
+
+func (i *multiTestResultsIterator) Next(ctx context.Context) bool {
+	if i.exhausted || i.closed {
+		return false
+	}
+
+	defer func() {
+		if i.catcher.HasErrors() {
+			i.catcher.Wrap(i.Close(), "closing iterator")
+		}
+	}()
+
+	for !i.its[i.current].Next(ctx) {
+		i.catcher.Add(i.its[i.current].Err())
+		i.current += 1
+		if i.current == len(i.its) {
+			i.exhausted = true
+			return false
+		}
+	}
+
+	i.currentItem = i.its[i.current].Item()
+	return true
+}
+
+func (i *multiTestResultsIterator) Item() TestResult {
+	return i.currentItem
+}
+
+func (i *multiTestResultsIterator) Exhausted() bool {
+	return i.exhausted
+}
+
+func (i *multiTestResultsIterator) Err() error {
+	return i.catcher.Resolve()
+}
+
+func (i *multiTestResultsIterator) Close() error {
 	i.closed = true
 	return nil
 }
