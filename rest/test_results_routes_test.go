@@ -93,7 +93,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"task_id":   makeGetTestResultsByTaskId(&s.sc),
+		"task_id":   makeGetTestResultsByTaskID(&s.sc),
 		"test_name": makeGetTestResultByTestName(&s.sc),
 	}
 	s.apiResults = map[string]model.APITestResult{}
@@ -142,10 +142,10 @@ func TestTestResultsHandlerSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).opts.TaskID = "task1"
-	rh.(*testResultsGetByTaskIdHandler).opts.Execution = 0
+	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "task1"
+	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
 
 	expected := make([]model.APITestResult, 0)
 	expectedKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
@@ -168,22 +168,22 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerFound() {
 	}
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerNotFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerNotFound() {
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).opts.TaskID = "DNE"
-	rh.(*testResultsGetByTaskIdHandler).opts.Execution = 0
+	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "DNE"
+	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
 	s.NotEqual(http.StatusOK, resp.Status())
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerCtxErr() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).opts.TaskID = "task1"
-	rh.(*testResultsGetByTaskIdHandler).opts.Execution = 0
+	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "task1"
+	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
@@ -293,7 +293,7 @@ func (s *TestResultsHandlerSuite) testParseDefaults(handler, urlString string) {
 func getTestResultsExecution(rh gimlet.RouteHandler, handler string) bool {
 	switch handler {
 	case "task_id":
-		return !rh.(*testResultsGetByTaskIdHandler).opts.EmptyExecution
+		return !rh.(*testResultsGetByTaskIDHandler).opts.EmptyExecution
 	case "test_name":
 		return !rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
 	default:

@@ -451,25 +451,25 @@ func TestFindTestResults(t *testing.T) {
 	}()
 
 	tr1 := getTestResults()
-	tr1.Info.DisplayTaskName = "display"
+	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
 	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
 	require.NoError(t, err)
 
 	tr2 := getTestResults()
-	tr2.Info.DisplayTaskName = "display"
+	tr2.Info.DisplayTaskID = "display"
 	tr2.Info.TaskID = tr1.Info.TaskID
 	tr2.Info.Execution = 1
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
 
 	tr3 := getTestResults()
-	tr3.Info.DisplayTaskName = "display"
+	tr3.Info.DisplayTaskID = "display"
 	tr3.Info.Execution = 0
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
 	require.NoError(t, err)
 
-	t.Run("NoTaskIDOrDisplayTaskName", func(t *testing.T) {
+	t.Run("NoTaskIDOrDisplayTaskID", func(t *testing.T) {
 		opts := TestResultsFindOptions{}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
@@ -484,10 +484,10 @@ func TestFindTestResults(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
-	t.Run("DisplayTaskNameDNE", func(t *testing.T) {
+	t.Run("DisplayTaskIDDNE", func(t *testing.T) {
 		opts := TestResultsFindOptions{
-			DisplayTaskName: "DNE",
-			EmptyExecution:  true,
+			DisplayTaskID:  "DNE",
+			EmptyExecution: true,
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
@@ -530,8 +530,8 @@ func TestFindTestResults(t *testing.T) {
 		assert.True(t, results[0].populated)
 		assert.Equal(t, env, results[0].env)
 	})
-	t.Run("WithDisplayTaskNameAndExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{DisplayTaskName: "display"}
+	t.Run("WithDisplayTaskIDAndExecution", func(t *testing.T) {
+		opts := TestResultsFindOptions{DisplayTaskID: "display"}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
 		count := 0
@@ -555,10 +555,10 @@ func TestFindTestResults(t *testing.T) {
 		}
 		assert.Equal(t, 2, count)
 	})
-	t.Run("WithDisplayTaskNameWithoutExecution", func(t *testing.T) {
+	t.Run("WithDisplayTaskIDWithoutExecution", func(t *testing.T) {
 		opts := TestResultsFindOptions{
-			DisplayTaskName: "display",
-			EmptyExecution:  true,
+			DisplayTaskID:  "display",
+			EmptyExecution: true,
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
@@ -590,7 +590,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	require.NoError(t, conf.Save())
 
 	tr1 := getTestResults()
-	tr1.Info.DisplayTaskName = "display"
+	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr1)
 	require.NoError(t, err)
@@ -608,7 +608,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	}
 
 	tr2 := getTestResults()
-	tr2.Info.DisplayTaskName = "display"
+	tr2.Info.DisplayTaskID = "display"
 	tr2.Info.Execution = 0
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
@@ -632,7 +632,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	var results []TestResult
 	var iter TestResultsIterator
 	for i := 0; i < 10; i++ {
-		opts := TestResultsFindOptions{DisplayTaskName: "display"}
+		opts := TestResultsFindOptions{DisplayTaskID: "display"}
 		iter, err = FindAndDownloadTestResults(ctx, env, opts)
 		require.NoError(t, err)
 		require.NotNil(t, iter)
@@ -683,6 +683,7 @@ func getTestResult() TestResult {
 		TestName:       utility.RandomString(),
 		Trial:          rand.Intn(10),
 		Status:         "Pass",
+		LogURL:         utility.RandomString(),
 		LineNum:        rand.Intn(1000),
 		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),

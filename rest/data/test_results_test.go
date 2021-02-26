@@ -143,7 +143,7 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
+func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIDExists() {
 	optsList := []TestResultsOptions{{
 		TaskID:    "task1",
 		Execution: 0,
@@ -170,7 +170,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 	for i, opts := range optsList {
 		expected := expectedResultsList[i]
 
-		actual, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+		actual, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
 		s.Require().NoError(err)
 
 		s.Len(expected, len(actual))
@@ -182,21 +182,21 @@ func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIdExists() {
 	}
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdDNE() {
+func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDDNE() {
 	opts := TestResultsOptions{
 		TaskID:    "DNE",
 		Execution: 1,
 	}
 
-	result, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	result, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
 	s.Error(err)
 	s.Nil(result)
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultByTaskIdEmpty() {
+func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDEmpty() {
 	opts := TestResultsOptions{Execution: 1}
 
-	result, err := s.sc.FindTestResultsByTaskId(s.ctx, opts)
+	result, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
 	s.Error(err)
 	s.Nil(result)
 }

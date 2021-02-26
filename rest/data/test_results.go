@@ -20,7 +20,7 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindTestResultsByTaskId(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
+func (dbc *DBConnector) FindTestResultsByTaskID(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
 	it, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBOpts(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
@@ -85,7 +85,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindTestResultsByTaskId(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
+func (mc *MockConnector) FindTestResultsByTaskID(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
 	apiResults := []model.APITestResult{}
 	var testResults *dbModel.TestResults
 
@@ -237,9 +237,9 @@ func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testNam
 
 func convertToDBOpts(opts TestResultsOptions) dbModel.TestResultsFindOptions {
 	return dbModel.TestResultsFindOptions{
-		TaskID:          opts.TaskID,
-		DisplayTaskName: opts.DisplayTaskName,
-		Execution:       opts.Execution,
-		EmptyExecution:  opts.EmptyExecution,
+		TaskID:         opts.TaskID,
+		DisplayTaskID:  opts.DisplayTaskID,
+		Execution:      opts.Execution,
+		EmptyExecution: opts.EmptyExecution,
 	}
 }
