@@ -49,8 +49,8 @@ type Connector interface {
 	// returned is the next timestamp for pagination and the bool indicates
 	// whether the log is paginated or not. If the log is not paginated,
 	// the timestamp should be ignored.
-	// ID, PrintTime, PrintPriority, TimeRange, and Limit are
-	// respected from BuildloggerOptions.
+	// ID, PrintTime, PrintPriority, TimeRange, Limit, and SoftSizeLimit
+	// are respected from BuildloggerOptions.
 	FindLogByID(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogMetadataByID returns the metadata for the buildlogger log
 	// with the given id.
@@ -60,7 +60,7 @@ type Connector interface {
 	// bool indicates whether the logs are paginated or not. If the logs
 	// are not paginated, the timestamp should be ignored.
 	// TaskID, ProcessName, Execution, Tags, TimeRange, PrintTime,
-	// PrintPriority, Limit, and Tail are respected from
+	// PrintPriority, Limit, Tail, and SoftSizeLimit are respected from
 	// BuildloggerOptions.
 	FindLogsByTaskID(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
@@ -72,8 +72,8 @@ type Connector interface {
 	// or not. If the logs are not paginated, the timestamp should be
 	// ignored.
 	// TaskID, TestName, ProcessName, Execution, Tags, TimeRange,
-	// PrintTime, PrintPriority, Limit are respected from
-	// BuildloggerOptions.
+	// PrintTime, PrintPriority, Limit, and SoftSizeLimit are respected
+	// from BuildloggerOptions.
 	FindLogsByTestName(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogsByTestName returns the metadata for the buildlogger logs
 	// with the given task id, test name, and tags.
@@ -84,8 +84,9 @@ type Connector interface {
 	// id. The time returned is the next timestamp for pagination and the
 	// bool indicates whether the logs are paginated or not. If the logs
 	// are not paginated, the timestamp should be ignored.
-	// TaskID, TestName, Tags, TimeRange, PrintTime, PrintPriority, and
-	// Limit are respected from BuildloggerOptions.
+	// TaskID, TestName, Execution, Tags, TimeRange, PrintTime,
+	// PrintPriority, Limit, and SoftSizeLimit are respected from
+	// BuildloggerOptions.
 	FindGroupedLogs(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 
 	///////////////

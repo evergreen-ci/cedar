@@ -123,7 +123,6 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:   dbCredsFileFlag,
 			Usage:  "specify a DB credential file location",
-			Value:  "",
 			EnvVar: "CEDAR_DB_CREDS_FILE",
 		})
 }

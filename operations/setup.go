@@ -137,8 +137,8 @@ func (c *serviceConf) setup(ctx context.Context) error {
 }
 
 type dbCreds struct {
-	dbUser string `yaml:"mdb_database_username"`
-	dbPwd  string `yaml:"mdb_database_password"`
+	DBUser string `yaml:"mdb_database_username"`
+	DBPwd  string `yaml:"mdb_database_password"`
 }
 
 func loadCredsFromYAML(filePath string) (*dbCreds, error) {
@@ -146,7 +146,6 @@ func loadCredsFromYAML(filePath string) (*dbCreds, error) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		grip.Error(err)
 		return nil, err
 	}
 	defer file.Close()
@@ -162,15 +161,11 @@ func loadCredsFromYAML(filePath string) (*dbCreds, error) {
 
 func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string) *serviceConf {
 
-	// should I return an error?
 	creds := &dbCreds{}
 	var err error
 	if dbCredFile != "" {
-
 		creds, err = loadCredsFromYAML(dbCredFile)
-		if err != nil {
-			grip.Error(err)
-		}
+		grip.Error(err)
 	}
 
 	return &serviceConf{
@@ -179,7 +174,7 @@ func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName 
 		mongodbURI: mongodbURI,
 		bucket:     bucket,
 		dbName:     dbName,
-		dbUser:     creds.dbUser,
-		dbPwd:      creds.dbPwd,
+		dbUser:     creds.DBUser,
+		dbPwd:      creds.DBPwd,
 	}
 }

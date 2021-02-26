@@ -17,6 +17,7 @@ import (
 
 const (
 	findOutdatedRollupsJobName = "find-outdated-rollups"
+	maxOutdatedPerfResults     = 1000
 )
 
 type findOutdatedRollupsJob struct {
@@ -94,6 +95,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 		factories = append(factories, factory)
 	}
 
+	count := 0
 	results := model.PerformanceResults{}
 	results.Setup(j.env)
 	for i, factory := range factories {
@@ -107,6 +109,15 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 			for _, result := range results.Results {
 				if _, ok := j.seenIDs[result.ID]; !ok {
 					j.createFTDCRollupsJobs(ctx, factories[i:], result)
+
+					count += 1
+					if count >= maxOutdatedPerfResults {
+						// Stop job after processing a
+						// max number of results to
+						// avoid overwhelming the amboy
+						// queue.
+						return
+					}
 				}
 			}
 		}
