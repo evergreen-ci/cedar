@@ -24,8 +24,9 @@ type testResultsConnectorSuite struct {
 	env         cedar.Environment
 	testResults map[string]dbModel.TestResults
 	tempDir     string
+	apiResults  map[string]model.APITestResult
+
 	suite.Suite
-	apiResults map[string]model.APITestResult
 }
 
 func TestTestResultsConnectorSuiteDB(t *testing.T) {
@@ -153,192 +154,195 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIDExists() {
-	optsList := []TestResultsOptions{
+func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
+	for _, test := range []struct {
+		name      string
+		opts      TestResultsOptions
+		resultMap map[string]model.APITestResult
+	}{
 		{
-			TaskID:    "task1",
-			Execution: 0,
+			name: "TaskIDWithExecution",
+			opts: TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 0,
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_0_test0": s.apiResults["task1_0_test0"],
+				"task1_0_test1": s.apiResults["task1_0_test1"],
+				"task1_0_test2": s.apiResults["task1_0_test2"],
+			},
 		},
 		{
-			TaskID:         "task1",
-			EmptyExecution: true,
+			name: "TaskIDWithoutExecution",
+			opts: TestResultsOptions{
+				TaskID:         "task1",
+				EmptyExecution: true,
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_1_test0": s.apiResults["task1_1_test0"],
+				"task1_1_test1": s.apiResults["task1_1_test1"],
+				"task1_1_test2": s.apiResults["task1_1_test2"],
+			},
 		},
-	}
-	resultMaps := []map[string]model.APITestResult{
 		{
-			"task1_0_test0": s.apiResults["task1_0_test0"],
-			"task1_0_test1": s.apiResults["task1_0_test1"],
-			"task1_0_test2": s.apiResults["task1_0_test2"],
+			name: "DisplayTaskIDWithExecution",
+			opts: TestResultsOptions{
+				DisplayTaskID: "display_task1",
+				Execution:     0,
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_0_test0": s.apiResults["task1_0_test0"],
+				"task1_0_test1": s.apiResults["task1_0_test1"],
+				"task1_0_test2": s.apiResults["task1_0_test2"],
+				"task2_0_test0": s.apiResults["task2_0_test0"],
+				"task2_0_test1": s.apiResults["task2_0_test1"],
+				"task2_0_test2": s.apiResults["task2_0_test2"],
+			},
 		},
 		{
-			"task1_1_test0": s.apiResults["task1_1_test0"],
-			"task1_1_test1": s.apiResults["task1_1_test1"],
-			"task1_1_test2": s.apiResults["task1_1_test2"],
+			name: "DisplayTaskIDWithoutExecution",
+			opts: TestResultsOptions{
+				DisplayTaskID:  "display_task1",
+				EmptyExecution: true,
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_1_test0": s.apiResults["task1_1_test0"],
+				"task1_1_test1": s.apiResults["task1_1_test1"],
+				"task1_1_test2": s.apiResults["task1_1_test2"],
+			},
 		},
-	}
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			actualResults, err := s.sc.FindTestResults(s.ctx, test.opts)
+			s.Require().NoError(err)
 
-	for i, opts := range optsList {
-		actualResults, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
-		s.Require().NoError(err)
-
-		s.Len(actualResults, len(resultMaps[i]))
-		for _, result := range actualResults {
-			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
-			expected, ok := resultMaps[i][key]
-			s.Require().True(ok)
-			s.Equal(expected.TestName, result.TestName)
-			s.Equal(expected.TaskID, result.TaskID)
-			s.Equal(expected.Execution, result.Execution)
-			delete(resultMaps[i], key)
-		}
+			s.Len(actualResults, len(test.resultMap))
+			for _, result := range actualResults {
+				key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
+				expected, ok := test.resultMap[key]
+				s.Require().True(ok)
+				s.Equal(expected.TestName, result.TestName)
+				s.Equal(expected.TaskID, result.TaskID)
+				s.Equal(expected.Execution, result.Execution)
+				delete(test.resultMap, key)
+			}
+		})
 	}
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDDNE() {
-	opts := TestResultsOptions{
-		TaskID:    "DNE",
-		Execution: 1,
+func (s *testResultsConnectorSuite) TestFindTestResultDNE() {
+	for _, test := range []struct {
+		name string
+		opts TestResultsOptions
+	}{
+		{
+			name: "TaskID",
+			opts: TestResultsOptions{TaskID: "DNE"},
+		},
+		{
+			name: "DisplayTaskID",
+			opts: TestResultsOptions{DisplayTaskID: "DNE"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			result, err := s.sc.FindTestResults(s.ctx, test.opts)
+			s.Error(err)
+			s.Nil(result)
+		})
 	}
 
-	result, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDEmpty() {
 	opts := TestResultsOptions{Execution: 1}
 
-	result, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultsByDisplayTaskIDExists() {
-	optsList := []TestResultsOptions{
-		{
-			DisplayTaskID: "display_task1",
-			Execution:     0,
-		},
-		{
-			DisplayTaskID:  "display_task1",
-			EmptyExecution: true,
-		},
-	}
-	resultMaps := []map[string]model.APITestResult{
-		{
-			"task1_0_test0": s.apiResults["task1_0_test0"],
-			"task1_0_test1": s.apiResults["task1_0_test1"],
-			"task1_0_test2": s.apiResults["task1_0_test2"],
-			"task2_0_test0": s.apiResults["task2_0_test0"],
-			"task2_0_test1": s.apiResults["task2_0_test1"],
-			"task2_0_test2": s.apiResults["task2_0_test2"],
-		},
-		{
-			"task1_1_test0": s.apiResults["task1_1_test0"],
-			"task1_1_test1": s.apiResults["task1_1_test1"],
-			"task1_1_test2": s.apiResults["task1_1_test2"],
-		},
-	}
-
-	for i, opts := range optsList {
-		actualResults, err := s.sc.FindTestResultsByDisplayTaskID(s.ctx, opts)
-		s.Require().NoError(err)
-
-		s.Len(actualResults, len(resultMaps[i]))
-		for _, result := range actualResults {
-			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
-			expected, ok := resultMaps[i][key]
-			s.Require().True(ok)
-			s.Equal(expected.TestName, result.TestName)
-			s.Equal(expected.TaskID, result.TaskID)
-			s.Equal(expected.Execution, result.Execution)
-			delete(resultMaps[i], key)
-		}
-	}
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultByDisplayTaskIDDNE() {
-	opts := TestResultsOptions{
-		DisplayTaskID: "DNE",
-		Execution:     1,
-	}
-
-	result, err := s.sc.FindTestResultsByDisplayTaskID(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultByDisplayTaskIDEmpty() {
-	opts := TestResultsOptions{Execution: 1}
-
-	result, err := s.sc.FindTestResultsByDisplayTaskID(s.ctx, opts)
+	result, err := s.sc.FindTestResults(s.ctx, opts)
 	s.Error(err)
 	s.Nil(result)
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
-	optsList := []TestResultsOptions{{
-		TaskID:    "task1",
-		Execution: 1,
-		TestName:  "test1",
-	}, {
-		TaskID:         "task1",
-		EmptyExecution: true,
-		TestName:       "test1",
-	}}
-	for _, opts := range optsList {
-		findOpts := dbModel.TestResultsFindOptions{
-			TaskID:         opts.TaskID,
-			Execution:      opts.Execution,
-			EmptyExecution: opts.EmptyExecution,
-		}
-		results, err := dbModel.FindTestResults(s.ctx, s.env, findOpts)
-		s.Require().NoError(err)
-		bucket, err := results[0].GetBucket(s.ctx)
-		s.Require().NoError(err)
+	for _, test := range []struct {
+		name string
+		opts TestResultsOptions
+	}{
+		{
+			name: "WithExecution",
+			opts: TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 1,
+				TestName:  "test1",
+			},
+		},
+		{
+			name: "WithoutExecution",
+			opts: TestResultsOptions{
+				TaskID:         "task1",
+				EmptyExecution: true,
+				TestName:       "test1",
+			},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			findOpts := dbModel.TestResultsFindOptions{
+				TaskID:         test.opts.TaskID,
+				Execution:      test.opts.Execution,
+				EmptyExecution: test.opts.EmptyExecution,
+			}
+			results, err := dbModel.FindTestResults(s.ctx, s.env, findOpts)
+			s.Require().NoError(err)
+			bucket, err := results[0].GetBucket(s.ctx)
+			s.Require().NoError(err)
 
-		tr, err := bucket.Get(s.ctx, opts.TestName)
-		s.Require().NoError(err)
-		defer func() {
-			s.NoError(tr.Close())
-		}()
+			tr, err := bucket.Get(s.ctx, test.opts.TestName)
+			s.Require().NoError(err)
+			defer func() {
+				s.NoError(tr.Close())
+			}()
 
-		data, err := ioutil.ReadAll(tr)
-		s.Require().NoError(err)
+			data, err := ioutil.ReadAll(tr)
+			s.Require().NoError(err)
 
-		var result dbModel.TestResult
-		s.Require().NoError(bson.Unmarshal(data, &result))
-		expected := &model.APITestResult{}
-		s.Require().NoError(expected.Import(result))
+			var result dbModel.TestResult
+			s.Require().NoError(bson.Unmarshal(data, &result))
+			expected := &model.APITestResult{}
+			s.Require().NoError(expected.Import(result))
 
-		actual, err := s.sc.FindTestResultByTestName(s.ctx, opts)
-		s.Require().NoError(err)
-		s.Equal(expected, actual)
+			actual, err := s.sc.FindTestResultByTestName(s.ctx, test.opts)
+			s.Require().NoError(err)
+			s.Equal(expected, actual)
+		})
 	}
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
-	// Test when metadata object doesn't exist.
-	opts := TestResultsOptions{
-		TaskID:    "DNE",
-		Execution: 1,
-		TestName:  "test1",
+	for _, test := range []struct {
+		name string
+		opts TestResultsOptions
+	}{
+		{
+			name: "MetadataDNE",
+			opts: TestResultsOptions{
+				TaskID:    "DNE",
+				Execution: 1,
+				TestName:  "test1",
+			},
+		},
+		{
+			name: "TestObjectDNE",
+			opts: TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 1,
+				TestName:  "DNE",
+			},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			result, err := s.sc.FindTestResultByTestName(s.ctx, test.opts)
+			s.Error(err)
+			s.Nil(result)
+		})
 	}
-
-	result, err := s.sc.FindTestResultByTestName(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
-
-	// Test when test object doesn't exist.
-	opts = TestResultsOptions{
-		TaskID:    "task1",
-		Execution: 1,
-		TestName:  "DNE",
-	}
-
-	result, err = s.sc.FindTestResultByTestName(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultByTestNameEmpty() {

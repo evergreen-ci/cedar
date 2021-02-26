@@ -344,7 +344,6 @@ type TestResult struct {
 type TestResultsFindOptions struct {
 	TaskID         string
 	DisplayTaskID  string
-	Variant        string
 	Execution      int
 	EmptyExecution bool
 }

@@ -1,8 +1,14 @@
 package data
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/pail"
+	"github.com/pkg/errors"
 )
 
 // DBConnector is a struct that implements the Connector interface backed by
@@ -32,4 +38,20 @@ type MockConnector struct {
 	Bucket                   string
 
 	env cedar.Environment
+}
+
+func (mc *MockConnector) getBucket(ctx context.Context, prefix string) (pail.Bucket, error) {
+	bucketOpts := pail.LocalOptions{
+		Path:   mc.Bucket,
+		Prefix: prefix,
+	}
+	bucket, err := pail.NewLocalBucket(bucketOpts)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrapf(err, "creating bucket").Error(),
+		}
+	}
+
+	return bucket, nil
 }

@@ -92,14 +92,10 @@ type Connector interface {
 	///////////////
 	// Test Results
 	///////////////
-	// FindTestResultsByTaskID queries the database to find all test
-	// results with the given options. If the execution is not specified,
-	// this will return the test results from the most recent execution.
-	FindTestResultsByTaskID(context.Context, TestResultsOptions) ([]model.APITestResult, error)
-	// FindTestResultsByDisplayTaskID queries the database to find all test
-	// results with the given options. If the execution is not specified,
-	// this will return the test results from the most recent execution.
-	FindTestResultsByDisplayTaskID(context.Context, TestResultsOptions) ([]model.APITestResult, error)
+	// FindTestResults queries the database to find all test results with
+	// the given options. If the execution is not specified, this will
+	// return the test results from the most recent execution.
+	FindTestResults(context.Context, TestResultsOptions) ([]model.APITestResult, error)
 	// FindTestResultByTestName finds the test result of a single test,
 	// specified by the given options. If execution is not specified, this
 	// will return the test result from the most recent execution.
