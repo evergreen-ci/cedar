@@ -72,12 +72,13 @@ func loadGraphToDB() cli.Command {
 		Action: func(c *cli.Context) error {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
+			dbCredFile := c.String(dbCredsFileFlag)
 			fn := c.String("path")
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile)
 			sc.interactive = true
 
 			if err := sc.setup(ctx); err != nil {
@@ -143,11 +144,12 @@ func cleanDB() cli.Command {
 		Action: func(c *cli.Context) error {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
+			dbCredFile := c.String(dbCredsFileFlag)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			sc := newServiceConf(2, true, mongodbURI, "", dbName)
+			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile)
 			sc.interactive = true
 
 			if err := sc.setup(ctx); err != nil {

@@ -21,6 +21,8 @@ type Configuration struct {
 	DisableRemoteQueue      bool
 	DisableRemoteQueueGroup bool
 	NumWorkers              int
+	DBUser                  string
+	DBPwd                   string
 }
 
 func (c *Configuration) Validate() error {
@@ -63,4 +65,8 @@ func (c *Configuration) GetQueueGroupOptions() queue.MongoDBOptions {
 	opts.UseGroups = true
 	opts.GroupName = c.QueueName
 	return opts
+}
+
+func (c *Configuration) HasAuth() bool {
+	return c.DBUser != ""
 }
