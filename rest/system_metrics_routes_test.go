@@ -198,14 +198,14 @@ func TestNewSystemMetricsResponder(t *testing.T) {
 			BaseURL:         baseURL,
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
-			Key:             string(0),
+			Key:             "0",
 			Relation:        "prev",
 		}
 		expectedNext := &gimlet.Page{
 			BaseURL:         baseURL,
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
-			Key:             string(5),
+			Key:             "5",
 			Relation:        "next",
 		}
 		assert.Equal(t, expectedPrev, pages.Prev)
@@ -221,7 +221,7 @@ func TestNewSystemMetricsResponder(t *testing.T) {
 			BaseURL:         baseURL,
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
-			Key:             string(5),
+			Key:             "5",
 			Relation:        "prev",
 		}
 		assert.Equal(t, expectedPrev, pages.Prev)

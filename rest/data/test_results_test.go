@@ -64,34 +64,44 @@ func (s *testResultsConnectorSuite) setup() {
 
 	testResultInfos := []dbModel.TestResultsInfo{
 		{
-			Project:     "test",
-			Version:     "0",
-			Variant:     "linux",
-			TaskName:    "task0",
-			TaskID:      "task1",
-			Execution:   0,
-			RequestType: "requesttype",
-			Mainline:    true,
+			Project:       "test",
+			Version:       "0",
+			Variant:       "linux",
+			TaskID:        "task1",
+			DisplayTaskID: "display_task1",
+			Execution:     0,
+			RequestType:   "requesttype",
+			Mainline:      true,
 		},
 		{
-			Project:     "test",
-			Version:     "0",
-			Variant:     "linux",
-			TaskName:    "task0",
-			TaskID:      "task1",
-			Execution:   1,
-			RequestType: "requesttype",
-			Mainline:    true,
+			Project:       "test",
+			Version:       "0",
+			Variant:       "linux",
+			TaskID:        "task1",
+			DisplayTaskID: "display_task1",
+			Execution:     1,
+			RequestType:   "requesttype",
+			Mainline:      true,
 		},
 		{
-			Project:     "test",
-			Version:     "0",
-			Variant:     "linux",
-			TaskName:    "task2",
-			TaskID:      "task3",
-			Execution:   0,
-			RequestType: "requesttype",
-			Mainline:    true,
+			Project:       "test",
+			Version:       "0",
+			Variant:       "linux",
+			TaskID:        "task2",
+			DisplayTaskID: "display_task1",
+			Execution:     0,
+			RequestType:   "requesttype",
+			Mainline:      true,
+		},
+		{
+			Project:       "test",
+			Version:       "0",
+			Variant:       "linux",
+			TaskID:        "task3",
+			DisplayTaskID: "display_task2",
+			Execution:     0,
+			RequestType:   "requesttype",
+			Mainline:      true,
 		},
 	}
 
@@ -144,40 +154,42 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultsByTaskIDExists() {
-	optsList := []TestResultsOptions{{
-		TaskID:    "task1",
-		Execution: 0,
-	}, {
-		TaskID:         "task1",
-		EmptyExecution: true,
-	}}
-
-	expectedResultsList := make([][]model.APITestResult, 0)
-	expectedResults := make([]model.APITestResult, 0)
-	expectedResultsKeys := [][]string{
-		{"task1_0_test0", "task1_0_test1", "task1_0_test2"},
-		{"task1_1_test0", "task1_1_test1", "task1_1_test2"},
+	optsList := []TestResultsOptions{
+		{
+			TaskID:    "task1",
+			Execution: 0,
+		},
+		{
+			TaskID:         "task1",
+			EmptyExecution: true,
+		},
 	}
-
-	for _, testNum := range expectedResultsKeys {
-		for _, key := range testNum {
-			expectedResults = append(expectedResults, s.apiResults[key])
-		}
-		expectedResultsList = append(expectedResultsList, expectedResults)
-		expectedResults = nil
+	resultMaps := []map[string]model.APITestResult{
+		{
+			"task1_0_test0": s.apiResults["task1_0_test0"],
+			"task1_0_test1": s.apiResults["task1_0_test1"],
+			"task1_0_test2": s.apiResults["task1_0_test2"],
+		},
+		{
+			"task1_1_test0": s.apiResults["task1_1_test0"],
+			"task1_1_test1": s.apiResults["task1_1_test1"],
+			"task1_1_test2": s.apiResults["task1_1_test2"],
+		},
 	}
 
 	for i, opts := range optsList {
-		expected := expectedResultsList[i]
-
-		actual, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
+		actualResults, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
 		s.Require().NoError(err)
 
-		s.Len(expected, len(actual))
-		for j := 0; j < len(actual); j++ {
-			s.Equal(expected[j].TestName, actual[j].TestName)
-			s.Equal(expected[j].TaskID, actual[j].TaskID)
-			s.Equal(expected[j].Execution, actual[j].Execution)
+		s.Len(actualResults, len(resultMaps[i]))
+		for _, result := range actualResults {
+			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
+			expected, ok := resultMaps[i][key]
+			s.Require().True(ok)
+			s.Equal(expected.TestName, result.TestName)
+			s.Equal(expected.TaskID, result.TaskID)
+			s.Equal(expected.Execution, result.Execution)
+			delete(resultMaps[i], key)
 		}
 	}
 }
@@ -197,6 +209,69 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDEmpty() {
 	opts := TestResultsOptions{Execution: 1}
 
 	result, err := s.sc.FindTestResultsByTaskID(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultsByDisplayTaskIDExists() {
+	optsList := []TestResultsOptions{
+		{
+			DisplayTaskID: "display_task1",
+			Execution:     0,
+		},
+		{
+			DisplayTaskID:  "display_task1",
+			EmptyExecution: true,
+		},
+	}
+	resultMaps := []map[string]model.APITestResult{
+		{
+			"task1_0_test0": s.apiResults["task1_0_test0"],
+			"task1_0_test1": s.apiResults["task1_0_test1"],
+			"task1_0_test2": s.apiResults["task1_0_test2"],
+			"task2_0_test0": s.apiResults["task2_0_test0"],
+			"task2_0_test1": s.apiResults["task2_0_test1"],
+			"task2_0_test2": s.apiResults["task2_0_test2"],
+		},
+		{
+			"task1_1_test0": s.apiResults["task1_1_test0"],
+			"task1_1_test1": s.apiResults["task1_1_test1"],
+			"task1_1_test2": s.apiResults["task1_1_test2"],
+		},
+	}
+
+	for i, opts := range optsList {
+		actualResults, err := s.sc.FindTestResultsByDisplayTaskID(s.ctx, opts)
+		s.Require().NoError(err)
+
+		s.Len(actualResults, len(resultMaps[i]))
+		for _, result := range actualResults {
+			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
+			expected, ok := resultMaps[i][key]
+			s.Require().True(ok)
+			s.Equal(expected.TestName, result.TestName)
+			s.Equal(expected.TaskID, result.TaskID)
+			s.Equal(expected.Execution, result.Execution)
+			delete(resultMaps[i], key)
+		}
+	}
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByDisplayTaskIDDNE() {
+	opts := TestResultsOptions{
+		DisplayTaskID: "DNE",
+		Execution:     1,
+	}
+
+	result, err := s.sc.FindTestResultsByDisplayTaskID(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByDisplayTaskIDEmpty() {
+	opts := TestResultsOptions{Execution: 1}
+
+	result, err := s.sc.FindTestResultsByDisplayTaskID(s.ctx, opts)
 	s.Error(err)
 	s.Nil(result)
 }

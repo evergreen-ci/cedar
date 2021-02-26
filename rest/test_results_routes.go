@@ -53,7 +53,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(_ context.Context, r *http.Request
 func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResultsByTaskID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "problem getting test results by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -104,9 +104,9 @@ func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.
 
 // Run finds and returns the desired test result based on the display task id.
 func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	testResults, err := h.sc.FindTestResultsByTaskID(ctx, h.opts)
+	testResults, err := h.sc.FindTestResultsByDisplayTaskID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results by display task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "problem getting test results by display_task_id '%s'", h.opts.DisplayTaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",

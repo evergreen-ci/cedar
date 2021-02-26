@@ -313,10 +313,10 @@ func TestTestResultsDownload(t *testing.T) {
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
 	require.NoError(t, err)
 
-	resultsMap := map[string]TestResult{}
+	resultMap := map[string]TestResult{}
 	for i := 0; i < 10; i++ {
 		result := getTestResult()
-		resultsMap[result.TestName] = result
+		resultMap[result.TestName] = result
 		var data []byte
 		data, err = bson.Marshal(result)
 		require.NoError(t, err)
@@ -379,9 +379,10 @@ func TestTestResultsDownload(t *testing.T) {
 
 		require.Len(t, results, 10)
 		for _, result := range results {
-			expected, ok := resultsMap[result.TestName]
+			expected, ok := resultMap[result.TestName]
 			require.True(t, ok)
 			assert.Equal(t, expected, result)
+			delete(resultMap, result.TestName)
 		}
 	})
 }
@@ -597,10 +598,10 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	testBucket1, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr1.ID})
 	require.NoError(t, err)
 
-	resultsMap := map[string]TestResult{}
+	resultMap := map[string]TestResult{}
 	for i := 0; i < 10; i++ {
 		result := getTestResult()
-		resultsMap[result.TestName] = result
+		resultMap[result.TestName] = result
 		var data []byte
 		data, err = bson.Marshal(result)
 		require.NoError(t, err)
@@ -617,7 +618,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		result := getTestResult()
-		resultsMap[result.TestName] = result
+		resultMap[result.TestName] = result
 		var data []byte
 		data, err = bson.Marshal(result)
 		require.NoError(t, err)
@@ -650,9 +651,10 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 
 	require.Len(t, results, 20)
 	for _, result := range results {
-		expected, ok := resultsMap[result.TestName]
+		expected, ok := resultMap[result.TestName]
 		require.True(t, ok)
 		assert.Equal(t, expected, result)
+		delete(resultMap, result.TestName)
 	}
 }
 

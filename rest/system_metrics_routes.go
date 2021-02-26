@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -92,7 +93,7 @@ func newSystemMetricsResponder(data []byte, startIdx, nextIdx int) gimlet.Respon
 			BaseURL:         baseURL,
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
-			Key:             string(startIdx),
+			Key:             fmt.Sprintf("%d", startIdx),
 			Relation:        "prev",
 		},
 	}
@@ -101,7 +102,7 @@ func newSystemMetricsResponder(data []byte, startIdx, nextIdx int) gimlet.Respon
 			BaseURL:         baseURL,
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
-			Key:             string(nextIdx),
+			Key:             fmt.Sprintf("%d", nextIdx),
 			Relation:        "next",
 		}
 	}
