@@ -281,6 +281,7 @@ type TestResultsInfo struct {
 	TaskName        string `bson:"task_name,omitempty"`
 	DisplayTaskName string `bson:"display_task_name,omitempty"`
 	TaskID          string `bson:"task_id,omitempty"`
+	DisplayTaskID   string `bson:"display_task_id,omitempty"`
 	Execution       int    `bson:"execution"`
 	RequestType     string `bson:"request_type,omitempty"`
 	Mainline        bool   `bson:"mainline,omitempty"`
@@ -294,6 +295,7 @@ var (
 	testResultsInfoTaskNameKey        = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskName")
 	testResultsInfoDisplayTaskNameKey = bsonutil.MustHaveTag(TestResultsInfo{}, "DisplayTaskName")
 	testResultsInfoTaskIDKey          = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskID")
+	testResultsInfoDisplayTaskIDKey   = bsonutil.MustHaveTag(TestResultsInfo{}, "DisplayTaskID")
 	testResultsInfoExecutionKey       = bsonutil.MustHaveTag(TestResultsInfo{}, "Execution")
 	testResultsInfoRequestTypeKey     = bsonutil.MustHaveTag(TestResultsInfo{}, "RequestType")
 	testResultsInfoMainlineKey        = bsonutil.MustHaveTag(TestResultsInfo{}, "Mainline")
@@ -312,6 +314,7 @@ func (id *TestResultsInfo) ID() string {
 		_, _ = io.WriteString(hash, id.TaskName)
 		_, _ = io.WriteString(hash, id.DisplayTaskName)
 		_, _ = io.WriteString(hash, id.TaskID)
+		_, _ = io.WriteString(hash, id.DisplayTaskID)
 		_, _ = io.WriteString(hash, fmt.Sprint(id.Execution))
 		_, _ = io.WriteString(hash, id.RequestType)
 	} else {
@@ -329,6 +332,7 @@ type TestResult struct {
 	TestName       string    `bson:"test_name"`
 	Trial          int       `bson:"trial"`
 	Status         string    `bson:"status"`
+	LogURL         string    `bson:"log_url"`
 	LineNum        int       `bson:"line_num"`
 	TaskCreateTime time.Time `bson:"task_create_time"`
 	TestStartTime  time.Time `bson:"test_start_time"`
@@ -338,10 +342,10 @@ type TestResult struct {
 // TestResultsFindOptions allows for querying for test results with or without
 // an execution value.
 type TestResultsFindOptions struct {
-	TaskID          string
-	DisplayTaskName string
-	Execution       int
-	EmptyExecution  bool
+	TaskID         string
+	DisplayTaskID  string
+	Execution      int
+	EmptyExecution bool
 }
 
 func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
@@ -358,7 +362,7 @@ func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
 	if opts.TaskID != "" {
 		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
 	} else {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskNameKey)] = opts.DisplayTaskName
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.DisplayTaskID
 	}
 	if !opts.EmptyExecution {
 		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
@@ -372,7 +376,7 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 	if opts.TaskID != "" {
 		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test results records with display task name %s", opts.DisplayTaskName)
+		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.DisplayTaskID)
 	}
 	if !opts.EmptyExecution {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
@@ -390,8 +394,8 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 		return nil, errors.New("cannot find with a nil environment")
 	}
 
-	if opts.TaskID == "" && opts.DisplayTaskName == "" {
-		return nil, errors.New("cannot find without a task_id or display_task_name")
+	if (opts.TaskID == "" && opts.DisplayTaskID == "") || (opts.TaskID != "" && opts.DisplayTaskID != "") {
+		return nil, errors.New("must specify either task_id or display_task_id")
 	}
 
 	results := []TestResults{}
@@ -400,7 +404,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 		return nil, errors.Wrap(err, "finding test results record(s)")
 	}
 	if err := cur.All(ctx, &results); err != nil {
-		return nil, errors.Wrap(err, "decoding test result record(s)")
+		return nil, errors.Wrap(err, "decoding test results record(s)")
 	}
 	if len(results) == 0 {
 		return nil, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())

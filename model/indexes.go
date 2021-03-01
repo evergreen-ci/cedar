@@ -152,6 +152,21 @@ func GetRequiredIndexes() []SystemIndexes {
 			Collection: testResultsCollection,
 		},
 		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: 1},
+			},
+			Options: bson.D{
+				{
+					Key: "partialFilterExpression",
+					Value: bson.M{
+						bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): bson.M{"$exists": true},
+					},
+				},
+			},
+			Collection: testResultsCollection,
+		},
+		{
 			Keys:       bson.D{{Key: dbUserAPIKeyKey, Value: 1}},
 			Collection: userCollection,
 		},

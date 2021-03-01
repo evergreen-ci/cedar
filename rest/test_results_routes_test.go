@@ -36,14 +36,14 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 			"abc": {
 				ID: "abc",
 				Info: dbModel.TestResultsInfo{
-					Project:     "test",
-					Version:     "0",
-					Variant:     "linux",
-					TaskName:    "task0",
-					TaskID:      "task1",
-					Execution:   0,
-					RequestType: "requesttype",
-					Mainline:    true,
+					Project:       "test",
+					Version:       "0",
+					Variant:       "linux",
+					TaskID:        "task1",
+					DisplayTaskID: "display_task1",
+					Execution:     0,
+					RequestType:   "requesttype",
+					Mainline:      true,
 				},
 				CreatedAt:   time.Now().Add(-24 * time.Hour),
 				CompletedAt: time.Now().Add(-23 * time.Hour),
@@ -55,14 +55,14 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 			"def": {
 				ID: "def",
 				Info: dbModel.TestResultsInfo{
-					Project:     "test",
-					Version:     "0",
-					Variant:     "linux",
-					TaskName:    "task0",
-					TaskID:      "task1",
-					Execution:   1,
-					RequestType: "requesttype",
-					Mainline:    true,
+					Project:       "test",
+					Version:       "0",
+					Variant:       "linux",
+					TaskID:        "task1",
+					DisplayTaskID: "display_task1",
+					Execution:     1,
+					RequestType:   "requesttype",
+					Mainline:      true,
 				},
 				CreatedAt:   time.Now().Add(-25 * time.Hour),
 				CompletedAt: time.Now().Add(-23 * time.Hour),
@@ -74,14 +74,14 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 			"ghi": {
 				ID: "ghi",
 				Info: dbModel.TestResultsInfo{
-					Project:     "test",
-					Version:     "0",
-					Variant:     "linux",
-					TaskName:    "task2",
-					TaskID:      "task3",
-					Execution:   0,
-					RequestType: "requesttype",
-					Mainline:    true,
+					Project:       "test",
+					Version:       "0",
+					Variant:       "linux",
+					TaskID:        "task2",
+					DisplayTaskID: "display_task1",
+					Execution:     0,
+					RequestType:   "requesttype",
+					Mainline:      true,
 				},
 				CreatedAt:   time.Now().Add(-2 * time.Hour),
 				CompletedAt: time.Now(),
@@ -93,8 +93,9 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"task_id":   makeGetTestResultsByTaskId(&s.sc),
-		"test_name": makeGetTestResultByTestName(&s.sc),
+		"task_id":         makeGetTestResultsByTaskID(&s.sc),
+		"display_task_id": makeGetTestResultsByDisplayTaskID(&s.sc),
+		"test_name":       makeGetTestResultByTestName(&s.sc),
 	}
 	s.apiResults = map[string]model.APITestResult{}
 	s.buckets = map[string]pail.Bucket{}
@@ -142,52 +143,143 @@ func TestTestResultsHandlerSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).opts.TaskID = "task1"
-	rh.(*testResultsGetByTaskIdHandler).opts.Execution = 0
-
-	expected := make([]model.APITestResult, 0)
-	expectedKeys := []string{"task1_0_test0", "task1_0_test1", "task1_0_test2"}
-	for _, key := range expectedKeys {
-		expectedResult, ok := s.apiResults[key] // retrieve stored apiTestResult
-		s.True(ok)
-		expected = append(expected, expectedResult)
+	optsList := []data.TestResultsOptions{
+		{
+			TaskID:    "task1",
+			Execution: 0,
+		},
+		{
+			TaskID:         "task1",
+			EmptyExecution: true,
+		},
+	}
+	resultMaps := []map[string]model.APITestResult{
+		{
+			"task1_0_test0": s.apiResults["task1_0_test0"],
+			"task1_0_test1": s.apiResults["task1_0_test1"],
+			"task1_0_test2": s.apiResults["task1_0_test2"],
+		},
+		{
+			"task1_1_test0": s.apiResults["task1_1_test0"],
+			"task1_1_test1": s.apiResults["task1_1_test1"],
+			"task1_1_test2": s.apiResults["task1_1_test2"],
+		},
 	}
 
-	resp := rh.Run(context.TODO())
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusOK, resp.Status())
-	actual, ok := resp.Data().([]model.APITestResult)
-	s.Require().True(ok)
-	s.Equal(len(expected), len(actual))
-	for j := 0; j < len(actual); j++ {
-		s.Equal(expected[j].TestName, actual[j].TestName)
-		s.Equal(expected[j].TaskID, actual[j].TaskID)
-		s.Equal(expected[j].Execution, actual[j].Execution)
+	for i, opts := range optsList {
+		rh.(*testResultsGetByTaskIDHandler).opts = opts
+
+		resp := rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		actualResults, ok := resp.Data().([]model.APITestResult)
+		s.Require().True(ok)
+		s.Len(actualResults, len(resultMaps[i]))
+		for _, result := range actualResults {
+			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
+			expected, ok := resultMaps[i][key]
+			s.Require().True(ok)
+			s.Equal(expected.TestName, result.TestName)
+			s.Equal(expected.TaskID, result.TaskID)
+			s.Equal(expected.Execution, result.Execution)
+			delete(resultMaps[i], key)
+		}
 	}
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerNotFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerNotFound() {
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).opts.TaskID = "DNE"
-	rh.(*testResultsGetByTaskIdHandler).opts.Execution = 0
+	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "DNE"
+	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
-	s.NotEqual(http.StatusOK, resp.Status())
+	s.Equal(http.StatusNotFound, resp.Status())
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIdHandlerCtxErr() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIdHandler).opts.TaskID = "task1"
-	rh.(*testResultsGetByTaskIdHandler).opts.Execution = 0
+	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "task1"
+	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
-	s.NotEqual(http.StatusOK, resp.Status())
+	s.Equal(http.StatusInternalServerError, resp.Status())
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerFound() {
+	rh := s.rh["display_task_id"]
+	optsList := []data.TestResultsOptions{
+		{
+			DisplayTaskID: "display_task1",
+			Execution:     0,
+		},
+		{
+			DisplayTaskID:  "display_task1",
+			EmptyExecution: true,
+		},
+	}
+	resultMaps := []map[string]model.APITestResult{
+		{
+			"task1_0_test0": s.apiResults["task1_0_test0"],
+			"task1_0_test1": s.apiResults["task1_0_test1"],
+			"task1_0_test2": s.apiResults["task1_0_test2"],
+			"task2_0_test0": s.apiResults["task2_0_test0"],
+			"task2_0_test1": s.apiResults["task2_0_test1"],
+			"task2_0_test2": s.apiResults["task2_0_test2"],
+		},
+		{
+			"task1_1_test0": s.apiResults["task1_1_test0"],
+			"task1_1_test1": s.apiResults["task1_1_test1"],
+			"task1_1_test2": s.apiResults["task1_1_test2"],
+		},
+	}
+
+	for i, opts := range optsList {
+		rh.(*testResultsGetByDisplayTaskIDHandler).opts = opts
+
+		resp := rh.Run(context.TODO())
+		s.Require().NotNil(resp)
+		s.Equal(http.StatusOK, resp.Status())
+		actualResults, ok := resp.Data().([]model.APITestResult)
+		s.Require().True(ok)
+		s.Len(actualResults, len(resultMaps[i]))
+		for _, result := range actualResults {
+			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
+			expected, ok := resultMaps[i][key]
+			s.Require().True(ok)
+			s.Equal(expected.TestName, result.TestName)
+			s.Equal(expected.TaskID, result.TaskID)
+			s.Equal(expected.Execution, result.Execution)
+			delete(resultMaps[i], key)
+		}
+	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerNotFound() {
+	rh := s.rh["display_task_id"]
+	rh.(*testResultsGetByDisplayTaskIDHandler).opts.DisplayTaskID = "DNE"
+	rh.(*testResultsGetByDisplayTaskIDHandler).opts.Execution = 0
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusNotFound, resp.Status())
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["display_task_id"]
+	rh.(*testResultsGetByDisplayTaskIDHandler).opts.DisplayTaskID = "display_task1"
+	rh.(*testResultsGetByDisplayTaskIDHandler).opts.Execution = 0
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusInternalServerError, resp.Status())
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
@@ -217,7 +309,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerNotFound() {
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
-	s.NotEqual(http.StatusOK, resp.Status())
+	s.Equal(http.StatusNotFound, resp.Status())
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
@@ -230,7 +322,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
-	s.NotEqual(http.StatusOK, resp.Status())
+	s.Equal(http.StatusInternalServerError, resp.Status())
 }
 
 func (s *TestResultsHandlerSuite) TestParse() {
@@ -241,6 +333,10 @@ func (s *TestResultsHandlerSuite) TestParse() {
 		{
 			handler:   "task_id",
 			urlString: "http://cedar.mongodb.com/test_results/task_id/task_id1",
+		},
+		{
+			handler:   "display_task_id",
+			urlString: "http://cedar.mongodb.com/test_results/display_task_id/display_task_id1",
 		},
 		{
 			handler:   "test_name",
@@ -259,11 +355,12 @@ func (s *TestResultsHandlerSuite) testParseValid(handler, urlString string) {
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	rh := s.rh[handler]
-	rh = rh.Factory() // need to reset this since we are reusing the handlers
+	// Need to reset this since we are reusing the handlers.
+	rh = rh.Factory()
 
 	err := rh.Parse(ctx, req)
 	s.Require().NoError(err)
-	s.True(getTestResultsExecution(rh, handler))
+	s.Equal(1, getTestResultsExecution(rh, handler))
 }
 
 func (s *TestResultsHandlerSuite) testParseInvalid(handler, urlString string) {
@@ -271,7 +368,8 @@ func (s *TestResultsHandlerSuite) testParseInvalid(handler, urlString string) {
 	invalidExecution := "?execution=hello"
 	req := &http.Request{Method: "GET"}
 	rh := s.rh[handler]
-	rh = rh.Factory() // need to reset this since we are reusing the handlers
+	// Need to reset this since we are reusing the handlers.
+	rh = rh.Factory()
 
 	req.URL, _ = url.Parse(urlString + invalidExecution)
 	err := rh.Parse(ctx, req)
@@ -283,19 +381,35 @@ func (s *TestResultsHandlerSuite) testParseDefaults(handler, urlString string) {
 	req := &http.Request{Method: "GET"}
 	req.URL, _ = url.Parse(urlString)
 	rh := s.rh[handler]
-	rh = rh.Factory() // need to reset this since we are reusing the handlers
+	// Need to reset this since we are reusing the handlers.
+	rh = rh.Factory()
 
 	err := rh.Parse(ctx, req)
 	s.Require().NoError(err)
-	s.False(getTestResultsExecution(rh, handler))
+	s.True(getTestResultsEmptyExecution(rh, handler))
 }
 
-func getTestResultsExecution(rh gimlet.RouteHandler, handler string) bool {
+func getTestResultsExecution(rh gimlet.RouteHandler, handler string) int {
 	switch handler {
 	case "task_id":
-		return !rh.(*testResultsGetByTaskIdHandler).opts.EmptyExecution
+		return rh.(*testResultsGetByTaskIDHandler).opts.Execution
+	case "display_task_id":
+		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.Execution
 	case "test_name":
-		return !rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
+		return rh.(*testResultGetByTestNameHandler).opts.Execution
+	default:
+		return 0
+	}
+}
+
+func getTestResultsEmptyExecution(rh gimlet.RouteHandler, handler string) bool {
+	switch handler {
+	case "task_id":
+		return rh.(*testResultsGetByTaskIDHandler).opts.EmptyExecution
+	case "display_task_id":
+		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.EmptyExecution
+	case "test_name":
+		return rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
 	default:
 		return false
 	}

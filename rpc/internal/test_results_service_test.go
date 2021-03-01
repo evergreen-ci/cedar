@@ -510,13 +510,14 @@ func getTestResultsGRPCClient(ctx context.Context, address string, opts []grpc.D
 
 func getTestResultsInfo() *TestResultsInfo {
 	return &TestResultsInfo{
-		Project:     utility.RandomString(),
-		Version:     utility.RandomString(),
-		Variant:     utility.RandomString(),
-		TaskName:    utility.RandomString(),
-		TaskId:      utility.RandomString(),
-		Execution:   rand.Int31n(5),
-		RequestType: utility.RandomString(),
+		Project:       utility.RandomString(),
+		Version:       utility.RandomString(),
+		Variant:       utility.RandomString(),
+		TaskName:      utility.RandomString(),
+		TaskId:        utility.RandomString(),
+		DisplayTaskId: utility.RandomString(),
+		Execution:     rand.Int31n(5),
+		RequestType:   utility.RandomString(),
 	}
 }
 
@@ -527,6 +528,7 @@ func getTestResult() *TestResult {
 		Trial:          rand.Int31n(10),
 		Status:         "Pass",
 		LineNum:        rand.Int31n(1000),
+		LogUrl:         utility.RandomString(),
 		TaskCreateTime: &timestamp.Timestamp{Seconds: now.Add(-time.Hour).Unix()},
 		TestStartTime:  &timestamp.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
 		TestEndTime:    &timestamp.Timestamp{Seconds: now.Unix()},
@@ -539,6 +541,7 @@ func getInvalidTestResult() *TestResult {
 		TestName:       utility.RandomString(),
 		Trial:          rand.Int31n(10),
 		Status:         "Pass",
+		LogUrl:         utility.RandomString(),
 		LineNum:        rand.Int31n(1000),
 		TaskCreateTime: &timestamp.Timestamp{Seconds: -100000000000},
 		TestStartTime:  &timestamp.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
