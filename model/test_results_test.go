@@ -476,6 +476,15 @@ func TestFindTestResults(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
+	t.Run("TaskIDAndDisplayTaskID", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			TaskID:        tr1.Info.TaskID,
+			DisplayTaskID: "display",
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+	})
 	t.Run("TaskIDDNE", func(t *testing.T) {
 		opts := TestResultsFindOptions{
 			TaskID:         "DNE",

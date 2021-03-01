@@ -394,8 +394,8 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 		return nil, errors.New("cannot find with a nil environment")
 	}
 
-	if opts.TaskID == "" && opts.DisplayTaskID == "" {
-		return nil, errors.New("cannot find without a task_id or display_task_id")
+	if (opts.TaskID == "" && opts.DisplayTaskID == "") || (opts.TaskID != "" && opts.DisplayTaskID != "") {
+		return nil, errors.New("must specify either task_id or display_task_id")
 	}
 
 	results := []TestResults{}
