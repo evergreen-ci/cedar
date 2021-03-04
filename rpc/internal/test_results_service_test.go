@@ -525,10 +525,10 @@ func getTestResult() *TestResult {
 	now := time.Now()
 	return &TestResult{
 		TestName:       utility.RandomString(),
+		GroupId:        utility.RandomString(),
 		Trial:          rand.Int31n(10),
 		Status:         "Pass",
 		LineNum:        rand.Int31n(1000),
-		LogUrl:         utility.RandomString(),
 		TaskCreateTime: &timestamp.Timestamp{Seconds: now.Add(-time.Hour).Unix()},
 		TestStartTime:  &timestamp.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
 		TestEndTime:    &timestamp.Timestamp{Seconds: now.Unix()},
@@ -539,9 +539,9 @@ func getInvalidTestResult() *TestResult {
 	now := time.Now()
 	return &TestResult{
 		TestName:       utility.RandomString(),
+		GroupId:        utility.RandomString(),
 		Trial:          rand.Int31n(10),
 		Status:         "Pass",
-		LogUrl:         utility.RandomString(),
 		LineNum:        rand.Int31n(1000),
 		TaskCreateTime: &timestamp.Timestamp{Seconds: -100000000000},
 		TestStartTime:  &timestamp.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,9 +14,10 @@ func TestTestResultImport(t *testing.T) {
 		apiTestResult := &APITestResult{}
 		assert.Error(t, apiTestResult.Import(dbmodel.TestResults{}))
 	})
-	t.Run("ValidTestResultWithoutURL", func(t *testing.T) {
+	t.Run("ValidTestResult", func(t *testing.T) {
 		tr := dbmodel.TestResult{
 			TaskID:         "task_id",
+			GroupID:        "group_id",
 			Execution:      2,
 			TestName:       "test_name",
 			Trial:          3,
@@ -29,40 +29,11 @@ func TestTestResultImport(t *testing.T) {
 		}
 		expected := &APITestResult{
 			TaskID:         utility.ToStringPtr(tr.TaskID),
+			GroupID:        utility.ToStringPtr(tr.GroupID),
 			Execution:      tr.Execution,
 			TestName:       utility.ToStringPtr(tr.TestName),
 			Trial:          tr.Trial,
 			Status:         utility.ToStringPtr(tr.Status),
-			LogURL:         utility.ToStringPtr(fmt.Sprintf("https://cedar.mongodb.com/rest/v1/buildlogger/test_name/%s/%s?execution=%d", tr.TaskID, tr.TestName, tr.Execution)),
-			LineNum:        tr.LineNum,
-			TaskCreateTime: NewTime(tr.TaskCreateTime),
-			TestStartTime:  NewTime(tr.TestStartTime),
-			TestEndTime:    NewTime(tr.TestEndTime),
-		}
-		apiTestResult := &APITestResult{}
-		assert.NoError(t, apiTestResult.Import(tr))
-		assert.Equal(t, expected, apiTestResult)
-	})
-	t.Run("ValidTestResultWithURL", func(t *testing.T) {
-		tr := dbmodel.TestResult{
-			TaskID:         "task_id",
-			Execution:      2,
-			TestName:       "test_name",
-			Trial:          3,
-			Status:         "pass",
-			LogURL:         "https://url.com",
-			LineNum:        102,
-			TaskCreateTime: time.Now().Add(-time.Hour),
-			TestStartTime:  time.Now().Add(-30 * time.Minute),
-			TestEndTime:    time.Now(),
-		}
-		expected := &APITestResult{
-			TaskID:         utility.ToStringPtr(tr.TaskID),
-			Execution:      tr.Execution,
-			TestName:       utility.ToStringPtr(tr.TestName),
-			Trial:          tr.Trial,
-			Status:         utility.ToStringPtr(tr.Status),
-			LogURL:         utility.ToStringPtr(tr.LogURL),
 			LineNum:        tr.LineNum,
 			TaskCreateTime: NewTime(tr.TaskCreateTime),
 			TestStartTime:  NewTime(tr.TestStartTime),
