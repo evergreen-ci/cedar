@@ -330,9 +330,9 @@ type TestResult struct {
 	TaskID         string    `bson:"task_id"`
 	Execution      int       `bson:"execution"`
 	TestName       string    `bson:"test_name"`
-	Trial          int       `bson:"trial"`
+	GroupID        string    `bson:"group_id,omitempty"`
+	Trial          int       `bson:"trial,omitempty"`
 	Status         string    `bson:"status"`
-	LogURL         string    `bson:"log_url"`
 	LineNum        int       `bson:"line_num"`
 	TaskCreateTime time.Time `bson:"task_create_time"`
 	TestStartTime  time.Time `bson:"test_start_time"`

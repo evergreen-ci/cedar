@@ -1,9 +1,6 @@
 package model
 
 import (
-	"strconv"
-	"strings"
-
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
@@ -14,9 +11,9 @@ type APITestResult struct {
 	TaskID         *string `json:"task_id"`
 	Execution      int     `json:"execution"`
 	TestName       *string `json:"test_name"`
-	Trial          int     `json:"trial"`
+	GroupID        *string `json:"group_id,omitempty"`
+	Trial          int     `json:"trial,omitempty"`
 	Status         *string `json:"status"`
-	LogURL         *string `json:"log_url"`
 	LineNum        int     `json:"line_num"`
 	TaskCreateTime APITime `json:"task_create_time"`
 	TestStartTime  APITime `json:"test_start_time"`
@@ -30,28 +27,13 @@ func (a *APITestResult) Import(i interface{}) error {
 		a.TaskID = utility.ToStringPtr(tr.TaskID)
 		a.Execution = tr.Execution
 		a.TestName = utility.ToStringPtr(tr.TestName)
+		a.GroupID = utility.ToStringPtr(tr.GroupID)
 		a.Trial = tr.Trial
 		a.Status = utility.ToStringPtr(tr.Status)
 		a.LineNum = tr.LineNum
 		a.TaskCreateTime = NewTime(tr.TaskCreateTime)
 		a.TestStartTime = NewTime(tr.TestStartTime)
 		a.TestEndTime = NewTime(tr.TestEndTime)
-
-		if tr.LogURL == "" {
-			a.LogURL = utility.ToStringPtr(strings.Join([]string{
-				"https://cedar.mongodb.com",
-				"rest",
-				"v1",
-				"buildlogger",
-				"test_name",
-				tr.TaskID,
-				tr.TestName + "?execution=" + strconv.Itoa(
-					tr.Execution,
-				),
-			}, "/"))
-		} else {
-			a.LogURL = utility.ToStringPtr(tr.LogURL)
-		}
 	default:
 		return errors.New("incorrect type when converting to APITestResult type")
 	}
