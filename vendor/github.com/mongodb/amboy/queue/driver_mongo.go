@@ -750,7 +750,7 @@ RETRY:
 			qd = d.getNextQuery()
 			iter, err := d.getCollection().Find(ctx, qd, opts)
 			if err != nil {
-				grip.Warning(message.WrapError(err, message.Fields{
+				grip.Debug(message.WrapError(err, message.Fields{
 					"id":            d.instanceID,
 					"service":       "amboy.queue.mdb",
 					"operation":     "retrieving next job",
