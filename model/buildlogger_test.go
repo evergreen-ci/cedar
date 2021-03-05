@@ -378,7 +378,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		}
 		var filenames map[string]bool
 		var actualData []byte
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 20; i++ {
 			filenames = map[string]bool{}
 			actualData = []byte{}
 			iter, err := testBucket.List(ctx, log.ID)

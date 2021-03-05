@@ -51,13 +51,7 @@ func CreateHistoricalTestData(info HistoricalTestDataInfo) (*HistoricalTestData,
 		return nil, err
 	}
 
-	info.Date = time.Date(
-		info.Date.Year(),
-		info.Date.Month(),
-		info.Date.Day(),
-		0, 0, 0, 0,
-		time.UTC,
-	)
+	info.Date = utility.GetUTCDay(info.Date)
 
 	return &HistoricalTestData{
 		ID:        info.ID(),

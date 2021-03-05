@@ -72,13 +72,6 @@ func TestCreateHistoricalTestData(t *testing.T) {
 		info.Date = date
 	})
 	t.Run("ValidInfo", func(t *testing.T) {
-		expectedDate := time.Date(
-			info.Date.Year(),
-			info.Date.Month(),
-			info.Date.Day(),
-			0, 0, 0, 0,
-			time.UTC,
-		)
 		htd, err := CreateHistoricalTestData(info)
 		assert.NoError(t, err)
 		require.NotNil(t, htd)
@@ -87,7 +80,7 @@ func TestCreateHistoricalTestData(t *testing.T) {
 		assert.Equal(t, info.TaskName, htd.Info.TaskName)
 		assert.Equal(t, info.TestName, htd.Info.TestName)
 		assert.Equal(t, info.RequestType, htd.Info.RequestType)
-		assert.Equal(t, expectedDate, htd.Info.Date)
+		assert.Equal(t, utility.GetUTCDay(info.Date), htd.Info.Date)
 		assert.Zero(t, htd.NumPass)
 		assert.Zero(t, htd.NumFail)
 		assert.Zero(t, htd.AverageDuration)
