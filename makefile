@@ -1,7 +1,7 @@
 # start project configuration
 name := cedar
 buildDir := build
-packages := $(name) rest rest-data rest-model units operations cost model depgraph perf rpc rpc-internal benchmarks
+packages := $(name) evergreen rest rest-data rest-model units operations model depgraph perf rpc rpc-internal benchmarks
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -30,6 +30,8 @@ export GOROOT := $(goroot)
 # Ensure the build directory exists, since most targets require it.
 $(shell mkdir -p $(buildDir))
 
+
+.DEFAULT_GOAL := $(name)
 
 # start lint setup targets
 lintDeps := $(buildDir)/run-linter $(buildDir)/golangci-lint
