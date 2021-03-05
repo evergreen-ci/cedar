@@ -5,8 +5,13 @@ import (
 	"testing"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	grip.SetName("cedar.operations.test")
+}
 
 func TestServiceConfiguration(t *testing.T) {
 	configure := func(env cedar.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {

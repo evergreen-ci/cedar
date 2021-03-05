@@ -55,7 +55,7 @@ func (e *GraphEdge) Find() error {
 	}
 	defer session.Close()
 	e.populated = false
-	err = session.DB(conf.DatabaseName).C(costReportSummaryCollection).FindId(e.ID).One(e)
+	err = session.DB(conf.DatabaseName).C(depEdgeCollection).FindId(e.ID).One(e)
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find matching edge")
 	} else if err != nil {

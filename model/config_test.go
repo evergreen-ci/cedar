@@ -103,14 +103,14 @@ func TestCedarConfig(t *testing.T) {
 			conf.populated = true
 			require.NoError(t, conf.Save())
 			assert.NoError(t, conf.Flags.update("foo", true))
-			assert.False(t, conf.Flags.DisableCostReportingJob)
+			assert.False(t, conf.Flags.DisableInternalMetricsReporting)
 
-			assert.NoError(t, conf.Flags.SetDisableCostReportingJob(true))
-			assert.True(t, conf.Flags.DisableCostReportingJob)
+			assert.NoError(t, conf.Flags.SetDisableInternalMetricsReporting(true))
+			assert.True(t, conf.Flags.DisableInternalMetricsReporting)
 		},
 		"SetFlagWithBadConfiguration": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
-			assert.Error(t, conf.Flags.SetDisableCostReportingJob(true))
-			assert.False(t, conf.Flags.DisableCostReportingJob)
+			assert.Error(t, conf.Flags.SetDisableInternalMetricsReporting(true))
+			assert.False(t, conf.Flags.DisableInternalMetricsReporting)
 		},
 		// "": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {},
 	} {
