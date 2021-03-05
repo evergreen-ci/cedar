@@ -233,8 +233,9 @@ func TestAddSystemMetrics(t *testing.T) {
 				require.Contains(t, sm.Artifact.MetricChunks, "Test")
 				assert.Len(t, sm.Artifact.MetricChunks["Test"].Chunks, 1)
 				assert.Equal(t, sm.Artifact.MetricChunks["Test"].Format, model.FileFTDC)
-				_, err := bucket.Get(ctx, sm.Artifact.MetricChunks["Test"].Chunks[0])
-				assert.NoError(t, err)
+				r, err := bucket.Get(ctx, sm.Artifact.MetricChunks["Test"].Chunks[0])
+				require.NoError(t, err)
+				assert.NoError(t, r.Close())
 			}
 		})
 	}
@@ -406,8 +407,9 @@ func TestStreamSystemMetrics(t *testing.T) {
 				assert.Equal(t, sm.Artifact.MetricChunks["Test"].Format, model.FileFTDC)
 
 				for _, key := range sm.Artifact.MetricChunks["Test"].Chunks {
-					_, err := bucket.Get(ctx, key)
-					assert.NoError(t, err)
+					r, err := bucket.Get(ctx, key)
+					require.NoError(t, err)
+					assert.NoError(t, r.Close())
 				}
 			}
 		})

@@ -14,7 +14,8 @@ import (
 )
 
 func TestHistoricalTestDataConnectorDB(t *testing.T) {
-	dbc, cleanup := newDBConnector(t)
+	now := time.Now()
+	dbc, cleanup := newDBConnector(t, now)
 	defer cleanup()
 
 	t.Run("GetHistoricalTestData", func(t *testing.T) {
@@ -23,7 +24,7 @@ func TestHistoricalTestDataConnectorDB(t *testing.T) {
 				TestName:        utility.ToStringPtr("test1"),
 				TaskName:        utility.ToStringPtr("task1"),
 				Variant:         utility.ToStringPtr("v1"),
-				Date:            model.NewTime(utility.GetUTCDay(time.Now())),
+				Date:            model.NewTime(utility.GetUTCDay(now)),
 				NumPass:         1,
 				AverageDuration: time.Second.Seconds(),
 			},
@@ -31,14 +32,14 @@ func TestHistoricalTestDataConnectorDB(t *testing.T) {
 				TestName:        utility.ToStringPtr("test2"),
 				TaskName:        utility.ToStringPtr("task2"),
 				Variant:         utility.ToStringPtr("v1"),
-				Date:            model.NewTime(utility.GetUTCDay(time.Now())),
+				Date:            model.NewTime(utility.GetUTCDay(now)),
 				NumPass:         1,
 				AverageDuration: time.Second.Seconds(),
 			},
 		}
 		data, err := dbc.GetHistoricalTestData(context.TODO(), dbModel.HistoricalTestDataFilter{
-			AfterDate:    utility.GetUTCDay(time.Now().Add(-24 * time.Hour)),
-			BeforeDate:   utility.GetUTCDay(time.Now().Add(24 * time.Hour)),
+			AfterDate:    utility.GetUTCDay(now.Add(-24 * time.Hour)),
+			BeforeDate:   utility.GetUTCDay(now.Add(24 * time.Hour)),
 			GroupNumDays: 1,
 			Project:      "p1",
 			Requesters:   []string{"r1", "r2"},
@@ -54,8 +55,8 @@ func TestHistoricalTestDataConnectorDB(t *testing.T) {
 	})
 	t.Run("InvalidFilter", func(t *testing.T) {
 		data, err := dbc.GetHistoricalTestData(context.TODO(), dbModel.HistoricalTestDataFilter{
-			AfterDate:  utility.GetUTCDay(time.Now().Add(-24 * time.Hour)),
-			BeforeDate: utility.GetUTCDay(time.Now().Add(24 * time.Hour)),
+			AfterDate:  utility.GetUTCDay(now.Add(-24 * time.Hour)),
+			BeforeDate: utility.GetUTCDay(now.Add(24 * time.Hour)),
 			Project:    "p1",
 			Requesters: []string{"r1", "r2"},
 			Tests:      []string{"test1", "test2"},
@@ -89,7 +90,7 @@ func TestHistoricalTestDataConnectorMock(t *testing.T) {
 	})
 }
 
-func newDBConnector(t *testing.T) (Connector, func()) {
+func newDBConnector(t *testing.T, now time.Time) (Connector, func()) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
 	require.NotNil(t, db)
@@ -102,7 +103,7 @@ func newDBConnector(t *testing.T) (Connector, func()) {
 			TaskName:    "task1",
 			TestName:    "test1",
 			RequestType: "r1",
-			Date:        time.Now(),
+			Date:        now,
 		},
 		{
 			Project:     "p1",
@@ -110,13 +111,13 @@ func newDBConnector(t *testing.T) (Connector, func()) {
 			TaskName:    "task2",
 			TestName:    "test2",
 			RequestType: "r1",
-			Date:        time.Now(),
+			Date:        now,
 		},
 	}
 	for _, info := range data {
 		htd, err := dbModel.CreateHistoricalTestData(info)
 		require.NoError(t, err)
-		now := time.Now()
+		now = time.Now()
 		htd.Setup(env)
 		require.NoError(t, htd.Update(context.TODO(), dbModel.TestResult{
 			Status:        "pass",
@@ -129,13 +130,14 @@ func newDBConnector(t *testing.T) (Connector, func()) {
 }
 
 func newMockConnector() *MockConnector {
+	now := time.Now()
 	return &MockConnector{
 		CachedHistoricalTestData: []dbModel.AggregatedHistoricalTestData{
 			{
 				TestName:        "test1",
 				TaskName:        "task1",
 				Variant:         "v1",
-				Date:            time.Now(),
+				Date:            utility.GetUTCDay(now),
 				NumPass:         1,
 				NumFail:         1,
 				AverageDuration: time.Second,
@@ -144,7 +146,7 @@ func newMockConnector() *MockConnector {
 				TestName:        "test2",
 				TaskName:        "task1",
 				Variant:         "v1",
-				Date:            time.Now(),
+				Date:            utility.GetUTCDay(now),
 				NumPass:         1,
 				NumFail:         1,
 				AverageDuration: time.Second,
