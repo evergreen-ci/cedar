@@ -1,4 +1,4 @@
-package cost
+package evergreen
 
 import (
 	"context"
@@ -32,7 +32,7 @@ func (s *ClientSuite) SetupSuite() {
 }
 
 func (s *ClientSuite) TestDoReqFunction() {
-	client := NewEvergreenClient(s.client, s.info)
+	client := NewClient(s.client, s.info)
 
 	resp, err := client.doReq(context.TODO(), "GET", "/hosts")
 	s.NoError(err)
@@ -56,7 +56,7 @@ func (s *ClientSuite) TestGetRelFunction() {
 }
 
 func (s *ClientSuite) TestGetPathFunction() {
-	client := NewEvergreenClient(s.client, s.info)
+	client := NewClient(s.client, s.info)
 	link := "<https://evergreen.mongodb.com/rest/v2/hosts?limit=100>; rel=\"next\""
 	path, err := client.getPath(link)
 	s.Nil(err)
@@ -64,7 +64,7 @@ func (s *ClientSuite) TestGetPathFunction() {
 }
 
 func (s *ClientSuite) TestGetFunction() {
-	client := NewEvergreenClient(s.client, s.info)
+	client := NewClient(s.client, s.info)
 	_, _, err := client.Get(context.Background(), "/hosts")
 	s.Nil(err)
 }

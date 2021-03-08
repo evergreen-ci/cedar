@@ -113,7 +113,7 @@ tasks:
     name: test-model
   - <<: *run-build
     tags: ["test"]
-    name: test-cost
+    name: test-evergreen
   - <<: *run-build
     tags: ["test"]
     name: test-rest-model
@@ -150,7 +150,7 @@ tasks:
     name: lint-model
   - <<: *run-build
     tags: ["lint"]
-    name: lint-cost
+    name: lint-evergreen
   - <<: *run-build
     tags: ["lint"]
     name: lint-rest-model

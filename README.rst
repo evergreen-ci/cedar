@@ -47,9 +47,6 @@ Data Types
 - MongoDB Core Server internal dependency data which stores data
   produced by the ``scons dagger`` target.
 
-- Cost spending data, which is collected from Evergreen and hosting
-  providers' APIs (or static information as needed.)
-
 Use
 ---
 
@@ -65,7 +62,6 @@ Use
 #. Explore the help menus in the ``cedar`` binary: ::
 
      cedar --help
-     cedar cost --help
      cedar dagger --help
      cedar service --help
      cedar client --help

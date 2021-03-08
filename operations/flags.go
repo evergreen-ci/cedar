@@ -2,9 +2,7 @@ package operations
 
 import (
 	"strings"
-	"time"
 
-	"github.com/evergreen-ci/cedar"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
@@ -14,13 +12,6 @@ import (
 // Flag Name Constants
 
 const (
-	costStartFlag              = "start"
-	costContinueOnErrorFlag    = "continue-on-error"
-	costDurationFlag           = "duration"
-	costDisableEVGAllFlag      = "disableEvgAll"
-	costDisableEVGProjectsFlag = "disableEvgProjects"
-	costDisableEVGDistrosFlag  = "disableEvgDistros"
-
 	simpleLogIDFlag = "log"
 
 	configFlag     = "config"
@@ -162,51 +153,4 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 			EnvVar: "CEDAR_BUCKET_NAME",
 			Value:  "build-test-curator",
 		})
-}
-
-func costFlags(flags ...cli.Flag) []cli.Flag {
-	// get current time, round back to the start of the previous hour
-	now := time.Now().Add(-time.Hour).UTC()
-
-	defaultStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
-
-	return append(flags,
-		cli.StringFlag{
-			Name:  costStartFlag,
-			Usage: "start time (UTC) in the format of YYYY-MM-DDTHH:MM",
-			Value: defaultStart.Format(cedar.ShortDateFormat),
-		},
-		cli.BoolFlag{
-			Name:  costContinueOnErrorFlag,
-			Usage: "log but do not abort on collection errors",
-		},
-		cli.DurationFlag{
-			Name:  costDurationFlag,
-			Value: time.Hour,
-		})
-}
-
-func costEvergreenOptionsFlags(flags ...cli.Flag) []cli.Flag {
-	return append(flags,
-		cli.StringFlag{
-			Name:  configFlag,
-			Usage: "path to configuration file, and EBS pricing information, is required",
-		},
-		cli.BoolFlag{
-			Name:  costDisableEVGAllFlag,
-			Usage: "specify to disable all evergreen data collection",
-		},
-		cli.BoolFlag{
-			Name:  costDisableEVGProjectsFlag,
-			Usage: "specify to disable all evergreen project data collection",
-		},
-		cli.BoolFlag{
-			Name:  costDisableEVGDistrosFlag,
-			Usage: "specify to disable all evergreen distro data collection",
-		},
-		cli.BoolFlag{
-			Name:  costContinueOnErrorFlag,
-			Usage: "specify to allow incomplete results",
-		})
-
 }

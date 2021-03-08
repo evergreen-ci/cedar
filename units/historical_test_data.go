@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/evergreen-ci/cedar"
-	"github.com/evergreen-ci/cedar/cost"
+	"github.com/evergreen-ci/cedar/evergreen"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
@@ -158,7 +158,7 @@ func (j *historicalTestDataJob) getProjectSettings(ctx context.Context, conf *mo
 		User:    conf.Evergreen.ServiceUserName,
 		Key:     conf.Evergreen.ServiceUserAPIKey,
 	}
-	evgClient := cost.NewEvergreenClient(client, connInfo)
+	evgClient := evergreen.NewClient(client, connInfo)
 
 	resp, _, err := evgClient.Get(ctx, fmt.Sprintf("/projects/%s", j.Info.Project))
 	if err != nil {
