@@ -17,10 +17,9 @@ specifically linked to specific execution events. Additionally, Cedar provides a
 Components
 ~~~~~~~~~~
 
-- A simple JSON-only REST web service to data storage and access (see the ``rest`` package).
+- A simple JSON-only REST web service for data access (see the ``rest`` package).
 
-- A gRPC service as an alternative to the REST API, which also supports data storage and access (see the ``rpc``
-  package).
+- A gRPC service for data storage (see the ``rpc`` package).
 
 - A command line tool that provides a REST client for common operations, as well as independent data collection and
   exploration tools (see the ``operations`` package).

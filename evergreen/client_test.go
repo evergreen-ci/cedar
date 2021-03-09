@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/grip"
 	"github.com/stretchr/testify/suite"
 )
@@ -16,7 +15,7 @@ func init() {
 
 type ClientSuite struct {
 	client *http.Client
-	info   *model.EvergreenConnectionInfo
+	opts   ConnectionOptions
 	suite.Suite
 }
 
@@ -25,14 +24,14 @@ func TestClientSuite(t *testing.T) {
 }
 
 func (s *ClientSuite) SetupSuite() {
-	s.info = &model.EvergreenConnectionInfo{
+	s.opts = ConnectionOptions{
 		RootURL: "https://evergreen.mongodb.com",
 	}
 	s.client = &http.Client{}
 }
 
 func (s *ClientSuite) TestDoReqFunction() {
-	client := NewClient(s.client, s.info)
+	client := NewClient(s.client, s.opts)
 
 	resp, err := client.doReq(context.TODO(), "GET", "/hosts")
 	s.NoError(err)
@@ -56,7 +55,7 @@ func (s *ClientSuite) TestGetRelFunction() {
 }
 
 func (s *ClientSuite) TestGetPathFunction() {
-	client := NewClient(s.client, s.info)
+	client := NewClient(s.client, s.opts)
 	link := "<https://evergreen.mongodb.com/rest/v2/hosts?limit=100>; rel=\"next\""
 	path, err := client.getPath(link)
 	s.Nil(err)
@@ -64,7 +63,7 @@ func (s *ClientSuite) TestGetPathFunction() {
 }
 
 func (s *ClientSuite) TestGetFunction() {
-	client := NewClient(s.client, s.info)
+	client := NewClient(s.client, s.opts)
 	_, _, err := client.Get(context.Background(), "/hosts")
 	s.Nil(err)
 }

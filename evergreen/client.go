@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evergreen-ci/cedar/model"
 	"github.com/jpillora/backoff"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -26,13 +25,19 @@ type Client struct {
 	maxRetries             int
 }
 
+type ConnectionOptions struct {
+	RootURL string
+	User    string
+	Key     string
+}
+
 // NewClient is a constructs a new Client using the parameters given.
-func NewClient(httpClient *http.Client, info *model.EvergreenConnectionInfo) *Client {
+func NewClient(httpClient *http.Client, opts ConnectionOptions) *Client {
 	return &Client{
-		apiRoot:    info.RootURL,
+		apiRoot:    opts.RootURL,
 		httpClient: httpClient,
-		user:       info.User,
-		apiKey:     info.Key,
+		user:       opts.User,
+		apiKey:     opts.Key,
 		maxRetries: 5,
 	}
 }
