@@ -11,6 +11,7 @@ import (
 	"github.com/evergreen-ci/cedar/units"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/amboy"
+	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -28,9 +29,15 @@ func (dbc *DBConnector) FindPerformanceResultById(ctx context.Context, id string
 	result.ID = id
 
 	if err := result.Find(ctx); err != nil {
+		if db.ResultsNotFound(err) {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusNotFound,
+				Message:    "not found",
+			}
+		}
 		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "database error").Error(),
 		}
 	}
 
@@ -39,7 +46,7 @@ func (dbc *DBConnector) FindPerformanceResultById(ctx context.Context, id string
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("corrupt data"),
+			Message:    errors.Wrap(err, "corrupt data").Error(),
 		}
 	}
 	return &apiResult, nil
@@ -82,13 +89,13 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, task
 	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrap(err, "database error").Error(),
 		}
 	}
 	if results.IsNil() {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance results with task_id '%s' not found", taskId),
+			Message:    "not found",
 		}
 	}
 
@@ -98,7 +105,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, task
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("corrupt data"),
+				Message:    errors.Wrap(err, "corrupt data").Error(),
 			}
 		}
 	}
@@ -130,13 +137,13 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, pr
 	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrap(err, "database error").Error(),
 		}
 	}
 	if results.IsNil() {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance results with task_name '%s' not found", taskName),
+			Message:    "not found",
 		}
 	}
 
@@ -146,7 +153,7 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, pr
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("corrupt data"),
+				Message:    errors.Wrap(err, "corrupt data").Error(),
 			}
 		}
 	}
@@ -172,13 +179,13 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(ctx context.Context, ver
 	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrap(err, "database error").Error(),
 		}
 	}
 	if results.IsNil() {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance results with version '%s' not found", version),
+			Message:    "not found",
 		}
 	}
 
@@ -188,7 +195,7 @@ func (dbc *DBConnector) FindPerformanceResultsByVersion(ctx context.Context, ver
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("corrupt data"),
+				Message:    errors.Wrap(err, "corrupt data").Error(),
 			}
 		}
 	}
@@ -214,13 +221,13 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("database error"),
+			Message:    errors.Wrap(err, "database error").Error(),
 		}
 	}
 	if results.IsNil() {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
+			Message:    "not found",
 		}
 	}
 
@@ -230,7 +237,7 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("corrupt data"),
+				Message:    errors.Wrap(err, "corrupt data").Error(),
 			}
 		}
 	}
@@ -277,14 +284,14 @@ func (mc *MockConnector) FindPerformanceResultById(_ context.Context, id string)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("corrupt data"),
+			Message:    errors.Wrap(err, "corrupt data").Error(),
 		}
 	}
 
 	if !ok {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance result with id '%s' not found", id),
+			Message:    "not found",
 		}
 	}
 	return &apiResult, nil
@@ -320,7 +327,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskI
 			if err != nil {
 				return nil, gimlet.ErrorResponse{
 					StatusCode: http.StatusInternalServerError,
-					Message:    fmt.Sprintf("corrupt data"),
+					Message:    errors.Wrap(err, "corrupt data").Error(),
 				}
 			}
 
@@ -331,7 +338,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskI
 	if len(results) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance result with task_id '%s' not found", taskId),
+			Message:    "not found",
 		}
 	}
 	return results, nil
@@ -352,7 +359,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 			if err != nil {
 				return nil, gimlet.ErrorResponse{
 					StatusCode: http.StatusInternalServerError,
-					Message:    fmt.Sprintf("corrupt data"),
+					Message:    errors.Wrap(err, "corrupt data").Error(),
 				}
 			}
 			results = append(results, apiResult)
@@ -362,7 +369,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 	if len(results) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance result with task_name '%s' not found", taskName),
+			Message:    "not found",
 		}
 	}
 
@@ -386,7 +393,7 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, vers
 			if err != nil {
 				return nil, gimlet.ErrorResponse{
 					StatusCode: http.StatusInternalServerError,
-					Message:    fmt.Sprintf("corrupt data"),
+					Message:    errors.Wrap(err, "corrupt data").Error(),
 				}
 			}
 
@@ -397,7 +404,7 @@ func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, vers
 	if len(results) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("performance result with version '%s' not found", version),
+			Message:    "not found",
 		}
 	}
 	return results, nil
@@ -454,7 +461,7 @@ func (mc *MockConnector) findChildren(id string, maxDepth int, tags []string) ([
 				if err != nil {
 					return nil, gimlet.ErrorResponse{
 						StatusCode: http.StatusInternalServerError,
-						Message:    fmt.Sprintf("corrupt data"),
+						Message:    errors.Wrap(err, "corrupt data").Error(),
 					}
 				}
 

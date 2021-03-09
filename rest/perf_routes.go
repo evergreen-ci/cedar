@@ -213,7 +213,7 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.interval, h.limit, h.tags...)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance results by task_id '%s'", h.taskName)
+		err = errors.Wrapf(err, "problem getting performance results by task_name '%s'", h.taskName)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
