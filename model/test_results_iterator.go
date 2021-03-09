@@ -111,8 +111,7 @@ func (i *testResultsIterator) getNextBatch(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer func() {
-				var err error
-				catcher.Add(recovery.HandlePanicWithError(recover(), err))
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results iterator worker"))
 				wg.Done()
 			}()
 
@@ -120,34 +119,34 @@ func (i *testResultsIterator) getNextBatch(ctx context.Context) error {
 				if err := ctx.Err(); err != nil {
 					catcher.Add(err)
 					return
-				} else {
-					r, err := i.bucketItems[idx].Get(ctx)
-					if err != nil {
-						catcher.Wrapf(err, "getting test result '%s'", i.bucketItems[idx].Name())
-						return
-					}
-					defer func() {
-						grip.Error(message.WrapError(r.Close(), message.Fields{
-							"message": "could not close bucket reader",
-							"bucket":  i.bucket,
-							"path":    i.bucketItems[idx].Name(),
-						}))
-					}()
-
-					data, err := ioutil.ReadAll(r)
-					if err != nil {
-						catcher.Wrapf(err, "reading test result '%s'", i.bucketItems[idx].Name())
-						return
-					}
-
-					var result TestResult
-					if err := bson.Unmarshal(data, &result); err != nil {
-						catcher.Wrapf(err, "unmarshalling test result '%s'", i.bucketItems[idx].Name())
-						return
-					}
-
-					i.items <- result
 				}
+
+				r, err := i.bucketItems[idx].Get(ctx)
+				if err != nil {
+					catcher.Wrapf(err, "getting test result '%s'", i.bucketItems[idx].Name())
+					return
+				}
+				defer func() {
+					grip.Error(message.WrapError(r.Close(), message.Fields{
+						"message": "could not close bucket reader",
+						"bucket":  i.bucket,
+						"path":    i.bucketItems[idx].Name(),
+					}))
+				}()
+
+				data, err := ioutil.ReadAll(r)
+				if err != nil {
+					catcher.Wrapf(err, "reading test result '%s'", i.bucketItems[idx].Name())
+					return
+				}
+
+				var result TestResult
+				if err := bson.Unmarshal(data, &result); err != nil {
+					catcher.Wrapf(err, "unmarshalling test result '%s'", i.bucketItems[idx].Name())
+					return
+				}
+
+				i.items <- result
 			}
 		}()
 	}
