@@ -3,12 +3,17 @@ package model
 import (
 	"context"
 	"io/ioutil"
+	"runtime"
+	"sync"
 
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"go.mongodb.org/mongo-driver/bson"
 )
+
+const testResultsIteratorBatchSize = 100
 
 // TestResultsIterator is an interface that enables iterating over test results.
 type TestResultsIterator interface {
@@ -23,7 +28,9 @@ type TestResultsIterator interface {
 
 type testResultsIterator struct {
 	bucket      pail.Bucket
-	iter        pail.BucketIterator
+	bucketItems []pail.BucketItem
+	currentIdx  int
+	items       chan TestResult
 	currentItem TestResult
 	exhausted   bool
 	closed      bool
@@ -34,6 +41,7 @@ type testResultsIterator struct {
 func NewTestResultsIterator(bucket pail.Bucket) TestResultsIterator {
 	return &testResultsIterator{
 		bucket:  bucket,
+		items:   make(chan TestResult, testResultsIteratorBatchSize),
 		catcher: grip.NewBasicCatcher(),
 	}
 }
@@ -49,47 +57,102 @@ func (i *testResultsIterator) Next(ctx context.Context) bool {
 		}
 	}()
 
-	if i.iter == nil {
+	if len(i.bucketItems) == 0 {
 		iter, err := i.bucket.List(ctx, "")
 		if err != nil {
 			i.catcher.Wrap(err, "listing bucket contents")
 			return false
 		}
-		i.iter = iter
-	}
-	if !i.iter.Next(ctx) {
-		i.catcher.Wrapf(i.iter.Err(), "iterating bucket contents")
-		i.exhausted = true
-		return false
+
+		for iter.Next(ctx) {
+			i.bucketItems = append(i.bucketItems, iter.Item())
+		}
+		if err = iter.Err(); err != nil {
+			i.catcher.Wrapf(err, "iterating bucket contents")
+			return false
+		}
 	}
 
-	r, err := i.iter.Item().Get(ctx)
-	if err != nil {
-		i.catcher.Wrapf(err, "item '%s'", i.iter.Item().Name())
-		return false
-	}
-	defer func() {
-		grip.Error(message.WrapError(r.Close(), message.Fields{
-			"message": "could not close bucket reader",
-			"bucket":  i.bucket,
-			"path":    i.iter.Item().Name(),
-		}))
-	}()
+	if len(i.items) == 0 {
+		if i.currentIdx == len(i.bucketItems) {
+			i.exhausted = true
+			return false
+		}
 
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		i.catcher.Wrapf(err, "reading test result '%s'", i.iter.Item().Name())
-		return false
-	}
-	var result TestResult
-	if err := bson.Unmarshal(data, &result); err != nil {
-		i.catcher.Wrapf(err, "unmarshalling test result '%s'", i.iter.Item().Name())
-		return false
+		if err := i.getNextBatch(ctx); err != nil {
+			i.catcher.Add(err)
+			return false
+		}
 	}
 
-	i.currentItem = result
+	select {
+	case <-ctx.Done():
+		i.catcher.Add(ctx.Err())
+		return false
+	case i.currentItem = <-i.items:
+		return true
+	}
+}
 
-	return true
+func (i *testResultsIterator) getNextBatch(ctx context.Context) error {
+	idxs := make(chan int, testResultsIteratorBatchSize)
+	for j := 0; j < testResultsIteratorBatchSize; j++ {
+		if i.currentIdx == len(i.bucketItems) {
+			break
+		}
+		idxs <- i.currentIdx
+		i.currentIdx++
+	}
+	close(idxs)
+	var wg sync.WaitGroup
+	catcher := grip.NewBasicCatcher()
+
+	for j := 0; j < runtime.NumCPU(); j++ {
+		wg.Add(1)
+		go func() {
+			defer func() {
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results iterator worker"))
+				wg.Done()
+			}()
+
+			for idx := range idxs {
+				if err := ctx.Err(); err != nil {
+					catcher.Add(err)
+					return
+				}
+
+				r, err := i.bucketItems[idx].Get(ctx)
+				if err != nil {
+					catcher.Wrapf(err, "getting test result '%s'", i.bucketItems[idx].Name())
+					return
+				}
+				defer func() {
+					grip.Error(message.WrapError(r.Close(), message.Fields{
+						"message": "could not close bucket reader",
+						"bucket":  i.bucket,
+						"path":    i.bucketItems[idx].Name(),
+					}))
+				}()
+
+				data, err := ioutil.ReadAll(r)
+				if err != nil {
+					catcher.Wrapf(err, "reading test result '%s'", i.bucketItems[idx].Name())
+					return
+				}
+
+				var result TestResult
+				if err := bson.Unmarshal(data, &result); err != nil {
+					catcher.Wrapf(err, "unmarshalling test result '%s'", i.bucketItems[idx].Name())
+					return
+				}
+
+				i.items <- result
+			}
+		}()
+	}
+	wg.Wait()
+
+	return catcher.Resolve()
 }
 
 func (i *testResultsIterator) Item() TestResult {

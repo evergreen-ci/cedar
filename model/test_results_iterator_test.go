@@ -15,7 +15,7 @@ import (
 )
 
 func TestTestResultsIterator(t *testing.T) {
-	const numResults = 10
+	const numResults = 201
 	for testName, testCase := range map[string]func(ctx context.Context, t *testing.T, iter TestResultsIterator, results map[string]TestResult){
 		"VerifyInitialState": func(ctx context.Context, t *testing.T, iter TestResultsIterator, results map[string]TestResult) {
 			assert.Zero(t, iter.Item())

@@ -268,8 +268,7 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer func() {
-				var err error
-				catcher.Add(recovery.HandlePanicWithError(recover(), err))
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "log iterator worker"))
 				wg.Done()
 			}()
 
@@ -277,16 +276,16 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 				if err := ctx.Err(); err != nil {
 					catcher.Add(err)
 					return
-				} else {
-					r, err := i.bucket.Get(ctx, chunk.Key)
-					if err != nil {
-						catcher.Add(err)
-						return
-					}
-					mux.Lock()
-					readers[chunk.Key] = r
-					mux.Unlock()
 				}
+
+				r, err := i.bucket.Get(ctx, chunk.Key)
+				if err != nil {
+					catcher.Add(err)
+					return
+				}
+				mux.Lock()
+				readers[chunk.Key] = r
+				mux.Unlock()
 			}
 		}()
 	}
