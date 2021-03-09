@@ -15,7 +15,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-const cedarConfigurationID = "cedar-system-configuration"
+const (
+	configurationCollection = "configuration"
+	cedarConfigurationID    = "cedar-system-configuration"
+)
 
 type CedarConfig struct {
 	ID             string                    `bson:"_id" json:"id" yaml:"id"`

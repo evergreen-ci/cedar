@@ -23,9 +23,6 @@ type commonModelFactory func() commonModel
 func TestModelInterface(t *testing.T) {
 	models := []commonModelFactory{
 		func() commonModel { return &CedarConfig{} },
-		func() commonModel { return &CostConfig{} },
-		func() commonModel { return &CostReport{} },
-		func() commonModel { return &CostReportSummary{} },
 		func() commonModel { return &GraphMetadata{} },
 		func() commonModel { return &GraphEdge{} },
 		func() commonModel { return &LogRecord{} },
@@ -37,7 +34,6 @@ func TestModelInterface(t *testing.T) {
 	}
 	slices := []interface{}{
 		&DependencyGraphs{},
-		&CostReports{},
 	}
 	assert.NotNil(t, oddballs)
 	assert.NotNil(t, slices)
@@ -113,56 +109,6 @@ func TestCommonModelSlice(t *testing.T) {
 		check    checkSliceType
 		populate func(int, commonModelSlice)
 	}{
-		{
-			name:    "CostReports",
-			factory: func() commonModelSlice { return &CostReports{} },
-			check: func(s commonModelSlice) error {
-				type slicer interface {
-					commonModelSlice
-					Slice() []CostReport
-				}
-				sl, ok := s.(slicer)
-				if !ok {
-					return errors.New("incorrect type")
-				} else if len(sl.Slice()) != sl.Size() {
-					return errors.New("unexpected slice value")
-				}
-
-				return nil
-			},
-			populate: func(size int, m commonModelSlice) {
-				sl := m.(*CostReports)
-				for i := 0; i < size; i++ {
-					sl.reports = append(sl.reports, createTestStruct())
-				}
-				sl.populated = true
-			},
-		},
-		{
-			name:    "CostReportSummaries",
-			factory: func() commonModelSlice { return &CostReportSummaries{} },
-			check: func(s commonModelSlice) error {
-				type slicer interface {
-					commonModelSlice
-					Slice() []CostReportSummary
-				}
-
-				sl, ok := s.(slicer)
-				if !ok {
-					return errors.New("incorrect type")
-				} else if len(sl.Slice()) != sl.Size() {
-					return errors.New("unexpected slice value")
-				}
-				return nil
-			},
-			populate: func(size int, m commonModelSlice) {
-				sl := m.(*CostReportSummaries)
-				for i := 0; i < size; i++ {
-					sl.reports = append(sl.reports, CostReportSummary{ID: fmt.Sprintf("test_doc_%d", i)})
-				}
-				sl.populated = true
-			},
-		},
 		{
 			name:    "DependencyGraphs",
 			factory: func() commonModelSlice { return &DependencyGraphs{} },

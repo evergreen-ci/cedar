@@ -8,7 +8,6 @@ import (
 )
 
 type OperationalFlags struct {
-	DisableCostReportingJob         bool `bson:"disable_cost_reporting" json:"disable_cost_reporting" yaml:"disable_cost_reporting"`
 	DisableInternalMetricsReporting bool `bson:"disable_internal_metrics_reporting" json:"disable_internal_metrics_reporting" yaml:"disable_internal_metrics_reporting"`
 	DisableSignalProcessing         bool `bson:"disable_signal_processing" json:"disable_signal_processing" yaml:"disable_signal_processing"`
 	DisableHistoricalTestData       bool `bson:"disable_historical_test_data" json:"disable_historical_test_data" yaml:"disable_historical_test_data"`
@@ -17,15 +16,12 @@ type OperationalFlags struct {
 }
 
 var (
-	opsFlagsDisableCostReporting            = bsonutil.MustHaveTag(OperationalFlags{}, "DisableCostReportingJob")
 	opsFlagsDisableInternalMetricsReporting = bsonutil.MustHaveTag(OperationalFlags{}, "DisableInternalMetricsReporting")
 	opsFlagsDisableSignalProcessing         = bsonutil.MustHaveTag(OperationalFlags{}, "DisableSignalProcessing")
 )
 
 func (f *OperationalFlags) findAndSet(name string, v bool) error {
 	switch name {
-	case "disable_cost_reporting":
-		return f.SetDisableCostReportingJob(v)
 	case "disable_internal_metrics_reporting":
 		return f.SetDisableInternalMetricsReporting(v)
 	case "disable_signal_processing":
@@ -41,14 +37,6 @@ func (f *OperationalFlags) SetTrue(name string) error {
 
 func (f *OperationalFlags) SetFalse(name string) error {
 	return errors.WithStack(f.findAndSet(name, false))
-}
-
-func (f *OperationalFlags) SetDisableCostReportingJob(v bool) error {
-	if err := f.update(opsFlagsDisableCostReporting, v); err != nil {
-		return errors.WithStack(err)
-	}
-	f.DisableCostReportingJob = v
-	return nil
 }
 
 func (f *OperationalFlags) SetDisableInternalMetricsReporting(v bool) error {

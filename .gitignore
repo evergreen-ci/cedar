@@ -2,20 +2,18 @@ build
 \#*\#
 *~
 *.out
-sink
-!cmd/sink
-cost-reports
 *.tar.gz
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+# Fabric files
 fabfile.py*
 fab_common.py*
+
 cedar
 
 # IDE
 .idea/
-
-change_point_detector_test.go

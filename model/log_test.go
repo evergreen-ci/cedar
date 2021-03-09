@@ -23,7 +23,7 @@ func TestLogRecord(t *testing.T) {
 	}()
 
 	for name, test := range map[string]func(context.Context, *testing.T, cedar.Environment, *LogRecord){
-		// "": func(ctx context.Context, t *testing.t, env cedar.Environment, conf *Costreport) {},
+		// "": func(ctx context.Context, t *testing.t, env cedar.Environment, lr *LogRecord) {},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tctx, cancel := context.WithCancel(ctx)
