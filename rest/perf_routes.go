@@ -191,9 +191,9 @@ func (h *perfGetByTaskNameHandler) Factory() gimlet.RouteHandler {
 func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.taskName = gimlet.GetVars(r)["task_name"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
-	h.variant = vals.Get("variant")
 	h.project = vals.Get("project")
+	h.variant = vals.Get("variant")
+	h.tags = vals["tags"]
 	var err error
 	catcher := grip.NewBasicCatcher()
 	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
