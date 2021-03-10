@@ -135,12 +135,12 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
 			},
 		},
 		{
@@ -180,12 +180,12 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 	pipe := []bson.M{
 		{
 			"$match": bson.M{
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
+				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
 			},
 		},
 		{

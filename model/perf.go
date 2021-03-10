@@ -301,8 +301,8 @@ type PerformanceResultInfo struct {
 	Project   string           `bson:"project,omitempty"`
 	Version   string           `bson:"version,omitempty"`
 	Variant   string           `bson:"variant,omitempty"`
-	TaskName  string           `bson:"task_name,omitempty"`
 	Order     int              `bson:"order,omitempty"`
+	TaskName  string           `bson:"task_name,omitempty"`
 	TaskID    string           `bson:"task_id,omitempty"`
 	Execution int              `bson:"execution"`
 	TestName  string           `bson:"test_name,omitempty"`
@@ -318,8 +318,8 @@ var (
 	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
 	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
 	perfResultInfoVariantKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Variant")
-	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
 	perfResultInfoOrderKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Order")
+	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
 	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
 	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Execution")
 	perfResultInfoTestNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TestName")
