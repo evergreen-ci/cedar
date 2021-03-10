@@ -685,7 +685,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 
 	info = PerformanceResultInfo{
 		Parent: nodeB.ID,
-		Tags:   []string{"tag1"},
+		Tags:   []string{"tag1", "tag2", "tag3"},
 	}
 	nodeD := CreatePerformanceResult(info, []ArtifactInfo{}, nil)
 	nodeD.Setup(cedar.GetEnvironment())
@@ -817,7 +817,7 @@ func (s *perfResultsSuite) TestSearchResultsWithParent() {
 		GraphLookup: true,
 	}
 	options.Info.Parent = nodeA.ID
-	options.Info.Tags = []string{"tag1"}
+	options.Info.Tags = []string{"tag1", "tag3"}
 	s.NoError(s.r.Find(s.ctx, options))
 	s.Require().Len(s.r.Results, 2)
 	s.Equal(s.r.Results[0].ID, nodeA.ID)

@@ -300,8 +300,8 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 type PerformanceResultInfo struct {
 	Project   string           `bson:"project,omitempty"`
 	Version   string           `bson:"version,omitempty"`
-	Order     int              `bson:"order,omitempty"`
 	Variant   string           `bson:"variant,omitempty"`
+	Order     int              `bson:"order,omitempty"`
 	TaskName  string           `bson:"task_name,omitempty"`
 	TaskID    string           `bson:"task_id,omitempty"`
 	Execution int              `bson:"execution"`
@@ -317,8 +317,8 @@ type PerformanceResultInfo struct {
 var (
 	perfResultInfoProjectKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
 	perfResultInfoVersionKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
-	perfResultInfoOrderKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Order")
 	perfResultInfoVariantKey   = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Variant")
+	perfResultInfoOrderKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Order")
 	perfResultInfoTaskNameKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
 	perfResultInfoTaskIDKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
 	perfResultInfoExecutionKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Execution")
@@ -390,7 +390,6 @@ type PerfFindOptions struct {
 	MaxDepth    int
 	GraphLookup bool
 	Limit       int
-	Variant     string
 	Sort        []string
 }
 
@@ -473,6 +472,9 @@ func (r *PerformanceResults) createFindQuery(opts PerfFindOptions) map[string]in
 	if opts.Info.Version != "" {
 		search[bsonutil.GetDottedKeyName("info", "version")] = opts.Info.Version
 	}
+	if opts.Info.Variant != "" {
+		search[bsonutil.GetDottedKeyName("info", "variant")] = opts.Info.Variant
+	}
 	if opts.Info.TaskName != "" {
 		search[bsonutil.GetDottedKeyName("info", "task_name")] = opts.Info.TaskName
 	}
@@ -494,9 +496,6 @@ func (r *PerformanceResults) createFindQuery(opts PerfFindOptions) map[string]in
 	}
 	if len(opts.Info.Tags) > 0 {
 		search[bsonutil.GetDottedKeyName("info", "tags")] = bson.M{"$in": opts.Info.Tags}
-	}
-	if opts.Variant != "" {
-		search[bsonutil.GetDottedKeyName("info", "variant")] = opts.Variant
 	}
 
 	if len(opts.Info.Arguments) > 0 {
@@ -576,7 +575,7 @@ func (r *PerformanceResults) findAllChildrenGraphLookup(ctx context.Context, par
 						"input": "$" + "children",
 						"as":    "child",
 						"cond": bson.M{
-							"$eq": []interface{}{
+							"$setIsSubset": []interface{}{
 								tags,
 								"$$" + bsonutil.GetDottedKeyName("child", "info", "tags"),
 							},

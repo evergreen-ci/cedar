@@ -124,13 +124,13 @@ func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, pr
 	options := model.PerfFindOptions{
 		Interval: interval,
 		Info: model.PerformanceResultInfo{
+			Project:  project,
+			Variant:  variant,
 			TaskName: taskName,
 			Tags:     tags,
-			Project:  project,
 		},
 		MaxDepth: 0,
 		Limit:    limit,
-		Variant:  variant,
 		Sort:     []string{"info.order"},
 	}
 
