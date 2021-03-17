@@ -326,7 +326,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		{
 			Priority:  level.Info,
 			Timestamp: time.Now().Add(-56 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Buildogger logging logs.",
+			Data:      "Buildlogger logging logs.",
 		},
 
 		{
