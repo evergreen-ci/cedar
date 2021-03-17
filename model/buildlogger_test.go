@@ -11,7 +11,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
-	"github.com/jpillora/backoff"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip/level"
 	"github.com/stretchr/testify/assert"
@@ -365,42 +364,29 @@ func TestBuildloggerAppend(t *testing.T) {
 	t.Run("AppendToBucketAndDB", func(t *testing.T) {
 		log.Setup(env)
 		require.NoError(t, log.Append(ctx, chunk1))
+		time.Sleep(time.Millisecond)
 		require.NoError(t, log.Append(ctx, chunk2))
 		expectedData := []byte{}
 		for _, line := range append(chunk1, chunk2...) {
 			expectedData = append(expectedData, []byte(prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data))...)
 		}
 
-		b := &backoff.Backoff{
-			Min:    100 * time.Millisecond,
-			Max:    5 * time.Second,
-			Factor: 2,
-		}
-		var filenames map[string]bool
-		var actualData []byte
-		for i := 0; i < 20; i++ {
-			filenames = map[string]bool{}
-			actualData = []byte{}
-			iter, err := testBucket.List(ctx, log.ID)
+		filenames := map[string]bool{}
+		actualData := []byte{}
+		iter, err := testBucket.List(ctx, log.ID)
+		require.NoError(t, err)
+		for iter.Next(ctx) {
+			key, err := filepath.Rel(log.ID, iter.Item().Name())
 			require.NoError(t, err)
-			for iter.Next(ctx) {
-				key, err := filepath.Rel(log.ID, iter.Item().Name())
-				require.NoError(t, err)
-				filenames[key] = true
-				r, err := iter.Item().Get(ctx)
-				require.NoError(t, err)
-				defer func() {
-					assert.NoError(t, r.Close())
-				}()
-				data, err := ioutil.ReadAll(r)
-				require.NoError(t, err)
-				actualData = append(actualData, data...)
-			}
-
-			if len(filenames) > 1 {
-				break
-			}
-			time.Sleep(b.Duration())
+			filenames[key] = true
+			r, err := iter.Item().Get(ctx)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, r.Close())
+			}()
+			data, err := ioutil.ReadAll(r)
+			require.NoError(t, err)
+			actualData = append(actualData, data...)
 		}
 		assert.Equal(t, expectedData, actualData)
 		assert.Len(t, filenames, 2)
