@@ -365,7 +365,7 @@ func TestBuildloggerAppend(t *testing.T) {
 		log.Setup(env)
 		require.NoError(t, log.Append(ctx, chunk1))
 		// We need to sleep for a ms here to avoid a key name collision
-		// in the pail-backed blog storage since key names are the
+		// in the pail-backed blob storage since key names are the
 		// current time as a unix timestamp with millisecond precision.
 		time.Sleep(time.Millisecond)
 		require.NoError(t, log.Append(ctx, chunk2))
