@@ -132,9 +132,6 @@ tasks:
   - <<: *run-build
     tags: ["test"]
     name: test-perf
-  - <<: *run-build
-    tags: ["test"]
-    name: test-depgraph
 
   - <<: *run-build
     tags: ["lint"]
@@ -169,9 +166,6 @@ tasks:
   - <<: *run-build
     tags: ["lint"]
     name: lint-perf
-  - <<: *run-build
-    tags: ["lint"]
-    name: lint-depgraph
 
 
 task_groups:

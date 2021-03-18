@@ -65,7 +65,7 @@ func (l *LogSegment) Insert() error {
 	}
 	defer session.Close()
 
-	return errors.WithStack(session.DB(conf.DatabaseName).C(depNodeCollection).Insert(l))
+	return errors.WithStack(session.DB(conf.DatabaseName).C(logSegmentsCollection).Insert(l))
 }
 
 func (l *LogSegment) Find(logID string, segment int) error {

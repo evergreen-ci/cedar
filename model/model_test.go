@@ -23,8 +23,6 @@ type commonModelFactory func() commonModel
 func TestModelInterface(t *testing.T) {
 	models := []commonModelFactory{
 		func() commonModel { return &CedarConfig{} },
-		func() commonModel { return &GraphMetadata{} },
-		func() commonModel { return &GraphEdge{} },
 		func() commonModel { return &LogRecord{} },
 		func() commonModel { return &Event{} },
 		func() commonModel { return &SystemInformationRecord{} },
@@ -32,11 +30,7 @@ func TestModelInterface(t *testing.T) {
 	oddballs := []interface{}{
 		&LogSegment{},
 	}
-	slices := []interface{}{
-		&DependencyGraphs{},
-	}
 	assert.NotNil(t, oddballs)
-	assert.NotNil(t, slices)
 
 	env := cedar.GetEnvironment()
 
@@ -109,31 +103,6 @@ func TestCommonModelSlice(t *testing.T) {
 		check    checkSliceType
 		populate func(int, commonModelSlice)
 	}{
-		{
-			name:    "DependencyGraphs",
-			factory: func() commonModelSlice { return &DependencyGraphs{} },
-			check: func(s commonModelSlice) error {
-				type slicer interface {
-					commonModelSlice
-					Slice() []GraphMetadata
-				}
-
-				sl, ok := s.(slicer)
-				if !ok {
-					return errors.New("incorrect type")
-				} else if len(sl.Slice()) != sl.Size() {
-					return errors.New("unexpected slice value")
-				}
-				return nil
-			},
-			populate: func(size int, m commonModelSlice) {
-				sl := m.(*DependencyGraphs)
-				for i := 0; i < size; i++ {
-					sl.graphs = append(sl.graphs, GraphMetadata{BuildID: fmt.Sprintln("grapid", i)})
-				}
-				sl.populated = true
-			},
-		},
 		{
 			name:    "SystemInfoRecords",
 			factory: func() commonModelSlice { return &SystemInformationRecords{} },

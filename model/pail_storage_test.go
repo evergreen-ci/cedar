@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,6 +16,9 @@ import (
 )
 
 func TestGetDownloadURL(t *testing.T) {
+	if skip, _ := strconv.ParseBool(os.Getenv("SKIP_INTEGRATION_TESTS")); skip {
+		t.Skip("SKIP_INTEGRATION_TESTS is set, skipping integration test with S3")
+	}
 	ctx := context.TODO()
 	path := "download-test.txt"
 	s3Name := "build-test-curator"
