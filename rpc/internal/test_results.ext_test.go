@@ -51,6 +51,7 @@ func TestTestResultExport(t *testing.T) {
 		modelResult, err := result.Export()
 		require.NoError(t, err)
 		assert.Equal(t, result.TestName, modelResult.TestName)
+		assert.Equal(t, result.DisplayTestName, modelResult.DisplayTestName)
 		assert.Equal(t, int(result.Trial), modelResult.Trial)
 		assert.Equal(t, result.Status, modelResult.Status)
 		assert.Equal(t, result.GroupId, modelResult.GroupID)
