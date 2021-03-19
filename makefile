@@ -58,17 +58,17 @@ coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).
 
 
 # implementation details for building the binary and creating a
-# convienent link in the working directory
+# convenient link in the working directory
 $(name):$(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
-$(buildDir)/$(name):
+$(buildDir)/$(name): .FORCE
 	$(gobin) build -ldflags "-w -X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
 	$(gobin) build -o $@ $<
 generate-points:$(buildDir)/generate-points
 	./$<
 $(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
-	@GOOS=$(go env GOOS) $(gobin) build -o $@ $<
+	@GOOS="" GOARCH="" $(gobin) build -o $@ $<
 # end dependency installation tools
 
 
@@ -234,7 +234,7 @@ html-coverage-%:$(buildDir)/output.%.coverage.html
 	@grep -s -q -e "^PASS" $(buildDir)/output.$*.test
 lint-%:$(buildDir)/output.%.lint
 	@grep -v -s -q "^--- FAIL" $<
-# end convienence targets
+# end convenience targets
 
 
 # start test and coverage artifacts
@@ -301,8 +301,7 @@ check-mongod:mongodb/.get-mongodb
 
 # clean and other utility targets
 clean:
-	rm -f *.pb.go $(buildDir)/dist.tar.gz
-	rm -rf $(lintDeps) $(name) $(buildDir)/$(name) $(buildDir)/generate-points $(buildDir)/make-tarball $(buildDir)/run-benchmarks
+	rm -rf *.pb.go $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
 phony += clean
