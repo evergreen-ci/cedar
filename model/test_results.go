@@ -182,7 +182,6 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
 			return errors.Wrap(err, "problem uploading test results to bucket")
 		}
-
 	}
 
 	return nil
@@ -327,16 +326,17 @@ func (id *TestResultsInfo) ID() string {
 // TestResult describes a single test result to be stored as a BSON object in
 // some type of pail bucket storage.
 type TestResult struct {
-	TaskID         string    `bson:"task_id"`
-	Execution      int       `bson:"execution"`
-	TestName       string    `bson:"test_name"`
-	GroupID        string    `bson:"group_id,omitempty"`
-	Trial          int       `bson:"trial,omitempty"`
-	Status         string    `bson:"status"`
-	LineNum        int       `bson:"line_num"`
-	TaskCreateTime time.Time `bson:"task_create_time"`
-	TestStartTime  time.Time `bson:"test_start_time"`
-	TestEndTime    time.Time `bson:"test_end_time"`
+	TaskID          string    `bson:"task_id"`
+	Execution       int       `bson:"execution"`
+	TestName        string    `bson:"test_name"`
+	DisplayTestName string    `bson:"display_test_name"`
+	GroupID         string    `bson:"group_id,omitempty"`
+	Trial           int       `bson:"trial,omitempty"`
+	Status          string    `bson:"status"`
+	LineNum         int       `bson:"line_num"`
+	TaskCreateTime  time.Time `bson:"task_create_time"`
+	TestStartTime   time.Time `bson:"test_start_time"`
+	TestEndTime     time.Time `bson:"test_end_time"`
 }
 
 // TestResultsFindOptions allows for querying for test results with or without
