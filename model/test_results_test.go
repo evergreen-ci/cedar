@@ -12,6 +12,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
+	"github.com/jpillora/backoff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -257,23 +258,36 @@ func TestTestResultsAppend(t *testing.T) {
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, results[0:5]))
 		require.NoError(t, tr.Append(ctx, results[5:]))
-		savedResults := map[string]TestResult{}
-		iter, err := testBucket.List(ctx, tr.ID)
-		require.NoError(t, err)
-		for iter.Next(ctx) {
-			require.NoError(t, err)
-			r, err := iter.Item().Get(ctx)
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, r.Close())
-			}()
-			data, err := ioutil.ReadAll(r)
-			require.NoError(t, err)
-			result := TestResult{}
-			require.NoError(t, bson.Unmarshal(data, &result))
-			savedResults[result.TestName] = result
-		}
 
+		b := &backoff.Backoff{
+			Min:    100 * time.Millisecond,
+			Max:    5 * time.Second,
+			Factor: 2,
+		}
+		var savedResults map[string]TestResult
+		for i := 0; i < 10; i++ {
+			savedResults = map[string]TestResult{}
+			iter, err := testBucket.List(ctx, tr.ID)
+			require.NoError(t, err)
+			for iter.Next(ctx) {
+				require.NoError(t, err)
+				r, err := iter.Item().Get(ctx)
+				require.NoError(t, err)
+				defer func() {
+					assert.NoError(t, r.Close())
+				}()
+				data, err := ioutil.ReadAll(r)
+				require.NoError(t, err)
+				result := TestResult{}
+				require.NoError(t, bson.Unmarshal(data, &result))
+				savedResults[result.TestName] = result
+			}
+
+			if len(savedResults) == 10 {
+				break
+			}
+			time.Sleep(b.Duration())
+		}
 		require.Len(t, savedResults, 10)
 		for _, result := range results {
 			savedResult, ok := savedResults[result.TestName]
@@ -340,11 +354,27 @@ func TestTestResultsDownload(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucket", func(t *testing.T) {
 		tr.Setup(env)
-		iter, err := tr.Download(ctx)
-		require.NoError(t, err)
-		results := []TestResult{}
-		for iter.Next(ctx) {
-			results = append(results, iter.Item())
+
+		b := &backoff.Backoff{
+			Min:    100 * time.Millisecond,
+			Max:    5 * time.Second,
+			Factor: 2,
+		}
+
+		var results []TestResult
+		var iter TestResultsIterator
+		for i := 0; i < 10; i++ {
+			iter, err = tr.Download(ctx)
+			require.NoError(t, err)
+			results = []TestResult{}
+			for iter.Next(ctx) {
+				results = append(results, iter.Item())
+			}
+			if len(results) == 10 {
+				break
+			}
+
+			time.Sleep(b.Duration())
 		}
 
 		require.Len(t, results, 10)
@@ -604,14 +634,28 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 		require.NoError(t, testBucket2.Put(ctx, result.TestName, bytes.NewReader(data)))
 	}
 
-	opts := TestResultsFindOptions{DisplayTaskID: "display"}
-	iter, err := FindAndDownloadTestResults(ctx, env, opts)
-	require.NoError(t, err)
-	require.NotNil(t, iter)
+	b := &backoff.Backoff{
+		Min:    100 * time.Millisecond,
+		Max:    5 * time.Second,
+		Factor: 2,
+	}
+	var results []TestResult
+	var iter TestResultsIterator
+	for i := 0; i < 10; i++ {
+		opts := TestResultsFindOptions{DisplayTaskID: "display"}
+		iter, err = FindAndDownloadTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.NotNil(t, iter)
 
-	results := []TestResult{}
-	for iter.Next(ctx) {
-		results = append(results, iter.Item())
+		results = []TestResult{}
+		for iter.Next(ctx) {
+			results = append(results, iter.Item())
+		}
+		if len(results) == 20 {
+			break
+		}
+
+		time.Sleep(b.Duration())
 	}
 
 	require.Len(t, results, 20)
@@ -647,14 +691,13 @@ func getTestResults() *TestResults {
 
 func getTestResult() TestResult {
 	return TestResult{
-		TestName:        utility.RandomString(),
-		DisplayTestName: utility.RandomString(),
-		GroupID:         utility.RandomString(),
-		Trial:           rand.Intn(10),
-		Status:          "Pass",
-		LineNum:         rand.Intn(1000),
-		TaskCreateTime:  time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
-		TestStartTime:   time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
-		TestEndTime:     time.Now().UTC().Round(time.Millisecond),
+		TestName:       utility.RandomString(),
+		GroupID:        utility.RandomString(),
+		Trial:          rand.Intn(10),
+		Status:         "Pass",
+		LineNum:        rand.Intn(1000),
+		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
+		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
+		TestEndTime:    time.Now().UTC().Round(time.Millisecond),
 	}
 }
