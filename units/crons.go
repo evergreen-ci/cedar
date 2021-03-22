@@ -89,23 +89,6 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 		job := NewPeriodicTimeSeriesUpdateJob(utility.RoundPartOfMinute(0).Format(tsFormat))
 		return queue.Put(ctx, job)
 	})
-	// TODO: Remove once task log migration is complete (EVG-13831).
-	amboy.IntervalQueueOperation(ctx, remote, time.Minute, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
-		conf := model.NewCedarConfig(env)
-		if err := conf.Find(); err != nil {
-			return errors.WithStack(err)
-		}
-		if conf.LogMigrationLimit <= 0 {
-			return nil
-		}
-
-		job, err := NewMigrateTaskLogsJob(conf.LogMigrationLimit)
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
-		return queue.Put(ctx, job)
-	})
 
 	return nil
 }

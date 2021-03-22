@@ -33,8 +33,6 @@ type CedarConfig struct {
 	Flags          OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 	Service        ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 	ChangeDetector ChangeDetectorConfig      `bson:"change_detector" json:"change_detector" yaml:"change_detector"`
-	// TODO: Remove once task log migration is complete (EVG-13831).
-	LogMigrationLimit int64 `bson:"log_migration_limit" json:"log_migration_limit" yaml:"log_migration_limit"`
 
 	populated bool
 	env       cedar.Environment
