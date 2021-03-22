@@ -695,6 +695,7 @@ func getTestResult() TestResult {
 		GroupID:        utility.RandomString(),
 		Trial:          rand.Intn(10),
 		Status:         "Pass",
+		LogTestName:    utility.RandomString(),
 		LineNum:        rand.Intn(1000),
 		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
