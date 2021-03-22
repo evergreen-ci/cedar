@@ -306,13 +306,6 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/system_info").Version(1).Post().Wrap(checkUser).Handler(s.recieveSystemInfo)
 	s.app.AddRoute("/system_info/host/{host}").Version(1).Post().Wrap(checkUser).Handler(s.fetchSystemInfo)
 
-	s.app.AddRoute("/depgraph/{id}").Version(1).Post().Wrap(checkUser).Handler(s.createDepGraph)
-	s.app.AddRoute("/depgraph/{id}").Version(1).Get().Wrap(checkUser).Handler(s.resolveDepGraph)
-	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Post().Wrap(checkUser).Handler(s.addDepGraphNodes)
-	s.app.AddRoute("/depgraph/{id}/nodes").Version(1).Get().Wrap(checkUser).Handler(s.getDepGraphNodes)
-	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Post().Wrap(checkUser).Handler(s.addDepGraphEdges)
-	s.app.AddRoute("/depgraph/{id}/edges").Version(1).Get().Wrap(checkUser).Handler(s.getDepGraphEdges)
-
 	s.app.AddRoute("/perf/{id}").Version(1).Get().RouteHandler(makeGetPerfById(s.sc))
 	s.app.AddRoute("/perf/{id}").Version(1).Delete().Wrap(checkUser).RouteHandler(makeRemovePerfById(s.sc))
 	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))

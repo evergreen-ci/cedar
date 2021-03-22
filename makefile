@@ -1,7 +1,7 @@
 # start project configuration
 name := cedar
 buildDir := build
-packages := $(name) evergreen rest rest-data rest-model units operations model depgraph perf rpc rpc-internal benchmarks
+packages := $(name) evergreen rest rest-data rest-model units operations model perf rpc rpc-internal benchmarks
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -155,7 +155,6 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/urfave/cli/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/go.mongodb.org/mongo-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/golang.org/x/net/
-	rm -rf vendor/github.com/mongodb/amboy/vendor/gonum.org/v1/gonum
 	rm -rf vendor/github.com/mongodb/amboy/vendor/gopkg.in/mgo.v2
 	rm -rf vendor/github.com/mongodb/anser/vendor/github.com/evergreen-ci/birch
 	rm -rf vendor/github.com/mongodb/anser/vendor/github.com/mongodb/amboy

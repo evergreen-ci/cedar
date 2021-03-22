@@ -38,8 +38,6 @@ Data Types ~~~~~~~~~~
 - A simple log storage system, as a proof of concept. Logs stream from the client to the cedar application which stores
   metadata about the logs and then saves data to S3. Out of band, jobs can process log data.
 
-- MongoDB Core Server internal dependency data which stores data produced by the ``scons dagger`` target.
-
 Use ---
 
 #. Download and compile cedar. I prefer something like: ::
@@ -53,7 +51,6 @@ Use ---
 #. Explore the help menus in the ``cedar`` binary: ::
 
      cedar --help
-     cedar dagger --help
      cedar service --help
      cedar client --help
      cedar worker --help
