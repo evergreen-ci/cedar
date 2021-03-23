@@ -11,6 +11,7 @@ type OperationalFlags struct {
 	DisableInternalMetricsReporting bool `bson:"disable_internal_metrics_reporting" json:"disable_internal_metrics_reporting" yaml:"disable_internal_metrics_reporting"`
 	DisableSignalProcessing         bool `bson:"disable_signal_processing" json:"disable_signal_processing" yaml:"disable_signal_processing"`
 	DisableHistoricalTestData       bool `bson:"disable_historical_test_data" json:"disable_historical_test_data" yaml:"disable_historical_test_data"`
+	DisableAmboyRetries             bool `bson:"disable_amboy_retries" json:"disable_amboy_retries" yaml:"disable_amboy_retries"`
 
 	env cedar.Environment
 }
@@ -18,14 +19,20 @@ type OperationalFlags struct {
 var (
 	opsFlagsDisableInternalMetricsReporting = bsonutil.MustHaveTag(OperationalFlags{}, "DisableInternalMetricsReporting")
 	opsFlagsDisableSignalProcessing         = bsonutil.MustHaveTag(OperationalFlags{}, "DisableSignalProcessing")
+	opsFlagsDisableHistoricalTestData       = bsonutil.MustHaveTag(OperationalFlags{}, "DisableHistoricalTestData")
+	opsFlagsDisableAmboyRetries             = bsonutil.MustHaveTag(OperationalFlags{}, "DisableAmboyRetries")
 )
 
 func (f *OperationalFlags) findAndSet(name string, v bool) error {
 	switch name {
-	case "disable_internal_metrics_reporting":
+	case opsFlagsDisableInternalMetricsReporting:
 		return f.SetDisableInternalMetricsReporting(v)
-	case "disable_signal_processing":
+	case opsFlagsDisableSignalProcessing:
 		return f.SetDisableSignalProcessing(v)
+	case opsFlagsDisableAmboyRetries:
+		return f.SetDisableAmboyRetries(v)
+	case opsFlagsDisableHistoricalTestData:
+		return f.SetDisableHistoricalTestData(v)
 	default:
 		return errors.Errorf("%s is not a known feature flag name", name)
 	}
@@ -55,6 +62,22 @@ func (f *OperationalFlags) SetDisableSignalProcessing(v bool) error {
 	f.DisableSignalProcessing = v
 	return nil
 
+}
+
+func (f *OperationalFlags) SetDisableHistoricalTestData(v bool) error {
+	if err := f.update(opsFlagsDisableHistoricalTestData, v); err != nil {
+		return errors.WithStack(err)
+	}
+	f.DisableHistoricalTestData = v
+	return nil
+}
+
+func (f *OperationalFlags) SetDisableAmboyRetries(v bool) error {
+	if err := f.update(opsFlagsDisableAmboyRetries, v); err != nil {
+		return errors.WithStack(err)
+	}
+	f.DisableAmboyRetries = v
+	return nil
 }
 
 func (f *OperationalFlags) update(key string, value bool) error {
