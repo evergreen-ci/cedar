@@ -152,7 +152,6 @@ func Service() cli.Command {
 				ServiceName: conf.CA.CertDepot.ServiceName,
 				UserManager: service.UserManager,
 			})
-
 			if err != nil {
 				return errors.WithStack(err)
 			}
