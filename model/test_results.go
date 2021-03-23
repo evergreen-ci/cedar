@@ -333,6 +333,7 @@ type TestResult struct {
 	GroupID         string    `bson:"group_id,omitempty"`
 	Trial           int       `bson:"trial,omitempty"`
 	Status          string    `bson:"status"`
+	LogTestName     string    `bson:"log_test_name,omitempty"`
 	LineNum         int       `bson:"line_num"`
 	TaskCreateTime  time.Time `bson:"task_create_time"`
 	TestStartTime   time.Time `bson:"test_start_time"`
