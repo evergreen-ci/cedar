@@ -341,7 +341,6 @@ func TestTestResultsDownload(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucket", func(t *testing.T) {
 		tr.Setup(env)
-
 		var results []TestResult
 		iter, err := tr.Download(ctx)
 		require.NoError(t, err)
@@ -607,13 +606,11 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 		require.NoError(t, testBucket2.Put(ctx, result.TestName, bytes.NewReader(data)))
 	}
 
-	var results []TestResult
 	opts := TestResultsFindOptions{DisplayTaskID: "display"}
 	iter, err := FindAndDownloadTestResults(ctx, env, opts)
 	require.NoError(t, err)
 	require.NotNil(t, iter)
-
-	results = []TestResult{}
+	results := []TestResult{}
 	for iter.Next(ctx) {
 		results = append(results, iter.Item())
 	}
@@ -651,14 +648,15 @@ func getTestResults() *TestResults {
 
 func getTestResult() TestResult {
 	return TestResult{
-		TestName:       utility.RandomString(),
-		GroupID:        utility.RandomString(),
-		Trial:          rand.Intn(10),
-		Status:         "Pass",
-		LogTestName:    utility.RandomString(),
-		LineNum:        rand.Intn(1000),
-		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
-		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
-		TestEndTime:    time.Now().UTC().Round(time.Millisecond),
+		TestName:        utility.RandomString(),
+		DisplayTestName: utility.RandomString(),
+		GroupID:         utility.RandomString(),
+		Trial:           rand.Intn(10),
+		Status:          "Pass",
+		LogTestName:     utility.RandomString(),
+		LineNum:         rand.Intn(1000),
+		TaskCreateTime:  time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
+		TestStartTime:   time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
+		TestEndTime:     time.Now().UTC().Round(time.Millisecond),
 	}
 }
