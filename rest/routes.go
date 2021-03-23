@@ -517,6 +517,7 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 
 	opts := certdepot.CertificateOptions{
 		CommonName: usr,
+		Domain:     []string{usr},
 		CA:         s.Conf.CA.CertDepot.CAName,
 		Host:       usr,
 		Expires:    s.Conf.CA.SSLExpireAfter,
@@ -570,6 +571,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	if !certdepot.CheckPrivateKey(s.Depot, usr) {
 		opts := certdepot.CertificateOptions{
 			CommonName: usr,
+			Domain:     []string{usr},
 			CA:         s.Conf.CA.CertDepot.CAName,
 			Host:       usr,
 			Expires:    s.Conf.CA.SSLExpireAfter,
