@@ -257,7 +257,6 @@ func TestTestResultsAppend(t *testing.T) {
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, results[0:5]))
 		require.NoError(t, tr.Append(ctx, results[5:]))
-
 		savedResults := map[string]TestResult{}
 		iter, err := testBucket.List(ctx, tr.ID)
 		require.NoError(t, err)
@@ -341,10 +340,9 @@ func TestTestResultsDownload(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucket", func(t *testing.T) {
 		tr.Setup(env)
-		var results []TestResult
 		iter, err := tr.Download(ctx)
 		require.NoError(t, err)
-		results = []TestResult{}
+		results := []TestResult{}
 		for iter.Next(ctx) {
 			results = append(results, iter.Item())
 		}
