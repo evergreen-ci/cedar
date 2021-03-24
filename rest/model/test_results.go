@@ -8,16 +8,18 @@ import (
 
 // APITestResult describes a single test result.
 type APITestResult struct {
-	TaskID         *string `json:"task_id"`
-	Execution      int     `json:"execution"`
-	TestName       *string `json:"test_name"`
-	GroupID        *string `json:"group_id,omitempty"`
-	Trial          int     `json:"trial,omitempty"`
-	Status         *string `json:"status"`
-	LineNum        int     `json:"line_num"`
-	TaskCreateTime APITime `json:"task_create_time"`
-	TestStartTime  APITime `json:"test_start_time"`
-	TestEndTime    APITime `json:"test_end_time"`
+	TaskID          *string `json:"task_id"`
+	Execution       int     `json:"execution"`
+	TestName        *string `json:"test_name"`
+	DisplayTestName *string `json:"display_test_name,omitempty"`
+	GroupID         *string `json:"group_id,omitempty"`
+	Trial           int     `json:"trial,omitempty"`
+	Status          *string `json:"status"`
+	LogTestName     *string `json:"log_test_name,omitempty"`
+	LineNum         int     `json:"line_num"`
+	TaskCreateTime  APITime `json:"task_create_time"`
+	TestStartTime   APITime `json:"test_start_time"`
+	TestEndTime     APITime `json:"test_end_time"`
 }
 
 // Import transforms a TestResult object into an APITestResult object.
@@ -27,9 +29,17 @@ func (a *APITestResult) Import(i interface{}) error {
 		a.TaskID = utility.ToStringPtr(tr.TaskID)
 		a.Execution = tr.Execution
 		a.TestName = utility.ToStringPtr(tr.TestName)
-		a.GroupID = utility.ToStringPtr(tr.GroupID)
+		if tr.DisplayTestName != "" {
+			a.DisplayTestName = utility.ToStringPtr(tr.DisplayTestName)
+		}
+		if tr.GroupID != "" {
+			a.GroupID = utility.ToStringPtr(tr.GroupID)
+		}
 		a.Trial = tr.Trial
 		a.Status = utility.ToStringPtr(tr.Status)
+		if tr.LogTestName != "" {
+			a.LogTestName = utility.ToStringPtr(tr.LogTestName)
+		}
 		a.LineNum = tr.LineNum
 		a.TaskCreateTime = NewTime(tr.TaskCreateTime)
 		a.TestStartTime = NewTime(tr.TestStartTime)
