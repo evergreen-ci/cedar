@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 
-	"github.com/evergreen-ci/cedar"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -11,16 +10,12 @@ import (
 
 type healthService struct {
 	services map[string]HealthCheckResponse_ServingStatus
-	env      cedar.Environment
 }
 
 // AttachHealthService attaches the health check service to the given gRPC
 // server.
-func AttachHealthService(env cedar.Environment, services map[string]HealthCheckResponse_ServingStatus, s *grpc.Server) {
-	srv := &healthService{
-		services: services,
-		env:      env,
-	}
+func AttachHealthService(services map[string]HealthCheckResponse_ServingStatus, s *grpc.Server) {
+	srv := &healthService{services: services}
 	RegisterHealthServer(s, srv)
 }
 
