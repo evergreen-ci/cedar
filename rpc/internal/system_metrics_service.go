@@ -26,6 +26,12 @@ func AttachSystemMetricsService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarSystemMetricsServer(s, srv)
 }
 
+// SystemMetricsServiceName returns the grpc service identifier for this
+// service.
+func SystemMetricsServiceName() string {
+	return _CedarSystemMetrics_serviceDesc.ServiceName
+}
+
 // CreateSystemMetricsRecord creates a new system metrics record in the database.
 func (s *systemMetricsService) CreateSystemMetricsRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
 	conf := model.NewCedarConfig(s.env)

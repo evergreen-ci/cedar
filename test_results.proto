@@ -51,4 +51,3 @@ service CedarTestResults {
   rpc StreamTestResults(stream TestResults) returns (TestResultsResponse);
   rpc CloseTestResultsRecord(TestResultsEndInfo) returns (TestResultsResponse);
 }
-
