@@ -33,6 +33,11 @@ func AttachPerfService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarPerformanceMetricsServer(s, srv)
 }
 
+// PerfServiceName returns the grpc service identifier for this service.
+func PerfServiceName() string {
+	return _CedarPerformanceMetrics_serviceDesc.ServiceName
+}
+
 // CreateMetricSeries creates a new performance result record in the database.
 func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
 	if result.Id == nil {

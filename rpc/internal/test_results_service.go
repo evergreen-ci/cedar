@@ -28,6 +28,11 @@ func AttachTestResultsService(env cedar.Environment, s *grpc.Server) {
 	RegisterCedarTestResultsServer(s, srv)
 }
 
+// TestResultsServiceName returns the grpc service identifier for this service.
+func TestResultsServiceName() string {
+	return _CedarTestResults_serviceDesc.ServiceName
+}
+
 // CreateTestResultsRecord creates a new test results record in the database.
 func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *TestResultsInfo) (*TestResultsResponse, error) {
 	conf := model.NewCedarConfig(s.env)
