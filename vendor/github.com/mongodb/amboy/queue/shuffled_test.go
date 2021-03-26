@@ -25,10 +25,6 @@ func TestShuffledQueueSuite(t *testing.T) {
 	suite.Run(t, new(ShuffledQueueSuite))
 }
 
-func (s *ShuffledQueueSuite) SetupSuite() {
-	s.require = s.Require()
-}
-
 func (s *ShuffledQueueSuite) SetupTest() {
 	s.queue = &shuffledLocal{
 		capacity: defaultLocalQueueCapcity,
@@ -162,7 +158,7 @@ func (s *ShuffledQueueSuite) TestCompleteReturnsIfContextisCanceled() {
 	ctx2, cancel2 := context.WithCancel(ctx)
 	j := job.NewShellJob("false", "")
 	cancel2()
-	s.queue.Complete(ctx2, j)
+	s.Require().Error(s.queue.Complete(ctx2, j))
 	stat := s.queue.Stats(ctx)
 	s.Equal(0, stat.Completed)
 }

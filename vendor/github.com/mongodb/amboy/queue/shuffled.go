@@ -24,7 +24,6 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/pool"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 )
@@ -32,7 +31,7 @@ import (
 // LocalShuffled provides a queue implementation that shuffles the
 // order of jobs, relative the insertion order. Unlike
 // some of the other local queue implementations that predate LocalShuffled
-// (e.g. LocalUnordered,) there are no mutexes uses in the implementation.
+// (e.g. LocalUnordered), there are no mutexes used in the implementation.
 type shuffledLocal struct {
 	operations chan func(map[string]amboy.Job, map[string]amboy.Job, map[string]amboy.Job, *fixedStorage)
 	capacity   int
@@ -43,9 +42,9 @@ type shuffledLocal struct {
 	runner     amboy.Runner
 }
 
-// NewShuffledLocal provides a queue implementation that shuffles the
+// NewLocalShuffled provides a queue implementation that shuffles the
 // order of jobs, relative the insertion order.
-func NewShuffledLocal(workers, capacity int) amboy.Queue {
+func NewLocalShuffled(workers, capacity int) amboy.Queue {
 	q := &shuffledLocal{
 		scopes:   NewLocalScopeManager(),
 		capacity: capacity,
@@ -97,7 +96,8 @@ func (q *shuffledLocal) reactor(ctx context.Context) {
 }
 
 // Put adds a job to the queue, and returns errors if the queue hasn't
-// started or if a job with the same ID value already exists.
+// started or if a job conflicts with one already in the queue (e.g. the job is
+// already in the queue or it cannot acquire the scopes that it needs).
 func (q *shuffledLocal) Put(ctx context.Context, j amboy.Job) error {
 	id := j.ID()
 
@@ -111,6 +111,12 @@ func (q *shuffledLocal) Put(ctx context.Context, j amboy.Job) error {
 
 	if err := j.TimeInfo().Validate(); err != nil {
 		return errors.Wrap(err, "invalid job timeinfo")
+	}
+
+	if j.ShouldApplyScopesOnEnqueue() {
+		if err := q.scopes.Acquire(id, j.Scopes()); err != nil {
+			return errors.Wrapf(err, "applying scopes to job")
+		}
 	}
 
 	ret := make(chan error)
@@ -148,6 +154,10 @@ func (q *shuffledLocal) Save(ctx context.Context, j amboy.Job) error {
 		return errors.Errorf("cannot save job %s; queue not started", id)
 	}
 
+	if err := q.scopes.Acquire(id, j.Scopes()); err != nil {
+		return errors.Wrapf(err, "applying scopes to job")
+	}
+
 	ret := make(chan error)
 	op := func(
 		pending map[string]amboy.Job,
@@ -171,7 +181,7 @@ func (q *shuffledLocal) Save(ctx context.Context, j amboy.Job) error {
 			return
 		}
 
-		ret <- errors.Errorf("job '%s' does not exist", id)
+		ret <- amboy.NewJobNotFoundErrorf("job '%s' does not exist", id)
 	}
 
 	select {
@@ -255,13 +265,11 @@ func (q *shuffledLocal) Results(ctx context.Context) <-chan amboy.Job {
 	return output
 }
 
-// JobStats returns JobStatusInfo objects for all jobs tracked by the
-// queue. The operation returns jobs first that have been dispatched
-// (e.g. currently working,) then pending (queued for dispatch,) and
-// finally completed.
-func (q *shuffledLocal) JobStats(ctx context.Context) <-chan amboy.JobStatusInfo {
-	out := make(chan amboy.JobStatusInfo)
-
+// JobInfo returns a channel that produces information for all jobs in the
+// queue. The operation returns jobs first that have been dispatched, then
+// pending, and finally completed.
+func (q *shuffledLocal) JobInfo(ctx context.Context) <-chan amboy.JobInfo {
+	infos := make(chan amboy.JobInfo)
 	q.operations <- func(
 		pending map[string]amboy.Job,
 		completed map[string]amboy.Job,
@@ -269,34 +277,30 @@ func (q *shuffledLocal) JobStats(ctx context.Context) <-chan amboy.JobStatusInfo
 		toDelete *fixedStorage,
 	) {
 
-		defer close(out)
+		defer close(infos)
 		for _, j := range dispatched {
-			if ctx.Err() != nil {
+			select {
+			case <-ctx.Done():
 				return
+			case infos <- amboy.NewJobInfo(j):
 			}
-			stat := j.Status()
-			stat.ID = j.ID()
-			out <- stat
 		}
 		for _, j := range pending {
-			if ctx.Err() != nil {
+			select {
+			case <-ctx.Done():
 				return
+			case infos <- amboy.NewJobInfo(j):
 			}
-			stat := j.Status()
-			stat.ID = j.ID()
-			out <- stat
 		}
 		for _, j := range completed {
-			if ctx.Err() != nil {
+			select {
+			case <-ctx.Done():
 				return
+			case infos <- amboy.NewJobInfo(j):
 			}
-			stat := j.Status()
-			stat.ID = j.ID()
-			out <- stat
 		}
 	}
-
-	return out
+	return infos
 }
 
 // Stats returns a standard report on the number of pending, running,
@@ -395,11 +399,12 @@ func (q *shuffledLocal) Next(ctx context.Context) amboy.Job {
 // Complete marks a job as complete in the internal representation. If
 // the context is canceled after calling Complete but before it
 // executes, no change occurs.
-func (q *shuffledLocal) Complete(ctx context.Context, j amboy.Job) {
+func (q *shuffledLocal) Complete(ctx context.Context, j amboy.Job) error {
 	if ctx.Err() != nil {
-		return
+		return ctx.Err()
 	}
 
+	opResult := make(chan error)
 	q.dispatcher.Complete(ctx, j)
 	op := func(
 		pending map[string]amboy.Job,
@@ -407,6 +412,7 @@ func (q *shuffledLocal) Complete(ctx context.Context, j amboy.Job) {
 		dispatched map[string]amboy.Job,
 		toDelete *fixedStorage,
 	) {
+		defer close(opResult)
 		id := j.ID()
 
 		completed[id] = j
@@ -419,19 +425,26 @@ func (q *shuffledLocal) Complete(ctx context.Context, j amboy.Job) {
 			}
 		}
 
-		grip.Warning(message.WrapError(
-			q.scopes.Release(j.ID(), j.Scopes()),
-			message.Fields{
-				"id":     j.ID(),
-				"scopes": j.Scopes(),
-				"queue":  q.ID(),
-				"op":     "releasing scope lock during completion",
-			}))
+		if err := q.scopes.Release(j.ID(), j.Scopes()); err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			case opResult <- err:
+				return
+			}
+		}
 	}
 
 	select {
 	case <-ctx.Done():
+		return ctx.Err()
 	case q.operations <- op:
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-opResult:
+			return errors.WithStack(err)
+		}
 	}
 }
 
@@ -449,4 +462,10 @@ func (q *shuffledLocal) SetRunner(r amboy.Runner) error {
 // Runner returns the embedded runner.
 func (q *shuffledLocal) Runner() amboy.Runner {
 	return q.runner
+}
+
+func (q *shuffledLocal) Close(ctx context.Context) {
+	if r := q.Runner(); r != nil {
+		r.Close(ctx)
+	}
 }
