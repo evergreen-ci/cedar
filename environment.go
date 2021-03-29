@@ -109,6 +109,16 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			Ordered: false,
 			Client:  env.client,
 			MDB:     opts,
+			Retryable: queue.RetryableQueueOptions{
+				RetryHandler: amboy.RetryHandlerOptions{
+					NumWorkers:       2,
+					MaxCapacity:      4096,
+					MaxRetryAttempts: 10,
+					MaxRetryTime:     15 * time.Minute,
+					RetryBackoff:     10 * time.Second,
+				},
+				StaleRetryingMonitorInterval: time.Minute,
+			},
 		}
 
 		var rq amboy.Queue
@@ -154,6 +164,16 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			BackgroundCreateFrequency: 10 * time.Minute,
 			PruneFrequency:            10 * time.Minute,
 			TTL:                       time.Minute,
+			Retryable: queue.RetryableQueueOptions{
+				RetryHandler: amboy.RetryHandlerOptions{
+					NumWorkers:       2,
+					MaxCapacity:      4096,
+					MaxRetryAttempts: 10,
+					MaxRetryTime:     15 * time.Minute,
+					RetryBackoff:     10 * time.Second,
+				},
+				StaleRetryingMonitorInterval: time.Minute,
+			},
 		}
 
 		env.remoteQueueGroup, err = queue.NewMongoDBSingleQueueGroup(ctx, args, env.client, opts)
