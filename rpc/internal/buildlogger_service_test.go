@@ -512,8 +512,9 @@ func TestStreamLogLines(t *testing.T) {
 				assert.Equal(t, log.ID, log.Info.ID())
 				assert.Len(t, l.Artifact.Chunks, len(test.lines))
 				for _, chunk := range l.Artifact.Chunks {
-					_, err := bucket.Get(ctx, chunk.Key)
+					r, err := bucket.Get(ctx, chunk.Key)
 					assert.NoError(t, err)
+					assert.NoError(t, r.Close())
 				}
 			}
 		})
