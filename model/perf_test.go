@@ -558,6 +558,8 @@ func (s *perfResultsSuite) TearDownTest() {
 	s.NoError(s.r.env.GetDB().Collection(perfResultCollection).Drop(s.ctx))
 }
 
+// kim: TODO: continue from here. Figure out if/when we still need interval for
+// perf routes, or if it's just for buildlogger routes.
 func (s *perfResultsSuite) TestFindWithNilEnv() {
 	env := s.r.env
 	s.r.env = nil

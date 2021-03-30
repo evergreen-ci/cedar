@@ -59,7 +59,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	vals := r.URL.Query()
 	h.opts.PrintTime = vals.Get(printTime) == trueString
 	h.opts.PrintPriority = vals.Get(printPriority) == trueString
-	h.opts.TimeRange, err = parseTimeRange(vals, logStartAt, logEndAt)
+	h.opts.TimeRange, err = parseTimeRange(time.RFC3339Nano, vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[limit]) > 0 {
 		h.opts.Limit, err = strconv.Atoi(vals[limit][0])
@@ -167,7 +167,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 	h.opts.Tags = vals[tags]
 	h.opts.PrintTime = vals.Get(printTime) == trueString
 	h.opts.PrintPriority = vals.Get(printPriority) == trueString
-	h.opts.TimeRange, err = parseTimeRange(vals, logStartAt, logEndAt)
+	h.opts.TimeRange, err = parseTimeRange(time.RFC3339Nano, vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
@@ -296,7 +296,7 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 	h.opts.Tags = vals[tags]
 	h.opts.PrintTime = vals.Get(printTime) == trueString
 	h.opts.PrintPriority = vals.Get(printPriority) == trueString
-	h.opts.TimeRange, err = parseTimeRange(vals, logStartAt, logEndAt)
+	h.opts.TimeRange, err = parseTimeRange(time.RFC3339Nano, vals, logStartAt, logEndAt)
 	catcher.Add(err)
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
@@ -445,7 +445,7 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 		h.opts.EmptyExecution = true
 	}
 	if vals.Get(logStartAt) != "" || vals.Get(logEndAt) != "" {
-		h.opts.TimeRange, err = parseTimeRange(vals, logStartAt, logEndAt)
+		h.opts.TimeRange, err = parseTimeRange(time.RFC3339Nano, vals, logStartAt, logEndAt)
 		catcher.Add(err)
 	}
 	if len(vals[limit]) > 0 {

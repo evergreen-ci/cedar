@@ -19,6 +19,10 @@ const (
 	perfEndAt   = "finished_before"
 )
 
+// timeRangeFormatDay represents the time range format rounded to the nearest
+// day (YYYY-MM-DD).
+const timeRangeFormatDay = "2006-01-02"
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // GET /perf/{id}
@@ -114,10 +118,11 @@ func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /perf/task_id/{task_id}
 
 type perfGetByTaskIdHandler struct {
-	taskId   string
-	interval model.TimeRange
-	tags     []string
-	sc       data.Connector
+	taskId string
+	// kim: TODO: delete
+	// interval model.TimeRange
+	tags []string
+	sc   data.Connector
 }
 
 func makeGetPerfByTaskId(sc data.Connector) gimlet.RouteHandler {
@@ -138,15 +143,23 @@ func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error
 	h.taskId = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
-	var err error
-	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
-	return err
+	return nil
+	// kim: TODO: delete
+	// var err error
+	// h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
+	// return err
 }
 
-// Run calls the data FindPerformanceResultsByTaskId and function returns the
+// Run calls the data FindPerformanceResults function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindPerformanceResultsByTaskId(ctx, h.taskId, h.interval, h.tags...)
+	// kim: TODO: Delete
+	// perfResults, err := h.sc.FindPerformanceResultsByTaskId(ctx, h.taskId, h.interval, h.tags...)
+	// perfResults, err := h.sc.FindPerformanceResultsByTaskId(ctx, h.taskId, h.tags...)
+	perfResults, err := h.sc.FindPerformanceResults(ctx, data.PerformanceOptions{
+		TaskID: h.taskId,
+		Tags:   h.tags,
+	})
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.taskId)
 		grip.Error(message.WrapError(err, message.Fields{
@@ -194,24 +207,34 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	h.project = vals.Get("project")
 	h.variant = vals.Get("variant")
 	h.tags = vals["tags"]
-	var err error
 	catcher := grip.NewBasicCatcher()
-	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
-	catcher.Add(err)
+	var err error
+	h.interval, err = parseTimeRange(timeRangeFormatDay, vals, perfStartAt, perfEndAt)
+	catcher.Add(errors.Wrap(err, "invalid time range"))
 	limit := vals.Get("limit")
 	if limit != "" {
 		h.limit, err = strconv.Atoi(limit)
-		catcher.Add(err)
+		catcher.Add(errors.Wrap(err, "invalid limit"))
 	} else {
 		h.limit = 0
 	}
 	return catcher.Resolve()
 }
 
-// Run calls the data FindPerformanceResultsByTaskName function and returns the
+// Run calls the data FindPerformanceResults function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.interval, h.limit, h.tags...)
+	// kim: TODO: delete
+	// perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.interval, h.limit, h.tags...)
+	// perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.limit, h.tags...)
+	perfResults, err := h.sc.FindPerformanceResults(ctx, data.PerformanceOptions{
+		Project:  h.project,
+		Variant:  h.variant,
+		TaskName: h.taskName,
+		Tags:     h.tags,
+		Interval: h.interval,
+		Limit:    h.limit,
+	})
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task_name '%s'", h.taskName)
 		grip.Error(message.WrapError(err, message.Fields{
@@ -230,10 +253,11 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 // GET /perf/version/{version}
 
 type perfGetByVersionHandler struct {
-	version  string
-	interval model.TimeRange
-	tags     []string
-	sc       data.Connector
+	version string
+	// kim: TODO: delete
+	// interval model.TimeRange
+	tags []string
+	sc   data.Connector
 }
 
 func makeGetPerfByVersion(sc data.Connector) gimlet.RouteHandler {
@@ -254,15 +278,23 @@ func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) erro
 	h.version = gimlet.GetVars(r)["version"]
 	vals := r.URL.Query()
 	h.tags = vals["tags"]
-	var err error
-	h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
-	return err
+	// kim: TODO: delete
+	// var err error
+	// h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
+	// return err
+	return nil
 }
 
-// Run calls the data FindPerformanceResultsByVersion function returns the
+// Run calls the data FindPerformanceResults function returns the
 // PerformanceResult from the provider.
 func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
-	perfResults, err := h.sc.FindPerformanceResultsByVersion(ctx, h.version, h.interval, h.tags...)
+	// kim: TODO: delete
+	// perfResults, err := h.sc.FindPerformanceResultsByVersion(ctx, h.version, h.interval, h.tags...)
+	// perfResults, err := h.sc.FindPerformanceResultsByVersion(ctx, h.version, h.tags...)
+	perfResults, err := h.sc.FindPerformanceResults(ctx, data.PerformanceOptions{
+		Version: h.version,
+		Tags:    h.tags,
+	})
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by version '%s'", h.version)
 		grip.Error(message.WrapError(err, message.Fields{
@@ -307,7 +339,7 @@ func (h *perfGetChildrenHandler) Parse(_ context.Context, r *http.Request) error
 	h.tags = vals["tags"]
 	var err error
 	h.maxDepth, err = strconv.Atoi(vals.Get("max_depth"))
-	return errors.Wrap(err, "failed to parse request")
+	return errors.Wrap(err, "invalid max depth")
 }
 
 // Run calls the data FindPerformanceResultWithChildren function and returns

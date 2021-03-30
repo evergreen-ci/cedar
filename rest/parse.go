@@ -8,13 +8,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-func parseTimeRange(vals url.Values, start, end string) (model.TimeRange, error) {
+func parseTimeRange(format string, vals url.Values, start, end string) (model.TimeRange, error) {
 	tr := model.TimeRange{EndAt: time.Now()}
 	startAt := vals.Get(start)
 	endAt := vals.Get(end)
 
 	if startAt != "" {
-		s, err := time.ParseInLocation(time.RFC3339Nano, startAt, time.UTC)
+		s, err := time.ParseInLocation(format, startAt, time.UTC)
 		if err != nil {
 			return model.TimeRange{}, errors.Errorf("problem parsing start time '%s'", startAt)
 		}
@@ -22,7 +22,7 @@ func parseTimeRange(vals url.Values, start, end string) (model.TimeRange, error)
 	}
 
 	if endAt != "" {
-		e, err := time.ParseInLocation(time.RFC3339Nano, endAt, time.UTC)
+		e, err := time.ParseInLocation(format, endAt, time.UTC)
 		if err != nil {
 			return model.TimeRange{}, errors.Errorf("problem parsing end time '%s'", endAt)
 		}

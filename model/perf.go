@@ -411,7 +411,7 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 	if opts.Info.Parent != "" { // this is the root node
 		search["_id"] = opts.Info.Parent
 	} else {
-		if opts.Interval.IsZero() || !opts.Interval.IsValid() {
+		if opts.Info.Version == "" && opts.Info.TaskID == "" && (opts.Interval.IsZero() || !opts.Interval.IsValid()) {
 			return errors.New("invalid time range given")
 		}
 		search = r.createFindQuery(opts)
