@@ -608,7 +608,7 @@ func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 	}
 	options.Info.Version = "1"
 	s.NoError(s.r.Find(s.ctx, options))
-	s.Len(s.r.Results, 2)
+	s.Len(s.r.Results, 3)
 
 	options.Info.Tags = []string{"tag1", "tag2", "tag3"}
 	s.NoError(s.r.Find(s.ctx, options))

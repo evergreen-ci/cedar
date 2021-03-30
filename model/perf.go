@@ -461,10 +461,7 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 }
 
 func (r *PerformanceResults) createFindQuery(opts PerfFindOptions) map[string]interface{} {
-	search := bson.M{
-		"created_at":   bson.M{"$gte": opts.Interval.StartAt},
-		"completed_at": bson.M{"$lte": opts.Interval.EndAt},
-	}
+	search := bson.M{}
 
 	if opts.Info.Project != "" {
 		search[bsonutil.GetDottedKeyName("info", "project")] = opts.Info.Project
@@ -480,9 +477,9 @@ func (r *PerformanceResults) createFindQuery(opts PerfFindOptions) map[string]in
 	}
 	if opts.Info.TaskID != "" {
 		search[bsonutil.GetDottedKeyName("info", "task_id")] = opts.Info.TaskID
-		delete(search, "created_at")
-		delete(search, "completed_at")
-	} else {
+	} else if opts.Info.Version == "" {
+		search["created_at"] = bson.M{"$gte": opts.Interval.StartAt}
+		search["completed_at"] = bson.M{"$lte": opts.Interval.EndAt}
 		search[bsonutil.GetDottedKeyName("info", "mainline")] = true
 	}
 	if opts.Info.Execution != 0 {
