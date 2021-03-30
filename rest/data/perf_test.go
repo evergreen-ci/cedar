@@ -414,19 +414,6 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdDoesNotExist() {
 	s.Error(err)
 }
 
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskIdNarrowInterval() {
-	s.T().Skip("test disabled as time range and task_id queries might not make sense")
-
-	dur, err := time.ParseDuration("1ns")
-	s.Require().NoError(err)
-	tr := model.GetTimeRange(time.Time{}, dur)
-
-	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByTaskId(s.ctx, s.results[0].info.TaskID, tr)
-	s.Equal(expectedResult, actualResult)
-	s.Error(err)
-}
-
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByTaskName() {
 	expectedTaskName := s.results[0].info.TaskName
 	expectedCount := 0
@@ -506,7 +493,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	expectedVersion := s.results[0].info.Version
 	expectedCount := 0
 	for _, result := range s.results {
-		if result.info.Version == expectedVersion && result.info.Mainline {
+		if result.info.Version == expectedVersion {
 			expectedCount++
 		}
 	}
@@ -545,17 +532,6 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {
 
 	var expectedResult []dataModel.APIPerformanceResult
 	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, "doesNotExist", tr)
-	s.Equal(expectedResult, actualResult)
-	s.Error(err)
-}
-
-func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionNarrowInterval() {
-	dur, err := time.ParseDuration("1ns")
-	s.Require().NoError(err)
-	tr := model.GetTimeRange(time.Time{}, dur)
-
-	var expectedResult []dataModel.APIPerformanceResult
-	actualResult, err := s.sc.FindPerformanceResultsByVersion(s.ctx, s.results[0].info.Version, tr)
 	s.Equal(expectedResult, actualResult)
 	s.Error(err)
 }

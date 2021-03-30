@@ -387,7 +387,7 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := []dataModel.APIPerformanceResult{}
 	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.Version == version && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) && result.Info.Mainline {
+		if result.Info.Version == version && containsTags(tags, result.Info.Tags) {
 			apiResult := dataModel.APIPerformanceResult{}
 			err := apiResult.Import(result)
 			if err != nil {
