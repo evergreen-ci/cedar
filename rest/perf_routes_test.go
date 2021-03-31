@@ -170,8 +170,8 @@ func (s *PerfHandlerSuite) TestPerfRemoveByIdHandler() {
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 	rh := s.rh["task_id"]
-	rh.(*perfGetByTaskIdHandler).taskId = "123"
-	rh.(*perfGetByTaskIdHandler).tags = []string{"d"}
+	rh.(*perfGetByTaskIdHandler).opts.TaskID = "123"
+	rh.(*perfGetByTaskIdHandler).opts.Tags = []string{"d"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
@@ -183,7 +183,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id"]
-	rh.(*perfGetByTaskIdHandler).taskId = "555"
+	rh.(*perfGetByTaskIdHandler).opts.TaskID = "555"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -192,12 +192,12 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	rh := s.rh["task_name"]
-	rh.(*perfGetByTaskNameHandler).taskName = "taskname0"
-	rh.(*perfGetByTaskNameHandler).interval = model.TimeRange{
+	rh.(*perfGetByTaskNameHandler).opts.TaskName = "taskname0"
+	rh.(*perfGetByTaskNameHandler).opts.Interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
-	rh.(*perfGetByTaskNameHandler).tags = []string{"b"}
+	rh.(*perfGetByTaskNameHandler).opts.Tags = []string{"b"}
 	expected := []datamodel.APIPerformanceResult{
 		s.apiResults["jkl"],
 		s.apiResults["ghi"],
@@ -208,11 +208,11 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
-	rh.(*perfGetByTaskNameHandler).interval = model.TimeRange{
+	rh.(*perfGetByTaskNameHandler).opts.Interval = model.TimeRange{
 		StartAt: time.Time{},
 		EndAt:   time.Now(),
 	}
-	rh.(*perfGetByTaskNameHandler).tags = []string{}
+	rh.(*perfGetByTaskNameHandler).opts.Tags = []string{}
 	expected = []datamodel.APIPerformanceResult{
 		s.apiResults["jkl"],
 		s.apiResults["ghi"],
@@ -225,7 +225,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
-	rh.(*perfGetByTaskNameHandler).limit = 3
+	rh.(*perfGetByTaskNameHandler).opts.Limit = 3
 	expected = []datamodel.APIPerformanceResult{
 		s.apiResults["jkl"],
 		s.apiResults["ghi"],
@@ -241,8 +241,8 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
 	rh := s.rh["task_name"]
-	rh.(*perfGetByTaskNameHandler).taskName = "taskname2"
-	rh.(*perfGetByTaskNameHandler).interval = model.TimeRange{
+	rh.(*perfGetByTaskNameHandler).opts.TaskName = "taskname2"
+	rh.(*perfGetByTaskNameHandler).opts.Interval = model.TimeRange{
 		StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
 		EndAt:   time.Now(),
 	}
@@ -254,8 +254,8 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
 
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 	rh := s.rh["version"]
-	rh.(*perfGetByVersionHandler).version = "1"
-	rh.(*perfGetByVersionHandler).tags = []string{"d"}
+	rh.(*perfGetByVersionHandler).opts.Version = "1"
+	rh.(*perfGetByVersionHandler).opts.Tags = []string{"d"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
 	resp := rh.Run(context.TODO())
@@ -267,7 +267,7 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
 	rh := s.rh["version"]
-	rh.(*perfGetByVersionHandler).version = "2"
+	rh.(*perfGetByVersionHandler).opts.Version = "2"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -385,11 +385,11 @@ func (s *PerfHandlerSuite) testParseDefaults(handler, urlString, query string, l
 func getPerfTags(rh gimlet.RouteHandler, handler string) []string {
 	switch handler {
 	case "task_id":
-		return rh.(*perfGetByTaskIdHandler).tags
+		return rh.(*perfGetByTaskIdHandler).opts.Tags
 	case "task_name":
-		return rh.(*perfGetByTaskNameHandler).tags
+		return rh.(*perfGetByTaskNameHandler).opts.Tags
 	case "version":
-		return rh.(*perfGetByVersionHandler).tags
+		return rh.(*perfGetByVersionHandler).opts.Tags
 	default:
 		return []string{}
 	}
@@ -398,7 +398,7 @@ func getPerfTags(rh gimlet.RouteHandler, handler string) []string {
 func getPerfLimit(rh gimlet.RouteHandler, handler string) int {
 	switch handler {
 	case "task_name":
-		return rh.(*perfGetByTaskNameHandler).limit
+		return rh.(*perfGetByTaskNameHandler).opts.Limit
 	default:
 		return 0
 	}
