@@ -21,18 +21,9 @@ type Connector interface {
 	// RemovePerformanceResultById removes the performance result with the
 	// given id and its children.
 	RemovePerformanceResultById(context.Context, string) (int, error)
-	// FindPerformanceResultsByTaskId returns the performance results with
-	// the given task id and that fall within given time range, filtered by
-	// the optional tags.
-	FindPerformanceResultsByTaskId(context.Context, string, dbModel.TimeRange, ...string) ([]model.APIPerformanceResult, error)
-	// FindPerformanceResultsByTaskName returns the performance results
-	// with the given task name and that fall within given time range,
-	// filtered by the optional tags.
-	FindPerformanceResultsByTaskName(context.Context, string, string, string, dbModel.TimeRange, int, ...string) ([]model.APIPerformanceResult, error)
-	// FindPerformanceResultsByVersion returns the performance results with
-	// the given version and that fall within given time range, filtered by
-	// the optional tags.
-	FindPerformanceResultsByVersion(context.Context, string, dbModel.TimeRange, ...string) ([]model.APIPerformanceResult, error)
+	// FindPerformanceResults returns all performance results that match the
+	// given options.
+	FindPerformanceResults(context.Context, PerformanceOptions) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultWithChildren returns the the performance result
 	// with the given id and its children up to the given depth and
 	// filtered by the optional tags.
@@ -144,4 +135,17 @@ type TestResultsOptions struct {
 	TestName       string
 	Execution      int
 	EmptyExecution bool
+}
+
+// PerformanceOptions holds all values required to find a specific
+// PerformanceResult or PerformanceResults using connector functions.
+type PerformanceOptions struct {
+	Project  string
+	Version  string
+	Variant  string
+	TaskID   string
+	TaskName string
+	Tags     []string
+	Interval dbModel.TimeRange
+	Limit    int
 }

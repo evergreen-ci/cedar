@@ -70,113 +70,30 @@ func (dbc *DBConnector) RemovePerformanceResultById(ctx context.Context, id stri
 	return numRemoved, nil
 }
 
-// FindPerformanceResultsByTaskId queries the database to find all performance
-// results with the given taskId and that fall within interval, filtered by
-// tags.
-func (dbc *DBConnector) FindPerformanceResultsByTaskId(ctx context.Context, taskId string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := model.PerformanceResults{}
+// FindPerformanceResults queries the database to find all performance results
+// that match the given options. If querying by task name, results are sorted
+// (descending) by the Evergreen order.
+func (dbc *DBConnector) FindPerformanceResults(ctx context.Context, opts PerformanceOptions) ([]dataModel.APIPerformanceResult, error) {
+	var results model.PerformanceResults
 	results.Setup(dbc.env)
 
-	options := model.PerfFindOptions{
-		Interval: interval,
+	findOpts := model.PerfFindOptions{
 		Info: model.PerformanceResultInfo{
-			TaskID: taskId,
-			Tags:   tags,
+			Project:  opts.Project,
+			Version:  opts.Version,
+			Variant:  opts.Variant,
+			TaskID:   opts.TaskID,
+			TaskName: opts.TaskName,
+			Tags:     opts.Tags,
 		},
-		MaxDepth: 0,
+		Interval: opts.Interval,
+		Limit:    opts.Limit,
+	}
+	if opts.TaskName != "" {
+		findOpts.Sort = []string{"info.order"}
 	}
 
-	if err := results.Find(ctx, options); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "database error").Error(),
-		}
-	}
-	if results.IsNil() {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "not found",
-		}
-	}
-
-	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
-	for i, result := range results.Results {
-		err := apiResults[i].Import(result)
-		if err != nil {
-			return nil, gimlet.ErrorResponse{
-				StatusCode: http.StatusInternalServerError,
-				Message:    errors.Wrap(err, "corrupt data").Error(),
-			}
-		}
-	}
-	return apiResults, nil
-}
-
-// FindPerformanceResultsByTaskName queries the database to find all
-// performance results with the given taskName and that fall within interval,
-// filtered by tags. Results are returned sorted (descending) by the Evergreen
-// order. If limit is greater than 0, the number of results returned will be no
-// greater than limit.
-func (dbc *DBConnector) FindPerformanceResultsByTaskName(ctx context.Context, project, taskName, variant string, interval model.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := model.PerformanceResults{}
-	results.Setup(dbc.env)
-
-	options := model.PerfFindOptions{
-		Interval: interval,
-		Info: model.PerformanceResultInfo{
-			Project:  project,
-			Variant:  variant,
-			TaskName: taskName,
-			Tags:     tags,
-		},
-		MaxDepth: 0,
-		Limit:    limit,
-		Sort:     []string{"info.order"},
-	}
-
-	if err := results.Find(ctx, options); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "database error").Error(),
-		}
-	}
-	if results.IsNil() {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "not found",
-		}
-	}
-
-	apiResults := make([]dataModel.APIPerformanceResult, len(results.Results))
-	for i, result := range results.Results {
-		err := apiResults[i].Import(result)
-		if err != nil {
-			return nil, gimlet.ErrorResponse{
-				StatusCode: http.StatusInternalServerError,
-				Message:    errors.Wrap(err, "corrupt data").Error(),
-			}
-		}
-	}
-	return apiResults, nil
-}
-
-// FindPerformanceResultsByVersion queries the database to find all performance
-// results with the given version and that fall within interval, filtered by
-// tags.
-func (dbc *DBConnector) FindPerformanceResultsByVersion(ctx context.Context, version string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := model.PerformanceResults{}
-	results.Setup(dbc.env)
-
-	options := model.PerfFindOptions{
-		Interval: interval,
-		Info: model.PerformanceResultInfo{
-			Version: version,
-			Tags:    tags,
-		},
-		MaxDepth: 0,
-	}
-
-	if err := results.Find(ctx, options); err != nil {
+	if err := results.Find(ctx, findOpts); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    errors.Wrap(err, "database error").Error(),
@@ -315,57 +232,48 @@ func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id strin
 	return len(children) + 1, err
 }
 
-// FindPerformanceResultsByTaskId queries the mock cache to find all
-// performance results with the given taskId and that fall within interval,
-// filtered by tags.
-func (mc *MockConnector) FindPerformanceResultsByTaskId(_ context.Context, taskId string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
+// FindPerformanceResults finds the performance results matching the given
+// options.
+func (mc *MockConnector) FindPerformanceResults(_ context.Context, opts PerformanceOptions) ([]dataModel.APIPerformanceResult, error) {
+	var results []dataModel.APIPerformanceResult
 	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.TaskID == taskId && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) {
-			apiResult := dataModel.APIPerformanceResult{}
-			err := apiResult.Import(result)
-			if err != nil {
-				return nil, gimlet.ErrorResponse{
-					StatusCode: http.StatusInternalServerError,
-					Message:    errors.Wrap(err, "corrupt data").Error(),
-				}
+		if opts.Project != "" && opts.Project != result.Info.Project {
+			continue
+		}
+		if opts.Version != "" && opts.Version != result.Info.Version {
+			continue
+		}
+		if opts.Variant != "" && opts.Variant != result.Info.Variant {
+			continue
+		}
+		if opts.TaskID != "" && opts.TaskID != result.Info.TaskID {
+			continue
+		}
+		if opts.TaskName != "" && opts.TaskName != result.Info.TaskName {
+			continue
+		}
+		if opts.TaskID == "" && opts.Version == "" {
+			if !result.Info.Mainline {
+				continue
 			}
-
-			results = append(results, apiResult)
-		}
-	}
-
-	if len(results) == 0 {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "not found",
-		}
-	}
-	return results, nil
-}
-
-// FindPerformanceResultsByTaskName queries the mock cache to find all
-// performance results with the given taskName and that fall within interval,
-// filtered by tags. Results are returned sorted (descending) by the Evergreen
-// order. If limit is greater than 0, the number of results returned will be no
-// greater than limit.
-func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, project, taskName, variant string, interval model.TimeRange, limit int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
-	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.TaskName == taskName && mc.checkInterval(result.ID, interval) && containsTags(tags, result.Info.Tags) &&
-			result.Info.Mainline && (variant == "" || result.Info.Variant == variant) {
-			apiResult := dataModel.APIPerformanceResult{}
-			err := apiResult.Import(result)
-			if err != nil {
-				return nil, gimlet.ErrorResponse{
-					StatusCode: http.StatusInternalServerError,
-					Message:    errors.Wrap(err, "corrupt data").Error(),
-				}
+			if !mc.checkInterval(result.ID, opts.Interval) {
+				continue
 			}
-			results = append(results, apiResult)
 		}
-	}
+		if !containsTags(opts.Tags, result.Info.Tags) {
+			continue
+		}
 
+		var apiResult dataModel.APIPerformanceResult
+		if err := apiResult.Import(result); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    errors.Wrap(err, "corrupt data").Error(),
+			}
+		}
+
+		results = append(results, apiResult)
+	}
 	if len(results) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -373,40 +281,14 @@ func (mc *MockConnector) FindPerformanceResultsByTaskName(_ context.Context, pro
 		}
 	}
 
-	sort.Slice(results, func(i, j int) bool { return results[i].Info.Order > results[j].Info.Order })
-	if limit > 0 && limit < len(results) {
-		results = results[:limit]
+	if opts.TaskName != "" {
+		sort.Slice(results, func(i, j int) bool { return results[i].Info.Order > results[j].Info.Order })
 	}
 
-	return results, nil
-}
-
-// FindPerformanceResultsByVersion queries the mock cache to find all
-// performance results with the given version and that fall within interval,
-// filtered by tags.
-func (mc *MockConnector) FindPerformanceResultsByVersion(_ context.Context, version string, interval model.TimeRange, tags ...string) ([]dataModel.APIPerformanceResult, error) {
-	results := []dataModel.APIPerformanceResult{}
-	for _, result := range mc.CachedPerformanceResults {
-		if result.Info.Version == version && containsTags(tags, result.Info.Tags) {
-			apiResult := dataModel.APIPerformanceResult{}
-			err := apiResult.Import(result)
-			if err != nil {
-				return nil, gimlet.ErrorResponse{
-					StatusCode: http.StatusInternalServerError,
-					Message:    errors.Wrap(err, "corrupt data").Error(),
-				}
-			}
-
-			results = append(results, apiResult)
-		}
+	if opts.Limit > 0 && opts.Limit < len(results) {
+		results = results[:opts.Limit]
 	}
 
-	if len(results) == 0 {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "not found",
-		}
-	}
 	return results, nil
 }
 
