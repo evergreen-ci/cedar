@@ -19,9 +19,9 @@ const (
 	perfEndAt   = "finished_before"
 )
 
-// timeRangeFormatDay represents the time range format rounded to the nearest
-// day (YYYY-MM-DD).
-const timeRangeFormatDay = "2006-01-02"
+// timeRangeFormatYearMonthDay represents the time range format rounded to the
+// nearest day (YYYY-MM-DD).
+const timeRangeFormatYearMonthDay = "2006-01-02"
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -119,10 +119,8 @@ func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 type perfGetByTaskIdHandler struct {
 	taskId string
-	// kim: TODO: delete
-	// interval model.TimeRange
-	tags []string
-	sc   data.Connector
+	tags   []string
+	sc     data.Connector
 }
 
 func makeGetPerfByTaskId(sc data.Connector) gimlet.RouteHandler {
@@ -141,21 +139,13 @@ func (h *perfGetByTaskIdHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the task_id from the http request.
 func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.taskId = gimlet.GetVars(r)["task_id"]
-	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = r.URL.Query()["tags"]
 	return nil
-	// kim: TODO: delete
-	// var err error
-	// h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
-	// return err
 }
 
 // Run calls the data FindPerformanceResults function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
-	// kim: TODO: Delete
-	// perfResults, err := h.sc.FindPerformanceResultsByTaskId(ctx, h.taskId, h.interval, h.tags...)
-	// perfResults, err := h.sc.FindPerformanceResultsByTaskId(ctx, h.taskId, h.tags...)
 	perfResults, err := h.sc.FindPerformanceResults(ctx, data.PerformanceOptions{
 		TaskID: h.taskId,
 		Tags:   h.tags,
@@ -209,12 +199,15 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	h.tags = vals["tags"]
 	catcher := grip.NewBasicCatcher()
 	var err error
-	h.interval, err = parseTimeRange(timeRangeFormatDay, vals, perfStartAt, perfEndAt)
+	h.interval, err = parseTimeRange(timeRangeFormatYearMonthDay, vals.Get(perfStartAt), vals.Get(perfEndAt))
 	catcher.Add(errors.Wrap(err, "invalid time range"))
+	catcher.NewWhen(h.interval.IsZero(), "time interval must have start and end")
+	catcher.NewWhen(!h.interval.IsValid(), "time interval must have a start time before its end time")
 	limit := vals.Get("limit")
 	if limit != "" {
 		h.limit, err = strconv.Atoi(limit)
 		catcher.Add(errors.Wrap(err, "invalid limit"))
+		catcher.NewWhen(h.limit < 0, "cannot have negative limit")
 	} else {
 		h.limit = 0
 	}
@@ -224,9 +217,6 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 // Run calls the data FindPerformanceResults function and returns the
 // PerformanceResults from the provider.
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
-	// kim: TODO: delete
-	// perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.interval, h.limit, h.tags...)
-	// perfResults, err := h.sc.FindPerformanceResultsByTaskName(ctx, h.project, h.taskName, h.variant, h.limit, h.tags...)
 	perfResults, err := h.sc.FindPerformanceResults(ctx, data.PerformanceOptions{
 		Project:  h.project,
 		Variant:  h.variant,
@@ -254,10 +244,8 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 
 type perfGetByVersionHandler struct {
 	version string
-	// kim: TODO: delete
-	// interval model.TimeRange
-	tags []string
-	sc   data.Connector
+	tags    []string
+	sc      data.Connector
 }
 
 func makeGetPerfByVersion(sc data.Connector) gimlet.RouteHandler {
@@ -276,21 +264,13 @@ func (h *perfGetByVersionHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the version from the http request.
 func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) error {
 	h.version = gimlet.GetVars(r)["version"]
-	vals := r.URL.Query()
-	h.tags = vals["tags"]
-	// kim: TODO: delete
-	// var err error
-	// h.interval, err = parseTimeRange(vals, perfStartAt, perfEndAt)
-	// return err
+	h.tags = r.URL.Query()["tags"]
 	return nil
 }
 
 // Run calls the data FindPerformanceResults function returns the
 // PerformanceResult from the provider.
 func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
-	// kim: TODO: delete
-	// perfResults, err := h.sc.FindPerformanceResultsByVersion(ctx, h.version, h.interval, h.tags...)
-	// perfResults, err := h.sc.FindPerformanceResultsByVersion(ctx, h.version, h.tags...)
 	perfResults, err := h.sc.FindPerformanceResults(ctx, data.PerformanceOptions{
 		Version: h.version,
 		Tags:    h.tags,

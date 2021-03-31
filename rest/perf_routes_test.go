@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -170,11 +171,6 @@ func (s *PerfHandlerSuite) TestPerfRemoveByIdHandler() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).taskId = "123"
-	// kim: TODO: delete
-	// rh.(*perfGetByTaskIdHandler).interval = model.TimeRange{
-	//     StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
-	//     EndAt:   time.Now(),
-	// }
 	rh.(*perfGetByTaskIdHandler).tags = []string{"d"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
@@ -188,11 +184,6 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).taskId = "555"
-	// kim: TODO: delete
-	// rh.(*perfGetByTaskIdHandler).interval = model.TimeRange{
-	//     StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
-	//     EndAt:   time.Now(),
-	// }
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -264,11 +255,6 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 	rh := s.rh["version"]
 	rh.(*perfGetByVersionHandler).version = "1"
-	// kim: TODO: delete
-	// rh.(*perfGetByVersionHandler).interval = model.TimeRange{
-	//     StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
-	//     EndAt:   time.Now(),
-	// }
 	rh.(*perfGetByVersionHandler).tags = []string{"d"}
 	expected := []datamodel.APIPerformanceResult{s.apiResults["jkl"]}
 
@@ -282,11 +268,6 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
 	rh := s.rh["version"]
 	rh.(*perfGetByVersionHandler).version = "2"
-	// kim: TODO: delete
-	// rh.(*perfGetByVersionHandler).interval = model.TimeRange{
-	//     StartAt: time.Date(2018, time.November, 5, 0, 0, 0, 0, time.UTC),
-	//     EndAt:   time.Now(),
-	// }
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -341,92 +322,65 @@ func (s *PerfHandlerSuite) TestPerfChangePointTriageMarkHandlerFound() {
 func (s *PerfHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
+		query     string
 		handler   string
 		limit     bool
 	}{
 		{
 			handler:   "task_id",
 			urlString: "http://example.com/perf/task_id/task_id0",
+			query:     "?",
 		},
 		{
 			handler:   "task_name",
 			urlString: "http://example.com/perf/task_name/task_name0",
+			query:     "?started_after=2020-03-15&finished_before=2021-09-01",
 			limit:     true,
 		},
 		{
 			handler:   "version",
+			query:     "?",
 			urlString: "http://example.com/perf/version/verison0",
 		},
 	} {
 		s.T().Run(test.handler, func(t *testing.T) {
-			s.testParseValid(test.handler, test.urlString, test.limit)
-			s.testParseDefaults(test.handler, test.urlString, test.limit)
+			s.testParseValid(test.handler, test.urlString, test.query, test.limit)
+			s.testParseDefaults(test.handler, test.urlString, test.query, test.limit)
 		})
 	}
 }
 
-func (s *PerfHandlerSuite) testParseValid(handler, urlString string, limit bool) {
+func (s *PerfHandlerSuite) testParseValid(handler, urlString, query string, limit bool) {
 	ctx := context.Background()
-	// kim: TODO: delete
-	// urlString += "?started_after=2012-11-01T22:08:00%2B00:00"
-	// urlString += "&finished_before=2013-11-01T22:08:00%2B00:00"
-	// urlString += "&tags=hello&tags=world"
-	urlString += "?tags=hello&tags=world"
-	urlString += "&limit=5"
+	query = strings.Join([]string{query, "tags=hello", "tags=world", "limit=5"}, "&")
 	req := &http.Request{Method: "GET"}
-	url, err := url.Parse(urlString)
+	url, err := url.Parse(urlString + query)
 	s.Require().NoError(err)
 	req.URL = url
-	// kim: TODO: delete
-	// expectedInterval := model.TimeRange{
-	//     StartAt: time.Date(2012, time.November, 1, 22, 8, 0, 0, time.UTC),
-	//     EndAt:   time.Date(2013, time.November, 1, 22, 8, 0, 0, time.UTC),
-	// }
 	expectedTags := []string{"hello", "world"}
 	rh := s.rh[handler]
 
-	// err := rh.Parse(ctx, req)
-	s.NoError(rh.Parse(ctx, req))
-	// kim: TODO: delete
-	// s.Equal(expectedInterval, getPerfInterval(rh, handler))
+	s.Require().NoError(rh.Parse(ctx, req))
 	s.Equal(expectedTags, getPerfTags(rh, handler))
 	if limit {
 		s.Equal(5, getPerfLimit(rh, handler))
 	}
-	// s.NoError(err)
 }
 
-func (s *PerfHandlerSuite) testParseDefaults(handler, urlString string, limit bool) {
+func (s *PerfHandlerSuite) testParseDefaults(handler, urlString, query string, limit bool) {
 	ctx := context.Background()
 	req := &http.Request{Method: "GET"}
-	req.URL, _ = url.Parse(urlString)
+	url, err := url.Parse(urlString + query)
+	s.Require().NoError(err)
+	req.URL = url
 	rh := s.rh[handler]
 
-	err := rh.Parse(ctx, req)
-	// kim: TODO: delete
-	// interval := getPerfInterval(rh, handler)
-	// s.Equal(time.Time{}, interval.StartAt)
-	// s.True(time.Since(interval.EndAt) <= time.Second)
+	s.NoError(rh.Parse(ctx, req))
 	s.Nil(getPerfTags(rh, handler))
 	if limit {
 		s.Zero(getPerfLimit(rh, handler))
 	}
-	s.NoError(err)
 }
-
-// kim: TODO: delete
-// func getPerfInterval(rh gimlet.RouteHandler, handler string) model.TimeRange {
-//     switch handler {
-//     case "task_id":
-//         return rh.(*perfGetByTaskIdHandler).interval
-//     case "task_name":
-//         return rh.(*perfGetByTaskNameHandler).interval
-//     case "version":
-//         return rh.(*perfGetByVersionHandler).interval
-//     default:
-//         return model.TimeRange{}
-//     }
-// }
 
 func getPerfTags(rh gimlet.RouteHandler, handler string) []string {
 	switch handler {

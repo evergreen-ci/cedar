@@ -24,19 +24,6 @@ type Connector interface {
 	// FindPerformanceResults returns all performance results that match the
 	// given options.
 	FindPerformanceResults(context.Context, PerformanceOptions) ([]model.APIPerformanceResult, error)
-	// // FindPerformanceResultsByTaskId returns the performance results with
-	// // the given task id and that fall within given time range, filtered by
-	// // the optional tags.
-	// FindPerformanceResultsByTaskId(context.Context, string, dbModel.TimeRange, ...string) ([]model.APIPerformanceResult, error)
-	// // FindPerformanceResultsByTaskName returns the performance results
-	// // with the given task name and that fall within given time range,
-	// // filtered by the optional tags.
-	// FindPerformanceResultsByTaskName(context.Context, PerformanceOptions) ([]model.APIPerformanceResult, error)
-	// // FindPerformanceResultsByTaskName(context.Context, string, string, string, dbModel.TimeRange, int, ...string) ([]model.APIPerformanceResult, error)
-	// // FindPerformanceResultsByVersion returns the performance results with
-	// // the given version and that fall within given time range, filtered by
-	// // the optional tags.
-	// FindPerformanceResultsByVersion(context.Context, string, dbModel.TimeRange, ...string) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultWithChildren returns the the performance result
 	// with the given id and its children up to the given depth and
 	// filtered by the optional tags.
