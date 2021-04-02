@@ -46,7 +46,7 @@ imports:
 - name: github.com/evergreen-ci/aviation
   version: 8bdfd62dc19653045bea1cd8a9dc48c57a0d66f0
 - name: github.com/evergreen-ci/certdepot
-  version: 23f86b54c840138c6077d8c5bf2fae94497a7f70
+  version: 2ef4a0af44a3f102d27d5d703fef66f722ca5693
 - name: github.com/evergreen-ci/poplar
   version: 58e0062507376dec95f422ddda9975a802fc863a
 - name: github.com/evergreen-ci/timber

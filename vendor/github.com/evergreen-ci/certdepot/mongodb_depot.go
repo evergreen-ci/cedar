@@ -124,6 +124,35 @@ func (m *mongoDepot) Check(tag *depot.Tag) bool {
 	}
 }
 
+// CheckWithError returns whether the user and data specified by the tag exists
+// as well as an error in the case of an internal error.
+func (m *mongoDepot) CheckWithError(tag *depot.Tag) (bool, error) {
+	name, key, err := getNameAndKey(tag)
+	if err != nil {
+		return false, errors.Wrap(err, "getting name and key")
+	}
+
+	u := &User{}
+
+	err = m.client.Database(m.databaseName).Collection(m.collectionName).FindOne(m.ctx, bson.D{{Key: userIDKey, Value: name}}).Decode(u)
+	if errNotNoDocuments(err) {
+		return false, errors.Wrap(err, "checking depot tag")
+	}
+
+	switch key {
+	case userCertKey:
+		return u.Cert != "", nil
+	case userPrivateKeyKey:
+		return u.PrivateKey != "", nil
+	case userCertReqKey:
+		return u.CertReq != "", nil
+	case userCertRevocListKey:
+		return u.CertRevocList != "", nil
+	default:
+		return false, nil
+	}
+}
+
 // Get reads the data for the user specified by tag. Returns an error if the
 // user does not exist or if the data is empty.
 func (m *mongoDepot) Get(tag *depot.Tag) ([]byte, error) {
@@ -176,7 +205,11 @@ func (m *mongoDepot) Delete(tag *depot.Tag) error {
 func (m *mongoDepot) Save(name string, creds *Credentials) error { return depotSave(m, name, creds) }
 func (m *mongoDepot) Find(name string) (*Credentials, error)     { return depotFind(m, name, m.opts) }
 func (m *mongoDepot) Generate(name string) (*Credentials, error) {
-	return depotGenerate(m, name, m.opts)
+	return depotGenerateDefault(m, name, m.opts)
+}
+
+func (m *mongoDepot) GenerateWithOptions(opts CertificateOptions) (*Credentials, error) {
+	return depotGenerate(m, opts.CommonName, m.opts, opts)
 }
 
 func errNotNoDocuments(err error) bool {
