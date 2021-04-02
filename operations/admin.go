@@ -259,7 +259,7 @@ func uploadCerts() cli.Command {
 				return errors.Wrap(err, "could not read cert key file")
 			}
 
-			mdepot, err := certdepot.NewMongoDBCertDepot(opts)
+			mdepot, err := certdepot.NewMongoDBCertDepot(context.Background(), opts)
 			if err != nil {
 				return errors.Wrap(err, "problem creating depot interface")
 			}
