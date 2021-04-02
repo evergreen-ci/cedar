@@ -568,7 +568,11 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if !certdepot.CheckPrivateKey(s.Depot, usr) {
+	if exists, err := certdepot.CheckPrivateKeyWithError(s.Depot, usr); err != nil {
+		err = errors.Wrap(err, "problem checking user's private cert key")
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
+		return
+	} else if !exists {
 		opts := certdepot.CertificateOptions{
 			CommonName: usr,
 			Domain:     []string{usr},

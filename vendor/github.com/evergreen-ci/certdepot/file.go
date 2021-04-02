@@ -37,8 +37,13 @@ func MakeFileDepot(dir string, opts DepotOptions) (Depot, error) {
 	return fd, nil
 }
 
-func (fd *fileDepot) Save(name string, creds *Credentials) error { return depotSave(fd, name, creds) }
-func (fd *fileDepot) Find(name string) (*Credentials, error)     { return depotFind(fd, name, fd.opts) }
+func (fd *fileDepot) CheckWithError(tag *depot.Tag) (bool, error) { return fd.Check(tag), nil }
+func (fd *fileDepot) Save(name string, creds *Credentials) error  { return depotSave(fd, name, creds) }
+func (fd *fileDepot) Find(name string) (*Credentials, error)      { return depotFind(fd, name, fd.opts) }
 func (fd *fileDepot) Generate(name string) (*Credentials, error) {
-	return depotGenerate(fd, name, fd.opts)
+	return depotGenerateDefault(fd, name, fd.opts)
+}
+
+func (fd *fileDepot) GenerateWithOptions(opts CertificateOptions) (*Credentials, error) {
+	return depotGenerate(fd, opts.CommonName, fd.opts, opts)
 }
