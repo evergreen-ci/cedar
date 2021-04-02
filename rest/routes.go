@@ -568,7 +568,9 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if !certdepot.CheckPrivateKey(s.Depot, usr) {
+	if exists, err := certdepot.CheckPrivateKeyWithError(s.Depot, usr); err != nil {
+		return errors.Wrap(err, "checking user's private cert key")
+	} else if !exists {
 		opts := certdepot.CertificateOptions{
 			CommonName: usr,
 			Domain:     []string{usr},
