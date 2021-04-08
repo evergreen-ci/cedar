@@ -23,11 +23,12 @@ var (
 // PerformanceResultSeriesID is the id of a group of PerformanceResults. It is used to create a job to analyze the group
 // of PerfResults for change points.
 type PerformanceResultSeriesID struct {
-	Project   string           `bson:"project"`
-	Variant   string           `bson:"variant"`
-	Task      string           `bson:"task"`
-	Test      string           `bson:"test"`
-	Arguments map[string]int32 `bson:"args"`
+	Project     string           `bson:"project"`
+	Variant     string           `bson:"variant"`
+	Task        string           `bson:"task"`
+	Test        string           `bson:"test"`
+	Measurement string           `bson:"measurement"`
+	Arguments   map[string]int32 `bson:"args"`
 }
 
 // String creates a string representation of a PerformanceResultSeriesID.
@@ -43,26 +44,21 @@ type TimeSeriesEntry struct {
 	Version      string  `bson:"version"`
 }
 
-// MeasurementData is all the time series data that is associated with a single measurement.
-type MeasurementData struct {
-	Measurement string            `bson:"measurement"`
-	TimeSeries  []TimeSeriesEntry `bson:"time_series"`
-}
-
 // PerformanceData contains information about PerformanceResults and their associated measurement data.
 type PerformanceData struct {
 	PerformanceResultId PerformanceResultSeriesID `bson:"_id"`
-	Data                []MeasurementData         `bson:"data"`
+	TimeSeries          []TimeSeriesEntry         `bson:"time_series"`
 }
 
 // MarkPerformanceResultsAsAnalyzed marks all the PerformanceResults associated a PerformanceResultSeriesID as analyzed
 // for change points.
 func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
 	filter := bson.M{
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
-		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):   performanceResultId.Project,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):   performanceResultId.Variant,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey):  performanceResultId.Task,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey):  performanceResultId.Test,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey): performanceResultId.Arguments,
 	}
 
 	update := bson.M{
@@ -153,7 +149,6 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
 					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
 					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
-					"args":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
 				},
 			},
 		},
@@ -176,7 +171,7 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 }
 
 // GetPerformanceData gets the PerfResult time series data associated with the given PerformanceResultSeriesID.
-func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) (*PerformanceData, error) {
+func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
 	pipe := []bson.M{
 		{
 			"$match": bson.M{
@@ -216,23 +211,6 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 				},
 			},
 		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"project": "$_id.project",
-					"variant": "$_id.variant",
-					"task":    "$_id.task",
-					"test":    "$_id.test",
-					"args":    "$_id.args",
-				},
-				"data": bson.M{
-					"$push": bson.M{
-						"measurement": "$_id.measurement",
-						"time_series": "$time_series",
-					},
-				},
-			},
-		},
 	}
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
@@ -244,8 +222,8 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not decode time series")
 	}
-	if len(res) < 1 {
+	if len(res) == 0 {
 		return nil, nil
 	}
-	return &res[0], nil
+	return res, nil
 }

@@ -95,25 +95,23 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, j.PerformanceResultId))
 		return
 	}
-	for _, perfData := range performanceData.Data {
+	for _, perfData := range performanceData {
 		sort.Slice(perfData.TimeSeries, func(i, j int) bool {
 			return perfData.TimeSeries[i].Order < perfData.TimeSeries[j].Order
 		})
 		series := perf.TimeSeriesModel{
-			Project:     performanceData.PerformanceResultId.Project,
-			Variant:     performanceData.PerformanceResultId.Variant,
-			Task:        performanceData.PerformanceResultId.Task,
-			Test:        performanceData.PerformanceResultId.Test,
-			Measurement: perfData.Measurement,
+			Project:     perfData.PerformanceResultId.Project,
+			Variant:     perfData.PerformanceResultId.Variant,
+			Task:        perfData.PerformanceResultId.Task,
+			Test:        perfData.PerformanceResultId.Test,
+			Measurement: perfData.PerformanceResultId.Measurement,
 		}
-		for k, v := range performanceData.PerformanceResultId.Arguments {
+		series.Arguments = []perf.ArgumentsModel{}
+		for k, v := range perfData.PerformanceResultId.Arguments {
 			series.Arguments = append(series.Arguments, perf.ArgumentsModel{
 				Name:  k,
 				Value: v,
 			})
-		}
-		if series.Arguments == nil {
-			series.Arguments = make([]perf.ArgumentsModel, 0)
 		}
 		for _, item := range perfData.TimeSeries {
 			series.Data = append(series.Data, perf.TimeSeriesDataModel{
@@ -128,6 +126,6 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 			j.AddError(errors.Wrapf(err, "Unable to update time series for perfData %s", j.PerformanceResultId.String()))
 			return
 		}
-		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, performanceData.PerformanceResultId))
+		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, perfData.PerformanceResultId))
 	}
 }
