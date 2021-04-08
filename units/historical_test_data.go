@@ -44,6 +44,7 @@ func NewHistoricalTestDataJob(env cedar.Environment, info model.TestResultsInfo,
 		RequestType: info.RequestType,
 		Date:        tr.TestEndTime.UTC(),
 	}
+	j.SetID(strings.Join([]string{historicalTestDataJobName, j.Info.Project, j.Info.Variant, j.Info.TaskName, j.Info.TestName, j.Info.RequestType, j.Info.Date.String()}, "."))
 
 	return j
 }
