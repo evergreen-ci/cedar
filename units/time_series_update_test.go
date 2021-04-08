@@ -211,7 +211,7 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 			require.Equal(t, timeSeriesId.Variant, call.Variant)
 			require.Equal(t, timeSeriesId.Task, call.Task)
 			require.Equal(t, timeSeriesId.Test, call.Test)
-			require.Equal(t, []perf.ArgumentsModel{{"thread_level", int32(20)}}, call.Arguments)
+			require.Equal(t, []perf.ArgumentsModel{{Name: "thread_level", Value: int32(20)}}, call.Arguments)
 			data := make([]int, len(call.Data))
 			for i, timeSeriesData := range call.Data {
 				data[i] = int(timeSeriesData.Value)
