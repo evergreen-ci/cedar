@@ -101,13 +101,14 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 
 		newRollup := testResultsAndRollups{
 			info: &model.PerformanceResultInfo{
-				Project:  "project" + unique,
-				Variant:  "variant",
-				Version:  "version" + strconv.Itoa(i+1),
-				Order:    i + 1,
-				TestName: "test",
-				TaskName: "task",
-				Mainline: true,
+				Project:   "project" + unique,
+				Variant:   "variant",
+				Version:   "version" + strconv.Itoa(i+1),
+				Order:     i + 1,
+				TestName:  "test",
+				TaskName:  "task",
+				Arguments: map[string]int32{"thread_level": 20},
+				Mainline:  true,
 			},
 		}
 
@@ -175,7 +176,7 @@ func provisionDb(ctx context.Context, env cedar.Environment, rollups []testResul
 	}
 }
 
-func TestRecalculateChangePointsJob(t *testing.T) {
+func TestUpdateTimeSeriesJob(t *testing.T) {
 	setupChangePointsTest()
 	env := cedar.GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -191,11 +192,10 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 		provisionDb(ctx, env, rollups)
 
 		timeSeriesId := model.PerformanceResultSeriesID{
-			Project:   "projecta",
-			Variant:   "variant",
-			Task:      "task",
-			Test:      "test",
-			Arguments: map[string]int32{},
+			Project: "projecta",
+			Variant: "variant",
+			Task:    "task",
+			Test:    "test",
 		}
 		j := NewUpdateTimeSeriesJob(timeSeriesId)
 		mockDetector := &MockPerformanceAnalysisService{}
@@ -211,7 +211,7 @@ func TestRecalculateChangePointsJob(t *testing.T) {
 			require.Equal(t, timeSeriesId.Variant, call.Variant)
 			require.Equal(t, timeSeriesId.Task, call.Task)
 			require.Equal(t, timeSeriesId.Test, call.Test)
-			require.Equal(t, len(timeSeriesId.Arguments), len(call.Arguments))
+			require.Equal(t, []perf.ArgumentsModel{{Name: "thread_level", Value: int32(20)}}, call.Arguments)
 			data := make([]int, len(call.Data))
 			for i, timeSeriesData := range call.Data {
 				data[i] = int(timeSeriesData.Value)
