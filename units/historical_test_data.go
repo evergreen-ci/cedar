@@ -14,8 +14,13 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
+	"github.com/mongodb/amboy/registry"
 	"github.com/pkg/errors"
 )
+
+func init() {
+	registry.AddJobType(historicalTestDataJobName, func() amboy.Job { return makeHistoricalTestDataJob() })
+}
 
 const historicalTestDataJobName = "historical-test-data"
 
