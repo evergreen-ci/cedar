@@ -155,7 +155,9 @@ vendor-clean:
 	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/urfave/cli/
 	rm -rf vendor/github.com/mongodb/amboy/vendor/go.mongodb.org/mongo-driver
 	rm -rf vendor/github.com/mongodb/amboy/vendor/golang.org/x/net/
+	rm -rf vendor/github.com/mongodb/amboy/vendor/gonum.org/v1/gonum
 	rm -rf vendor/github.com/mongodb/amboy/vendor/gopkg.in/mgo.v2
+	rm -rf vendor/github.com/mongodb/amboy/vendor/github.com/evergreen-ci/utility
 	rm -rf vendor/github.com/mongodb/anser/vendor/github.com/evergreen-ci/birch
 	rm -rf vendor/github.com/mongodb/anser/vendor/github.com/mongodb/amboy
 	rm -rf vendor/github.com/mongodb/anser/vendor/github.com/mongodb/ftdc

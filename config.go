@@ -9,7 +9,8 @@ import (
 	"github.com/mongodb/grip"
 )
 
-// Configuration defines
+// Configuration defines configuration settings to initialize the global
+// environment without the presence of a database to store the settings.
 type Configuration struct {
 	BucketName              string
 	DatabaseName            string
@@ -25,6 +26,8 @@ type Configuration struct {
 	DBPwd                   string
 }
 
+// Validate checks that all the required fields are set and sets defaults for
+// unset optional fields.
 func (c *Configuration) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
@@ -47,6 +50,8 @@ func (c *Configuration) Validate() error {
 	return catcher.Resolve()
 }
 
+// GetQueueOptions returns the options to initialize a MongoDB-backed Amboy
+// queue.
 func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 	return queue.MongoDBOptions{
 		URI:                      c.MongoDBURI,
@@ -60,6 +65,8 @@ func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 	}
 }
 
+// GetQueueGroupOptions returns the options to initialize a MongoDB-backed Amboy
+// queue group.
 func (c *Configuration) GetQueueGroupOptions() queue.MongoDBOptions {
 	opts := c.GetQueueOptions()
 	opts.UseGroups = true
@@ -67,6 +74,7 @@ func (c *Configuration) GetQueueGroupOptions() queue.MongoDBOptions {
 	return opts
 }
 
+// HasAuth returns whether or not the database uses authentication.
 func (c *Configuration) HasAuth() bool {
 	return c.DBUser != ""
 }

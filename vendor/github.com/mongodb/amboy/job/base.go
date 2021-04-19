@@ -7,9 +7,8 @@ The Base type provides an implementation of the amboy.Job interface
 that does *not* have a Run method, and can be embedded in your own job
 implementations to avoid implemented duplicated common
 functionality. The type also implements several methods which are not
-part of the Job interface for error handling (e.g. AddError and
-HasErrors), and methods for marking tasks complete and setting the ID
-(e.g. MarkComplete and SetID).
+part of the Job interface for error handling (e.g. HasErrors), and methods for
+marking tasks complete and setting the ID (e.g. MarkComplete).
 
 All job implementations should use this functionality, although there
 are some situations where jobs may want independent implementation of
@@ -38,11 +37,13 @@ type Base struct {
 	JobType        amboy.JobType `bson:"job_type" json:"job_type" yaml:"job_type"`
 	RequiredScopes []string      `bson:"required_scopes" json:"required_scopes" yaml:"required_scopes"`
 
-	priority int
-	timeInfo amboy.JobTimeInfo
-	status   amboy.JobStatusInfo
-	dep      dependency.Manager
-	mutex    sync.RWMutex
+	applyScopesOnEnqueue bool
+	retryInfo            amboy.JobRetryInfo
+	priority             int
+	timeInfo             amboy.JobTimeInfo
+	status               amboy.JobStatusInfo
+	dep                  dependency.Manager
+	mutex                sync.RWMutex
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -60,9 +61,8 @@ func (b *Base) MarkComplete() {
 	b.status.Completed = true
 }
 
-// AddError takes an error object and if it is non-nil, tracks it
-// internally. This operation is thread safe, but not part of the Job
-// interface.
+// AddError takes an error object and if it is non-nil, tracks it internally.
+// This operation is thread safe.
 func (b *Base) AddError(err error) {
 	if err != nil {
 		b.mutex.Lock()
@@ -70,6 +70,20 @@ func (b *Base) AddError(err error) {
 
 		b.status.Errors = append(b.status.Errors, err.Error())
 	}
+}
+
+// AddRetryableError takes an error object and if it is non-nil, tracks it
+// internally and marks the job as needing to retry. This operation is thread
+// safe.
+func (b *Base) AddRetryableError(err error) {
+	if err == nil {
+		return
+	}
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.status.Errors = append(b.status.Errors, err.Error())
+	b.retryInfo.NeedsRetry = true
 }
 
 // HasErrors checks the stored errors in the object and reports if
@@ -82,8 +96,7 @@ func (b *Base) HasErrors() bool {
 	return len(b.status.Errors) > 0
 }
 
-// SetID makes it possible to change the ID of an amboy.Job. It is not
-// part of the amboy.Job interface.
+// SetID makes it possible to change the ID of an amboy.Job.
 func (b *Base) SetID(n string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -119,7 +132,9 @@ func (b *Base) Lock(id string, lockTimeout time.Duration) error {
 		return errors.Errorf("cannot take lock for '%s' because lock has been held for %s by %s",
 			id, time.Since(b.status.ModificationTime), b.status.Owner)
 	}
-	b.status.InProgress = true
+	if b.status.Completed && b.retryInfo.NeedsRetry && time.Since(b.status.ModificationTime) < lockTimeout && b.status.Owner != id {
+		return errors.Errorf("cannot take retry lock for '%s' because lock has been held for %s by %s", id, time.Since(b.status.ModificationTime), b.status.Owner)
+	}
 	b.status.Owner = id
 	b.status.ModificationTime = time.Now()
 	b.status.ModificationCount++
@@ -256,6 +271,14 @@ func (b *Base) UpdateTimeInfo(i amboy.JobTimeInfo) {
 	}
 }
 
+// SetTimeInfo sets the value of time in the job, including unset fields.
+func (b *Base) SetTimeInfo(i amboy.JobTimeInfo) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.timeInfo = i
+}
+
 // SetScopes overrides the jobs current scopes with those from the
 // argument. To unset scopes, pass nil to this method.
 func (b *Base) SetScopes(scopes []string) {
@@ -280,5 +303,63 @@ func (b *Base) Scopes() []string {
 	}
 
 	return b.RequiredScopes
+}
 
+// SetShouldApplyScopesOnEnqueue overrides the default behavior of scopes so
+// that they apply when the job is inserted into the queue rather than when the
+// job is dispatched.
+func (b *Base) SetShouldApplyScopesOnEnqueue(val bool) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.applyScopesOnEnqueue = val
+}
+
+// ShouldApplyShouldScopesOnEnqueue returns whether the job's scopes are applied on
+// enqueue. If false, the scopes are applied when the job is dispatched.
+func (b *Base) ShouldApplyScopesOnEnqueue() bool {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	return b.applyScopesOnEnqueue
+}
+
+// RetryInfo returns information and options for the job's retry policies.
+func (b *Base) RetryInfo() amboy.JobRetryInfo {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	return b.retryInfo
+}
+
+// UpdateRetryInfo updates the stored retry information and configuration, but
+// does not modify fields that are unset.
+func (b *Base) UpdateRetryInfo(opts amboy.JobRetryOptions) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if opts.Retryable != nil {
+		b.retryInfo.Retryable = *opts.Retryable
+	}
+	if opts.NeedsRetry != nil {
+		b.retryInfo.NeedsRetry = *opts.NeedsRetry
+	}
+	if opts.CurrentAttempt != nil {
+		b.retryInfo.CurrentAttempt = *opts.CurrentAttempt
+	}
+	if opts.MaxAttempts != nil {
+		b.retryInfo.MaxAttempts = *opts.MaxAttempts
+	}
+	if opts.DispatchBy != nil {
+		b.retryInfo.DispatchBy = *opts.DispatchBy
+	}
+	if opts.WaitUntil != nil {
+		b.retryInfo.WaitUntil = *opts.WaitUntil
+	}
+	if opts.Start != nil {
+		b.retryInfo.Start = *opts.Start
+	}
+	if opts.End != nil {
+		b.retryInfo.End = *opts.End
+	}
 }
