@@ -72,9 +72,7 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			j := makeJob(t, env, info, tr)
 
 			j.Run(ctx)
-			// It will error because it cannot query the Evergreen
-			// API, but the job should still continue.
-			assert.NotZero(t, j.Error())
+			assert.Zero(t, j.Error())
 
 			htd, err := model.CreateHistoricalTestData(j.Info)
 			require.NoError(t, err)
@@ -101,9 +99,7 @@ func TestHistoricalTestDataJob(t *testing.T) {
 			require.NoError(t, htd.Update(ctx, tr))
 
 			j.Run(ctx)
-			// It will error because it cannot query the Evergreen
-			// API, but the job should still continue.
-			assert.NotZero(t, j.Error())
+			assert.Zero(t, j.Error())
 
 			htd = &model.HistoricalTestData{ID: htd.ID}
 			htd.Setup(env)
