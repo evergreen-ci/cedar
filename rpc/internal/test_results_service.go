@@ -6,7 +6,10 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/units"
 	"github.com/mongodb/anser/db"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -40,7 +43,12 @@ func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *
 		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
 	}
 
-	record := model.CreateTestResults(info.Export(), conf.Bucket.TestResultsBucketType)
+	exported, err := info.Export()
+	if err != nil {
+		return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "exporting test results info"))
+	}
+
+	record := model.CreateTestResults(exported, conf.Bucket.TestResultsBucketType)
 	record.Setup(s.env)
 	if err := record.SaveNew(ctx); err != nil {
 		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem saving test results record"))
@@ -74,13 +82,15 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending test results for '%s'", results.TestResultsRecordId))
 	}
 
-	// for _, res := range exportedResults {
-	//     grip.Error(message.WrapError(s.env.GetRemoteQueue().Put(ctx, units.NewHistoricalTestDataJob(s.env, record.Info, res)), message.Fields{
-	//         "message":     "failed to enqueue historical test data job",
-	//         "info":        record.Info,
-	//         "test_result": res,
-	//     }))
-	// }
+	if record.Info.HistoricalTestData {
+		for _, res := range exportedResults {
+			grip.Error(message.WrapError(s.env.GetRemoteQueue().Put(ctx, units.NewHistoricalTestDataJob(s.env, record.Info, res)), message.Fields{
+				"message":     "failed to enqueue historical test data job",
+				"info":        record.Info,
+				"test_result": res,
+			}))
+		}
+	}
 
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }

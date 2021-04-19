@@ -43,7 +43,8 @@ func TestCreateTestResultsRecord(t *testing.T) {
 
 	t.Run("NoConfig", func(t *testing.T) {
 		info := getTestResultsInfo()
-		modelInfo := info.Export()
+		modelInfo, err := info.Export()
+		require.NoError(t, err)
 
 		resp, err := client.CreateTestResultsRecord(ctx, info)
 		assert.Error(t, err)
@@ -57,7 +58,8 @@ func TestCreateTestResultsRecord(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("InvalidEnv", func(t *testing.T) {
 		info := getTestResultsInfo()
-		modelInfo := info.Export()
+		modelInfo, err := info.Export()
+		require.NoError(t, err)
 
 		resp, err := invalidClient.CreateTestResultsRecord(ctx, info)
 		assert.Error(t, err)
@@ -69,7 +71,8 @@ func TestCreateTestResultsRecord(t *testing.T) {
 	})
 	t.Run("ConfigWithoutBucketType", func(t *testing.T) {
 		info := getTestResultsInfo()
-		modelInfo := info.Export()
+		modelInfo, err := info.Export()
+		require.NoError(t, err)
 
 		resp, err := client.CreateTestResultsRecord(ctx, info)
 		assert.Error(t, err)
@@ -83,7 +86,8 @@ func TestCreateTestResultsRecord(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("ConfigWithBucketType", func(t *testing.T) {
 		info := getTestResultsInfo()
-		modelInfo := info.Export()
+		modelInfo, err := info.Export()
+		require.NoError(t, err)
 
 		resp, err := client.CreateTestResultsRecord(ctx, info)
 		require.NoError(t, err)
@@ -117,7 +121,9 @@ func TestAddTestResults(t *testing.T) {
 	require.NoError(t, conf.Save())
 
 	info := getTestResultsInfo()
-	record := model.CreateTestResults(info.Export(), model.PailLocal)
+	exported, err := info.Export()
+	require.NoError(t, err)
+	record := model.CreateTestResults(exported, model.PailLocal)
 	record.Setup(env)
 	require.NoError(t, record.SaveNew(ctx))
 
@@ -248,11 +254,15 @@ func TestStreamTestResults(t *testing.T) {
 	require.NoError(t, conf.Save())
 
 	info := getTestResultsInfo()
-	record1 := model.CreateTestResults(info.Export(), model.PailLocal)
+	exported, err := info.Export()
+	require.NoError(t, err)
+	record1 := model.CreateTestResults(exported, model.PailLocal)
 	record1.Setup(env)
 	require.NoError(t, record1.SaveNew(ctx))
 	info = getTestResultsInfo()
-	record2 := model.CreateTestResults(info.Export(), model.PailLocal)
+	exported, err = info.Export()
+	require.NoError(t, err)
+	record2 := model.CreateTestResults(exported, model.PailLocal)
 	record2.Setup(env)
 	require.NoError(t, record2.SaveNew(ctx))
 
@@ -407,7 +417,9 @@ func TestCloseTestResultsRecord(t *testing.T) {
 	}()
 
 	info := getTestResultsInfo()
-	record := model.CreateTestResults(info.Export(), model.PailLocal)
+	exported, err := info.Export()
+	require.NoError(t, err)
+	record := model.CreateTestResults(exported, model.PailLocal)
 	record.Setup(env)
 	require.NoError(t, record.SaveNew(ctx))
 

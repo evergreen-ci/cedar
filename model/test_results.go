@@ -274,17 +274,18 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 
 // TestResultsInfo describes information unique to a single task execution.
 type TestResultsInfo struct {
-	Project         string `bson:"project,omitempty"`
-	Version         string `bson:"version,omitempty"`
-	Variant         string `bson:"variant,omitempty"`
-	TaskName        string `bson:"task_name,omitempty"`
-	DisplayTaskName string `bson:"display_task_name,omitempty"`
-	TaskID          string `bson:"task_id,omitempty"`
-	DisplayTaskID   string `bson:"display_task_id,omitempty"`
-	Execution       int    `bson:"execution"`
-	RequestType     string `bson:"request_type,omitempty"`
-	Mainline        bool   `bson:"mainline,omitempty"`
-	Schema          int    `bson:"schema,omitempty"`
+	Project            string `bson:"project,omitempty"`
+	Version            string `bson:"version,omitempty"`
+	Variant            string `bson:"variant,omitempty"`
+	TaskName           string `bson:"task_name,omitempty"`
+	DisplayTaskName    string `bson:"display_task_name,omitempty"`
+	TaskID             string `bson:"task_id,omitempty"`
+	DisplayTaskID      string `bson:"display_task_id,omitempty"`
+	Execution          int    `bson:"execution"`
+	RequestType        string `bson:"request_type,omitempty"`
+	Mainline           bool   `bson:"mainline,omitempty"`
+	HistoricalTestData bool   `bson:"historical_test_data"`
+	Schema             int    `bson:"schema,omitempty"`
 }
 
 var (
