@@ -34,10 +34,10 @@ func TestTestResultsInfoExport(t *testing.T) {
 		assert.Equal(t, info.TaskId, modelInfo.TaskID)
 		assert.Equal(t, int(info.Execution), modelInfo.Execution)
 		assert.Equal(t, info.RequestType, modelInfo.RequestType)
-		assert.True(t, modelInfo.HistoricalTestData)
+		assert.False(t, modelInfo.HistoricalDataDisabled)
 		assert.Equal(t, info.Mainline, modelInfo.Mainline)
 	})
-	t.Run("HistoricalTestDataDisbaled", func(t *testing.T) {
+	t.Run("HistoricalTestDataDisabled", func(t *testing.T) {
 		info.HistoricalDataDisabled = true
 
 		modelInfo, err := info.Export()
@@ -50,7 +50,7 @@ func TestTestResultsInfoExport(t *testing.T) {
 		assert.Equal(t, info.TaskId, modelInfo.TaskID)
 		assert.Equal(t, int(info.Execution), modelInfo.Execution)
 		assert.Equal(t, info.RequestType, modelInfo.RequestType)
-		assert.False(t, modelInfo.HistoricalTestData)
+		assert.True(t, modelInfo.HistoricalDataDisabled)
 		assert.Equal(t, info.Mainline, modelInfo.Mainline)
 
 		info.HistoricalDataDisabled = false
@@ -69,7 +69,7 @@ func TestTestResultsInfoExport(t *testing.T) {
 			assert.Equal(t, info.TaskId, modelInfo.TaskID)
 			assert.Equal(t, int(info.Execution), modelInfo.Execution)
 			assert.Equal(t, info.RequestType, modelInfo.RequestType)
-			assert.False(t, modelInfo.HistoricalTestData)
+			assert.True(t, modelInfo.HistoricalDataDisabled)
 			assert.Equal(t, info.Mainline, modelInfo.Mainline)
 
 			info.HistoricalDataIgnore = nil
@@ -89,7 +89,7 @@ func TestTestResultsInfoExport(t *testing.T) {
 			assert.Equal(t, info.TaskId, modelInfo.TaskID)
 			assert.Equal(t, int(info.Execution), modelInfo.Execution)
 			assert.Equal(t, info.RequestType, modelInfo.RequestType)
-			assert.False(t, modelInfo.HistoricalTestData)
+			assert.True(t, modelInfo.HistoricalDataDisabled)
 			assert.Equal(t, info.Mainline, modelInfo.Mainline)
 
 			info.DisplayTaskName = displayTaskName

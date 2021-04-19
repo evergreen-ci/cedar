@@ -82,7 +82,7 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending test results for '%s'", results.TestResultsRecordId))
 	}
 
-	if record.Info.HistoricalTestData {
+	if !record.Info.HistoricalDataDisabled {
 		for _, res := range exportedResults {
 			grip.Error(message.WrapError(s.env.GetRemoteQueue().Put(ctx, units.NewHistoricalTestDataJob(s.env, record.Info, res)), message.Fields{
 				"message":     "failed to enqueue historical test data job",

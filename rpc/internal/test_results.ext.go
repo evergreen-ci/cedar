@@ -27,21 +27,21 @@ func (t TestResultsInfo) Export() (model.TestResultsInfo, error) {
 	}
 
 	return model.TestResultsInfo{
-		Project:            t.Project,
-		Version:            t.Version,
-		Variant:            t.Variant,
-		TaskName:           t.TaskName,
-		DisplayTaskName:    t.DisplayTaskName,
-		TaskID:             t.TaskId,
-		DisplayTaskID:      t.DisplayTaskId,
-		Execution:          int(t.Execution),
-		RequestType:        t.RequestType,
-		HistoricalTestData: !ignore,
-		Mainline:           t.Mainline,
+		Project:                t.Project,
+		Version:                t.Version,
+		Variant:                t.Variant,
+		TaskName:               t.TaskName,
+		DisplayTaskName:        t.DisplayTaskName,
+		TaskID:                 t.TaskId,
+		DisplayTaskID:          t.DisplayTaskId,
+		Execution:              int(t.Execution),
+		RequestType:            t.RequestType,
+		HistoricalDataDisabled: ignore,
+		Mainline:               t.Mainline,
 	}, nil
 }
 
-// historicalTestDataIngore checks whether this job's project ignores tasks
+// historicalTestDataIgnore checks whether this job's project ignores tasks
 // matching this job's task name for historical test data calculations.
 func historicalTestDataIgnore(ignore []string, taskName string) (bool, error) {
 	for _, pattern := range ignore {
