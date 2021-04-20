@@ -165,9 +165,6 @@ func (s *testResultsService) updateHistoricalData(record *model.TestResults, res
 		}
 	}()
 
-	htdCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
 	taskName := record.Info.DisplayTaskName
 	if taskName == "" {
 		taskName = record.Info.TaskName
@@ -192,7 +189,10 @@ func (s *testResultsService) updateHistoricalData(record *model.TestResults, res
 			continue
 		}
 		htd.Setup(s.env)
-		grip.Error(message.WrapError(htd.Update(htdCtx, res), message.Fields{
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		grip.Error(message.WrapError(htd.Update(ctx, res), message.Fields{
 			"message":                   "failed to update historical test data",
 			"test_results_info":         record.Info,
 			"historical_test_data_info": info,
