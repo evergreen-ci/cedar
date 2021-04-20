@@ -14,6 +14,7 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
@@ -231,6 +232,24 @@ func TestAddTestResults(t *testing.T) {
 					count++
 				}
 				assert.Equal(t, 3, count)
+
+				time.Sleep(time.Second)
+				for _, res := range test.results.Results {
+					testEndTime, err := ptypes.Timestamp(res.TestEndTime)
+					require.NoError(t, err)
+					htdInfo := model.HistoricalTestDataInfo{
+						Project:     record.Info.Project,
+						Variant:     record.Info.Variant,
+						TaskName:    record.Info.DisplayTaskName,
+						TestName:    res.TestName,
+						RequestType: record.Info.RequestType,
+						Date:        testEndTime,
+					}
+					htd, err := model.CreateHistoricalTestData(htdInfo)
+					require.NoError(t, err)
+					htd.Setup(env)
+					require.NoError(t, htd.Find(ctx))
+				}
 			}
 		})
 	}
@@ -397,6 +416,26 @@ func TestStreamTestResults(t *testing.T) {
 					count++
 				}
 				assert.Equal(t, test.expectedCount, count)
+
+				time.Sleep(time.Second)
+				for _, results := range test.results {
+					for _, res := range results.Results {
+						testEndTime, err := ptypes.Timestamp(res.TestEndTime)
+						require.NoError(t, err)
+						htdInfo := model.HistoricalTestDataInfo{
+							Project:     record1.Info.Project,
+							Variant:     record1.Info.Variant,
+							TaskName:    record1.Info.DisplayTaskName,
+							TestName:    res.TestName,
+							RequestType: record1.Info.RequestType,
+							Date:        testEndTime,
+						}
+						htd, err := model.CreateHistoricalTestData(htdInfo)
+						require.NoError(t, err)
+						htd.Setup(env)
+						require.NoError(t, htd.Find(ctx))
+					}
+				}
 			}
 		})
 	}
@@ -522,14 +561,15 @@ func getTestResultsGRPCClient(ctx context.Context, address string, opts []grpc.D
 
 func getTestResultsInfo() *TestResultsInfo {
 	return &TestResultsInfo{
-		Project:       utility.RandomString(),
-		Version:       utility.RandomString(),
-		Variant:       utility.RandomString(),
-		TaskName:      utility.RandomString(),
-		TaskId:        utility.RandomString(),
-		DisplayTaskId: utility.RandomString(),
-		Execution:     rand.Int31n(5),
-		RequestType:   utility.RandomString(),
+		Project:         utility.RandomString(),
+		Version:         utility.RandomString(),
+		Variant:         utility.RandomString(),
+		TaskName:        utility.RandomString(),
+		DisplayTaskName: utility.RandomString(),
+		TaskId:          utility.RandomString(),
+		DisplayTaskId:   utility.RandomString(),
+		Execution:       rand.Int31n(5),
+		RequestType:     utility.RandomString(),
 	}
 }
 

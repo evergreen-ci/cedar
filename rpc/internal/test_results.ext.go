@@ -41,8 +41,8 @@ func (t TestResultsInfo) Export() (model.TestResultsInfo, error) {
 	}, nil
 }
 
-// historicalTestDataIgnore checks whether this job's project ignores tasks
-// matching this job's task name for historical test data calculations.
+// historicalTestDataIgnore checks whether the given task name matches any of
+// the patterns in the ignore slice.
 func historicalTestDataIgnore(ignore []string, taskName string) (bool, error) {
 	for _, pattern := range ignore {
 		pattern = strings.TrimSpace(pattern)
