@@ -84,8 +84,11 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 
 	if !record.Info.HistoricalDataDisabled {
 		for _, res := range exportedResults {
-			grip.Error(message.WrapError(s.env.GetRemoteQueue().Put(ctx, units.NewHistoricalTestDataJob(s.env, record.Info, res)), message.Fields{
-				"message":     "failed to enqueue historical test data job",
+			// TODO: Remove this job with EVG-14440.
+			j := units.NewHistoricalTestDataJob(s.env, record.Info, res)
+			j.Run(ctx)
+			grip.Error(message.WrapError(j.Error(), message.Fields{
+				"message":     "failed to run historical test data job",
 				"info":        record.Info,
 				"test_result": res,
 			}))
