@@ -84,63 +84,21 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 	}
 
 	if !record.Info.HistoricalDataDisabled {
-		go func() {
-			defer func() {
-				if err := recovery.HandlePanicWithError(recover(), nil, "historical test data update"); err != nil {
-					grip.Error(message.WrapError(err, message.Fields{
-						"message":           "failed to update historical test data",
-						"test_results_info": record.Info,
-					}))
-				}
-			}()
+		conf := model.NewCedarConfig(s.env)
+		if err := conf.Find(); err != nil {
+			grip.Error(message.WrapError(errors.Wrap(err, "finding cedar configuration"), message.Fields{
+				"message":           "failed to update historical test data",
+				"test_results_info": record.Info,
+			}))
+			// If we can't find the cedar configuration, we should
+			// not update the historical test data for these
+			// results.
+			conf.Flags.DisableHistoricalTestData = true
+		}
 
-			htdCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-
-			conf := model.NewCedarConfig(s.env)
-			if err := conf.Find(); err != nil {
-				grip.Error(message.WrapError(errors.Wrap(err, "finding cedar configuration"), message.Fields{
-					"message":           "failed to update historical test data",
-					"test_results_info": record.Info,
-				}))
-				return
-			}
-			if conf.Flags.DisableHistoricalTestData {
-				return
-			}
-
-			taskName := record.Info.DisplayTaskName
-			if taskName == "" {
-				taskName = record.Info.TaskName
-			}
-			for _, res := range exportedResults {
-				info := model.HistoricalTestDataInfo{
-					Project:     record.Info.Project,
-					Variant:     record.Info.Variant,
-					TaskName:    taskName,
-					TestName:    res.TestName,
-					RequestType: record.Info.RequestType,
-					Date:        res.TestEndTime,
-				}
-				htd, err := model.CreateHistoricalTestData(info)
-				if err != nil {
-					grip.Error(message.WrapError(errors.Wrap(err, "creating historical test data"), message.Fields{
-						"message":                   "failed to update historical test data",
-						"test_results_info":         record.Info,
-						"historical_test_data_info": info,
-						"test_result":               res,
-					}))
-					continue
-				}
-				htd.Setup(s.env)
-				grip.Error(message.WrapError(htd.Update(htdCtx, res), message.Fields{
-					"message":                   "failed to update historical test data",
-					"test_results_info":         record.Info,
-					"historical_test_data_info": info,
-					"test_result":               res,
-				}))
-			}
-		}()
+		if !conf.Flags.DisableHistoricalTestData {
+			go s.updateHistoricalData(record, exportedResults)
+		}
 	}
 
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
@@ -195,4 +153,50 @@ func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *T
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem closing test results with id %s", record.ID))
 	}
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
+}
+
+func (s *testResultsService) updateHistoricalData(record *model.TestResults, results []model.TestResult) {
+	defer func() {
+		if err := recovery.HandlePanicWithError(recover(), nil, "historical test data update"); err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message":           "failed to update historical test data",
+				"test_results_info": record.Info,
+			}))
+		}
+	}()
+
+	htdCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	taskName := record.Info.DisplayTaskName
+	if taskName == "" {
+		taskName = record.Info.TaskName
+	}
+	for _, res := range results {
+		info := model.HistoricalTestDataInfo{
+			Project:     record.Info.Project,
+			Variant:     record.Info.Variant,
+			TaskName:    taskName,
+			TestName:    res.TestName,
+			RequestType: record.Info.RequestType,
+			Date:        res.TestEndTime,
+		}
+		htd, err := model.CreateHistoricalTestData(info)
+		if err != nil {
+			grip.Error(message.WrapError(errors.Wrap(err, "creating historical test data"), message.Fields{
+				"message":                   "failed to update historical test data",
+				"test_results_info":         record.Info,
+				"historical_test_data_info": info,
+				"test_result":               res,
+			}))
+			continue
+		}
+		htd.Setup(s.env)
+		grip.Error(message.WrapError(htd.Update(htdCtx, res), message.Fields{
+			"message":                   "failed to update historical test data",
+			"test_results_info":         record.Info,
+			"historical_test_data_info": info,
+			"test_result":               res,
+		}))
+	}
 }
