@@ -215,7 +215,7 @@ buildvariants:
       GOROOT: /opt/golang/go1.13
       curator_build: ubuntu1604
     run_on:
-      - archlinux-test
+      - archlinux-new-small
     tasks: [ "testGroup" ]
 
   - name: lint
@@ -225,7 +225,7 @@ buildvariants:
       GOROOT: /opt/golang/go1.13
       DISABLE_COVERAGE: true
     run_on:
-      - archlinux-test
+      - archlinux-new-small
     tasks: [ "lintGroup" ]
 
   - name: ubuntu1604
