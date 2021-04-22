@@ -241,7 +241,7 @@ func TestAddTestResults(t *testing.T) {
 						Project:     record.Info.Project,
 						Variant:     record.Info.Variant,
 						TaskName:    record.Info.DisplayTaskName,
-						TestName:    res.TestName,
+						TestName:    res.DisplayTestName,
 						RequestType: record.Info.RequestType,
 						Date:        testEndTime,
 					}
@@ -426,7 +426,7 @@ func TestStreamTestResults(t *testing.T) {
 							Project:     record1.Info.Project,
 							Variant:     record1.Info.Variant,
 							TaskName:    record1.Info.DisplayTaskName,
-							TestName:    res.TestName,
+							TestName:    res.DisplayTestName,
 							RequestType: record1.Info.RequestType,
 							Date:        testEndTime,
 						}

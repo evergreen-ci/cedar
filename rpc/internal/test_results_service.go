@@ -170,11 +170,15 @@ func (s *testResultsService) updateHistoricalData(record *model.TestResults, res
 		taskName = record.Info.TaskName
 	}
 	for _, res := range results {
+		testName := res.DisplayTestName
+		if testName == "" {
+			testName = res.TestName
+		}
 		info := model.HistoricalTestDataInfo{
 			Project:     record.Info.Project,
 			Variant:     record.Info.Variant,
 			TaskName:    taskName,
-			TestName:    res.TestName,
+			TestName:    testName,
 			RequestType: record.Info.RequestType,
 			Date:        res.TestEndTime,
 		}

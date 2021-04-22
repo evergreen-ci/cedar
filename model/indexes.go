@@ -172,6 +172,62 @@ func GetRequiredIndexes() []SystemIndexes {
 			Collection: testResultsCollection,
 		},
 		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoRequestTypeKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey), Value: 1},
+			},
+			Collection: historicalTestDataCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoRequestTypeKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey), Value: 1},
+			},
+			Collection: historicalTestDataCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoRequestTypeKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey), Value: 1},
+			},
+			Collection: historicalTestDataCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoRequestTypeKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey), Value: 1},
+			},
+			Collection: historicalTestDataCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoRequestTypeKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoTestNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey), Value: 1},
+			},
+			Collection: historicalTestDataCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(historicalTestDataInfoKey, historicalTestDataInfoDateKey), Value: 1},
+			},
+			Options:    bson.D{{Key: "expireAfterSeconds", Value: 15552000}},
+			Collection: historicalTestDataCollection,
+		},
+		{
 			Keys:       bson.D{{Key: dbUserAPIKeyKey, Value: 1}},
 			Collection: userCollection,
 		},
