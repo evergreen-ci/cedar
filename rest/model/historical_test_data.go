@@ -11,14 +11,16 @@ import (
 // APIAggregatedHistoricalTestData describes aggregated test result data for a
 // given date range.
 type APIAggregatedHistoricalTestData struct {
-	TestName *string `json:"test_name"`
+	// In order to maintain backwards compatibility with Evergreen's
+	// historical test stats, the json tags must match those in Evergreen.
+	TestName *string `json:"test_file"`
 	TaskName *string `json:"task_name,omitempty"`
 	Variant  *string `json:"variant,omitempty"`
 	Date     APITime `json:"date"`
 
 	NumPass         int     `json:"num_pass"`
 	NumFail         int     `json:"num_fail"`
-	AverageDuration float64 `json:"average_duration"`
+	AverageDuration float64 `json:"avg_duration_pass"`
 }
 
 // Import transforms an AggregatedHistoricalTestData object into an
