@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/private/protocol"
 	"github.com/aws/aws-sdk-go/private/protocol/restxml"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 )
 
 const opAbortMultipartUpload = "AbortMultipartUpload"
@@ -5554,6 +5556,16 @@ func (c *S3) PutObjectWithContext(ctx aws.Context, input *PutObjectInput, opts .
 	req, out := c.PutObjectRequest(input)
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
+
+	defer func() {
+		if err := req.Context().Err(); err != nil {
+			grip.Info(message.Fields{
+				"name":    "julian-edwards-debug",
+				"message": "ctx err in s3 go-sdk PutObjectWIthContext",
+				"ctx_err": err.Error(),
+			})
+		}
+	}()
 	return out, req.Send()
 }
 

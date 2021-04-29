@@ -182,6 +182,13 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
 			return errors.Wrap(err, "problem uploading test results to bucket")
 		}
+		if err := ctx.Err(); err != nil {
+			grip.Info(message.Fields{
+				"name":    "julian-edwards-debug",
+				"message": "ctx err in test results Append",
+				"ctx_err": ctx.Err().Error(),
+			})
+		}
 	}
 
 	return nil

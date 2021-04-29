@@ -80,11 +80,6 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 	}
 
 	if err := record.Append(ctx, exportedResults); err != nil {
-		grip.Info(message.Fields{
-			"name":            "julian-edwards-debug",
-			"test_results_id": results.TestResultsRecordId,
-			"context_after":   ctx.Err(),
-		})
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending test results for '%s'", results.TestResultsRecordId))
 	}
 

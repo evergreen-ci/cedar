@@ -502,6 +502,13 @@ func (w *smallWriteCloser) Close() error {
 	}
 
 	_, err := w.svc.PutObjectWithContext(w.ctx, input)
+	if err := w.ctx.Err(); err != nil {
+		grip.Info(message.Fields{
+			"name":    "julian-edwards-debug",
+			"message": "ctx err in pail smallWriterCloser.Close",
+			"ctx_err": err.Error(),
+		})
+	}
 	return errors.Wrap(err, "problem copying data to file")
 
 }
