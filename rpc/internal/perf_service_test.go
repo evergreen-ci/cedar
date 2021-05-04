@@ -567,8 +567,8 @@ func TestCertificateGeneration(t *testing.T) {
 	)
 	require.NoError(t, cmd.Run())
 
-	cmd = exec.Command(cedarExecutable, "service", "--dbName", conf.DatabaseName)
-	grip.Noticeln(cedarExecutable, "service", "--dbName", conf.DatabaseName)
+	cmd = exec.Command(cedarExecutable, "service", "--dbName", conf.DatabaseName, "--rpcTLS")
+	grip.Noticeln(cedarExecutable, "service", "--dbName", conf.DatabaseName, "--rpcTLS")
 	grip.SetName("curator.rpc.test")
 	writer := send.NewWriterSender(grip.GetSender())
 	defer func() { require.NoError(t, writer.Close()) }()
