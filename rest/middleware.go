@@ -14,6 +14,25 @@ import (
 	"github.com/pkg/errors"
 )
 
+type certDepotCheckMiddleware struct {
+	depotDisabled bool
+}
+
+// NewCertDepotCheckMiddleware returns an implementation of gimlet.Middleware
+// that returns an error if the internal cert depot is disabled.
+func NewCertDepotCheckMiddleware(disabled bool) *certDepotCheckMiddleware {
+	return &certDepotCheckMiddleware{depotDisabled: disabled}
+}
+
+func (m *certDepotCheckMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	if m.depotDisabled {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(errors.New("certificate depot disabled")))
+		return
+	}
+
+	next(rw, r)
+}
+
 type evgAuthReadLogByIDMiddleware struct {
 	sc      data.Connector
 	evgConf *model.EvergreenConfig
@@ -23,7 +42,7 @@ type evgAuthReadLogByIDMiddleware struct {
 // gimlet.Middleware that sends a http request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given ID.
-func NewEvgAuthReadLogByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
+func NewEvgAuthReadLogByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) *evgAuthReadLogByIDMiddleware {
 	return &evgAuthReadLogByIDMiddleware{
 		sc:      sc,
 		evgConf: evgConf,
@@ -57,7 +76,7 @@ type evgAuthReadLogByTaskIDMiddleware struct {
 // gimlet.Middleware that sends a http request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given task ID.
-func NewEvgAuthReadLogByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
+func NewEvgAuthReadLogByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) *evgAuthReadLogByTaskIDMiddleware {
 	return &evgAuthReadLogByTaskIDMiddleware{
 		sc:      sc,
 		evgConf: evgConf,

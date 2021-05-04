@@ -31,9 +31,10 @@ func Service() cli.Command {
 		envVarRPCHost   = "CEDAR_RPC_HOST"
 		envVarRESTPort  = "CEDAR_REST_PORT"
 
-		rpcHostFlag = "rpcHost"
-		rpcPortFlag = "rpcPort"
-		rpcTLSFlag  = "rpcDisableTLS"
+		rpcHostFlag     = "rpcHost"
+		rpcPortFlag     = "rpcPort"
+		rpcTLSFlag      = "rpcTLS"
+		rpcUserAuthFlag = "rpcUserAuth"
 	)
 
 	return cli.Command{
@@ -44,7 +45,11 @@ func Service() cli.Command {
 			dbFlags(
 				cli.BoolFlag{
 					Name:  rpcTLSFlag,
-					Usage: "specify whether to disable the use of TLS over rpc",
+					Usage: "specify whether to enable TLS over rpc, it is invalid to specify both TLS and user auth",
+				},
+				cli.BoolFlag{
+					Name:  rpcUserAuthFlag,
+					Usage: "specify whether to enable user auth over rpc, it is invalid to specify both TLS and user auth",
 				},
 				cli.BoolFlag{
 					Name:  localQueueFlag,
@@ -79,7 +84,8 @@ func Service() cli.Command {
 			dbCredFile := c.String(dbCredsFileFlag)
 			port := c.Int(servicePortFlag)
 
-			rpcTLS := !c.Bool(rpcTLSFlag)
+			rpcTLS := c.Bool(rpcTLSFlag)
+			rpcUserAuth := c.Bool(rpcUserAuthFlag)
 			rpcHost := c.String(rpcHostFlag)
 			rpcPort := c.Int(rpcPortFlag)
 			rpcAddr := fmt.Sprintf("%s:%d", rpcHost, rpcPort)
@@ -98,7 +104,7 @@ func Service() cli.Command {
 			conf := &model.CedarConfig{}
 			conf.Setup(env)
 			if err := conf.Find(); err != nil {
-				return errors.Wrap(err, "problem getting application configuration")
+				return errors.Wrap(err, "getting application configuration")
 			}
 
 			var d certdepot.Depot
@@ -106,7 +112,7 @@ func Service() cli.Command {
 			if rpcTLS {
 				d, err = certdepot.BootstrapDepotWithMongoClient(ctx, env.GetClient(), conf.CA.CertDepot)
 				if err != nil {
-					return errors.Wrap(err, "problem setting up the certificate depot")
+					return errors.Wrap(err, "setting up the certificate depot")
 				}
 			}
 
@@ -127,17 +133,17 @@ func Service() cli.Command {
 
 			restWait, err := service.Start(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem starting public rest service")
+				return errors.Wrap(err, "starting public rest service")
 			}
 
 			adminService, err := getAdminService(env)
 			if err != nil {
-				return errors.Wrap(err, "problem resolving admin rest interface")
+				return errors.Wrap(err, "resolving admin rest interface")
 			}
 
 			adminWait, err := adminService.BackgroundRun(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem starting admin rest service")
+				return errors.Wrap(err, "starting admin rest service")
 			}
 
 			///////////////////////////////////
@@ -145,8 +151,9 @@ func Service() cli.Command {
 			// starting grpc
 			//
 
-			rpcSrv, err := rpc.GetServer(env, rpc.CertConfig{
+			rpcSrv, err := rpc.GetServer(env, rpc.AuthConfig{
 				TLS:         rpcTLS,
+				UserAuth:    rpcUserAuth,
 				Depot:       d,
 				CAName:      conf.CA.CertDepot.CAName,
 				ServiceName: conf.CA.CertDepot.ServiceName,
