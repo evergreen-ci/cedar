@@ -44,7 +44,7 @@ imports:
 - name: github.com/evergreen-ci/pail
   version: b346d5a2109dfcf6fff0dc6370ecbecf9e64f1d1
 - name: github.com/evergreen-ci/aviation
-  version: 8bdfd62dc19653045bea1cd8a9dc48c57a0d66f0
+  version: c0984dbfa818bb3353c037ef486679bfd68054a4
 - name: github.com/evergreen-ci/certdepot
   version: 2ef4a0af44a3f102d27d5d703fef66f722ca5693
 - name: github.com/evergreen-ci/poplar
