@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 
 	"github.com/evergreen-ci/aviation"
@@ -114,8 +115,11 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 			return nil, errors.New("programmer error; invalid user manager configuration")
 		}
 
-		unaryInterceptors = append(unaryInterceptors, aviation.MakeAuthenticationRequiredUnaryInterceptor(conf.UserManager, umConf))
-		streamInterceptors = append(streamInterceptors, aviation.MakeAuthenticationRequiredStreamInterceptor(conf.UserManager, umConf))
+		// The health check end point should not be protected.
+		ignore := fmt.Sprintf("/%s/%s", internal.HealthServiceName(), "Check")
+
+		unaryInterceptors = append(unaryInterceptors, aviation.MakeAuthenticationRequiredUnaryInterceptor(conf.UserManager, umConf, ignore))
+		streamInterceptors = append(streamInterceptors, aviation.MakeAuthenticationRequiredStreamInterceptor(conf.UserManager, umConf, ignore))
 	}
 
 	opts = append(
