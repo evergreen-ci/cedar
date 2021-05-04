@@ -45,11 +45,11 @@ func Service() cli.Command {
 			dbFlags(
 				cli.BoolFlag{
 					Name:  rpcTLSFlag,
-					Usage: "specify whether to enable TLS over rpc, it is invalid to specify both TLS and user auth",
+					Usage: "specify whether to enable TLS over rpc",
 				},
 				cli.BoolFlag{
 					Name:  rpcUserAuthFlag,
-					Usage: "specify whether to enable user auth over rpc, it is invalid to specify both TLS and user auth",
+					Usage: "specify whether to enable user auth over rpc",
 				},
 				cli.BoolFlag{
 					Name:  localQueueFlag,

@@ -35,7 +35,6 @@ type AuthConfig struct {
 func (c *AuthConfig) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
-	catcher.AddWhen(c.TLS && c.UserAuth, errors.New("must specify either TLS or user auth, not both"))
 	catcher.AddWhen(c.TLS && c.Depot == nil, errors.New("must specify a certificate depot"))
 	catcher.AddWhen(c.TLS && c.CAName == "", errors.New("must specify a CA Name"))
 	catcher.AddWhen(c.TLS && c.ServiceName == "", errors.New("must specify a service  Name"))
@@ -109,7 +108,8 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConf)))
 		unaryInterceptors = append(unaryInterceptors, aviation.MakeCertificateUserValidationUnaryInterceptor(conf.UserManager))
 		streamInterceptors = append(streamInterceptors, aviation.MakeCertificateUserValidationStreamInterceptor(conf.UserManager))
-	} else if conf.UserAuth {
+	}
+	if conf.UserAuth {
 		umConf := cedar.GetUserMiddlewareConfiguration()
 		if err := umConf.Validate(); err != nil {
 			return nil, errors.New("programmer error; invalid user manager configuration")
