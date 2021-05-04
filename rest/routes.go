@@ -568,9 +568,6 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if s.Depot == nil {
-	}
-
 	if exists, err := certdepot.CheckPrivateKeyWithError(s.Depot, usr); err != nil {
 		err = errors.Wrap(err, "checking user's private cert key")
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
