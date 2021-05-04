@@ -6,6 +6,8 @@ package cedar
 
 import (
 	"time"
+
+	"github.com/evergreen-ci/gimlet"
 )
 
 const (
@@ -43,3 +45,15 @@ var (
 		MergeTestRequester,
 	}
 )
+
+// GetUserMiddlewareConfiguration returns the gimlet user middleware config
+// with cedar's global auth constants.
+func GetUserMiddlewareConfiguration() gimlet.UserMiddlewareConfiguration {
+	return gimlet.UserMiddlewareConfiguration{
+		HeaderKeyName:  APIKeyHeader,
+		HeaderUserName: APIUserHeader,
+		CookieName:     AuthTokenCookie,
+		CookiePath:     "/",
+		CookieTTL:      TokenExpireAfter,
+	}
+}

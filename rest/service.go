@@ -31,7 +31,7 @@ type Service struct {
 	Depot      certdepot.Depot
 
 	// internal settings
-	umconf gimlet.UserMiddlewareConfiguration
+	umConf gimlet.UserMiddlewareConfiguration
 	queue  amboy.Queue
 	app    *gimlet.APIApp
 	sc     data.Connector
@@ -48,14 +48,8 @@ func (s *Service) Validate() error {
 		return errors.New("must specify a non-nil config")
 	}
 
-	s.umconf = gimlet.UserMiddlewareConfiguration{
-		HeaderKeyName:  cedar.APIKeyHeader,
-		HeaderUserName: cedar.APIUserHeader,
-		CookieName:     cedar.AuthTokenCookie,
-		CookiePath:     "/",
-		CookieTTL:      cedar.TokenExpireAfter,
-	}
-	if err = s.umconf.Validate(); err != nil {
+	s.umConf = cedar.GetUserMiddlewareConfiguration()
+	if err = s.umConf.Validate(); err != nil {
 		return errors.New("programmer error; invalid user manager configuration")
 	}
 
@@ -220,7 +214,7 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "problem setting up ldap user manager")
+		return nil, errors.Wrap(err, "setting up ldap user manager")
 	}
 	return usrMngr, nil
 }
@@ -242,7 +236,7 @@ func (s *Service) setupNaiveAuth() (gimlet.UserManager, error) {
 	}
 	usrMngr, err := gimlet.NewBasicUserManager(users, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem setting up basic user manager")
+		return nil, errors.Wrap(err, "setting up basic user manager")
 	}
 	return usrMngr, nil
 }
@@ -256,16 +250,16 @@ func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 	s.addRoutes()
 
 	if err := s.queue.Start(ctx); err != nil {
-		return nil, errors.Wrap(err, "problem starting queue")
+		return nil, errors.Wrap(err, "starting queue")
 	}
 
 	if err := s.app.Resolve(); err != nil {
-		return nil, errors.Wrap(err, "problem resolving routes")
+		return nil, errors.Wrap(err, "resolving routes")
 	}
 
 	wait, err := s.app.BackgroundRun(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem starting service")
+		return nil, errors.Wrap(err, "starting service")
 	}
 
 	return wait, nil
@@ -273,7 +267,7 @@ func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 
 func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
-	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, s.umconf))
+	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, s.umConf))
 	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
 
 	if s.Conf.Service.CORSOrigins != nil {
@@ -286,8 +280,9 @@ func (s *Service) addMiddleware() {
 
 func (s *Service) addRoutes() {
 	checkUser := gimlet.NewRequireAuthHandler()
-	evgAuthReadLogByID := NewEvgAuthReadLogByIDMiddleware(s.sc, &s.Conf.Evergreen)
-	evgAuthReadLogByTaskID := NewEvgAuthReadLogByTaskIDMiddleware(s.sc, &s.Conf.Evergreen)
+	checkDepot := newCertCheckDepotMiddleware(s.Depot == nil)
+	evgAuthReadLogByID := newEvgAuthReadLogByIDMiddleware(s.sc, &s.Conf.Evergreen)
+	evgAuthReadLogByTaskID := newEvgAuthReadLogByTaskIDMiddleware(s.sc, &s.Conf.Evergreen)
 
 	s.app.AddRoute("/admin/status").Version(1).Get().Handler(s.statusHandler)
 	s.app.AddRoute("/admin/status/event/{id}").Version(1).Get().Wrap(checkUser).Handler(s.getSystemEvent)
@@ -295,9 +290,9 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/admin/status/events/{level}").Version(1).Get().Wrap(checkUser).Handler(s.getSystemEvents)
 	s.app.AddRoute("/admin/service/flag/{flagName}/enabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagEnabled)
 	s.app.AddRoute("/admin/service/flag/{flagName}/disabled").Version(1).Post().Wrap(checkUser).Handler(s.setServiceFlagDisabled)
-	s.app.AddRoute("/admin/ca").Version(1).Get().Handler(s.fetchRootCert)
-	s.app.AddRoute("/admin/users/certificate").Version(1).Post().Get().Handler(s.fetchUserCert)
-	s.app.AddRoute("/admin/users/certificate/key").Version(1).Post().Get().Handler(s.fetchUserCertKey)
+	s.app.AddRoute("/admin/ca").Version(1).Get().Wrap(checkDepot).Handler(s.fetchRootCert)
+	s.app.AddRoute("/admin/users/certificate").Version(1).Post().Get().Wrap(checkDepot).Handler(s.fetchUserCert)
+	s.app.AddRoute("/admin/users/certificate/key").Version(1).Post().Get().Wrap(checkDepot).Handler(s.fetchUserCertKey)
 	s.app.AddRoute("/admin/perf/change_points").Version(1).Post().Wrap(checkUser).RouteHandler(makePerfSignalProcessingRecalculate(s.sc))
 
 	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Wrap(checkUser).Handler(s.simpleLogIngestion)

@@ -569,7 +569,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if exists, err := certdepot.CheckPrivateKeyWithError(s.Depot, usr); err != nil {
-		err = errors.Wrap(err, "problem checking user's private cert key")
+		err = errors.Wrap(err, "checking user's private cert key")
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	} else if !exists {
@@ -581,7 +581,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 			Expires:    s.Conf.CA.SSLExpireAfter,
 		}
 		if err = opts.CreateCertificate(s.Depot); err != nil {
-			err = errors.Wrapf(err, "problem generating certificate for '%s'", usr)
+			err = errors.Wrapf(err, "generating certificate for '%s'", usr)
 			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 			return
 		}
@@ -589,13 +589,13 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 
 	key, err := certdepot.GetPrivateKey(s.Depot, usr)
 	if err != nil {
-		err = errors.Wrapf(err, "problem fetching certificate key for '%s'", usr)
+		err = errors.Wrapf(err, "fetching certificate key for '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := key.ExportPrivate()
 	if err != nil {
-		err = errors.Wrapf(err, "problem exporting certificate key '%s'", usr)
+		err = errors.Wrapf(err, "exporting certificate key '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}

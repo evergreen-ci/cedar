@@ -12,6 +12,11 @@ type healthService struct {
 	services map[string]HealthCheckResponse_ServingStatus
 }
 
+// HealthServiceName returns the grpc service identifier for this service.
+func HealthServiceName() string {
+	return _Health_serviceDesc.ServiceName
+}
+
 // AttachHealthService attaches the health check service to the given gRPC
 // server.
 func AttachHealthService(services map[string]HealthCheckResponse_ServingStatus, s *grpc.Server) {

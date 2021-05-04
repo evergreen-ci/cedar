@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 
 	"github.com/evergreen-ci/aviation"
@@ -21,8 +22,9 @@ import (
 
 type WaitFunc func(context.Context)
 
-type CertConfig struct {
+type AuthConfig struct {
 	TLS         bool
+	UserAuth    bool
 	SkipVerify  bool
 	CAName      string
 	ServiceName string
@@ -30,57 +32,54 @@ type CertConfig struct {
 	UserManager gimlet.UserManager
 }
 
-func (c *CertConfig) Validate() error {
-	if c.Depot == nil {
-		return errors.New("must specify a certificate depot")
-	}
-	if c.CAName == "" {
-		return errors.New("must specify a CA name")
-	}
-	if c.ServiceName == "" {
-		return errors.New("must specify a service name")
-	}
+func (c *AuthConfig) Validate() error {
+	catcher := grip.NewBasicCatcher()
 
-	return nil
+	catcher.AddWhen(c.TLS && c.Depot == nil, errors.New("must specify a certificate depot"))
+	catcher.AddWhen(c.TLS && c.CAName == "", errors.New("must specify a CA Name"))
+	catcher.AddWhen(c.TLS && c.ServiceName == "", errors.New("must specify a service  Name"))
+	catcher.AddWhen((c.TLS || c.UserAuth) && c.UserManager == nil, errors.New("must specify a user manager"))
+
+	return catcher.Resolve()
 }
 
-func (c *CertConfig) Resolve() (*tls.Config, error) {
+func (c *AuthConfig) ResolveTLS() (*tls.Config, error) {
 	// Load the certificates
 	cert, err := certdepot.GetCertificate(c.Depot, c.ServiceName)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem getting server certificate")
+		return nil, errors.Wrap(err, "getting server certificate")
 	}
 	certPayload, err := cert.Export()
 	if err != nil {
-		return nil, errors.Wrap(err, "problem exporting server certificate")
+		return nil, errors.Wrap(err, "exporting server certificate")
 	}
 	key, err := certdepot.GetPrivateKey(c.Depot, c.ServiceName)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem getting server certificate key")
+		return nil, errors.Wrap(err, "getting server certificate key")
 	}
 	keyPayload, err := key.ExportPrivate()
 	if err != nil {
-		return nil, errors.Wrap(err, "problem exporting server certificate key")
+		return nil, errors.Wrap(err, "exporting server certificate key")
 	}
 	certificate, err := tls.X509KeyPair(certPayload, keyPayload)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem loading server key pair")
+		return nil, errors.Wrap(err, "loading server key pair")
 	}
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
 	ca, err := certdepot.GetCertificate(c.Depot, c.CAName)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem getting ca certificate")
+		return nil, errors.Wrap(err, "getting ca certificate")
 	}
 	caPayload, err := ca.Export()
 	if err != nil {
-		return nil, errors.Wrap(err, "problem exporting ca certificate")
+		return nil, errors.Wrap(err, "exporting ca certificate")
 	}
 
 	// Append the client certificates from the CA
 	if ok := certPool.AppendCertsFromPEM(caPayload); !ok {
-		return nil, errors.New("failed to append client certs")
+		return nil, errors.New("appending client certs")
 	}
 	conf := &tls.Config{
 		ClientAuth:         tls.RequireAndVerifyClientCert,
@@ -92,21 +91,35 @@ func (c *CertConfig) Resolve() (*tls.Config, error) {
 	return conf, nil
 }
 
-func GetServer(env cedar.Environment, conf CertConfig) (*grpc.Server, error) {
+func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 	unaryInterceptors := []grpc.UnaryServerInterceptor{aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))}
 	streamInterceptors := []grpc.StreamServerInterceptor{aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))}
 	opts := []grpc.ServerOption{}
 
-	if err := conf.Validate(); conf.TLS && err != nil {
-		return nil, errors.Wrap(err, "invalid tls config")
-	} else if conf.TLS {
-		tlsConf, err := conf.Resolve()
+	if err := conf.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid auth config")
+	}
+
+	if conf.TLS {
+		tlsConf, err := conf.ResolveTLS()
 		if err != nil {
-			return nil, errors.Wrap(err, "problem generating tls config")
+			return nil, errors.Wrap(err, "generating tls config")
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConf)))
 		unaryInterceptors = append(unaryInterceptors, aviation.MakeCertificateUserValidationUnaryInterceptor(conf.UserManager))
 		streamInterceptors = append(streamInterceptors, aviation.MakeCertificateUserValidationStreamInterceptor(conf.UserManager))
+	}
+	if conf.UserAuth {
+		umConf := cedar.GetUserMiddlewareConfiguration()
+		if err := umConf.Validate(); err != nil {
+			return nil, errors.New("programmer error; invalid user manager configuration")
+		}
+
+		// The health check end point should not be protected.
+		ignore := fmt.Sprintf("/%s/%s", internal.HealthServiceName(), "Check")
+
+		unaryInterceptors = append(unaryInterceptors, aviation.MakeAuthenticationRequiredUnaryInterceptor(conf.UserManager, umConf, ignore))
+		streamInterceptors = append(streamInterceptors, aviation.MakeAuthenticationRequiredStreamInterceptor(conf.UserManager, umConf, ignore))
 	}
 
 	opts = append(

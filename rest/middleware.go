@@ -14,16 +14,38 @@ import (
 	"github.com/pkg/errors"
 )
 
+type certCheckDepotMiddleware struct {
+	depotDisabled bool
+}
+
+// newCertCheckDepotMiddleware returns an implementation of gimlet.Middleware
+// that returns an error if the internal cert depot is disabled.
+func newCertCheckDepotMiddleware(disabled bool) *certCheckDepotMiddleware {
+	return &certCheckDepotMiddleware{depotDisabled: disabled}
+}
+
+func (m *certCheckDepotMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	if m.depotDisabled {
+		gimlet.WriteResponse(rw, gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
+			StatusCode: http.StatusForbidden,
+			Message:    "certificate depot disabled",
+		}))
+		return
+	}
+
+	next(rw, r)
+}
+
 type evgAuthReadLogByIDMiddleware struct {
 	sc      data.Connector
 	evgConf *model.EvergreenConfig
 }
 
-// NewEvgAuthReadLogByIDMiddlware returns an implementation of
+// newEvgAuthReadLogByIDMiddlware returns an implementation of
 // gimlet.Middleware that sends a http request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given ID.
-func NewEvgAuthReadLogByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
+func newEvgAuthReadLogByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) *evgAuthReadLogByIDMiddleware {
 	return &evgAuthReadLogByIDMiddleware{
 		sc:      sc,
 		evgConf: evgConf,
@@ -53,11 +75,11 @@ type evgAuthReadLogByTaskIDMiddleware struct {
 	evgConf *model.EvergreenConfig
 }
 
-// NewEvgAuthReadLogByTaskIDMiddlware returns an implementation of
+// newEvgAuthReadLogByTaskIDMiddlware returns an implementation of
 // gimlet.Middleware that sends a http request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given task ID.
-func NewEvgAuthReadLogByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) gimlet.Middleware {
+func newEvgAuthReadLogByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) *evgAuthReadLogByTaskIDMiddleware {
 	return &evgAuthReadLogByTaskIDMiddleware{
 		sc:      sc,
 		evgConf: evgConf,
