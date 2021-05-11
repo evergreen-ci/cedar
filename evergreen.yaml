@@ -43,6 +43,7 @@ functions:
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
         GOPATH: ${workdir}/gopath
+        CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
   set-up-mongodb:
     - command: subprocess.exec
       type: setup
@@ -168,20 +169,19 @@ tasks:
         vars: { target: "test-cedar" }
         params:
           env:
-            CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
             RUN_TEST: TestGlobalEnvironmentAuth
       - func: run-make
         vars: { target: "test-cedar" }
         params:
           env:
-            CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
             RUN_TEST: TestDatabaseSessionAccessorAuth
       - func: run-make
-        vars: { target: "clean-cedar" }
+        vars: { target: "test-cedar" }
         params:
           env:
-            CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
             RUN_TEST: TestEnvironmentConfigurationAuth
+      - func: run-make
+        vars: { target: "clean-results" }
       - func: parse-results
       - command: shell.exec
         type: setup
