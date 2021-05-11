@@ -63,12 +63,33 @@ functions:
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
         command: make check-mongod
+  set-up-mongodb-initrs:
     - command: subprocess.exec
       type: setup
       params:
         add_expansions_to_env: true
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         command: make init-rs
+  set-up-mongodb-auth:
+    - command: subprocess.exec
+      type: setup
+      params:
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
+        command: make init-auth
+    - command: subprocess.exec
+      type: setup
+      params:
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
+        command: make start-mongod-auth
+    - command: subprocess.exec
+      type: setup
+      params:
+        add_expansions_to_env: true
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        command: make init-rs-auth
+
   set-up-curator:
     - command: s3.get
       type: setup
@@ -132,6 +153,40 @@ tasks:
   - <<: *run-build
     tags: ["test"]
     name: test-perf
+  - name: test-auth
+    commands:
+      - func: get-project
+      - func: set-up-mongodb
+      - func: set-up-mongodb-auth
+      - func: set-up-curator
+      - func: run-make
+        vars: { target: "cedar" }
+      - func: run-make
+        vars: { target: "clean-results" }
+
+      - func: run-make
+        vars: { target: "test-cedar" }
+        params:
+          env:
+            CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+            RUN_TEST: TestGlobalEnvironmentAuth
+      - func: run-make
+        vars: { target: "test-cedar" }
+        params:
+          env:
+            CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+            RUN_TEST: TestDatabaseSessionAccessorAuth
+      - func: run-make
+        vars: { target: "clean-cedar" }
+        params:
+          env:
+            CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+            RUN_TEST: TestEnvironmentConfigurationAuth
+      - func: parse-results
+      - command: shell.exec
+        type: setup
+        params:
+          script: "rm -rf ~/.aws"
 
   - <<: *run-build
     tags: ["lint"]
@@ -187,6 +242,7 @@ task_groups:
     setup_group:
       - func: get-project
       - func: set-up-mongodb
+      - func: set-up-mongodb-initrs
       - func: set-up-curator
       - func: run-make
         vars: { target: "cedar" }

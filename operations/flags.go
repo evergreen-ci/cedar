@@ -29,6 +29,7 @@ const (
 	clientPortFlag = "port"
 
 	flagNameflag = "flag"
+	credsFileEnv = "CEDAR_DB_CREDS_FILE"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -114,7 +115,7 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:   dbCredsFileFlag,
 			Usage:  "specify a DB credential file location",
-			EnvVar: "CEDAR_DB_CREDS_FILE",
+			EnvVar: credsFileEnv,
 		})
 }
 

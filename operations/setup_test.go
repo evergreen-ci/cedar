@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/evergreen-ci/cedar"
@@ -39,6 +40,13 @@ func TestServiceConfiguration(t *testing.T) {
 		},
 		"ConfigurationOfLogging": func(t *testing.T, env cedar.Environment) {
 			t.Skip("skipping because the code is improperly factored to support testing")
+		},
+		"LoadCredsFromYaml": func(t *testing.T, env cedar.Environment) {
+			credGoal := dbCreds{DBUser: "myUserAdmin", DBPwd: "default"}
+			credsFile := os.Getenv(credsFileEnv)
+			credResult, err := loadCredsFromYAML(credsFile)
+			assert.Equal(t, credGoal, *credResult)
+			assert.NoError(t, err)
 		},
 		// "": func(t *testing.T, env cedar.Environment) {},
 	} {
