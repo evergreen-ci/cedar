@@ -6,6 +6,7 @@ package cedar
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -27,9 +28,10 @@ func TestGlobalEnvironmentAuth(t *testing.T) {
 		MongoDBURI:   "mongodb://localhost:27017",
 		NumWorkers:   2,
 		DatabaseName: testDatabaseName,
-		DBUser:       "myUserAdmin",
 		DBPwd:        "default",
 	}
+	uname := os.Getenv("TEST_USER_ADMIN")
+	conf.DBUser = uname
 
 	env, err := NewEnvironment(context.TODO(), "second", conf)
 	assert.NoError(t, err)
@@ -47,21 +49,25 @@ func TestDatabaseSessionAccessorAuth(t *testing.T) {
 	_, _, err := GetSessionWithConfig(env)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is nil")
-
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", DBUser: "myUserAdmin", DBPwd: "default"})
+	conf1 := &Configuration{MongoDBURI: "mongodb://localhost:27017", DBPwd: "default"}
+	uname := os.Getenv("TEST_USER_ADMIN")
+	conf1.DBUser = uname
+	env, err = NewEnvironment(ctx, "test", conf1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amboy workers")
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DBUser: "myUserAdmin", DBPwd: "default"})
+	conf1.NumWorkers = 2
+	conf1.DatabaseName = testDatabaseName
+	env, err = NewEnvironment(ctx, "test", conf1)
 	assert.NoError(t, err)
 	env.(*envState).client = nil
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session is nil")
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DBUser: "myUserAdmin", DBPwd: "default"})
+	env, err = NewEnvironment(ctx, "test", conf1)
 	assert.NoError(t, err)
 	conf, db, err := GetSessionWithConfig(env)
 	assert.NoError(t, err)
@@ -81,7 +87,12 @@ func TestEnvironmentConfigurationAuth(t *testing.T) {
 			assert.NoError(t, conf.Validate())
 		},
 		"HasAuth": func(t *testing.T, conf *Configuration) {
-			assert.True(t, conf.HasAuth())
+			uname := os.Getenv("TEST_USER_ADMIN")
+			if uname == "" {
+				assert.False(t, conf.HasAuth())
+			} else {
+				assert.True(t, conf.HasAuth())
+			}
 		},
 		"ValidConfigUsesLocalConfigAuth": func(t *testing.T, conf *Configuration) {
 			conf.DisableRemoteQueue = true
@@ -102,9 +113,11 @@ func TestEnvironmentConfigurationAuth(t *testing.T) {
 				MongoDBDialTimeout: time.Second,
 				SocketTimeout:      10 * time.Second,
 				DatabaseName:       testDatabaseName,
-				DBUser:             "myUserAdmin",
 				DBPwd:              "default",
 			}
+			// setting DBUser to "" if we're not testing auth
+			uname := os.Getenv("TEST_USER_ADMIN")
+			conf.DBUser = uname
 			test(t, conf)
 		})
 	}

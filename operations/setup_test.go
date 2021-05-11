@@ -45,8 +45,8 @@ func TestServiceConfiguration(t *testing.T) {
 			credGoal := dbCreds{DBUser: "myUserAdmin", DBPwd: "default"}
 			credsFile := os.Getenv(credsFileEnv)
 			credResult, err := loadCredsFromYAML(credsFile)
-			assert.Equal(t, credGoal, *credResult)
 			assert.NoError(t, err)
+			assert.Equal(t, credGoal, *credResult)
 		},
 		// "": func(t *testing.T, env cedar.Environment) {},
 	} {

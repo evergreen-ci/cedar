@@ -170,16 +170,19 @@ tasks:
         params:
           env:
             RUN_TEST: TestGlobalEnvironmentAuth
+            TEST_USER_ADMIN: myUserAdmin
       - func: run-make
         vars: { target: "test-cedar" }
         params:
           env:
             RUN_TEST: TestDatabaseSessionAccessorAuth
+            TEST_USER_ADMIN: myUserAdmin
       - func: run-make
         vars: { target: "test-cedar" }
         params:
           env:
             RUN_TEST: TestEnvironmentConfigurationAuth
+            TEST_USER_ADMIN: myUserAdmin
       - func: run-make
         vars: { target: "clean-results" }
       - func: parse-results
@@ -294,7 +297,7 @@ buildvariants:
       curator_build: ubuntu1604
     run_on:
       - ubuntu1604-test
-    tasks: [ "dist", "testGroup" ]
+    tasks: [ "dist", "testGroup", test-auth]
 
   - name: macos
     display_name: macOS
