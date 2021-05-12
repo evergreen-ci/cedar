@@ -297,12 +297,13 @@ start-mongod-auth:mongodb/.get-mongodb
 	./mongodb/mongod --auth --dbpath ./mongodb/db_files --port 27017 --replSet evg --oplogSize 10 
 	@echo "starting up mongod with auth"
 init-auth:mongodb/.get-mongodb
-	./mongodb/mongo cmd/mongo-auth/create_auth_user.js
+	./mongodb/mongo --host `./mongodb/mongo --quiet --eval "db.isMaster()['primary']"` cmd/mongo-auth/create_auth_user.js
 	@echo "creating MyUserAdmin"
+	killall mongod
+	sleep 60
 init-rs:mongodb/.get-mongodb
 	./mongodb/mongo --eval 'rs.initiate()'
-init-rs-auth:mongodb/.get-mongodb
-	./mongodb/mongo -u "myUserAdmin" -p "default" --eval 'rs.initiate()'
+	sleep 30 
 check-mongod:mongodb/.get-mongodb
 	./mongodb/mongo --nodb --eval "assert.soon(function(x){try{var d = new Mongo(\"localhost:27017\"); return true}catch(e){return false}}, \"timed out connecting\")"
 	@echo "mongod is up"
@@ -320,4 +321,4 @@ phony += clean
 
 # configure phony targets
 .FORCE:
-.PHONY:$(phony) .FORCE
+debian81-small.PHONY:$(phony) .FORCE

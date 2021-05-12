@@ -43,7 +43,7 @@ functions:
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
         GOPATH: ${workdir}/gopath
-        CEDAR_DB_CREDS_FILE: gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+        CEDAR_DB_CREDS_FILE: ${workdir}gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
   set-up-mongodb:
     - command: subprocess.exec
       type: setup
@@ -64,12 +64,11 @@ functions:
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
         command: make check-mongod
-  set-up-mongodb-initrs:
     - command: subprocess.exec
       type: setup
       params:
-        add_expansions_to_env: true
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
         command: make init-rs
   set-up-mongodb-auth:
     - command: subprocess.exec
@@ -84,12 +83,6 @@ functions:
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
         command: make start-mongod-auth
-    - command: subprocess.exec
-      type: setup
-      params:
-        add_expansions_to_env: true
-        working_dir: gopath/src/github.com/evergreen-ci/cedar/
-        command: make init-rs-auth
 
   set-up-curator:
     - command: s3.get
@@ -245,7 +238,6 @@ task_groups:
     setup_group:
       - func: get-project
       - func: set-up-mongodb
-      - func: set-up-mongodb-initrs
       - func: set-up-curator
       - func: run-make
         vars: { target: "cedar" }
@@ -275,7 +267,7 @@ buildvariants:
       curator_build: ubuntu1604
     run_on:
       - archlinux-new-small
-    tasks: [ "testGroup" ]
+    tasks: [ "testGroup", test-auth ]
 
   - name: lint
     display_name: Lint (Arch Linux)
@@ -297,7 +289,7 @@ buildvariants:
       curator_build: ubuntu1604
     run_on:
       - ubuntu1604-test
-    tasks: [ "dist", "testGroup", test-auth]
+    tasks: [ "dist", "testGroup", test-auth ]
 
   - name: macos
     display_name: macOS

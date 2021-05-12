@@ -26,4 +26,3 @@ function createAuth(){
 	)
 };
 createAuth();
-db.adminCommand( { shutdown: 1 } );
