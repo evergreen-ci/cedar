@@ -43,7 +43,7 @@ functions:
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
         GOPATH: ${workdir}/gopath
-        CEDAR_DB_CREDS_FILE: ${workdir}gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+        CEDAR_DB_CREDS_FILE: ${workdir}/gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
   set-up-mongodb:
     - command: subprocess.exec
       type: setup
