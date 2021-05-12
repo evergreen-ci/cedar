@@ -74,15 +74,34 @@ functions:
     - command: subprocess.exec
       type: setup
       params:
+        add_expansions_to_env: true
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        command: make get-mongodb
+    - command: subprocess.exec
+      type: setup
+      params:
+        background: true
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
-        command: make init-auth
+        command: make start-mongod-auth
     - command: subprocess.exec
       type: setup
       params:
         working_dir: gopath/src/github.com/evergreen-ci/cedar/
         add_expansions_to_env: true
-        command: make start-mongod-auth
+        command: make check-mongod
+    - command: subprocess.exec
+      type: setup
+      params:
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
+        command: make init-rs
+    - command: subprocess.exec
+      type: setup
+      params:
+        working_dir: gopath/src/github.com/evergreen-ci/cedar/
+        add_expansions_to_env: true
+        command: make init-auth
 
   set-up-curator:
     - command: s3.get
@@ -150,7 +169,6 @@ tasks:
   - name: test-auth
     commands:
       - func: get-project
-      - func: set-up-mongodb
       - func: set-up-mongodb-auth
       - func: set-up-curator
       - func: run-make

@@ -10,6 +10,10 @@ function createAuth(){
                                 "db" : "admin"
                         },
                         {
+                                "role" : "dbAdminAnyDatabase",
+                                "db" : "admin"
+                        },
+                        {
                                 "role" : "dbAdmin",
                                 "db" : "admin"
                         },

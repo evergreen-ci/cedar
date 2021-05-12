@@ -299,8 +299,6 @@ start-mongod-auth:mongodb/.get-mongodb
 init-auth:mongodb/.get-mongodb
 	./mongodb/mongo --host `./mongodb/mongo --quiet --eval "db.isMaster()['primary']"` cmd/mongo-auth/create_auth_user.js
 	@echo "creating MyUserAdmin"
-	killall mongod
-	sleep 60
 init-rs:mongodb/.get-mongodb
 	./mongodb/mongo --eval 'rs.initiate()'
 	sleep 30 
