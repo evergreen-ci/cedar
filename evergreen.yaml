@@ -44,6 +44,8 @@ functions:
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
         GOPATH: ${workdir}/gopath
         CEDAR_DB_CREDS_FILE: ${workdir}gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+        RUN_TEST: TestGlobalEnvironmentAuth
+        TEST_USER_ADMIN: myUserAdmin
   set-up-mongodb:
     - command: subprocess.exec
       type: setup
@@ -172,36 +174,63 @@ tasks:
       - func: set-up-mongodb-auth
       - func: set-up-curator
       - func: run-make
-        vars: { target: "cedar" }
-      - func: run-make
         vars: { target: "clean-results" }
-
       - func: run-make
         vars: { target: "test-cedar" }
         params:
           env:
             RUN_TEST: TestGlobalEnvironmentAuth
             TEST_USER_ADMIN: myUserAdmin
-      - func: run-make
-        vars: { target: "test-cedar" }
+      - command: subprocess.exec
+        type: test
         params:
+          working_dir: gopath/src/github.com/evergreen-ci/cedar/
+          binary: make
+          args: ["test-cedar"]
+          add_expansions_to_env: true
           env:
+            AUTH_USER: ${auth_user}
+            AUTH_API_KEY: ${auth_api_key}
+            AWS_ACCESS_KEY_ID: ${aws_key}
+            AWS_SECRET_ACCESS_KEY: ${aws_secret}
+            GOPATH: ${workdir}/gopath
+            CEDAR_DB_CREDS_FILE: ${workdir}gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
+            RUN_TEST: TestGlobalEnvironmentAuth
+            TEST_USER_ADMIN: myUserAdmin
+      - command: subprocess.exec
+        type: test
+        params:
+          working_dir: gopath/src/github.com/evergreen-ci/cedar/
+          binary: make
+          args: ["test-cedar"]
+          add_expansions_to_env: true
+          env:
+            AUTH_USER: ${auth_user}
+            AUTH_API_KEY: ${auth_api_key}
+            AWS_ACCESS_KEY_ID: ${aws_key}
+            AWS_SECRET_ACCESS_KEY: ${aws_secret}
+            GOPATH: ${workdir}/gopath
+            CEDAR_DB_CREDS_FILE: ${workdir}gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
             RUN_TEST: TestDatabaseSessionAccessorAuth
             TEST_USER_ADMIN: myUserAdmin
-      - func: run-make
-        vars: { target: "test-cedar" }
+      - command: subprocess.exec
+        type: test
         params:
+          working_dir: gopath/src/github.com/evergreen-ci/cedar/
+          binary: make
+          args: ["test-cedar"]
+          add_expansions_to_env: true
           env:
+            AUTH_USER: ${auth_user}
+            AUTH_API_KEY: ${auth_api_key}
+            AWS_ACCESS_KEY_ID: ${aws_key}
+            AWS_SECRET_ACCESS_KEY: ${aws_secret}
+            GOPATH: ${workdir}/gopath
+            CEDAR_DB_CREDS_FILE: ${workdir}gopath/src/github.com/evergreen-ci/cedar/test_auth.yml
             RUN_TEST: TestEnvironmentConfigurationAuth
             TEST_USER_ADMIN: myUserAdmin
       - func: run-make
         vars: { target: "clean-results" }
-      - func: parse-results
-      - command: shell.exec
-        type: setup
-        params:
-          script: "rm -rf ~/.aws"
-
   - <<: *run-build
     tags: ["lint"]
     name: lint-rpc-internal
