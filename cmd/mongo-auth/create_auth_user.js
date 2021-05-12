@@ -26,7 +26,7 @@ function createAuth(){
                         "SCRAM-SHA-1",
                         "SCRAM-SHA-256"
                 ]
-        	}
+        }
 	)
 };
 createAuth();

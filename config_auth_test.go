@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/message"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,9 +31,7 @@ func TestGlobalEnvironmentAuth(t *testing.T) {
 		DBPwd:        "default",
 	}
 	uname := os.Getenv("TEST_USER_ADMIN")
-	grip.Warning(message.Fields{"message": "preTGE", "uname": uname, "conf": conf})
 	conf.DBUser = uname
-	grip.Warning(message.Fields{"message": "postTGE", "uname": uname, "conf": conf})
 
 	env, err := NewEnvironment(context.TODO(), "second", conf)
 	assert.NoError(t, err)
@@ -55,9 +51,7 @@ func TestDatabaseSessionAccessorAuth(t *testing.T) {
 	assert.Contains(t, err.Error(), "is nil")
 	conf1 := &Configuration{MongoDBURI: "mongodb://localhost:27017", DBPwd: "default"}
 	uname := os.Getenv("TEST_USER_ADMIN")
-	grip.Warning(message.Fields{"message": "preTSA", "uname": uname, "conf": conf1})
 	conf1.DBUser = uname
-	grip.Warning(message.Fields{"message": "poastTSA", "uname": uname, "conf": conf1})
 	env, err = NewEnvironment(ctx, "test", conf1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amboy workers")
