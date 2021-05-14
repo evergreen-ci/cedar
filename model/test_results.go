@@ -198,6 +198,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 					// errors so we can get as many test
 					// results in s3 as possible.
 					catcher.Wrapf(err, "problem marshalling bson for test result '%s'", result.TestName)
+					continue
 				}
 
 				if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
