@@ -176,11 +176,20 @@ tasks:
       - func: run-make
         vars: { target: "clean-results" }
       - func: run-make
-        vars: { target: "test-cedar", RUN_TEST: "TestGlobalEnvironmentAuth", TEST_USER_ADMIN: "myUserAdmin"}
+        vars: 
+          target: "test-cedar"
+          RUN_TEST: "TestGlobalEnvironmentAuth"
+          TEST_USER_ADMIN: "myUserAdmin"
       - func: run-make
-        vars: { target: "test-cedar", RUN_TEST: "TestDatabaseSessionAccessorAuth", TEST_USER_ADMIN: "myUserAdmin"}
+        vars: 
+          target: "test-cedar"
+          RUN_TEST: "TestDatabaseSessionAccessorAuth"
+          TEST_USER_ADMIN: "myUserAdmin"
       - func: run-make
-        vars: { target: "test-cedar", RUN_TEST: "TestDatabaseSessionAccessorAuth", TEST_USER_ADMIN: "myUserAdmin"}
+        vars: 
+          target: "test-cedar"
+          RUN_TEST: "TestDatabaseSessionAccessorAuth"
+          TEST_USER_ADMIN: "myUserAdmin"
       - func: run-make
         vars: { target: "clean-results" }
 
