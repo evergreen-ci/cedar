@@ -194,11 +194,13 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 			for result := range resultChan {
 				data, err := bson.Marshal(result)
 				if err != nil {
-					catcher.Wrap(err, "problem marshalling bson")
+					catcher.Wrapf(err, "problem marshalling bson for test result '%s'", result.TestName)
+					return
 				}
 
 				if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
-					catcher.Wrap(err, "problem uploading test results to bucket")
+					catcher.Wrapf(err, "problem uploading test result '%s' to bucket", result.TestName)
+					return
 				}
 			}
 		}()
