@@ -340,7 +340,7 @@ func (h *htdFilterHandler) readStartAt(startAtValue string) (*model.HTDStartAt, 
 	date, err := time.ParseInLocation(htdAPIDateFormat, elements[0], time.UTC)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
-			Message:    "invalid start_at value",
+			Message:    errors.Wrap(err, "invalid start_at value").Error(),
 			StatusCode: http.StatusBadRequest,
 		}
 	}

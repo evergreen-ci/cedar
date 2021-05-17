@@ -2,11 +2,15 @@ package model
 
 import (
 	"strings"
+	"time"
 
 	dbmodel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 )
+
+// Format used to encode dates in the API.
+const htdAPIDateFormat = "2006-01-02"
 
 // APIAggregatedHistoricalTestData describes aggregated test result data for a
 // given date range.
@@ -45,7 +49,7 @@ func (a *APIAggregatedHistoricalTestData) Import(i interface{}) error {
 // and start at this element.
 func (a *APIAggregatedHistoricalTestData) StartAtKey() string {
 	return HTDStartAtKey{
-		date:     a.Date.String(),
+		date:     time.Time(a.Date).Format(htdAPIDateFormat),
 		variant:  utility.FromStringPtr(a.Variant),
 		taskName: utility.FromStringPtr(a.TaskName),
 		testName: utility.FromStringPtr(a.TestName),
