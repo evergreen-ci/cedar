@@ -284,7 +284,7 @@ func (h *logGroupByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id and time range from the http request.
+// Parse fetches the task id, group id, and parameters from the http request.
 func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
@@ -315,7 +315,7 @@ func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) erro
 	return catcher.Resolve()
 }
 
-// Run calls FindLogsByTaskID and returns the merged logs.
+// Run calls FindGroupedLogs sand returns the merged logs.
 func (h *logGroupByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
