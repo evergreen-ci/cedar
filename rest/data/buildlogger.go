@@ -260,20 +260,21 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 
 	opts.ProcessName = ""
 	its := []dbModel.LogIterator{}
-	it, err := dbc.findLogsByTestName(ctx, &opts)
-	if err != nil {
-		return data, time.Time{}, paginated, err
+	if opts.TestName != "" {
+		it, err := dbc.findLogsByTestName(ctx, &opts)
+		if err != nil {
+			return data, time.Time{}, paginated, err
+		}
+		its = append(its, it)
+		opts.EmptyTestName = true
+		// Need to set this to false since the last call to findLogsByTestName
+		// has found the latest execution.
+		opts.EmptyExecution = false
 	}
-	its = append(its, it)
-
-	opts.TestName = ""
-	// Need to set this to false since the last call to findLogsByTestName
-	// has found the latest execution.
-	opts.EmptyExecution = false
-	it, err = dbc.findLogsByTestName(ctx, &opts)
+	it, err := dbc.findLogsByTestName(ctx, &opts)
 	if err == nil {
 		its = append(its, it)
-	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || (opts.TestName == "" || errResp.StatusCode != http.StatusNotFound) {
 		return data, time.Time{}, paginated, err
 	}
 	it = dbModel.NewMergingIterator(its...)
@@ -299,17 +300,14 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts *Buildlogge
 		TimeRange: opts.TimeRange,
 		Info: dbModel.LogInfo{
 			TaskID:      opts.TaskID,
+			TestName:    opts.TestName,
 			ProcessName: opts.ProcessName,
 			Execution:   opts.Execution,
 			Tags:        opts.Tags,
 		},
+		EmptyTestName:   opts.EmptyTestName,
 		LatestExecution: opts.EmptyExecution,
 		Group:           opts.Group,
-	}
-	if opts.TestName != "" {
-		dbOpts.Info.TestName = opts.TestName
-	} else {
-		dbOpts.EmptyTestName = true
 	}
 	logs := dbModel.Logs{}
 	logs.Setup(dbc.env)
@@ -543,10 +541,17 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts BuildloggerOptions) ([]model.APILog, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
-		if log.Info.TaskID == opts.TaskID && log.Info.TestName == opts.TestName {
+		if opts.EmptyTestName && log.Info.TestName != "" {
+			continue
+		}
+		if !opts.EmptyTestName && opts.TestName != "" && log.Info.TestName != opts.TestName {
+			continue
+		}
+		if log.Info.TaskID == opts.TaskID {
 			logs = append(logs, log)
 		}
 	}
+
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -588,20 +593,21 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 
 	opts.ProcessName = ""
 	its := []dbModel.LogIterator{}
-	it, err := mc.findLogsByTestName(ctx, &opts)
-	if err != nil {
-		return data, time.Time{}, paginated, err
+	if opts.TestName != "" {
+		it, err := mc.findLogsByTestName(ctx, &opts)
+		if err != nil {
+			return data, time.Time{}, paginated, err
+		}
+		its = append(its, it)
+		opts.EmptyTestName = true
+		// Need to set this to false since the last call to findLogsByTestName
+		// has found the latest execution.
+		opts.EmptyExecution = false
 	}
-	its = append(its, it)
-
-	opts.TestName = ""
-	// Need to set this to false since the last call to findLogsByTestName
-	// has found the latest execution.
-	opts.EmptyExecution = false
-	it, err = mc.findLogsByTestName(ctx, &opts)
+	it, err := mc.findLogsByTestName(ctx, &opts)
 	if err == nil {
 		its = append(its, it)
-	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || errResp.StatusCode != http.StatusNotFound {
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || (opts.TestName == "" || errResp.StatusCode != http.StatusNotFound) {
 		return data, time.Time{}, paginated, err
 	}
 	it = dbModel.NewMergingIterator(its...)
@@ -625,7 +631,16 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts *BuildloggerOptions) (dbModel.LogIterator, error) {
 	logs := []dbModel.Log{}
 	for _, log := range mc.CachedLogs {
-		if log.Info.TaskID == opts.TaskID && log.Info.TestName == opts.TestName && containsTags(opts.Tags, log.Info.Tags) {
+		if log.Info.TaskID == opts.TaskID && containsTags(opts.Tags, log.Info.Tags) {
+			if opts.Group != "" && !containsTags([]string{opts.Group}, log.Info.Tags) {
+				continue
+			}
+			if opts.EmptyTestName && log.Info.TestName != "" {
+				continue
+			}
+			if !opts.EmptyTestName && opts.TestName != "" && log.Info.TestName != opts.TestName {
+				continue
+			}
 			if opts.ProcessName != "" && log.Info.ProcessName != opts.ProcessName {
 				continue
 			}
