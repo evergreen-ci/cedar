@@ -264,6 +264,77 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// GET /buildlogger/task_id/{task_id}/group/{group_id}
+
+type logGroupByTaskIDHandler struct {
+	opts data.BuildloggerOptions
+	sc   data.Connector
+}
+
+func makeGetLogGroupByTaskID(sc data.Connector) gimlet.RouteHandler {
+	return &logGroupByTaskIDHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new logGroupByTaskIDHandler.
+func (h *logGroupByTaskIDHandler) Factory() gimlet.RouteHandler {
+	return &logGroupByTaskIDHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the task id, group id, and parameters from the http request.
+func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+	catcher := grip.NewBasicCatcher()
+
+	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
+	h.opts.Group = gimlet.GetVars(r)["group_id"]
+	vals := r.URL.Query()
+	h.opts.ProcessName = vals.Get(procName)
+	h.opts.Tags = vals[tags]
+	h.opts.PrintTime = vals.Get(printTime) == trueString
+	h.opts.PrintPriority = vals.Get(printPriority) == trueString
+	h.opts.TimeRange, err = parseTimeRange(time.RFC3339Nano, vals.Get(logStartAt), vals.Get(logEndAt))
+	catcher.Add(err)
+	if len(vals[execution]) > 0 {
+		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		catcher.Add(err)
+	} else {
+		h.opts.EmptyExecution = true
+	}
+	if len(vals[limit]) > 0 {
+		h.opts.Limit, err = strconv.Atoi(vals[limit][0])
+		catcher.Add(err)
+	}
+	if vals.Get(paginate) == trueString && h.opts.Limit <= 0 {
+		h.opts.SoftSizeLimit = softSizeLimit
+	}
+
+	return catcher.Resolve()
+}
+
+// Run calls FindGroupedLogs sand returns the merged logs.
+func (h *logGroupByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
+	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
+	if err != nil {
+		err = errors.Wrapf(err, "problem getting logs by task id '%s' and group id '%s'", h.opts.TaskID, h.opts.Group)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request":  gimlet.GetRequestID(ctx),
+			"method":   "GET",
+			"route":    "/buildlogger/task_id/{task_id}/group/{group_id}",
+			"task_id":  h.opts.TaskID,
+			"group_id": h.opts.Group,
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+
+	return newBuildloggerResponder(data, h.opts.TimeRange.StartAt, next, paginated)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // GET /buildlogger/test_name/{task_id}/{test_name}
 
 type logGetByTestNameHandler struct {
@@ -386,7 +457,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	h.opts.TestName = ""
+	h.opts.EmptyTestName = true
 	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 	errResp, ok := err.(gimlet.ErrorResponse)
 	if err != nil && (!ok || errResp.StatusCode != http.StatusNotFound) {
@@ -408,26 +479,26 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 //
 // GET /buildlogger/test_name/{task_id}/{test_name}/group/{group_id}
 
-type logGroupHandler struct {
+type logGroupByTestNameHandler struct {
 	opts data.BuildloggerOptions
 	sc   data.Connector
 }
 
-func makeGetLogGroup(sc data.Connector) gimlet.RouteHandler {
-	return &logGroupHandler{
+func makeGetLogGroupByTestName(sc data.Connector) gimlet.RouteHandler {
+	return &logGroupByTestNameHandler{
 		sc: sc,
 	}
 }
 
 // Factory returns a pointer to a new logGetByGroupHandler.
-func (h *logGroupHandler) Factory() gimlet.RouteHandler {
-	return &logGroupHandler{
+func (h *logGroupByTestNameHandler) Factory() gimlet.RouteHandler {
+	return &logGroupByTestNameHandler{
 		sc: h.sc,
 	}
 }
 
 // Parse fetches the id, name, time range, and tags from the http request.
-func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
+func (h *logGroupByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
 
@@ -460,7 +531,7 @@ func (h *logGroupHandler) Parse(_ context.Context, r *http.Request) error {
 }
 
 // Run calls FindGroupedLogs and returns the merged logs.
-func (h *logGroupHandler) Run(ctx context.Context) gimlet.Responder {
+func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	if h.opts.TimeRange.IsZero() {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 		if err != nil {
