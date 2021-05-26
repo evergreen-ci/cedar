@@ -274,7 +274,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	it, err := dbc.findLogsByTestName(ctx, &opts)
 	if err == nil {
 		its = append(its, it)
-	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || (opts.TestName == "" || errResp.StatusCode != http.StatusNotFound) {
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || opts.TestName == "" || errResp.StatusCode != http.StatusNotFound {
 		return data, time.Time{}, paginated, err
 	}
 	it = dbModel.NewMergingIterator(its...)
@@ -607,7 +607,7 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	it, err := mc.findLogsByTestName(ctx, &opts)
 	if err == nil {
 		its = append(its, it)
-	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || (opts.TestName == "" || errResp.StatusCode != http.StatusNotFound) {
+	} else if errResp, ok := err.(gimlet.ErrorResponse); !ok || opts.TestName == "" || errResp.StatusCode != http.StatusNotFound {
 		return data, time.Time{}, paginated, err
 	}
 	it = dbModel.NewMergingIterator(its...)
