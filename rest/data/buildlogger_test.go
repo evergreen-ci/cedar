@@ -179,6 +179,62 @@ func (s *buildloggerConnectorSuite) setup() {
 			ExitCode:    0,
 			Mainline:    true,
 		},
+		{
+			Project:   "test",
+			Version:   "0",
+			Variant:   "linux",
+			TaskName:  "task0",
+			TaskID:    "task3",
+			Execution: 0,
+			TestName:  "test0",
+			Format:    model.LogFormatText,
+			Tags:      []string{"tag1", "tag2", "tag3", "tag4"},
+			Arguments: map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:  0,
+			Mainline:  true,
+		},
+		{
+			Project:   "test",
+			Version:   "0",
+			Variant:   "linux",
+			TaskName:  "task0",
+			TaskID:    "task3",
+			Execution: 0,
+			TestName:  "test1",
+			Format:    model.LogFormatText,
+			Tags:      []string{"tag1", "tag2", "tag3", "tag4"},
+			Arguments: map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:  0,
+			Mainline:  true,
+		},
+		{
+			Project:     "test",
+			Version:     "0",
+			Variant:     "linux",
+			TaskName:    "task0",
+			TaskID:      "task3",
+			Execution:   0,
+			ProcessName: "mongod0",
+			Format:      model.LogFormatText,
+			Tags:        []string{"tag2", "tag3", "tag4"},
+			Arguments:   map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:    0,
+			Mainline:    true,
+		},
+		{
+			Project:   "test",
+			Version:   "0",
+			Variant:   "linux",
+			TaskName:  "task0",
+			TaskID:    "task3",
+			Execution: 0,
+			TestName:  "test2",
+			Format:    model.LogFormatText,
+			Tags:      []string{"tag2", "tag3", "tag4"},
+			Arguments: map[string]string{"arg1": "val1", "arg2": "val2"},
+			ExitCode:  0,
+			Mainline:  true,
+		},
 	}
 
 	for _, logInfo := range logs {
@@ -562,6 +618,7 @@ func (s *buildloggerConnectorSuite) TestFindLogsByTestNameEmpty() {
 
 	findOpts := BuildloggerOptions{
 		TaskID:        opts.Info.TaskID,
+		EmptyTestName: true,
 		Execution:     1,
 		TimeRange:     opts.TimeRange,
 		SoftSizeLimit: 500,
@@ -666,8 +723,8 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 				TaskID:    "task1",
 				TestName:  "test0",
 				Execution: 1,
-				Tags:      []string{"tag1"},
 			},
+			Group: "tag1",
 		}
 		logs1 := model.Logs{}
 		logs1.Setup(s.env)
@@ -676,11 +733,6 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		s.Require().NoError(err)
 		s.Require().NotNil(it1)
 
-		opts.Info = model.LogInfo{
-			TaskID:    "task1",
-			Execution: 1,
-			Tags:      []string{"tag1"},
-		}
 		opts.EmptyTestName = true
 		logs2 := model.Logs{}
 		logs2.Setup(s.env)
@@ -692,8 +744,9 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
-			TestName:      "test0",
-			Execution:     1,
+			TestName:      opts.Info.TestName,
+			Execution:     opts.Info.Execution,
+			Group:         opts.Group,
 			Tags:          opts.Info.Tags,
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
@@ -714,7 +767,6 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsExists() {
 		s.Equal(it.Item().Timestamp, next)
 
 		// limit and latest execution
-		opts.Info.TestName = "test0"
 		opts.EmptyTestName = false
 		opts.LatestExecution = true
 		logs1.Setup(s.env)
@@ -748,6 +800,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 				TestName:  "test1",
 				Execution: 1,
 			},
+			Group: "tag4",
 		}
 		logs := model.Logs{}
 		logs.Setup(s.env)
@@ -760,8 +813,65 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 		findOpts := BuildloggerOptions{
 			TaskID:        opts.Info.TaskID,
 			TestName:      opts.Info.TestName,
-			Execution:     1,
-			Tags:          []string{"tag4"},
+			Execution:     opts.Info.Execution,
+			Group:         "tag4",
+			TimeRange:     opts.TimeRange,
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+			SoftSizeLimit: 500,
+		}
+		data, next, paginated, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.True(paginated)
+		readerOpts := model.LogIteratorReaderOptions{
+			PrintTime:     printTime,
+			PrintPriority: !printTime,
+			SoftSizeLimit: findOpts.SoftSizeLimit,
+		}
+		expected, err := ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+		s.Equal(it.Item().Timestamp, next)
+
+		// limit
+		it, err = logs.Merge(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(it)
+		it = model.NewMergingIterator(it)
+
+		findOpts.Limit = 100
+		data, _, paginated, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+		s.Require().NoError(err)
+		s.False(paginated)
+		readerOpts.Limit = findOpts.Limit
+		readerOpts.SoftSizeLimit = 0
+		expected, err = ioutil.ReadAll(model.NewLogIteratorReader(s.ctx, it, readerOpts))
+		s.Require().NoError(err)
+		s.Equal(expected, data)
+	}
+}
+
+func (s *buildloggerConnectorSuite) TestFindGroupedLogsTaskIDLevel() {
+	for _, printTime := range []bool{true, false} {
+		opts := model.LogFindOptions{
+			TimeRange: model.TimeRange{
+				EndAt: time.Now().Add(7 * 24 * time.Hour),
+			},
+			Info:  model.LogInfo{TaskID: "task3"},
+			Group: "tag1",
+		}
+		logs := model.Logs{}
+		logs.Setup(s.env)
+		s.Require().NoError(logs.Find(s.ctx, opts))
+		it, err := logs.Merge(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(it)
+		it = model.NewMergingIterator(it)
+
+		findOpts := BuildloggerOptions{
+			TaskID:        opts.Info.TaskID,
+			Execution:     opts.Info.Execution,
+			Group:         opts.Group,
 			TimeRange:     opts.TimeRange,
 			PrintTime:     printTime,
 			PrintPriority: !printTime,
@@ -799,16 +909,36 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsOnlyTestLevel() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindGroupedLogsDNE() {
+	// Task id does not exist.
 	findOpts := BuildloggerOptions{
-		TaskID:   "task1",
-		TestName: "DNE",
-		Tags:     []string{"tag1"},
+		TaskID:   "DNE",
+		TestName: "test0",
+		Group:    "tag1",
 		TimeRange: model.TimeRange{
 			StartAt: time.Now().Add(-time.Hour),
 			EndAt:   time.Now(),
 		},
 	}
 	_, _, _, err := s.sc.FindGroupedLogs(s.ctx, findOpts)
+	s.Error(err)
 
+	// Test name does not exist.
+	findOpts.TaskID = "task1"
+	findOpts.TestName = "DNE"
+
+	_, _, _, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+	s.Error(err)
+
+	// Group does not exist with test name and task id.
+	findOpts.TestName = "test0"
+	findOpts.Group = "DNE"
+
+	_, _, _, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
+	s.Error(err)
+
+	// Group does not exist with task id only.
+	findOpts.TestName = ""
+
+	_, _, _, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 	s.Error(err)
 }

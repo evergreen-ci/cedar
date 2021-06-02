@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -15,6 +17,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -173,18 +176,41 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "problem creating bucket")
 	}
 
-	for _, result := range results {
-		data, err := bson.Marshal(result)
-		if err != nil {
-			return errors.Wrap(err, "problem marshalling bson")
-		}
-
-		if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
-			return errors.Wrap(err, "problem uploading test results to bucket")
-		}
+	resultChan := make(chan *TestResult, len(results))
+	for i := 0; i < len(results); i++ {
+		resultChan <- &results[i]
 	}
+	close(resultChan)
+	var wg sync.WaitGroup
+	catcher := grip.NewBasicCatcher()
+	for i := 0; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+		go func() {
+			defer func() {
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results append"))
+				wg.Done()
+			}()
 
-	return nil
+			for result := range resultChan {
+				data, err := bson.Marshal(result)
+				if err != nil {
+					// We should continue on marhsalling
+					// errors so we can get as many test
+					// results in s3 as possible.
+					catcher.Wrapf(err, "problem marshalling bson for test result '%s'", result.TestName)
+					continue
+				}
+
+				if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
+					catcher.Wrapf(err, "problem uploading test result '%s' to bucket", result.TestName)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	return catcher.Resolve()
 }
 
 // Download returns a TestResult slice with the corresponding results stored in

@@ -114,6 +114,7 @@ type BuildloggerOptions struct {
 	ID             string
 	TaskID         string
 	TestName       string
+	EmptyTestName  bool
 	Execution      int
 	EmptyExecution bool
 	ProcessName    string
