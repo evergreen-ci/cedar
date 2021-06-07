@@ -219,6 +219,16 @@ func (info JobRetryInfo) GetMaxAttempts() int {
 	return info.MaxAttempts
 }
 
+// GetRemainingAttempts returns the number of times this job is still allow to
+// attempt, excluding the current attempt.
+func (info JobRetryInfo) GetRemainingAttempts() int {
+	remainder := info.GetMaxAttempts() - info.CurrentAttempt - 1
+	if remainder < 0 {
+		return 0
+	}
+	return remainder
+}
+
 // JobRetryOptions represents configuration options for a job that can retry.
 // Their meaning corresponds to the fields in JobRetryInfo, but is more amenable
 // to optional input values.
@@ -446,11 +456,6 @@ type RetryHandlerOptions struct {
 	// default maximum capacity. If MaxCapacity is -1, it will have unlimited
 	// capacity.
 	MaxCapacity int
-	// Disabled is a function that allows users to dynamically determine whether
-	// or not the retry handler should run. If it returns true, the retry
-	// handler will not automatically handle retrying jobs. By default, this
-	// will always return false.
-	Disabled func() bool
 }
 
 // Validate checks that all retry handler options are valid.
@@ -474,9 +479,6 @@ func (opts *RetryHandlerOptions) Validate() error {
 	}
 	if opts.MaxCapacity == 0 {
 		opts.MaxCapacity = 4096
-	}
-	if opts.Disabled == nil {
-		opts.Disabled = func() bool { return false }
 	}
 	return nil
 }
