@@ -30,7 +30,7 @@ imports:
 - name: github.com/evergreen-ci/utility
   version: 69522858adec0bfca67cf7acdc213d97ec2202e0
 - name: github.com/mongodb/amboy
-  version: 59cb9bffd56294ee8d66b4b1527f80e4ac6082e6
+  version: 43815750c2f1d63d1f1de803a8a684ca79ac82d6
 - name: github.com/mongodb/grip
   version: 0c6d5f1374e2a07a8ce72cfd765bea028aa6b7ec
 - name: github.com/mongodb/anser
