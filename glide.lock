@@ -38,7 +38,7 @@ imports:
 - name: github.com/mongodb/jasper
   version: 4354bf927458bcb43584fc8e3a98c492a7daa150
 - name: github.com/evergreen-ci/gimlet
-  version: 185166ff85e8801545747fa65a14486e0fe4680b
+  version: ca35738ff88824eab0bbbe7950a81b30b6bfde9e
 - name: github.com/mongodb/ftdc
   version: 95cd464bcb36fa3fda27889aca47f62de1851125
 - name: github.com/evergreen-ci/pail
