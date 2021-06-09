@@ -39,7 +39,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"def": model.PerformanceResult{
 				ID:          "def",
-				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 1, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 1, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -52,7 +52,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"ghi": model.PerformanceResult{
 				ID:          "ghi",
-				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 2, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 2, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -65,7 +65,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"jkl": model.PerformanceResult{
 				ID:          "jkl",
-				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 3, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 3, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -90,10 +90,10 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"delete": model.PerformanceResult{
 				ID:          "delete",
-				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 4, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 4, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
-					Version:  "1",
+					Version:  "2",
 					Order:    2,
 					TaskID:   "456",
 					TaskName: "taskname1",
@@ -269,8 +269,8 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 	rh.(*perfGetByVersionHandler).opts.Limit = 2
 	rh.(*perfGetByVersionHandler).opts.Tags = []string{}
 	expected = []datamodel.APIPerformanceResult{
-		s.apiResults["abc"],
-		s.apiResults["def"],
+		s.apiResults["jkl"],
+		s.apiResults["ghi"],
 	}
 
 	resp = rh.Run(context.TODO())
