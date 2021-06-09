@@ -39,7 +39,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"def": model.PerformanceResult{
 				ID:          "def",
-				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 1, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -52,7 +52,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"ghi": model.PerformanceResult{
 				ID:          "ghi",
-				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 2, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -65,7 +65,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"jkl": model.PerformanceResult{
 				ID:          "jkl",
-				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 0, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 0, 3, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -90,7 +90,7 @@ func (s *PerfHandlerSuite) setup() {
 			},
 			"delete": model.PerformanceResult{
 				ID:          "delete",
-				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC),
+				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 4, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
 					Version:  "1",
@@ -263,11 +263,34 @@ func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerFound() {
 	s.Equal(http.StatusOK, resp.Status())
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
+
+	// Paginate.
+	rh.(*perfGetByVersionHandler).opts.Version = "1"
+	rh.(*perfGetByVersionHandler).opts.Limit = 2
+	rh.(*perfGetByVersionHandler).opts.Tags = []string{}
+	expected = []datamodel.APIPerformanceResult{
+		s.apiResults["abc"],
+		s.apiResults["def"],
+	}
+
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+	pages := resp.Pages()
+	s.Require().NotNil(pages)
+	s.Require().NotNil(pages.Prev)
+	s.Require().NotNil(pages.Next)
+	s.Equal("0", pages.Prev.Key)
+	s.Equal(rh.(*perfGetByVersionHandler).opts.Limit, pages.Prev.Limit)
+	s.Equal("2", pages.Next.Key)
+	s.Equal(rh.(*perfGetByVersionHandler).opts.Limit, pages.Next.Limit)
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByVersionHandlerNotFound() {
 	rh := s.rh["version"]
-	rh.(*perfGetByVersionHandler).opts.Version = "2"
+	rh.(*perfGetByVersionHandler).opts.Version = "3"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -325,6 +348,7 @@ func (s *PerfHandlerSuite) TestParse() {
 		query     string
 		handler   string
 		limit     bool
+		skip      bool
 	}{
 		{
 			handler:   "task_id",
@@ -341,44 +365,52 @@ func (s *PerfHandlerSuite) TestParse() {
 			handler:   "version",
 			query:     "?",
 			urlString: "http://example.com/perf/version/verison0",
+			limit:     true,
+			skip:      true,
 		},
 	} {
 		s.T().Run(test.handler, func(t *testing.T) {
-			s.testParseValid(test.handler, test.urlString, test.query, test.limit)
-			s.testParseDefaults(test.handler, test.urlString, test.query, test.limit)
+			s.testParseValid(test.handler, test.urlString, test.query, test.limit, test.skip)
+			s.testParseDefaults(test.handler, test.urlString, test.query, test.limit, test.skip)
 		})
 	}
 }
 
-func (s *PerfHandlerSuite) testParseValid(handler, urlString, query string, limit bool) {
+func (s *PerfHandlerSuite) testParseValid(handler, urlString, query string, limit, skip bool) {
 	ctx := context.Background()
-	query = strings.Join([]string{query, "tags=hello", "tags=world", "limit=5"}, "&")
+	query = strings.Join([]string{query, "tags=hello", "tags=world", "limit=5", "skip=1000"}, "&")
 	req := &http.Request{Method: "GET"}
 	url, err := url.Parse(urlString + query)
 	s.Require().NoError(err)
 	req.URL = url
 	expectedTags := []string{"hello", "world"}
-	rh := s.rh[handler]
+	rh := s.rh[handler].Factory()
 
 	s.Require().NoError(rh.Parse(ctx, req))
 	s.Equal(expectedTags, getPerfTags(rh, handler))
 	if limit {
 		s.Equal(5, getPerfLimit(rh, handler))
 	}
+	if skip {
+		s.Equal(1000, getPerfSkip(rh, handler))
+	}
 }
 
-func (s *PerfHandlerSuite) testParseDefaults(handler, urlString, query string, limit bool) {
+func (s *PerfHandlerSuite) testParseDefaults(handler, urlString, query string, limit, skip bool) {
 	ctx := context.Background()
 	req := &http.Request{Method: "GET"}
 	url, err := url.Parse(urlString + query)
 	s.Require().NoError(err)
 	req.URL = url
-	rh := s.rh[handler]
+	rh := s.rh[handler].Factory()
 
 	s.NoError(rh.Parse(ctx, req))
 	s.Nil(getPerfTags(rh, handler))
 	if limit {
 		s.Zero(getPerfLimit(rh, handler))
+	}
+	if skip {
+		s.Zero(getPerfSkip(rh, handler))
 	}
 }
 
@@ -399,6 +431,17 @@ func getPerfLimit(rh gimlet.RouteHandler, handler string) int {
 	switch handler {
 	case "task_name":
 		return rh.(*perfGetByTaskNameHandler).opts.Limit
+	case "version":
+		return rh.(*perfGetByVersionHandler).opts.Limit
+	default:
+		return 0
+	}
+}
+
+func getPerfSkip(rh gimlet.RouteHandler, handler string) int {
+	switch handler {
+	case "version":
+		return rh.(*perfGetByVersionHandler).opts.Skip
 	default:
 		return 0
 	}
