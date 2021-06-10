@@ -149,4 +149,5 @@ type PerformanceOptions struct {
 	Tags     []string
 	Interval dbModel.TimeRange
 	Limit    int
+	Skip     int
 }

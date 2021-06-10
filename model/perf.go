@@ -390,6 +390,7 @@ type PerfFindOptions struct {
 	MaxDepth    int
 	GraphLookup bool
 	Limit       int
+	Skip        int
 	Sort        []string
 }
 
@@ -421,6 +422,9 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 	findOpts := options.Find()
 	if opts.Limit > 0 {
 		findOpts.SetLimit(int64(opts.Limit))
+	}
+	if opts.Skip > 0 {
+		findOpts.SetSkip(int64(opts.Skip))
 	}
 	if opts.Sort != nil {
 		sortKeys := make(bson.D, len(opts.Sort))
