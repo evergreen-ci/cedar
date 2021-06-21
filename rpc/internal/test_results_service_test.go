@@ -12,7 +12,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -20,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/grpc"
 )
 
@@ -128,12 +126,6 @@ func TestAddTestResults(t *testing.T) {
 	record.Setup(env)
 	require.NoError(t, record.SaveNew(ctx))
 
-	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
-		Path:   tmpDir,
-		Prefix: record.Artifact.Prefix,
-	})
-	require.NoError(t, err)
-
 	for _, test := range []struct {
 		name        string
 		results     *TestResults
@@ -213,25 +205,16 @@ func TestAddTestResults(t *testing.T) {
 				r.Setup(env)
 				require.NoError(t, r.Find(ctx))
 				assert.Equal(t, r.ID, r.Info.ID())
-				it, err := bucket.List(ctx, "")
+				results, err := r.Download(ctx)
 				require.NoError(t, err)
-				count := 0
-				for it.Next(ctx) {
-					reader, err := it.Item().Get(ctx)
+				require.Len(t, results, len(test.results.Results))
+				for i, result := range results {
+					exportedResult, err := test.results.Results[i].Export()
 					require.NoError(t, err)
-					defer func() {
-						assert.NoError(t, reader.Close())
-					}()
-					b, err := ioutil.ReadAll(reader)
-					require.NoError(t, err)
-					var tr model.TestResult
-					require.NoError(t, bson.Unmarshal(b, &tr))
-					assert.Equal(t, r.Info.TaskID, tr.TaskID)
-					assert.Equal(t, r.Info.Execution, tr.Execution)
-
-					count++
+					exportedResult.TaskID = record.Info.TaskID
+					exportedResult.Execution = record.Info.Execution
+					assert.Equal(t, exportedResult, result)
 				}
-				assert.Equal(t, 3, count)
 
 				time.Sleep(time.Second)
 				for _, res := range test.results.Results {
@@ -284,12 +267,6 @@ func TestStreamTestResults(t *testing.T) {
 	record2 := model.CreateTestResults(exported, model.PailLocal)
 	record2.Setup(env)
 	require.NoError(t, record2.SaveNew(ctx))
-
-	bucket, err := pail.NewLocalBucket(pail.LocalOptions{
-		Path:   tmpDir,
-		Prefix: record1.Artifact.Prefix,
-	})
-	require.NoError(t, err)
 
 	for _, test := range []struct {
 		name          string
@@ -409,13 +386,13 @@ func TestStreamTestResults(t *testing.T) {
 				r.Setup(env)
 				require.NoError(t, r.Find(ctx))
 				assert.Equal(t, r.ID, r.Info.ID())
-				it, err := bucket.List(ctx, "")
+				results, err := r.Download(ctx)
 				require.NoError(t, err)
-				count := 0
-				for it.Next(ctx) {
-					count++
+				combinedResults := []*TestResult{}
+				for i := range test.results {
+					combinedResults = append(combinedResults, test.results[i].Results...)
 				}
-				assert.Equal(t, test.expectedCount, count)
+				assert.Len(t, results, test.expectedCount)
 
 				time.Sleep(time.Second)
 				for _, results := range test.results {
