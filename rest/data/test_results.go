@@ -3,17 +3,13 @@ package data
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 /////////////////////////////
@@ -21,7 +17,7 @@ import (
 /////////////////////////////
 
 func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
-	it, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
+	results, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -34,11 +30,11 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 		}
 	}
 
-	return importTestResults(ctx, it)
+	return importTestResults(ctx, results)
 }
 
 func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
-	results, err := dbModel.FindTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
+	results, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -51,15 +47,7 @@ func (dbc *DBConnector) FindTestResultByTestName(ctx context.Context, opts TestR
 		}
 	}
 
-	bucket, err := results[0].GetBucket(ctx)
-	if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "getting bucket").Error(),
-		}
-	}
-
-	return getAPITestResultFromBucket(ctx, bucket, opts.TestName)
+	return getAPITestResultByTestName(ctx, results, opts.TestName)
 }
 
 ///////////////////////////////
@@ -98,18 +86,18 @@ func (mc *MockConnector) findTestResultsByTaskID(ctx context.Context, opts TestR
 		}
 	}
 
-	bucket, err := mc.getBucket(ctx, testResults.Artifact.Prefix)
+	results, err := testResults.Download(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return importTestResults(ctx, dbModel.NewTestResultsIterator(bucket))
+	return importTestResults(ctx, results)
 }
 
 func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
 	var (
 		testResults     []*dbModel.TestResults
-		its             []dbModel.TestResultsIterator
+		combinedResults []dbModel.TestResult
 		latestExecution int
 	)
 
@@ -125,24 +113,24 @@ func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opt
 		}
 	}
 
-	for _, result := range testResults {
-		if !opts.EmptyExecution || result.Info.Execution == latestExecution {
-			bucket, err := mc.getBucket(ctx, result.Artifact.Prefix)
-			if err != nil {
-				return nil, err
-			}
-			its = append(its, dbModel.NewTestResultsIterator(bucket))
-		}
-	}
-
-	if testResults == nil || its == nil {
+	if testResults == nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    "test results not found",
 		}
 	}
 
-	return importTestResults(ctx, dbModel.NewMultiTestResultsIterator(its...))
+	for i := range testResults {
+		if !opts.EmptyExecution || testResults[i].Info.Execution == latestExecution {
+			results, err := testResults[i].Download(ctx)
+			if err != nil {
+				return nil, err
+			}
+			combinedResults = append(combinedResults, results...)
+		}
+	}
+
+	return importTestResults(ctx, combinedResults)
 }
 
 func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
@@ -169,24 +157,24 @@ func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts Test
 		}
 	}
 
-	bucket, err := mc.getBucket(ctx, testResults.Artifact.Prefix)
+	results, err := testResults.Download(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return getAPITestResultFromBucket(ctx, bucket, opts.TestName)
+	return getAPITestResultByTestName(ctx, results, opts.TestName)
 }
 
 ///////////////////
 // Helper Functions
 ///////////////////
 
-func importTestResults(ctx context.Context, it dbModel.TestResultsIterator) ([]model.APITestResult, error) {
+func importTestResults(ctx context.Context, results []dbModel.TestResult) ([]model.APITestResult, error) {
 	apiResults := []model.APITestResult{}
 
-	for it.Next(ctx) {
+	for _, result := range results {
 		apiResult := model.APITestResult{}
-		err := apiResult.Import(it.Item())
+		err := apiResult.Import(result)
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
@@ -195,58 +183,35 @@ func importTestResults(ctx context.Context, it dbModel.TestResultsIterator) ([]m
 		}
 		apiResults = append(apiResults, apiResult)
 	}
-	if err := it.Err(); err != nil {
+
+	if err := ctx.Err(); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "iterating through test results").Error(),
+			Message:    err.Error(),
 		}
 	}
 
 	return apiResults, nil
 }
 
-func getAPITestResultFromBucket(ctx context.Context, bucket pail.Bucket, testName string) (*model.APITestResult, error) {
-	tr, err := bucket.Get(ctx, testName)
-	if pail.IsKeyNotFoundError(err) {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("test result with test_name '%s' not found", testName),
-		}
-	} else if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "retrieving test result with test_name '%s'", testName).Error(),
-		}
-	}
-	defer func() {
-		grip.Warning(errors.Wrap(tr.Close(), "closing file"))
-	}()
-
-	data, err := ioutil.ReadAll(tr)
-	if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "reading data").Error(),
+func getAPITestResultByTestName(ctx context.Context, results []dbModel.TestResult, testName string) (*model.APITestResult, error) {
+	for _, result := range results {
+		if testName == result.TestName {
+			apiResult := &model.APITestResult{}
+			if err := apiResult.Import(result); err != nil {
+				return nil, gimlet.ErrorResponse{
+					StatusCode: http.StatusInternalServerError,
+					Message:    errors.Wrap(err, "converting test result to output format").Error(),
+				}
+			}
+			return apiResult, ctx.Err()
 		}
 	}
 
-	var result dbModel.TestResult
-	if err := bson.Unmarshal(data, &result); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "unmarshalling test result").Error(),
-		}
+	return nil, gimlet.ErrorResponse{
+		StatusCode: http.StatusNotFound,
+		Message:    fmt.Sprintf("test result with test_name '%s' not found", testName),
 	}
-
-	apiResult := &model.APITestResult{}
-	if err := apiResult.Import(result); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "converting test result to output format").Error(),
-		}
-	}
-
-	return apiResult, ctx.Err()
 }
 
 func convertToDBTestResultsOptions(opts TestResultsOptions) dbModel.TestResultsFindOptions {

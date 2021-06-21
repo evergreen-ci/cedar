@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -257,29 +258,15 @@ func TestTestResultsAppend(t *testing.T) {
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, results[0:5]))
 		require.NoError(t, tr.Append(ctx, results[5:]))
-		savedResults := map[string]TestResult{}
-		iter, err := testBucket.List(ctx, tr.ID)
-		require.NoError(t, err)
-		for iter.Next(ctx) {
-			require.NoError(t, err)
-			r, err := iter.Item().Get(ctx)
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, r.Close())
-			}()
-			data, err := ioutil.ReadAll(r)
-			require.NoError(t, err)
-			result := TestResult{}
-			require.NoError(t, bson.Unmarshal(data, &result))
-			savedResults[result.TestName] = result
-		}
 
-		require.Len(t, savedResults, 10)
-		for _, result := range results {
-			savedResult, ok := savedResults[result.TestName]
-			require.True(t, ok)
-			assert.Equal(t, result, savedResult)
-		}
+		var savedResults testResultsDoc
+		r, err := testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
+		require.NoError(t, err)
+		data, err := ioutil.ReadAll(r)
+		require.NoError(t, err)
+		require.NoError(t, bson.Unmarshal(data, &savedResults))
+
+		assert.Equal(t, results, savedResults.Results)
 	})
 }
 
@@ -299,15 +286,14 @@ func TestTestResultsDownload(t *testing.T) {
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
 	require.NoError(t, err)
 
-	resultMap := map[string]TestResult{}
+	savedResults := testResultsDoc{}
+	savedResults.Results = make([]TestResult, 10)
 	for i := 0; i < 10; i++ {
-		result := getTestResult()
-		resultMap[result.TestName] = result
-		var data []byte
-		data, err = bson.Marshal(result)
-		require.NoError(t, err)
-		require.NoError(t, testBucket.Put(ctx, result.TestName, bytes.NewReader(data)))
+		savedResults.Results[i] = getTestResult()
 	}
+	data, err := bson.Marshal(&savedResults)
+	require.NoError(t, err)
+	require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 
 	t.Run("NoEnv", func(t *testing.T) {
 		tr.populated = true
@@ -340,20 +326,9 @@ func TestTestResultsDownload(t *testing.T) {
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucket", func(t *testing.T) {
 		tr.Setup(env)
-		iter, err := tr.Download(ctx)
+		results, err := tr.Download(ctx)
 		require.NoError(t, err)
-		results := []TestResult{}
-		for iter.Next(ctx) {
-			results = append(results, iter.Item())
-		}
-
-		require.Len(t, results, 10)
-		for _, result := range results {
-			expected, ok := resultMap[result.TestName]
-			require.True(t, ok)
-			assert.Equal(t, expected, result)
-			delete(resultMap, result.TestName)
-		}
+		assert.Equal(t, savedResults.Results, results)
 	})
 }
 
@@ -605,13 +580,8 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	}
 
 	opts := TestResultsFindOptions{DisplayTaskID: "display"}
-	iter, err := FindAndDownloadTestResults(ctx, env, opts)
+	results, err := FindAndDownloadTestResults(ctx, env, opts)
 	require.NoError(t, err)
-	require.NotNil(t, iter)
-	results := []TestResult{}
-	for iter.Next(ctx) {
-		results = append(results, iter.Item())
-	}
 
 	require.Len(t, results, 20)
 	for _, result := range results {
