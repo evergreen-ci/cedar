@@ -180,6 +180,8 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "getting uploaded test results")
 	}
 	if r != nil {
+		defer r.Close()
+
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			return errors.Wrap(err, "reading uploaded test results")
@@ -192,6 +194,9 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	allResults.Results = append(allResults.Results, results...)
 
 	data, err := bson.Marshal(&allResults)
+	if err != nil {
+		return errors.Wrap(err, "marshalling test results")
+	}
 	if err = bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)); err != nil {
 		return errors.Wrap(err, "uploading test results")
 	}
@@ -237,6 +242,7 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "getting test results")
 	}
+	defer r.Close()
 
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
