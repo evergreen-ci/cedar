@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -217,6 +218,7 @@ func TestTestResultsAppend(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
@@ -257,29 +259,18 @@ func TestTestResultsAppend(t *testing.T) {
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, results[0:5]))
 		require.NoError(t, tr.Append(ctx, results[5:]))
-		savedResults := map[string]TestResult{}
-		iter, err := testBucket.List(ctx, tr.ID)
-		require.NoError(t, err)
-		for iter.Next(ctx) {
-			require.NoError(t, err)
-			r, err := iter.Item().Get(ctx)
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, r.Close())
-			}()
-			data, err := ioutil.ReadAll(r)
-			require.NoError(t, err)
-			result := TestResult{}
-			require.NoError(t, bson.Unmarshal(data, &result))
-			savedResults[result.TestName] = result
-		}
 
-		require.Len(t, savedResults, 10)
-		for _, result := range results {
-			savedResult, ok := savedResults[result.TestName]
-			require.True(t, ok)
-			assert.Equal(t, result, savedResult)
-		}
+		var savedResults testResultsDoc
+		r, err := testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
+		require.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Close())
+		}()
+		data, err := ioutil.ReadAll(r)
+		require.NoError(t, err)
+		require.NoError(t, bson.Unmarshal(data, &savedResults))
+
+		assert.Equal(t, results, savedResults.Results)
 	})
 }
 
@@ -293,21 +284,12 @@ func TestTestResultsDownload(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 
 	tr := getTestResults()
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
 	require.NoError(t, err)
-
-	resultMap := map[string]TestResult{}
-	for i := 0; i < 10; i++ {
-		result := getTestResult()
-		resultMap[result.TestName] = result
-		var data []byte
-		data, err = bson.Marshal(result)
-		require.NoError(t, err)
-		require.NoError(t, testBucket.Put(ctx, result.TestName, bytes.NewReader(data)))
-	}
 
 	t.Run("NoEnv", func(t *testing.T) {
 		tr.populated = true
@@ -338,16 +320,42 @@ func TestTestResultsDownload(t *testing.T) {
 	require.NoError(t, conf.Find())
 	conf.Bucket.TestResultsBucket = tmpDir
 	require.NoError(t, conf.Save())
-	t.Run("DownloadFromBucket", func(t *testing.T) {
-		tr.Setup(env)
-		iter, err := tr.Download(ctx)
+	t.Run("DownloadFromBucketVersion1", func(t *testing.T) {
+		savedResults := testResultsDoc{}
+		savedResults.Results = make([]TestResult, 10)
+		for i := 0; i < 10; i++ {
+			savedResults.Results[i] = getTestResult()
+		}
+		data, err := bson.Marshal(&savedResults)
 		require.NoError(t, err)
-		results := []TestResult{}
-		for iter.Next(ctx) {
-			results = append(results, iter.Item())
+		require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+
+		tr.Setup(env)
+		results, err := tr.Download(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, savedResults.Results, results)
+	})
+	t.Run("DownloadFromBucketVersion0", func(t *testing.T) {
+		tr0 := getTestResults()
+		tr0.populated = true
+		tr0.Artifact.Version = 0
+		testBucket0, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr0.ID})
+		require.NoError(t, err)
+		resultMap := map[string]TestResult{}
+		for i := 0; i < 10; i++ {
+			result := getTestResult()
+			resultMap[result.TestName] = result
+			var data []byte
+			data, err = bson.Marshal(result)
+			require.NoError(t, err)
+			require.NoError(t, testBucket0.Put(ctx, result.TestName, bytes.NewReader(data)))
 		}
 
-		require.Len(t, results, 10)
+		tr0.Setup(env)
+		results, err := tr0.Download(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, results, len(resultMap))
 		for _, result := range results {
 			expected, ok := resultMap[result.TestName]
 			require.True(t, ok)
@@ -561,6 +569,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 	conf := &CedarConfig{
 		Bucket:    BucketConfig{TestResultsBucket: tmpDir},
@@ -577,15 +586,13 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	testBucket1, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr1.ID})
 	require.NoError(t, err)
 
-	resultMap := map[string]TestResult{}
+	savedResults1 := testResultsDoc{}
 	for i := 0; i < 10; i++ {
-		result := getTestResult()
-		resultMap[result.TestName] = result
-		var data []byte
-		data, err = bson.Marshal(result)
-		require.NoError(t, err)
-		require.NoError(t, testBucket1.Put(ctx, result.TestName, bytes.NewReader(data)))
+		savedResults1.Results = append(savedResults1.Results, getTestResult())
 	}
+	data, err := bson.Marshal(&savedResults1)
+	require.NoError(t, err)
+	require.NoError(t, testBucket1.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 
 	tr2 := getTestResults()
 	tr2.Info.DisplayTaskID = "display"
@@ -595,30 +602,21 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	testBucket2, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr2.ID})
 	require.NoError(t, err)
 
+	savedResults2 := testResultsDoc{}
 	for i := 0; i < 10; i++ {
-		result := getTestResult()
-		resultMap[result.TestName] = result
-		var data []byte
-		data, err = bson.Marshal(result)
-		require.NoError(t, err)
-		require.NoError(t, testBucket2.Put(ctx, result.TestName, bytes.NewReader(data)))
+		savedResults2.Results = append(savedResults2.Results, getTestResult())
 	}
+	data, err = bson.Marshal(&savedResults2)
+	require.NoError(t, err)
+	require.NoError(t, testBucket2.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 
 	opts := TestResultsFindOptions{DisplayTaskID: "display"}
-	iter, err := FindAndDownloadTestResults(ctx, env, opts)
+	results, err := FindAndDownloadTestResults(ctx, env, opts)
 	require.NoError(t, err)
-	require.NotNil(t, iter)
-	results := []TestResult{}
-	for iter.Next(ctx) {
-		results = append(results, iter.Item())
-	}
 
-	require.Len(t, results, 20)
-	for _, result := range results {
-		expected, ok := resultMap[result.TestName]
-		require.True(t, ok)
-		assert.Equal(t, expected, result)
-		delete(resultMap, result.TestName)
+	require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
+	for _, result := range append(savedResults1.Results, savedResults2.Results...) {
+		assert.Contains(t, results, result)
 	}
 }
 
@@ -639,8 +637,9 @@ func getTestResults() *TestResults {
 		CreatedAt:   time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		CompletedAt: time.Now().UTC().Round(time.Millisecond),
 		Artifact: TestResultsArtifactInfo{
-			Type:   PailLocal,
-			Prefix: info.ID(),
+			Type:    PailLocal,
+			Prefix:  info.ID(),
+			Version: 1,
 		},
 	}
 }
