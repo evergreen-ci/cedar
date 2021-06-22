@@ -54,7 +54,7 @@ func CreateTestResults(info TestResultsInfo, artifactStorageType PailType) *Test
 		Artifact: TestResultsArtifactInfo{
 			Type:    artifactStorageType,
 			Prefix:  info.ID(),
-			Version: 0,
+			Version: 1,
 		},
 		populated: true,
 	}
@@ -157,21 +157,9 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	conf := &CedarConfig{}
-	conf.Setup(t.env)
-	if err := conf.Find(); err != nil {
-		return errors.Wrap(err, "getting application configuration")
-	}
-	bucket, err := t.Artifact.Type.Create(
-		ctx,
-		t.env,
-		conf.Bucket.TestResultsBucket,
-		t.Artifact.Prefix,
-		string(pail.S3PermissionsPrivate),
-		true,
-	)
+	bucket, err := t.GetBucket(ctx)
 	if err != nil {
-		return errors.Wrap(err, "creating bucket")
+		return err
 	}
 
 	var allResults testResultsDoc
@@ -179,16 +167,20 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if err != nil && !pail.IsKeyNotFoundError(err) {
 		return errors.Wrap(err, "getting uploaded test results")
 	}
-	if r != nil {
-		defer r.Close()
+	if !pail.IsKeyNotFoundError(err) {
+		catcher := grip.NewBasicCatcher()
 
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
-			return errors.Wrap(err, "reading uploaded test results")
+			catcher.Wrap(err, "reading uploaded test results")
+			catcher.Add(r.Close())
+			return catcher.Resolve()
 		}
 
 		if err = bson.Unmarshal(data, &allResults); err != nil {
-			return errors.Wrap(err, "unmarshalling uploaded test results")
+			catcher.Wrap(err, "unmarshalling uploaded test results")
+			catcher.Add(r.Close())
+			return catcher.Resolve()
 		}
 	}
 	allResults.Results = append(allResults.Results, results...)
@@ -197,11 +189,8 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if err != nil {
 		return errors.Wrap(err, "marshalling test results")
 	}
-	if err = bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)); err != nil {
-		return errors.Wrap(err, "uploading test results")
-	}
 
-	return nil
+	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading test results")
 }
 
 // Download returns a TestResult slice with the corresponding results stored in
@@ -219,39 +208,42 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		t.ID = t.Info.ID()
 	}
 
+	var results testResultsDoc
+	catcher := grip.NewBasicCatcher()
 	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var results testResultsDoc
-	r, err := bucket.Get(ctx, testResultsCollection)
-	if pail.IsKeyNotFoundError(err) {
+	switch t.Artifact.Version {
+	case 0:
 		iter := NewTestResultsIterator(bucket)
 		for iter.Next(ctx) {
 			results.Results = append(results.Results, iter.Item())
 		}
 
-		catcher := grip.NewBasicCatcher()
 		catcher.Wrap(iter.Err(), "iterating test results")
 		catcher.Wrap(iter.Close(), "closing test results iterator")
-		return results.Results, catcher.Resolve()
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "getting test results")
-	}
-	defer r.Close()
+	case 1:
+		r, err := bucket.Get(ctx, testResultsCollection)
+		if err != nil {
+			catcher.Wrap(err, "getting test results")
+			break
+		}
 
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "reading test results")
+		data, err := ioutil.ReadAll(r)
+		catcher.Add(r.Close())
+		if err != nil {
+			catcher.Wrap(err, "reading test results")
+			break
+		}
+
+		catcher.Wrap(bson.Unmarshal(data, &results), "unmarshalling test results")
+	default:
+		catcher.Errorf("unsupported test results artifact version '%d'", t.Artifact.Version)
 	}
 
-	if err = bson.Unmarshal(data, &results); err != nil {
-		return nil, errors.Wrap(err, "unmarshalling test results")
-	}
-
-	return results.Results, nil
+	return results.Results, catcher.Resolve()
 }
 
 // Close "closes out" by populating the completed_at field. The environment
@@ -296,7 +288,7 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 		conf := &CedarConfig{}
 		conf.Setup(t.env)
 		if err := conf.Find(); err != nil {
-			return nil, errors.Wrap(err, "problem getting application configuration")
+			return nil, errors.Wrap(err, "getting application configuration")
 		}
 		t.bucket = conf.Bucket.TestResultsBucket
 	}
@@ -310,7 +302,7 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 		true,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem creating bucket")
+		return nil, errors.Wrap(err, "creating bucket")
 	}
 
 	return bucket, nil
