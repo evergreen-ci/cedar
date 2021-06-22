@@ -600,6 +600,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
 	testBucket2, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr2.ID})
+	require.NoError(t, err)
 
 	savedResults2 := testResultsDoc{}
 	for i := 0; i < 10; i++ {
