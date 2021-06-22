@@ -167,19 +167,18 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if err != nil && !pail.IsKeyNotFoundError(err) {
 		return errors.Wrap(err, "getting uploaded test results")
 	}
-	if !pail.IsKeyNotFoundError(err) {
+	if err == nil {
 		catcher := grip.NewBasicCatcher()
 
 		data, err := ioutil.ReadAll(r)
+		catcher.Add(r.Close())
 		if err != nil {
 			catcher.Wrap(err, "reading uploaded test results")
-			catcher.Add(r.Close())
 			return catcher.Resolve()
 		}
 
 		if err = bson.Unmarshal(data, &allResults); err != nil {
 			catcher.Wrap(err, "unmarshalling uploaded test results")
-			catcher.Add(r.Close())
 			return catcher.Resolve()
 		}
 	}
