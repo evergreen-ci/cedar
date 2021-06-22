@@ -262,6 +262,9 @@ func TestTestResultsAppend(t *testing.T) {
 		var savedResults testResultsDoc
 		r, err := testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
 		require.NoError(t, err)
+		defer func() {
+			assert.NoError(t, r.Close())
+		}()
 		data, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		require.NoError(t, bson.Unmarshal(data, &savedResults))

@@ -13,9 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// TODO (EVG-14672): Remove this code and the relevant tests once the migration
-// is complete.
-
 const testResultsIteratorBatchSize = 100
 
 // TestResultsIterator is an interface that enables iterating over test results.

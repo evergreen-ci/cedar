@@ -227,8 +227,6 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	var results testResultsDoc
 	r, err := bucket.Get(ctx, testResultsCollection)
 	if pail.IsKeyNotFoundError(err) {
-		// TODO (EVG-14672): Once the migration is complete, remove
-		// this code and return nil, nil.
 		iter := NewTestResultsIterator(bucket)
 		for iter.Next(ctx) {
 			results.Results = append(results.Results, iter.Item())
