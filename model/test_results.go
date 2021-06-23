@@ -371,6 +371,7 @@ type TestResult struct {
 	Trial           int       `bson:"trial,omitempty"`
 	Status          string    `bson:"status"`
 	LogTestName     string    `bson:"log_test_name,omitempty"`
+	LogURL          string    `bson:"log_url,omitempty"`
 	LineNum         int       `bson:"line_num"`
 	TaskCreateTime  time.Time `bson:"task_create_time"`
 	TestStartTime   time.Time `bson:"test_start_time"`
