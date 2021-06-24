@@ -106,6 +106,7 @@ func TestTestResultExport(t *testing.T) {
 		Status:         "status",
 		LogTestName:    "log_test_name",
 		LogUrl:         "log_url",
+		RawLogUrl:      "raw_log_url",
 		LineNum:        1000,
 		TaskCreateTime: &timestamp.Timestamp{Seconds: 1588278536},
 		TestStartTime:  &timestamp.Timestamp{Seconds: 1588278500},
@@ -122,6 +123,7 @@ func TestTestResultExport(t *testing.T) {
 		assert.Equal(t, result.GroupId, modelResult.GroupID)
 		assert.Equal(t, result.LogTestName, modelResult.LogTestName)
 		assert.Equal(t, result.LogUrl, modelResult.LogURL)
+		assert.Equal(t, result.RawLogUrl, modelResult.RawLogURL)
 		assert.Equal(t, int(result.LineNum), modelResult.LineNum)
 		assert.Equal(t, time.Unix(result.TaskCreateTime.Seconds, 0).UTC(), modelResult.TaskCreateTime)
 		assert.Equal(t, time.Unix(result.TestStartTime.Seconds, 0).UTC(), modelResult.TestStartTime)

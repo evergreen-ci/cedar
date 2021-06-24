@@ -653,6 +653,7 @@ func getTestResult() TestResult {
 		Status:          "Pass",
 		LogTestName:     utility.RandomString(),
 		LogURL:          utility.RandomString(),
+		RawLogURL:       utility.RandomString(),
 		LineNum:         rand.Intn(1000),
 		TaskCreateTime:  time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		TestStartTime:   time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
