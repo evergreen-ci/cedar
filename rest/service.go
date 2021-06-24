@@ -79,7 +79,7 @@ func (s *Service) Validate() error {
 	}
 
 	if s.Depot == nil {
-		grip.Warning("no certificate depot provided")
+		return errors.New("no certificate depot provided")
 	}
 
 	if s.app == nil {
