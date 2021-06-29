@@ -339,6 +339,9 @@ var (
 // that are not equal. By implementing the bson.Marshal interface, we are able
 // to first sort the keys of the map and convert the key/value pairs into a
 // bson.D object, where ordered is preserved.
+//
+// See: `https://docs.mongodb.com/manual/reference/bson-type-comparison-order/#objects`
+// for more information.
 type PerformanceArguments map[string]int32
 
 func (args PerformanceArguments) MarshalBSON() ([]byte, error) {
