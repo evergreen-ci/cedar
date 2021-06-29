@@ -335,10 +335,10 @@ var (
 // bson.Marshaler interface in order to have a unified ordering of keys. BSON
 // objects are only equal if the key/value pairs match AND are in the same
 // order. Since maps are not ordered but still marshalled into BSON objects,
-// marshalling two equal Go maps into BSON can can result in two BSON objects
-// that are not equal. By implementing the bson.Marshal interface, we are able
-// to first sort the keys of the map and convert the key/value pairs into a
-// bson.D object, where ordered is preserved.
+// marshalling two equal Go maps into BSON can result in two BSON objects that
+// are not equal. By implementing the bson.Marshal interface, we are able to
+// first sort the keys of the map and convert the key/value pairs into a bson.D
+// object, where ordered is preserved.
 //
 // See: `https://docs.mongodb.com/manual/reference/bson-type-comparison-order/#objects`
 // for more information.
