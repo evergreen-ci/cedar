@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -415,6 +416,22 @@ func TestPerfClose(t *testing.T) {
 		assert.Equal(t, result2.Artifacts, updatedResult.Artifacts)
 		assert.Equal(t, result2.Rollups, updatedResult.Rollups)
 	})
+}
+
+func TestPerformanceArgumentsBSONMarshal(t *testing.T) {
+	args := PerformanceArguments{"spruce": 2, "evergreen": 0, "cedar": 1}
+	data, err := bson.Marshal(&args)
+	require.NoError(t, err)
+
+	var out bson.D
+	require.NoError(t, bson.Unmarshal(data, &out))
+	require.Len(t, out, len(args))
+	for _, elem := range out {
+		assert.Equal(t, args[elem.Key], elem.Value)
+	}
+	assert.True(t, sort.SliceIsSorted(out, func(i, j int) bool {
+		return out[i].Key < out[j].Key
+	}))
 }
 
 func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
