@@ -291,27 +291,27 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 
 }
 
-////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //
 // Component Types
 
 // PerformanceResultInfo describes information unique to a single performance
 // result.
 type PerformanceResultInfo struct {
-	Project   string           `bson:"project,omitempty"`
-	Version   string           `bson:"version,omitempty"`
-	Variant   string           `bson:"variant,omitempty"`
-	Order     int              `bson:"order,omitempty"`
-	TaskName  string           `bson:"task_name,omitempty"`
-	TaskID    string           `bson:"task_id,omitempty"`
-	Execution int              `bson:"execution"`
-	TestName  string           `bson:"test_name,omitempty"`
-	Trial     int              `bson:"trial"`
-	Parent    string           `bson:"parent,omitempty"`
-	Tags      []string         `bson:"tags,omitempty"`
-	Arguments map[string]int32 `bson:"args,omitempty"`
-	Mainline  bool             `bson:"mainline"`
-	Schema    int              `bson:"schema,omitempty"`
+	Project   string               `bson:"project,omitempty"`
+	Version   string               `bson:"version,omitempty"`
+	Variant   string               `bson:"variant,omitempty"`
+	Order     int                  `bson:"order,omitempty"`
+	TaskName  string               `bson:"task_name,omitempty"`
+	TaskID    string               `bson:"task_id,omitempty"`
+	Execution int                  `bson:"execution"`
+	TestName  string               `bson:"test_name,omitempty"`
+	Trial     int                  `bson:"trial"`
+	Parent    string               `bson:"parent,omitempty"`
+	Tags      []string             `bson:"tags,omitempty"`
+	Arguments PerformanceArguments `bson:"args,omitempty"`
+	Mainline  bool                 `bson:"mainline"`
+	Schema    int                  `bson:"schema,omitempty"`
 }
 
 var (
@@ -330,6 +330,20 @@ var (
 	perfResultInfoMainlineKey  = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Mainline")
 	perfResultInfoSchemaKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
 )
+
+type PerformanceArguments map[string]int32
+
+func (args PerformanceArguments) MarshalBSON() ([]byte, error) {
+	sortedArgs := bson.D{}
+	for key, value := range args {
+		sortedArgs = append(sortedArgs, bson.E{Key: key, Value: value})
+	}
+	sort.Slice(sortedArgs, func(i, j int) bool {
+		return sortedArgs[i].Key < sortedArgs[j].Key
+	})
+
+	return bson.Marshal(&sortedArgs)
+}
 
 // ID creates a unique hash for a performance result.
 func (id *PerformanceResultInfo) ID() string {
