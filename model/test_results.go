@@ -517,12 +517,12 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 				results, err := trs.Download(ctx)
 				if err != nil {
 					catcher.Add(err)
-					return
 				}
 
 				select {
 				case <-ctx.Done():
 					catcher.Add(ctx.Err())
+					return
 				case combinedResultsChan <- results:
 				}
 			}
