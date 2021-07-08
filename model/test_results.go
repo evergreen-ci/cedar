@@ -517,6 +517,7 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 				results, err := trs.Download(ctx)
 				if err != nil {
 					catcher.Add(err)
+					return
 				}
 
 				select {
