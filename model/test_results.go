@@ -8,6 +8,8 @@ import (
 	"hash"
 	"io"
 	"io/ioutil"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -16,6 +18,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -477,15 +480,58 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 		return nil, err
 	}
 
-	var combinedResults []TestResult
+	testResultsChan := make(chan TestResults, len(testResults))
 	for i := range testResults {
-		results, err := testResults[i].Download(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		combinedResults = append(combinedResults, results...)
+		testResultsChan <- testResults[i]
 	}
+	close(testResultsChan)
 
-	return combinedResults, nil
+	var (
+		combinedResults []TestResult
+		cwg             sync.WaitGroup
+		pwg             sync.WaitGroup
+	)
+	combinedResultsChan := make(chan []TestResult, len(testResults))
+	catcher := grip.NewBasicCatcher()
+	cwg.Add(1)
+	go func() {
+		defer func() {
+			catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results download consumer"))
+			cwg.Done()
+		}()
+
+		for results := range combinedResultsChan {
+			combinedResults = append(combinedResults, results...)
+		}
+	}()
+
+	for i := 0; i < runtime.NumCPU(); i++ {
+		pwg.Add(1)
+		go func() {
+			defer func() {
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results download producer"))
+				pwg.Done()
+			}()
+
+			for trs := range testResultsChan {
+				results, err := trs.Download(ctx)
+				if err != nil {
+					catcher.Add(err)
+					return
+				}
+
+				select {
+				case <-ctx.Done():
+					catcher.Add(ctx.Err())
+					return
+				case combinedResultsChan <- results:
+				}
+			}
+		}()
+	}
+	pwg.Wait()
+	close(combinedResultsChan)
+	cwg.Wait()
+
+	return combinedResults, catcher.Resolve()
 }
