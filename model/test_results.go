@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +26,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const testResultsCollection = "test_results"
+const (
+	testResultsCollection = "test_results"
+	failedTestsSampleSize = 10
+)
 
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
@@ -34,6 +38,10 @@ type TestResults struct {
 	CreatedAt   time.Time               `bson:"created_at"`
 	CompletedAt time.Time               `bson:"completed_at"`
 	Artifact    TestResultsArtifactInfo `bson:"artifact"`
+	// FailedTestsSample is the first X failing tests of the test results.
+	// This is an optimization for Evergreen's UI features that display a
+	// limited number of failing tests for a task.
+	FailedTestsSample []string `bson:"failing_tests_sample"`
 
 	env       cedar.Environment
 	bucket    string
@@ -41,11 +49,12 @@ type TestResults struct {
 }
 
 var (
-	testResultsIDKey          = bsonutil.MustHaveTag(TestResults{}, "ID")
-	testResultsInfoKey        = bsonutil.MustHaveTag(TestResults{}, "Info")
-	testResultsCreatedAtKey   = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
-	testResultsCompletedAtKey = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
-	testResultsArtifactKey    = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsIDKey             = bsonutil.MustHaveTag(TestResults{}, "ID")
+	testResultsInfoKey           = bsonutil.MustHaveTag(TestResults{}, "Info")
+	testResultsCreatedAtKey      = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
+	testResultsCompletedAtKey    = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
+	testResultsArtifactKey       = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsFailedTestsSample = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
 // CreateTestResults is an entry point for creating a new TestResults.
@@ -160,6 +169,10 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
+	if err := t.appendToFailedTestsSample(ctx, results); err != nil {
+		return err
+	}
+
 	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return err
@@ -193,6 +206,44 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	}
 
 	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading test results")
+}
+
+func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []TestResult) error {
+	var update bool
+	for i := 0; i < len(results) && len(t.FailedTestsSample) < failedTestsSampleSize; i++ {
+		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
+			t.FailedTestsSample = append(t.FailedTestsSample, results[i].getDisplayName())
+			update = true
+		}
+	}
+	if !update {
+		return nil
+	}
+
+	if t.ID == "" {
+		t.ID = t.Info.ID()
+	}
+	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
+		ctx,
+		bson.M{testResultsIDKey: t.ID},
+		bson.M{
+			"$set": bson.M{
+				testResultsFailedTestsSample: t.FailedTestsSample,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":          testResultsCollection,
+		"id":                  t.ID,
+		"failed_tests_sample": t.FailedTestsSample,
+		"updateResult":        updateResult,
+		"op":                  "append to failing tests sample",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
+	}
+
+	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
 }
 
 // Download returns a TestResult slice with the corresponding results stored in
@@ -380,6 +431,13 @@ type TestResult struct {
 	TaskCreateTime  time.Time `bson:"task_create_time"`
 	TestStartTime   time.Time `bson:"test_start_time"`
 	TestEndTime     time.Time `bson:"test_end_time"`
+}
+
+func (t TestResult) getDisplayName() string {
+	if t.DisplayTestName != "" {
+		return t.DisplayTestName
+	}
+	return t.TestName
 }
 
 type testResultsDoc struct {
