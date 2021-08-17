@@ -274,8 +274,8 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
 		assert.Empty(t, tr.FailedTestsSample)
 
-		failedResults := make([]TestResult, 20)
-		for i := 0; i < 10; i++ {
+		failedResults := make([]TestResult, 2*failedTestsSampleSize)
+		for i := 0; i < 2*failedTestsSampleSize; i++ {
 			failedResults[i] = getTestResult()
 			failedResults[i].Status = "fail"
 		}
@@ -291,9 +291,9 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, bson.Unmarshal(data, &savedResults))
 		assert.Equal(t, append(results, failedResults...), savedResults.Results)
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
-		require.Len(t, tr.FailedTestsSample, 10)
+		require.Len(t, tr.FailedTestsSample, failedTestsSampleSize)
 		for i, testName := range tr.FailedTestsSample {
-			assert.Equal(t, failedResults[i].getDisplayName(), testName)
+			assert.Equal(t, failedResults[i].GetDisplayName(), testName)
 		}
 	})
 }

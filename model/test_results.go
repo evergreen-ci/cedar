@@ -41,7 +41,7 @@ type TestResults struct {
 	// FailedTestsSample is the first X failing tests of the test results.
 	// This is an optimization for Evergreen's UI features that display a
 	// limited number of failing tests for a task.
-	FailedTestsSample []string `bson:"failing_tests_sample"`
+	FailedTestsSample []string `bson:"failed_tests_sample"`
 
 	env       cedar.Environment
 	bucket    string
@@ -49,12 +49,12 @@ type TestResults struct {
 }
 
 var (
-	testResultsIDKey             = bsonutil.MustHaveTag(TestResults{}, "ID")
-	testResultsInfoKey           = bsonutil.MustHaveTag(TestResults{}, "Info")
-	testResultsCreatedAtKey      = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
-	testResultsCompletedAtKey    = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
-	testResultsArtifactKey       = bsonutil.MustHaveTag(TestResults{}, "Artifact")
-	testResultsFailedTestsSample = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
+	testResultsIDKey                = bsonutil.MustHaveTag(TestResults{}, "ID")
+	testResultsInfoKey              = bsonutil.MustHaveTag(TestResults{}, "Info")
+	testResultsCreatedAtKey         = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
+	testResultsCompletedAtKey       = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
+	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
 // CreateTestResults is an entry point for creating a new TestResults.
@@ -212,7 +212,7 @@ func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []T
 	var update bool
 	for i := 0; i < len(results) && len(t.FailedTestsSample) < failedTestsSampleSize; i++ {
 		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
-			t.FailedTestsSample = append(t.FailedTestsSample, results[i].getDisplayName())
+			t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
 			update = true
 		}
 	}
@@ -220,15 +220,12 @@ func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []T
 		return nil
 	}
 
-	if t.ID == "" {
-		t.ID = t.Info.ID()
-	}
 	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
 		ctx,
 		bson.M{testResultsIDKey: t.ID},
 		bson.M{
 			"$set": bson.M{
-				testResultsFailedTestsSample: t.FailedTestsSample,
+				testResultsFailedTestsSampleKey: t.FailedTestsSample,
 			},
 		},
 	)
@@ -433,7 +430,8 @@ type TestResult struct {
 	TestEndTime     time.Time `bson:"test_end_time"`
 }
 
-func (t TestResult) getDisplayName() string {
+// GetDisplayName returns the human-readable name of the test.
+func (t TestResult) GetDisplayName() string {
 	if t.DisplayTestName != "" {
 		return t.DisplayTestName
 	}
