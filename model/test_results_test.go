@@ -225,6 +225,8 @@ func TestTestResultsAppend(t *testing.T) {
 	require.NoError(t, err)
 
 	tr := getTestResults()
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr)
+	require.NoError(t, err)
 	tr.populated = true
 	results := []TestResult{}
 	for i := 0; i < 10; i++ {
@@ -263,14 +265,36 @@ func TestTestResultsAppend(t *testing.T) {
 		var savedResults testResultsDoc
 		r, err := testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
 		require.NoError(t, err)
-		defer func() {
-			assert.NoError(t, r.Close())
-		}()
 		data, err := ioutil.ReadAll(r)
+		assert.NoError(t, r.Close())
 		require.NoError(t, err)
 		require.NoError(t, bson.Unmarshal(data, &savedResults))
-
 		assert.Equal(t, results, savedResults.Results)
+		var saved TestResults
+		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
+		assert.Empty(t, tr.FailedTestsSample)
+
+		failedResults := make([]TestResult, 2*failedTestsSampleSize)
+		for i := 0; i < 2*failedTestsSampleSize; i++ {
+			failedResults[i] = getTestResult()
+			failedResults[i].Status = "fail"
+		}
+		tr.Setup(env)
+		require.NoError(t, tr.Append(ctx, failedResults[0:3]))
+		require.NoError(t, tr.Append(ctx, failedResults[3:]))
+
+		r, err = testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
+		require.NoError(t, err)
+		data, err = ioutil.ReadAll(r)
+		assert.NoError(t, r.Close())
+		require.NoError(t, err)
+		require.NoError(t, bson.Unmarshal(data, &savedResults))
+		assert.Equal(t, append(results, failedResults...), savedResults.Results)
+		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
+		require.Len(t, tr.FailedTestsSample, failedTestsSampleSize)
+		for i, testName := range tr.FailedTestsSample {
+			assert.Equal(t, failedResults[i].GetDisplayName(), testName)
+		}
 	})
 }
 
