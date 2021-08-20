@@ -87,6 +87,11 @@ type Connector interface {
 	// the given options. If the execution is not specified, this will
 	// return the test results from the most recent execution.
 	FindTestResults(context.Context, TestResultsOptions) ([]model.APITestResult, error)
+	// FindFailedTestResultsSample queries the database to find all the
+	// sample of failed test results for the given options. If the
+	// execution is not specified, this will return the sample from the
+	// the most recent execution.
+	FindFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
 	// FindTestResultByTestName finds the test result of a single test,
 	// specified by the given options. If execution is not specified, this
 	// will return the test result from the most recent execution.

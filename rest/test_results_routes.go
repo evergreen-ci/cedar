@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const isDisplayTask = "display_task"
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // GET /test_results/task_id/{task_id}
@@ -173,4 +175,68 @@ func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Respond
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(testResult)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/task_id/{task_id}/failed_sample
+
+type testResultsGetFailedSampleHandler struct {
+	opts data.TestResultsOptions
+	sc   data.Connector
+}
+
+func makeGetTestResultsFailedSample(sc data.Connector) gimlet.RouteHandler {
+	return &testResultsGetFailedSampleHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new testResultsGetFailedSampleHandler.
+func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
+	return &testResultsGetFailedSampleHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the task_id from the http request.
+func (h *testResultsGetFailedSampleHandler) Parse(_ context.Context, r *http.Request) error {
+	var err error
+
+	taskID := gimlet.GetVars(r)["task_id"]
+	vals := r.URL.Query()
+	if vals.Get(isDisplayTask) == trueString {
+		h.opts.DisplayTaskID = taskID
+	} else {
+		h.opts.TaskID = taskID
+	}
+	if len(vals[execution]) > 0 {
+		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		return err
+	} else {
+		h.opts.EmptyExecution = true
+	}
+
+	return nil
+}
+
+// Run finds and returns the desired failed test results sample.
+func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
+	sample, err := h.sc.FindFailedTestResultsSample(ctx, h.opts)
+	if err != nil {
+		taskID := h.opts.TaskID
+		if taskID == "" {
+			taskID = h.opts.DisplayTaskID
+		}
+		err = errors.Wrapf(err, "problem getting test result by task_id '%s'", taskID)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request":      gimlet.GetRequestID(ctx),
+			"method":       "GET",
+			"route":        "/testresults/task_id/{task_id}/sample",
+			"task_id":      taskID,
+			"display_task": h.opts.DisplayTaskID != "",
+		}))
+		return gimlet.MakeJSONInternalErrorResponder(err)
+	}
+	return gimlet.NewJSONResponse(sample)
 }

@@ -320,6 +320,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/test_results/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByTaskID(s.sc))
 	s.app.AddRoute("/test_results/display_task_id/{display_task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByDisplayTaskID(s.sc))
 	s.app.AddRoute("/test_results/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetTestResultByTestName(s.sc))
+	s.app.AddRoute("/test_results/task_id/{task_id}/failed_sample").Version(1).Get().RouteHandler(makeGetTestResultsByTaskID(s.sc))
 
 	s.app.AddRoute("/historical_test_data/{project_id}").Version(1).Get().RouteHandler(makeGetHistoricalTestData(s.sc))
 
