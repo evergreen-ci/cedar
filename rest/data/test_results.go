@@ -88,7 +88,7 @@ func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, opts T
 		return extractFailedTestResultsSample(*testResultsDoc), nil
 	}
 
-	testResultsDocs, _, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
+	testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -110,20 +110,18 @@ func (mc *MockConnector) findAndDownloadTestResultsByTaskID(ctx context.Context,
 }
 
 func (mc *MockConnector) findAndDownloadTestResultsByDisplayTaskID(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
-	testResultsDocs, latestExecution, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
+	testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
 	var combinedResults []dbModel.TestResult
 	for i := range testResultsDocs {
-		if !opts.EmptyExecution || testResultsDocs[i].Info.Execution == latestExecution {
-			results, err := testResultsDocs[i].Download(ctx)
-			if err != nil {
-				return nil, err
-			}
-			combinedResults = append(combinedResults, results...)
+		results, err := testResultsDocs[i].Download(ctx)
+		if err != nil {
+			return nil, err
 		}
+		combinedResults = append(combinedResults, results...)
 	}
 
 	return importTestResults(ctx, combinedResults)
@@ -156,7 +154,7 @@ func (mc *MockConnector) findTestResultsByTaskID(ctx context.Context, opts TestR
 	return testResultsDoc, nil
 }
 
-func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opts TestResultsOptions) ([]dbModel.TestResults, int, error) {
+func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opts TestResultsOptions) ([]dbModel.TestResults, error) {
 	var (
 		testResultsDocs []dbModel.TestResults
 		latestExecution int
@@ -174,14 +172,24 @@ func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opt
 		}
 	}
 
+	if opts.EmptyExecution {
+		var filteredDocs []dbModel.TestResults
+		for i := range testResultsDocs {
+			if testResultsDocs[i].Info.Execution == latestExecution {
+				filteredDocs = append(filteredDocs, testResultsDocs[i])
+			}
+		}
+		testResultsDocs = filteredDocs
+	}
+
 	if testResultsDocs == nil {
-		return nil, 0, gimlet.ErrorResponse{
+		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    "test results not found",
 		}
 	}
 
-	return testResultsDocs, latestExecution, nil
+	return testResultsDocs, nil
 }
 
 func (mc *MockConnector) FindTestResultByTestName(ctx context.Context, opts TestResultsOptions) (*model.APITestResult, error) {
