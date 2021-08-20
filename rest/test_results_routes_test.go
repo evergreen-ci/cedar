@@ -118,9 +118,10 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"task_id":         makeGetTestResultsByTaskID(&s.sc),
-		"display_task_id": makeGetTestResultsByDisplayTaskID(&s.sc),
-		"test_name":       makeGetTestResultByTestName(&s.sc),
+		"task_id":             makeGetTestResultsByTaskID(&s.sc),
+		"display_task_id":     makeGetTestResultsByDisplayTaskID(&s.sc),
+		"test_name":           makeGetTestResultByTestName(&s.sc),
+		"failed_tests_sample": makeGetTestResultsFailedSample(&s.sc),
 	}
 	s.apiResults = map[string][]model.APITestResult{}
 	s.buckets = map[string]pail.Bucket{}
@@ -134,14 +135,14 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		s.buckets[key], err = pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
 		testResults.Setup(s.env)
-		s.sc.CachedTestResults[key] = testResults
+		s.Require().NoError(testResults.SaveNew(context.TODO()))
 		for i := 0; i < 3; i++ {
 			result := dbModel.TestResult{
 				TaskID:    testResults.Info.TaskID,
 				Execution: testResults.Info.Execution,
 				TestName:  fmt.Sprintf("test%d", i),
 				Trial:     0,
-				Status:    "teststatus",
+				Status:    "teststatus-fail",
 				LineNum:   0,
 			}
 			s.Require().NoError(testResults.Append(context.TODO(), []dbModel.TestResult{result}))
@@ -150,6 +151,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 			s.Require().NoError(apiResult.Import(result))
 			s.apiResults[key] = append(s.apiResults[key], apiResult)
 		}
+		s.sc.CachedTestResults[key] = testResults
 	}
 }
 
@@ -316,6 +318,96 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
 	s.Equal(http.StatusInternalServerError, resp.Status())
 }
 
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
+	rh := s.rh["failed_tests_sample"]
+	for _, test := range []struct {
+		name           string
+		opts           data.TestResultsOptions
+		expectedResult []string
+	}{
+		{
+			name: "TaskIDWithExecution",
+			opts: data.TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 0,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "TaskIDWithoutExecution",
+			opts: data.TestResultsOptions{
+				TaskID:         "task1",
+				EmptyExecution: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "DisplayTaskIDWithExecution",
+			opts: data.TestResultsOptions{
+				DisplayTaskID: "display_task1",
+				Execution:     0,
+			},
+			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+		},
+		{
+			name: "DisplayTaskIDWithoutExecution",
+			opts: data.TestResultsOptions{
+				DisplayTaskID:  "display_task1",
+				EmptyExecution: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.(*testResultsGetFailedSampleHandler).opts = test.opts
+
+			resp := rh.Run(context.TODO())
+			s.Require().NotNil(resp)
+			s.Equal(http.StatusOK, resp.Status())
+			actualResult, ok := resp.Data().([]string)
+			s.Require().True(ok)
+			s.Equal(test.expectedResult, actualResult)
+		})
+	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleNotFound() {
+	rh := s.rh["failed_tests_sample"]
+	for _, test := range []struct {
+		name string
+		opts data.TestResultsOptions
+	}{
+		{
+			name: "TaskID",
+			opts: data.TestResultsOptions{TaskID: "DNE"},
+		},
+		{
+			name: "DisplayTaskID",
+			opts: data.TestResultsOptions{DisplayTaskID: "DNE"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.(*testResultsGetFailedSampleHandler).opts = test.opts
+
+			resp := rh.Run(context.TODO())
+			s.Require().NotNil(resp)
+			s.Equal(http.StatusNotFound, resp.Status())
+		})
+	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["failed_tests_sample"]
+	rh.(*testResultsGetFailedSampleHandler).opts.DisplayTaskID = "display_task1"
+	rh.(*testResultsGetFailedSampleHandler).opts.Execution = 0
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusInternalServerError, resp.Status())
+}
+
 func (s *TestResultsHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
@@ -332,6 +424,10 @@ func (s *TestResultsHandlerSuite) TestParse() {
 		{
 			handler:   "test_name",
 			urlString: "http://cedar.mongodb.com/test_results/test_name/task_id1/test0",
+		},
+		{
+			handler:   "failed_tests_sample",
+			urlString: "http://cedar.mongodb.com/test_results/failed_tests_samle/task_id1",
 		},
 	} {
 		s.testParseValid(test.handler, test.urlString)
@@ -388,6 +484,8 @@ func getTestResultsExecution(rh gimlet.RouteHandler, handler string) int {
 		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.Execution
 	case "test_name":
 		return rh.(*testResultGetByTestNameHandler).opts.Execution
+	case "failed_tests_sample":
+		return rh.(*testResultsGetFailedSampleHandler).opts.Execution
 	default:
 		return 0
 	}
@@ -401,6 +499,8 @@ func getTestResultsEmptyExecution(rh gimlet.RouteHandler, handler string) bool {
 		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.EmptyExecution
 	case "test_name":
 		return rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
+	case "failed_tests_sample":
+		return rh.(*testResultsGetFailedSampleHandler).opts.EmptyExecution
 	default:
 		return false
 	}

@@ -238,5 +238,6 @@ func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Resp
 		}))
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
+
 	return gimlet.NewJSONResponse(sample)
 }

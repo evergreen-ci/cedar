@@ -80,6 +80,13 @@ func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOp
 }
 
 func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
+		}
+	}
+
 	if opts.TaskID != "" {
 		testResultsDoc, err := mc.findTestResultsByTaskID(ctx, opts)
 		if err != nil {
@@ -92,6 +99,7 @@ func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, opts T
 	if err != nil {
 		return nil, err
 	}
+
 	return extractFailedTestResultsSample(testResultsDocs...), nil
 }
 
