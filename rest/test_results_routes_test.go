@@ -427,7 +427,7 @@ func (s *TestResultsHandlerSuite) TestParse() {
 		},
 		{
 			handler:   "failed_tests_sample",
-			urlString: "http://cedar.mongodb.com/test_results/failed_tests_samle/task_id1",
+			urlString: "http://cedar.mongodb.com/test_results/task_id/task_id1/failed_tests_samle",
 		},
 	} {
 		s.testParseValid(test.handler, test.urlString)
