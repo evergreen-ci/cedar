@@ -190,7 +190,7 @@ func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opt
 		testResultsDocs = filteredDocs
 	}
 
-	if testResultsDocs == nil {
+	if len(testResultsDocs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    "test results not found",
@@ -263,7 +263,7 @@ func importTestResults(ctx context.Context, results []dbModel.TestResult) ([]mod
 
 func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 	var sample []string
-	for i := 0; i < len(results) && len(sample) < 10; i++ {
+	for i := 0; i < len(results) && len(sample) < dbModel.FailedTestsSampleSize; i++ {
 		sample = append(sample, results[i].FailedTestsSample...)
 	}
 

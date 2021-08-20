@@ -27,8 +27,12 @@ import (
 )
 
 const (
+
+	// FailedTestsSampleSize is the maximum size for the failed test
+	// results sample.
+	FailedTestsSampleSize = 10
+
 	testResultsCollection = "test_results"
-	failedTestsSampleSize = 10
 )
 
 // TestResults describes metadata for a task execution and its test results.
@@ -210,7 +214,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 
 func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []TestResult) error {
 	var update bool
-	for i := 0; i < len(results) && len(t.FailedTestsSample) < failedTestsSampleSize; i++ {
+	for i := 0; i < len(results) && len(t.FailedTestsSample) < FailedTestsSampleSize; i++ {
 		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
 			t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
 			update = true

@@ -201,8 +201,6 @@ func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the task_id from the http request.
 func (h *testResultsGetFailedSampleHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
-
 	taskID := gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
 	if vals.Get(isDisplayTask) == trueString {
@@ -211,6 +209,7 @@ func (h *testResultsGetFailedSampleHandler) Parse(_ context.Context, r *http.Req
 		h.opts.TaskID = taskID
 	}
 	if len(vals[execution]) > 0 {
+		var err error
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
 		return err
 	} else {

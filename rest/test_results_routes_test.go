@@ -319,7 +319,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
-	rh := s.rh["failed_tests_sample"]
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
 	for _, test := range []struct {
 		name           string
 		opts           data.TestResultsOptions
@@ -359,7 +359,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
-			rh.(*testResultsGetFailedSampleHandler).opts = test.opts
+			rh.opts = test.opts
 
 			resp := rh.Run(context.TODO())
 			s.Require().NotNil(resp)
@@ -372,7 +372,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleNotFound() {
-	rh := s.rh["failed_tests_sample"]
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
 	for _, test := range []struct {
 		name string
 		opts data.TestResultsOptions
@@ -387,7 +387,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleNotFound() {
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
-			rh.(*testResultsGetFailedSampleHandler).opts = test.opts
+			rh.opts = test.opts
 
 			resp := rh.Run(context.TODO())
 			s.Require().NotNil(resp)
@@ -399,9 +399,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleNotFound() {
 func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := s.rh["failed_tests_sample"]
-	rh.(*testResultsGetFailedSampleHandler).opts.DisplayTaskID = "display_task1"
-	rh.(*testResultsGetFailedSampleHandler).opts.Execution = 0
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
+	rh.opts.DisplayTaskID = "display_task1"
+	rh.opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
