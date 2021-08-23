@@ -145,7 +145,7 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 }
 
 func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r PerfRollupValue, processedAt time.Time) (bool, error) {
-	res, err := collection.UpdateOne(ctx,
+	updateResult, err := collection.UpdateOne(ctx,
 		bson.M{
 			perfIDKey: id,
 			bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey): r.Name,
@@ -169,9 +169,10 @@ func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r P
 					},
 				},
 			},
-		}))
+		}),
+	)
 
-	return res.MatchedCount == 1, errors.WithStack(err)
+	return updateResult != nil && updateResult.MatchedCount == 1, errors.WithStack(err)
 }
 
 func (r *PerfRollups) GetInt(name string) (int, error) {
