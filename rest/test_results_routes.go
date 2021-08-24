@@ -111,7 +111,7 @@ func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Resp
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":      gimlet.GetRequestID(ctx),
 			"method":       "GET",
-			"route":        "/testresults/task_id/{task_id}/sample",
+			"route":        "/testresults/task_id/{task_id}/failed_sample",
 			"task_id":      taskID,
 			"display_task": h.opts.DisplayTaskID != "",
 		}))
