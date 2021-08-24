@@ -318,9 +318,11 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogGroupByTestName(s.sc))
 
 	s.app.AddRoute("/test_results/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByTaskID(s.sc))
-	s.app.AddRoute("/test_results/display_task_id/{display_task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByDisplayTaskID(s.sc))
-	s.app.AddRoute("/test_results/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetTestResultByTestName(s.sc))
 	s.app.AddRoute("/test_results/task_id/{task_id}/failed_sample").Version(1).Get().RouteHandler(makeGetTestResultsFailedSample(s.sc))
+	s.app.AddRoute("/test_results/test_name/{task_id}/{test_name}").Version(1).Get().RouteHandler(makeGetTestResultByTestName(s.sc))
+	// TODO: (EVG-15299) Remove this route once we are sure no one is using
+	// it. Keeping it temporarily for backwards compatibility.
+	s.app.AddRoute("/test_results/display_task_id/{display_task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByDisplayTaskID(s.sc))
 
 	s.app.AddRoute("/historical_test_data/{project_id}").Version(1).Get().RouteHandler(makeGetHistoricalTestData(s.sc))
 
