@@ -12,7 +12,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-const isDisplayTask = "display_task"
+const (
+	isDisplayTask = "display_task"
+	testName      = "test_name"
+)
 
 type testResultsBaseHandler struct {
 	opts data.TestResultsOptions
@@ -20,20 +23,19 @@ type testResultsBaseHandler struct {
 
 // Parse fetches the task_id from the http request.
 func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error {
-	taskID := gimlet.GetVars(r)["task_id"]
+	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 
 	vals := r.URL.Query()
-	if vals.Get(isDisplayTask) == trueString {
-		h.opts.DisplayTaskID = taskID
-	} else {
-		h.opts.TaskID = taskID
-	}
+	h.opts.TestName = vals.Get(testName)
 	if len(vals[execution]) > 0 {
 		var err error
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
 		return err
 	} else {
 		h.opts.EmptyExecution = true
+	}
+	if vals.Get(isDisplayTask) == trueString {
+		h.opts.DisplayTask = true
 	}
 
 	return nil
@@ -67,10 +69,12 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting test results by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
-			"request": gimlet.GetRequestID(ctx),
-			"method":  "GET",
-			"route":   "/testresults/task_id/{task_id}",
-			"task_id": h.opts.TaskID,
+			"request":    gimlet.GetRequestID(ctx),
+			"method":     "GET",
+			"route":      "/testresults/task_id/{task_id}",
+			"task_id":    h.opts.TaskID,
+			"test_name":  h.opts.TestName,
+			"is_display": h.opts.DisplayTask,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
@@ -103,17 +107,13 @@ func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
 	sample, err := h.sc.FindFailedTestResultsSample(ctx, h.opts)
 	if err != nil {
-		taskID := h.opts.TaskID
-		if taskID == "" {
-			taskID = h.opts.DisplayTaskID
-		}
-		err = errors.Wrapf(err, "problem getting test result by task_id '%s'", taskID)
+		err = errors.Wrapf(err, "problem getting test result by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
-			"request":      gimlet.GetRequestID(ctx),
-			"method":       "GET",
-			"route":        "/testresults/task_id/{task_id}/failed_sample",
-			"task_id":      taskID,
-			"display_task": h.opts.DisplayTaskID != "",
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/testresults/task_id/{task_id}/failed_sample",
+			"task_id":         h.opts.TaskID,
+			"is_display_task": h.opts.DisplayTask,
 		}))
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
@@ -147,7 +147,9 @@ func (h *testResultsGetByDisplayTaskIDHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
-	h.opts.DisplayTaskID = gimlet.GetVars(r)["display_task_id"]
+	h.opts.TaskID = gimlet.GetVars(r)["display_task_id"]
+	h.opts.DisplayTask = true
+
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
@@ -162,7 +164,7 @@ func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.
 func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results by display_task_id '%s'", h.opts.DisplayTaskID)
+		err = errors.Wrapf(err, "problem getting test results by display_task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -216,7 +218,7 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 
 // Run finds and returns the desired test result.
 func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	testResult, err := h.sc.FindTestResultByTestName(ctx, h.opts)
+	results, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting test result by task_id '%s' and test_name '%s'", h.opts.TaskID, h.opts.TestName)
 		grip.Error(message.WrapError(err, message.Fields{
@@ -228,5 +230,12 @@ func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Respond
 		}))
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
-	return gimlet.NewJSONResponse(testResult)
+
+	if len(results) == 0 {
+		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    "test result not found",
+		})
+	}
+	return gimlet.NewJSONResponse(&results[0])
 }
