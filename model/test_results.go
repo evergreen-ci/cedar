@@ -42,14 +42,15 @@ type TestResults struct {
 	CreatedAt   time.Time               `bson:"created_at"`
 	CompletedAt time.Time               `bson:"completed_at"`
 	Artifact    TestResultsArtifactInfo `bson:"artifact"`
+	Stats       TestResultsStats        `bson:"stats"`
 	// FailedTestsSample is the first X failing tests of the test results.
 	// This is an optimization for Evergreen's UI features that display a
 	// limited number of failing tests for a task.
 	FailedTestsSample []string `bson:"failed_tests_sample"`
 
-	env       cedar.Environment
-	bucket    string
-	populated bool
+	env       cedar.Environment `bson:"-"`
+	bucket    string            `bson:"-"`
+	populated bool              `bson:"-"`
 }
 
 var (
@@ -58,6 +59,7 @@ var (
 	testResultsCreatedAtKey         = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
 	testResultsCompletedAtKey       = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
 	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsStatsKey             = bsonutil.MustHaveTag(TestResults{}, "Stats")
 	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
@@ -173,10 +175,6 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	if err := t.appendToFailedTestsSample(ctx, results); err != nil {
-		return err
-	}
-
 	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return err
@@ -209,25 +207,32 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "marshalling test results")
 	}
 
-	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading test results")
+	if err := bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)); err != nil {
+		return errors.Wrap(err, "uploading test results")
+	}
+
+	return t.updateStatsAndFailedSample(ctx, results)
 }
 
-func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []TestResult) error {
-	var update bool
-	for i := 0; i < len(results) && len(t.FailedTestsSample) < FailedTestsSampleSize; i++ {
+func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
+	var numFailed int
+	for i := 0; i < len(results); i++ {
 		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
-			t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
-			update = true
+			if len(t.FailedTestsSample) < FailedTestsSampleSize {
+				t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
+			}
+			numFailed++
 		}
-	}
-	if !update {
-		return nil
 	}
 
 	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
 		ctx,
 		bson.M{testResultsIDKey: t.ID},
 		bson.M{
+			"$inc": bson.M{
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey): len(results),
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsNumFailedKey):  numFailed,
+			},
 			"$set": bson.M{
 				testResultsFailedTestsSampleKey: t.FailedTestsSample,
 			},
@@ -236,13 +241,18 @@ func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []T
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":          testResultsCollection,
 		"id":                  t.ID,
+		"inc_total_count":     len(results),
+		"inc_num_failed":      numFailed,
 		"failed_tests_sample": t.FailedTestsSample,
 		"updateResult":        updateResult,
-		"op":                  "append to failing tests sample",
+		"op":                  "updating stats and failing tests sample",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
 	}
+
+	t.Stats.TotalCount += len(results)
+	t.Stats.NumFailed += numFailed
 
 	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
 }
@@ -414,6 +424,17 @@ func (id *TestResultsInfo) ID() string {
 
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
+
+// TestResultsStats describes basic stats of the test results.
+type TestResultsStats struct {
+	TotalCount int `bson:"total_count"`
+	NumFailed  int `bson:"num_failed"`
+}
+
+var (
+	testResultsStatsTotalCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
+	testResultsStatsNumFailedKey  = bsonutil.MustHaveTag(TestResultsStats{}, "NumFailed")
+)
 
 // TestResult describes a single test result to be stored as a BSON object in
 // some type of pail bucket storage.

@@ -272,7 +272,9 @@ func TestTestResultsAppend(t *testing.T) {
 		assert.Equal(t, results, savedResults.Results)
 		var saved TestResults
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
-		assert.Empty(t, tr.FailedTestsSample)
+		assert.Equal(t, len(results), saved.Stats.TotalCount)
+		assert.Zero(t, saved.Stats.NumFailed)
+		assert.Empty(t, saved.FailedTestsSample)
 
 		failedResults := make([]TestResult, 2*FailedTestsSampleSize)
 		for i := 0; i < 2*FailedTestsSampleSize; i++ {
@@ -291,8 +293,10 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, bson.Unmarshal(data, &savedResults))
 		assert.Equal(t, append(results, failedResults...), savedResults.Results)
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
-		require.Len(t, tr.FailedTestsSample, FailedTestsSampleSize)
-		for i, testName := range tr.FailedTestsSample {
+		assert.Equal(t, len(results)+len(failedResults), saved.Stats.TotalCount)
+		assert.Equal(t, len(failedResults), saved.Stats.NumFailed)
+		require.Len(t, saved.FailedTestsSample, FailedTestsSampleSize)
+		for i, testName := range saved.FailedTestsSample {
 			assert.Equal(t, failedResults[i].GetDisplayName(), testName)
 		}
 	})
