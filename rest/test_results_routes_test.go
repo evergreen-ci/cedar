@@ -172,50 +172,89 @@ func (s *TestResultsHandlerSuite) TearDownSuite() {
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
-	rh := s.rh["task_id"]
-	optsList := []data.TestResultsOptions{
+	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
+	for _, test := range []struct {
+		name            string
+		opts            data.TestResultsOptions
+		expectedResults []model.APITestResult
+	}{
 		{
-			TaskID:    "task1",
-			Execution: 0,
+			name: "TaskIDWithExecution",
+			opts: data.TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 0,
+			},
+			expectedResults: s.apiResults["abc"],
 		},
 		{
-			TaskID:         "task1",
-			EmptyExecution: true,
+			name: "TaskIDWithoutExecution",
+			opts: data.TestResultsOptions{
+				TaskID:         "task1",
+				EmptyExecution: true,
+			},
+			expectedResults: s.apiResults["def"],
 		},
-	}
-	expectedResults := [][]model.APITestResult{
-		s.apiResults["abc"],
-		s.apiResults["def"],
-	}
+		{
+			name: "DisplayTaskIDWithExecution",
+			opts: data.TestResultsOptions{
+				DisplayTaskID: "display_task1",
+				Execution:     0,
+			},
+			expectedResults: append(s.apiResults["abc"], s.apiResults["ghi"]...),
+		},
+		{
+			name: "DisplayTaskIDWithoutExecution",
+			opts: data.TestResultsOptions{
+				DisplayTaskID:  "display_task1",
+				EmptyExecution: true,
+			},
+			expectedResults: s.apiResults["def"],
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.opts = test.opts
 
-	for i, opts := range optsList {
-		rh.(*testResultsGetByTaskIDHandler).opts = opts
-
-		resp := rh.Run(context.TODO())
-		s.Require().NotNil(resp)
-		s.Equal(http.StatusOK, resp.Status())
-		actualResults, ok := resp.Data().([]model.APITestResult)
-		s.Require().True(ok)
-		s.Equal(expectedResults[i], actualResults)
+			resp := rh.Run(context.TODO())
+			s.Require().NotNil(resp)
+			s.Equal(http.StatusOK, resp.Status())
+			actualResults, ok := resp.Data().([]model.APITestResult)
+			s.Require().True(ok)
+			s.Equal(test.expectedResults, actualResults)
+		})
 	}
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerNotFound() {
-	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "DNE"
-	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
+	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
+	for _, test := range []struct {
+		name string
+		opts data.TestResultsOptions
+	}{
+		{
+			name: "TaskID",
+			opts: data.TestResultsOptions{TaskID: "DNE"},
+		},
+		{
+			name: "DisplayTaskID",
+			opts: data.TestResultsOptions{DisplayTaskID: "DNE"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.opts = test.opts
 
-	resp := rh.Run(context.TODO())
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusNotFound, resp.Status())
+			resp := rh.Run(context.TODO())
+			s.Require().NotNil(resp)
+			s.Equal(http.StatusNotFound, resp.Status())
+		})
+	}
 }
 
 func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerCtxErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := s.rh["task_id"]
-	rh.(*testResultsGetByTaskIDHandler).opts.TaskID = "task1"
-	rh.(*testResultsGetByTaskIDHandler).opts.Execution = 0
+	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
+	rh.opts.TaskID = "task1"
+	rh.opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
