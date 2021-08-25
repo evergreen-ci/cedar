@@ -30,7 +30,9 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 	if len(vals[execution]) > 0 {
 		var err error
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
-		return err
+		if err != nil {
+			return err
+		}
 	} else {
 		h.opts.EmptyExecution = true
 	}
@@ -145,15 +147,17 @@ func (h *testResultsGetByDisplayTaskIDHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the display_task_id from the http request.
 func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
 
 	h.opts.TaskID = gimlet.GetVars(r)["display_task_id"]
 	h.opts.DisplayTask = true
 
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
+		var err error
 		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	h.opts.EmptyExecution = true
 

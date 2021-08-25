@@ -206,10 +206,10 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			name: "DisplayTaskIDWithExecution",
 			opts: data.TestResultsOptions{
 				TaskID:      "display_task1",
-				Execution:   0,
+				Execution:   1,
 				DisplayTask: true,
 			},
-			expectedResults: append(s.apiResults["abc"], s.apiResults["ghi"]...),
+			expectedResults: s.apiResults["def"],
 		},
 		{
 			name: "DisplayTaskIDWithoutExecution",
