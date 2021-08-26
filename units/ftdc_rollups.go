@@ -3,6 +3,8 @@ package units
 import (
 	"context"
 	"fmt"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -45,7 +47,6 @@ func makeFTDCRollupsJob() *ftdcRollupsJob {
 			},
 		},
 	}
-
 	j.SetDependency(dependency.NewAlways())
 	return j
 }
@@ -96,6 +97,13 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
+
+	conf := model.NewCedarConfig(j.env)
+	if err := conf.Find(); err != nil {
+		j.AddError(errors.Wrap(err, "problem fetching cedar config"))
+		return
+	}
+
 	inc := func() {
 		result := &model.PerformanceResult{ID: j.PerfID}
 		result.Setup(j.env)
@@ -148,7 +156,20 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 			j.AddError(errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
 	}
-	j.createSignalProcessingJob(ctx, result)
+	if result.Info.Mainline {
+		j.createSignalProcessingJob(ctx, result)
+	} else {
+		proxyService := perf.NewProxyService(conf.ProxyService.URI, conf.ProxyService.User, conf.ProxyService.Token)
+		performanceResultId := result.Info.ToPerformanceResultId()
+		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
+		if err != nil {
+			grip.Error(message.Fields{
+				"message": "Failed to report new performance data availability",
+				"update":  performanceResultId,
+			})
+		}
+	}
+
 }
 
 func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *model.PerformanceResult) {

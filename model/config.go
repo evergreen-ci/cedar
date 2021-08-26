@@ -33,6 +33,7 @@ type CedarConfig struct {
 	Flags          OperationalFlags          `bson:"flags" json:"flags" yaml:"flags"`
 	Service        ServiceConfig             `bson:"service" json:"service" yaml:"service"`
 	ChangeDetector ChangeDetectorConfig      `bson:"change_detector" json:"change_detector" yaml:"change_detector"`
+	ProxyService   ProxyServiceConfig        `bson:"proxy_service" json:"proxy_service" yaml:"proxy_service"`
 
 	populated bool
 	env       cedar.Environment
@@ -93,6 +94,18 @@ type ChangeDetectorConfig struct {
 var (
 	cedarChangeDetectorConfigURIKey   = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "URI")
 	cedarChangeDetectorConfigTokenKey = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "Token")
+)
+
+type ProxyServiceConfig struct {
+	Implementation string `bson:"implementation" json:"implementation" yaml:"implementation"`
+	URI            string `bson:"uri" json:"uri" yaml:"uri"`
+	User           string `bson:"user" json:"user" yaml:"user"`
+	Token          string `bson:"token" json:"token" yaml:"token"`
+}
+
+var (
+	cedarProxyServiceConfigURIKey   = bsonutil.MustHaveTag(ProxyServiceConfig{}, "URI")
+	cedarProxyServiceConfigTokenKey = bsonutil.MustHaveTag(ProxyServiceConfig{}, "Token")
 )
 
 type SlackConfig struct {

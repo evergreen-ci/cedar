@@ -61,6 +61,12 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return resp, errors.Wrap(err, "problem creating ftdc rollups job")
 	}
 
+	if len(record.Rollups.Stats) > 0 {
+		if err := srv.updateDownstreamPerfServices(ctx, record); err != nil {
+			return nil, errors.Wrap(err, "problem creating ftdc rollups job")
+		}
+	}
+
 	grip.Info(message.Fields{
 		"message":   "successfully added metric series",
 		"task_id":   result.GetId().GetTaskId(),
@@ -120,13 +126,8 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem attaching rollup data for perf result '%s'", record.ID))
 	}
 
-	if record.Info.Mainline {
-		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
-		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
-
-		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
-		}
+	if err := srv.updateDownstreamPerfServices(ctx, record); err != nil {
+		return nil, errors.Wrap(err, "problem creating ftdc rollups job")
 	}
 
 	resp.Success = true
@@ -271,5 +272,31 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 	}
 
+	return nil
+}
+
+func (srv *perfService) updateDownstreamPerfServices(ctx context.Context, record *model.PerformanceResult) error {
+	conf := model.NewCedarConfig(srv.env)
+	if err := conf.Find(); err != nil {
+		return newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
+	}
+
+	if record.Info.Mainline {
+		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
+		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
+		if err != nil {
+			return newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
+		}
+	} else {
+		proxyService := perf.NewProxyService(conf.ProxyService.URI, conf.ProxyService.User, conf.ProxyService.Token)
+		performanceResultId := record.Info.ToPerformanceResultId()
+		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
+		if err != nil {
+			grip.Error(message.Fields{
+				"message": "Failed to report new performance data availability",
+				"update":  performanceResultId,
+			})
+		}
+	}
 	return nil
 }

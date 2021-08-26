@@ -70,6 +70,17 @@ func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResu
 	}
 }
 
+func (info *PerformanceResultInfo) ToPerformanceResultId() PerformanceTestResultId {
+	return PerformanceTestResultId{
+		TaskID:    info.TaskID,
+		Project:   info.Project,
+		Variant:   info.Variant,
+		Task:      info.TaskName,
+		Test:      info.TestName,
+		Arguments: info.Arguments,
+	}
+}
+
 // CreatePerformanceResult is the entry point for creating a performance
 // result.
 func CreatePerformanceResult(info PerformanceResultInfo, source []ArtifactInfo, rollups []PerfRollupValue) *PerformanceResult {
