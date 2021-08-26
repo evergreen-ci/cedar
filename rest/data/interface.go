@@ -92,10 +92,6 @@ type Connector interface {
 	// execution is not specified, this will return the sample from the
 	// the most recent execution.
 	FindFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
-	// FindTestResultByTestName finds the test result of a single test,
-	// specified by the given options. If execution is not specified, this
-	// will return the test result from the most recent execution.
-	FindTestResultByTestName(context.Context, TestResultsOptions) (*model.APITestResult, error)
 
 	///////////////////////
 	// Historical Test Data
@@ -137,10 +133,10 @@ type BuildloggerOptions struct {
 // or TestResult object using connector functions.
 type TestResultsOptions struct {
 	TaskID         string
-	DisplayTaskID  string
 	TestName       string
 	Execution      int
 	EmptyExecution bool
+	DisplayTask    bool
 }
 
 // PerformanceOptions holds all values required to find a specific

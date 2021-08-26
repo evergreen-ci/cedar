@@ -169,10 +169,22 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			},
 		},
 		{
+			name: "TaskIDWithTestName",
+			opts: TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 0,
+				TestName:  "test1",
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_0_test1": s.apiResults["task1_0_test1"],
+			},
+		},
+		{
 			name: "DisplayTaskIDWithExecution",
 			opts: TestResultsOptions{
-				DisplayTaskID: "display_task1",
-				Execution:     0,
+				TaskID:      "display_task1",
+				Execution:   0,
+				DisplayTask: true,
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test0": s.apiResults["task1_0_test0"],
@@ -186,13 +198,27 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 		{
 			name: "DisplayTaskIDWithoutExecution",
 			opts: TestResultsOptions{
-				DisplayTaskID:  "display_task1",
+				TaskID:         "display_task1",
 				EmptyExecution: true,
+				DisplayTask:    true,
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
 				"task1_1_test1": s.apiResults["task1_1_test1"],
 				"task1_1_test2": s.apiResults["task1_1_test2"],
+			},
+		},
+		{
+			name: "DisplayTaskIDWithTestName",
+			opts: TestResultsOptions{
+				TaskID:      "display_task1",
+				Execution:   0,
+				TestName:    "test2",
+				DisplayTask: true,
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_0_test2": s.apiResults["task1_0_test2"],
+				"task2_0_test2": s.apiResults["task2_0_test2"],
 			},
 		},
 	} {
@@ -225,7 +251,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultDNE() {
 		},
 		{
 			name: "DisplayTaskID",
-			opts: TestResultsOptions{DisplayTaskID: "DNE"},
+			opts: TestResultsOptions{TaskID: "DNE", DisplayTask: true},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
@@ -269,8 +295,9 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
 		{
 			name: "DisplayTaskIDWithExecution",
 			opts: TestResultsOptions{
-				DisplayTaskID: "display_task1",
-				Execution:     0,
+				TaskID:      "display_task1",
+				Execution:   0,
+				DisplayTask: true,
 			},
 			expectedResult: []string{
 				"test0",
@@ -284,8 +311,9 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
 		{
 			name: "DisplayTaskIDWithoutExecution",
 			opts: TestResultsOptions{
-				DisplayTaskID:  "display_task1",
+				TaskID:         "display_task1",
 				EmptyExecution: true,
+				DisplayTask:    true,
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
@@ -313,7 +341,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleDNE() {
 		},
 		{
 			name: "DisplayTaskID",
-			opts: TestResultsOptions{DisplayTaskID: "DNE"},
+			opts: TestResultsOptions{TaskID: "DNE", DisplayTask: true},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
@@ -328,80 +356,6 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleEmpty() {
 	opts := TestResultsOptions{Execution: 1}
 
 	result, err := s.sc.FindFailedTestResultsSample(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
-	for _, test := range []struct {
-		name           string
-		opts           TestResultsOptions
-		expectedResult model.APITestResult
-	}{
-		{
-			name: "WithExecution",
-			opts: TestResultsOptions{
-				TaskID:    "task1",
-				Execution: 0,
-				TestName:  "test1",
-			},
-			expectedResult: s.apiResults["task1_0_test1"],
-		},
-		{
-			name: "WithoutExecution",
-			opts: TestResultsOptions{
-				TaskID:         "task1",
-				EmptyExecution: true,
-				TestName:       "test1",
-			},
-			expectedResult: s.apiResults["task1_1_test1"],
-		},
-	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			result, err := s.sc.FindTestResultByTestName(s.ctx, test.opts)
-			s.Require().NoError(err)
-			s.Equal(test.expectedResult, *result)
-		})
-	}
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultByTestNameDNE() {
-	for _, test := range []struct {
-		name string
-		opts TestResultsOptions
-	}{
-		{
-			name: "MetadataDNE",
-			opts: TestResultsOptions{
-				TaskID:    "DNE",
-				Execution: 1,
-				TestName:  "test1",
-			},
-		},
-		{
-			name: "TestObjectDNE",
-			opts: TestResultsOptions{
-				TaskID:    "task1",
-				Execution: 1,
-				TestName:  "DNE",
-			},
-		},
-	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			result, err := s.sc.FindTestResultByTestName(s.ctx, test.opts)
-			s.Error(err)
-			s.Nil(result)
-		})
-	}
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultByTestNameEmpty() {
-	opts := TestResultsOptions{
-		TaskID:    "task1",
-		Execution: 1,
-	}
-
-	result, err := s.sc.FindTestResultByTestName(s.ctx, opts)
 	s.Error(err)
 	s.Nil(result)
 }
