@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/evergreen-ci/cedar/model"
 	dataModel "github.com/evergreen-ci/cedar/rest/model"
@@ -88,6 +89,7 @@ func (dbc *DBConnector) FindPerformanceResults(ctx context.Context, opts Perform
 		},
 		Interval: opts.Interval,
 		Limit:    opts.Limit,
+		Skip:     opts.Skip,
 	}
 	if opts.TaskName != "" {
 		findOpts.Sort = []string{"info.order"}
@@ -283,8 +285,13 @@ func (mc *MockConnector) FindPerformanceResults(_ context.Context, opts Performa
 
 	if opts.TaskName != "" {
 		sort.Slice(results, func(i, j int) bool { return results[i].Info.Order > results[j].Info.Order })
+	} else {
+		sort.Slice(results, func(i, j int) bool { return time.Time(results[i].CreatedAt).After(time.Time(results[j].CreatedAt)) })
 	}
 
+	if opts.Skip > 0 && opts.Skip < len(results) {
+		results = results[opts.Skip:]
+	}
 	if opts.Limit > 0 && opts.Limit < len(results) {
 		results = results[:opts.Limit]
 	}

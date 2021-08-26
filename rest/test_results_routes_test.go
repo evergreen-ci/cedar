@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -11,31 +10,74 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/cedar"
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
+	"github.com/mongodb/amboy/queue"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
-	"go.mongodb.org/mongo-driver/bson"
 )
+
+const testDBName = "cedar_rest_test"
+
+func newTestEnv() (cedar.Environment, error) {
+	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
+		MongoDBURI:         "mongodb://localhost:27017",
+		DatabaseName:       testDBName,
+		SocketTimeout:      time.Minute,
+		NumWorkers:         2,
+		DisableRemoteQueue: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	queue := queue.NewLocalLimitedSize(1, 100)
+	err = env.SetRemoteQueue(queue)
+	if err != nil {
+		return nil, err
+	}
+
+	return env, nil
+}
+
+func tearDownEnv(env cedar.Environment) error {
+	conf, session, err := cedar.GetSessionWithConfig(env)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer session.Close()
+	return errors.WithStack(session.DB(conf.DatabaseName).DropDatabase())
+}
 
 type TestResultsHandlerSuite struct {
 	sc         data.MockConnector
+	env        cedar.Environment
 	rh         map[string]gimlet.RouteHandler
-	apiResults map[string]model.APITestResult
+	apiResults map[string][]model.APITestResult
 	buckets    map[string]pail.Bucket
 
 	suite.Suite
 }
 
 func (s *TestResultsHandlerSuite) setup(tempDir string) {
+	var err error
+	s.env, err = newTestEnv()
+	s.Require().NoError(err)
+
+	// setup config
+	s.Require().NoError(err)
+	conf := dbModel.NewCedarConfig(s.env)
+	conf.Bucket = dbModel.BucketConfig{TestResultsBucket: tempDir}
+	s.Require().NoError(conf.Save())
+
 	s.sc = data.MockConnector{
 		Bucket: tempDir,
 		CachedTestResults: map[string]dbModel.TestResults{
-			"abc": {
-				ID: "abc",
-				Info: dbModel.TestResultsInfo{
+			"abc": *dbModel.CreateTestResults(
+				dbModel.TestResultsInfo{
 					Project:       "test",
 					Version:       "0",
 					Variant:       "linux",
@@ -45,16 +87,10 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 					RequestType:   "requesttype",
 					Mainline:      true,
 				},
-				CreatedAt:   time.Now().Add(-24 * time.Hour),
-				CompletedAt: time.Now().Add(-23 * time.Hour),
-				Artifact: dbModel.TestResultsArtifactInfo{
-					Type:   dbModel.PailLocal,
-					Prefix: "abc",
-				},
-			},
-			"def": {
-				ID: "def",
-				Info: dbModel.TestResultsInfo{
+				dbModel.PailLocal,
+			),
+			"def": *dbModel.CreateTestResults(
+				dbModel.TestResultsInfo{
 					Project:       "test",
 					Version:       "0",
 					Variant:       "linux",
@@ -64,16 +100,10 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 					RequestType:   "requesttype",
 					Mainline:      true,
 				},
-				CreatedAt:   time.Now().Add(-25 * time.Hour),
-				CompletedAt: time.Now().Add(-23 * time.Hour),
-				Artifact: dbModel.TestResultsArtifactInfo{
-					Type:   dbModel.PailLocal,
-					Prefix: "def",
-				},
-			},
-			"ghi": {
-				ID: "ghi",
-				Info: dbModel.TestResultsInfo{
+				dbModel.PailLocal,
+			),
+			"ghi": *dbModel.CreateTestResults(
+				dbModel.TestResultsInfo{
 					Project:       "test",
 					Version:       "0",
 					Variant:       "linux",
@@ -83,21 +113,17 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 					RequestType:   "requesttype",
 					Mainline:      true,
 				},
-				CreatedAt:   time.Now().Add(-2 * time.Hour),
-				CompletedAt: time.Now(),
-				Artifact: dbModel.TestResultsArtifactInfo{
-					Type:   dbModel.PailLocal,
-					Prefix: "ghi",
-				},
-			},
+				dbModel.PailLocal,
+			),
 		},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"task_id":         makeGetTestResultsByTaskID(&s.sc),
-		"display_task_id": makeGetTestResultsByDisplayTaskID(&s.sc),
-		"test_name":       makeGetTestResultByTestName(&s.sc),
+		"task_id":             makeGetTestResultsByTaskID(&s.sc),
+		"display_task_id":     makeGetTestResultsByDisplayTaskID(&s.sc),
+		"test_name":           makeGetTestResultByTestName(&s.sc),
+		"failed_tests_sample": makeGetTestResultsFailedSample(&s.sc),
 	}
-	s.apiResults = map[string]model.APITestResult{}
+	s.apiResults = map[string][]model.APITestResult{}
 	s.buckets = map[string]pail.Bucket{}
 	for key, testResults := range s.sc.CachedTestResults {
 		var err error
@@ -108,27 +134,24 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 
 		s.buckets[key], err = pail.NewLocalBucket(opts)
 		s.Require().NoError(err)
-		s.sc.CachedTestResults[key] = testResults
+		testResults.Setup(s.env)
+		s.Require().NoError(testResults.SaveNew(context.TODO()))
 		for i := 0; i < 3; i++ {
 			result := dbModel.TestResult{
-				TaskID:         testResults.Info.TaskID,
-				Execution:      testResults.Info.Execution,
-				TestName:       fmt.Sprintf("test%d", i),
-				Trial:          0,
-				Status:         "teststatus",
-				LineNum:        0,
-				TaskCreateTime: time.Now().Add(-3 * time.Second),
-				TestStartTime:  time.Now().Add(-2 * time.Second),
-				TestEndTime:    time.Now().Add(-1 * time.Second),
+				TaskID:    testResults.Info.TaskID,
+				Execution: testResults.Info.Execution,
+				TestName:  fmt.Sprintf("test%d", i),
+				Trial:     0,
+				Status:    "teststatus-fail",
+				LineNum:   0,
 			}
+			s.Require().NoError(testResults.Append(context.TODO(), []dbModel.TestResult{result}))
 
-			data, err := bson.Marshal(result)
-			s.Require().NoError(err)
-			s.Require().NoError(s.buckets[key].Put(context.Background(), result.TestName, bytes.NewReader(data)))
 			apiResult := model.APITestResult{}
 			s.Require().NoError(apiResult.Import(result))
-			s.apiResults[fmt.Sprintf("%s_%d_%s", result.TaskID, result.Execution, result.TestName)] = apiResult
+			s.apiResults[key] = append(s.apiResults[key], apiResult)
 		}
+		s.sc.CachedTestResults[key] = testResults
 	}
 }
 
@@ -143,6 +166,11 @@ func TestTestResultsHandlerSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
+func (s *TestResultsHandlerSuite) TearDownSuite() {
+	err := tearDownEnv(s.env)
+	s.Require().NoError(err)
+}
+
 func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 	rh := s.rh["task_id"]
 	optsList := []data.TestResultsOptions{
@@ -155,17 +183,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			EmptyExecution: true,
 		},
 	}
-	resultMaps := []map[string]model.APITestResult{
-		{
-			"task1_0_test0": s.apiResults["task1_0_test0"],
-			"task1_0_test1": s.apiResults["task1_0_test1"],
-			"task1_0_test2": s.apiResults["task1_0_test2"],
-		},
-		{
-			"task1_1_test0": s.apiResults["task1_1_test0"],
-			"task1_1_test1": s.apiResults["task1_1_test1"],
-			"task1_1_test2": s.apiResults["task1_1_test2"],
-		},
+	expectedResults := [][]model.APITestResult{
+		s.apiResults["abc"],
+		s.apiResults["def"],
 	}
 
 	for i, opts := range optsList {
@@ -176,16 +196,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 		s.Equal(http.StatusOK, resp.Status())
 		actualResults, ok := resp.Data().([]model.APITestResult)
 		s.Require().True(ok)
-		s.Len(actualResults, len(resultMaps[i]))
-		for _, result := range actualResults {
-			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
-			expected, ok := resultMaps[i][key]
-			s.Require().True(ok)
-			s.Equal(expected.TestName, result.TestName)
-			s.Equal(expected.TaskID, result.TaskID)
-			s.Equal(expected.Execution, result.Execution)
-			delete(resultMaps[i], key)
-		}
+		s.Equal(expectedResults[i], actualResults)
 	}
 }
 
@@ -223,20 +234,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerFound(
 			EmptyExecution: true,
 		},
 	}
-	resultMaps := []map[string]model.APITestResult{
-		{
-			"task1_0_test0": s.apiResults["task1_0_test0"],
-			"task1_0_test1": s.apiResults["task1_0_test1"],
-			"task1_0_test2": s.apiResults["task1_0_test2"],
-			"task2_0_test0": s.apiResults["task2_0_test0"],
-			"task2_0_test1": s.apiResults["task2_0_test1"],
-			"task2_0_test2": s.apiResults["task2_0_test2"],
-		},
-		{
-			"task1_1_test0": s.apiResults["task1_1_test0"],
-			"task1_1_test1": s.apiResults["task1_1_test1"],
-			"task1_1_test2": s.apiResults["task1_1_test2"],
-		},
+	expectedResults := [][]model.APITestResult{
+		append(s.apiResults["abc"], s.apiResults["ghi"]...),
+		s.apiResults["def"],
 	}
 
 	for i, opts := range optsList {
@@ -247,15 +247,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerFound(
 		s.Equal(http.StatusOK, resp.Status())
 		actualResults, ok := resp.Data().([]model.APITestResult)
 		s.Require().True(ok)
-		s.Len(actualResults, len(resultMaps[i]))
-		for _, result := range actualResults {
-			key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
-			expected, ok := resultMaps[i][key]
-			s.Require().True(ok)
-			s.Equal(expected.TestName, result.TestName)
-			s.Equal(expected.TaskID, result.TaskID)
-			s.Equal(expected.Execution, result.Execution)
-			delete(resultMaps[i], key)
+		s.Require().Len(actualResults, len(expectedResults[i]))
+		for _, actualResult := range actualResults {
+			s.Contains(expectedResults[i], actualResult)
 		}
 	}
 }
@@ -288,8 +282,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
 	rh.(*testResultGetByTestNameHandler).opts.TestName = "test1"
 	rh.(*testResultGetByTestNameHandler).opts.Execution = 0
 
-	expected, ok := s.apiResults["task1_0_test1"] // retrieve stored apiTestResult
-	s.True(ok)
+	expected := s.apiResults["abc"][1]
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -325,6 +318,96 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
 	s.Equal(http.StatusInternalServerError, resp.Status())
 }
 
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
+	for _, test := range []struct {
+		name           string
+		opts           data.TestResultsOptions
+		expectedResult []string
+	}{
+		{
+			name: "TaskIDWithExecution",
+			opts: data.TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 0,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "TaskIDWithoutExecution",
+			opts: data.TestResultsOptions{
+				TaskID:         "task1",
+				EmptyExecution: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "DisplayTaskIDWithExecution",
+			opts: data.TestResultsOptions{
+				DisplayTaskID: "display_task1",
+				Execution:     0,
+			},
+			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+		},
+		{
+			name: "DisplayTaskIDWithoutExecution",
+			opts: data.TestResultsOptions{
+				DisplayTaskID:  "display_task1",
+				EmptyExecution: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.opts = test.opts
+
+			resp := rh.Run(context.TODO())
+			s.Require().NotNil(resp)
+			s.Equal(http.StatusOK, resp.Status())
+			actualResult, ok := resp.Data().([]string)
+			s.Require().True(ok)
+			s.Equal(test.expectedResult, actualResult)
+		})
+	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleNotFound() {
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
+	for _, test := range []struct {
+		name string
+		opts data.TestResultsOptions
+	}{
+		{
+			name: "TaskID",
+			opts: data.TestResultsOptions{TaskID: "DNE"},
+		},
+		{
+			name: "DisplayTaskID",
+			opts: data.TestResultsOptions{DisplayTaskID: "DNE"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.opts = test.opts
+
+			resp := rh.Run(context.TODO())
+			s.Require().NotNil(resp)
+			s.Equal(http.StatusNotFound, resp.Status())
+		})
+	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleHandlerCtxErr() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
+	rh.opts.DisplayTaskID = "display_task1"
+	rh.opts.Execution = 0
+
+	resp := rh.Run(ctx)
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusInternalServerError, resp.Status())
+}
+
 func (s *TestResultsHandlerSuite) TestParse() {
 	for _, test := range []struct {
 		urlString string
@@ -341,6 +424,10 @@ func (s *TestResultsHandlerSuite) TestParse() {
 		{
 			handler:   "test_name",
 			urlString: "http://cedar.mongodb.com/test_results/test_name/task_id1/test0",
+		},
+		{
+			handler:   "failed_tests_sample",
+			urlString: "http://cedar.mongodb.com/test_results/task_id/task_id1/failed_tests_samle",
 		},
 	} {
 		s.testParseValid(test.handler, test.urlString)
@@ -397,6 +484,8 @@ func getTestResultsExecution(rh gimlet.RouteHandler, handler string) int {
 		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.Execution
 	case "test_name":
 		return rh.(*testResultGetByTestNameHandler).opts.Execution
+	case "failed_tests_sample":
+		return rh.(*testResultsGetFailedSampleHandler).opts.Execution
 	default:
 		return 0
 	}
@@ -410,6 +499,8 @@ func getTestResultsEmptyExecution(rh gimlet.RouteHandler, handler string) bool {
 		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.EmptyExecution
 	case "test_name":
 		return rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
+	case "failed_tests_sample":
+		return rh.(*testResultsGetFailedSampleHandler).opts.EmptyExecution
 	default:
 		return false
 	}

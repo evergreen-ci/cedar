@@ -114,7 +114,7 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 	collection := r.env.GetDB().Collection(perfResultCollection)
 	processedAt := time.Now()
 	updated, err := tryUpdate(ctx, collection, r.id, rollup, processedAt)
-	if !updated {
+	if !updated && err == nil {
 		_, err = collection.UpdateOne(ctx,
 			bson.M{perfIDKey: r.id},
 			bson.M{
@@ -124,7 +124,8 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 				"$set": bson.M{
 					bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsProcessedAtKey): processedAt,
 				},
-			})
+			},
+		)
 	}
 	if err != nil {
 		return errors.Wrap(err, "problem adding rollup")
@@ -145,7 +146,7 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 }
 
 func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r PerfRollupValue, processedAt time.Time) (bool, error) {
-	res, err := collection.UpdateOne(ctx,
+	updateResult, err := collection.UpdateOne(ctx,
 		bson.M{
 			perfIDKey: id,
 			bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey): r.Name,
@@ -169,9 +170,13 @@ func tryUpdate(ctx context.Context, collection *mongo.Collection, id string, r P
 					},
 				},
 			},
-		}))
+		}),
+	)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
 
-	return res.MatchedCount == 1, errors.WithStack(err)
+	return updateResult.MatchedCount == 1, errors.WithStack(err)
 }
 
 func (r *PerfRollups) GetInt(name string) (int, error) {

@@ -26,6 +26,7 @@ type mockDispatcher struct {
 	shouldFailDispatch func(amboy.Job) bool
 	initialLock        func(amboy.Job) error
 	lockPing           func(context.Context, amboy.Job)
+	closed             bool
 }
 
 func newMockDispatcher(q amboy.Queue) *mockDispatcher {
@@ -69,22 +70,31 @@ func (d *mockDispatcher) Dispatch(ctx context.Context, j amboy.Job) error {
 		}
 	}
 
-	pingCtx, stopPing := context.WithCancel(ctx)
+	pingCtx, pingCancel := context.WithCancel(ctx)
+	pingCompleted := make(chan struct{})
 	if d.lockPing != nil {
 		go func() {
+			defer close(pingCompleted)
 			defer recovery.LogStackTraceAndContinue("mock background job lock ping", j.ID())
-			d.lockPing(ctx, j)
+			d.lockPing(pingCtx, j)
 		}()
 	} else {
 		go func() {
+			defer close(pingCompleted)
 			defer recovery.LogStackTraceAndContinue("mock background job lock ping", j.ID())
-			pingJobLock(ctx, pingCtx, d.queue, j, func() {})
+			grip.Debug(message.WrapError(pingJobLock(pingCtx, d.queue, j), message.Fields{
+				"message":  "could not ping job lock",
+				"job_id":   j.ID(),
+				"queue_id": d.queue.ID(),
+			}))
 		}()
 	}
 
 	d.dispatched[j.ID()] = dispatcherInfo{
-		job:      j,
-		stopPing: stopPing,
+		job:           j,
+		pingCtx:       pingCtx,
+		pingCancel:    pingCancel,
+		pingCompleted: pingCompleted,
 	}
 
 	return nil
@@ -94,21 +104,27 @@ func (d *mockDispatcher) Release(ctx context.Context, j amboy.Job) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	grip.Debug(message.WrapError(d.release(j), message.Fields{
+	grip.Debug(message.WrapError(d.release(ctx, j.ID()), message.Fields{
 		"service":  "mock dispatcher",
 		"queue_id": d.queue.ID(),
 		"job_id":   j.ID(),
 	}))
 }
 
-func (d *mockDispatcher) release(j amboy.Job) error {
-	info, ok := d.dispatched[j.ID()]
+func (d *mockDispatcher) release(ctx context.Context, jobID string) error {
+	info, ok := d.dispatched[jobID]
 	if !ok {
 		return errors.New("attempting to release an unowned job")
 	}
 
-	info.stopPing()
-	delete(d.dispatched, j.ID())
+	delete(d.dispatched, jobID)
+
+	info.pingCancel()
+
+	select {
+	case <-ctx.Done():
+	case <-info.pingCompleted:
+	}
 
 	return nil
 }
@@ -117,7 +133,7 @@ func (d *mockDispatcher) Complete(ctx context.Context, j amboy.Job) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if err := d.release(j); err != nil {
+	if err := d.release(ctx, j.ID()); err != nil {
 		grip.Debug(message.WrapError(err, message.Fields{
 			"service":  "mock dispatcher",
 			"queue_id": d.queue.ID(),
@@ -129,6 +145,20 @@ func (d *mockDispatcher) Complete(ctx context.Context, j amboy.Job) {
 	ti := j.TimeInfo()
 	ti.End = time.Now()
 	j.UpdateTimeInfo(ti)
+}
+
+func (d *mockDispatcher) Close(ctx context.Context) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	catcher := grip.NewBasicCatcher()
+	for jobID := range d.dispatched {
+		catcher.Wrapf(d.release(ctx, jobID), "releasing job '%s'", jobID)
+	}
+
+	d.closed = true
+
+	return nil
 }
 
 func TestDispatcherImplementations(t *testing.T) {
@@ -146,6 +176,15 @@ func TestDispatcherImplementations(t *testing.T) {
 	opts := defaultMongoDBTestOptions()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(opts.URI))
 	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, client.Disconnect(ctx))
+	}()
+
+	driver, err := openNewMongoDriver(ctx, newDriverID(), opts, client)
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, driver.Close(ctx))
+	}()
 
 	for dispatcherName, makeDispatcher := range map[string]func(q amboy.Queue) Dispatcher{
 		"Basic": NewDispatcher,
@@ -178,7 +217,7 @@ func TestDispatcherImplementations(t *testing.T) {
 					assert.NotZero(t, oldStatus.ModificationTime)
 					assert.True(t, oldStatus.InProgress)
 
-					time.Sleep(lockTimeout)
+					time.Sleep(2 * lockTimeout)
 
 					newStatus := j.Status()
 					assert.True(t, oldStatus.ModificationTime.Before(newStatus.ModificationTime))
@@ -201,11 +240,33 @@ func TestDispatcherImplementations(t *testing.T) {
 					assert.NotZero(t, oldStatus.ModificationTime)
 					assert.True(t, oldStatus.InProgress)
 
-					time.Sleep(lockTimeout)
+					time.Sleep(2 * lockTimeout)
 
 					newStatus := j.Status()
 					assert.Equal(t, oldStatus.ModificationTime, newStatus.ModificationTime)
 					assert.Equal(t, oldStatus.ModificationCount, newStatus.ModificationCount)
+					assert.True(t, newStatus.InProgress)
+				},
+				"DuplicateJobDispatchFails": func(ctx context.Context, t *testing.T, d Dispatcher, mq *mockRemoteQueue) {
+					lockTimeout := 10 * time.Millisecond
+					mq.queueInfo = setLockTimeout(lockTimeout)
+
+					j := newMockJob()
+					require.NoError(t, mq.Put(ctx, j))
+					require.NoError(t, d.Dispatch(ctx, j))
+					require.Error(t, d.Dispatch(ctx, j))
+					defer d.Release(ctx, j)
+
+					oldStatus := j.Status()
+					assert.NotZero(t, oldStatus.ModificationCount)
+					assert.NotZero(t, oldStatus.ModificationTime)
+					assert.True(t, oldStatus.InProgress)
+
+					time.Sleep(2 * lockTimeout)
+
+					newStatus := j.Status()
+					assert.True(t, oldStatus.ModificationTime.Before(newStatus.ModificationTime))
+					assert.True(t, oldStatus.ModificationCount < newStatus.ModificationCount)
 					assert.True(t, newStatus.InProgress)
 				},
 				"ReleaseStopsLockPinger": func(ctx context.Context, t *testing.T, d Dispatcher, mq *mockRemoteQueue) {
@@ -222,7 +283,7 @@ func TestDispatcherImplementations(t *testing.T) {
 					assert.NotZero(t, oldStatus.ModificationTime)
 					assert.True(t, oldStatus.InProgress)
 
-					time.Sleep(lockTimeout)
+					time.Sleep(2 * lockTimeout)
 
 					newStatus := j.Status()
 					assert.Equal(t, oldStatus.ModificationTime, newStatus.ModificationTime)
@@ -244,7 +305,7 @@ func TestDispatcherImplementations(t *testing.T) {
 
 					d.Complete(ctx, j)
 
-					time.Sleep(lockTimeout)
+					time.Sleep(2 * lockTimeout)
 
 					newStatus := j.Status()
 					assert.Equal(t, oldStatus.ModificationTime, newStatus.ModificationTime)
@@ -274,17 +335,9 @@ func TestDispatcherImplementations(t *testing.T) {
 					q, err := newRemoteUnordered(size)
 					require.NoError(t, err)
 
-					driver, err := openNewMongoDriver(tctx, newDriverID(), opts, client)
-					require.NoError(t, err)
-
-					require.NoError(t, driver.Open(tctx))
-					defer driver.Close()
-
-					mDriver, ok := driver.(*mongoDriver)
-					require.True(t, ok)
-					require.NoError(t, mDriver.getCollection().Database().Drop(tctx))
+					require.NoError(t, driver.getCollection().Database().Drop(tctx))
 					defer func() {
-						assert.NoError(t, mDriver.getCollection().Database().Drop(tctx))
+						assert.NoError(t, driver.getCollection().Database().Drop(tctx))
 					}()
 
 					opts := mockRemoteQueueOptions{

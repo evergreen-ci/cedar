@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -15,13 +19,21 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const testResultsCollection = "test_results"
+const (
+
+	// FailedTestsSampleSize is the maximum size for the failed test
+	// results sample.
+	FailedTestsSampleSize = 10
+
+	testResultsCollection = "test_results"
+)
 
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
@@ -30,6 +42,10 @@ type TestResults struct {
 	CreatedAt   time.Time               `bson:"created_at"`
 	CompletedAt time.Time               `bson:"completed_at"`
 	Artifact    TestResultsArtifactInfo `bson:"artifact"`
+	// FailedTestsSample is the first X failing tests of the test results.
+	// This is an optimization for Evergreen's UI features that display a
+	// limited number of failing tests for a task.
+	FailedTestsSample []string `bson:"failed_tests_sample"`
 
 	env       cedar.Environment
 	bucket    string
@@ -37,11 +53,12 @@ type TestResults struct {
 }
 
 var (
-	testResultsIDKey          = bsonutil.MustHaveTag(TestResults{}, "ID")
-	testResultsInfoKey        = bsonutil.MustHaveTag(TestResults{}, "Info")
-	testResultsCreatedAtKey   = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
-	testResultsCompletedAtKey = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
-	testResultsArtifactKey    = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsIDKey                = bsonutil.MustHaveTag(TestResults{}, "ID")
+	testResultsInfoKey              = bsonutil.MustHaveTag(TestResults{}, "Info")
+	testResultsCreatedAtKey         = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
+	testResultsCompletedAtKey       = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
+	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
 // CreateTestResults is an entry point for creating a new TestResults.
@@ -53,7 +70,7 @@ func CreateTestResults(info TestResultsInfo, artifactStorageType PailType) *Test
 		Artifact: TestResultsArtifactInfo{
 			Type:    artifactStorageType,
 			Prefix:  info.ID(),
-			Version: 0,
+			Version: 1,
 		},
 		populated: true,
 	}
@@ -142,7 +159,7 @@ func (t *TestResults) Remove(ctx context.Context) error {
 // environment should not be nil.
 func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if !t.populated {
-		return errors.New("cannot append with populated test results")
+		return errors.New("cannot append without populated test results")
 	}
 	if t.env == nil {
 		return errors.New("cannot not append test results with a nil environment")
@@ -156,41 +173,84 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	conf := &CedarConfig{}
-	conf.Setup(t.env)
-	if err := conf.Find(); err != nil {
-		return errors.Wrap(err, "problem getting application configuration")
+	if err := t.appendToFailedTestsSample(ctx, results); err != nil {
+		return err
 	}
-	bucket, err := t.Artifact.Type.Create(
-		ctx,
-		t.env,
-		conf.Bucket.TestResultsBucket,
-		t.Artifact.Prefix,
-		string(pail.S3PermissionsPrivate),
-		true,
-	)
+
+	bucket, err := t.GetBucket(ctx)
 	if err != nil {
-		return errors.Wrap(err, "problem creating bucket")
+		return err
 	}
 
-	for _, result := range results {
-		data, err := bson.Marshal(result)
+	var allResults testResultsDoc
+	r, err := bucket.Get(ctx, testResultsCollection)
+	if err != nil && !pail.IsKeyNotFoundError(err) {
+		return errors.Wrap(err, "getting uploaded test results")
+	}
+	if err == nil {
+		catcher := grip.NewBasicCatcher()
+
+		data, err := ioutil.ReadAll(r)
+		catcher.Add(r.Close())
 		if err != nil {
-			return errors.Wrap(err, "problem marshalling bson")
+			catcher.Wrap(err, "reading uploaded test results")
+			return catcher.Resolve()
 		}
 
-		if err := bucket.Put(ctx, result.TestName, bytes.NewReader(data)); err != nil {
-			return errors.Wrap(err, "problem uploading test results to bucket")
+		if err = bson.Unmarshal(data, &allResults); err != nil {
+			catcher.Wrap(err, "unmarshalling uploaded test results")
+			return catcher.Resolve()
 		}
 	}
+	allResults.Results = append(allResults.Results, results...)
 
-	return nil
+	data, err := bson.Marshal(&allResults)
+	if err != nil {
+		return errors.Wrap(err, "marshalling test results")
+	}
+
+	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading test results")
+}
+
+func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []TestResult) error {
+	var update bool
+	for i := 0; i < len(results) && len(t.FailedTestsSample) < FailedTestsSampleSize; i++ {
+		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
+			t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
+			update = true
+		}
+	}
+	if !update {
+		return nil
+	}
+
+	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
+		ctx,
+		bson.M{testResultsIDKey: t.ID},
+		bson.M{
+			"$set": bson.M{
+				testResultsFailedTestsSampleKey: t.FailedTestsSample,
+			},
+		},
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":          testResultsCollection,
+		"id":                  t.ID,
+		"failed_tests_sample": t.FailedTestsSample,
+		"updateResult":        updateResult,
+		"op":                  "append to failing tests sample",
+	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
+	}
+
+	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
 }
 
 // Download returns a TestResult slice with the corresponding results stored in
 // the offline blob storage. The TestResults should be populated and the
 // environment should not be nil.
-func (t *TestResults) Download(ctx context.Context) (TestResultsIterator, error) {
+func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	if !t.populated {
 		return nil, errors.New("cannot download without populated test results")
 	}
@@ -202,12 +262,42 @@ func (t *TestResults) Download(ctx context.Context) (TestResultsIterator, error)
 		t.ID = t.Info.ID()
 	}
 
+	var results testResultsDoc
+	catcher := grip.NewBasicCatcher()
 	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewTestResultsIterator(bucket), nil
+	switch t.Artifact.Version {
+	case 0:
+		iter := NewTestResultsIterator(bucket)
+		for iter.Next(ctx) {
+			results.Results = append(results.Results, iter.Item())
+		}
+
+		catcher.Wrap(iter.Err(), "iterating test results")
+		catcher.Wrap(iter.Close(), "closing test results iterator")
+	case 1:
+		r, err := bucket.Get(ctx, testResultsCollection)
+		if err != nil {
+			catcher.Wrap(err, "getting test results")
+			break
+		}
+
+		data, err := ioutil.ReadAll(r)
+		catcher.Add(r.Close())
+		if err != nil {
+			catcher.Wrap(err, "reading test results")
+			break
+		}
+
+		catcher.Wrap(bson.Unmarshal(data, &results), "unmarshalling test results")
+	default:
+		catcher.Errorf("unsupported test results artifact version '%d'", t.Artifact.Version)
+	}
+
+	return results.Results, catcher.Resolve()
 }
 
 // Close "closes out" by populating the completed_at field. The environment
@@ -252,7 +342,7 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 		conf := &CedarConfig{}
 		conf.Setup(t.env)
 		if err := conf.Find(); err != nil {
-			return nil, errors.Wrap(err, "problem getting application configuration")
+			return nil, errors.Wrap(err, "getting application configuration")
 		}
 		t.bucket = conf.Bucket.TestResultsBucket
 	}
@@ -266,7 +356,7 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 		true,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem creating bucket")
+		return nil, errors.Wrap(err, "creating bucket")
 	}
 
 	return bucket, nil
@@ -336,10 +426,24 @@ type TestResult struct {
 	Trial           int       `bson:"trial,omitempty"`
 	Status          string    `bson:"status"`
 	LogTestName     string    `bson:"log_test_name,omitempty"`
+	LogURL          string    `bson:"log_url,omitempty"`
+	RawLogURL       string    `bson:"raw_log_url,omitempty"`
 	LineNum         int       `bson:"line_num"`
 	TaskCreateTime  time.Time `bson:"task_create_time"`
 	TestStartTime   time.Time `bson:"test_start_time"`
 	TestEndTime     time.Time `bson:"test_end_time"`
+}
+
+// GetDisplayName returns the human-readable name of the test.
+func (t TestResult) GetDisplayName() string {
+	if t.DisplayTestName != "" {
+		return t.DisplayTestName
+	}
+	return t.TestName
+}
+
+type testResultsDoc struct {
+	Results []TestResult `bson:"results"`
 }
 
 // TestResultsFindOptions allows for querying for test results with or without
@@ -430,19 +534,64 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 // associated with the provided options and returns a TestResultsIterator with
 // the downloaded test results. The environment should not be nil. If execution
 // is empty it will default to the most recent execution.
-func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsIterator, error) {
-	results, err := FindTestResults(ctx, env, opts)
+func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResult, error) {
+	testResults, err := FindTestResults(ctx, env, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	its := make([]TestResultsIterator, len(results))
-	for i, result := range results {
-		its[i], err = result.Download(ctx)
-		if err != nil {
-			return nil, err
-		}
+	testResultsChan := make(chan TestResults, len(testResults))
+	for i := range testResults {
+		testResultsChan <- testResults[i]
 	}
+	close(testResultsChan)
 
-	return NewMultiTestResultsIterator(its...), nil
+	var (
+		combinedResults []TestResult
+		cwg             sync.WaitGroup
+		pwg             sync.WaitGroup
+	)
+	combinedResultsChan := make(chan []TestResult, len(testResults))
+	catcher := grip.NewBasicCatcher()
+	cwg.Add(1)
+	go func() {
+		defer func() {
+			catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results download consumer"))
+			cwg.Done()
+		}()
+
+		for results := range combinedResultsChan {
+			combinedResults = append(combinedResults, results...)
+		}
+	}()
+
+	for i := 0; i < runtime.NumCPU(); i++ {
+		pwg.Add(1)
+		go func() {
+			defer func() {
+				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results download producer"))
+				pwg.Done()
+			}()
+
+			for trs := range testResultsChan {
+				results, err := trs.Download(ctx)
+				if err != nil {
+					catcher.Add(err)
+					return
+				}
+
+				select {
+				case <-ctx.Done():
+					catcher.Add(ctx.Err())
+					return
+				case combinedResultsChan <- results:
+				}
+			}
+		}()
+	}
+	pwg.Wait()
+	close(combinedResultsChan)
+	cwg.Wait()
+
+	return combinedResults, catcher.Resolve()
 }

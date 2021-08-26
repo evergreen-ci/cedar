@@ -1,20 +1,16 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
-	"github.com/evergreen-ci/pail"
 	"github.com/stretchr/testify/suite"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type testResultsConnectorSuite struct {
@@ -111,40 +107,28 @@ func (s *testResultsConnectorSuite) setup() {
 	for _, testResultsInfo := range testResultInfos {
 		testResults := dbModel.CreateTestResults(testResultsInfo, dbModel.PailLocal)
 
-		opts := pail.LocalOptions{
-			Path:   s.tempDir,
-			Prefix: testResults.Artifact.Prefix,
-		}
-		bucket, err := pail.NewLocalBucket(opts)
-		s.Require().NoError(err)
-
 		testResults.Setup(s.env)
 		err = testResults.SaveNew(s.ctx)
-
 		s.Require().NoError(err)
-		s.testResults[testResults.ID] = *testResults
 
 		for i := 0; i < 3; i++ {
 			result := dbModel.TestResult{
-				TaskID:         testResults.Info.TaskID,
-				Execution:      testResults.Info.Execution,
-				TestName:       fmt.Sprintf("test%d", i),
-				Trial:          0,
-				Status:         "teststatus",
-				LineNum:        0,
-				TaskCreateTime: time.Now().Add(-3 * time.Second),
-				TestStartTime:  time.Now().Add(-2 * time.Second),
-				TestEndTime:    time.Now().Add(-1 * time.Second),
+				TaskID:    testResults.Info.TaskID,
+				Execution: testResults.Info.Execution,
+				TestName:  fmt.Sprintf("test%d", i),
+				Trial:     0,
+				Status:    "teststatus-fail",
+				LineNum:   0,
 			}
 
 			apiResult := model.APITestResult{}
 			s.Require().NoError(apiResult.Import(result))
 			s.apiResults[fmt.Sprintf("%s_%d_%s", result.TaskID, result.Execution, result.TestName)] = apiResult
 
-			data, err := bson.Marshal(result)
-			s.Require().NoError(err)
-			s.Require().NoError(bucket.Put(s.ctx, result.TestName, bytes.NewReader(data)))
+			s.Require().NoError(testResults.Append(s.ctx, []dbModel.TestResult{result}))
 		}
+
+		s.testResults[testResults.ID] = *testResults
 	}
 }
 
@@ -250,10 +234,9 @@ func (s *testResultsConnectorSuite) TestFindTestResultDNE() {
 			s.Nil(result)
 		})
 	}
-
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDEmpty() {
+func (s *testResultsConnectorSuite) TestFindTestResultEmpty() {
 	opts := TestResultsOptions{Execution: 1}
 
 	result, err := s.sc.FindTestResults(s.ctx, opts)
@@ -261,18 +244,108 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTaskIDEmpty() {
 	s.Nil(result)
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
+func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
+	for _, test := range []struct {
+		name           string
+		opts           TestResultsOptions
+		expectedResult []string
+	}{
+		{
+			name: "TaskIDWithExecution",
+			opts: TestResultsOptions{
+				TaskID:    "task1",
+				Execution: 0,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "TaskIDWithoutExecution",
+			opts: TestResultsOptions{
+				TaskID:         "task1",
+				EmptyExecution: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "DisplayTaskIDWithExecution",
+			opts: TestResultsOptions{
+				DisplayTaskID: "display_task1",
+				Execution:     0,
+			},
+			expectedResult: []string{
+				"test0",
+				"test1",
+				"test2",
+				"test0",
+				"test1",
+				"test2",
+			},
+		},
+		{
+			name: "DisplayTaskIDWithoutExecution",
+			opts: TestResultsOptions{
+				DisplayTaskID:  "display_task1",
+				EmptyExecution: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			actualResult, err := s.sc.FindFailedTestResultsSample(s.ctx, test.opts)
+			s.Require().NoError(err)
+
+			s.Require().Len(actualResult, len(test.expectedResult))
+			for i := range actualResult {
+				s.Equal(test.expectedResult[i], actualResult[i])
+			}
+		})
+	}
+}
+
+func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleDNE() {
 	for _, test := range []struct {
 		name string
 		opts TestResultsOptions
 	}{
 		{
+			name: "TaskID",
+			opts: TestResultsOptions{TaskID: "DNE"},
+		},
+		{
+			name: "DisplayTaskID",
+			opts: TestResultsOptions{DisplayTaskID: "DNE"},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			result, err := s.sc.FindFailedTestResultsSample(s.ctx, test.opts)
+			s.Error(err)
+			s.Nil(result)
+		})
+	}
+}
+
+func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleEmpty() {
+	opts := TestResultsOptions{Execution: 1}
+
+	result, err := s.sc.FindFailedTestResultsSample(s.ctx, opts)
+	s.Error(err)
+	s.Nil(result)
+}
+
+func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
+	for _, test := range []struct {
+		name           string
+		opts           TestResultsOptions
+		expectedResult model.APITestResult
+	}{
+		{
 			name: "WithExecution",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
-				Execution: 1,
+				Execution: 0,
 				TestName:  "test1",
 			},
+			expectedResult: s.apiResults["task1_0_test1"],
 		},
 		{
 			name: "WithoutExecution",
@@ -281,36 +354,13 @@ func (s *testResultsConnectorSuite) TestFindTestResultByTestNameExists() {
 				EmptyExecution: true,
 				TestName:       "test1",
 			},
+			expectedResult: s.apiResults["task1_1_test1"],
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
-			findOpts := dbModel.TestResultsFindOptions{
-				TaskID:         test.opts.TaskID,
-				Execution:      test.opts.Execution,
-				EmptyExecution: test.opts.EmptyExecution,
-			}
-			results, err := dbModel.FindTestResults(s.ctx, s.env, findOpts)
+			result, err := s.sc.FindTestResultByTestName(s.ctx, test.opts)
 			s.Require().NoError(err)
-			bucket, err := results[0].GetBucket(s.ctx)
-			s.Require().NoError(err)
-
-			tr, err := bucket.Get(s.ctx, test.opts.TestName)
-			s.Require().NoError(err)
-			defer func() {
-				s.NoError(tr.Close())
-			}()
-
-			data, err := ioutil.ReadAll(tr)
-			s.Require().NoError(err)
-
-			var result dbModel.TestResult
-			s.Require().NoError(bson.Unmarshal(data, &result))
-			expected := &model.APITestResult{}
-			s.Require().NoError(expected.Import(result))
-
-			actual, err := s.sc.FindTestResultByTestName(s.ctx, test.opts)
-			s.Require().NoError(err)
-			s.Equal(expected, actual)
+			s.Equal(test.expectedResult, *result)
 		})
 	}
 }

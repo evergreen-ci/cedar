@@ -16,6 +16,8 @@ type APITestResult struct {
 	Trial           int     `json:"trial,omitempty"`
 	Status          *string `json:"status"`
 	LogTestName     *string `json:"log_test_name,omitempty"`
+	LogURL          *string `json:"log_url,omitempty"`
+	RawLogURL       *string `json:"raw_log_url,omitempty"`
 	LineNum         int     `json:"line_num"`
 	TaskCreateTime  APITime `json:"task_create_time"`
 	TestStartTime   APITime `json:"test_start_time"`
@@ -39,6 +41,12 @@ func (a *APITestResult) Import(i interface{}) error {
 		a.Status = utility.ToStringPtr(tr.Status)
 		if tr.LogTestName != "" {
 			a.LogTestName = utility.ToStringPtr(tr.LogTestName)
+		}
+		if tr.LogURL != "" {
+			a.LogURL = utility.ToStringPtr(tr.LogURL)
+		}
+		if tr.RawLogURL != "" {
+			a.RawLogURL = utility.ToStringPtr(tr.RawLogURL)
 		}
 		a.LineNum = tr.LineNum
 		a.TaskCreateTime = NewTime(tr.TaskCreateTime)

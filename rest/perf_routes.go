@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/evergreen-ci/cedar/rest/data"
+	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -14,8 +15,10 @@ import (
 )
 
 const (
-	perfStartAt = "started_after"
-	perfEndAt   = "finished_before"
+	perfStartAt  = "started_after"
+	perfEndAt    = "finished_before"
+	perfSkip     = "skip"
+	perfMaxDepth = "max_depth"
 )
 
 // timeRangeFormatYearMonthDay represents the time range format rounded to the
@@ -137,7 +140,7 @@ func (h *perfGetByTaskIdHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the task_id from the http request.
 func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
-	h.opts.Tags = r.URL.Query()["tags"]
+	h.opts.Tags = r.URL.Query()[tags]
 	return nil
 }
 
@@ -186,14 +189,14 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	vals := r.URL.Query()
 	h.opts.Project = vals.Get("project")
 	h.opts.Variant = vals.Get("variant")
-	h.opts.Tags = vals["tags"]
+	h.opts.Tags = vals[tags]
 	catcher := grip.NewBasicCatcher()
 	var err error
 	h.opts.Interval, err = parseTimeRange(timeRangeFormatYearMonthDay, vals.Get(perfStartAt), vals.Get(perfEndAt))
 	catcher.Add(errors.Wrap(err, "invalid time range"))
 	catcher.NewWhen(h.opts.Interval.IsZero(), "time interval must have start and end")
 	catcher.NewWhen(!h.opts.Interval.IsValid(), "time interval must have a start time before its end time")
-	limit := vals.Get("limit")
+	limit := vals.Get(limit)
 	if limit != "" {
 		h.opts.Limit, err = strconv.Atoi(limit)
 		catcher.Add(errors.Wrap(err, "invalid limit"))
@@ -246,7 +249,25 @@ func (h *perfGetByVersionHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the version from the http request.
 func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.Version = gimlet.GetVars(r)["version"]
-	h.opts.Tags = r.URL.Query()["tags"]
+
+	vals := r.URL.Query()
+	h.opts.Tags = vals[tags]
+
+	var err error
+	catcher := grip.NewBasicCatcher()
+	limit := vals.Get(limit)
+	if limit != "" {
+		h.opts.Limit, err = strconv.Atoi(limit)
+		catcher.Wrap(err, "invalid limit")
+		catcher.NewWhen(h.opts.Limit < 0, "cannot have negative limit")
+	}
+	skip := vals.Get(perfSkip)
+	if skip != "" {
+		h.opts.Skip, err = strconv.Atoi(skip)
+		catcher.Wrap(err, "invalid skip value")
+		catcher.NewWhen(h.opts.Skip < 0, "cannot have negative skip value")
+	}
+
 	return nil
 }
 
@@ -264,7 +285,8 @@ func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	return gimlet.NewJSONResponse(perfResults)
+
+	return paginatePerfResults(perfResults, h.opts.Limit, h.opts.Skip)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -295,9 +317,9 @@ func (h *perfGetChildrenHandler) Factory() gimlet.RouteHandler {
 func (h *perfGetChildrenHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
-	h.tags = vals["tags"]
+	h.tags = vals[tags]
 	var err error
-	h.maxDepth, err = strconv.Atoi(vals.Get("max_depth"))
+	h.maxDepth, err = strconv.Atoi(vals.Get(perfMaxDepth))
 	return errors.Wrap(err, "invalid max depth")
 }
 
@@ -354,4 +376,41 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(struct{}{})
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Helper functions
+
+func paginatePerfResults(data []model.APIPerformanceResult, limitVal, skipVal int) gimlet.Responder {
+	resp := gimlet.NewJSONResponse(data)
+
+	if limitVal > 0 {
+		pages := &gimlet.ResponsePages{
+			Prev: &gimlet.Page{
+				BaseURL:         baseURL,
+				KeyQueryParam:   perfSkip,
+				Key:             strconv.Itoa(skipVal),
+				LimitQueryParam: limit,
+				Limit:           limitVal,
+				Relation:        "prev",
+			},
+		}
+		if len(data) == limitVal {
+			pages.Next = &gimlet.Page{
+				BaseURL:         baseURL,
+				KeyQueryParam:   perfSkip,
+				Key:             strconv.Itoa(skipVal + limitVal),
+				LimitQueryParam: limit,
+				Limit:           limitVal,
+				Relation:        "next",
+			}
+		}
+
+		if err := resp.SetPages(pages); err != nil {
+			return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "setting response pages"))
+		}
+	}
+
+	return resp
 }

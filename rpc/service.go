@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
@@ -161,7 +162,23 @@ func RunServer(ctx context.Context, srv *grpc.Server, addr string) (WaitFunc, er
 		defer close(rpcWait)
 		defer recovery.LogStackTraceAndContinue("waiting for the rpc service")
 		<-ctx.Done()
-		srv.GracefulStop()
+
+		gracefulStop := make(chan struct{})
+		go func() {
+			defer close(gracefulStop)
+			srv.GracefulStop()
+		}()
+
+		timer := time.NewTimer(2 * time.Minute)
+		select {
+		case <-gracefulStop:
+		case <-timer.C:
+			// In cases where it takes longer than 2 minutes to
+			// to a graceful shutdown, we should just kill the grpc
+			// server.
+			srv.Stop()
+		}
+
 		grip.Info("rpc service terminated")
 	}()
 

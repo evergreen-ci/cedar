@@ -529,6 +529,28 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 		}
 		s.NoError(err)
 	})
+	s.T().Run("WithLimit", func(t *testing.T) {
+		actualResult, err = s.sc.FindPerformanceResults(s.ctx, PerformanceOptions{
+			Version: expectedVersion,
+			Limit:   2,
+		})
+		s.Equal(2, len(actualResult))
+		for _, result := range actualResult {
+			s.Equal(expectedVersion, *result.Info.Version)
+		}
+		s.NoError(err)
+	})
+	s.T().Run("WithSkip", func(t *testing.T) {
+		actualResult, err = s.sc.FindPerformanceResults(s.ctx, PerformanceOptions{
+			Version: expectedVersion,
+			Skip:    3,
+		})
+		s.Equal(1, len(actualResult))
+		for _, result := range actualResult {
+			s.Equal(expectedVersion, *result.Info.Version)
+		}
+		s.NoError(err)
+	})
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersionDoesNotExist() {

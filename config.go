@@ -56,12 +56,12 @@ func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 	return queue.MongoDBOptions{
 		URI:                      c.MongoDBURI,
 		DB:                       c.DatabaseName,
-		Priority:                 true,
 		CheckWaitUntil:           true,
 		Format:                   amboy.BSON2,
 		WaitInterval:             time.Second,
 		SkipQueueIndexBuilds:     true,
 		SkipReportingIndexBuilds: true,
+		SampleSize:               300,
 	}
 }
 

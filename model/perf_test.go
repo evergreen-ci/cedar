@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -417,6 +418,22 @@ func TestPerfClose(t *testing.T) {
 	})
 }
 
+func TestPerformanceArgumentsBSONMarshal(t *testing.T) {
+	args := PerformanceArguments{"spruce": 2, "evergreen": 0, "cedar": 1}
+	data, err := bson.Marshal(&args)
+	require.NoError(t, err)
+
+	var out bson.D
+	require.NoError(t, bson.Unmarshal(data, &out))
+	require.Len(t, out, len(args))
+	for _, elem := range out {
+		assert.Equal(t, args[elem.Key], elem.Value)
+	}
+	assert.True(t, sort.SliceIsSorted(out, func(i, j int) bool {
+		return out[i].Key < out[j].Key
+	}))
+}
+
 func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
 	result1 := &PerformanceResult{
 		Info: PerformanceResultInfo{
@@ -632,7 +649,7 @@ func (s *perfResultsSuite) TestFindResultsWithOptionsInfo() {
 	s.Equal(s.r.Results[0].Info.Version, "1")
 }
 
-func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
+func (s *perfResultsSuite) TestFindResultsWithSortLimitAndSkip() {
 	options := PerfFindOptions{
 		Interval: TimeRange{
 			StartAt: time.Time{},
@@ -653,6 +670,11 @@ func (s *perfResultsSuite) TestFindResultsWithSortAndLimit() {
 	for i := 1; i < len(s.r.Results); i++ {
 		s.True(s.r.Results[i-1].Info.Order >= s.r.Results[i].Info.Order)
 	}
+
+	options.Skip = 2
+	s.NoError(s.r.Find(s.ctx, options))
+	s.Require().Len(s.r.Results, 1)
+	s.Equal(1, s.r.Results[0].Info.Order)
 }
 
 func (s *perfResultsSuite) TestSearchResultsWithParent() {

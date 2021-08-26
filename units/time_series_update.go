@@ -48,8 +48,7 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 // NewUpdateTimeSeriesJob creates a new amboy job to update a time series.
 func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeTimeSeriesJob()
-	// Every ten minutes at most
-	timestamp := utility.RoundPartOfHour(10)
+	timestamp := utility.RoundPartOfHour(0)
 	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timestamp))
 	j.PerformanceResultId = timeSeriesId
 	return j
