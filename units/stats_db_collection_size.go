@@ -42,6 +42,8 @@ func makeStatsDBCollectionSizeJob() *statsDBCollectionSizeJob {
 	return j
 }
 
+//NewStatsDBCollectionSizeJob creates a new amboy job to collect the sizes of
+// all collections in the cedar db and send them to splunk
 func NewStatsDBCollectionSizeJob(env cedar.Environment, id string) amboy.Job {
 	j := makeStatsDBCollectionSizeJob()
 	j.SetID(fmt.Sprintf("%s.%s", statsDBCollectionSizeJobName, id))
@@ -58,15 +60,16 @@ func (j *statsDBCollectionSizeJob) Run(ctx context.Context) {
 
 	collectionNames, err := db.ListCollectionNames(ctx, primitive.D{})
 	if err != nil {
-		j.AddError(errors.Wrap(err, "Error getting collection names"))
+		j.AddError(errors.Wrap(err, "getting collection names"))
+		return
 	}
 	var statsResult bson.M
 	for _, collName := range collectionNames {
-
 		statsCmd := primitive.D{{Key: "collStats", Value: collName}}
 		err := db.RunCommand(ctx, statsCmd).Decode(&statsResult)
 		if err != nil {
-			j.AddError(errors.Wrap(err, "Error getting collection stats"))
+			j.AddError(errors.Wrap(err, "getting collection stats"))
+			return
 		}
 		grip.Info(message.Fields{
 			"job_id":       j.ID(),
