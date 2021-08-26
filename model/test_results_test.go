@@ -482,6 +482,15 @@ func TestFindTestResults(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
+	t.Run("NegativeExecution", func(t *testing.T) {
+		opts := TestResultsFindOptions{
+			TaskID:    tr1.Info.TaskID,
+			Execution: utility.ToIntPtr(-1),
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+	})
 	t.Run("TaskIDDNE", func(t *testing.T) {
 		opts := TestResultsFindOptions{
 			TaskID: "DNE",

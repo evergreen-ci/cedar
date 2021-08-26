@@ -15,6 +15,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -476,11 +477,12 @@ type TestResultsFindOptions struct {
 }
 
 func (opts *TestResultsFindOptions) validate() error {
-	if opts.TaskID == "" {
-		return errors.New("must specify a task ID")
-	}
+	catcher := grip.NewBasicCatcher()
 
-	return nil
+	catcher.NewWhen(opts.TaskID == "", "must specify a task ID")
+	catcher.NewWhen(utility.FromIntPtr(opts.Execution) < 0, "cannot specify a negative execution number")
+
+	return catcher.Resolve()
 }
 
 func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
@@ -511,7 +513,7 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 	if opts.DisplayTask {
 		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
+		msg = fmt.Sprintf("could not find test results record with task_id %s", opts.TaskID)
 	}
 	if opts.Execution != nil {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
