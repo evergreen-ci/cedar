@@ -10,6 +10,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -148,7 +149,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			name: "TaskIDWithExecution",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
-				Execution: 0,
+				Execution: utility.ToIntPtr(0),
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test0": s.apiResults["task1_0_test0"],
@@ -158,10 +159,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 		},
 		{
 			name: "TaskIDWithoutExecution",
-			opts: TestResultsOptions{
-				TaskID:         "task1",
-				EmptyExecution: true,
-			},
+			opts: TestResultsOptions{TaskID: "task1"},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
 				"task1_1_test1": s.apiResults["task1_1_test1"],
@@ -172,7 +170,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			name: "TaskIDWithTestName",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
-				Execution: 0,
+				Execution: utility.ToIntPtr(0),
 				TestName:  "test1",
 			},
 			resultMap: map[string]model.APITestResult{
@@ -183,7 +181,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			name: "DisplayTaskIDWithExecution",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
-				Execution:   0,
+				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
 			},
 			resultMap: map[string]model.APITestResult{
@@ -198,9 +196,8 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 		{
 			name: "DisplayTaskIDWithoutExecution",
 			opts: TestResultsOptions{
-				TaskID:         "display_task1",
-				EmptyExecution: true,
-				DisplayTask:    true,
+				TaskID:      "display_task1",
+				DisplayTask: true,
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
@@ -212,7 +209,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			name: "DisplayTaskIDWithTestName",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
-				Execution:   0,
+				Execution:   utility.ToIntPtr(0),
 				TestName:    "test2",
 				DisplayTask: true,
 			},
@@ -263,7 +260,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultDNE() {
 }
 
 func (s *testResultsConnectorSuite) TestFindTestResultEmpty() {
-	opts := TestResultsOptions{Execution: 1}
+	opts := TestResultsOptions{Execution: utility.ToIntPtr(1)}
 
 	result, err := s.sc.FindTestResults(s.ctx, opts)
 	s.Error(err)
@@ -280,23 +277,20 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
 			name: "TaskIDWithExecution",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
-				Execution: 0,
+				Execution: utility.ToIntPtr(0),
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
-			name: "TaskIDWithoutExecution",
-			opts: TestResultsOptions{
-				TaskID:         "task1",
-				EmptyExecution: true,
-			},
+			name:           "TaskIDWithoutExecution",
+			opts:           TestResultsOptions{TaskID: "task1"},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
 			name: "DisplayTaskIDWithExecution",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
-				Execution:   0,
+				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
 			},
 			expectedResult: []string{
@@ -311,9 +305,8 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
 		{
 			name: "DisplayTaskIDWithoutExecution",
 			opts: TestResultsOptions{
-				TaskID:         "display_task1",
-				EmptyExecution: true,
-				DisplayTask:    true,
+				TaskID:      "display_task1",
+				DisplayTask: true,
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
@@ -353,7 +346,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleDNE() {
 }
 
 func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleEmpty() {
-	opts := TestResultsOptions{Execution: 1}
+	opts := TestResultsOptions{Execution: utility.ToIntPtr(1)}
 
 	result, err := s.sc.FindFailedTestResultsSample(s.ctx, opts)
 	s.Error(err)

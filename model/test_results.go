@@ -470,15 +470,22 @@ type testResultsDoc struct {
 // TestResultsFindOptions allows for querying for test results with or without
 // an execution value.
 type TestResultsFindOptions struct {
-	TaskID         string
-	DisplayTaskID  string
-	Execution      int
-	EmptyExecution bool
+	TaskID      string
+	Execution   *int
+	DisplayTask bool
+}
+
+func (opts *TestResultsFindOptions) validate() error {
+	if opts.TaskID == "" {
+		return errors.New("must specify a task ID")
+	}
+
+	return nil
 }
 
 func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
 	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
-	if opts.TaskID != "" {
+	if !opts.DisplayTask {
 		findOpts = findOpts.SetLimit(1)
 	}
 
@@ -487,13 +494,13 @@ func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
 
 func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
 	search := bson.M{}
-	if opts.TaskID != "" {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
+	if opts.DisplayTask {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.TaskID
 	} else {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.DisplayTaskID
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
 	}
-	if !opts.EmptyExecution {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
+	if opts.Execution != nil {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
 	}
 
 	return search
@@ -501,12 +508,12 @@ func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
 
 func (opts *TestResultsFindOptions) createErrorMessage() string {
 	var msg string
-	if opts.TaskID != "" {
-		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
+	if opts.DisplayTask {
+		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.DisplayTaskID)
+		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
 	}
-	if !opts.EmptyExecution {
+	if opts.Execution != nil {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
 	}
 	msg += " in the database"
@@ -516,14 +523,14 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 
 // FindTestResults searches the database for the TestResults associated with
 // the provided options. The environment should not be nil. If execution is
-// empty, it will default to the most recent execution.
+// nil, it will default to the most recent execution.
 func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResults, error) {
 	if env == nil {
 		return nil, errors.New("cannot find with a nil environment")
 	}
 
-	if (opts.TaskID == "" && opts.DisplayTaskID == "") || (opts.TaskID != "" && opts.DisplayTaskID != "") {
-		return nil, errors.New("must specify either task_id or display_task_id")
+	if err := opts.validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid find options")
 	}
 
 	results := []TestResults{}
@@ -554,7 +561,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 // FindAndDownloadTestResults searches the database for the TestResults
 // associated with the provided options and returns a TestResultsIterator with
 // the downloaded test results. The environment should not be nil. If execution
-// is empty it will default to the most recent execution.
+// is nil it will default to the most recent execution.
 func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResult, error) {
 	testResults, err := FindTestResults(ctx, env, opts)
 	if err != nil {
@@ -616,3 +623,5 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 
 	return combinedResults, catcher.Resolve()
 }
+
+//func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestREsultsFindOptions)

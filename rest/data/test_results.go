@@ -131,12 +131,12 @@ func (mc *MockConnector) findTestResultsByTaskID(ctx context.Context, opts TestR
 
 	for key, _ := range mc.CachedTestResults {
 		tr := mc.CachedTestResults[key]
-		if opts.EmptyExecution {
+		if opts.Execution == nil {
 			if tr.Info.TaskID == opts.TaskID && (testResultsDoc == nil || tr.Info.Execution > testResultsDoc.Info.Execution) {
 				testResultsDoc = &tr
 			}
 		} else {
-			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == opts.Execution {
+			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == *opts.Execution {
 				testResultsDoc = &tr
 				break
 			}
@@ -162,7 +162,7 @@ func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opt
 	for key, _ := range mc.CachedTestResults {
 		tr := mc.CachedTestResults[key]
 		if tr.Info.DisplayTaskID == opts.TaskID {
-			if opts.EmptyExecution || tr.Info.Execution == opts.Execution {
+			if opts.Execution == nil || tr.Info.Execution == *opts.Execution {
 				testResultsDocs = append(testResultsDocs, tr)
 			}
 		}
@@ -171,7 +171,7 @@ func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opt
 		}
 	}
 
-	if opts.EmptyExecution {
+	if opts.Execution == nil {
 		var filteredDocs []dbModel.TestResults
 		for i := range testResultsDocs {
 			if testResultsDocs[i].Info.Execution == latestExecution {
@@ -234,15 +234,9 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 }
 
 func convertToDBTestResultsOptions(opts TestResultsOptions) dbModel.TestResultsFindOptions {
-	converted := dbModel.TestResultsFindOptions{
-		Execution:      opts.Execution,
-		EmptyExecution: opts.EmptyExecution,
+	return dbModel.TestResultsFindOptions{
+		TaskID:      opts.TaskID,
+		Execution:   opts.Execution,
+		DisplayTask: opts.DisplayTask,
 	}
-	if opts.DisplayTask {
-		converted.DisplayTaskID = opts.TaskID
-	} else {
-		converted.TaskID = opts.TaskID
-	}
-
-	return converted
 }
