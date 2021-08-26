@@ -623,5 +623,3 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 
 	return combinedResults, catcher.Resolve()
 }
-
-//func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestREsultsFindOptions)
