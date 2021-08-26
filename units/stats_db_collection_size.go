@@ -12,6 +12,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -55,14 +56,14 @@ func (j *statsDBCollectionSizeJob) Run(ctx context.Context) {
 	}
 	db := j.env.GetDB()
 
-	collectionNames, err := db.ListCollectionNames(ctx, bson.D{{}})
+	collectionNames, err := db.ListCollectionNames(ctx, primitive.D{})
 	if err != nil {
 		j.AddError(errors.Wrap(err, "Error getting collection names"))
 	}
 	var statsResult bson.M
 	for _, collName := range collectionNames {
 
-		statsCmd := bson.D{{Name: "collStats", Value: collName}}
+		statsCmd := primitive.D{{Key: "collStats", Value: collName}}
 		err := db.RunCommand(ctx, statsCmd).Decode(&statsResult)
 		if err != nil {
 			j.AddError(errors.Wrap(err, "Error getting collection stats"))
