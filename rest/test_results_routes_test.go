@@ -16,6 +16,7 @@ import (
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy/queue"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
@@ -182,23 +183,21 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			name: "TaskIDWithExecution",
 			opts: data.TestResultsOptions{
 				TaskID:    "task1",
-				Execution: 0,
+				Execution: utility.ToIntPtr(0),
 			},
 			expectedResults: s.apiResults["abc"],
 		},
 		{
-			name: "TaskIDWithoutExecution",
-			opts: data.TestResultsOptions{
-				TaskID:         "task1",
-				EmptyExecution: true,
-			},
+			name:            "TaskIDWithoutExecution",
+			opts:            data.TestResultsOptions{TaskID: "task1"},
 			expectedResults: s.apiResults["def"],
 		},
 		{
 			name: "TaskIDWithTestName",
 			opts: data.TestResultsOptions{
-				TaskID:   "task1",
-				TestName: "test1",
+				TaskID:    "task1",
+				TestName:  "test1",
+				Execution: utility.ToIntPtr(0),
 			},
 			expectedResults: s.apiResults["abc"][1:2],
 		},
@@ -206,7 +205,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			name: "DisplayTaskIDWithExecution",
 			opts: data.TestResultsOptions{
 				TaskID:      "display_task1",
-				Execution:   1,
+				Execution:   utility.ToIntPtr(1),
 				DisplayTask: true,
 			},
 			expectedResults: s.apiResults["def"],
@@ -214,19 +213,17 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 		{
 			name: "DisplayTaskIDWithoutExecution",
 			opts: data.TestResultsOptions{
-				TaskID:         "display_task1",
-				EmptyExecution: true,
-				DisplayTask:    true,
+				TaskID:      "display_task1",
+				DisplayTask: true,
 			},
 			expectedResults: s.apiResults["def"],
 		},
 		{
 			name: "DisplayTaskWithTestName",
 			opts: data.TestResultsOptions{
-				TaskID:         "display_task1",
-				TestName:       "test1",
-				EmptyExecution: true,
-				DisplayTask:    true,
+				TaskID:      "display_task1",
+				TestName:    "test1",
+				DisplayTask: true,
 			},
 			expectedResults: s.apiResults["def"][1:2],
 		},
@@ -274,7 +271,6 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerCtxErr() {
 	cancel()
 	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
 	rh.opts.TaskID = "task1"
-	rh.opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
@@ -286,13 +282,12 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerFound(
 	optsList := []data.TestResultsOptions{
 		{
 			TaskID:      "display_task1",
-			Execution:   0,
+			Execution:   utility.ToIntPtr(0),
 			DisplayTask: true,
 		},
 		{
-			TaskID:         "display_task1",
-			EmptyExecution: true,
-			DisplayTask:    true,
+			TaskID:      "display_task1",
+			DisplayTask: true,
 		},
 	}
 	expectedResults := [][]model.APITestResult{
@@ -318,7 +313,6 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerFound(
 func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerNotFound() {
 	rh := s.rh["display_task_id"].(*testResultsGetByDisplayTaskIDHandler)
 	rh.opts.TaskID = "DNE"
-	rh.opts.Execution = 0
 	rh.opts.DisplayTask = true
 
 	resp := rh.Run(context.TODO())
@@ -331,7 +325,6 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerCtxErr
 	cancel()
 	rh := s.rh["display_task_id"].(*testResultsGetByDisplayTaskIDHandler)
 	rh.opts.TaskID = "display_task1"
-	rh.opts.Execution = 0
 	rh.opts.DisplayTask = true
 
 	resp := rh.Run(ctx)
@@ -343,7 +336,7 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
 	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
 	rh.opts.TaskID = "task1"
 	rh.opts.TestName = "test1"
-	rh.opts.Execution = 0
+	rh.opts.Execution = utility.ToIntPtr(0)
 
 	expected := s.apiResults["abc"][1]
 
@@ -361,7 +354,6 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerNotFound() {
 	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
 	rh.opts.TaskID = "task1"
 	rh.opts.TestName = "DNE"
-	rh.opts.Execution = 0
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
@@ -374,7 +366,6 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
 	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
 	rh.opts.TaskID = "task1"
 	rh.opts.TestName = "test1"
-	rh.opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
@@ -392,23 +383,20 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
 			name: "TaskIDWithExecution",
 			opts: data.TestResultsOptions{
 				TaskID:    "task1",
-				Execution: 0,
+				Execution: utility.ToIntPtr(0),
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
-			name: "TaskIDWithoutExecution",
-			opts: data.TestResultsOptions{
-				TaskID:         "task1",
-				EmptyExecution: true,
-			},
+			name:           "TaskIDWithoutExecution",
+			opts:           data.TestResultsOptions{TaskID: "task1"},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
 			name: "DisplayTaskIDWithExecution",
 			opts: data.TestResultsOptions{
 				TaskID:      "display_task1",
-				Execution:   0,
+				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
 			},
 			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
@@ -416,9 +404,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
 		{
 			name: "DisplayTaskIDWithoutExecution",
 			opts: data.TestResultsOptions{
-				TaskID:         "display_task1",
-				EmptyExecution: true,
-				DisplayTask:    true,
+				TaskID:      "display_task1",
+				DisplayTask: true,
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
@@ -466,7 +453,6 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleHandlerCtxErr() 
 	cancel()
 	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
 	rh.opts.TaskID = "task1"
-	rh.opts.Execution = 0
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)
@@ -512,7 +498,7 @@ func (s *TestResultsHandlerSuite) testParseValid(handler, urlString string) {
 
 	err := rh.Parse(ctx, req)
 	s.Require().NoError(err)
-	s.Equal(1, getTestResultsExecution(rh, handler))
+	s.Equal(1, utility.FromIntPtr(getTestResultsExecution(rh, handler)))
 }
 
 func (s *TestResultsHandlerSuite) testParseInvalid(handler, urlString string) {
@@ -538,10 +524,10 @@ func (s *TestResultsHandlerSuite) testParseDefaults(handler, urlString string) {
 
 	err := rh.Parse(ctx, req)
 	s.Require().NoError(err)
-	s.True(getTestResultsEmptyExecution(rh, handler))
+	s.Nil(getTestResultsExecution(rh, handler))
 }
 
-func getTestResultsExecution(rh gimlet.RouteHandler, handler string) int {
+func getTestResultsExecution(rh gimlet.RouteHandler, handler string) *int {
 	switch handler {
 	case "task_id":
 		return rh.(*testResultsGetByTaskIDHandler).opts.Execution
@@ -552,21 +538,6 @@ func getTestResultsExecution(rh gimlet.RouteHandler, handler string) int {
 	case "failed_tests_sample":
 		return rh.(*testResultsGetFailedSampleHandler).opts.Execution
 	default:
-		return 0
-	}
-}
-
-func getTestResultsEmptyExecution(rh gimlet.RouteHandler, handler string) bool {
-	switch handler {
-	case "task_id":
-		return rh.(*testResultsGetByTaskIDHandler).opts.EmptyExecution
-	case "display_task_id":
-		return rh.(*testResultsGetByDisplayTaskIDHandler).opts.EmptyExecution
-	case "test_name":
-		return rh.(*testResultGetByTestNameHandler).opts.EmptyExecution
-	case "failed_tests_sample":
-		return rh.(*testResultsGetFailedSampleHandler).opts.EmptyExecution
-	default:
-		return false
+		return nil
 	}
 }

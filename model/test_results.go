@@ -15,6 +15,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -42,6 +43,7 @@ type TestResults struct {
 	CreatedAt   time.Time               `bson:"created_at"`
 	CompletedAt time.Time               `bson:"completed_at"`
 	Artifact    TestResultsArtifactInfo `bson:"artifact"`
+	Stats       TestResultsStats        `bson:"stats"`
 	// FailedTestsSample is the first X failing tests of the test results.
 	// This is an optimization for Evergreen's UI features that display a
 	// limited number of failing tests for a task.
@@ -58,6 +60,7 @@ var (
 	testResultsCreatedAtKey         = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
 	testResultsCompletedAtKey       = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
 	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsStatsKey             = bsonutil.MustHaveTag(TestResults{}, "Stats")
 	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
@@ -173,10 +176,6 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	if err := t.appendToFailedTestsSample(ctx, results); err != nil {
-		return err
-	}
-
 	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return err
@@ -209,25 +208,32 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "marshalling test results")
 	}
 
-	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading test results")
+	if err := bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)); err != nil {
+		return errors.Wrap(err, "uploading test results")
+	}
+
+	return t.updateStatsAndFailedSample(ctx, results)
 }
 
-func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []TestResult) error {
-	var update bool
-	for i := 0; i < len(results) && len(t.FailedTestsSample) < FailedTestsSampleSize; i++ {
+func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
+	var numFailed int
+	for i := 0; i < len(results); i++ {
 		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
-			t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
-			update = true
+			if len(t.FailedTestsSample) < FailedTestsSampleSize {
+				t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
+			}
+			numFailed++
 		}
-	}
-	if !update {
-		return nil
 	}
 
 	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
 		ctx,
 		bson.M{testResultsIDKey: t.ID},
 		bson.M{
+			"$inc": bson.M{
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey): len(results),
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsNumFailedKey):  numFailed,
+			},
 			"$set": bson.M{
 				testResultsFailedTestsSampleKey: t.FailedTestsSample,
 			},
@@ -236,13 +242,18 @@ func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []T
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":          testResultsCollection,
 		"id":                  t.ID,
+		"inc_total_count":     len(results),
+		"inc_num_failed":      numFailed,
 		"failed_tests_sample": t.FailedTestsSample,
-		"updateResult":        updateResult,
-		"op":                  "append to failing tests sample",
+		"update_result":       updateResult,
+		"op":                  "updating stats and failing tests sample",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
 	}
+
+	t.Stats.TotalCount += len(results)
+	t.Stats.NumFailed += numFailed
 
 	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
 }
@@ -322,11 +333,11 @@ func (t *TestResults) Close(ctx context.Context) error {
 		},
 	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   testResultsCollection,
-		"id":           t.ID,
-		"completed_at": completedAt,
-		"updateResult": updateResult,
-		"op":           "close test results record",
+		"collection":    testResultsCollection,
+		"id":            t.ID,
+		"completed_at":  completedAt,
+		"update_result": updateResult,
+		"op":            "close test results record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
@@ -415,6 +426,17 @@ func (id *TestResultsInfo) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
+// TestResultsStats describes basic stats of the test results.
+type TestResultsStats struct {
+	TotalCount int `bson:"total_count"`
+	NumFailed  int `bson:"num_failed"`
+}
+
+var (
+	testResultsStatsTotalCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
+	testResultsStatsNumFailedKey  = bsonutil.MustHaveTag(TestResultsStats{}, "NumFailed")
+)
+
 // TestResult describes a single test result to be stored as a BSON object in
 // some type of pail bucket storage.
 type TestResult struct {
@@ -449,15 +471,23 @@ type testResultsDoc struct {
 // TestResultsFindOptions allows for querying for test results with or without
 // an execution value.
 type TestResultsFindOptions struct {
-	TaskID         string
-	DisplayTaskID  string
-	Execution      int
-	EmptyExecution bool
+	TaskID      string
+	Execution   *int
+	DisplayTask bool
+}
+
+func (opts *TestResultsFindOptions) validate() error {
+	catcher := grip.NewBasicCatcher()
+
+	catcher.NewWhen(opts.TaskID == "", "must specify a task ID")
+	catcher.NewWhen(utility.FromIntPtr(opts.Execution) < 0, "cannot specify a negative execution number")
+
+	return catcher.Resolve()
 }
 
 func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
 	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
-	if opts.TaskID != "" {
+	if !opts.DisplayTask {
 		findOpts = findOpts.SetLimit(1)
 	}
 
@@ -466,13 +496,13 @@ func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
 
 func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
 	search := bson.M{}
-	if opts.TaskID != "" {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
+	if opts.DisplayTask {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.TaskID
 	} else {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.DisplayTaskID
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
 	}
-	if !opts.EmptyExecution {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
+	if opts.Execution != nil {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
 	}
 
 	return search
@@ -480,12 +510,12 @@ func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
 
 func (opts *TestResultsFindOptions) createErrorMessage() string {
 	var msg string
-	if opts.TaskID != "" {
-		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
+	if opts.DisplayTask {
+		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.DisplayTaskID)
+		msg = fmt.Sprintf("could not find test results record with task_id %s", opts.TaskID)
 	}
-	if !opts.EmptyExecution {
+	if opts.Execution != nil {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
 	}
 	msg += " in the database"
@@ -495,14 +525,14 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 
 // FindTestResults searches the database for the TestResults associated with
 // the provided options. The environment should not be nil. If execution is
-// empty, it will default to the most recent execution.
+// nil, it will default to the most recent execution.
 func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResults, error) {
 	if env == nil {
 		return nil, errors.New("cannot find with a nil environment")
 	}
 
-	if (opts.TaskID == "" && opts.DisplayTaskID == "") || (opts.TaskID != "" && opts.DisplayTaskID != "") {
-		return nil, errors.New("must specify either task_id or display_task_id")
+	if err := opts.validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid find options")
 	}
 
 	results := []TestResults{}
@@ -533,7 +563,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 // FindAndDownloadTestResults searches the database for the TestResults
 // associated with the provided options and returns a TestResultsIterator with
 // the downloaded test results. The environment should not be nil. If execution
-// is empty it will default to the most recent execution.
+// is nil it will default to the most recent execution.
 func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResult, error) {
 	testResults, err := FindTestResults(ctx, env, opts)
 	if err != nil {

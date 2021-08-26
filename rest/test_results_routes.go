@@ -7,6 +7,7 @@ import (
 
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -28,13 +29,11 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 	vals := r.URL.Query()
 	h.opts.TestName = vals.Get(testName)
 	if len(vals[execution]) > 0 {
-		var err error
-		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		exec, err := strconv.Atoi(vals[execution][0])
 		if err != nil {
 			return err
 		}
-	} else {
-		h.opts.EmptyExecution = true
+		h.opts.Execution = utility.ToIntPtr(exec)
 	}
 	if vals.Get(isDisplayTask) == trueString {
 		h.opts.DisplayTask = true
@@ -153,13 +152,12 @@ func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.
 
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
-		var err error
-		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
+		exec, err := strconv.Atoi(vals[execution][0])
 		if err != nil {
 			return err
 		}
+		h.opts.Execution = utility.ToIntPtr(exec)
 	}
-	h.opts.EmptyExecution = true
 
 	return nil
 }
@@ -205,16 +203,15 @@ func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the task_id, test_name, and execution (if present)
 // from the http request.
 func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
-	var err error
-
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.TestName = gimlet.GetVars(r)["test_name"]
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
-		h.opts.Execution, err = strconv.Atoi(vals[execution][0])
-		return err
-	} else {
-		h.opts.EmptyExecution = true
+		exec, err := strconv.Atoi(vals[execution][0])
+		if err != nil {
+			return err
+		}
+		h.opts.Execution = utility.ToIntPtr(exec)
 	}
 
 	return nil
