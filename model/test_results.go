@@ -49,9 +49,9 @@ type TestResults struct {
 	// limited number of failing tests for a task.
 	FailedTestsSample []string `bson:"failed_tests_sample"`
 
-	env       cedar.Environment `bson:"-"`
-	bucket    string            `bson:"-"`
-	populated bool              `bson:"-"`
+	env       cedar.Environment
+	bucket    string
+	populated bool
 }
 
 var (
