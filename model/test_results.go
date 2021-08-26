@@ -245,7 +245,7 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 		"inc_total_count":     len(results),
 		"inc_num_failed":      numFailed,
 		"failed_tests_sample": t.FailedTestsSample,
-		"updateResult":        updateResult,
+		"update_result":       updateResult,
 		"op":                  "updating stats and failing tests sample",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
@@ -333,11 +333,11 @@ func (t *TestResults) Close(ctx context.Context) error {
 		},
 	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   testResultsCollection,
-		"id":           t.ID,
-		"completed_at": completedAt,
-		"updateResult": updateResult,
-		"op":           "close test results record",
+		"collection":    testResultsCollection,
+		"id":            t.ID,
+		"completed_at":  completedAt,
+		"update_result": updateResult,
+		"op":            "close test results record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
