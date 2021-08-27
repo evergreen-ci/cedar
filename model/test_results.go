@@ -628,7 +628,7 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 
 // GetTestResultsStats fetches basic stats for the test results associated with
 // the provided options. The environment should not be nil. If execution is
-// nil, it will defualt to the most recent execeution.
+// nil, it will default to the most recent execeution.
 func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsStats, error) {
 	var stats TestResultsStats
 

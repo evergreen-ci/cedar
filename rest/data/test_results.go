@@ -64,7 +64,12 @@ func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResult
 	}
 
 	apiStats := &model.APITestResultsStats{}
-	apiStats.Import(stats)
+	if err = apiStats.Import(stats); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrapf(err, "importing stats into APITestResultsStats struct").Error(),
+		}
+	}
 
 	return apiStats, nil
 }
@@ -131,7 +136,12 @@ func (mc *MockConnector) GetTestResultsStats(ctx context.Context, opts TestResul
 			return nil, err
 		}
 
-		stats.Import(testResultsDoc.Stats)
+		if err = stats.Import(testResultsDoc.Stats); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    errors.Wrapf(err, "importing stats into APITestResultsStats struct").Error(),
+			}
+		}
 	} else {
 		testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
 		if err != nil {
