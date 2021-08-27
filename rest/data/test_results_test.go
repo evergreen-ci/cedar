@@ -193,7 +193,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 		{
-			name: "SuccedsWithDisplayTaskIDAndExecution",
+			name: "SucceedsWithDisplayTaskIDAndExecution",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(0),

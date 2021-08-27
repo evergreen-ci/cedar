@@ -142,16 +142,18 @@ func (mc *MockConnector) GetTestResultsStats(ctx context.Context, opts TestResul
 				Message:    errors.Wrapf(err, "importing stats into APITestResultsStats struct").Error(),
 			}
 		}
-	} else {
-		testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
 
-		for _, doc := range testResultsDocs {
-			stats.TotalCount += doc.Stats.TotalCount
-			stats.FailedCount += doc.Stats.FailedCount
-		}
+		return stats, nil
+	}
+
+	testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, doc := range testResultsDocs {
+		stats.TotalCount += doc.Stats.TotalCount
+		stats.FailedCount += doc.Stats.FailedCount
 	}
 
 	return stats, nil

@@ -674,7 +674,7 @@ func TestGetTestResultsStats(t *testing.T) {
 	tr2.Info.DisplayTaskID = "display"
 	tr2.Info.TaskID = tr1.Info.TaskID
 	tr2.Info.Execution = 1
-	tr2.Stats.TotalCount = 20
+	tr2.Stats.TotalCount = 30
 	tr2.Stats.FailedCount = 10
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
@@ -682,7 +682,7 @@ func TestGetTestResultsStats(t *testing.T) {
 	tr3 := getTestResults()
 	tr3.Info.DisplayTaskID = "display"
 	tr3.Info.Execution = 1
-	tr3.Stats.TotalCount = 30
+	tr3.Stats.TotalCount = 100
 	tr3.Stats.FailedCount = 15
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
 	require.NoError(t, err)
@@ -766,12 +766,12 @@ func TestGetTestResultsStats(t *testing.T) {
 			env:  env,
 			opts: TestResultsFindOptions{
 				TaskID:      "display",
-				Execution:   utility.ToIntPtr(1),
+				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
 			},
 			expectedStats: TestResultsStats{
-				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount,
-				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount,
+				TotalCount:  tr1.Stats.TotalCount + tr4.Stats.TotalCount,
+				FailedCount: tr1.Stats.FailedCount + tr4.Stats.FailedCount,
 			},
 		},
 		{
@@ -782,8 +782,8 @@ func TestGetTestResultsStats(t *testing.T) {
 				DisplayTask: true,
 			},
 			expectedStats: TestResultsStats{
-				TotalCount:  tr1.Stats.TotalCount + tr4.Stats.TotalCount,
-				FailedCount: tr1.Stats.FailedCount + tr4.Stats.FailedCount,
+				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount,
+				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount,
 			},
 		},
 	} {
