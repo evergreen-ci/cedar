@@ -625,3 +625,54 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 
 	return combinedResults, catcher.Resolve()
 }
+
+func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsStats, error) {
+	var stats TestResultsStats
+
+	if !opts.DisplayTask {
+		testResultsRecords, err := FindTestResults(ctx, env, opts)
+		if err != nil {
+			return stats, err
+		}
+
+		return testResultsRecords[0].Stats, nil
+	}
+
+	if env == nil {
+		return stats, errors.New("cannot find with a nil environment")
+	}
+	if err := opts.validate(); err != nil {
+		return stats, errors.Wrap(err, "invalid find options")
+	}
+
+	pipeline := []bson.M{
+		{"$match": opts.createFindQuery()},
+		{"$group": bson.M{
+			"_id": "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey),
+			testResultsStatsTotalCountKey: bson.M{
+				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
+			},
+			testResultsStatsNumFailedKey: bson.M{
+				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsNumFailedKey),
+			},
+		}},
+	}
+	if opts.Execution == nil {
+		pipeline = append(pipeline, bson.M{
+			"$sort": bson.D{
+				{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1},
+			},
+		})
+	}
+	pipeline = append(pipeline, bson.M{"$limit": 1})
+
+	cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return stats, errors.Wrap(err, "aggregating test results stats")
+	}
+	if !cur.Next(ctx) {
+		return stats, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
+	}
+
+	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
+}
