@@ -42,7 +42,7 @@ func makeStatsDBCollectionSizeJob() *statsDBCollectionSizeJob {
 	return j
 }
 
-//NewStatsDBCollectionSizeJob creates a new amboy job to collect the sizes of
+// NewStatsDBCollectionSizeJob creates a new amboy job to collect the sizes of
 // all collections in the cedar db and send them to splunk
 func NewStatsDBCollectionSizeJob(env cedar.Environment, id string) amboy.Job {
 	j := makeStatsDBCollectionSizeJob()
@@ -57,14 +57,16 @@ func (j *statsDBCollectionSizeJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 	db := j.env.GetDB()
-
+	// We should be able to use bson.D{} but have to use primitive.D{}
+	// to avoid WriteArray errors. Using bson.M gave the same error, in contrast
+	// to GODRIVER-854.
 	collectionNames, err := db.ListCollectionNames(ctx, primitive.D{})
 	if err != nil {
 		j.AddError(errors.Wrap(err, "getting collection names"))
 		return
 	}
-	var statsResult bson.M
 	for _, collName := range collectionNames {
+		var statsResult bson.M
 		statsCmd := primitive.D{{Key: "collStats", Value: collName}}
 		err := db.RunCommand(ctx, statsCmd).Decode(&statsResult)
 		if err != nil {
@@ -79,5 +81,4 @@ func (j *statsDBCollectionSizeJob) Run(ctx context.Context) {
 			"index_size":   statsResult["totalIndexSize"],
 		})
 	}
-
 }
