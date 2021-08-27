@@ -121,6 +121,7 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 	s.rh = map[string]gimlet.RouteHandler{
 		"task_id":             makeGetTestResultsByTaskID(&s.sc),
 		"failed_tests_sample": makeGetTestResultsFailedSample(&s.sc),
+		"stats":               makeGetTestResultsStats(&s.sc),
 		"display_task_id":     makeGetTestResultsByDisplayTaskID(&s.sc),
 		"test_name":           makeGetTestResultByTestName(&s.sc),
 	}
@@ -172,15 +173,36 @@ func (s *TestResultsHandlerSuite) TearDownSuite() {
 	s.Require().NoError(err)
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
 	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
+
 	for _, test := range []struct {
 		name            string
+		ctx             context.Context
 		opts            data.TestResultsOptions
 		expectedResults []model.APITestResult
+		errorStatus     int
 	}{
 		{
-			name: "TaskIDWithExecution",
+			name:        "FailsWithContextError",
+			ctx:         canceledCtx,
+			opts:        data.TestResultsOptions{TaskID: "task1"},
+			errorStatus: http.StatusInternalServerError,
+		},
+		{
+			name:        "FailsWhenTaskIDDNE",
+			opts:        data.TestResultsOptions{TaskID: "DNE"},
+			errorStatus: http.StatusNotFound,
+		},
+		{
+			name:        "FailsWhenDisplayTaskIDDNE",
+			opts:        data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			errorStatus: http.StatusNotFound,
+		},
+		{
+			name: "SucceedsWithTaskIDAndExecution",
 			opts: data.TestResultsOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
@@ -193,7 +215,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			expectedResults: s.apiResults["def"],
 		},
 		{
-			name: "TaskIDWithTestName",
+			name: "SucceedsWithTaskIDAndTestName",
 			opts: data.TestResultsOptions{
 				TaskID:    "task1",
 				TestName:  "test1",
@@ -202,7 +224,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			expectedResults: s.apiResults["abc"][1:2],
 		},
 		{
-			name: "DisplayTaskIDWithExecution",
+			name: "SucceedsWithDisplayTaskIDAndExecution",
 			opts: data.TestResultsOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(1),
@@ -211,7 +233,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			expectedResults: s.apiResults["def"],
 		},
 		{
-			name: "DisplayTaskIDWithoutExecution",
+			name: "SucceedsWithDisplayTaskIDAndNoExecution",
 			opts: data.TestResultsOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
@@ -219,7 +241,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 			expectedResults: s.apiResults["def"],
 		},
 		{
-			name: "DisplayTaskWithTestName",
+			name: "SucceedsWithDisplayTaskIDAndTestName",
 			opts: data.TestResultsOptions{
 				TaskID:      "display_task1",
 				TestName:    "test1",
@@ -230,54 +252,198 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerFound() {
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
 			rh.opts = test.opts
+			ctx := test.ctx
+			if ctx == nil {
+				ctx = context.TODO()
+			}
+			resp := rh.Run(ctx)
 
-			resp := rh.Run(context.TODO())
 			s.Require().NotNil(resp)
-			s.Equal(http.StatusOK, resp.Status())
-			actualResults, ok := resp.Data().([]model.APITestResult)
-			s.Require().True(ok)
-			s.Equal(test.expectedResults, actualResults)
+			if test.errorStatus > 0 {
+				s.Equal(test.errorStatus, resp.Status())
+			} else {
+				s.Equal(http.StatusOK, resp.Status())
+				actualResults, ok := resp.Data().([]model.APITestResult)
+				s.Require().True(ok)
+				s.Equal(test.expectedResults, actualResults)
+			}
 		})
 	}
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerNotFound() {
-	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSample() {
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
+
 	for _, test := range []struct {
-		name string
-		opts data.TestResultsOptions
+		name           string
+		ctx            context.Context
+		opts           data.TestResultsOptions
+		expectedResult []string
+		errorStatus    int
 	}{
 		{
-			name: "TaskID",
-			opts: data.TestResultsOptions{TaskID: "DNE"},
+			name:        "FailsWithContextError",
+			ctx:         canceledCtx,
+			opts:        data.TestResultsOptions{TaskID: "task1"},
+			errorStatus: http.StatusInternalServerError,
 		},
 		{
-			name: "DisplayTaskID",
-			opts: data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			name:        "FailsWhenTaskIDDNE",
+			opts:        data.TestResultsOptions{TaskID: "DNE"},
+			errorStatus: http.StatusNotFound,
+		},
+		{
+			name:        "FailsWhenDisplayTaskIDDNE",
+			opts:        data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			errorStatus: http.StatusNotFound,
+		},
+		{
+			name: "SucceedsWithTaskIDAndExecution",
+			opts: data.TestResultsOptions{
+				TaskID:    "task1",
+				Execution: utility.ToIntPtr(0),
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name:           "SucceedsWithTaskIDAndNoExecution",
+			opts:           data.TestResultsOptions{TaskID: "task1"},
+			expectedResult: []string{"test0", "test1", "test2"},
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndExecution",
+			opts: data.TestResultsOptions{
+				TaskID:      "display_task1",
+				Execution:   utility.ToIntPtr(0),
+				DisplayTask: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndExecution",
+			opts: data.TestResultsOptions{
+				TaskID:      "display_task1",
+				DisplayTask: true,
+			},
+			expectedResult: []string{"test0", "test1", "test2"},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
 			rh.opts = test.opts
+			ctx := test.ctx
+			if ctx == nil {
+				ctx = context.TODO()
+			}
+			resp := rh.Run(ctx)
 
-			resp := rh.Run(context.TODO())
 			s.Require().NotNil(resp)
-			s.Equal(http.StatusNotFound, resp.Status())
+			if test.errorStatus > 0 {
+				s.Equal(test.errorStatus, resp.Status())
+			} else {
+				s.Equal(http.StatusOK, resp.Status())
+				actualResult, ok := resp.Data().([]string)
+				s.Require().True(ok)
+				s.Equal(test.expectedResult, actualResult)
+			}
 		})
 	}
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandlerCtxErr() {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
+	canceledCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
-	rh.opts.TaskID = "task1"
+	rh := s.rh["stats"].(*testResultsGetStatsHandler)
 
-	resp := rh.Run(ctx)
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusInternalServerError, resp.Status())
+	for _, test := range []struct {
+		name           string
+		ctx            context.Context
+		opts           data.TestResultsOptions
+		expectedResult *model.APITestResultsStats
+		errorStatus    int
+	}{
+		{
+			name:        "FailsWithContextError",
+			ctx:         canceledCtx,
+			opts:        data.TestResultsOptions{TaskID: "task1"},
+			errorStatus: http.StatusInternalServerError,
+		},
+		{
+			name:        "FailsWhenTaskIDDNE",
+			opts:        data.TestResultsOptions{TaskID: "DNE"},
+			errorStatus: http.StatusNotFound,
+		},
+		{
+			name:        "FailsWhenDisplayTaskIDDNE",
+			opts:        data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			errorStatus: http.StatusNotFound,
+		},
+		{
+			name: "SucceedsWithTaskIDAndExecution",
+			opts: data.TestResultsOptions{
+				TaskID:    "task1",
+				Execution: utility.ToIntPtr(0),
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  3,
+				FailedCount: 3,
+			},
+		},
+		{
+			name: "SucceedsWithTaskIDAndNoExecution",
+			opts: data.TestResultsOptions{TaskID: "task1"},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  3,
+				FailedCount: 3,
+			},
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndExecution",
+			opts: data.TestResultsOptions{
+				TaskID:      "display_task1",
+				Execution:   utility.ToIntPtr(0),
+				DisplayTask: true,
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  6,
+				FailedCount: 6,
+			},
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndExecution",
+			opts: data.TestResultsOptions{
+				TaskID:      "display_task1",
+				DisplayTask: true,
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  3,
+				FailedCount: 3,
+			},
+		},
+	} {
+		s.T().Run(test.name, func(t *testing.T) {
+			rh.opts = test.opts
+			ctx := test.ctx
+			if ctx == nil {
+				ctx = context.TODO()
+			}
+			resp := rh.Run(ctx)
+
+			s.Require().NotNil(resp)
+			if test.errorStatus > 0 {
+				s.Equal(test.errorStatus, resp.Status())
+			} else {
+				s.Equal(http.StatusOK, resp.Status())
+				actualResult, ok := resp.Data().(*model.APITestResultsStats)
+				s.Require().True(ok)
+				s.Equal(test.expectedResult, actualResult)
+			}
+		})
+	}
 }
 
-func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerFound() {
+func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandler() {
 	rh := s.rh["display_task_id"].(*testResultsGetByDisplayTaskIDHandler)
 	optsList := []data.TestResultsOptions{
 		{
@@ -366,93 +532,6 @@ func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
 	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
 	rh.opts.TaskID = "task1"
 	rh.opts.TestName = "test1"
-
-	resp := rh.Run(ctx)
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusInternalServerError, resp.Status())
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleFound() {
-	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
-	for _, test := range []struct {
-		name           string
-		opts           data.TestResultsOptions
-		expectedResult []string
-	}{
-		{
-			name: "TaskIDWithExecution",
-			opts: data.TestResultsOptions{
-				TaskID:    "task1",
-				Execution: utility.ToIntPtr(0),
-			},
-			expectedResult: []string{"test0", "test1", "test2"},
-		},
-		{
-			name:           "TaskIDWithoutExecution",
-			opts:           data.TestResultsOptions{TaskID: "task1"},
-			expectedResult: []string{"test0", "test1", "test2"},
-		},
-		{
-			name: "DisplayTaskIDWithExecution",
-			opts: data.TestResultsOptions{
-				TaskID:      "display_task1",
-				Execution:   utility.ToIntPtr(0),
-				DisplayTask: true,
-			},
-			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
-		},
-		{
-			name: "DisplayTaskIDWithoutExecution",
-			opts: data.TestResultsOptions{
-				TaskID:      "display_task1",
-				DisplayTask: true,
-			},
-			expectedResult: []string{"test0", "test1", "test2"},
-		},
-	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			rh.opts = test.opts
-
-			resp := rh.Run(context.TODO())
-			s.Require().NotNil(resp)
-			s.Equal(http.StatusOK, resp.Status())
-			actualResult, ok := resp.Data().([]string)
-			s.Require().True(ok)
-			s.Equal(test.expectedResult, actualResult)
-		})
-	}
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleNotFound() {
-	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
-	for _, test := range []struct {
-		name string
-		opts data.TestResultsOptions
-	}{
-		{
-			name: "TaskID",
-			opts: data.TestResultsOptions{TaskID: "DNE"},
-		},
-		{
-			name: "DisplayTaskID",
-			opts: data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-		},
-	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			rh.opts = test.opts
-
-			resp := rh.Run(context.TODO())
-			s.Require().NotNil(resp)
-			s.Equal(http.StatusNotFound, resp.Status())
-		})
-	}
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleHandlerCtxErr() {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	rh := s.rh["failed_tests_sample"].(*testResultsGetFailedSampleHandler)
-	rh.opts.TaskID = "task1"
 
 	resp := rh.Run(ctx)
 	s.Require().NotNil(resp)

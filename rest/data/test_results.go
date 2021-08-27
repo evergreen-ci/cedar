@@ -32,7 +32,7 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 	return importTestResults(ctx, results, opts.TestName)
 }
 
-func (dbc *DBConnector) FindFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
+func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
 	resultDocs, err := dbModel.FindTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
@@ -47,6 +47,26 @@ func (dbc *DBConnector) FindFailedTestResultsSample(ctx context.Context, opts Te
 	}
 
 	return extractFailedTestResultsSample(resultDocs...), nil
+}
+
+func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResultsOptions) (*model.APITestResultsStats, error) {
+	stats, err := dbModel.GetTestResultsStats(ctx, dbc.env, convertToDBTestResultsOptions(opts))
+	if db.ResultsNotFound(err) {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    "test results not found",
+		}
+	} else if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "retrieving test results stats").Error(),
+		}
+	}
+
+	apiStats := &model.APITestResultsStats{}
+	apiStats.Import(stats)
+
+	return apiStats, nil
 }
 
 ///////////////////////////////
@@ -71,7 +91,7 @@ func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOp
 	return importTestResults(ctx, results, opts.TestName)
 }
 
-func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
+func (mc *MockConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -84,6 +104,7 @@ func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, opts T
 		if err != nil {
 			return nil, err
 		}
+
 		return extractFailedTestResultsSample(*testResultsDoc), nil
 	}
 
@@ -92,6 +113,38 @@ func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, opts T
 		return nil, err
 	}
 	return extractFailedTestResultsSample(testResultsDocs...), nil
+}
+
+func (mc *MockConnector) GetTestResultsStats(ctx context.Context, opts TestResultsOptions) (*model.APITestResultsStats, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
+		}
+	}
+
+	stats := &model.APITestResultsStats{}
+
+	if !opts.DisplayTask {
+		testResultsDoc, err := mc.findTestResultsByTaskID(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		stats.Import(testResultsDoc.Stats)
+	} else {
+		testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, doc := range testResultsDocs {
+			stats.TotalCount += doc.Stats.TotalCount
+			stats.FailedCount += doc.Stats.FailedCount
+		}
+	}
+
+	return stats, nil
 }
 
 func (mc *MockConnector) findAndDownloadTestResultsByTaskID(ctx context.Context, opts TestResultsOptions) ([]dbModel.TestResult, error) {

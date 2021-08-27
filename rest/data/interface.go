@@ -87,11 +87,15 @@ type Connector interface {
 	// the given options. If the execution is nil, this will return the
 	// test results from the most recent execution.
 	FindTestResults(context.Context, TestResultsOptions) ([]model.APITestResult, error)
-	// FindFailedTestResultsSample queries the database to find all the
+	// GetFailedTestResultsSample queries the database to find all the
 	// sample of failed test results for the given options. If the
 	// execution is nil, this will return the sample from the most recent
 	// execution.
-	FindFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
+	GetFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
+	// GetTestResultsStats queries the database to aggregate basic stats
+	// of test results for the given options. If the execution is nil, this
+	// will return stats for the most recent execution.
+	GetTestResultsStats(context.Context, TestResultsOptions) (*model.APITestResultsStats, error)
 
 	///////////////////////
 	// Historical Test Data

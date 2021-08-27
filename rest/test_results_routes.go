@@ -106,9 +106,9 @@ func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
 
 // Run finds and returns the desired failed test results sample.
 func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
-	sample, err := h.sc.FindFailedTestResultsSample(ctx, h.opts)
+	sample, err := h.sc.GetFailedTestResultsSample(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test result by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "problem getting failed test results sample by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
@@ -120,6 +120,46 @@ func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Resp
 	}
 
 	return gimlet.NewJSONResponse(sample)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/task_id/{task_id}/stats
+
+type testResultsGetStatsHandler struct {
+	sc data.Connector
+	testResultsBaseHandler
+}
+
+func makeGetTestResultsStats(sc data.Connector) gimlet.RouteHandler {
+	return &testResultsGetStatsHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new testResultsGetStatsHandler.
+func (h *testResultsGetStatsHandler) Factory() gimlet.RouteHandler {
+	return &testResultsGetStatsHandler{
+		sc: h.sc,
+	}
+}
+
+// Run finds and returns the desired failed test results stats.
+func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
+	stats, err := h.sc.GetTestResultsStats(ctx, h.opts)
+	if err != nil {
+		err = errors.Wrapf(err, "problem getting test results stats by task_id '%s'", h.opts.TaskID)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/testresults/task_id/{task_id}/stats",
+			"task_id":         h.opts.TaskID,
+			"is_display_task": h.opts.DisplayTask,
+		}))
+		return gimlet.MakeJSONInternalErrorResponder(err)
+	}
+
+	return gimlet.NewJSONResponse(stats)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
