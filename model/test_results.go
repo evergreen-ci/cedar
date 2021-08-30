@@ -216,13 +216,13 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 }
 
 func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
-	var numFailed int
+	var failedCount int
 	for i := 0; i < len(results); i++ {
 		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
 			if len(t.FailedTestsSample) < FailedTestsSampleSize {
 				t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
 			}
-			numFailed++
+			failedCount++
 		}
 	}
 
@@ -231,8 +231,8 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 		bson.M{testResultsIDKey: t.ID},
 		bson.M{
 			"$inc": bson.M{
-				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey): len(results),
-				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsNumFailedKey):  numFailed,
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey):  len(results),
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey): failedCount,
 			},
 			"$set": bson.M{
 				testResultsFailedTestsSampleKey: t.FailedTestsSample,
@@ -243,7 +243,7 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 		"collection":          testResultsCollection,
 		"id":                  t.ID,
 		"inc_total_count":     len(results),
-		"inc_num_failed":      numFailed,
+		"inc_failed_count":    failedCount,
 		"failed_tests_sample": t.FailedTestsSample,
 		"update_result":       updateResult,
 		"op":                  "updating stats and failing tests sample",
@@ -253,7 +253,7 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 	}
 
 	t.Stats.TotalCount += len(results)
-	t.Stats.NumFailed += numFailed
+	t.Stats.FailedCount += failedCount
 
 	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
 }
@@ -428,13 +428,13 @@ func (id *TestResultsInfo) ID() string {
 
 // TestResultsStats describes basic stats of the test results.
 type TestResultsStats struct {
-	TotalCount int `bson:"total_count"`
-	NumFailed  int `bson:"num_failed"`
+	TotalCount  int `bson:"total_count"`
+	FailedCount int `bson:"failed_count"`
 }
 
 var (
-	testResultsStatsTotalCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
-	testResultsStatsNumFailedKey  = bsonutil.MustHaveTag(TestResultsStats{}, "NumFailed")
+	testResultsStatsTotalCountKey  = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
+	testResultsStatsFailedCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "FailedCount")
 )
 
 // TestResult describes a single test result to be stored as a BSON object in
@@ -563,7 +563,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 // FindAndDownloadTestResults searches the database for the TestResults
 // associated with the provided options and returns a TestResultsIterator with
 // the downloaded test results. The environment should not be nil. If execution
-// is nil it will default to the most recent execution.
+// is nil, it will default to the most recent execution.
 func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResult, error) {
 	testResults, err := FindTestResults(ctx, env, opts)
 	if err != nil {
@@ -624,4 +624,58 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 	cwg.Wait()
 
 	return combinedResults, catcher.Resolve()
+}
+
+// GetTestResultsStats fetches basic stats for the test results associated with
+// the provided options. The environment should not be nil. If execution is
+// nil, it will default to the most recent execution.
+func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsStats, error) {
+	var stats TestResultsStats
+
+	if !opts.DisplayTask {
+		testResultsRecords, err := FindTestResults(ctx, env, opts)
+		if err != nil {
+			return stats, err
+		}
+
+		return testResultsRecords[0].Stats, nil
+	}
+
+	if env == nil {
+		return stats, errors.New("cannot find with a nil environment")
+	}
+	if err := opts.validate(); err != nil {
+		return stats, errors.Wrap(err, "invalid find options")
+	}
+
+	pipeline := []bson.M{
+		{"$match": opts.createFindQuery()},
+		{"$group": bson.M{
+			"_id": "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey),
+			testResultsStatsTotalCountKey: bson.M{
+				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
+			},
+			testResultsStatsFailedCountKey: bson.M{
+				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey),
+			},
+		}},
+	}
+	if opts.Execution == nil {
+		pipeline = append(pipeline, bson.M{
+			"$sort": bson.D{
+				{Key: "_id", Value: -1},
+			},
+		})
+	}
+	pipeline = append(pipeline, bson.M{"$limit": 1})
+
+	cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return stats, errors.Wrap(err, "aggregating test results stats")
+	}
+	if !cur.Next(ctx) {
+		return stats, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
+	}
+
+	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
 }

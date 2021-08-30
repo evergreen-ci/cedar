@@ -319,6 +319,7 @@ func (s *Service) addRoutes() {
 
 	s.app.AddRoute("/test_results/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByTaskID(s.sc))
 	s.app.AddRoute("/test_results/task_id/{task_id}/failed_sample").Version(1).Get().RouteHandler(makeGetTestResultsFailedSample(s.sc))
+	s.app.AddRoute("/test_results/task_id/{task_id}/stats").Version(1).Get().RouteHandler(makeGetTestResultsStats(s.sc))
 	// TODO: (EVG-15299) Remove these two routes once we are sure no one is
 	// using them. Keeping temporarily for backwards compatibility.
 	s.app.AddRoute("/test_results/display_task_id/{display_task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByDisplayTaskID(s.sc))

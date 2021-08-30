@@ -273,7 +273,7 @@ func TestTestResultsAppend(t *testing.T) {
 		var saved TestResults
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
 		assert.Equal(t, len(results), saved.Stats.TotalCount)
-		assert.Zero(t, saved.Stats.NumFailed)
+		assert.Zero(t, saved.Stats.FailedCount)
 		assert.Empty(t, saved.FailedTestsSample)
 
 		failedResults := make([]TestResult, 2*FailedTestsSampleSize)
@@ -294,7 +294,7 @@ func TestTestResultsAppend(t *testing.T) {
 		assert.Equal(t, append(results, failedResults...), savedResults.Results)
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
 		assert.Equal(t, len(results)+len(failedResults), saved.Stats.TotalCount)
-		assert.Equal(t, len(failedResults), saved.Stats.NumFailed)
+		assert.Equal(t, len(failedResults), saved.Stats.FailedCount)
 		require.Len(t, saved.FailedTestsSample, FailedTestsSampleSize)
 		for i, testName := range saved.FailedTestsSample {
 			assert.Equal(t, failedResults[i].GetDisplayName(), testName)
@@ -650,6 +650,152 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
 	for _, result := range append(savedResults1.Results, savedResults2.Results...) {
 		assert.Contains(t, results, result)
+	}
+}
+
+func TestGetTestResultsStats(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr1 := getTestResults()
+	tr1.Info.DisplayTaskID = "display"
+	tr1.Info.Execution = 0
+	tr1.Stats.TotalCount = 10
+	tr1.Stats.FailedCount = 5
+	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
+	require.NoError(t, err)
+
+	tr2 := getTestResults()
+	tr2.Info.DisplayTaskID = "display"
+	tr2.Info.TaskID = tr1.Info.TaskID
+	tr2.Info.Execution = 1
+	tr2.Stats.TotalCount = 30
+	tr2.Stats.FailedCount = 10
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
+	require.NoError(t, err)
+
+	tr3 := getTestResults()
+	tr3.Info.DisplayTaskID = "display"
+	tr3.Info.Execution = 1
+	tr3.Stats.TotalCount = 100
+	tr3.Stats.FailedCount = 15
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
+	require.NoError(t, err)
+
+	tr4 := getTestResults()
+	tr4.Info.DisplayTaskID = "display"
+	tr4.Info.Execution = 0
+	tr4.Stats.TotalCount = 40
+	tr4.Stats.FailedCount = 20
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr4)
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name          string
+		env           cedar.Environment
+		opts          TestResultsFindOptions
+		expectedStats TestResultsStats
+		hasErr        bool
+	}{
+		{
+			name: "FailsWithNoTaskID",
+			env:  env,
+			// Set DisplayTask to true to check that the function
+			// does its own validation, otherwise, if DisplayTask
+			// is false, the function just calls FindTestResults
+			// and the options validation is done there.
+			opts:   TestResultsFindOptions{DisplayTask: true},
+			hasErr: true,
+		},
+		{
+			name: "FailsWithNegativeExecution",
+			env:  env,
+			opts: TestResultsFindOptions{
+				TaskID:      tr1.Info.DisplayTaskID,
+				DisplayTask: true,
+				Execution:   utility.ToIntPtr(-1),
+			},
+			hasErr: true,
+		},
+		{
+			name: "FailsWithNilEnv",
+			env:  nil,
+			opts: TestResultsFindOptions{
+				TaskID:      tr1.Info.DisplayTaskID,
+				DisplayTask: true,
+			},
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenTaskIDDNE",
+			env:    env,
+			opts:   TestResultsFindOptions{TaskID: "DNE"},
+			hasErr: true,
+		},
+		{
+			name: "FailsWhenDisplayTaskIDDNE",
+			env:  env,
+			opts: TestResultsFindOptions{
+				TaskID:      "DNE",
+				DisplayTask: true,
+			},
+			hasErr: true,
+		},
+		{
+			name: "SucceedsWithTaskIDAndExecution",
+			env:  env,
+			opts: TestResultsFindOptions{
+				TaskID:    tr1.Info.TaskID,
+				Execution: utility.ToIntPtr(0),
+			},
+			expectedStats: tr1.Stats,
+		},
+		{
+			name:          "SucceedsWithTaskIDAndNoExecution",
+			env:           env,
+			opts:          TestResultsFindOptions{TaskID: tr1.Info.TaskID},
+			expectedStats: tr2.Stats,
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndExecution",
+			env:  env,
+			opts: TestResultsFindOptions{
+				TaskID:      "display",
+				Execution:   utility.ToIntPtr(0),
+				DisplayTask: true,
+			},
+			expectedStats: TestResultsStats{
+				TotalCount:  tr1.Stats.TotalCount + tr4.Stats.TotalCount,
+				FailedCount: tr1.Stats.FailedCount + tr4.Stats.FailedCount,
+			},
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndNoExecution",
+			env:  env,
+			opts: TestResultsFindOptions{
+				TaskID:      "display",
+				DisplayTask: true,
+			},
+			expectedStats: TestResultsStats{
+				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount,
+				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stats, err := GetTestResultsStats(ctx, test.env, test.opts)
+			if test.hasErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedStats, stats)
+			}
+		})
 	}
 }
 

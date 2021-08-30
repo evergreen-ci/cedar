@@ -139,14 +139,29 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 	s.NoError(s.env.GetDB().Drop(s.ctx))
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
+func (s *testResultsConnectorSuite) TestFindTestResults() {
 	for _, test := range []struct {
 		name      string
 		opts      TestResultsOptions
 		resultMap map[string]model.APITestResult
+		hasErr    bool
 	}{
 		{
-			name: "TaskIDWithExecution",
+			name:   "FailsWithEmptyOptions",
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenTaskIDDNE",
+			opts:   TestResultsOptions{TaskID: "DNE"},
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenDisplayTaskIDDNE",
+			opts:   TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			hasErr: true,
+		},
+		{
+			name: "SucceedsWithTaskIDAndExecution",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
@@ -158,7 +173,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			},
 		},
 		{
-			name: "TaskIDWithoutExecution",
+			name: "SucceedsWithTaskIDAndNoExecution",
 			opts: TestResultsOptions{TaskID: "task1"},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
@@ -167,7 +182,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			},
 		},
 		{
-			name: "TaskIDWithTestName",
+			name: "SucceedsWithTaskIDAndTestName",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
@@ -178,7 +193,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			},
 		},
 		{
-			name: "DisplayTaskIDWithExecution",
+			name: "SucceedsWithDisplayTaskIDAndExecution",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(0),
@@ -194,7 +209,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			},
 		},
 		{
-			name: "DisplayTaskIDWithoutExecution",
+			name: "SucceedsWithDisplayTaskIDAndNoExecution",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
@@ -206,7 +221,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 			},
 		},
 		{
-			name: "DisplayTaskIDWithTestName",
+			name: "SucceedsWithDisplayTaskIDAndTestName",
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(0),
@@ -221,58 +236,49 @@ func (s *testResultsConnectorSuite) TestFindTestResultsExists() {
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
 			actualResults, err := s.sc.FindTestResults(s.ctx, test.opts)
-			s.Require().NoError(err)
 
-			s.Len(actualResults, len(test.resultMap))
-			for _, result := range actualResults {
-				key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
-				expected, ok := test.resultMap[key]
-				s.Require().True(ok)
-				s.Equal(expected.TestName, result.TestName)
-				s.Equal(expected.TaskID, result.TaskID)
-				s.Equal(expected.Execution, result.Execution)
-				delete(test.resultMap, key)
+			if test.hasErr {
+				s.Nil(actualResults)
+				s.Error(err)
+			} else {
+				s.Require().NoError(err)
+
+				s.Len(actualResults, len(test.resultMap))
+				for _, result := range actualResults {
+					key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
+					expected, ok := test.resultMap[key]
+					s.Require().True(ok)
+					s.Equal(expected.TestName, result.TestName)
+					s.Equal(expected.TaskID, result.TaskID)
+					s.Equal(expected.Execution, result.Execution)
+					delete(test.resultMap, key)
+				}
 			}
 		})
 	}
 }
 
-func (s *testResultsConnectorSuite) TestFindTestResultDNE() {
-	for _, test := range []struct {
-		name string
-		opts TestResultsOptions
-	}{
-		{
-			name: "TaskID",
-			opts: TestResultsOptions{TaskID: "DNE"},
-		},
-		{
-			name: "DisplayTaskID",
-			opts: TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-		},
-	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			result, err := s.sc.FindTestResults(s.ctx, test.opts)
-			s.Error(err)
-			s.Nil(result)
-		})
-	}
-}
-
-func (s *testResultsConnectorSuite) TestFindTestResultEmpty() {
-	opts := TestResultsOptions{Execution: utility.ToIntPtr(1)}
-
-	result, err := s.sc.FindTestResults(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
-}
-
-func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
+func (s *testResultsConnectorSuite) TestGetFailedTestResultsSample() {
 	for _, test := range []struct {
 		name           string
 		opts           TestResultsOptions
 		expectedResult []string
+		hasErr         bool
 	}{
+		{
+			name:   "FailsWithEmptyOptions",
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenTaskIDDNE",
+			opts:   TestResultsOptions{TaskID: "DNE"},
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenDisplayTaskIDDNE",
+			opts:   TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			hasErr: true,
+		},
 		{
 			name: "TaskIDWithExecution",
 			opts: TestResultsOptions{
@@ -312,43 +318,96 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleExists() {
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
-			actualResult, err := s.sc.FindFailedTestResultsSample(s.ctx, test.opts)
-			s.Require().NoError(err)
+			actualResult, err := s.sc.GetFailedTestResultsSample(s.ctx, test.opts)
 
-			s.Require().Len(actualResult, len(test.expectedResult))
-			for i := range actualResult {
-				s.Equal(test.expectedResult[i], actualResult[i])
+			if test.hasErr {
+				s.Nil(actualResult)
+				s.Error(err)
+			} else {
+				s.Require().NoError(err)
+
+				s.Require().Len(actualResult, len(test.expectedResult))
+				for i := range actualResult {
+					s.Equal(test.expectedResult[i], actualResult[i])
+				}
 			}
 		})
 	}
 }
 
-func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleDNE() {
+func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 	for _, test := range []struct {
-		name string
-		opts TestResultsOptions
+		name           string
+		opts           TestResultsOptions
+		expectedResult *model.APITestResultsStats
+		hasErr         bool
 	}{
 		{
-			name: "TaskID",
-			opts: TestResultsOptions{TaskID: "DNE"},
+			name:   "FailsWithEmptyOptions",
+			hasErr: true,
 		},
 		{
-			name: "DisplayTaskID",
-			opts: TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			name:   "FailsWhenTaskIDDNE",
+			opts:   TestResultsOptions{TaskID: "DNE"},
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenDisplayTaskIDDNE",
+			opts:   TestResultsOptions{TaskID: "DNE", DisplayTask: true},
+			hasErr: true,
+		},
+		{
+			name: "TaskIDWithExecution",
+			opts: TestResultsOptions{
+				TaskID:    "task1",
+				Execution: utility.ToIntPtr(0),
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  3,
+				FailedCount: 3,
+			},
+		},
+		{
+			name: "TaskIDWithoutExecution",
+			opts: TestResultsOptions{TaskID: "task1"},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  3,
+				FailedCount: 3,
+			},
+		},
+		{
+			name: "DisplayTaskIDWithExecution",
+			opts: TestResultsOptions{
+				TaskID:      "display_task1",
+				Execution:   utility.ToIntPtr(0),
+				DisplayTask: true,
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  6,
+				FailedCount: 6,
+			},
+		},
+		{
+			name: "DisplayTaskIDWithoutExecution",
+			opts: TestResultsOptions{
+				TaskID:      "display_task1",
+				DisplayTask: true,
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  3,
+				FailedCount: 3,
+			},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
-			result, err := s.sc.FindFailedTestResultsSample(s.ctx, test.opts)
-			s.Error(err)
-			s.Nil(result)
+			actualResult, err := s.sc.GetTestResultsStats(s.ctx, test.opts)
+
+			if test.hasErr {
+				s.Error(err)
+			} else {
+				s.Require().NoError(err)
+			}
+			s.Equal(test.expectedResult, actualResult)
 		})
 	}
-}
-
-func (s *testResultsConnectorSuite) TestFindFailedTestResultsSampleEmpty() {
-	opts := TestResultsOptions{Execution: utility.ToIntPtr(1)}
-
-	result, err := s.sc.FindFailedTestResultsSample(s.ctx, opts)
-	s.Error(err)
-	s.Nil(result)
 }
