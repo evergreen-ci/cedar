@@ -555,6 +555,9 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 				h.opts.TimeRange.EndAt = time.Time(log.CompletedAt)
 			}
 		}
+		if h.opts.TimeRange.EndAt.IsZero() {
+			h.opts.TimeRange.EndAt = time.Now()
+		}
 	}
 
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
