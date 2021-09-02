@@ -686,7 +686,7 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestRe
 	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
 }
 
-// TestResultsSortBy describes the mechanism by which to sort a set of test
+// TestResultsSortBy describes the property by which to sort a set of test
 // results.
 type TestResultsSortBy string
 
