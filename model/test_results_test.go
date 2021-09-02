@@ -799,6 +799,230 @@ func TestGetTestResultsStats(t *testing.T) {
 	}
 }
 
+func TestFilterAndSortTestResults(t *testing.T) {
+	results := []TestResult{
+		{
+			TestName:      "A test",
+			Status:        "Pass",
+			TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 1, time.UTC),
+			TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 12, 0, time.UTC),
+		},
+		{
+			TestName:        "B test",
+			DisplayTestName: "Display",
+			Status:          "Fail",
+			TestStartTime:   time.Date(1996, time.August, 31, 12, 5, 10, 3, time.UTC),
+			TestEndTime:     time.Date(1996, time.August, 31, 12, 5, 16, 0, time.UTC),
+		},
+		{
+			TestName:      "C test",
+			Status:        "Fail",
+			TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 2, time.UTC),
+			TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 15, 0, time.UTC),
+		},
+		{
+			TestName:      "D test",
+			Status:        "Pass",
+			TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 4, time.UTC),
+			TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 11, 0, time.UTC),
+			GroupID:       "llama",
+		},
+	}
+	baseResults := []TestResult{
+		{
+			TestName: "A test",
+			Status:   "Pass",
+		},
+		{
+			TestName:        "B test",
+			DisplayTestName: "Display",
+			Status:          "Fail",
+		},
+		{
+			TestName: "C test",
+			Status:   "Pass",
+		},
+		{
+			TestName: "D test",
+			Status:   "Fail",
+		},
+	}
+
+	for _, test := range []struct {
+		name            string
+		opts            FilterAndSortTestResultsOptions
+		expectedResults []TestResult
+	}{
+		{
+			name:            "EmptyOptions",
+			expectedResults: results,
+		},
+		{
+			name:            "TestNameExactMatchFilter",
+			opts:            FilterAndSortTestResultsOptions{TestName: "A test"},
+			expectedResults: results[0:1],
+		},
+		{
+			name: "TestNameRegexFilter",
+			opts: FilterAndSortTestResultsOptions{TestName: "A|C"},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+			},
+		},
+		{
+			name:            "DisplayTestNameFilter",
+			opts:            FilterAndSortTestResultsOptions{TestName: "Display"},
+			expectedResults: results[1:2],
+		},
+		{
+			name:            "StatusFilter",
+			opts:            FilterAndSortTestResultsOptions{Statuses: []string{"Fail"}},
+			expectedResults: results[1:3],
+		},
+		{
+			name:            "GroupIDFilter",
+			opts:            FilterAndSortTestResultsOptions{GroupID: "llama"},
+			expectedResults: results[3:4],
+		},
+		{
+			name: "SortByDurationASC",
+			opts: FilterAndSortTestResultsOptions{SortBy: TestResultsSortByDuration},
+			expectedResults: []TestResult{
+				results[3],
+				results[0],
+				results[2],
+				results[1],
+			},
+		},
+		{
+			name: "SortByDurationDSC",
+			opts: FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByDuration,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[1],
+				results[2],
+				results[0],
+				results[3],
+			},
+		},
+		{
+			name: "SortByTestNameASC",
+			opts: FilterAndSortTestResultsOptions{SortBy: TestResultsSortByTestName},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+				results[3],
+				results[1],
+			},
+		},
+		{
+			name: "SortByTestNameDCS",
+			opts: FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByTestName,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[1],
+				results[3],
+				results[2],
+				results[0],
+			},
+		},
+		{
+			name: "SortByStatusASC",
+			opts: FilterAndSortTestResultsOptions{SortBy: TestResultsSortByStatus},
+			expectedResults: []TestResult{
+				results[1],
+				results[2],
+				results[0],
+				results[3],
+			},
+		},
+		{
+			name: "SortByStatusDSC",
+			opts: FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByStatus,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[0],
+				results[3],
+				results[1],
+				results[2],
+			},
+		},
+		{
+			name: "SortByStartTimeASC",
+			opts: FilterAndSortTestResultsOptions{SortBy: TestResultsSortByStart},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+				results[1],
+				results[3],
+			},
+		},
+		{
+			name: "SortByStartTimeDCS",
+			opts: FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByStart,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[3],
+				results[1],
+				results[2],
+				results[0],
+			},
+		},
+		{
+			name: "SortByBaseStatusASC",
+			opts: FilterAndSortTestResultsOptions{SortBy: TestResultsSortByBaseStatus},
+			expectedResults: []TestResult{
+				results[1],
+				results[3],
+				results[0],
+				results[2],
+			},
+		},
+		{
+			name: "SortByBaseStatusDSC",
+			opts: FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByBaseStatus,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+				results[1],
+				results[3],
+			},
+		},
+		{
+			name:            "Limit",
+			opts:            FilterAndSortTestResultsOptions{Limit: 3},
+			expectedResults: results[0:3],
+		},
+		{
+			name: "LimitAndPage",
+			opts: FilterAndSortTestResultsOptions{
+				Limit: 3,
+				Page:  1,
+			},
+			expectedResults: results[3:],
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			actualResults, _, err := FilterAndSortTestResults(results, baseResults, test.opts)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedResults, actualResults)
+			//assert.Equal(t, test.expectedCount, count)
+		})
+	}
+}
+
 func getTestResults() *TestResults {
 	info := TestResultsInfo{
 		Project:                utility.RandomString(),
