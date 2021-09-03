@@ -56,7 +56,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	if err := record.SaveNew(ctx); err != nil {
 		return resp, newRPCError(codes.Internal, errors.Wrap(err, "problem saving record"))
 	}
-	if len(record.Rollups.Stats) > 0 && len(record.Artifacts) == 0 {
+	if len(record.Rollups.Stats) > 0 {
 		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
