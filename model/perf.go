@@ -72,6 +72,7 @@ func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResu
 
 func (info *PerformanceResultInfo) ToPerformanceResultId() PerformanceTestResultId {
 	return PerformanceTestResultId{
+		Version:   info.Version,
 		TaskID:    info.TaskID,
 		Project:   info.Project,
 		Variant:   info.Variant,

@@ -22,13 +22,15 @@ import (
 )
 
 type perfService struct {
-	env cedar.Environment
+	env                 cedar.Environment
+	proxyServiceCreator func(model.ProxyServiceOptions) perf.ProxyService
 }
 
 // AttachPerfService attaches the perf service to the given gRPC server.
-func AttachPerfService(env cedar.Environment, s *grpc.Server) {
+func AttachPerfService(env cedar.Environment, s *grpc.Server, proxyServiceCreator func(model.ProxyServiceOptions) perf.ProxyService) {
 	srv := &perfService{
-		env: env,
+		env:                 env,
+		proxyServiceCreator: proxyServiceCreator,
 	}
 	RegisterCedarPerformanceMetricsServer(s, srv)
 }
@@ -63,7 +65,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 
 	if len(record.Rollups.Stats) > 0 {
 		if err := srv.updateDownstreamPerfServices(ctx, record); err != nil {
-			return nil, errors.Wrap(err, "problem creating ftdc rollups job")
+			return nil, errors.Wrap(err, "problem in updating downstream services")
 		}
 	}
 
@@ -288,7 +290,7 @@ func (srv *perfService) updateDownstreamPerfServices(ctx context.Context, record
 			return newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
 		}
 	} else {
-		proxyService := perf.NewProxyService(conf.ProxyService.URI, conf.ProxyService.User, conf.ProxyService.Token)
+		proxyService := srv.proxyServiceCreator(model.ProxyServiceOptions{BaseURL: conf.ProxyService.URI, User: conf.ProxyService.User, Token: conf.ProxyService.Token})
 		performanceResultId := record.Info.ToPerformanceResultId()
 		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {

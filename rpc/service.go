@@ -5,11 +5,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+
 	"net"
 	"time"
 
 	"github.com/evergreen-ci/aviation"
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/cedar/rpc/internal"
 	"github.com/evergreen-ci/certdepot"
 	"github.com/evergreen-ci/gimlet"
@@ -133,7 +135,7 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 	srv := grpc.NewServer(opts...)
 
 	services := map[string]internal.HealthCheckResponse_ServingStatus{}
-	internal.AttachPerfService(env, srv)
+	internal.AttachPerfService(env, srv, perf.NewProxyService)
 	services[internal.PerfServiceName()] = internal.HealthCheckResponse_SERVING
 	internal.AttachBuildloggerService(env, srv)
 	services[internal.BuildloggerServiceName()] = internal.HealthCheckResponse_SERVING

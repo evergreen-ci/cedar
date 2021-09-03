@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/evergreen-ci/cedar/model"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -28,8 +28,8 @@ type proxyServiceClient struct {
 }
 
 // NewProxyService creates a new ProxyService.
-func NewProxyService(baseURL, user string, token string) ProxyService {
-	return &proxyServiceClient{user: user, token: token, baseURL: baseURL}
+func NewProxyService(options model.ProxyServiceOptions) ProxyService {
+	return &proxyServiceClient{user: options.User, token: options.Token, baseURL: options.BaseURL}
 }
 
 // ReportNewPerformanceDataAvailability takes a PerformanceTestResultId and tries to report its data to a ProxyService.
@@ -56,46 +56,16 @@ func (spc *proxyServiceClient) ReportNewPerformanceDataAvailability(ctx context.
 func (spc *proxyServiceClient) doRequest(method, route string, ctx context.Context, in interface{}) error {
 	body, err := json.Marshal(in)
 	if err != nil {
-		grip.Error(message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message": "JSON encoding failed",
 			"cause":   errors.WithStack(err),
 			"data":    in,
-		})
+		}))
 		return nil
 	}
-
-	//conf := utility.HTTPRetryConfiguration{
-	//	MaxRetries:      50,
-	//	TemporaryErrors: true,
-	//	MaxDelay:        30 * time.Second,
-	//	BaseDelay:       50 * time.Millisecond,
-	//	Methods: []string{
-	//		http.MethodGet,
-	//		http.MethodPost,
-	//		http.MethodPut,
-	//		http.MethodDelete,
-	//		http.MethodPatch,
-	//	},
-	//	Statuses: []int{
-	//		// status code for timeouts from ELB in AWS (Kanopy infrastructure)
-	//		499,
-	//		http.StatusBadGateway,
-	//		http.StatusServiceUnavailable,
-	//		http.StatusGatewayTimeout,
-	//		http.StatusInsufficientStorage,
-	//		http.StatusConflict,
-	//		http.StatusRequestTimeout,
-	//		http.StatusPreconditionFailed,
-	//		http.StatusExpectationFailed,
-	//	},
-	//	Errors: []error{
-	//		// If a connection gets cut by the ELB, sometimes the client doesn't get an actual error
-	//		// The client only receives a nil body leading to an EOF
-	//		io.EOF,
-	//	},
-	//}
 	conf := utility.NewDefaultHTTPRetryConf()
 	conf.Statuses = append(conf.Statuses, 499)
+	conf.MaxDelay = 30 * time.Second
 	conf.Errors = []error{
 		// If a connection gets cut by the ELB, sometimes the client doesn't get an actual error
 		// The client only receives a nil body leading to an EOF
@@ -106,12 +76,12 @@ func (spc *proxyServiceClient) doRequest(method, route string, ctx context.Conte
 
 	req, err := http.NewRequest(method, route, bytes.NewBuffer(body))
 	if err != nil {
-		grip.Error(message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message":   "Failed to report new time series performance data availability to proxy service",
 			"cause":     errors.WithStack(err),
 			"url":       route,
 			"auth_user": spc.user,
-		})
+		}))
 		return nil
 	}
 	req = req.WithContext(ctx)
@@ -120,23 +90,39 @@ func (spc *proxyServiceClient) doRequest(method, route string, ctx context.Conte
 
 	resp, err := client.Do(req)
 	if err != nil {
-		grip.Error(message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message":   "Failed to report new time series performance data availability to proxy service",
 			"status":    http.StatusText(resp.StatusCode),
 			"url":       route,
 			"auth_user": spc.user,
-		})
+		}))
 		return nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		grip.Error(message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message":   "Failed to report new time series performance data availability to proxy service",
 			"status":    http.StatusText(resp.StatusCode),
 			"url":       route,
 			"auth_user": spc.user,
-		})
+		}))
 	}
 	return nil
+}
+
+// Mock implementation
+func (m *MockProxyService) ReportNewPerformanceDataAvailability(_ context.Context, data model.PerformanceTestResultId) error {
+	m.Calls = append(m.Calls, data)
+	return nil
+}
+
+type MockProxyService struct {
+	Calls []model.PerformanceTestResultId
+}
+
+func NewMockProxyServiceCreator(mockProxyService *MockProxyService) func(options model.ProxyServiceOptions) ProxyService {
+	return func(_ model.ProxyServiceOptions) ProxyService {
+		return mockProxyService
+	}
 }

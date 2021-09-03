@@ -4,11 +4,13 @@ import (
 	"context"
 	fmt "fmt"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar/perf"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
@@ -38,14 +40,14 @@ func init() {
 	cedar.SetEnvironment(env)
 }
 
-func startPerfService(ctx context.Context, env cedar.Environment, port int) error {
+func startPerfService(ctx context.Context, env cedar.Environment, port int, proxyCreator func(options model.ProxyServiceOptions) perf.ProxyService) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	s := grpc.NewServer()
-	AttachPerfService(env, s)
+	AttachPerfService(env, s, proxyCreator)
 
 	go func() {
 		_ = s.Serve(lis)
@@ -140,11 +142,45 @@ func TestCreateMetricSeries(t *testing.T) {
 		err          bool
 	}{
 		{
-			name: "TestValidData",
+			name: "TestValidDataMainline",
 			data: &ResultData{
 				Id: &ResultID{
+					Project:  "testProject",
+					Version:  "testVersion",
+					Mainline: true,
+				},
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamp.Timestamp{},
+					},
+				},
+				Rollups: []*RollupValue{
+					{
+						Name:    "Max",
+						Value:   &RollupValue_Int{Int: 5},
+						Type:    0,
+						Version: 1,
+					},
+				},
+			},
+			expectedResp: &MetricsResponse{
+				Id: (&model.PerformanceResultInfo{
 					Project: "testProject",
 					Version: "testVersion",
+				}).ID(),
+				Success: true,
+			},
+		},
+		{
+			name: "TestValidDataPatch",
+			data: &ResultData{
+				Id: &ResultID{
+					Project:  "testProject",
+					Version:  "testVersion",
+					Mainline: false,
 				},
 				Artifacts: []*ArtifactInfo{
 					{
@@ -180,7 +216,7 @@ func TestCreateMetricSeries(t *testing.T) {
 			name:    "TestInvalidEnv",
 			mockEnv: true,
 			data: &ResultData{
-				Id: &ResultID{},
+				Id: &ResultID{Mainline: true},
 			},
 			err: true,
 		},
@@ -190,17 +226,33 @@ func TestCreateMetricSeries(t *testing.T) {
 			var env cedar.Environment
 			if !test.mockEnv {
 				env = cedar.GetEnvironment()
+				conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
+				require.NoError(t, err)
+				conf.Setup(env)
+				require.NoError(t, conf.Save())
 			}
 			defer func() {
 				require.NoError(t, tearDownEnv(env, test.mockEnv))
 			}()
+			var mockProxyService = &perf.MockProxyService{}
 
-			require.NoError(t, startPerfService(ctx, env, port))
+			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockProxyServiceCreator(mockProxyService)))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
 			require.Equal(t, test.expectedResp, resp)
+			if test.data.Id != nil && !test.data.Id.Mainline {
+				require.Equal(t, len(mockProxyService.Calls), 1)
+				require.Equal(t, test.data.Id.Project, mockProxyService.Calls[0].Project)
+				require.Equal(t, test.data.Id.Version, mockProxyService.Calls[0].Version)
+				require.Equal(t, test.data.Id.TaskId, mockProxyService.Calls[0].TaskID)
+				require.Equal(t, test.data.Id.Variant, mockProxyService.Calls[0].Variant)
+				require.Equal(t, test.data.Id.TaskName, mockProxyService.Calls[0].Task)
+				require.Equal(t, test.data.Id.TestName, mockProxyService.Calls[0].Test)
+				require.Equal(t, test.data.Id.Arguments, mockProxyService.Calls[0].Arguments)
+			}
+
 			if test.err {
 				require.Error(t, err)
 			} else {
@@ -229,7 +281,7 @@ func TestAttachResultData(t *testing.T) {
 			name: "TestAttachArtifacts",
 			save: true,
 			resultData: &ResultData{
-				Id: &ResultID{},
+				Id: &ResultID{Mainline: true},
 			},
 			attachedData: &ArtifactData{
 				Id: (&model.PerformanceResultInfo{}).ID(),
@@ -300,8 +352,14 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
 			port := getPort()
+			var mockProxyService = &perf.MockProxyService{}
 
-			require.NoError(t, startPerfService(ctx, env, port))
+			conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
+			require.NoError(t, err)
+			conf.Setup(env)
+			require.NoError(t, conf.Save())
+
+			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockProxyServiceCreator(mockProxyService)))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
@@ -316,6 +374,16 @@ func TestAttachResultData(t *testing.T) {
 				resp, err = client.AttachArtifacts(ctx, d)
 			case *RollupData:
 				resp, err = client.AttachRollups(ctx, d)
+				if test.resultData != nil && test.resultData.Id != nil && !test.resultData.Id.Mainline {
+					require.Equal(t, len(mockProxyService.Calls), 1)
+					require.Equal(t, test.resultData.Id.Project, mockProxyService.Calls[0].Project)
+					require.Equal(t, test.resultData.Id.Version, mockProxyService.Calls[0].Version)
+					require.Equal(t, test.resultData.Id.TaskId, mockProxyService.Calls[0].TaskID)
+					require.Equal(t, test.resultData.Id.Variant, mockProxyService.Calls[0].Variant)
+					require.Equal(t, test.resultData.Id.TaskName, mockProxyService.Calls[0].Task)
+					require.Equal(t, test.resultData.Id.TestName, mockProxyService.Calls[0].Test)
+					require.Equal(t, test.resultData.Id.Arguments, mockProxyService.Calls[0].Arguments)
+				}
 			default:
 				t.Error("unknown attached data type")
 			}

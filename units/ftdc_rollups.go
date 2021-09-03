@@ -3,8 +3,6 @@ package units
 import (
 	"context"
 	"fmt"
-	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/message"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -16,6 +14,8 @@ import (
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/ftdc"
+	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
 
@@ -29,9 +29,10 @@ type ftdcRollupsJob struct {
 	RollupTypes   []string            `bson:"rollup_types" json:"rollup_types" yaml:"rollup_types"`
 	UserSubmitted bool                `bson:"user" json:"user" yaml:"user"`
 
-	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env      cedar.Environment
-	queue    amboy.Queue
+	job.Base     `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env          cedar.Environment
+	queue        amboy.Queue
+	proxyService perf.ProxyService
 }
 
 func init() {
@@ -104,6 +105,10 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		return
 	}
 
+	if j.proxyService == nil {
+		j.proxyService = perf.NewProxyService(model.ProxyServiceOptions{BaseURL: conf.ProxyService.URI, User: conf.ProxyService.User, Token: conf.ProxyService.Token})
+	}
+
 	inc := func() {
 		result := &model.PerformanceResult{ID: j.PerfID}
 		result.Setup(j.env)
@@ -159,9 +164,8 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	if result.Info.Mainline {
 		j.createSignalProcessingJob(ctx, result)
 	} else {
-		proxyService := perf.NewProxyService(conf.ProxyService.URI, conf.ProxyService.User, conf.ProxyService.Token)
 		performanceResultId := result.Info.ToPerformanceResultId()
-		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
+		err := j.proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {
 			grip.Error(message.Fields{
 				"message": "Failed to report new performance data availability",
