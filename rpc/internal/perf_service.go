@@ -264,6 +264,10 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 			continue
 		}
 
+		if artifact.Format != model.FileFTDC {
+			continue
+		}
+
 		if hasEventData {
 			return newRPCError(codes.InvalidArgument, errors.New("cannot have more than one raw events artifact"))
 		}
