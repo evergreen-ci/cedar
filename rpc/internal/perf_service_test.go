@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	fmt "fmt"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"net"
 	"path/filepath"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
