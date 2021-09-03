@@ -1,4 +1,5 @@
 proxy_service:
   uri: uri
   token: token
+  user: user
 

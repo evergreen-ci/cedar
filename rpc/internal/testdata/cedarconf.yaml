@@ -23,6 +23,7 @@ ca:
 proxy_service:
   uri: uri
   token: token
+  user: user
 bucket:
   system_metrics_bucket_type: model.PailLocal
   test_results_bucket_type: model.PailLocal
