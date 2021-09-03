@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	fmt "fmt"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"net"
 	"path/filepath"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -108,7 +108,11 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 	require.NoError(t, err)
 	result := &model.PerformanceResult{}
 	assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(id).One(result))
-	assert.True(t, len(result.Rollups.Stats) > len(rollups), "%s", id)
+	if len(result.Artifacts) > 0 {
+		assert.True(t, len(result.Rollups.Stats) > len(rollups), "%s", id)
+	} else {
+		assert.True(t, len(result.Rollups.Stats) == len(rollups), "%s", id)
+	}
 
 	rollupMap := map[string]model.PerfRollupValue{}
 	for _, rollup := range result.Rollups.Stats {
@@ -145,8 +149,8 @@ func TestCreateMetricSeries(t *testing.T) {
 			name: "TestValidDataMainline",
 			data: &ResultData{
 				Id: &ResultID{
-					Project:  "testProject",
-					Version:  "testVersion",
+					Project:  "testProjectMainline",
+					Version:  "testVersionMainline",
 					Mainline: true,
 				},
 				Artifacts: []*ArtifactInfo{
@@ -168,8 +172,8 @@ func TestCreateMetricSeries(t *testing.T) {
 			},
 			expectedResp: &MetricsResponse{
 				Id: (&model.PerformanceResultInfo{
-					Project: "testProject",
-					Version: "testVersion",
+					Project: "testProjectMainline",
+					Version: "testVersionMainline",
 				}).ID(),
 				Success: true,
 			},
@@ -178,17 +182,9 @@ func TestCreateMetricSeries(t *testing.T) {
 			name: "TestValidDataPatch",
 			data: &ResultData{
 				Id: &ResultID{
-					Project:  "testProject",
-					Version:  "testVersion",
+					Project:  "testProjectPatch",
+					Version:  "testVersionPatch",
 					Mainline: false,
-				},
-				Artifacts: []*ArtifactInfo{
-					{
-						Location:  5,
-						Bucket:    "testdata",
-						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
-					},
 				},
 				Rollups: []*RollupValue{
 					{
@@ -201,8 +197,8 @@ func TestCreateMetricSeries(t *testing.T) {
 			},
 			expectedResp: &MetricsResponse{
 				Id: (&model.PerformanceResultInfo{
-					Project: "testProject",
-					Version: "testVersion",
+					Project: "testProjectPatch",
+					Version: "testVersionPatch",
 				}).ID(),
 				Success: true,
 			},
