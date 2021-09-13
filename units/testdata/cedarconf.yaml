@@ -1,5 +1,5 @@
-proxy_service:
+change_detector:
   uri: uri
   token: token
-  user: user
+  analysis_proxy_service_uri: analysis-proxy-service-uri
 

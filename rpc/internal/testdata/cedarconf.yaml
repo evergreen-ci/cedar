@@ -20,10 +20,10 @@ ca:
       host: localhost
       ca: test-root
       expires: 24h
-proxy_service:
+change_detector:
   uri: uri
   token: token
-  user: user
+  analysis_proxy_service_uri: analysis-proxy-service-uri
 bucket:
   system_metrics_bucket_type: model.PailLocal
   test_results_bucket_type: model.PailLocal
