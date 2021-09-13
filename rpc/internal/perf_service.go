@@ -22,15 +22,15 @@ import (
 )
 
 type perfService struct {
-	env                 cedar.Environment
-	proxyServiceCreator func(model.ProxyServiceOptions) perf.ProxyService
+	env                                    cedar.Environment
+	performanceAnalysisProxyServiceCreator func(model.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService
 }
 
 // AttachPerfService attaches the perf service to the given gRPC server.
-func AttachPerfService(env cedar.Environment, s *grpc.Server, proxyServiceCreator func(model.ProxyServiceOptions) perf.ProxyService) {
+func AttachPerfService(env cedar.Environment, s *grpc.Server, performanceAnalysisProxyServiceCreator func(model.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService) {
 	srv := &perfService{
-		env:                 env,
-		proxyServiceCreator: proxyServiceCreator,
+		env:                                    env,
+		performanceAnalysisProxyServiceCreator: performanceAnalysisProxyServiceCreator,
 	}
 	RegisterCedarPerformanceMetricsServer(s, srv)
 }
@@ -65,7 +65,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 
 	if len(record.Rollups.Stats) > 0 {
 		if err := srv.updateDownstreamPerfServices(ctx, record); err != nil {
-			return nil, errors.Wrap(err, "problem in updating downstream services")
+			return nil, errors.Wrap(err, "updating downstream services")
 		}
 	}
 
@@ -280,24 +280,25 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 func (srv *perfService) updateDownstreamPerfServices(ctx context.Context, record *model.PerformanceResult) error {
 	conf := model.NewCedarConfig(srv.env)
 	if err := conf.Find(); err != nil {
-		return newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
+		return newRPCError(codes.Internal, errors.Wrap(err, "fetching cedar config"))
 	}
 
 	if record.Info.Mainline {
 		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 		if err != nil {
-			return newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
+			return newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
 		}
 	} else {
-		proxyService := srv.proxyServiceCreator(model.ProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalyticsProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
-		performanceResultId := record.Info.ToPerformanceResultId()
+		proxyService := srv.performanceAnalysisProxyServiceCreator(model.PerformanceAnalysisProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalysisProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
+		performanceResultId := record.Info.ToPerformanceResultID()
 		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {
-			grip.Error(message.Fields{
-				"message": "Failed to report new performance data availability",
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "failed to report new performance data availability to proxy service",
+				"cause":   errors.WithStack(err),
 				"update":  performanceResultId,
-			})
+			}))
 		}
 	}
 	return nil

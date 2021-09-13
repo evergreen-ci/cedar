@@ -29,10 +29,10 @@ type ftdcRollupsJob struct {
 	RollupTypes   []string            `bson:"rollup_types" json:"rollup_types" yaml:"rollup_types"`
 	UserSubmitted bool                `bson:"user" json:"user" yaml:"user"`
 
-	job.Base     `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env          cedar.Environment
-	queue        amboy.Queue
-	proxyService perf.ProxyService
+	job.Base                        `bson:"metadata" json:"metadata" yaml:"metadata"`
+	env                             cedar.Environment
+	queue                           amboy.Queue
+	performanceAnalysisProxyService perf.PerformanceAnalysisProxyService
 }
 
 func init() {
@@ -105,8 +105,8 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 		return
 	}
 
-	if j.proxyService == nil {
-		j.proxyService = perf.NewProxyService(model.ProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalyticsProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
+	if j.performanceAnalysisProxyService == nil {
+		j.performanceAnalysisProxyService = perf.NewPerformanceAnalysisProxyService(model.PerformanceAnalysisProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalysisProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
 	}
 
 	inc := func() {
@@ -164,13 +164,14 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	if result.Info.Mainline {
 		j.createSignalProcessingJob(ctx, result)
 	} else {
-		performanceResultId := result.Info.ToPerformanceResultId()
-		err := j.proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
+		performanceResultId := result.Info.ToPerformanceResultID()
+		err := j.performanceAnalysisProxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {
-			grip.Error(message.Fields{
-				"message": "Failed to report new performance data availability",
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "failed to report new performance data availability to proxy service",
+				"cause":   errors.WithStack(err),
 				"update":  performanceResultId,
-			})
+			}))
 		}
 	}
 

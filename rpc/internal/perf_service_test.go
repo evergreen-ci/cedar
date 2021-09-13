@@ -40,7 +40,7 @@ func init() {
 	cedar.SetEnvironment(env)
 }
 
-func startPerfService(ctx context.Context, env cedar.Environment, port int, proxyCreator func(options model.ProxyServiceOptions) perf.ProxyService) error {
+func startPerfService(ctx context.Context, env cedar.Environment, port int, proxyCreator func(options model.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return errors.WithStack(err)
@@ -230,9 +230,9 @@ func TestCreateMetricSeries(t *testing.T) {
 			defer func() {
 				require.NoError(t, tearDownEnv(env, test.mockEnv))
 			}()
-			var mockProxyService = &perf.MockProxyService{}
+			var mockProxyService = &perf.MockPerformanceAnalysisProxyService{}
 
-			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockProxyServiceCreator(mockProxyService)))
+			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockPerformanceAnalysisProxyServiceCreator(mockProxyService)))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
@@ -348,14 +348,14 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
 			port := getPort()
-			var mockProxyService = &perf.MockProxyService{}
+			var mockProxyService = &perf.MockPerformanceAnalysisProxyService{}
 
 			conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 			require.NoError(t, err)
 			conf.Setup(env)
 			require.NoError(t, conf.Save())
 
-			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockProxyServiceCreator(mockProxyService)))
+			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockPerformanceAnalysisProxyServiceCreator(mockProxyService)))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 

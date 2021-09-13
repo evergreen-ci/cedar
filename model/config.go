@@ -84,17 +84,17 @@ var (
 )
 
 type ChangeDetectorConfig struct {
-	Implementation           string `bson:"implementation" json:"implementation" yaml:"implementation"`
-	URI                      string `bson:"uri" json:"uri" yaml:"uri"`
-	User                     string `bson:"user" json:"user" yaml:"user"`
-	Token                    string `bson:"token" json:"token" yaml:"token"`
-	AnalyticsProxyServiceURI string `bson:"analytics_proxy_service_uri" json:"analytics_proxy_service_uri" yaml:"analytics_proxy_service_uri"`
+	Implementation          string `bson:"implementation" json:"implementation" yaml:"implementation"`
+	URI                     string `bson:"uri" json:"uri" yaml:"uri"`
+	User                    string `bson:"user" json:"user" yaml:"user"`
+	Token                   string `bson:"token" json:"token" yaml:"token"`
+	AnalysisProxyServiceURI string `bson:"analysis_proxy_service_uri" json:"analysis_proxy_service_uri" yaml:"analysis_proxy_service_uri"`
 }
 
 var (
-	cedarChangeDetectorConfigURIKey                      = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "URI")
-	cedarChangeDetectorConfigTokenKey                    = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "Token")
-	cedarChangeDetectorConfigAnalyticsProxyServiceURIKey = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "AnalyticsProxyServiceURI")
+	cedarChangeDetectorConfigURIKey                     = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "URI")
+	cedarChangeDetectorConfigTokenKey                   = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "Token")
+	cedarChangeDetectorConfigAnalysisProxyServiceURIKey = bsonutil.MustHaveTag(ChangeDetectorConfig{}, "AnalysisProxyServiceURI")
 )
 
 type SlackConfig struct {

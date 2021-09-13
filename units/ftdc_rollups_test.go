@@ -117,14 +117,14 @@ func TestFTDCRollupsJob(t *testing.T) {
 				assert.Equal(t, user, stats.UserSubmitted)
 			}
 
-			//Test for patch
-			var mockProxyService = &perf.MockProxyService{}
+			//Test patch.
+			var mockProxyService = &perf.MockPerformanceAnalysisProxyService{}
 			j = &ftdcRollupsJob{
-				PerfID:        validResultPatch.ID,
-				ArtifactInfo:  &validArtifact,
-				RollupTypes:   validRollupTypes,
-				UserSubmitted: user,
-				proxyService:  mockProxyService,
+				PerfID:                          validResultPatch.ID,
+				ArtifactInfo:                    &validArtifact,
+				RollupTypes:                     validRollupTypes,
+				UserSubmitted:                   user,
+				performanceAnalysisProxyService: mockProxyService,
 			}
 			assert.NoError(t, j.validate())
 

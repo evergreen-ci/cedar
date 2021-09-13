@@ -70,8 +70,8 @@ func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResu
 	}
 }
 
-func (info *PerformanceResultInfo) ToPerformanceResultId() PerformanceTestResultId {
-	return PerformanceTestResultId{
+func (info *PerformanceResultInfo) ToPerformanceResultID() PerformanceTestResultID {
+	return PerformanceTestResultID{
 		Version:   info.Version,
 		TaskID:    info.TaskID,
 		Project:   info.Project,

@@ -134,7 +134,7 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 	srv := grpc.NewServer(opts...)
 
 	services := map[string]internal.HealthCheckResponse_ServingStatus{}
-	internal.AttachPerfService(env, srv, perf.NewProxyService)
+	internal.AttachPerfService(env, srv, perf.NewPerformanceAnalysisProxyService)
 	services[internal.PerfServiceName()] = internal.HealthCheckResponse_SERVING
 	internal.AttachBuildloggerService(env, srv)
 	services[internal.BuildloggerServiceName()] = internal.HealthCheckResponse_SERVING
