@@ -290,7 +290,7 @@ func (srv *perfService) updateDownstreamPerfServices(ctx context.Context, record
 			return newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
 		}
 	} else {
-		proxyService := srv.proxyServiceCreator(model.ProxyServiceOptions{BaseURL: conf.ProxyService.URI, User: conf.ProxyService.User, Token: conf.ProxyService.Token})
+		proxyService := srv.proxyServiceCreator(model.ProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalyticsProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
 		performanceResultId := record.Info.ToPerformanceResultId()
 		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {

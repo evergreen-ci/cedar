@@ -106,7 +106,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	}
 
 	if j.proxyService == nil {
-		j.proxyService = perf.NewProxyService(model.ProxyServiceOptions{BaseURL: conf.ProxyService.URI, User: conf.ProxyService.User, Token: conf.ProxyService.Token})
+		j.proxyService = perf.NewProxyService(model.ProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalyticsProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
 	}
 
 	inc := func() {
