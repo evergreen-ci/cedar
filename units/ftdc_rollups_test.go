@@ -118,20 +118,20 @@ func TestFTDCRollupsJob(t *testing.T) {
 			}
 
 			//Test patch.
-			var mockProxyService = &perf.MockPerformanceAnalysisProxyService{}
+			var mockPerformanceAnalysisProxyService = &perf.MockPerformanceAnalysisProxyService{}
 			j = &ftdcRollupsJob{
 				PerfID:                          validResultPatch.ID,
 				ArtifactInfo:                    &validArtifact,
 				RollupTypes:                     validRollupTypes,
 				UserSubmitted:                   user,
-				performanceAnalysisProxyService: mockProxyService,
+				performanceAnalysisProxyService: mockPerformanceAnalysisProxyService,
 			}
 			assert.NoError(t, j.validate())
 
 			j.Run(ctx)
 			assert.True(t, j.Status().Completed)
 			assert.False(t, j.HasErrors())
-			require.Equal(t, len(mockProxyService.Calls), 1)
+			require.Equal(t, len(mockPerformanceAnalysisProxyService.Calls), 1)
 
 		}
 	})

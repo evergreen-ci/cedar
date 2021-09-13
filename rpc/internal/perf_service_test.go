@@ -230,23 +230,23 @@ func TestCreateMetricSeries(t *testing.T) {
 			defer func() {
 				require.NoError(t, tearDownEnv(env, test.mockEnv))
 			}()
-			var mockProxyService = &perf.MockPerformanceAnalysisProxyService{}
+			var mockPerformanceAnalysisProxyService = &perf.MockPerformanceAnalysisProxyService{}
 
-			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockPerformanceAnalysisProxyServiceCreator(mockProxyService)))
+			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockPerformanceAnalysisProxyServiceCreator(mockPerformanceAnalysisProxyService)))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
 			require.Equal(t, test.expectedResp, resp)
 			if test.data.Id != nil && !test.data.Id.Mainline {
-				require.Equal(t, len(mockProxyService.Calls), 1)
-				require.Equal(t, test.data.Id.Project, mockProxyService.Calls[0].Project)
-				require.Equal(t, test.data.Id.Version, mockProxyService.Calls[0].Version)
-				require.Equal(t, test.data.Id.TaskId, mockProxyService.Calls[0].TaskID)
-				require.Equal(t, test.data.Id.Variant, mockProxyService.Calls[0].Variant)
-				require.Equal(t, test.data.Id.TaskName, mockProxyService.Calls[0].Task)
-				require.Equal(t, test.data.Id.TestName, mockProxyService.Calls[0].Test)
-				require.Equal(t, test.data.Id.Arguments, mockProxyService.Calls[0].Arguments)
+				require.Equal(t, len(mockPerformanceAnalysisProxyService.Calls), 1)
+				require.Equal(t, test.data.Id.Project, mockPerformanceAnalysisProxyService.Calls[0].Project)
+				require.Equal(t, test.data.Id.Version, mockPerformanceAnalysisProxyService.Calls[0].Version)
+				require.Equal(t, test.data.Id.TaskId, mockPerformanceAnalysisProxyService.Calls[0].TaskID)
+				require.Equal(t, test.data.Id.Variant, mockPerformanceAnalysisProxyService.Calls[0].Variant)
+				require.Equal(t, test.data.Id.TaskName, mockPerformanceAnalysisProxyService.Calls[0].Task)
+				require.Equal(t, test.data.Id.TestName, mockPerformanceAnalysisProxyService.Calls[0].Test)
+				require.Equal(t, test.data.Id.Arguments, mockPerformanceAnalysisProxyService.Calls[0].Arguments)
 			}
 
 			if test.err {
@@ -348,14 +348,14 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
 			port := getPort()
-			var mockProxyService = &perf.MockPerformanceAnalysisProxyService{}
+			var mockPerformanceAnalysisProxyService = &perf.MockPerformanceAnalysisProxyService{}
 
 			conf, err := model.LoadCedarConfig(filepath.Join("testdata", "cedarconf.yaml"))
 			require.NoError(t, err)
 			conf.Setup(env)
 			require.NoError(t, conf.Save())
 
-			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockPerformanceAnalysisProxyServiceCreator(mockProxyService)))
+			require.NoError(t, startPerfService(ctx, env, port, perf.NewMockPerformanceAnalysisProxyServiceCreator(mockPerformanceAnalysisProxyService)))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
 
@@ -371,14 +371,14 @@ func TestAttachResultData(t *testing.T) {
 			case *RollupData:
 				resp, err = client.AttachRollups(ctx, d)
 				if test.resultData != nil && test.resultData.Id != nil && !test.resultData.Id.Mainline {
-					require.Equal(t, len(mockProxyService.Calls), 1)
-					require.Equal(t, test.resultData.Id.Project, mockProxyService.Calls[0].Project)
-					require.Equal(t, test.resultData.Id.Version, mockProxyService.Calls[0].Version)
-					require.Equal(t, test.resultData.Id.TaskId, mockProxyService.Calls[0].TaskID)
-					require.Equal(t, test.resultData.Id.Variant, mockProxyService.Calls[0].Variant)
-					require.Equal(t, test.resultData.Id.TaskName, mockProxyService.Calls[0].Task)
-					require.Equal(t, test.resultData.Id.TestName, mockProxyService.Calls[0].Test)
-					require.Equal(t, test.resultData.Id.Arguments, mockProxyService.Calls[0].Arguments)
+					require.Equal(t, len(mockPerformanceAnalysisProxyService.Calls), 1)
+					require.Equal(t, test.resultData.Id.Project, mockPerformanceAnalysisProxyService.Calls[0].Project)
+					require.Equal(t, test.resultData.Id.Version, mockPerformanceAnalysisProxyService.Calls[0].Version)
+					require.Equal(t, test.resultData.Id.TaskId, mockPerformanceAnalysisProxyService.Calls[0].TaskID)
+					require.Equal(t, test.resultData.Id.Variant, mockPerformanceAnalysisProxyService.Calls[0].Variant)
+					require.Equal(t, test.resultData.Id.TaskName, mockPerformanceAnalysisProxyService.Calls[0].Task)
+					require.Equal(t, test.resultData.Id.TestName, mockPerformanceAnalysisProxyService.Calls[0].Test)
+					require.Equal(t, test.resultData.Id.Arguments, mockPerformanceAnalysisProxyService.Calls[0].Arguments)
 				}
 			default:
 				t.Error("unknown attached data type")
