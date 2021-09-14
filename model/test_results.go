@@ -254,6 +254,8 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
 	}
 
+	testResultsCache.addResultsCount(t, len(results))
+
 	t.Stats.TotalCount += len(results)
 	t.Stats.FailedCount += failedCount
 

@@ -227,7 +227,7 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 		"op":           "append log chunk info to buildlogger log",
 	})
 
-	buildLoggerCache.addLogLinesInfo(l, logChunk.NumLines)
+	buildLoggerCache.addLogLinesCount(l, logChunk.NumLines)
 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)

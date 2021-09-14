@@ -14,14 +14,14 @@ type StatsCache interface {
 }
 
 var buildLoggerCache *buildloggerStatsCache
+var testResultsCache *testResultsStatsCache
 
 func init() {
-	buildLoggerCache = &buildloggerStatsCache{
-		LinesByVersion: make(map[string]int),
-		LinesByProject: make(map[string]int),
-	}
+	buildLoggerCache = newBuildLoggerStatsCache()
+	testResultsCache = newTestResultsStatsCache()
 
 	CacheRegistry = append(CacheRegistry, buildLoggerCache)
+	CacheRegistry = append(CacheRegistry, testResultsCache)
 }
 
 type buildloggerStatsCache struct {
@@ -30,6 +30,13 @@ type buildloggerStatsCache struct {
 	TotalLines     int
 	LinesByVersion map[string]int
 	LinesByProject map[string]int
+}
+
+func newBuildLoggerStatsCache() *buildloggerStatsCache {
+	return &buildloggerStatsCache{
+		LinesByVersion: make(map[string]int),
+		LinesByProject: make(map[string]int),
+	}
 }
 
 func (b *buildloggerStatsCache) LogStats() {
@@ -48,11 +55,51 @@ func (b *buildloggerStatsCache) LogStats() {
 	b.LinesByProject = make(map[string]int)
 }
 
-func (b *buildloggerStatsCache) addLogLinesInfo(l *Log, lineCount int) {
+func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
 	b.Lock.Lock()
 	defer b.Lock.Unlock()
 
-	b.TotalLines += lineCount
-	b.LinesByProject[l.Info.Project] += lineCount
-	b.LinesByVersion[l.Info.Version] += lineCount
+	b.TotalLines += count
+	b.LinesByProject[l.Info.Project] += count
+	b.LinesByVersion[l.Info.Version] += count
+}
+
+type testResultsStatsCache struct {
+	Lock sync.Mutex
+
+	TotalResults     int
+	ResultsByVersion map[string]int
+	ResultsByProject map[string]int
+}
+
+func newTestResultsStatsCache() *testResultsStatsCache {
+	return &testResultsStatsCache{
+		ResultsByVersion: make(map[string]int),
+		ResultsByProject: make(map[string]int),
+	}
+}
+
+func (b *testResultsStatsCache) LogStats() {
+	b.Lock.Lock()
+	defer b.Lock.Unlock()
+
+	grip.InfoWhen(b.TotalResults > 0, message.Fields{
+		"message":            "test results counts",
+		"total_results":      b.TotalResults,
+		"results_by_project": b.ResultsByProject,
+		"results_by_version": b.ResultsByVersion,
+	})
+
+	b.TotalResults = 0
+	b.ResultsByVersion = make(map[string]int)
+	b.ResultsByProject = make(map[string]int)
+}
+
+func (b *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
+	b.Lock.Lock()
+	defer b.Lock.Unlock()
+
+	b.TotalResults += count
+	b.ResultsByProject[t.Info.Project] += count
+	b.ResultsByVersion[t.Info.Version] += count
 }
