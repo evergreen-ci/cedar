@@ -68,7 +68,10 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 			return nil
 		}
 
-		return queue.Put(ctx, NewRemoteAmboyStatsCollector(env, utility.RoundPartOfMinute(0).Format(tsFormat)))
+		catcher := grip.NewBasicCatcher()
+		catcher.Add(queue.Put(ctx, NewRemoteAmboyStatsCollector(env, utility.RoundPartOfMinute(0).Format(tsFormat))))
+		catcher.Add(queue.Put(ctx, NewStatsCacheLogger(utility.RoundPartOfMinute(0).Format(tsFormat))))
+		return catcher.Resolve()
 	})
 	amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
 		job, err := NewFindOutdatedRollupsJob(perf.DefaultRollupFactories())
