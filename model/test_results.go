@@ -214,6 +214,8 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "uploading test results")
 	}
 
+	testResultsCache.addResultsCount(t, len(results))
+
 	return t.updateStatsAndFailedSample(ctx, results)
 }
 
@@ -253,8 +255,6 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
 	}
-
-	testResultsCache.addResultsCount(t, len(results))
 
 	t.Stats.TotalCount += len(results)
 	t.Stats.FailedCount += failedCount
