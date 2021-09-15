@@ -15,13 +15,16 @@ type StatsCache interface {
 
 var buildLoggerCache *buildloggerStatsCache
 var testResultsCache *testResultsStatsCache
+var perfCache *perfStatsCache
 
 func init() {
 	buildLoggerCache = newBuildLoggerStatsCache()
 	testResultsCache = newTestResultsStatsCache()
+	perfCache = newPerfStatsCacheStatsCache()
 
 	CacheRegistry = append(CacheRegistry, buildLoggerCache)
 	CacheRegistry = append(CacheRegistry, testResultsCache)
+	CacheRegistry = append(CacheRegistry, perfCache)
 }
 
 type buildloggerStatsCache struct {
@@ -79,27 +82,67 @@ func newTestResultsStatsCache() *testResultsStatsCache {
 	}
 }
 
-func (b *testResultsStatsCache) LogStats() {
-	b.Lock.Lock()
-	defer b.Lock.Unlock()
+func (r *testResultsStatsCache) LogStats() {
+	r.Lock.Lock()
+	defer r.Lock.Unlock()
 
-	grip.InfoWhen(b.TotalResults > 0, message.Fields{
+	grip.InfoWhen(r.TotalResults > 0, message.Fields{
 		"message":            "test results counts",
-		"total_results":      b.TotalResults,
-		"results_by_project": b.ResultsByProject,
-		"results_by_version": b.ResultsByVersion,
+		"total_results":      r.TotalResults,
+		"results_by_project": r.ResultsByProject,
+		"results_by_version": r.ResultsByVersion,
 	})
 
-	b.TotalResults = 0
-	b.ResultsByVersion = make(map[string]int)
-	b.ResultsByProject = make(map[string]int)
+	r.TotalResults = 0
+	r.ResultsByVersion = make(map[string]int)
+	r.ResultsByProject = make(map[string]int)
 }
 
-func (b *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
-	b.Lock.Lock()
-	defer b.Lock.Unlock()
+func (r *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
+	r.Lock.Lock()
+	defer r.Lock.Unlock()
 
-	b.TotalResults += count
-	b.ResultsByProject[t.Info.Project] += count
-	b.ResultsByVersion[t.Info.Version] += count
+	r.TotalResults += count
+	r.ResultsByProject[t.Info.Project] += count
+	r.ResultsByVersion[t.Info.Version] += count
+}
+
+type perfStatsCache struct {
+	Lock sync.Mutex
+
+	TotalArtifacts     int
+	ArtifactsByVersion map[string]int
+	ArtifactsByProject map[string]int
+}
+
+func newPerfStatsCacheStatsCache() *perfStatsCache {
+	return &perfStatsCache{
+		ArtifactsByVersion: make(map[string]int),
+		ArtifactsByProject: make(map[string]int),
+	}
+}
+
+func (p *perfStatsCache) LogStats() {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+
+	grip.InfoWhen(p.TotalArtifacts > 0, message.Fields{
+		"message":              "perf counts",
+		"total_artifacts":      p.TotalArtifacts,
+		"artifacts_by_project": p.ArtifactsByProject,
+		"artifacts_by_version": p.ArtifactsByVersion,
+	})
+
+	p.TotalArtifacts = 0
+	p.ArtifactsByVersion = make(map[string]int)
+	p.ArtifactsByProject = make(map[string]int)
+}
+
+func (p *perfStatsCache) addArtifactsCount(r *PerformanceResult, count int) {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+
+	p.TotalArtifacts += count
+	p.ArtifactsByVersion[r.Info.Project] += count
+	p.ArtifactsByProject[r.Info.Version] += count
 }

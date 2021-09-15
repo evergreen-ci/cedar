@@ -154,6 +154,8 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
 	}
 
+	perfCache.addArtifactsCount(result, len(result.Artifacts))
+
 	return result.MergeRollups(ctx, rollups)
 }
 
@@ -196,6 +198,8 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
+
+	perfCache.addArtifactsCount(result, len(artifacts))
 
 	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
 }
