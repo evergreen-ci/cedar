@@ -203,8 +203,9 @@ func TestCreateMetricSeries(t *testing.T) {
 			name: "TestRollupsNoArtifacts",
 			data: &ResultData{
 				Id: &ResultID{
-					Project: "testProject",
-					Version: "testVersion",
+					Project:  "testProject",
+					Version:  "testVersion",
+					Mainline: true,
 				},
 				Rollups: []*RollupValue{
 					{
