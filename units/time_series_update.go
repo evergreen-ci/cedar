@@ -48,7 +48,7 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 // NewUpdateTimeSeriesJob creates a new amboy job to update a time series.
 func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeTimeSeriesJob()
-	baseID := fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
+	baseID := fmt.Sprintf("%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
 	j.SetID(fmt.Sprintf("%s.%s", baseID, utility.RoundPartOfHour(0)))
 	j.SetScopes([]string{baseID})
 	j.SetShouldApplyScopesOnEnqueue(true)
