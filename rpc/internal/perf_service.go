@@ -46,7 +46,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 
 	record, err := result.Export()
 	if err != nil {
-		return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem exporting result"))
+		return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "exporting result"))
 	}
 	record.Setup(srv.env)
 
@@ -54,19 +54,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	resp.Id = record.ID
 
 	if err := record.SaveNew(ctx); err != nil {
-		return resp, newRPCError(codes.Internal, errors.Wrap(err, "problem saving record"))
-	}
-	if len(record.Rollups.Stats) > 0 {
-		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
-		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
-
-		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
-		}
-	}
-
-	if err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts); err != nil {
-		return resp, errors.Wrap(err, "problem creating ftdc rollups job")
+		return resp, newRPCError(codes.Internal, errors.Wrap(err, "saving record"))
 	}
 
 	if record.Info.Mainline && len(record.Rollups.Stats) > 0 {
@@ -74,8 +62,12 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
+			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
 		}
+	}
+
+	if err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts); err != nil {
+		return resp, errors.Wrap(err, "creating ftdc rollups job")
 	}
 
 	grip.Info(message.Fields{
@@ -98,7 +90,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding perf result record for '%s'", artifactData.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for '%s'", artifactData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -110,7 +102,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 
 	record.Setup(srv.env)
 	if err := record.AppendArtifacts(ctx, record.Artifacts); err != nil {
-		return resp, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending artifacts to perf result '%s'", record.ID))
+		return resp, newRPCError(codes.Internal, errors.Wrapf(err, "appending artifacts to perf result '%s'", record.ID))
 	}
 
 	resp.Success = true
@@ -126,7 +118,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding perf result record for '%s'", rollupData.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for '%s'", rollupData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -134,7 +126,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 
 	record.Setup(srv.env)
 	if err := record.MergeRollups(ctx, ExportRollupValues(rollupData.Rollups)); err != nil {
-		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem attaching rollup data for perf result '%s'", record.ID))
+		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "attaching rollup data for perf result '%s'", record.ID))
 	}
 
 	if record.Info.Mainline {
@@ -142,7 +134,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
+			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
 		}
 	}
 
@@ -226,7 +218,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding perf result record for '%s'", end.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for '%s'", end.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -236,14 +228,14 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	if end.CompletedAt != nil {
 		ts, err := ptypes.Timestamp(end.CompletedAt)
 		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem converting timestamp for completed at"))
+			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "converting timestamp for completed at"))
 		}
 		completedAt = ts
 	}
 
 	record.Setup(srv.env)
 	if err := record.Close(ctx, completedAt); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem closing perf result record '%s'", record.ID))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing perf result record '%s'", record.ID))
 	}
 
 	resp.Success = true
@@ -254,13 +246,13 @@ func (srv *perfService) addArtifacts(ctx context.Context, record *model.Performa
 	for _, a := range artifacts {
 		artifact, err := a.Export()
 		if err != nil {
-			return newRPCError(codes.InvalidArgument, errors.Wrap(err, "problem exporting artifacts"))
+			return newRPCError(codes.InvalidArgument, errors.Wrap(err, "exporting artifacts"))
 		}
 
 		record.Artifacts = append(record.Artifacts, *artifact)
 	}
 
-	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "problem creating ftdc rollups job")
+	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "creating ftdc rollups job")
 }
 
 func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) error {

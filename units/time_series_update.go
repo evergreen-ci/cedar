@@ -78,7 +78,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		j.conf = model.NewCedarConfig(j.env)
 		err := j.conf.Find()
 		if err != nil {
-			j.AddError(errors.Wrap(err, "Unable to get cedar configuration"))
+			j.AddError(errors.Wrap(err, "getting cedar configuration"))
 			return
 		}
 	}
@@ -94,7 +94,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to aggregate time perfData %s", j.PerformanceResultId.String()))
+		j.AddError(errors.Wrapf(err, "aggregating time perfData %s", j.PerformanceResultId.String()))
 		return
 	}
 	if performanceData == nil {
@@ -129,7 +129,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		}
 		err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "Unable to update time series for perfData %s", j.PerformanceResultId.String()))
+			j.AddError(errors.Wrapf(err, "updating time series for perfData %s", j.PerformanceResultId.String()))
 			return
 		}
 		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, perfData.PerformanceResultId))
