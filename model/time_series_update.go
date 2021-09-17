@@ -85,6 +85,7 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey):    bson.M{"$not": bson.M{"$size": 0}},
 			},
 		},
 		{

@@ -69,6 +69,15 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return resp, errors.Wrap(err, "problem creating ftdc rollups job")
 	}
 
+	if record.Info.Mainline && len(record.Rollups.Stats) > 0 {
+		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
+		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
+
+		if err != nil {
+			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem creating signal processing job for perf result '%s'", record.ID))
+		}
+	}
+
 	grip.Info(message.Fields{
 		"message":   "successfully added metric series",
 		"task_id":   result.GetId().GetTaskId(),

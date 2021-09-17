@@ -48,8 +48,10 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 // NewUpdateTimeSeriesJob creates a new amboy job to update a time series.
 func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeTimeSeriesJob()
-	timestamp := utility.RoundPartOfHour(0)
-	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timestamp))
+	baseID := fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
+	j.SetID(fmt.Sprintf("%s.%s", baseID, utility.RoundPartOfHour(0)))
+	j.SetScopes([]string{baseID})
+	j.SetShouldApplyScopesOnEnqueue(true)
 	j.PerformanceResultId = timeSeriesId
 	return j
 }
@@ -67,24 +69,29 @@ func (j *timeSeriesUpdateJob) makeMessage(msg string, id model.PerformanceResult
 
 func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
-	if j.conf == nil {
-		j.conf = model.NewCedarConfig(j.env)
-	}
-	if j.conf.Flags.DisableSignalProcessing {
-		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.PerformanceResultId))
-		return
-	}
+
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
-	if j.performanceAnalysisService == nil {
+
+	if j.conf == nil {
+		j.conf = model.NewCedarConfig(j.env)
 		err := j.conf.Find()
 		if err != nil {
 			j.AddError(errors.Wrap(err, "Unable to get cedar configuration"))
 			return
 		}
+	}
+
+	if j.conf.Flags.DisableSignalProcessing {
+		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.PerformanceResultId))
+		return
+	}
+
+	if j.performanceAnalysisService == nil {
 		j.performanceAnalysisService = perf.NewPerformanceAnalysisService(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
+
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
 		j.AddError(errors.Wrapf(err, "Unable to aggregate time perfData %s", j.PerformanceResultId.String()))
