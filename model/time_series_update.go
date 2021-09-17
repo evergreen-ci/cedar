@@ -21,8 +21,8 @@ var (
 	perfAnalysisProcessedAtKey = bsonutil.MustHaveTag(PerfAnalysis{}, "ProcessedAt")
 )
 
-// PerformanceResultSeriesID is the ID of a group of performance results. It is
-// used to create a job to analyze the group for change points.
+// PerformanceResultSeriesID represents the set of fields used identify a
+// series of performance results for change point detection.
 type PerformanceResultSeriesID struct {
 	Project     string           `bson:"project"`
 	Variant     string           `bson:"variant"`
@@ -37,7 +37,8 @@ func (p PerformanceResultSeriesID) String() string {
 	return fmt.Sprintf("%s %s %s %s %v", p.Project, p.Variant, p.Task, p.Test, p.Arguments)
 }
 
-// TimeSeriesEntry is information about a single performance result.
+// TimeSeriesEntry represents information about a single performance result in
+// a series.
 type TimeSeriesEntry struct {
 	PerfResultID string  `bson:"perf_result_id"`
 	Value        float64 `bson:"value"`
@@ -45,8 +46,8 @@ type TimeSeriesEntry struct {
 	Version      string  `bson:"version"`
 }
 
-// PerformanceData contains information about a group of performance results
-// and their associated measurement data.
+// PerformanceData represents information about a performance result series and
+// its associated measurement data.
 type PerformanceData struct {
 	PerformanceResultId PerformanceResultSeriesID `bson:"_id"`
 	TimeSeries          []TimeSeriesEntry         `bson:"time_series"`
@@ -76,8 +77,8 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 }
 
 // GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate queries the database
-// and gets all the performance result series IDs that have results that have
-// not yet been analyzed.
+// and gets all the performance result series IDs that contain results that
+// have not yet been analyzed.
 func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
@@ -174,8 +175,8 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 	return res, nil
 }
 
-// GetPerformanceData gets the performance result time series data associated
-// with the given series ID.
+// GetPerformanceData queries the database to get the performance result time
+// series data associated with the given series ID.
 func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
 	pipe := []bson.M{
 		{
