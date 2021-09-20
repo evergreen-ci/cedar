@@ -106,7 +106,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	}
 
 	if j.performanceAnalysisProxyService == nil {
-		j.performanceAnalysisProxyService = perf.NewPerformanceAnalysisProxyService(model.PerformanceAnalysisProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalysisProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
+		j.performanceAnalysisProxyService = perf.NewPerformanceAnalysisProxyService(perf.PerformanceAnalysisProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalysisProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
 	}
 
 	inc := func() {
@@ -164,7 +164,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	if result.Info.Mainline {
 		j.createSignalProcessingJob(ctx, result)
 	} else {
-		performanceResultId := result.Info.ToPerformanceResultID()
+		performanceResultId := result.Info.ToPerformanceAnalysisProxyServiceID()
 		err := j.performanceAnalysisProxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {
 			grip.Error(message.WrapError(err, message.Fields{

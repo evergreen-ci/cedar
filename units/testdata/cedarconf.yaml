@@ -2,4 +2,3 @@ change_detector:
   uri: uri
   token: token
   analysis_proxy_service_uri: analysis-proxy-service-uri
-

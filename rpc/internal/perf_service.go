@@ -22,15 +22,15 @@ import (
 )
 
 type perfService struct {
-	env                                    cedar.Environment
-	performanceAnalysisProxyServiceCreator func(model.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService
+	env                        cedar.Environment
+	analysisProxyClientCreator func(perf.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService
 }
 
 // AttachPerfService attaches the perf service to the given gRPC server.
-func AttachPerfService(env cedar.Environment, s *grpc.Server, performanceAnalysisProxyServiceCreator func(model.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService) {
+func AttachPerfService(env cedar.Environment, s *grpc.Server, performanceAnalysisProxyServiceCreator func(perf.PerformanceAnalysisProxyServiceOptions) perf.PerformanceAnalysisProxyService) {
 	srv := &perfService{
-		env:                                    env,
-		performanceAnalysisProxyServiceCreator: performanceAnalysisProxyServiceCreator,
+		env:                        env,
+		analysisProxyClientCreator: performanceAnalysisProxyServiceCreator,
 	}
 	RegisterCedarPerformanceMetricsServer(s, srv)
 }
@@ -290,8 +290,8 @@ func (srv *perfService) updateDownstreamPerfServices(ctx context.Context, record
 			return newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
 		}
 	} else {
-		proxyService := srv.performanceAnalysisProxyServiceCreator(model.PerformanceAnalysisProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalysisProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
-		performanceResultId := record.Info.ToPerformanceResultID()
+		proxyService := srv.analysisProxyClientCreator(perf.PerformanceAnalysisProxyServiceOptions{BaseURL: conf.ChangeDetector.AnalysisProxyServiceURI, User: conf.ChangeDetector.User, Token: conf.ChangeDetector.Token})
+		performanceResultId := record.Info.ToPerformanceAnalysisProxyServiceID()
 		err := proxyService.ReportNewPerformanceDataAvailability(ctx, performanceResultId)
 		if err != nil {
 			grip.Error(message.WrapError(err, message.Fields{

@@ -16,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// PerformanceAnalysisProxyService is the interface for the Proxy Service.
+// PerformanceAnalysisProxyService is the client interface for interacting with a performance analysis proxy service.
 type PerformanceAnalysisProxyService interface {
-	ReportNewPerformanceDataAvailability(context.Context, model.PerformanceTestResultID) error
+	ReportNewPerformanceDataAvailability(context.Context, model.PerformanceAnalysisProxyServiceID) error
 }
 
 type performanceAnalysisProxyServiceClient struct {
@@ -27,13 +27,13 @@ type performanceAnalysisProxyServiceClient struct {
 	baseURL string
 }
 
-// NewPerformanceAnalysisProxyService creates a new PerformanceAnalysisProxyService.
-func NewPerformanceAnalysisProxyService(options model.PerformanceAnalysisProxyServiceOptions) PerformanceAnalysisProxyService {
+// NewPerformanceAnalysisProxyService creates a new performance analysis proxy service client.
+func NewPerformanceAnalysisProxyService(options PerformanceAnalysisProxyServiceOptions) PerformanceAnalysisProxyService {
 	return &performanceAnalysisProxyServiceClient{user: options.User, token: options.Token, baseURL: options.BaseURL}
 }
 
-// ReportNewPerformanceDataAvailability takes a PerformanceTestResultID and tries to report its data to a PerformanceAnalysisProxyService.
-func (spc *performanceAnalysisProxyServiceClient) ReportNewPerformanceDataAvailability(ctx context.Context, data model.PerformanceTestResultID) error {
+// ReportNewPerformanceDataAvailability reports the given ID to the underlying performance analysis proxy service.
+func (spc *performanceAnalysisProxyServiceClient) ReportNewPerformanceDataAvailability(ctx context.Context, data model.PerformanceAnalysisProxyServiceID) error {
 	startAt := time.Now()
 
 	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/rabbitmq/performance_data_update/patch", ctx, data); err != nil {
@@ -85,20 +85,27 @@ func (spc *performanceAnalysisProxyServiceClient) doRequest(method, route string
 	return nil
 }
 
-// MockPerformanceAnalysisProxyService is a mock implementation of PerformanceAnalysisProxyService.
+// MockPerformanceAnalysisProxyService is a mock performance analysis proxy service client for testing.
 type MockPerformanceAnalysisProxyService struct {
-	Calls []model.PerformanceTestResultID
+	Calls []model.PerformanceAnalysisProxyServiceID
 }
 
-// ReportNewPerformanceDataAvailability is a mock implementation of func(spc *performanceAnalysisProxyServiceClient) ReportNewPerformanceDataAvailability(ctx context.Context, data model.PerformanceTestResultID).
-func (m *MockPerformanceAnalysisProxyService) ReportNewPerformanceDataAvailability(_ context.Context, data model.PerformanceTestResultID) error {
+// ReportNewPerformanceDataAvailability appends the given ID to the mock implementation's calls cache.
+func (m *MockPerformanceAnalysisProxyService) ReportNewPerformanceDataAvailability(_ context.Context, data model.PerformanceAnalysisProxyServiceID) error {
 	m.Calls = append(m.Calls, data)
 	return nil
 }
 
-// NewMockPerformanceAnalysisProxyServiceCreator is a mock implementation of NewPerformanceAnalysisProxyService.
-func NewMockPerformanceAnalysisProxyServiceCreator(mockProxyService *MockPerformanceAnalysisProxyService) func(options model.PerformanceAnalysisProxyServiceOptions) PerformanceAnalysisProxyService {
-	return func(_ model.PerformanceAnalysisProxyServiceOptions) PerformanceAnalysisProxyService {
+// NewMockPerformanceAnalysisProxyService returns a mock performance analysis proxy service client.
+func NewMockPerformanceAnalysisProxyService(mockProxyService *MockPerformanceAnalysisProxyService) func(options PerformanceAnalysisProxyServiceOptions) PerformanceAnalysisProxyService {
+	return func(_ PerformanceAnalysisProxyServiceOptions) PerformanceAnalysisProxyService {
 		return mockProxyService
 	}
+}
+
+// PerformanceAnalysisProxyServiceOptions is the options struct for the performanceAnalysisProxyServiceClient.
+type PerformanceAnalysisProxyServiceOptions struct {
+	User    string
+	Token   string
+	BaseURL string
 }

@@ -70,8 +70,9 @@ func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResu
 	}
 }
 
-func (info *PerformanceResultInfo) ToPerformanceResultID() PerformanceTestResultID {
-	return PerformanceTestResultID{
+// ToPerformanceAnalysisProxyServiceID converts performance result data to an ID to uniquely identify performance data at test level.
+func (info *PerformanceResultInfo) ToPerformanceAnalysisProxyServiceID() PerformanceAnalysisProxyServiceID {
+	return PerformanceAnalysisProxyServiceID{
 		Version:   info.Version,
 		TaskID:    info.TaskID,
 		Project:   info.Project,
