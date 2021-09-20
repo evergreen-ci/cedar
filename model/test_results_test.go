@@ -477,13 +477,13 @@ func TestFindTestResults(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("NoTaskID", func(t *testing.T) {
-		opts := TestResultsFindOptions{}
+		opts := FindTestResultsOptions{}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
 	t.Run("NegativeExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:    tr1.Info.TaskID,
 			Execution: utility.ToIntPtr(-1),
 		}
@@ -492,7 +492,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Nil(t, results)
 	})
 	t.Run("TaskIDDNE", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID: "DNE",
 		}
 		results, err := FindTestResults(ctx, env, opts)
@@ -500,7 +500,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Nil(t, results)
 	})
 	t.Run("DisplayTaskIDDNE", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:      "DNE",
 			DisplayTask: true,
 		}
@@ -509,7 +509,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Nil(t, results)
 	})
 	t.Run("NoEnv", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:    tr1.Info.TaskID,
 			Execution: utility.ToIntPtr(tr1.Info.Execution),
 		}
@@ -518,7 +518,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Nil(t, results)
 	})
 	t.Run("WithTaskIDAndExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:    tr1.Info.TaskID,
 			Execution: utility.ToIntPtr(tr1.Info.Execution),
 		}
@@ -532,7 +532,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, env, results[0].env)
 	})
 	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID: tr2.Info.TaskID,
 		}
 		results, err := FindTestResults(ctx, env, opts)
@@ -545,7 +545,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, env, results[0].env)
 	})
 	t.Run("WithDisplayTaskIDAndExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:      "display",
 			Execution:   utility.ToIntPtr(0),
 			DisplayTask: true,
@@ -574,7 +574,7 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, 2, count)
 	})
 	t.Run("WithDisplayTaskIDWithoutExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:      "display",
 			DisplayTask: true,
 		}
@@ -640,18 +640,36 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, testBucket2.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 
-	opts := TestResultsFindOptions{
-		TaskID:      "display",
-		DisplayTask: true,
-	}
-	results, totalCount, err := FindAndDownloadTestResults(ctx, env, opts, nil)
-	require.NoError(t, err)
-	assert.Equal(t, len(results), totalCount)
+	t.Run("WithoutFilterAndSortOpts", func(t *testing.T) {
+		opts := FindAndDownloadTestResultsOptions{
+			Find: FindTestResultsOptions{
+				TaskID:      "display",
+				DisplayTask: true,
+			},
+		}
+		results, totalCount, err := FindAndDownloadTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		assert.Equal(t, len(results), totalCount)
 
-	require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
-	for _, result := range append(savedResults1.Results, savedResults2.Results...) {
-		assert.Contains(t, results, result)
-	}
+		require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
+		for _, result := range append(savedResults1.Results, savedResults2.Results...) {
+			assert.Contains(t, results, result)
+		}
+	})
+	t.Run("WithFilterAndSortOpts", func(t *testing.T) {
+		opts := FindAndDownloadTestResultsOptions{
+			Find:          FindTestResultsOptions{TaskID: tr1.Info.TaskID},
+			FilterAndSort: &FilterAndSortTestResultsOptions{Limit: len(savedResults1.Results) / 2},
+		}
+		results, totalCount, err := FindAndDownloadTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.Equal(t, len(savedResults1.Results), totalCount)
+
+		require.Len(t, results, len(savedResults1.Results)/2)
+		for i, result := range results {
+			assert.Equal(t, results[i], result)
+		}
+	})
 }
 
 func TestGetTestResultsStats(t *testing.T) {
@@ -699,7 +717,7 @@ func TestGetTestResultsStats(t *testing.T) {
 	for _, test := range []struct {
 		name          string
 		env           cedar.Environment
-		opts          TestResultsFindOptions
+		opts          FindTestResultsOptions
 		expectedStats TestResultsStats
 		hasErr        bool
 	}{
@@ -710,13 +728,13 @@ func TestGetTestResultsStats(t *testing.T) {
 			// does its own validation, otherwise, if DisplayTask
 			// is false, the function just calls FindTestResults
 			// and the options validation is done there.
-			opts:   TestResultsFindOptions{DisplayTask: true},
+			opts:   FindTestResultsOptions{DisplayTask: true},
 			hasErr: true,
 		},
 		{
 			name: "FailsWithNegativeExecution",
 			env:  env,
-			opts: TestResultsFindOptions{
+			opts: FindTestResultsOptions{
 				TaskID:      tr1.Info.DisplayTaskID,
 				DisplayTask: true,
 				Execution:   utility.ToIntPtr(-1),
@@ -726,7 +744,7 @@ func TestGetTestResultsStats(t *testing.T) {
 		{
 			name: "FailsWithNilEnv",
 			env:  nil,
-			opts: TestResultsFindOptions{
+			opts: FindTestResultsOptions{
 				TaskID:      tr1.Info.DisplayTaskID,
 				DisplayTask: true,
 			},
@@ -735,13 +753,13 @@ func TestGetTestResultsStats(t *testing.T) {
 		{
 			name:   "FailsWhenTaskIDDNE",
 			env:    env,
-			opts:   TestResultsFindOptions{TaskID: "DNE"},
+			opts:   FindTestResultsOptions{TaskID: "DNE"},
 			hasErr: true,
 		},
 		{
 			name: "FailsWhenDisplayTaskIDDNE",
 			env:  env,
-			opts: TestResultsFindOptions{
+			opts: FindTestResultsOptions{
 				TaskID:      "DNE",
 				DisplayTask: true,
 			},
@@ -750,7 +768,7 @@ func TestGetTestResultsStats(t *testing.T) {
 		{
 			name: "SucceedsWithTaskIDAndExecution",
 			env:  env,
-			opts: TestResultsFindOptions{
+			opts: FindTestResultsOptions{
 				TaskID:    tr1.Info.TaskID,
 				Execution: utility.ToIntPtr(0),
 			},
@@ -759,13 +777,13 @@ func TestGetTestResultsStats(t *testing.T) {
 		{
 			name:          "SucceedsWithTaskIDAndNoExecution",
 			env:           env,
-			opts:          TestResultsFindOptions{TaskID: tr1.Info.TaskID},
+			opts:          FindTestResultsOptions{TaskID: tr1.Info.TaskID},
 			expectedStats: tr2.Stats,
 		},
 		{
 			name: "SucceedsWithDisplayTaskIDAndExecution",
 			env:  env,
-			opts: TestResultsFindOptions{
+			opts: FindTestResultsOptions{
 				TaskID:      "display",
 				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
@@ -778,7 +796,7 @@ func TestGetTestResultsStats(t *testing.T) {
 		{
 			name: "SucceedsWithDisplayTaskIDAndNoExecution",
 			env:  env,
-			opts: TestResultsFindOptions{
+			opts: FindTestResultsOptions{
 				TaskID:      "display",
 				DisplayTask: true,
 			},
@@ -1065,7 +1083,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			name: "SortByBaseStatusASC",
 			opts: &FilterAndSortTestResultsOptions{
 				SortBy:      TestResultsSortByBaseStatus,
-				BaseResults: &TestResultsFindOptions{TaskID: base.Info.TaskID},
+				BaseResults: &FindTestResultsOptions{TaskID: base.Info.TaskID},
 			},
 			expectedResults: []TestResult{
 				results[1],
@@ -1080,7 +1098,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &FilterAndSortTestResultsOptions{
 				SortBy:       TestResultsSortByBaseStatus,
 				SortOrderDSC: true,
-				BaseResults:  &TestResultsFindOptions{TaskID: base.Info.TaskID},
+				BaseResults:  &FindTestResultsOptions{TaskID: base.Info.TaskID},
 			},
 			expectedResults: []TestResult{
 				results[0],

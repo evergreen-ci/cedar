@@ -474,15 +474,15 @@ type testResultsDoc struct {
 	Results []TestResult `bson:"results"`
 }
 
-// TestResultsFindOptions allows for querying for test results with or without
+// FindTestResultsOptions allow for querying for test results with or without
 // an execution value.
-type TestResultsFindOptions struct {
+type FindTestResultsOptions struct {
 	TaskID      string
 	Execution   *int
 	DisplayTask bool
 }
 
-func (opts *TestResultsFindOptions) validate() error {
+func (opts *FindTestResultsOptions) validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.NewWhen(opts.TaskID == "", "must specify a task ID")
@@ -491,7 +491,7 @@ func (opts *TestResultsFindOptions) validate() error {
 	return catcher.Resolve()
 }
 
-func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
+func (opts *FindTestResultsOptions) createFindOptions() *options.FindOptions {
 	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
 	if !opts.DisplayTask {
 		findOpts = findOpts.SetLimit(1)
@@ -500,7 +500,7 @@ func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
 	return findOpts
 }
 
-func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
+func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
 	search := bson.M{}
 	if opts.DisplayTask {
 		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.TaskID
@@ -514,7 +514,7 @@ func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
 	return search
 }
 
-func (opts *TestResultsFindOptions) createErrorMessage() string {
+func (opts *FindTestResultsOptions) createErrorMessage() string {
 	var msg string
 	if opts.DisplayTask {
 		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.TaskID)
@@ -527,6 +527,43 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 	msg += " in the database"
 
 	return msg
+}
+
+// FindTestResults searches the database for the TestResults associated with
+// the provided options. The environment should not be nil. If execution is
+// nil, it will default to the most recent execution.
+func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) ([]TestResults, error) {
+	if env == nil {
+		return nil, errors.New("cannot find with a nil environment")
+	}
+
+	if err := opts.validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid find options")
+	}
+
+	results := []TestResults{}
+	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
+	if err != nil {
+		return nil, errors.Wrap(err, "finding test results record(s)")
+	}
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, errors.Wrap(err, "decoding test results record(s)")
+	}
+	if len(results) == 0 {
+		return nil, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
+	}
+
+	execution := results[0].Info.Execution
+	for i := range results {
+		if results[i].Info.Execution != execution {
+			results = results[:i]
+			break
+		}
+		results[i].populated = true
+		results[i].env = env
+	}
+
+	return results, nil
 }
 
 // TestResultsSortBy describes the property by which to sort a set of test
@@ -561,7 +598,7 @@ type FilterAndSortTestResultsOptions struct {
 	SortOrderDSC bool
 	Limit        int
 	Page         int
-	BaseResults  *TestResultsFindOptions
+	BaseResults  *FindTestResultsOptions
 
 	testNameRegex *regexp.Regexp
 	baseStatusMap map[string]string
@@ -587,49 +624,19 @@ func (o *FilterAndSortTestResultsOptions) validate() error {
 	return catcher.Resolve()
 }
 
-// FindTestResults searches the database for the TestResults associated with
-// the provided options. The environment should not be nil. If execution is
-// nil, it will default to the most recent execution.
-func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResults, error) {
-	if env == nil {
-		return nil, errors.New("cannot find with a nil environment")
-	}
-
-	if err := opts.validate(); err != nil {
-		return nil, errors.Wrap(err, "invalid find options")
-	}
-
-	results := []TestResults{}
-	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
-	if err != nil {
-		return nil, errors.Wrap(err, "finding test results record(s)")
-	}
-	if err := cur.All(ctx, &results); err != nil {
-		return nil, errors.Wrap(err, "decoding test results record(s)")
-	}
-	if len(results) == 0 {
-		return nil, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
-	}
-
-	execution := results[0].Info.Execution
-	for i := range results {
-		if results[i].Info.Execution != execution {
-			results = results[:i]
-			break
-		}
-		results[i].populated = true
-		results[i].env = env
-	}
-
-	return results, nil
+// FindAndDownloadTestResults allow for finding, downloading, filtering,
+// sorting, and paginating test results.
+type FindAndDownloadTestResultsOptions struct {
+	Find          FindTestResultsOptions
+	FilterAndSort *FilterAndSortTestResultsOptions
 }
 
 // FindAndDownloadTestResults searches the database for the TestResults
 // associated with the provided options and returns the downloaded test
 // results filtered, sorted, and paginated. The environment should not be nil.
 // If execution is nil, it will default to the most recent execution.
-func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions, filterAndSortOpts *FilterAndSortTestResultsOptions) ([]TestResult, int, error) {
-	testResults, err := FindTestResults(ctx, env, opts)
+func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts FindAndDownloadTestResultsOptions) ([]TestResult, int, error) {
+	testResults, err := FindTestResults(ctx, env, opts.Find)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -691,7 +698,7 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 		return nil, 0, catcher.Resolve()
 	}
 
-	return filterAndSortTestResults(ctx, env, combinedResults, filterAndSortOpts)
+	return filterAndSortTestResults(ctx, env, combinedResults, opts.FilterAndSort)
 }
 
 // filterAndSortCedarTestResults takes a slice of TestResult objects and
@@ -706,7 +713,7 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 	}
 
 	if opts.SortBy == TestResultsSortByBaseStatus {
-		baseResults, _, err := FindAndDownloadTestResults(ctx, env, *opts.BaseResults, nil)
+		baseResults, _, err := FindAndDownloadTestResults(ctx, env, FindAndDownloadTestResultsOptions{Find: *opts.BaseResults})
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "getting base test results")
 		}
@@ -801,7 +808,7 @@ func sortTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions
 // GetTestResultsStats fetches basic stats for the test results associated with
 // the provided options. The environment should not be nil. If execution is
 // nil, it will default to the most recent execution.
-func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) (TestResultsStats, error) {
+func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) (TestResultsStats, error) {
 	var stats TestResultsStats
 
 	if !opts.DisplayTask {
