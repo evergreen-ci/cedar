@@ -11,7 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// PerfAnalysis contains information about when the associated PerformanceResult was analyzed for change points.
+// PerfAnalysis contains information about when the associated performance
+// result was analyzed for change points.
 type PerfAnalysis struct {
 	ProcessedAt time.Time `bson:"processed_at" json:"processed_at" yaml:"processed_at"`
 }
@@ -20,8 +21,8 @@ var (
 	perfAnalysisProcessedAtKey = bsonutil.MustHaveTag(PerfAnalysis{}, "ProcessedAt")
 )
 
-// PerformanceResultSeriesID is the id of a group of PerformanceResults. It is used to create a job to analyze the group
-// of PerfResults for change points.
+// PerformanceResultSeriesID represents the set of fields used identify a
+// series of performance results for change point detection.
 type PerformanceResultSeriesID struct {
 	Project     string           `bson:"project"`
 	Variant     string           `bson:"variant"`
@@ -31,12 +32,13 @@ type PerformanceResultSeriesID struct {
 	Arguments   map[string]int32 `bson:"args"`
 }
 
-// String creates a string representation of a PerformanceResultSeriesID.
+// String creates a string representation of a performance result series ID.
 func (p PerformanceResultSeriesID) String() string {
 	return fmt.Sprintf("%s %s %s %s %v", p.Project, p.Variant, p.Task, p.Test, p.Arguments)
 }
 
-// TimeSeriesEntry is information about a single PerfResult.
+// TimeSeriesEntry represents information about a single performance result in
+// a series.
 type TimeSeriesEntry struct {
 	PerfResultID string  `bson:"perf_result_id"`
 	Value        float64 `bson:"value"`
@@ -44,14 +46,15 @@ type TimeSeriesEntry struct {
 	Version      string  `bson:"version"`
 }
 
-// PerformanceData contains information about PerformanceResults and their associated measurement data.
+// PerformanceData represents information about a performance result series and
+// its associated measurement data.
 type PerformanceData struct {
 	PerformanceResultId PerformanceResultSeriesID `bson:"_id"`
 	TimeSeries          []TimeSeriesEntry         `bson:"time_series"`
 }
 
-// MarkPerformanceResultsAsAnalyzed marks all the PerformanceResults associated a PerformanceResultSeriesID as analyzed
-// for change points.
+// MarkPerformanceResultsAsAnalyzed marks all the performance results with the
+// given series ID as analyzed with the current date timestamp.
 func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
 	filter := bson.M{
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):   performanceResultId.Project,
@@ -68,13 +71,14 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 	}
 	_, err := env.GetDB().Collection(perfResultCollection).UpdateMany(ctx, filter, update)
 	if err != nil {
-		return errors.Wrapf(err, "Unable to mark performance results as analyzed for change points")
+		return errors.Wrapf(err, "marking performance results as analyzed for change points")
 	}
 	return nil
 }
 
-// GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate queries the database and gets all the PerformanceResultSeriesIDs
-// for PerformanceResults that haven't been analyzed for change points yet.
+// GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate queries the database
+// and gets all the performance result series IDs that contain results that
+// have not yet been analyzed.
 func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
@@ -85,6 +89,7 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey):    bson.M{"$not": bson.M{"$size": 0}},
 			},
 		},
 		{
@@ -114,19 +119,19 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to get metrics needing change point detection")
+		return nil, errors.Wrapf(err, "getting metrics needing change point detection")
 	}
 	defer cur.Close(ctx)
 	var res []PerformanceResultSeriesID
 	err = cur.All(ctx, &res)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to decode metrics needing change results")
+		return nil, errors.Wrapf(err, "decoding metrics needing change results")
 	}
 	return res, nil
 }
 
-// GetPerformanceResultSeriesIDs finds the PerformanceResultSeriesIDs for PerformanceResults that need to be processed
-// to find change points in them.
+// GetPerformanceResultSeriesIDs finds all performance result series IDs in the
+// the database.
 func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
@@ -159,18 +164,19 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "Cannot aggregate time series ids")
+		return nil, errors.Wrap(err, "aggregating time series ids")
 	}
 	defer cur.Close(ctx)
 	var res []PerformanceResultSeriesID
 	err = cur.All(ctx, &res)
 	if err != nil {
-		return nil, errors.Wrap(err, "Could not decode time series ids")
+		return nil, errors.Wrap(err, "decoding time series ids")
 	}
 	return res, nil
 }
 
-// GetPerformanceData gets the PerfResult time series data associated with the given PerformanceResultSeriesID.
+// GetPerformanceData queries the database to get the performance result time
+// series data associated with the given series ID.
 func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
 	pipe := []bson.M{
 		{
@@ -214,13 +220,13 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 	}
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
 	if err != nil {
-		return nil, errors.Wrap(err, "Cannot aggregate time series")
+		return nil, errors.Wrap(err, "aggregating time series")
 	}
 	defer cur.Close(ctx)
 	var res []PerformanceData
 	err = cur.All(ctx, &res)
 	if err != nil {
-		return nil, errors.Wrap(err, "Could not decode time series")
+		return nil, errors.Wrap(err, "decoding time series")
 	}
 	if len(res) == 0 {
 		return nil, nil
