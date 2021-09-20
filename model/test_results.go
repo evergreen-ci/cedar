@@ -529,6 +529,64 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 	return msg
 }
 
+// TestResultsSortBy describes the property by which to sort a set of test
+// results.
+type TestResultsSortBy string
+
+const (
+	TestResultsSortByStart      TestResultsSortBy = "start"
+	TestResultsSortByDuration   TestResultsSortBy = "duration"
+	TestResultsSortByTestName   TestResultsSortBy = "test_name"
+	TestResultsSortByStatus     TestResultsSortBy = "status"
+	TestResultsSortByBaseStatus TestResultsSortBy = "base_status"
+)
+
+func (s TestResultsSortBy) validate() error {
+	switch s {
+	case TestResultsSortByStart, TestResultsSortByDuration, TestResultsSortByTestName,
+		TestResultsSortByStatus, TestResultsSortByBaseStatus:
+		return nil
+	default:
+		return errors.Errorf("unrecognized test results sort by key '%s'", s)
+	}
+}
+
+// FilterAndSortTestResultsOptions allow for filtering, sorting, and paginating
+// a set of test results.
+type FilterAndSortTestResultsOptions struct {
+	TestName     string
+	Statuses     []string
+	GroupID      string
+	SortBy       TestResultsSortBy
+	SortOrderDSC bool
+	Limit        int
+	Page         int
+	BaseResults  *TestResultsFindOptions
+
+	testNameRegex *regexp.Regexp
+	baseStatusMap map[string]string
+}
+
+func (o *FilterAndSortTestResultsOptions) validate() error {
+	catcher := grip.NewBasicCatcher()
+
+	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
+	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && o.BaseResults == nil, "must specify base results find options when sorting by base status")
+	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
+	catcher.NewWhen(o.Page < 0, "page cannot be negative")
+	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
+
+	if o.TestName != "" {
+		var err error
+		o.testNameRegex, err = regexp.Compile(o.TestName)
+		catcher.Wrapf(err, "compiling test name regex")
+	}
+
+	o.baseStatusMap = map[string]string{}
+
+	return catcher.Resolve()
+}
+
 // FindTestResults searches the database for the TestResults associated with
 // the provided options. The environment should not be nil. If execution is
 // nil, it will default to the most recent execution.
@@ -567,13 +625,13 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 }
 
 // FindAndDownloadTestResults searches the database for the TestResults
-// associated with the provided options and returns a TestResultsIterator with
-// the downloaded test results. The environment should not be nil. If execution
-// is nil, it will default to the most recent execution.
-func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResult, error) {
+// associated with the provided options and returns the downloaded test
+// results filtered, sorted, and paginated. The environment should not be nil.
+// If execution is nil, it will default to the most recent execution.
+func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions, filterAndSortOpts *FilterAndSortTestResultsOptions) ([]TestResult, int, error) {
 	testResults, err := FindTestResults(ctx, env, opts)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	testResultsChan := make(chan TestResults, len(testResults))
@@ -629,7 +687,115 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 	close(combinedResultsChan)
 	cwg.Wait()
 
-	return combinedResults, catcher.Resolve()
+	if catcher.HasErrors() {
+		return nil, 0, catcher.Resolve()
+	}
+
+	return filterAndSortTestResults(ctx, env, combinedResults, filterAndSortOpts)
+}
+
+// filterAndSortCedarTestResults takes a slice of TestResult objects and
+// returns a filtered sorted and paginated version of that slice.
+func filterAndSortTestResults(ctx context.Context, env cedar.Environment, results []TestResult, opts *FilterAndSortTestResultsOptions) ([]TestResult, int, error) {
+	if opts == nil {
+		return results, len(results), nil
+	}
+
+	if err := opts.validate(); err != nil {
+		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
+	}
+
+	if opts.SortBy == TestResultsSortByBaseStatus {
+		baseResults, _, err := FindAndDownloadTestResults(ctx, env, *opts.BaseResults, nil)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "getting base test results")
+		}
+
+		for _, result := range baseResults {
+			opts.baseStatusMap[result.GetDisplayName()] = result.Status
+		}
+	}
+
+	results = filterTestResults(results, opts)
+	sortTestResults(results, opts)
+
+	totalCount := len(results)
+	if opts.Limit > 0 {
+		offset := opts.Limit * opts.Page
+		end := offset + opts.Limit
+		if offset > totalCount {
+			offset = totalCount
+		}
+		if end > totalCount {
+			end = totalCount
+		}
+		results = results[offset:end]
+	}
+
+	return results, totalCount, nil
+}
+
+func filterTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions) []TestResult {
+	if opts.testNameRegex == nil && len(opts.Statuses) == 0 && opts.GroupID == "" {
+		return results
+	}
+
+	var filteredResults []TestResult
+	for _, result := range results {
+		if opts.testNameRegex != nil && !opts.testNameRegex.MatchString(result.GetDisplayName()) {
+			continue
+		}
+		if len(opts.Statuses) > 0 && !utility.StringSliceContains(opts.Statuses, result.Status) {
+			continue
+		}
+		if opts.GroupID != "" && opts.GroupID != result.GroupID {
+			continue
+		}
+
+		filteredResults = append(filteredResults, result)
+	}
+
+	return filteredResults
+}
+
+func sortTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions) {
+	switch opts.SortBy {
+	case TestResultsSortByStart:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].TestStartTime.After(results[j].TestStartTime)
+			}
+			return results[i].TestStartTime.Before(results[j].TestStartTime)
+		})
+	case TestResultsSortByDuration:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].getDuration() > results[j].getDuration()
+			}
+			return results[i].getDuration() < results[j].getDuration()
+		})
+	case TestResultsSortByTestName:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].GetDisplayName() > results[j].GetDisplayName()
+			}
+			return results[i].GetDisplayName() < results[j].GetDisplayName()
+		})
+	case TestResultsSortByStatus:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].Status > results[j].Status
+			}
+			return results[i].Status < results[j].Status
+		})
+	case TestResultsSortByBaseStatus:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return opts.baseStatusMap[results[i].GetDisplayName()] > opts.baseStatusMap[results[j].GetDisplayName()]
+			}
+			return opts.baseStatusMap[results[i].GetDisplayName()] < opts.baseStatusMap[results[j].GetDisplayName()]
+		})
+	}
 }
 
 // GetTestResultsStats fetches basic stats for the test results associated with
@@ -684,156 +850,4 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts TestRe
 	}
 
 	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
-}
-
-// TestResultsSortBy describes the property by which to sort a set of test
-// results.
-type TestResultsSortBy string
-
-const (
-	TestResultsSortByStart      TestResultsSortBy = "start"
-	TestResultsSortByDuration   TestResultsSortBy = "duration"
-	TestResultsSortByTestName   TestResultsSortBy = "test_name"
-	TestResultsSortByStatus     TestResultsSortBy = "status"
-	TestResultsSortByBaseStatus TestResultsSortBy = "base_status"
-)
-
-func (s TestResultsSortBy) validate() error {
-	switch s {
-	case TestResultsSortByStart, TestResultsSortByDuration, TestResultsSortByTestName,
-		TestResultsSortByStatus, TestResultsSortByBaseStatus:
-		return nil
-	default:
-		return errors.Errorf("unrecognized test results sort by key '%s'", s)
-	}
-}
-
-// FilterAndSortTestResultsOptions allow for filtering, sorting, and paginating
-// a set of test results.
-type FilterAndSortTestResultsOptions struct {
-	TestName     string
-	Statuses     []string
-	GroupID      string
-	SortBy       TestResultsSortBy
-	SortOrderDSC bool
-	Limit        int
-	Page         int
-
-	testNameRegex *regexp.Regexp
-	baseStatusMap map[string]string
-}
-
-func (o *FilterAndSortTestResultsOptions) validate() error {
-	catcher := grip.NewBasicCatcher()
-
-	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
-	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
-	catcher.NewWhen(o.Page < 0, "page cannot be negative")
-	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
-
-	if o.TestName != "" {
-		var err error
-		o.testNameRegex, err = regexp.Compile(o.TestName)
-		catcher.Wrapf(err, "compiling test name regex")
-	}
-
-	o.baseStatusMap = map[string]string{}
-
-	return catcher.Resolve()
-}
-
-// FilterAndSortCedarTestResults takes a slice of TestResult objects and
-// returns a filtered sorted and paginated version of that slice. The base
-// results are optional and only used when sorting by base status.
-func FilterAndSortTestResults(results []TestResult, baseResults []TestResult, opts FilterAndSortTestResultsOptions) ([]TestResult, int, error) {
-	if err := opts.validate(); err != nil {
-		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
-	}
-
-	if opts.SortBy == TestResultsSortByBaseStatus {
-		for _, result := range baseResults {
-			opts.baseStatusMap[result.GetDisplayName()] = result.Status
-		}
-	}
-
-	results = filterTestResults(results, opts)
-	sortTestResults(results, opts)
-
-	totalCount := len(results)
-	if opts.Limit > 0 {
-		offset := opts.Limit * opts.Page
-		end := offset + opts.Limit
-		if offset > totalCount {
-			offset = totalCount
-		}
-		if end > totalCount {
-			end = totalCount
-		}
-		results = results[offset:end]
-	}
-
-	return results, totalCount, nil
-}
-
-func filterTestResults(results []TestResult, opts FilterAndSortTestResultsOptions) []TestResult {
-	if opts.testNameRegex == nil && len(opts.Statuses) == 0 && opts.GroupID == "" {
-		return results
-	}
-
-	var filteredResults []TestResult
-	for _, result := range results {
-		if opts.testNameRegex != nil && !opts.testNameRegex.MatchString(result.GetDisplayName()) {
-			continue
-		}
-		if len(opts.Statuses) > 0 && !utility.StringSliceContains(opts.Statuses, result.Status) {
-			continue
-		}
-		if opts.GroupID != "" && opts.GroupID != result.GroupID {
-			continue
-		}
-
-		filteredResults = append(filteredResults, result)
-	}
-
-	return filteredResults
-}
-
-func sortTestResults(results []TestResult, opts FilterAndSortTestResultsOptions) {
-	switch opts.SortBy {
-	case TestResultsSortByStart:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].TestStartTime.After(results[j].TestStartTime)
-			}
-			return results[i].TestStartTime.Before(results[j].TestStartTime)
-		})
-	case TestResultsSortByDuration:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].getDuration() > results[j].getDuration()
-			}
-			return results[i].getDuration() < results[j].getDuration()
-		})
-	case TestResultsSortByTestName:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].GetDisplayName() > results[j].GetDisplayName()
-			}
-			return results[i].GetDisplayName() < results[j].GetDisplayName()
-		})
-	case TestResultsSortByStatus:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].Status > results[j].Status
-			}
-			return results[i].Status < results[j].Status
-		})
-	case TestResultsSortByBaseStatus:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return opts.baseStatusMap[results[i].GetDisplayName()] > opts.baseStatusMap[results[j].GetDisplayName()]
-			}
-			return opts.baseStatusMap[results[i].GetDisplayName()] < opts.baseStatusMap[results[j].GetDisplayName()]
-		})
-	}
 }
