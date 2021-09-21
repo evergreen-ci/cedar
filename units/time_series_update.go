@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
-	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -49,7 +49,7 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeTimeSeriesJob()
 	baseID := fmt.Sprintf("%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
-	j.SetID(fmt.Sprintf("%s.%s", baseID, utility.RoundPartOfHour(0)))
+	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
 	j.SetScopes([]string{baseID})
 	j.SetShouldApplyScopesOnEnqueue(true)
 	j.PerformanceResultId = timeSeriesId
