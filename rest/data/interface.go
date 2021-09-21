@@ -90,11 +90,12 @@ type Connector interface {
 	// GetFailedTestResultsSample queries the database to find all the
 	// sample of failed test results for the given options. If the
 	// execution is nil, this will return the sample from the most recent
-	// execution.
+	// execution. Filtering, sorting, and paginating is not supported.
 	GetFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
 	// GetTestResultsStats queries the database to aggregate basic stats
 	// of test results for the given options. If the execution is nil, this
-	// will return stats for the most recent execution.
+	// will return stats for the most recent execution. Filtering, sorting,
+	// and paginating is not supported.
 	GetTestResultsStats(context.Context, TestResultsOptions) (*model.APITestResultsStats, error)
 
 	///////////////////////
@@ -136,10 +137,23 @@ type BuildloggerOptions struct {
 // TestResultsOptions holds all values required to find a specific TestResults
 // or TestResult object using connector functions.
 type TestResultsOptions struct {
-	TaskID      string
-	TestName    string
-	Execution   *int
-	DisplayTask bool
+	TaskID        string
+	Execution     *int
+	DisplayTask   bool
+	FilterAndSort *TestResultsFilterAndSortOptions
+}
+
+// TestResultsFilterAndSortOptions holds all values required for filtering,
+// sorting, and paginating TestResult objects using connector functions.
+type TestResultsFilterAndSortOptions struct {
+	TestName     string
+	Statuses     []string
+	GroupID      string
+	SortBy       string
+	SortOrderDSC bool
+	Limit        int
+	Page         int
+	BaseResults  *TestResultsOptions
 }
 
 // PerformanceOptions holds all values required to find a specific

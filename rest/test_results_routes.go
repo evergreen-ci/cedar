@@ -14,8 +14,16 @@ import (
 )
 
 const (
-	isDisplayTask = "display_task"
-	testName      = "test_name"
+	isDisplayTask            = "display_task"
+	testResultsTestName      = "test_name"
+	testResultsStatus        = "status"
+	testResultsGroupID       = "group_id"
+	testResultsSortBy        = "sort_by"
+	testResultsSortDSC       = "sort_order_dsc"
+	testResultsLimit         = "limit"
+	testResultsPage          = "page"
+	testResultsBaseTaskID    = "base_task_id"
+	testResultsBaseExecution = "base_execution"
 )
 
 type testResultsBaseHandler struct {
@@ -27,7 +35,6 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 
 	vals := r.URL.Query()
-	h.opts.TestName = vals.Get(testName)
 	if len(vals[execution]) > 0 {
 		exec, err := strconv.Atoi(vals[execution][0])
 		if err != nil {
@@ -57,6 +64,47 @@ func makeGetTestResultsByTaskID(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
+// Parse fetches the task_id from the http request and any filter, sort, or
+// pagination options.
+func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Request) error {
+	if err := h.testResultsBaseHandler.Parse(ctx, r); err != nil {
+		return err
+	}
+
+	vals := r.URL.Query()
+	testName := vals.Get(testResultsTestName)
+	statuses := vals[testResultsStatus]
+	groupID := vals.Get(testResultsGroupID)
+	sortBy := vals.Get(testResultsSortBy)
+	limit := vals.Get(testResultsLimit)
+	page := vals.Get(testResultsPage)
+
+	if testName == "" && len(statuses) == 0 && groupID == "" && sortBy == "" && limit == "" && page == "" {
+		return nil
+	}
+
+	h.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{
+		TestName: testName,
+		Statuses: statuses,
+		GroupID:  groupID,
+		SortBy:   sortBy,
+		Limit:    limit,
+		Page:     page,
+	}
+	if vals.Get(testResultsSortDSC) == trueString {
+		h.opts.FilterAndSort.SortOrderDSC = true
+	}
+	if baseTaskID := vals.Get(testResultsBaseTaskID); baseTaskID != "" {
+		h.opts.FilterAndSort.BaseResults = &data.TestResultsOptions{
+			TaskID:      baseTaskID,
+			Execution:   vals.Get(testResultsBaseExecution),
+			DisplayTask: h.opts.DisplayTask,
+		}
+	}
+
+	return nil
+}
+
 // Factory returns a pointer to a new testResultsGetByTaskIDHandler.
 func (h *testResultsGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	return &testResultsGetByTaskIDHandler{
@@ -68,7 +116,7 @@ func (h *testResultsGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":    gimlet.GetRequestID(ctx),
 			"method":     "GET",
@@ -108,7 +156,7 @@ func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
 	sample, err := h.sc.GetFailedTestResultsSample(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting failed test results sample by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting failed test results sample by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
@@ -148,7 +196,7 @@ func (h *testResultsGetStatsHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
 	stats, err := h.sc.GetTestResultsStats(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results stats by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results stats by task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
@@ -206,7 +254,7 @@ func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.
 func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test results by display_task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results by display_task_id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -261,7 +309,7 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	results, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting test result by task_id '%s' and test_name '%s'", h.opts.TaskID, h.opts.TestName)
+		err = errors.Wrapf(err, "getting test result by task_id '%s' and test_name '%s'", h.opts.TaskID, h.opts.TestName)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
