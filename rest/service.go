@@ -87,7 +87,7 @@ func (s *Service) Validate() error {
 	}
 
 	if s.sc == nil {
-		s.sc = data.CreateNewDBConnector(s.Environment)
+		s.sc = data.CreateNewDBConnector(s.Environment, s.Conf.URL)
 	}
 
 	if s.Port == 0 {

@@ -305,7 +305,7 @@ func (s *PerfConnectorSuite) TearDownSuite() {
 func TestPerfConnectorSuiteDB(t *testing.T) {
 	s := new(PerfConnectorSuite)
 	s.setup()
-	s.sc = CreateNewDBConnector(s.env)
+	s.sc = CreateNewDBConnector(s.env, "")
 	suite.Run(t, s)
 }
 

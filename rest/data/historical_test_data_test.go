@@ -126,7 +126,7 @@ func newDBConnector(t *testing.T, now time.Time) (Connector, func()) {
 		}))
 	}
 
-	return CreateNewDBConnector(env), func() { assert.NoError(t, db.Drop(context.TODO())) }
+	return CreateNewDBConnector(env, ""), func() { assert.NoError(t, db.Drop(context.TODO())) }
 }
 
 func newMockConnector() *MockConnector {

@@ -16,7 +16,7 @@ import (
 /////////////////////////////
 
 func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
-	results, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
+	results, _, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBFindAndDownloadTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -29,11 +29,11 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 		}
 	}
 
-	return importTestResults(ctx, results, opts.TestName)
+	return importTestResults(ctx, results)
 }
 
 func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
-	resultDocs, err := dbModel.FindTestResults(ctx, dbc.env, convertToDBTestResultsOptions(opts))
+	resultDocs, err := dbModel.FindTestResults(ctx, dbc.env, convertToDBFindTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -50,7 +50,7 @@ func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts Tes
 }
 
 func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResultsOptions) (*model.APITestResultsStats, error) {
-	stats, err := dbModel.GetTestResultsStats(ctx, dbc.env, convertToDBTestResultsOptions(opts))
+	stats, err := dbModel.GetTestResultsStats(ctx, dbc.env, convertToDBFindTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -79,195 +79,25 @@ func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResult
 ///////////////////////////////
 
 func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
-	var (
-		results []dbModel.TestResult
-		err     error
-	)
-
-	if opts.DisplayTask {
-		results, err = mc.findAndDownloadTestResultsByDisplayTaskID(ctx, opts)
-	} else {
-		results, err = mc.findAndDownloadTestResultsByTaskID(ctx, opts)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return importTestResults(ctx, results, opts.TestName)
+	return nil, errors.New("not implemented")
 }
 
 func (mc *MockConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    err.Error(),
-		}
-	}
-
-	if !opts.DisplayTask {
-		testResultsDoc, err := mc.findTestResultsByTaskID(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		return extractFailedTestResultsSample(*testResultsDoc), nil
-	}
-
-	testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	return extractFailedTestResultsSample(testResultsDocs...), nil
+	return nil, errors.New("not implemented")
 }
 
 func (mc *MockConnector) GetTestResultsStats(ctx context.Context, opts TestResultsOptions) (*model.APITestResultsStats, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    err.Error(),
-		}
-	}
-
-	stats := &model.APITestResultsStats{}
-
-	if !opts.DisplayTask {
-		testResultsDoc, err := mc.findTestResultsByTaskID(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		if err = stats.Import(testResultsDoc.Stats); err != nil {
-			return nil, gimlet.ErrorResponse{
-				StatusCode: http.StatusInternalServerError,
-				Message:    errors.Wrapf(err, "importing stats into APITestResultsStats struct").Error(),
-			}
-		}
-
-		return stats, nil
-	}
-
-	testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, doc := range testResultsDocs {
-		stats.TotalCount += doc.Stats.TotalCount
-		stats.FailedCount += doc.Stats.FailedCount
-	}
-
-	return stats, nil
-}
-
-func (mc *MockConnector) findAndDownloadTestResultsByTaskID(ctx context.Context, opts TestResultsOptions) ([]dbModel.TestResult, error) {
-	testResultsDoc, err := mc.findTestResultsByTaskID(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	results, err := testResultsDoc.Download(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return results, nil
-}
-
-func (mc *MockConnector) findAndDownloadTestResultsByDisplayTaskID(ctx context.Context, opts TestResultsOptions) ([]dbModel.TestResult, error) {
-	testResultsDocs, err := mc.findTestResultsByDisplayTaskID(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	var combinedResults []dbModel.TestResult
-	for i := range testResultsDocs {
-		results, err := testResultsDocs[i].Download(ctx)
-		if err != nil {
-			return nil, err
-		}
-		combinedResults = append(combinedResults, results...)
-	}
-
-	return combinedResults, nil
-}
-
-func (mc *MockConnector) findTestResultsByTaskID(ctx context.Context, opts TestResultsOptions) (*dbModel.TestResults, error) {
-	var testResultsDoc *dbModel.TestResults
-
-	for key, _ := range mc.CachedTestResults {
-		tr := mc.CachedTestResults[key]
-		if opts.Execution == nil {
-			if tr.Info.TaskID == opts.TaskID && (testResultsDoc == nil || tr.Info.Execution > testResultsDoc.Info.Execution) {
-				testResultsDoc = &tr
-			}
-		} else {
-			if tr.Info.TaskID == opts.TaskID && tr.Info.Execution == *opts.Execution {
-				testResultsDoc = &tr
-				break
-			}
-		}
-	}
-
-	if testResultsDoc == nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test results not found",
-		}
-	}
-
-	return testResultsDoc, nil
-}
-
-func (mc *MockConnector) findTestResultsByDisplayTaskID(ctx context.Context, opts TestResultsOptions) ([]dbModel.TestResults, error) {
-	var (
-		testResultsDocs []dbModel.TestResults
-		latestExecution int
-	)
-
-	for key, _ := range mc.CachedTestResults {
-		tr := mc.CachedTestResults[key]
-		if tr.Info.DisplayTaskID == opts.TaskID {
-			if opts.Execution == nil || tr.Info.Execution == *opts.Execution {
-				testResultsDocs = append(testResultsDocs, tr)
-			}
-		}
-		if tr.Info.Execution > latestExecution {
-			latestExecution = tr.Info.Execution
-		}
-	}
-
-	if opts.Execution == nil {
-		var filteredDocs []dbModel.TestResults
-		for i := range testResultsDocs {
-			if testResultsDocs[i].Info.Execution == latestExecution {
-				filteredDocs = append(filteredDocs, testResultsDocs[i])
-			}
-		}
-		testResultsDocs = filteredDocs
-	}
-
-	if len(testResultsDocs) == 0 {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test results not found",
-		}
-	}
-
-	return testResultsDocs, nil
+	return nil, errors.New("not implemented")
 }
 
 ///////////////////
 // Helper Functions
 ///////////////////
 
-func importTestResults(ctx context.Context, results []dbModel.TestResult, testName string) ([]model.APITestResult, error) {
+func importTestResults(ctx context.Context, results []dbModel.TestResult) ([]model.APITestResult, error) {
 	apiResults := []model.APITestResult{}
 
 	for _, result := range results {
-		if testName != "" && testName != result.TestName && testName != result.DisplayTestName {
-			continue
-		}
-
 		apiResult := model.APITestResult{}
 		err := apiResult.Import(result)
 		if err != nil {
@@ -298,10 +128,34 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 	return sample
 }
 
-func convertToDBTestResultsOptions(opts TestResultsOptions) dbModel.TestResultsFindOptions {
-	return dbModel.TestResultsFindOptions{
+func convertToDBFindTestResultsOptions(opts TestResultsOptions) dbModel.FindTestResultsOptions {
+	return dbModel.FindTestResultsOptions{
 		TaskID:      opts.TaskID,
 		Execution:   opts.Execution,
 		DisplayTask: opts.DisplayTask,
+	}
+}
+
+func convertToDBFindAndDownloadTestResultsOptions(opts TestResultsOptions) dbModel.FindAndDownloadTestResultsOptions {
+	var filterAndSort *dbModel.FilterAndSortTestResultsOptions
+	if opts.FilterAndSort != nil {
+		filterAndSort = &dbModel.FilterAndSortTestResultsOptions{
+			TestName:     opts.FilterAndSort.TestName,
+			Statuses:     opts.FilterAndSort.Statuses,
+			GroupID:      opts.FilterAndSort.GroupID,
+			SortBy:       dbModel.TestResultsSortBy(opts.FilterAndSort.SortBy),
+			SortOrderDSC: opts.FilterAndSort.SortOrderDSC,
+			Limit:        opts.FilterAndSort.Limit,
+			Page:         opts.FilterAndSort.Page,
+		}
+		if opts.FilterAndSort.BaseResults != nil {
+			baseOpts := convertToDBFindTestResultsOptions(*opts.FilterAndSort.BaseResults)
+			filterAndSort.BaseResults = &baseOpts
+		}
+	}
+
+	return dbModel.FindAndDownloadTestResultsOptions{
+		Find:          convertToDBFindTestResultsOptions(opts),
+		FilterAndSort: filterAndSort,
 	}
 }

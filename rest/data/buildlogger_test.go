@@ -27,7 +27,7 @@ type buildloggerConnectorSuite struct {
 func TestBuildloggerConnectorSuiteDB(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
 	s.setup()
-	s.sc = CreateNewDBConnector(s.env)
+	s.sc = CreateNewDBConnector(s.env, "")
 	suite.Run(t, s)
 }
 

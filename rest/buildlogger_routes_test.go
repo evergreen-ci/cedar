@@ -1289,26 +1289,26 @@ func TestNewBuildloggerResponder(t *testing.T) {
 	last := time.Now().Add(-time.Hour)
 	next := time.Now()
 	t.Run("NotPaginated", func(t *testing.T) {
-		resp := newBuildloggerResponder(data, last, next, false)
+		resp := newBuildloggerResponder("base", data, last, next, false)
 		assert.Equal(t, data, resp.Data())
 		assert.Equal(t, gimlet.TEXT, resp.Format())
 		assert.Nil(t, resp.Pages())
 	})
 	t.Run("PaginatedWithNonZeroNext", func(t *testing.T) {
-		resp := newBuildloggerResponder(data, last, next, true)
+		resp := newBuildloggerResponder("base", data, last, next, true)
 		assert.Equal(t, data, resp.Data())
 		assert.Equal(t, gimlet.TEXT, resp.Format())
 		pages := resp.Pages()
 		require.NotNil(t, pages)
 		expectedPrev := &gimlet.Page{
-			BaseURL:         baseURL,
+			BaseURL:         "base",
 			KeyQueryParam:   "start",
 			LimitQueryParam: "limit",
 			Key:             last.Format(time.RFC3339Nano),
 			Relation:        "prev",
 		}
 		expectedNext := &gimlet.Page{
-			BaseURL:         baseURL,
+			BaseURL:         "base",
 			KeyQueryParam:   "start",
 			LimitQueryParam: "limit",
 			Key:             next.Format(time.RFC3339Nano),
@@ -1318,13 +1318,13 @@ func TestNewBuildloggerResponder(t *testing.T) {
 		assert.Equal(t, expectedNext, pages.Next)
 	})
 	t.Run("PaginatedWithZeroNext", func(t *testing.T) {
-		resp := newBuildloggerResponder(data, last, time.Time{}, true)
+		resp := newBuildloggerResponder("base", data, last, time.Time{}, true)
 		assert.Equal(t, data, resp.Data())
 		assert.Equal(t, gimlet.TEXT, resp.Format())
 		pages := resp.Pages()
 		require.NotNil(t, pages)
 		expectedPrev := &gimlet.Page{
-			BaseURL:         baseURL,
+			BaseURL:         "base",
 			KeyQueryParam:   "start",
 			LimitQueryParam: "limit",
 			Key:             last.Format(time.RFC3339Nano),
