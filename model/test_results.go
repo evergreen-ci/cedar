@@ -608,7 +608,7 @@ func (o *FilterAndSortTestResultsOptions) validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
-	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && o.BaseResults == nil, "must specify base results find options when sorting by base status")
+	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && o.BaseResults == nil, "must specify base task ID when sorting by base status")
 	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
 	catcher.NewWhen(o.Page < 0, "page cannot be negative")
 	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
