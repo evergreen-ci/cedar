@@ -557,7 +557,7 @@ func (s *TestResultsHandlerSuite) TestBaseParse() {
 func (s *TestResultsHandlerSuite) testParseValid(handler, urlString string) {
 	ctx := context.Background()
 	urlString += "?execution=1&display_task=true"
-	req := &http.Request{Method: "GET"}
+	req := &http.Request{Method: http.MethodGet}
 	req.URL, _ = url.Parse(urlString)
 	rh := s.rh[handler]
 	// Need to reset this since we are reusing the handlers.
@@ -572,7 +572,7 @@ func (s *TestResultsHandlerSuite) testParseValid(handler, urlString string) {
 func (s *TestResultsHandlerSuite) testParseInvalid(handler, urlString string) {
 	ctx := context.Background()
 	invalidExecution := "?execution=hello"
-	req := &http.Request{Method: "GET"}
+	req := &http.Request{Method: http.MethodGet}
 	rh := s.rh[handler]
 	// Need to reset this since we are reusing the handlers.
 	rh = rh.Factory()
@@ -584,7 +584,7 @@ func (s *TestResultsHandlerSuite) testParseInvalid(handler, urlString string) {
 
 func (s *TestResultsHandlerSuite) testParseDefaults(handler, urlString string) {
 	ctx := context.Background()
-	req := &http.Request{Method: "GET"}
+	req := &http.Request{Method: http.MethodGet}
 	req.URL, _ = url.Parse(urlString)
 	rh := s.rh[handler]
 	// Need to reset this since we are reusing the handlers.
@@ -627,7 +627,7 @@ func (s *TestResultsHandlerSuite) TestTaskIDParse() {
 	// Test default.
 	urlString := "http://cedar.mongodb.com/rest/v1/test_results/task_id/task_id1"
 	expected := data.TestResultsOptions{}
-	req := &http.Request{Method: "GET"}
+	req := &http.Request{Method: http.MethodGet}
 	req.URL, _ = url.Parse(urlString)
 
 	err := rh.Parse(context.TODO(), req)
@@ -648,7 +648,7 @@ func (s *TestResultsHandlerSuite) TestTaskIDParse() {
 			Page:         2,
 		},
 	}
-	req = &http.Request{Method: "GET"}
+	req = &http.Request{Method: http.MethodGet}
 	req.URL, _ = url.Parse(urlString)
 
 	err = rh.Parse(context.TODO(), req)
