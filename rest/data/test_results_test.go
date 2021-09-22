@@ -15,13 +15,12 @@ import (
 )
 
 type testResultsConnectorSuite struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	sc          Connector
-	env         cedar.Environment
-	testResults map[string]dbModel.TestResults
-	tempDir     string
-	apiResults  map[string]model.APITestResult
+	ctx        context.Context
+	cancel     context.CancelFunc
+	sc         Connector
+	env        cedar.Environment
+	tempDir    string
+	apiResults map[string]model.APITestResult
 
 	suite.Suite
 }
@@ -29,18 +28,7 @@ type testResultsConnectorSuite struct {
 func TestTestResultsConnectorSuiteDB(t *testing.T) {
 	s := new(testResultsConnectorSuite)
 	s.setup()
-	s.sc = CreateNewDBConnector(s.env)
-	suite.Run(t, s)
-}
-
-func TestTestResultsConnectorSuiteMock(t *testing.T) {
-	s := new(testResultsConnectorSuite)
-	s.setup()
-	s.sc = &MockConnector{
-		CachedTestResults: s.testResults,
-		env:               cedar.GetEnvironment(),
-		Bucket:            s.tempDir,
-	}
+	s.sc = CreateNewDBConnector(s.env, "")
 	suite.Run(t, s)
 }
 
@@ -50,7 +38,6 @@ func (s *testResultsConnectorSuite) setup() {
 	s.Require().NotNil(s.env)
 	db := s.env.GetDB()
 	s.Require().NotNil(db)
-	s.testResults = map[string]dbModel.TestResults{}
 
 	// setup config
 	var err error
@@ -128,8 +115,6 @@ func (s *testResultsConnectorSuite) setup() {
 
 			s.Require().NoError(testResults.Append(s.ctx, []dbModel.TestResult{result}))
 		}
-
-		s.testResults[testResults.ID] = *testResults
 	}
 }
 
@@ -182,11 +167,13 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 		{
-			name: "SucceedsWithTaskIDAndTestName",
+			name: "SucceedsWithTaskIDAndFilterAndSort",
 			opts: TestResultsOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
-				TestName:  "test1",
+				FilterAndSort: &TestResultsFilterAndSortOptions{
+					TestName: "test1",
+				},
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test1": s.apiResults["task1_0_test1"],
@@ -221,11 +208,13 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndTestName",
+			name: "SucceedsWithDisplayTaskIDAndFilterAndSort",
 			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				Execution:   utility.ToIntPtr(0),
-				TestName:    "test2",
+				TaskID:    "display_task1",
+				Execution: utility.ToIntPtr(0),
+				FilterAndSort: &TestResultsFilterAndSortOptions{
+					TestName: "test2",
+				},
 				DisplayTask: true,
 			},
 			resultMap: map[string]model.APITestResult{

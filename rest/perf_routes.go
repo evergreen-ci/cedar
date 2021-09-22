@@ -286,7 +286,7 @@ func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return paginatePerfResults(perfResults, h.opts.Limit, h.opts.Skip)
+	return paginatePerfResults(h.sc.GetBaseURL(), perfResults, h.opts.Limit, h.opts.Skip)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -382,7 +382,7 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 //
 // Helper functions
 
-func paginatePerfResults(data []model.APIPerformanceResult, limitVal, skipVal int) gimlet.Responder {
+func paginatePerfResults(baseURL string, data []model.APIPerformanceResult, limitVal, skipVal int) gimlet.Responder {
 	resp := gimlet.NewJSONResponse(data)
 
 	if limitVal > 0 {

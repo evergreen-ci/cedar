@@ -22,6 +22,7 @@ const (
 
 type CedarConfig struct {
 	ID             string                    `bson:"_id" json:"id" yaml:"id"`
+	URL            string                    `bson:"url" json:"url" yaml:"url"`
 	Evergreen      EvergreenConfig           `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
 	Splunk         send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
 	Slack          SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`

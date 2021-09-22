@@ -25,7 +25,7 @@ type systemMetricsConnectorSuite struct {
 func TestSystemMetricsConnectorSuiteDB(t *testing.T) {
 	s := new(systemMetricsConnectorSuite)
 	s.setup()
-	s.sc = CreateNewDBConnector(s.env)
+	s.sc = CreateNewDBConnector(s.env, "")
 	suite.Run(t, s)
 }
 

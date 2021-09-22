@@ -213,9 +213,9 @@ type Environment interface {
 	GetConf() *Configuration
 	Context() (context.Context, context.CancelFunc)
 
-	// GetQueue retrieves the application's shared queue, which is cache
+	// GetQueue retrieves the application's shared queue, which is cached
 	// for easy access from within units or inside of requests or command
-	// line operations
+	// line operations.
 	GetRemoteQueue() amboy.Queue
 	SetRemoteQueue(amboy.Queue) error
 	GetRemoteManager() management.Manager

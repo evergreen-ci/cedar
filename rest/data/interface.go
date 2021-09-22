@@ -12,6 +12,9 @@ import (
 // allowing for changes in the service architecture without forcing changes to
 // the API.
 type Connector interface {
+	// GetBaseURL returns the API service URL.
+	GetBaseURL() string
+
 	////////////////////
 	// PerformanceResult
 	////////////////////
