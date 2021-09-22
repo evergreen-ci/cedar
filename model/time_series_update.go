@@ -24,12 +24,12 @@ var (
 // PerformanceResultSeriesID represents the set of fields used identify a
 // series of performance results for change point detection.
 type PerformanceResultSeriesID struct {
-	Project     string           `bson:"project"`
-	Variant     string           `bson:"variant"`
-	Task        string           `bson:"task"`
-	Test        string           `bson:"test"`
-	Measurement string           `bson:"measurement"`
-	Arguments   map[string]int32 `bson:"args"`
+	Project     string               `bson:"project"`
+	Variant     string               `bson:"variant"`
+	Task        string               `bson:"task"`
+	Test        string               `bson:"test"`
+	Measurement string               `bson:"measurement"`
+	Arguments   PerformanceArguments `bson:"args"`
 }
 
 // String creates a string representation of a performance result series ID.
