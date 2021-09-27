@@ -204,6 +204,12 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	} else {
 		h.opts.Limit = 0
 	}
+	skip := vals.Get(perfSkip)
+	if skip != "" {
+		h.opts.Skip, err = strconv.Atoi(skip)
+		catcher.Wrap(err, "invalid skip value")
+		catcher.NewWhen(h.opts.Skip < 0, "cannot have negative skip value")
+	}
 	return catcher.Resolve()
 }
 
@@ -221,7 +227,8 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	return gimlet.NewJSONResponse(perfResults)
+
+	return paginatePerfResults(h.sc.GetBaseURL(), perfResults, h.opts.Limit, h.opts.Skip)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
