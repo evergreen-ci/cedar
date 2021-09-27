@@ -237,6 +237,15 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
 	s.Require().NotNil(resp.Data())
 	s.Equal(expected, resp.Data())
 
+	rh.(*perfGetByTaskNameHandler).opts.Skip = 3
+	expected = []datamodel.APIPerformanceResult{
+		s.apiResults["abc"],
+	}
+	resp = rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerNotFound() {
@@ -360,6 +369,7 @@ func (s *PerfHandlerSuite) TestParse() {
 			urlString: "http://example.com/perf/task_name/task_name0",
 			query:     "?started_after=2020-03-15&finished_before=2021-09-01",
 			limit:     true,
+			skip:      true,
 		},
 		{
 			handler:   "version",
@@ -442,6 +452,8 @@ func getPerfSkip(rh gimlet.RouteHandler, handler string) int {
 	switch handler {
 	case "version":
 		return rh.(*perfGetByVersionHandler).opts.Skip
+	case "task_name":
+		return rh.(*perfGetByTaskNameHandler).opts.Skip
 	default:
 		return 0
 	}
