@@ -449,6 +449,7 @@ type TestResult struct {
 	GroupID         string    `bson:"group_id,omitempty"`
 	Trial           int       `bson:"trial,omitempty"`
 	Status          string    `bson:"status"`
+	BaseStatus      string    `bson:"-"`
 	LogTestName     string    `bson:"log_test_name,omitempty"`
 	LogURL          string    `bson:"log_url,omitempty"`
 	RawLogURL       string    `bson:"raw_log_url,omitempty"`
@@ -712,12 +713,11 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
 	}
 
-	if opts.SortBy == TestResultsSortByBaseStatus {
+	if opts.BaseResults != nil {
 		baseResults, _, err := FindAndDownloadTestResults(ctx, env, FindAndDownloadTestResultsOptions{Find: *opts.BaseResults})
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "getting base test results")
 		}
-
 		for _, result := range baseResults {
 			opts.baseStatusMap[result.GetDisplayName()] = result.Status
 		}
@@ -737,6 +737,12 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 			end = totalCount
 		}
 		results = results[offset:end]
+	}
+
+	if len(opts.baseStatusMap) > 0 {
+		for i := range results {
+			results[i].BaseStatus = opts.baseStatusMap[results[i].GetDisplayName()]
+		}
 	}
 
 	return results, totalCount, nil

@@ -21,6 +21,7 @@ type APITestResult struct {
 	GroupID         *string `json:"group_id,omitempty"`
 	Trial           int     `json:"trial,omitempty"`
 	Status          *string `json:"status"`
+	BaseStatus      *string `json:"base_status,omitempty"`
 	LogTestName     *string `json:"log_test_name,omitempty"`
 	LogURL          *string `json:"log_url,omitempty"`
 	RawLogURL       *string `json:"raw_log_url,omitempty"`
@@ -45,6 +46,9 @@ func (a *APITestResult) Import(i interface{}) error {
 		}
 		a.Trial = tr.Trial
 		a.Status = utility.ToStringPtr(tr.Status)
+		if tr.BaseStatus != "" {
+			a.BaseStatus = utility.ToStringPtr(tr.BaseStatus)
+		}
 		if tr.LogTestName != "" {
 			a.LogTestName = utility.ToStringPtr(tr.LogTestName)
 		}

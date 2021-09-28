@@ -81,6 +81,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 	statuses := vals[testResultsStatus]
 	groupID := vals.Get(testResultsGroupID)
 	sortBy := vals.Get(testResultsSortBy)
+	baseTaskID := vals.Get(testResultsBaseTaskID)
 	var limit, page int
 	if len(vals[testResultsLimit]) > 0 {
 		var err error
@@ -93,7 +94,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 		catcher.Add(err)
 	}
 
-	if testName == "" && len(statuses) == 0 && groupID == "" && sortBy == "" && limit <= 0 && page <= 0 {
+	if testName == "" && len(statuses) == 0 && groupID == "" && sortBy == "" && baseTaskID == "" && limit <= 0 && page <= 0 {
 		return catcher.Resolve()
 	}
 
@@ -108,7 +109,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 	if vals.Get(testResultsSortDSC) == trueString {
 		h.opts.FilterAndSort.SortOrderDSC = true
 	}
-	if baseTaskID := vals.Get(testResultsBaseTaskID); baseTaskID != "" {
+	if baseTaskID != "" {
 		h.opts.FilterAndSort.BaseResults = &data.TestResultsOptions{
 			TaskID:      baseTaskID,
 			DisplayTask: h.opts.DisplayTask,

@@ -899,6 +899,11 @@ func TestFilterAndSortTestResults(t *testing.T) {
 	data, err := bson.Marshal(&trDoc)
 	require.NoError(t, err)
 	require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+	resultsWithBaseStatus := getResults()
+	require.Len(t, resultsWithBaseStatus, len(trDoc.Results))
+	for i, result := range resultsWithBaseStatus {
+		result.BaseStatus = trDoc.Results[i].Status
+	}
 
 	for _, test := range []struct {
 		name            string
@@ -1086,10 +1091,10 @@ func TestFilterAndSortTestResults(t *testing.T) {
 				BaseResults: &FindTestResultsOptions{TaskID: base.Info.TaskID},
 			},
 			expectedResults: []TestResult{
-				results[1],
-				results[3],
-				results[0],
-				results[2],
+				resultsWithBaseStatus[1],
+				resultsWithBaseStatus[3],
+				resultsWithBaseStatus[0],
+				resultsWithBaseStatus[2],
 			},
 			expectedCount: 4,
 		},
@@ -1101,10 +1106,21 @@ func TestFilterAndSortTestResults(t *testing.T) {
 				BaseResults:  &FindTestResultsOptions{TaskID: base.Info.TaskID},
 			},
 			expectedResults: []TestResult{
-				results[0],
-				results[2],
-				results[1],
-				results[3],
+				resultsWithBaseStatus[0],
+				resultsWithBaseStatus[2],
+				resultsWithBaseStatus[1],
+				resultsWithBaseStatus[3],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "BaseStatus",
+			opts: &FilterAndSortTestResultsOptions{BaseResults: &FindTestResultsOptions{TaskID: base.Info.TaskID}},
+			expectedResults: []TestResult{
+				resultsWithBaseStatus[0],
+				resultsWithBaseStatus[1],
+				resultsWithBaseStatus[2],
+				resultsWithBaseStatus[3],
 			},
 			expectedCount: 4,
 		},
