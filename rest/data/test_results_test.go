@@ -128,6 +128,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 	for _, test := range []struct {
 		name      string
 		opts      TestResultsOptions
+		stats     model.APITestResultsStats
 		resultMap map[string]model.APITestResult
 		hasErr    bool
 	}{
@@ -151,6 +152,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
 			},
+			stats: model.APITestResultsStats{
+				TotalCount:    3,
+				FailedCount:   3,
+				FilteredCount: utility.ToIntPtr(3),
+			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test0": s.apiResults["task1_0_test0"],
 				"task1_0_test1": s.apiResults["task1_0_test1"],
@@ -160,6 +166,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 		{
 			name: "SucceedsWithTaskIDAndNoExecution",
 			opts: TestResultsOptions{TaskID: "task1"},
+			stats: model.APITestResultsStats{
+				TotalCount:    3,
+				FailedCount:   3,
+				FilteredCount: utility.ToIntPtr(3),
+			},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
 				"task1_1_test1": s.apiResults["task1_1_test1"],
@@ -175,6 +186,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 					TestName: "test1",
 				},
 			},
+			stats: model.APITestResultsStats{
+				TotalCount:    3,
+				FailedCount:   3,
+				FilteredCount: utility.ToIntPtr(1),
+			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test1": s.apiResults["task1_0_test1"],
 			},
@@ -185,6 +201,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
+			},
+			stats: model.APITestResultsStats{
+				TotalCount:    6,
+				FailedCount:   6,
+				FilteredCount: utility.ToIntPtr(6),
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test0": s.apiResults["task1_0_test0"],
@@ -200,6 +221,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			opts: TestResultsOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
+			},
+			stats: model.APITestResultsStats{
+				TotalCount:    3,
+				FailedCount:   3,
+				FilteredCount: utility.ToIntPtr(3),
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
@@ -217,6 +243,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				},
 				DisplayTask: true,
 			},
+			stats: model.APITestResultsStats{
+				TotalCount:    6,
+				FailedCount:   6,
+				FilteredCount: utility.ToIntPtr(2),
+			},
 			resultMap: map[string]model.APITestResult{
 				"task1_0_test2": s.apiResults["task1_0_test2"],
 				"task2_0_test2": s.apiResults["task2_0_test2"],
@@ -224,16 +255,17 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
-			actualResults, err := s.sc.FindTestResults(s.ctx, test.opts)
+			actualResult, err := s.sc.FindTestResults(s.ctx, test.opts)
 
 			if test.hasErr {
-				s.Nil(actualResults)
+				s.Nil(actualResult)
 				s.Error(err)
 			} else {
 				s.Require().NoError(err)
 
-				s.Len(actualResults, len(test.resultMap))
-				for _, result := range actualResults {
+				s.Equal(test.stats, actualResult.Stats)
+				s.Len(actualResult.Results, len(test.resultMap))
+				for _, result := range actualResult.Results {
 					key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
 					expected, ok := test.resultMap[key]
 					s.Require().True(ok)

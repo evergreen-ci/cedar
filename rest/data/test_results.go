@@ -15,8 +15,13 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
-	results, _, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBFindAndDownloadTestResultsOptions(opts))
+func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) (*model.APITestResults, error) {
+	apiStats, err := dbc.GetTestResultsStats(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	results, filteredCount, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBFindAndDownloadTestResultsOptions(opts))
 	if db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
@@ -29,7 +34,22 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 		}
 	}
 
-	return importTestResults(ctx, results)
+	if err = apiStats.Import(filteredCount); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrapf(err, "importing stats into APITestResultsStats struct").Error(),
+		}
+	}
+
+	apiResults, err := importTestResults(ctx, results)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.APITestResults{
+		Stats:   *apiStats,
+		Results: apiResults,
+	}, nil
 }
 
 func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
@@ -78,7 +98,7 @@ func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResult
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) ([]model.APITestResult, error) {
+func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) (*model.APITestResults, error) {
 	return nil, errors.New("not implemented")
 }
 
