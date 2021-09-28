@@ -69,7 +69,7 @@ func (a *APITestResult) Import(i interface{}) error {
 type APITestResultsStats struct {
 	TotalCount    int  `json:"total_count"`
 	FailedCount   int  `json:"failed_count"`
-	FilteredCount *int `json:"filter_count,omitempty"`
+	FilteredCount *int `json:"filtered_count,omitempty"`
 }
 
 // Import transforms a TestResultsStats object into an APITestResultsStats
