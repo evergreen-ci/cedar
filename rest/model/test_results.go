@@ -6,6 +6,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// APITestResults describes a set of test results and related information.
+type APITestResults struct {
+	Stats   APITestResultsStats `json:"stats"`
+	Results []APITestResult     `json:"results"`
+}
+
 // APITestResult describes a single test result.
 type APITestResult struct {
 	TaskID          *string `json:"task_id"`
@@ -61,8 +67,9 @@ func (a *APITestResult) Import(i interface{}) error {
 
 // APITTestResultsStats describes basic stats for a group of test results.
 type APITestResultsStats struct {
-	TotalCount  int `json:"total_count"`
-	FailedCount int `json:"failed_count"`
+	TotalCount    int  `json:"total_count"`
+	FailedCount   int  `json:"failed_count"`
+	FilteredCount *int `json:"filter_count,omitempty"`
 }
 
 // Import transforms a TestResultsStats object into an APITestResultsStats
@@ -72,6 +79,8 @@ func (a *APITestResultsStats) Import(i interface{}) error {
 	case dbModel.TestResultsStats:
 		a.TotalCount = stats.TotalCount
 		a.FailedCount = stats.FailedCount
+	case int:
+		a.FilteredCount = utility.ToIntPtr(stats)
 	default:
 		return errors.New("incorrect type when converting to APITTestResultsStats type")
 	}

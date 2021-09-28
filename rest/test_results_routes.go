@@ -56,6 +56,9 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 type testResultsGetByTaskIDHandler struct {
 	sc data.Connector
 	testResultsBaseHandler
+	// TODO: (EVG-15263) Remove this once evg is safely switched to new
+	// REST client.
+	stats bool
 }
 
 func makeGetTestResultsByTaskID(sc data.Connector) gimlet.RouteHandler {
@@ -108,6 +111,9 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 			DisplayTask: h.opts.DisplayTask,
 		}
 	}
+	if vals.Get("stats") == trueString {
+		h.stats = true
+	}
 
 	return catcher.Resolve()
 }
@@ -134,7 +140,12 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	resp := gimlet.NewJSONResponse(testResults)
+	var resp gimlet.Responder
+	if h.stats {
+		resp = gimlet.NewJSONResponse(testResults)
+	} else {
+		resp = gimlet.NewJSONResponse(testResults.Results)
+	}
 	if h.opts.FilterAndSort != nil && h.opts.FilterAndSort.Limit > 0 {
 		pages := &gimlet.ResponsePages{
 			Prev: &gimlet.Page{
@@ -146,7 +157,7 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 				Relation:        "prev",
 			},
 		}
-		if len(testResults) > 0 {
+		if len(testResults.Results) > 0 {
 			pages.Next = &gimlet.Page{
 				BaseURL:         h.sc.GetBaseURL(),
 				KeyQueryParam:   testResultsPage,
@@ -298,7 +309,7 @@ func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.R
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	return gimlet.NewJSONResponse(testResults)
+	return gimlet.NewJSONResponse(testResults.Results)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -344,7 +355,7 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 
 // Run finds and returns the desired test result.
 func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	results, err := h.sc.FindTestResults(ctx, h.opts)
+	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "getting test result by task_id '%s' and test_name '%s'", h.opts.TaskID, h.opts.FilterAndSort.TestName)
 		grip.Error(message.WrapError(err, message.Fields{
@@ -357,11 +368,11 @@ func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Respond
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 
-	if len(results) == 0 {
+	if len(testResults.Results) == 0 {
 		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
 			Message:    "test result not found",
 		})
 	}
-	return gimlet.NewJSONResponse(&results[0])
+	return gimlet.NewJSONResponse(&testResults.Results[0])
 }
