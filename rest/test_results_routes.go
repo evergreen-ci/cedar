@@ -74,6 +74,9 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 
 	catcher.Add(h.testResultsBaseHandler.Parse(ctx, r))
 	vals := r.URL.Query()
+	if vals.Get("stats") == trueString {
+		h.stats = true
+	}
 	testName := vals.Get(testResultsTestName)
 	statuses := vals[testResultsStatus]
 	groupID := vals.Get(testResultsGroupID)
@@ -110,9 +113,6 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 			TaskID:      baseTaskID,
 			DisplayTask: h.opts.DisplayTask,
 		}
-	}
-	if vals.Get("stats") == trueString {
-		h.stats = true
 	}
 
 	return catcher.Resolve()
