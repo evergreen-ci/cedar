@@ -901,8 +901,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 	require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 	resultsWithBaseStatus := getResults()
 	require.Len(t, resultsWithBaseStatus, len(trDoc.Results))
-	for i, result := range resultsWithBaseStatus {
-		result.BaseStatus = trDoc.Results[i].Status
+	for i := range resultsWithBaseStatus {
+		resultsWithBaseStatus[i].BaseStatus = trDoc.Results[i].Status
 	}
 
 	for _, test := range []struct {
