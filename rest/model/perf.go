@@ -7,6 +7,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// APIPerformanceResultExists describes a single result of a performance test from
+// Evergreen.
+type APIPerformanceResultExists struct {
+	Name   string `json:"name"`
+	Exists bool   `json:"exists"`
+}
+
 // APIPerformanceResult describes a single result of a performance test from
 // Evergreen.
 type APIPerformanceResult struct {
