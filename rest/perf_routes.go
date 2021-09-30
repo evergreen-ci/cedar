@@ -191,7 +191,7 @@ func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) err
 }
 
 // Run calls the data FindPerformanceResults function and returns the
-// number of PerformanceResults fount
+// number of PerformanceResults found
 func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
