@@ -204,15 +204,16 @@ func (h *perfExistsByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	if len(perfResults) > 0 {
-		existResult := model.APIPerformanceResultExists{
-			Name:   h.opts.TaskID,
-			Exists: true,
-		}
-		return gimlet.NewJSONResponse(existResult)
+	if len(perfResults) == 0 {
+		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
+			StatusCode: http.StatusNotFound,
+			Message:    "no perf results found",
+		})
 	}
-
-	return gimlet.MakeTextErrorResponder(errors.New("no perf results found"))
+	existResult := model.APIPerformanceResultExists{
+		NumberOfResults: len(perfResults),
+	}
+	return gimlet.NewJSONResponse(existResult)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

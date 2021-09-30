@@ -107,13 +107,14 @@ func (s *PerfHandlerSuite) setup() {
 		"def": []string{"jkl"},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
-		"id":            makeGetPerfById(&s.sc),
-		"remove":        makeRemovePerfById(&s.sc),
-		"task_id":       makeGetPerfByTaskId(&s.sc),
-		"task_name":     makeGetPerfByTaskName(&s.sc),
-		"version":       makeGetPerfByVersion(&s.sc),
-		"children":      makeGetPerfChildren(&s.sc),
-		"change_points": makePerfSignalProcessingRecalculate(&s.sc),
+		"id":             makeGetPerfById(&s.sc),
+		"remove":         makeRemovePerfById(&s.sc),
+		"task_id":        makeGetPerfByTaskId(&s.sc),
+		"task_id_exists": makeExistsPerfByTaskId(&s.sc),
+		"task_name":      makeGetPerfByTaskName(&s.sc),
+		"version":        makeGetPerfByVersion(&s.sc),
+		"children":       makeGetPerfChildren(&s.sc),
+		"change_points":  makePerfSignalProcessingRecalculate(&s.sc),
 	}
 	s.apiResults = map[string]datamodel.APIPerformanceResult{}
 	for key, val := range s.sc.CachedPerformanceResults {
@@ -184,6 +185,30 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).opts.TaskID = "555"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfExistsByTaskIdHandlerFound() {
+	rh := s.rh["task_id_exists"]
+	rh.(*perfExistsByTaskIdHandler).opts.TaskID = "123"
+	rh.(*perfExistsByTaskIdHandler).opts.Tags = []string{"d"}
+	expected := datamodel.APIPerformanceResultExists{
+		NumberOfResults: 1,
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+}
+
+func (s *PerfHandlerSuite) TestPerfExistsByTaskIdHandlerNotFound() {
+	rh := s.rh["task_id_exists"]
+	rh.(*perfExistsByTaskIdHandler).opts.TaskID = "555"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)

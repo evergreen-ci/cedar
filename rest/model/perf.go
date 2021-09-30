@@ -10,8 +10,7 @@ import (
 // APIPerformanceResultExists describes a single result of a performance test from
 // Evergreen.
 type APIPerformanceResultExists struct {
-	Name   string `json:"name"`
-	Exists bool   `json:"exists"`
+	NumberOfResults int `json:"number_of_results"`
 }
 
 // APIPerformanceResult describes a single result of a performance test from
