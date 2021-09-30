@@ -163,6 +163,55 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// GET /perf/task_id/{task_id}/count
+
+type perfCountByTaskIdHandler struct {
+	opts data.PerformanceOptions
+	sc   data.Connector
+}
+
+func makeCountPerfByTaskId(sc data.Connector) gimlet.RouteHandler {
+	return &perfCountByTaskIdHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new perfCountByTaskIdHandler.
+func (h *perfCountByTaskIdHandler) Factory() gimlet.RouteHandler {
+	return &perfCountByTaskIdHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the task_id from the http request.
+func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
+	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
+	h.opts.Tags = r.URL.Query()[tags]
+	return nil
+}
+
+// Run calls the data FindPerformanceResults function and returns the
+// number of PerformanceResults found
+func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
+	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
+	if err != nil {
+		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "GET",
+			"route":   "/perf/task_id/{task_id}/exists",
+			"task_id": h.opts.TaskID,
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+	countResult := model.APIPerformanceResultCount{
+		NumberOfResults: len(perfResults),
+	}
+	return gimlet.NewJSONResponse(countResult)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // GET /perf/task_name/{task_name}
 
 type perfGetByTaskNameHandler struct {

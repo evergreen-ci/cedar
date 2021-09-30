@@ -110,6 +110,7 @@ func (s *PerfHandlerSuite) setup() {
 		"id":            makeGetPerfById(&s.sc),
 		"remove":        makeRemovePerfById(&s.sc),
 		"task_id":       makeGetPerfByTaskId(&s.sc),
+		"task_id_count": makeCountPerfByTaskId(&s.sc),
 		"task_name":     makeGetPerfByTaskName(&s.sc),
 		"version":       makeGetPerfByVersion(&s.sc),
 		"children":      makeGetPerfChildren(&s.sc),
@@ -184,6 +185,30 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerFound() {
 func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id"]
 	rh.(*perfGetByTaskIdHandler).opts.TaskID = "555"
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.NotEqual(http.StatusOK, resp.Status())
+}
+
+func (s *PerfHandlerSuite) TestPerfCountByTaskIdHandlerFound() {
+	rh := s.rh["task_id_count"]
+	rh.(*perfCountByTaskIdHandler).opts.TaskID = "123"
+	rh.(*perfCountByTaskIdHandler).opts.Tags = []string{"d"}
+	expected := datamodel.APIPerformanceResultCount{
+		NumberOfResults: 1,
+	}
+
+	resp := rh.Run(context.TODO())
+	s.Require().NotNil(resp)
+	s.Equal(http.StatusOK, resp.Status())
+	s.Require().NotNil(resp.Data())
+	s.Equal(expected, resp.Data())
+}
+
+func (s *PerfHandlerSuite) TestPerfCountByTaskIdHandlerNotFound() {
+	rh := s.rh["task_id_count"]
+	rh.(*perfCountByTaskIdHandler).opts.TaskID = "555"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
