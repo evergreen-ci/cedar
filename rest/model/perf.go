@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// APIPerformanceResultExists describes a single result of a performance test from
+// APIPerformanceResultCount describes a single result of a performance test from
 // Evergreen.
-type APIPerformanceResultExists struct {
+type APIPerformanceResultCount struct {
 	NumberOfResults int `json:"number_of_results"`
 }
 

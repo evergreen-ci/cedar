@@ -163,36 +163,36 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /perf/task_id/{task_id}/exists
+// GET /perf/task_id/{task_id}/count
 
-type perfExistsByTaskIdHandler struct {
+type perfCountByTaskIdHandler struct {
 	opts data.PerformanceOptions
 	sc   data.Connector
 }
 
-func makeExistsPerfByTaskId(sc data.Connector) gimlet.RouteHandler {
-	return &perfExistsByTaskIdHandler{
+func makeCountPerfByTaskId(sc data.Connector) gimlet.RouteHandler {
+	return &perfCountByTaskIdHandler{
 		sc: sc,
 	}
 }
 
-// Factory returns a pointer to a new perfGetByTaskIdHandler.
-func (h *perfExistsByTaskIdHandler) Factory() gimlet.RouteHandler {
-	return &perfExistsByTaskIdHandler{
+// Factory returns a pointer to a new perfCountByTaskIdHandler.
+func (h *perfCountByTaskIdHandler) Factory() gimlet.RouteHandler {
+	return &perfCountByTaskIdHandler{
 		sc: h.sc,
 	}
 }
 
 // Parse fetches the task_id from the http request.
-func (h *perfExistsByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
+func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.Tags = r.URL.Query()[tags]
 	return nil
 }
 
 // Run calls the data FindPerformanceResults function and returns the
-// PerformanceResults from the provider.
-func (h *perfExistsByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
+// number of PerformanceResults fount
+func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
@@ -204,16 +204,10 @@ func (h *perfExistsByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	if len(perfResults) == 0 {
-		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "no perf results found",
-		})
-	}
-	existResult := model.APIPerformanceResultExists{
+	countResult := model.APIPerformanceResultCount{
 		NumberOfResults: len(perfResults),
 	}
-	return gimlet.NewJSONResponse(existResult)
+	return gimlet.NewJSONResponse(countResult)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
