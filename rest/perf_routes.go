@@ -199,7 +199,7 @@ func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
-			"route":   "/perf/task_id/{task_id}/exists",
+			"route":   "/perf/task_id/{task_id}/count",
 			"task_id": h.opts.TaskID,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
