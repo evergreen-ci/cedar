@@ -348,7 +348,7 @@ func (args PerformanceArguments) MarshalBSON() ([]byte, error) {
 	// If the arguments map is empty or only has one item, we can just use
 	// the default marshaler.
 	if len(args) < 2 {
-		return bson.Marshal(args)
+		return bson.Marshal(map[string]int32(args))
 	}
 
 	sortedArgs := bson.D{}
