@@ -345,6 +345,12 @@ var (
 type PerformanceArguments map[string]int32
 
 func (args PerformanceArguments) MarshalBSON() ([]byte, error) {
+	// If the arguments map is empty or only has one item, we can just use
+	// the default marshaler.
+	if len(args) < 2 {
+		return bson.Marshal(args)
+	}
+
 	sortedArgs := bson.D{}
 	for key, value := range args {
 		sortedArgs = append(sortedArgs, bson.E{Key: key, Value: value})
