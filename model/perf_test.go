@@ -418,20 +418,43 @@ func TestPerfClose(t *testing.T) {
 	})
 }
 
-func TestPerformanceArgumentsBSONMarshal(t *testing.T) {
-	args := PerformanceArguments{"spruce": 2, "evergreen": 0, "cedar": 1}
-	data, err := bson.Marshal(&args)
-	require.NoError(t, err)
+func TestPerformanceArgumentsBSONMarshalValue(t *testing.T) {
+	t.Run("UnsortedArguments", func(t *testing.T) {
+		args := PerformanceArguments{"spruce": 2, "evergreen": 0, "cedar": 1}
+		_, data, err := bson.MarshalValue(args)
+		require.NoError(t, err)
 
-	var out bson.D
-	require.NoError(t, bson.Unmarshal(data, &out))
-	require.Len(t, out, len(args))
-	for _, elem := range out {
-		assert.Equal(t, args[elem.Key], elem.Value)
-	}
-	assert.True(t, sort.SliceIsSorted(out, func(i, j int) bool {
-		return out[i].Key < out[j].Key
-	}))
+		var out bson.D
+		require.NoError(t, bson.Unmarshal(data, &out))
+		require.Len(t, out, len(args))
+		for _, elem := range out {
+			assert.Equal(t, args[elem.Key], elem.Value)
+		}
+		assert.True(t, sort.SliceIsSorted(out, func(i, j int) bool {
+			return out[i].Key < out[j].Key
+		}))
+	})
+	t.Run("EmptyArguments", func(t *testing.T) {
+		args := PerformanceArguments{}
+		doc := bson.M{"args": args}
+		data, err := bson.Marshal(&doc)
+		require.NoError(t, err)
+
+		var out PerformanceResultInfo
+		require.NoError(t, bson.Unmarshal(data, &out))
+		assert.NotNil(t, out.Arguments)
+		assert.Empty(t, out.Arguments)
+	})
+	t.Run("NilArguments", func(t *testing.T) {
+		var args PerformanceArguments
+		doc := bson.M{"args": args}
+		data, err := bson.Marshal(&doc)
+		require.NoError(t, err)
+
+		var out PerformanceResultInfo
+		require.NoError(t, bson.Unmarshal(data, &out))
+		assert.Nil(t, out.Arguments)
+	})
 }
 
 func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
