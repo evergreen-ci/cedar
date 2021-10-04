@@ -350,7 +350,8 @@ func (args PerformanceArguments) MarshalBSONValue() (bsontype.Type, []byte, erro
 	// implementation of the bson.ValueMarshaler (see
 	// `https://github.com/mongodb/mongo-go-driver/blob/v1.7.2/bson/bsoncodec/default_value_encoders.go#L767`
 	// for more information), when it is nil we need to first cast it to a
-	// map[string]int32 and then call bson.MarshalValue.
+	// map[string]int32 and then call bson.MarshalValue to get the desired
+	// null BSON value.
 	if args == nil {
 		return bson.MarshalValue(map[string]int32(args))
 	}
