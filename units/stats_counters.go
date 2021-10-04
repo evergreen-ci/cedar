@@ -24,8 +24,8 @@ type statsCacheLoggerJob struct {
 	job.Base `bson:"job_base" json:"job_base" yaml:"job_base"`
 }
 
-// NewLocalAmboyStatsCollector reports the status of only the local queue
-// registered in the evergreen service Environment.
+// NewStatsCacheLogger logs stats for each of the stats caches
+// in the cache registry
 func NewStatsCacheLogger(id string) amboy.Job {
 	j := makeStatsCacheLogger()
 	j.SetID(fmt.Sprintf("%s-%s", statsCacheLoggerJobName, id))

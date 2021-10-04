@@ -7,15 +7,19 @@ import (
 	"github.com/mongodb/grip/message"
 )
 
-var CacheRegistry []StatsCache
-
+// StatsCache aggregates and logs stats about a service
 type StatsCache interface {
 	LogStats()
 }
 
-var buildLoggerCache *buildloggerStatsCache
-var testResultsCache *testResultsStatsCache
-var perfCache *perfStatsCache
+var (
+	// CacheRegistry holds instances of each of the stats caches in-memory
+	CacheRegistry []StatsCache
+
+	buildLoggerCache *buildloggerStatsCache
+	testResultsCache *testResultsStatsCache
+	perfCache        *perfStatsCache
+)
 
 func init() {
 	buildLoggerCache = newBuildLoggerStatsCache()
@@ -28,121 +32,124 @@ func init() {
 }
 
 type buildloggerStatsCache struct {
-	Lock sync.Mutex
+	mu sync.Mutex
 
-	TotalLines     int
-	LinesByVersion map[string]int
-	LinesByProject map[string]int
+	totalLines     int
+	linesByVersion map[string]int
+	linesByProject map[string]int
 }
 
 func newBuildLoggerStatsCache() *buildloggerStatsCache {
 	return &buildloggerStatsCache{
-		LinesByVersion: make(map[string]int),
-		LinesByProject: make(map[string]int),
+		linesByVersion: make(map[string]int),
+		linesByProject: make(map[string]int),
 	}
 }
 
+// LogStats logs a message with buildlogger stats
 func (b *buildloggerStatsCache) LogStats() {
-	b.Lock.Lock()
-	defer b.Lock.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	grip.InfoWhen(b.TotalLines > 0, message.Fields{
+	grip.Info(message.Fields{
 		"message":          "buildlogger counts",
-		"total_lines":      b.TotalLines,
-		"lines_by_project": b.LinesByProject,
-		"lines_by_version": b.LinesByVersion,
+		"total_lines":      b.totalLines,
+		"lines_by_project": b.linesByProject,
+		"lines_by_version": b.linesByVersion,
 	})
 
-	b.TotalLines = 0
-	b.LinesByVersion = make(map[string]int)
-	b.LinesByProject = make(map[string]int)
+	b.totalLines = 0
+	b.linesByVersion = make(map[string]int)
+	b.linesByProject = make(map[string]int)
 }
 
 func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
-	b.Lock.Lock()
-	defer b.Lock.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	b.TotalLines += count
-	b.LinesByProject[l.Info.Project] += count
-	b.LinesByVersion[l.Info.Version] += count
+	b.totalLines += count
+	b.linesByProject[l.Info.Project] += count
+	b.linesByVersion[l.Info.Version] += count
 }
 
 type testResultsStatsCache struct {
-	Lock sync.Mutex
+	mu sync.Mutex
 
-	TotalResults     int
-	ResultsByVersion map[string]int
-	ResultsByProject map[string]int
+	totalResults     int
+	resultsByVersion map[string]int
+	resultsByProject map[string]int
 }
 
 func newTestResultsStatsCache() *testResultsStatsCache {
 	return &testResultsStatsCache{
-		ResultsByVersion: make(map[string]int),
-		ResultsByProject: make(map[string]int),
+		resultsByVersion: make(map[string]int),
+		resultsByProject: make(map[string]int),
 	}
 }
 
+// LogStats logs a message with test results stats
 func (r *testResultsStatsCache) LogStats() {
-	r.Lock.Lock()
-	defer r.Lock.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	grip.InfoWhen(r.TotalResults > 0, message.Fields{
+	grip.Info(message.Fields{
 		"message":            "test results counts",
-		"total_results":      r.TotalResults,
-		"results_by_project": r.ResultsByProject,
-		"results_by_version": r.ResultsByVersion,
+		"total_results":      r.totalResults,
+		"results_by_project": r.resultsByProject,
+		"results_by_version": r.resultsByVersion,
 	})
 
-	r.TotalResults = 0
-	r.ResultsByVersion = make(map[string]int)
-	r.ResultsByProject = make(map[string]int)
+	r.totalResults = 0
+	r.resultsByVersion = make(map[string]int)
+	r.resultsByProject = make(map[string]int)
 }
 
 func (r *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
-	r.Lock.Lock()
-	defer r.Lock.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	r.TotalResults += count
-	r.ResultsByProject[t.Info.Project] += count
-	r.ResultsByVersion[t.Info.Version] += count
+	r.totalResults += count
+	r.resultsByProject[t.Info.Project] += count
+	r.resultsByVersion[t.Info.Version] += count
 }
 
 type perfStatsCache struct {
-	Lock sync.Mutex
+	mu sync.Mutex
 
-	TotalArtifacts     int
-	ArtifactsByVersion map[string]int
-	ArtifactsByProject map[string]int
+	totalArtifacts     int
+	artifactsByVersion map[string]int
+	artifactsByProject map[string]int
 }
 
 func newPerfStatsCacheStatsCache() *perfStatsCache {
 	return &perfStatsCache{
-		ArtifactsByVersion: make(map[string]int),
-		ArtifactsByProject: make(map[string]int),
+		artifactsByVersion: make(map[string]int),
+		artifactsByProject: make(map[string]int),
 	}
 }
 
+// LogStats logs a message with perf stats
 func (p *perfStatsCache) LogStats() {
-	p.Lock.Lock()
-	defer p.Lock.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	grip.InfoWhen(p.TotalArtifacts > 0, message.Fields{
+	grip.Info(message.Fields{
 		"message":              "perf counts",
-		"total_artifacts":      p.TotalArtifacts,
-		"artifacts_by_project": p.ArtifactsByProject,
-		"artifacts_by_version": p.ArtifactsByVersion,
+		"total_artifacts":      p.totalArtifacts,
+		"artifacts_by_project": p.artifactsByProject,
+		"artifacts_by_version": p.artifactsByVersion,
 	})
 
-	p.TotalArtifacts = 0
-	p.ArtifactsByVersion = make(map[string]int)
-	p.ArtifactsByProject = make(map[string]int)
+	p.totalArtifacts = 0
+	p.artifactsByVersion = make(map[string]int)
+	p.artifactsByProject = make(map[string]int)
 }
 
 func (p *perfStatsCache) addArtifactsCount(r *PerformanceResult, count int) {
-	p.Lock.Lock()
-	defer p.Lock.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	p.TotalArtifacts += count
-	p.ArtifactsByVersion[r.Info.Project] += count
-	p.ArtifactsByProject[r.Info.Version] += count
+	p.totalArtifacts += count
+	p.artifactsByVersion[r.Info.Project] += count
+	p.artifactsByProject[r.Info.Version] += count
 }
