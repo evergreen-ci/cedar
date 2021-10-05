@@ -29,7 +29,7 @@ type PerformanceResultSeriesID struct {
 	Task        string               `bson:"task"`
 	Test        string               `bson:"test"`
 	Measurement string               `bson:"measurement"`
-	Arguments   PerformanceArguments `bson:"args"`
+	Arguments   PerformanceArguments `bson:"args,omitempty"`
 }
 
 // String creates a string representation of a performance result series ID.
