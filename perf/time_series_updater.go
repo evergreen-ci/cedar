@@ -62,12 +62,17 @@ func (spc *performanceAnalysisAndTriageClient) ReportUpdatedTimeSeries(ctx conte
 	startAt := time.Now()
 	series.GUID = utility.RandomString()
 
+	grip.Info(message.Fields{
+		"message": "attempting to report time series to performance analysis and triage service",
+		"update":  series,
+	})
+
 	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/time_series/update", ctx, series); err != nil {
 		return errors.WithStack(err)
 	}
 
 	grip.Info(message.Fields{
-		"message":       "Reported updated time series to performance analysis and triage service",
+		"message":       "reported updated time series to performance analysis and triage service",
 		"update":        series,
 		"duration_secs": time.Since(startAt).Seconds(),
 	})
