@@ -66,7 +66,7 @@ func (j *periodicTimeSeriesJob) Run(ctx context.Context) {
 	duplicateIDCounts := map[string]int{}
 	for _, id := range needUpdates {
 		if seenIDs[id.String()] {
-			duplicateIDMap[id.String()] += 1
+			duplicateIDCounts[id.String()] += 1
 		}
 		seenIDs[id.String()] = true
 
