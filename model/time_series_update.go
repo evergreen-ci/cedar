@@ -103,6 +103,9 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 			},
 		},
 		{
+			"$limit": 1000,
+		},
+		{
 			"$group": bson.M{
 				"_id": bson.M{
 					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
@@ -111,6 +114,9 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 				},
 			},
+		},
+		{
+			"$limit": 150,
 		},
 		{
 			"$replaceRoot": bson.M{
