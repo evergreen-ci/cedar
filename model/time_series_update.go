@@ -102,6 +102,11 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 				},
 			},
 		},
+		// Limit the number of perf results we match against to avoid
+		// long execution times.
+		{
+			"$limit": 1000,
+		},
 		{
 			"$group": bson.M{
 				"_id": bson.M{
@@ -111,6 +116,12 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 				},
 			},
+		},
+		// In order to avoid overwhelming the Signal Processing Service
+		// with requests, we need to limit the number of backlog
+		// updates sent during periodic backfill jobs.
+		{
+			"$limit": 150,
 		},
 		{
 			"$replaceRoot": bson.M{
