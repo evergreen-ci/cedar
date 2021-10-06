@@ -13,6 +13,7 @@ import (
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
+	"github.com/mongodb/grip/message"
 )
 
 const periodicTimeSeriesUpdateJobName = "periodic-time-series-update"
@@ -48,7 +49,6 @@ func NewPeriodicTimeSeriesUpdateJob(id string) amboy.Job {
 }
 
 func (j *periodicTimeSeriesJob) Run(ctx context.Context) {
-
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
@@ -61,10 +61,23 @@ func (j *periodicTimeSeriesJob) Run(ctx context.Context) {
 	if err != nil {
 		j.AddError(errors.Wrap(err, "Unable to get metrics needing time series update"))
 	}
+
+	seenIDs := map[string]bool{}
+	duplicateIDCounts := map[string]int{}
 	for _, id := range needUpdates {
+		if seenIDs[id.String()] {
+			duplicateIDCounts[id.String()] += 1
+		}
+		seenIDs[id.String()] = true
+
 		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewUpdateTimeSeriesJob(id))
 		if err != nil {
 			j.AddError(err)
 		}
 	}
+	grip.Info(message.Fields{
+		"message":            "periodic-time-series-update counts",
+		"need_updates_count": len(needUpdates),
+		"duplicates":         duplicateIDCounts,
+	})
 }

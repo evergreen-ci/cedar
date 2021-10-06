@@ -38,6 +38,7 @@ type TimeSeriesModel struct {
 	Measurement string                `json:"measurement"`
 	Arguments   []ArgumentsModel      `json:"args"`
 	Data        []TimeSeriesDataModel `json:"data"`
+	GUID        string                `json:"guid"`
 }
 
 // PerformanceAnalysisService is the interface for the Performance Analysis Service.
@@ -59,13 +60,19 @@ func NewPerformanceAnalysisService(baseURL, user string, token string) Performan
 // ReportUpdatedTimeSeries takes a TimeSeriesModel and tries to report its data to a PerformanceAnalysisService.
 func (spc *performanceAnalysisAndTriageClient) ReportUpdatedTimeSeries(ctx context.Context, series TimeSeriesModel) error {
 	startAt := time.Now()
+	series.GUID = utility.RandomString()
+
+	grip.Info(message.Fields{
+		"message": "attempting to report time series to performance analysis and triage service",
+		"update":  series,
+	})
 
 	if err := spc.doRequest(http.MethodPost, spc.baseURL+"/time_series/update", ctx, series); err != nil {
 		return errors.WithStack(err)
 	}
 
-	grip.Debug(message.Fields{
-		"message":       "Reported updated time series to performance analysis and triage service",
+	grip.Info(message.Fields{
+		"message":       "reported updated time series to performance analysis and triage service",
 		"update":        series,
 		"duration_secs": time.Since(startAt).Seconds(),
 	})
