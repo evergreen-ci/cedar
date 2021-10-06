@@ -41,12 +41,14 @@ type buildloggerStatsCache struct {
 	totalLines     int
 	linesByVersion map[string]int
 	linesByProject map[string]int
+	linesByTask    map[string]int
 }
 
 func newBuildLoggerStatsCache() *buildloggerStatsCache {
 	return &buildloggerStatsCache{
 		linesByVersion: make(map[string]int),
 		linesByProject: make(map[string]int),
+		linesByTask:    make(map[string]int),
 	}
 }
 
@@ -61,12 +63,14 @@ func (b *buildloggerStatsCache) LogStats() {
 		"total_lines":      b.totalLines,
 		"lines_by_project": topNMap(b.linesByProject, topN),
 		"lines_by_version": topNMap(b.linesByVersion, topN),
+		"lines_by_task":    topNMap(b.linesByTask, topN),
 	})
 
 	b.totalCalls = 0
 	b.totalLines = 0
 	b.linesByVersion = make(map[string]int)
 	b.linesByProject = make(map[string]int)
+	b.linesByTask = make(map[string]int)
 }
 
 func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
@@ -77,6 +81,7 @@ func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
 	b.totalLines += count
 	b.linesByProject[l.Info.Project] += count
 	b.linesByVersion[l.Info.Version] += count
+	b.linesByTask[l.Info.TaskID] += count
 }
 
 type testResultsStatsCache struct {
@@ -86,12 +91,14 @@ type testResultsStatsCache struct {
 	totalResults     int
 	resultsByVersion map[string]int
 	resultsByProject map[string]int
+	resultsByTask    map[string]int
 }
 
 func newTestResultsStatsCache() *testResultsStatsCache {
 	return &testResultsStatsCache{
 		resultsByVersion: make(map[string]int),
 		resultsByProject: make(map[string]int),
+		resultsByTask:    make(map[string]int),
 	}
 }
 
@@ -106,12 +113,14 @@ func (r *testResultsStatsCache) LogStats() {
 		"total_results":      r.totalResults,
 		"results_by_project": topNMap(r.resultsByProject, topN),
 		"results_by_version": topNMap(r.resultsByVersion, topN),
+		"results_by_task":    topNMap(r.resultsByTask, topN),
 	})
 
 	r.totalCalls = 0
 	r.totalResults = 0
 	r.resultsByVersion = make(map[string]int)
 	r.resultsByProject = make(map[string]int)
+	r.resultsByTask = make(map[string]int)
 }
 
 func (r *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
@@ -122,6 +131,7 @@ func (r *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
 	r.totalResults += count
 	r.resultsByProject[t.Info.Project] += count
 	r.resultsByVersion[t.Info.Version] += count
+	r.resultsByTask[t.Info.TaskID] += count
 }
 
 type perfStatsCache struct {
@@ -131,12 +141,14 @@ type perfStatsCache struct {
 	totalArtifacts     int
 	artifactsByVersion map[string]int
 	artifactsByProject map[string]int
+	artifactsByTask    map[string]int
 }
 
 func newPerfStatsCacheStatsCache() *perfStatsCache {
 	return &perfStatsCache{
 		artifactsByVersion: make(map[string]int),
 		artifactsByProject: make(map[string]int),
+		artifactsByTask:    make(map[string]int),
 	}
 }
 
@@ -151,12 +163,14 @@ func (p *perfStatsCache) LogStats() {
 		"total_artifacts":      p.totalArtifacts,
 		"artifacts_by_project": topNMap(p.artifactsByProject, topN),
 		"artifacts_by_version": topNMap(p.artifactsByVersion, topN),
+		"artifacts_by_task":    topNMap(p.artifactsByTask, topN),
 	})
 
 	p.totalCalls = 0
 	p.totalArtifacts = 0
 	p.artifactsByVersion = make(map[string]int)
 	p.artifactsByProject = make(map[string]int)
+	p.artifactsByTask = make(map[string]int)
 }
 
 func (p *perfStatsCache) addArtifactsCount(r *PerformanceResult, count int) {
@@ -167,6 +181,7 @@ func (p *perfStatsCache) addArtifactsCount(r *PerformanceResult, count int) {
 	p.totalArtifacts += count
 	p.artifactsByVersion[r.Info.Project] += count
 	p.artifactsByProject[r.Info.Version] += count
+	p.artifactsByTask[r.Info.TaskID] += count
 }
 
 func topNMap(fullMap map[string]int, n int) map[string]int {
