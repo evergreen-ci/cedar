@@ -102,6 +102,8 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 				},
 			},
 		},
+		// Limit the number of perf results we match against to avoid
+		// long execution times.
 		{
 			"$limit": 1000,
 		},
@@ -115,6 +117,9 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 				},
 			},
 		},
+		// In order to avoid overwhelming the Signal Processing Service
+		// with requests, we need to limit the number of backlog
+		// updates sent during periodic backfill jobs.
 		{
 			"$limit": 150,
 		},
