@@ -9,6 +9,7 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // PerfAnalysis contains information about when the associated performance
@@ -189,6 +190,7 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 // GetPerformanceData queries the database to get the performance result time
 // series data associated with the given series ID.
 func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
+	opts := options.Aggregate().SetAllowDiskUse(true)
 	pipe := []bson.M{
 		{
 			"$match": bson.M{
@@ -229,7 +231,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 			},
 		},
 	}
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "aggregating time series")
 	}
