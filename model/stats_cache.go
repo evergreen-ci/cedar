@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"sort"
-	"sync"
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -30,7 +29,7 @@ var (
 func init() {
 	buildLoggerCache = newBuildLoggerStatsCache()
 	testResultsCache = newTestResultsStatsCache()
-	perfCache = newPerfStatsCacheStatsCache()
+	perfCache = newPerfStatsCache()
 
 	CacheRegistry = append(CacheRegistry, buildLoggerCache)
 	CacheRegistry = append(CacheRegistry, testResultsCache)
@@ -136,103 +135,71 @@ func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
 }
 
 type testResultsStatsCache struct {
-	mu sync.Mutex
-
-	totalCalls       int
-	totalResults     int
-	resultsByVersion map[string]int
-	resultsByProject map[string]int
-	resultsByTask    map[string]int
+	baseCache
 }
 
 func newTestResultsStatsCache() *testResultsStatsCache {
 	return &testResultsStatsCache{
-		resultsByVersion: make(map[string]int),
-		resultsByProject: make(map[string]int),
-		resultsByTask:    make(map[string]int),
+		baseCache: newBaseCache(),
 	}
 }
 
-// LogStats logs a message with test results stats
-func (r *testResultsStatsCache) LogStats() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	grip.Info(message.Fields{
-		"message":            "test results counts",
-		"total_calls":        r.totalCalls,
-		"total_results":      r.totalResults,
-		"results_by_project": topNMap(r.resultsByProject, topN),
-		"results_by_version": topNMap(r.resultsByVersion, topN),
-		"results_by_task":    topNMap(r.resultsByTask, topN),
-	})
-
-	r.totalCalls = 0
-	r.totalResults = 0
-	r.resultsByVersion = make(map[string]int)
-	r.resultsByProject = make(map[string]int)
-	r.resultsByTask = make(map[string]int)
+// LogStats logs a message with buildlogger stats
+func (b *testResultsStatsCache) LogStats() {
+	b.logStats("test results counts")
 }
 
-func (r *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (b *testResultsStatsCache) addResultsCount(t *TestResults, count int) {
+	newStat := stat{
+		count:   count,
+		project: t.Info.Project,
+		version: t.Info.Version,
+		task:    t.Info.TaskID,
+	}
 
-	r.totalCalls++
-	r.totalResults += count
-	r.resultsByProject[t.Info.Project] += count
-	r.resultsByVersion[t.Info.Version] += count
-	r.resultsByTask[t.Info.TaskID] += count
+	select {
+	case b.statChan <- newStat:
+	default:
+		grip.InfoWhen(sometimes.Percent(10), message.Fields{
+			"message": "stats were dropped",
+			"cache":   "test results",
+			"cause":   "stats cache is full",
+		})
+	}
 }
 
 type perfStatsCache struct {
-	mu sync.Mutex
-
-	totalCalls         int
-	totalArtifacts     int
-	artifactsByVersion map[string]int
-	artifactsByProject map[string]int
-	artifactsByTask    map[string]int
+	baseCache
 }
 
-func newPerfStatsCacheStatsCache() *perfStatsCache {
+func newPerfStatsCache() *perfStatsCache {
 	return &perfStatsCache{
-		artifactsByVersion: make(map[string]int),
-		artifactsByProject: make(map[string]int),
-		artifactsByTask:    make(map[string]int),
+		baseCache: newBaseCache(),
 	}
 }
 
-// LogStats logs a message with perf stats
-func (p *perfStatsCache) LogStats() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	grip.Info(message.Fields{
-		"message":              "perf counts",
-		"total_calls":          p.totalCalls,
-		"total_artifacts":      p.totalArtifacts,
-		"artifacts_by_project": topNMap(p.artifactsByProject, topN),
-		"artifacts_by_version": topNMap(p.artifactsByVersion, topN),
-		"artifacts_by_task":    topNMap(p.artifactsByTask, topN),
-	})
-
-	p.totalCalls = 0
-	p.totalArtifacts = 0
-	p.artifactsByVersion = make(map[string]int)
-	p.artifactsByProject = make(map[string]int)
-	p.artifactsByTask = make(map[string]int)
+// LogStats logs a message with buildlogger stats
+func (b *perfStatsCache) LogStats() {
+	b.logStats("perf counts")
 }
 
-func (p *perfStatsCache) addArtifactsCount(r *PerformanceResult, count int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (b *perfStatsCache) addArtifactsCount(r *PerformanceResult, count int) {
+	newStat := stat{
+		count:   count,
+		project: r.Info.Project,
+		version: r.Info.Version,
+		task:    r.Info.TaskID,
+	}
 
-	p.totalCalls++
-	p.totalArtifacts += count
-	p.artifactsByVersion[r.Info.Project] += count
-	p.artifactsByProject[r.Info.Version] += count
-	p.artifactsByTask[r.Info.TaskID] += count
+	select {
+	case b.statChan <- newStat:
+	default:
+		grip.InfoWhen(sometimes.Percent(10), message.Fields{
+			"message": "stats were dropped",
+			"cache":   "perf",
+			"cause":   "stats cache is full",
+		})
+	}
 }
 
 func topNMap(fullMap map[string]int, n int) map[string]int {
