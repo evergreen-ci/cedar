@@ -63,6 +63,8 @@ func newBaseCache() baseCache {
 }
 
 func (b *baseCache) resetCache() {
+	b.calls = 0
+	b.total = 0
 	b.byProject = make(map[string]int)
 	b.byVersion = make(map[string]int)
 	b.byTask = make(map[string]int)
