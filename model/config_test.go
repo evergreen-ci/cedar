@@ -14,11 +14,12 @@ const testDBName = "cedar_test_config"
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
-		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       testDBName,
-		SocketTimeout:      time.Minute,
-		NumWorkers:         2,
-		DisableRemoteQueue: true,
+		MongoDBURI:            "mongodb://localhost:27017",
+		DatabaseName:          testDBName,
+		SocketTimeout:         time.Minute,
+		NumWorkers:            2,
+		DisableRemoteQueue:    true,
+		DisableDBValueCaching: true,
 	})
 	if err != nil {
 		panic(err)
@@ -60,7 +61,7 @@ func TestCedarConfig(t *testing.T) {
 			conf.Setup(env)
 			err = conf.Find()
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "problem finding")
+			assert.Contains(t, err.Error(), "finding")
 		},
 		"SimpleRoundTrip": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
 			conf.Slack.Token = "foo"

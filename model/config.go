@@ -11,8 +11,10 @@ import (
 	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
@@ -199,6 +201,33 @@ type ServiceConfig struct {
 func (c *CedarConfig) Setup(e cedar.Environment) { c.env = e }
 func (c *CedarConfig) IsNil() bool               { return !c.populated }
 func (c *CedarConfig) Find() error {
+	if c.env == nil {
+		return errors.New("cannot find configuration with a nil environment")
+	}
+
+	if value, ok := c.env.GetCachedDBValue(cedarConfigurationID); ok {
+		switch t := value.(type) {
+		case CedarConfig:
+			*c = t
+			return nil
+		default:
+			return errors.Errorf("unrecognized cached cedar config type '%v'", t)
+		}
+	}
+
+	if err := c.find(); err != nil {
+		return err
+	}
+
+	updateChan := make(chan interface{})
+	if ok := c.env.RegisterDBValueCacher(cedarConfigurationID, *c, updateChan); ok {
+		go c.changeStream(updateChan)
+	}
+
+	return nil
+}
+
+func (c *CedarConfig) find() error {
 	conf, session, err := cedar.GetSessionWithConfig(c.env)
 	if err != nil {
 		return errors.WithStack(err)
@@ -210,13 +239,69 @@ func (c *CedarConfig) Find() error {
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find application configuration in the database")
 	} else if err != nil {
-		return errors.Wrap(err, "problem finding app config document")
+		return errors.Wrap(err, "finding app config document")
 	}
 
 	c.populated = true
 	c.Flags.env = c.env
 
 	return nil
+}
+
+func (c *CedarConfig) changeStream(updateChan chan interface{}) {
+	defer recovery.LogStackTraceAndContinue("cedar config updater")
+
+	ctx, cancel := c.env.Context()
+	defer cancel()
+
+	var err error
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		select {
+		case updateChan <- err:
+		case <-ctx.Done():
+		}
+	}()
+
+	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{})
+	if err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "getting configuration collection change stream",
+		}))
+		return
+	}
+	defer func() {
+		if err = stream.Close(nil); err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "closing configuration collection change stream",
+			}))
+		}
+	}()
+
+	for stream.Next(ctx) {
+		updatedConf := &CedarConfig{env: c.env}
+		if err = updatedConf.find(); err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "getting updated configuration",
+			}))
+			return
+		}
+
+		select {
+		case updateChan <- *updatedConf:
+		case <-ctx.Done():
+			return
+		}
+	}
+
+	if err = stream.Err(); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "configuration collection change stream error",
+		}))
+	}
 }
 
 func (c *CedarConfig) Save() error {

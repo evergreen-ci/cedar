@@ -2,6 +2,7 @@ package cedar
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -76,6 +77,9 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 				return nil, errors.Wrap(err, "problem connecting to database")
 			}
 		}
+	}
+	if !conf.DisableDBValueCaching {
+		env.dbValueCache = map[string]interface{}{}
 	}
 
 	if !conf.DisableLocalQueue {
@@ -227,6 +231,8 @@ type Environment interface {
 	GetSession() db.Session
 	GetClient() *mongo.Client
 	GetDB() *mongo.Database
+	RegisterDBValueCacher(string, interface{}, chan interface{}) bool
+	GetCachedDBValue(string) (interface{}, bool)
 	Jasper() jasper.Manager
 
 	GetServerCertVersion() int
@@ -269,6 +275,7 @@ type envState struct {
 	remoteManager     management.Manager
 	ctx               context.Context
 	client            *mongo.Client
+	dbValueCache      map[string]interface{}
 	conf              *Configuration
 	jpm               jasper.Manager
 	serverCertVersion int
@@ -376,6 +383,58 @@ func (c *envState) GetDB() *mongo.Database {
 	}
 
 	return c.client.Database(c.conf.DatabaseName)
+}
+
+func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateChan chan interface{}) bool {
+	c.mutex.Lock()
+	if c.dbValueCache == nil {
+		c.mutex.Unlock()
+		return false
+	}
+	if _, ok := c.dbValueCache[name]; ok {
+		c.mutex.Unlock()
+		return false
+	}
+	c.dbValueCache[name] = val
+	c.mutex.Unlock()
+
+	go func() {
+		defer recovery.LogStackTraceAndContinue(fmt.Sprintf("env database value cache updater for '%s'", name))
+
+		select {
+		case newVal := <-updateChan:
+			c.mutex.Lock()
+			switch newVal.(type) {
+			case error:
+				// If there is an error, we should clear this
+				// value from the cache and exit the goroutine
+				// so the caller knows to register another
+				// value cacher.
+				delete(c.dbValueCache, name)
+				c.mutex.Unlock()
+				return
+			default:
+				c.dbValueCache[name] = newVal
+			}
+			c.mutex.Unlock()
+		case <-c.ctx.Done():
+			return
+		}
+	}()
+
+	return true
+}
+
+func (c *envState) GetCachedDBValue(name string) (interface{}, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.dbValueCache == nil {
+		return nil, false
+	}
+
+	val, ok := c.dbValueCache[name]
+	return val, ok
 }
 
 func (c *envState) GetConf() *Configuration {

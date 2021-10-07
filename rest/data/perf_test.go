@@ -18,11 +18,12 @@ const testDBName = "cedar_rest_data_test"
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
-		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       testDBName,
-		SocketTimeout:      time.Minute,
-		NumWorkers:         2,
-		DisableRemoteQueue: true,
+		MongoDBURI:            "mongodb://localhost:27017",
+		DatabaseName:          testDBName,
+		SocketTimeout:         time.Minute,
+		NumWorkers:            2,
+		DisableRemoteQueue:    true,
+		DisableDBValueCaching: true,
 	})
 	if err != nil {
 		panic(err)
