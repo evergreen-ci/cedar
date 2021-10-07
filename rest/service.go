@@ -305,7 +305,7 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/perf/{id}").Version(1).Delete().Wrap(checkUser).RouteHandler(makeRemovePerfById(s.sc))
 	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))
 	s.app.AddRoute("/perf/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetPerfByTaskId(s.sc))
-	s.app.AddRoute("/perf/task_id/{task_id}/count").Version(1).Get().RouteHandler(makeCountPerfByTaskId(s.sc))
+	s.app.AddRoute("/perf/task_id/{task_id}/{execution}/count").Version(1).Get().RouteHandler(makeCountPerfByTaskId(s.sc))
 	s.app.AddRoute("/perf/task_name/{task_name}").Version(1).Get().RouteHandler(makeGetPerfByTaskName(s.sc))
 	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
 

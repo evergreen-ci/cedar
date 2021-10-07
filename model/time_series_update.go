@@ -9,6 +9,7 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // PerfAnalysis contains information about when the associated performance
@@ -29,7 +30,7 @@ type PerformanceResultSeriesID struct {
 	Task        string               `bson:"task"`
 	Test        string               `bson:"test"`
 	Measurement string               `bson:"measurement"`
-	Arguments   PerformanceArguments `bson:"args"`
+	Arguments   PerformanceArguments `bson:"args,omitempty"`
 }
 
 // String creates a string representation of a performance result series ID.
@@ -102,6 +103,11 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 				},
 			},
 		},
+		// Limit the number of perf results we match against to avoid
+		// long execution times.
+		{
+			"$limit": 1000,
+		},
 		{
 			"$group": bson.M{
 				"_id": bson.M{
@@ -111,6 +117,12 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 				},
 			},
+		},
+		// In order to avoid overwhelming the Signal Processing Service
+		// with requests, we need to limit the number of backlog
+		// updates sent during periodic backfill jobs.
+		{
+			"$limit": 150,
 		},
 		{
 			"$replaceRoot": bson.M{
@@ -178,6 +190,7 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 // GetPerformanceData queries the database to get the performance result time
 // series data associated with the given series ID.
 func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
+	opts := options.Aggregate().SetAllowDiskUse(true)
 	pipe := []bson.M{
 		{
 			"$match": bson.M{
@@ -218,7 +231,7 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 			},
 		},
 	}
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe)
+	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "aggregating time series")
 	}

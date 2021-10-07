@@ -29,12 +29,13 @@ func (s *PerfHandlerSuite) setup() {
 			"abc": model.PerformanceResult{
 				ID: "abc",
 				Info: model.PerformanceResultInfo{
-					Version:  "1",
-					Order:    1,
-					TaskID:   "123",
-					TaskName: "taskname0",
-					Tags:     []string{"a", "b"},
-					Mainline: true,
+					Version:   "1",
+					Order:     1,
+					TaskID:    "123",
+					Execution: 1,
+					TaskName:  "taskname0",
+					Tags:      []string{"a", "b"},
+					Mainline:  true,
 				},
 			},
 			"def": model.PerformanceResult{
@@ -42,12 +43,13 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 1, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
-					Version:  "1",
-					Order:    2,
-					TaskID:   "123",
-					TaskName: "taskname0",
-					Tags:     []string{"a"},
-					Mainline: true,
+					Version:   "1",
+					Order:     2,
+					TaskID:    "123",
+					Execution: 0,
+					TaskName:  "taskname0",
+					Tags:      []string{"a"},
+					Mainline:  true,
 				},
 			},
 			"ghi": model.PerformanceResult{
@@ -55,12 +57,13 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 2, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
-					Version:  "1",
-					Order:    3,
-					TaskID:   "123",
-					TaskName: "taskname0",
-					Tags:     []string{"b"},
-					Mainline: true,
+					Version:   "1",
+					Order:     3,
+					TaskID:    "123",
+					Execution: 0,
+					TaskName:  "taskname0",
+					Tags:      []string{"b"},
+					Mainline:  true,
 				},
 			},
 			"jkl": model.PerformanceResult{
@@ -68,12 +71,13 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 3, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
-					Version:  "1",
-					Order:    4,
-					TaskID:   "123",
-					TaskName: "taskname0",
-					Tags:     []string{"a", "b", "c", "d"},
-					Mainline: true,
+					Version:   "1",
+					Order:     4,
+					TaskID:    "123",
+					Execution: 0,
+					TaskName:  "taskname0",
+					Tags:      []string{"a", "b", "c", "d"},
+					Mainline:  true,
 				},
 			},
 			"lmn": model.PerformanceResult{
@@ -81,11 +85,12 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
-					Version:  "2",
-					Order:    1,
-					TaskID:   "456",
-					TaskName: "taskname1",
-					Mainline: true,
+					Version:   "2",
+					Order:     1,
+					TaskID:    "456",
+					Execution: 0,
+					TaskName:  "taskname1",
+					Mainline:  true,
 				},
 			},
 			"delete": model.PerformanceResult{
@@ -93,11 +98,12 @@ func (s *PerfHandlerSuite) setup() {
 				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 4, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
 				Info: model.PerformanceResultInfo{
-					Version:  "2",
-					Order:    2,
-					TaskID:   "456",
-					TaskName: "taskname1",
-					Mainline: true,
+					Version:   "2",
+					Order:     2,
+					TaskID:    "456",
+					Execution: 0,
+					TaskName:  "taskname1",
+					Mainline:  true,
 				},
 			},
 		},
@@ -194,7 +200,7 @@ func (s *PerfHandlerSuite) TestPerfGetByTaskIdHandlerNotFound() {
 func (s *PerfHandlerSuite) TestPerfCountByTaskIdHandlerFound() {
 	rh := s.rh["task_id_count"]
 	rh.(*perfCountByTaskIdHandler).opts.TaskID = "123"
-	rh.(*perfCountByTaskIdHandler).opts.Tags = []string{"d"}
+	rh.(*perfCountByTaskIdHandler).opts.Execution = 1
 	expected := datamodel.APIPerformanceResultCount{
 		NumberOfResults: 1,
 	}

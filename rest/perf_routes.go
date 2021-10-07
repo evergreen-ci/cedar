@@ -197,10 +197,11 @@ func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
-			"request": gimlet.GetRequestID(ctx),
-			"method":  "GET",
-			"route":   "/perf/task_id/{task_id}/exists",
-			"task_id": h.opts.TaskID,
+			"request":   gimlet.GetRequestID(ctx),
+			"method":    "GET",
+			"route":     "/perf/task_id/{task_id}/{execution}/count",
+			"task_id":   h.opts.TaskID,
+			"execution": h.opts.Execution,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}

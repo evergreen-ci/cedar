@@ -36,7 +36,7 @@ functions:
       working_dir: gopath/src/github.com/evergreen-ci/cedar/
       binary: make
       args: ["${target}"]
-      include_expansions_in_env: ["DISABLE_COVERAGE",  "GO_BIN_PATH", "GOROOT", "RACE_DETECTOR"]
+      include_expansions_in_env: ["DISABLE_COVERAGE", "GOROOT", "RACE_DETECTOR"]
       env:
         AUTH_USER: ${auth_user}
         AUTH_API_KEY: ${auth_api_key}
@@ -211,7 +211,6 @@ buildvariants:
       DISABLE_COVERAGE: true
       RACE_DETECTOR: true
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
-      GO_BIN_PATH: /opt/golang/go1.16/bin/go
       GOROOT: /opt/golang/go1.16
       curator_build: linux-amd64
     run_on:
@@ -221,7 +220,6 @@ buildvariants:
   - name: lint
     display_name: Lint (Arch Linux)
     expansions:
-      GO_BIN_PATH: /opt/golang/go1.16/bin/go
       GOROOT: /opt/golang/go1.16
       DISABLE_COVERAGE: true
     run_on:
@@ -232,7 +230,6 @@ buildvariants:
     display_name: Ubuntu 18.04
     expansions:
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: /opt/golang/go1.16/bin/go
       GOROOT: /opt/golang/go1.16
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
       curator_build: linux-amd64
@@ -244,7 +241,6 @@ buildvariants:
     display_name: macOS
     expansions:
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: /opt/golang/go1.16/bin/go
       GOROOT: /opt/golang/go1.16
       MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-4.2.0.tgz
       curator_build: darwin-amd64
@@ -262,7 +258,6 @@ buildvariants:
     expansions:
       MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2012plus-4.2.0.zip
       DISABLE_COVERAGE: true
-      GO_BIN_PATH: C:/golang/go1.16/bin/go
       GOROOT: C:/golang/go1.16
       curator_build: windows-amd64
     tasks: [ "testGroup" ]
