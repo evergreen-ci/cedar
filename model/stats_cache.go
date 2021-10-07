@@ -1,11 +1,13 @@
 package model
 
 import (
+	"context"
 	"sort"
 	"sync"
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/sometimes"
 )
 
 // StatsCache aggregates and logs stats about a service
@@ -14,6 +16,7 @@ type StatsCache interface {
 }
 
 const topN = 10
+const statChanBuffer = 1000
 
 var (
 	// CacheRegistry holds instances of each of the stats caches in-memory
@@ -34,54 +37,94 @@ func init() {
 	CacheRegistry = append(CacheRegistry, perfCache)
 }
 
-type buildloggerStatsCache struct {
-	mu sync.Mutex
+type stat struct {
+	count   int
+	project string
+	version string
+	task    string
+}
 
-	totalCalls     int
-	totalLines     int
-	linesByVersion map[string]int
-	linesByProject map[string]int
-	linesByTask    map[string]int
+type usageStats struct {
+	calls     int
+	total     int
+	byProject map[string]int
+	byVersion map[string]int
+	byTask    map[string]int
+}
+
+func newUsageStats() usageStats {
+	return usageStats{
+		byProject: make(map[string]int),
+		byVersion: make(map[string]int),
+		byTask:    make(map[string]int),
+	}
+}
+
+func (u *usageStats) addStat(s stat) {
+	u.calls++
+	u.total += s.count
+	u.byProject[s.project] += s.count
+	u.byVersion[s.version] += s.count
+	u.byTask[s.task] += s.count
+}
+
+func (u *usageStats) statsMessage(m string) message.Fields {
+	return message.Fields{
+		"message":    m,
+		"calls":      u.calls,
+		"total":      u.total,
+		"by_project": topNMap(u.byProject, topN),
+		"by_version": topNMap(u.byVersion, topN),
+		"by_task":    topNMap(u.byTask, topN),
+	}
+}
+
+type buildloggerStatsCache struct {
+	statChan chan stat
+	stats    usageStats
 }
 
 func newBuildLoggerStatsCache() *buildloggerStatsCache {
 	return &buildloggerStatsCache{
-		linesByVersion: make(map[string]int),
-		linesByProject: make(map[string]int),
-		linesByTask:    make(map[string]int),
+		statChan: make(chan stat, statChanBuffer),
+		stats:    newUsageStats(),
+	}
+}
+
+func (b *buildloggerStatsCache) consumerLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case nextStat := <-b.statChan:
+			b.stats.addStat(nextStat)
+		}
 	}
 }
 
 // LogStats logs a message with buildlogger stats
 func (b *buildloggerStatsCache) LogStats() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	grip.Info(message.Fields{
-		"message":          "buildlogger counts",
-		"total_calls":      b.totalCalls,
-		"total_lines":      b.totalLines,
-		"lines_by_project": topNMap(b.linesByProject, topN),
-		"lines_by_version": topNMap(b.linesByVersion, topN),
-		"lines_by_task":    topNMap(b.linesByTask, topN),
-	})
-
-	b.totalCalls = 0
-	b.totalLines = 0
-	b.linesByVersion = make(map[string]int)
-	b.linesByProject = make(map[string]int)
-	b.linesByTask = make(map[string]int)
+	grip.Info(b.stats.statsMessage("buildlogger counts"))
+	b.stats = newUsageStats()
 }
 
 func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	newStat := stat{
+		count:   count,
+		project: l.Info.Project,
+		version: l.Info.Version,
+		task:    l.Info.TaskID,
+	}
 
-	b.totalCalls++
-	b.totalLines += count
-	b.linesByProject[l.Info.Project] += count
-	b.linesByVersion[l.Info.Version] += count
-	b.linesByTask[l.Info.TaskID] += count
+	select {
+	case b.statChan <- newStat:
+	default:
+		grip.InfoWhen(sometimes.Percent(10), message.Fields{
+			"message": "stats were dropped",
+			"cache":   "buildlogger",
+			"cause":   "stats cache is full",
+		})
+	}
 }
 
 type testResultsStatsCache struct {
