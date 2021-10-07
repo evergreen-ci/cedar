@@ -44,7 +44,9 @@ type stat struct {
 	task    string
 }
 
-type usageStats struct {
+type baseCache struct {
+	statChan chan stat
+
 	calls     int
 	total     int
 	byProject map[string]int
@@ -52,60 +54,66 @@ type usageStats struct {
 	byTask    map[string]int
 }
 
-func newUsageStats() usageStats {
-	return usageStats{
+func newBaseCache() baseCache {
+	return baseCache{
+		statChan:  make(chan stat, statChanBuffer),
 		byProject: make(map[string]int),
 		byVersion: make(map[string]int),
 		byTask:    make(map[string]int),
 	}
 }
 
-func (u *usageStats) addStat(s stat) {
-	u.calls++
-	u.total += s.count
-	u.byProject[s.project] += s.count
-	u.byVersion[s.version] += s.count
-	u.byTask[s.task] += s.count
+func (b *baseCache) resetCache() {
+	b.byProject = make(map[string]int)
+	b.byVersion = make(map[string]int)
+	b.byTask = make(map[string]int)
 }
 
-func (u *usageStats) statsMessage(m string) message.Fields {
-	return message.Fields{
+func (b *baseCache) addStat(s stat) {
+	b.calls++
+	b.total += s.count
+	b.byProject[s.project] += s.count
+	b.byVersion[s.version] += s.count
+	b.byTask[s.task] += s.count
+}
+
+func (b *baseCache) logStats(m string) {
+	grip.Info(message.Fields{
 		"message":    m,
-		"calls":      u.calls,
-		"total":      u.total,
-		"by_project": topNMap(u.byProject, topN),
-		"by_version": topNMap(u.byVersion, topN),
-		"by_task":    topNMap(u.byTask, topN),
-	}
+		"calls":      b.calls,
+		"total":      b.total,
+		"by_project": topNMap(b.byProject, topN),
+		"by_version": topNMap(b.byVersion, topN),
+		"by_task":    topNMap(b.byTask, topN),
+	})
+
+	b.resetCache()
 }
 
-type buildloggerStatsCache struct {
-	statChan chan stat
-	stats    usageStats
-}
-
-func newBuildLoggerStatsCache() *buildloggerStatsCache {
-	return &buildloggerStatsCache{
-		statChan: make(chan stat, statChanBuffer),
-		stats:    newUsageStats(),
-	}
-}
-
-func (b *buildloggerStatsCache) consumerLoop(ctx context.Context) {
+func (b *baseCache) consumerLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case nextStat := <-b.statChan:
-			b.stats.addStat(nextStat)
+			b.addStat(nextStat)
 		}
+	}
+}
+
+type buildloggerStatsCache struct {
+	baseCache
+}
+
+func newBuildLoggerStatsCache() *buildloggerStatsCache {
+	return &buildloggerStatsCache{
+		baseCache: newBaseCache(),
 	}
 }
 
 // LogStats logs a message with buildlogger stats
 func (b *buildloggerStatsCache) LogStats() {
-	grip.Info(b.stats.statsMessage("buildlogger counts"))
-	b.stats = newUsageStats()
+	b.logStats("buildlogger counts")
 }
 
 func (b *buildloggerStatsCache) addLogLinesCount(l *Log, count int) {
