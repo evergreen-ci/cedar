@@ -15,7 +15,7 @@ type StatsCache interface {
 }
 
 const topN = 10
-const statChanBuffer = 1000
+const statChanBufferSize = 1000
 
 var (
 	// CacheRegistry holds instances of each of the stats caches in-memory
@@ -55,7 +55,7 @@ type baseCache struct {
 
 func newBaseCache() baseCache {
 	return baseCache{
-		statChan:  make(chan stat, statChanBuffer),
+		statChan:  make(chan stat, statChanBufferSize),
 		byProject: make(map[string]int),
 		byVersion: make(map[string]int),
 		byTask:    make(map[string]int),
