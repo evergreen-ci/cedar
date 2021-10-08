@@ -214,7 +214,12 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "uploading test results")
 	}
 
-	testResultsCache.addResultsCount(t, len(results))
+	t.env.GetStatsCache(cedar.StatsCacheTestResults).AddStat(cedar.Stat{
+		Count:   len(results),
+		Project: t.Info.Project,
+		Version: t.Info.Version,
+		Task:    t.Info.TaskID,
+	})
 
 	return t.updateStatsAndFailedSample(ctx, results)
 }

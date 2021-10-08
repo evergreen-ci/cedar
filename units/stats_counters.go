@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -22,18 +22,21 @@ func init() {
 
 type statsCacheLoggerJob struct {
 	job.Base `bson:"job_base" json:"job_base" yaml:"job_base"`
+	env      cedar.Environment
 }
 
 // NewStatsCacheLogger logs stats for each of the stats caches
 // in the cache registry
-func NewStatsCacheLogger(id string) amboy.Job {
+func NewStatsCacheLogger(env cedar.Environment, id string) amboy.Job {
 	j := makeStatsCacheLogger()
 	j.SetID(fmt.Sprintf("%s-%s", statsCacheLoggerJobName, id))
+	j.env = env
 	return j
 }
 
 func makeStatsCacheLogger() *statsCacheLoggerJob {
 	j := &statsCacheLoggerJob{
+		env: cedar.GetEnvironment(),
 		Base: job.Base{
 			JobType: amboy.JobType{
 				Name:    statsCacheLoggerJobName,
@@ -49,7 +52,13 @@ func makeStatsCacheLogger() *statsCacheLoggerJob {
 func (j *statsCacheLoggerJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
 
-	for _, counter := range model.CacheRegistry {
+	if j.env == nil {
+		j.env = cedar.GetEnvironment()
+	}
+
+	for _, name := range cedar.StatsCacheNames {
+		counter := j.env.GetStatsCache(name)
 		counter.LogStats()
 	}
+
 }

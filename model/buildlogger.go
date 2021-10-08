@@ -227,7 +227,12 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 		"op":           "append log chunk info to buildlogger log",
 	})
 
-	buildLoggerCache.addLogLinesCount(l, logChunk.NumLines)
+	l.env.GetStatsCache(cedar.StatsCacheBuildlogger).AddStat(cedar.Stat{
+		Count:   logChunk.NumLines,
+		Project: l.Info.Project,
+		Version: l.Info.Version,
+		Task:    l.Info.TaskID,
+	})
 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)

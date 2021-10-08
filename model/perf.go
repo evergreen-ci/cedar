@@ -154,7 +154,12 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
 	}
 
-	perfCache.addArtifactsCount(result, len(result.Artifacts))
+	result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(result.Artifacts),
+		Project: result.Info.Project,
+		Version: result.Info.Version,
+		Task:    result.Info.TaskID,
+	})
 
 	return result.MergeRollups(ctx, rollups)
 }
@@ -199,7 +204,12 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
 
-	perfCache.addArtifactsCount(result, len(artifacts))
+	result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(artifacts),
+		Project: result.Info.Project,
+		Version: result.Info.Version,
+		Task:    result.Info.TaskID,
+	})
 
 	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
 }
