@@ -46,7 +46,7 @@ func TestStatsCache(t *testing.T) {
 				"one": 1,
 			}
 			newMap := topNMap(fullMap, 10)
-			assert.Len(t, newMap, 2)
+			assert.Len(t, newMap, 1)
 			assert.Contains(t, newMap, "one")
 		})
 		t.Run("greater than n", func(t *testing.T) {
