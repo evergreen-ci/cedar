@@ -2,12 +2,12 @@ package cedar
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/grip/sometimes"
 )
 
 const topN = 10
@@ -93,15 +93,12 @@ func (s *statsCache) LogStats() {
 	s.resetCache()
 }
 
-func (s *statsCache) AddStat(newStat Stat) {
+func (s *statsCache) AddStat(newStat Stat) error {
 	select {
 	case s.statChan <- newStat:
+		return nil
 	default:
-		grip.InfoWhen(sometimes.Percent(10), message.Fields{
-			"message": "stats were dropped",
-			"cache":   s.cacheName,
-			"cause":   "stats cache is full",
-		})
+		return errors.New("stats cache is full")
 	}
 }
 

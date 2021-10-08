@@ -23,6 +23,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
+	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -214,12 +215,17 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "uploading test results")
 	}
 
-	t.env.GetStatsCache(cedar.StatsCacheTestResults).AddStat(cedar.Stat{
+	if err = t.env.GetStatsCache(cedar.StatsCacheTestResults).AddStat(cedar.Stat{
 		Count:   len(results),
 		Project: t.Info.Project,
 		Version: t.Info.Version,
 		Task:    t.Info.TaskID,
-	})
+	}); err != nil {
+		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCacheTestResults,
+		}))
+	}
 
 	return t.updateStatsAndFailedSample(ctx, results)
 }

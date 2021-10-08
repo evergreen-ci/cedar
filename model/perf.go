@@ -14,6 +14,7 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -154,12 +155,17 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
 	}
 
-	result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
 		Count:   len(result.Artifacts),
 		Project: result.Info.Project,
 		Version: result.Info.Version,
 		Task:    result.Info.TaskID,
-	})
+	}); err != nil {
+		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCachePerf,
+		}))
+	}
 
 	return result.MergeRollups(ctx, rollups)
 }
@@ -204,12 +210,17 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
 
-	result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
-		Count:   len(artifacts),
+	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(result.Artifacts),
 		Project: result.Info.Project,
 		Version: result.Info.Version,
 		Task:    result.Info.TaskID,
-	})
+	}); err != nil {
+		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCachePerf,
+		}))
+	}
 
 	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
 }

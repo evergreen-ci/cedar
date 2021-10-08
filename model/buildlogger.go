@@ -19,6 +19,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -227,12 +228,17 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 		"op":           "append log chunk info to buildlogger log",
 	})
 
-	l.env.GetStatsCache(cedar.StatsCacheBuildlogger).AddStat(cedar.Stat{
+	if err = l.env.GetStatsCache(cedar.StatsCacheBuildlogger).AddStat(cedar.Stat{
 		Count:   logChunk.NumLines,
 		Project: l.Info.Project,
 		Version: l.Info.Version,
 		Task:    l.Info.TaskID,
-	})
+	}); err != nil {
+		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCacheBuildlogger,
+		}))
+	}
 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
