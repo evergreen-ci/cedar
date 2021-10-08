@@ -234,7 +234,8 @@ type Environment interface {
 	GetServerCertVersion() int
 	SetServerCertVersion(i int)
 
-	GetStatsCache(string) *StatsCache
+	// GetStatsCache returns the cache corresponding to the string
+	GetStatsCache(string) *statsCache
 
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
@@ -275,7 +276,7 @@ type envState struct {
 	client             *mongo.Client
 	conf               *Configuration
 	jpm                jasper.Manager
-	statsCacheRegistry map[string]*StatsCache
+	statsCacheRegistry map[string]*statsCache
 	serverCertVersion  int
 	closers            []closerOp
 	mutex              sync.RWMutex
@@ -428,7 +429,7 @@ func (c *envState) Jasper() jasper.Manager {
 	return c.jpm
 }
 
-func (c *envState) GetStatsCache(name string) *StatsCache {
+func (c *envState) GetStatsCache(name string) *statsCache {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

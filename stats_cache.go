@@ -13,8 +13,8 @@ import (
 const topN = 10
 const statChanBufferSize = 1000
 
-func newStatsCacheRegistry(ctx context.Context) map[string]*StatsCache {
-	registry := map[string]*StatsCache{
+func newStatsCacheRegistry(ctx context.Context) map[string]*statsCache {
+	registry := map[string]*statsCache{
 		StatsCacheBuildlogger: newStatsCache(StatsCacheBuildlogger),
 		StatsCacheTestResults: newStatsCache(StatsCacheTestResults),
 		StatsCachePerf:        newStatsCache(StatsCachePerf),
@@ -33,7 +33,7 @@ type Stat struct {
 	Task    string
 }
 
-type StatsCache struct {
+type statsCache struct {
 	cacheName string
 	statChan  chan Stat
 
@@ -44,8 +44,8 @@ type StatsCache struct {
 	byTask    map[string]int
 }
 
-func newStatsCache(name string) *StatsCache {
-	return &StatsCache{
+func newStatsCache(name string) *statsCache {
+	return &statsCache{
 		statChan:  make(chan Stat, statChanBufferSize),
 		byProject: make(map[string]int),
 		byVersion: make(map[string]int),
@@ -53,7 +53,7 @@ func newStatsCache(name string) *StatsCache {
 	}
 }
 
-func (s *StatsCache) resetCache() {
+func (s *statsCache) resetCache() {
 	s.calls = 0
 	s.total = 0
 	s.byProject = make(map[string]int)
@@ -61,7 +61,7 @@ func (s *StatsCache) resetCache() {
 	s.byTask = make(map[string]int)
 }
 
-func (s *StatsCache) cacheStat(newStat Stat) {
+func (s *statsCache) cacheStat(newStat Stat) {
 	s.calls++
 	s.total += newStat.Count
 	s.byProject[newStat.Project] += newStat.Count
@@ -69,7 +69,7 @@ func (s *StatsCache) cacheStat(newStat Stat) {
 	s.byTask[newStat.Task] += newStat.Count
 }
 
-func (s *StatsCache) startConsumerLoop(ctx context.Context) {
+func (s *statsCache) startConsumerLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -80,7 +80,7 @@ func (s *StatsCache) startConsumerLoop(ctx context.Context) {
 	}
 }
 
-func (s *StatsCache) LogStats() {
+func (s *statsCache) LogStats() {
 	grip.Info(message.Fields{
 		"message":    fmt.Sprintf("%s stats", s.cacheName),
 		"calls":      s.calls,
@@ -93,7 +93,7 @@ func (s *StatsCache) LogStats() {
 	s.resetCache()
 }
 
-func (s *StatsCache) AddStat(newStat Stat) {
+func (s *statsCache) AddStat(newStat Stat) {
 	select {
 	case s.statChan <- newStat:
 	default:
