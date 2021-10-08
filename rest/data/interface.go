@@ -162,13 +162,14 @@ type TestResultsFilterAndSortOptions struct {
 // PerformanceOptions holds all values required to find a specific
 // PerformanceResult or PerformanceResults using connector functions.
 type PerformanceOptions struct {
-	Project  string
-	Version  string
-	Variant  string
-	TaskID   string
-	TaskName string
-	Tags     []string
-	Interval dbModel.TimeRange
-	Limit    int
-	Skip     int
+	Project   string
+	Version   string
+	Variant   string
+	TaskID    string
+	Execution int
+	TaskName  string
+	Tags      []string
+	Interval  dbModel.TimeRange
+	Limit     int
+	Skip      int
 }
