@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar"
+	"github.com/evergreen-ci/utility"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -126,4 +128,58 @@ func TestCedarConfig(t *testing.T) {
 	}
 
 	require.NoError(t, session.DB(conf.DatabaseName).DropDatabase())
+}
+
+func TestCachedConfig(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	env, err := cedar.NewEnvironment(ctx, "test", &cedar.Configuration{
+		MongoDBURI:   "mongodb://localhost:27017",
+		NumWorkers:   2,
+		DatabaseName: testDBName,
+	})
+	require.NoError(t, err)
+
+	conf := NewCedarConfig(env)
+	conf.URL = "https://cedar.mongodb.com"
+	require.NoError(t, conf.Save())
+
+	_, ok := env.GetCachedDBValue(cedarConfigurationID)
+	require.False(t, ok)
+	conf = NewCedarConfig(env)
+	require.NoError(t, conf.Find())
+	require.Equal(t, "https://cedar.mongodb.com", conf.URL)
+	t.Run("FirstFindSetsEnvCache", func(t *testing.T) {
+		value, ok := env.GetCachedDBValue(cedarConfigurationID)
+		require.True(t, ok)
+		cachedConf, ok := value.(CedarConfig)
+		require.True(t, ok)
+		assert.Equal(t, conf.URL, cachedConf.URL)
+	})
+
+	newConf := NewCedarConfig(env)
+	newConf.URL = "https://evergreen.mongodb.com"
+	require.NoError(t, newConf.Save())
+	t.Run("CacheGetsUpdated", func(t *testing.T) {
+		retyOp := func() (bool, error) {
+			value, ok := env.GetCachedDBValue(cedarConfigurationID)
+			if !ok {
+				return true, errors.New("cached conf not found")
+			}
+			cachedConf, ok := value.(CedarConfig)
+			if !ok {
+				return false, errors.New("invalid cached config type")
+			}
+			if newConf.URL != cachedConf.URL {
+				return true, errors.New("cached conf not updated")
+			}
+			return false, nil
+		}
+		require.NoError(t, utility.Retry(ctx, retyOp, utility.RetryOptions{MaxAttempts: 5}))
+
+		newConf = NewCedarConfig(env)
+		require.NoError(t, newConf.Find())
+		require.Equal(t, "https://evergreen.mongodb.com", newConf.URL)
+	})
 }

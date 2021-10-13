@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,7 +108,6 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			require.NotNil(t, q)
 			assert.True(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
-		// "": func(t *testing.T, conf *Configuration) {},
 	} {
 		t.Run(name, func(t *testing.T) {
 			conf := &Configuration{
@@ -143,11 +143,11 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 		require.NoError(t, err)
 
 		key0 := "key0"
-		val0 := []int{0, 1, 2, 3}
+		val0 := "value0"
 		updateChan0 := make(chan interface{})
 		require.True(t, env.RegisterDBValueCacher(key0, val0, updateChan0))
 		key1 := "key1"
-		val1 := []string{"username", "password"}
+		val1 := 5
 		updateChan1 := make(chan interface{})
 		require.True(t, env.RegisterDBValueCacher(key1, val1, updateChan1))
 
@@ -161,18 +161,38 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 			assert.Equal(t, val1, val)
 		})
 		t.Run("ReturnsUpdatedValue", func(t *testing.T) {
-			newVal0 := []int{3, 2, 1, 0}
+			var val interface{}
+
+			lastVal, ok := env.GetCachedDBValue(key0)
+			newVal0 := "new_value0"
 			updateChan0 <- newVal0
-			time.Sleep(time.Millisecond)
-			val, ok := env.GetCachedDBValue(key0)
-			require.True(t, ok)
+			retyOp := func() (bool, error) {
+				val, ok = env.GetCachedDBValue(key0)
+				if !ok {
+					return false, errors.New("value not found in cache")
+				}
+				if lastVal == val {
+					return true, errors.New("value not updated")
+				}
+				return false, nil
+			}
+			assert.NoError(t, utility.Retry(context.TODO(), retyOp, utility.RetryOptions{MaxAttempts: 5}))
 			assert.Equal(t, newVal0, val)
 
-			newVal1 := []string{"new_user", "new_password"}
+			lastVal, ok = env.GetCachedDBValue(key1)
+			newVal1 := 10
 			updateChan1 <- newVal1
-			time.Sleep(time.Millisecond)
-			val, ok = env.GetCachedDBValue(key1)
-			require.True(t, ok)
+			retyOp = func() (bool, error) {
+				val, ok = env.GetCachedDBValue(key1)
+				if !ok {
+					return false, errors.New("value not found in cache")
+				}
+				if lastVal == val {
+					return true, errors.New("value not updated")
+				}
+				return false, nil
+			}
+			assert.NoError(t, utility.Retry(context.TODO(), retyOp, utility.RetryOptions{MaxAttempts: 5}))
 			assert.Equal(t, newVal1, val)
 		})
 		t.Run("DeletesValueOnChan", func(t *testing.T) {
