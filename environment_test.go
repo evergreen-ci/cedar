@@ -132,7 +132,8 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.False(t, env.RegisterDBValueCacher("some_value", "value", nil))
+		_, ok := env.RegisterDBValueCacher("some_value", "value", nil)
+		assert.False(t, ok)
 	})
 	t.Run("EnabledDBValueCache", func(t *testing.T) {
 		env, err := NewEnvironment(context.TODO(), "test", &Configuration{
@@ -145,11 +146,16 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 		key0 := "key0"
 		val0 := "value0"
 		updateChan0 := make(chan interface{})
-		require.True(t, env.RegisterDBValueCacher(key0, val0, updateChan0))
+		closeChan0, ok := env.RegisterDBValueCacher(key0, val0, updateChan0)
+		require.True(t, ok)
+		require.NotNil(t, closeChan0)
+
 		key1 := "key1"
 		val1 := 5
 		updateChan1 := make(chan interface{})
-		require.True(t, env.RegisterDBValueCacher(key1, val1, updateChan1))
+		closeChan1, ok := env.RegisterDBValueCacher(key1, val1, updateChan1)
+		require.True(t, ok)
+		require.NotNil(t, closeChan1)
 
 		t.Run("ReturnsInitialValue", func(t *testing.T) {
 			val, ok := env.GetCachedDBValue(key0)
@@ -195,13 +201,21 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 			assert.NoError(t, utility.Retry(context.TODO(), retyOp, utility.RetryOptions{MaxAttempts: 5}))
 			assert.Equal(t, newVal1, val)
 		})
-		t.Run("DeletesValueOnChan", func(t *testing.T) {
+		t.Run("DeletesValueOnErr", func(t *testing.T) {
 			err := errors.New("some error")
 			updateChan0 <- err
 			time.Sleep(time.Millisecond)
 			val, ok := env.GetCachedDBValue(key0)
 			assert.False(t, ok)
 			assert.Nil(t, val)
+			timer := time.NewTimer(time.Second)
+			var closeSignal bool
+			select {
+			case <-closeChan0:
+				closeSignal = true
+			case <-timer.C:
+			}
+			assert.True(t, closeSignal)
 
 			_, ok = env.GetCachedDBValue(key1)
 			assert.True(t, ok)

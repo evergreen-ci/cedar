@@ -176,7 +176,7 @@ func TestCachedConfig(t *testing.T) {
 			}
 			return false, nil
 		}
-		require.NoError(t, utility.Retry(ctx, retyOp, utility.RetryOptions{MaxAttempts: 5}))
+		require.NoError(t, utility.Retry(ctx, retyOp, utility.RetryOptions{MaxAttempts: 10}))
 
 		newConf = NewCedarConfig(env)
 		require.NoError(t, newConf.Find())

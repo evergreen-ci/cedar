@@ -220,8 +220,8 @@ func (c *CedarConfig) Find() error {
 	}
 
 	updateChan := make(chan interface{})
-	if ok := c.env.RegisterDBValueCacher(cedarConfigurationID, *c, updateChan); ok {
-		go c.changeStream(updateChan)
+	if closeChan, ok := c.env.RegisterDBValueCacher(cedarConfigurationID, *c, updateChan); ok {
+		go c.changeStream(updateChan, closeChan)
 	}
 
 	return nil
@@ -248,7 +248,7 @@ func (c *CedarConfig) find() error {
 	return nil
 }
 
-func (c *CedarConfig) changeStream(updateChan chan interface{}) {
+func (c *CedarConfig) changeStream(updateChan chan interface{}, closeChan chan struct{}) {
 	defer recovery.LogStackTraceAndContinue("cedar config updater")
 
 	ctx, cancel := c.env.Context()
@@ -292,6 +292,8 @@ func (c *CedarConfig) changeStream(updateChan chan interface{}) {
 
 		select {
 		case updateChan <- *updatedConf:
+		case <-closeChan:
+			return
 		case <-ctx.Done():
 			return
 		}

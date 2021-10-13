@@ -231,7 +231,7 @@ type Environment interface {
 	GetSession() db.Session
 	GetClient() *mongo.Client
 	GetDB() *mongo.Database
-	RegisterDBValueCacher(string, interface{}, chan interface{}) bool
+	RegisterDBValueCacher(string, interface{}, chan interface{}) (chan struct{}, bool)
 	GetCachedDBValue(string) (interface{}, bool)
 	Jasper() jasper.Manager
 
@@ -385,25 +385,29 @@ func (c *envState) GetDB() *mongo.Database {
 	return c.client.Database(c.conf.DatabaseName)
 }
 
-func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateChan chan interface{}) bool {
+func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateChan chan interface{}) (chan struct{}, bool) {
 	c.mutex.Lock()
 	if c.dbValueCache == nil {
 		c.mutex.Unlock()
-		return false
+		return nil, false
 	}
 	if _, ok := c.dbValueCache[name]; ok {
 		c.mutex.Unlock()
-		return false
+		return nil, false
 	}
 	c.dbValueCache[name] = val
 	c.mutex.Unlock()
 
+	closeChan := make(chan struct{})
 	go func() {
+		defer recovery.LogStackTraceAndContinue(fmt.Sprintf("env database value cache updater for '%s'", name))
+		defer func() {
+			closeChan <- struct{}{}
+		}()
+
 		if updateChan == nil {
 			return
 		}
-
-		defer recovery.LogStackTraceAndContinue(fmt.Sprintf("env database value cache updater for '%s'", name))
 
 		for {
 			select {
@@ -428,7 +432,7 @@ func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateCha
 		}
 	}()
 
-	return true
+	return closeChan, true
 }
 
 func (c *envState) GetCachedDBValue(name string) (interface{}, bool) {
