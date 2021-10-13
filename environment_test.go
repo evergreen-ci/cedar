@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -119,4 +120,71 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			test(t, conf)
 		})
 	}
+}
+
+func TestEnvironmentDBValueCache(t *testing.T) {
+	t.Run("DisabledDBValueCache", func(t *testing.T) {
+		env, err := NewEnvironment(context.TODO(), "test", &Configuration{
+			MongoDBURI:            "mongodb://localhost:27017",
+			NumWorkers:            2,
+			DatabaseName:          testDatabaseName,
+			DisableDBValueCaching: true,
+		})
+		require.NoError(t, err)
+
+		assert.False(t, env.RegisterDBValueCacher("some_value", "value", nil))
+	})
+	t.Run("EnabledDBValueCache", func(t *testing.T) {
+		env, err := NewEnvironment(context.TODO(), "test", &Configuration{
+			MongoDBURI:   "mongodb://localhost:27017",
+			NumWorkers:   2,
+			DatabaseName: testDatabaseName,
+		})
+		require.NoError(t, err)
+
+		key0 := "key0"
+		val0 := []int{0, 1, 2, 3}
+		updateChan0 := make(chan interface{})
+		require.True(t, env.RegisterDBValueCacher(key0, val0, updateChan0))
+		key1 := "key1"
+		val1 := []string{"username", "password"}
+		updateChan1 := make(chan interface{})
+		require.True(t, env.RegisterDBValueCacher(key1, val1, updateChan1))
+
+		t.Run("ReturnsInitialValue", func(t *testing.T) {
+			val, ok := env.GetCachedDBValue(key0)
+			require.True(t, ok)
+			assert.Equal(t, val0, val)
+
+			val, ok = env.GetCachedDBValue(key1)
+			require.True(t, ok)
+			assert.Equal(t, val1, val)
+		})
+		t.Run("ReturnsUpdatedValue", func(t *testing.T) {
+			newVal0 := []int{3, 2, 1, 0}
+			updateChan0 <- newVal0
+			time.Sleep(time.Millisecond)
+			val, ok := env.GetCachedDBValue(key0)
+			require.True(t, ok)
+			assert.Equal(t, newVal0, val)
+
+			newVal1 := []string{"new_user", "new_password"}
+			updateChan1 <- newVal1
+			time.Sleep(time.Millisecond)
+			val, ok = env.GetCachedDBValue(key1)
+			require.True(t, ok)
+			assert.Equal(t, newVal1, val)
+		})
+		t.Run("DeletesValueOnChan", func(t *testing.T) {
+			err := errors.New("some error")
+			updateChan0 <- err
+			time.Sleep(time.Millisecond)
+			val, ok := env.GetCachedDBValue(key0)
+			assert.False(t, ok)
+			assert.Nil(t, val)
+
+			_, ok = env.GetCachedDBValue(key1)
+			assert.True(t, ok)
+		})
+	})
 }

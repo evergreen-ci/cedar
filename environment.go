@@ -399,26 +399,32 @@ func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateCha
 	c.mutex.Unlock()
 
 	go func() {
+		if updateChan == nil {
+			return
+		}
+
 		defer recovery.LogStackTraceAndContinue(fmt.Sprintf("env database value cache updater for '%s'", name))
 
-		select {
-		case newVal := <-updateChan:
-			c.mutex.Lock()
-			switch newVal.(type) {
-			case error:
-				// If there is an error, we should clear this
-				// value from the cache and exit the goroutine
-				// so the caller knows to register another
-				// value cacher.
-				delete(c.dbValueCache, name)
+		for {
+			select {
+			case newVal := <-updateChan:
+				c.mutex.Lock()
+				switch newVal.(type) {
+				case error:
+					// If there is an error, we should clear this
+					// value from the cache and exit the goroutine
+					// so the caller knows to register another
+					// value cacher.
+					delete(c.dbValueCache, name)
+					c.mutex.Unlock()
+					return
+				default:
+					c.dbValueCache[name] = newVal
+				}
 				c.mutex.Unlock()
+			case <-c.ctx.Done():
 				return
-			default:
-				c.dbValueCache[name] = newVal
 			}
-			c.mutex.Unlock()
-		case <-c.ctx.Done():
-			return
 		}
 	}()
 
