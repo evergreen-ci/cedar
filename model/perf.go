@@ -648,7 +648,7 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 
 	search := bson.M{
 		perfCreatedAtKey: bson.M{"$gt": after},
-		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey): FileFTDC,
+		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoSchemaKey): SchemaRawEvents,
 		perfFailedRollupAttempts: bson.M{"$lt": failureLimit},
 		"$or": []bson.M{
 			{
