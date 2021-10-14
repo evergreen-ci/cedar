@@ -12,12 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	mgo "gopkg.in/mgo.v2"
 )
 
 // proofOfConcept is a simple mock "main" to demonstrate how you could
 // build a simple migration utility.
-func proofOfConcept(shouldUseClient bool) error {
+func proofOfConcept() error {
 	env := GetEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -27,20 +26,12 @@ func proofOfConcept(shouldUseClient bool) error {
 		return err
 	}
 
-	client := client.WrapClient(cl)
-	var session db.Session
-	if shouldUseClient {
-		env.SetPreferedDB(client)
-		session = db.WrapClient(ctx, cl)
-	} else {
-		ses, err := mgo.DialWithTimeout("mongodb://localhost:27017", 100*time.Millisecond)
-		if err != nil {
-			return err
-		}
-		session = db.WrapSession(ses)
-
-		env.SetPreferedDB(session)
+	if err := cl.Connect(ctx); err != nil {
+		return err
 	}
+
+	client := client.WrapClient(cl)
+	session := db.WrapClient(ctx, cl)
 
 	q := queue.NewAdaptiveOrderedLocalQueue(3, 3)
 	if err := q.Start(ctx); err != nil {
@@ -90,13 +81,8 @@ func proofOfConcept(shouldUseClient bool) error {
 }
 
 func TestExampleApp(t *testing.T) {
-	t.Skip("flawed integration test")
-	ResetEnvironment()
-	t.Run("Session", func(t *testing.T) {
-		assert.NoError(t, proofOfConcept(false))
-	})
 	ResetEnvironment()
 	t.Run("Client", func(t *testing.T) {
-		assert.NoError(t, proofOfConcept(true))
+		assert.NoError(t, proofOfConcept())
 	})
 }
