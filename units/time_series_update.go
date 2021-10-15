@@ -51,7 +51,7 @@ func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.
 	baseID := fmt.Sprintf("%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
 	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
 	j.SetScopes([]string{baseID})
-	j.SetShouldApplyScopesOnEnqueue(true)
+	j.SetEnqueueAllScopes(true)
 	j.PerformanceResultId = timeSeriesId
 	return j
 }
