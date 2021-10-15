@@ -87,13 +87,13 @@ func TestCedarConfig(t *testing.T) {
 			conf.populated = true
 			err = conf.Save()
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "problem saving application")
+			assert.Contains(t, err.Error(), "saving application")
 		},
 		"SaveErrorsWithNoEnvConfigured": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
 			conf.populated = true
 			err := conf.Save()
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "env is nil")
+			assert.Contains(t, err.Error(), "environment")
 		},
 		"ConfFlagsErrorsWithNoEnv": func(ctx context.Context, t *testing.T, env cedar.Environment, conf *CedarConfig) {
 			flags := &OperationalFlags{}
@@ -135,11 +135,16 @@ func TestCachedConfig(t *testing.T) {
 	defer cancel()
 
 	env, err := cedar.NewEnvironment(ctx, "test", &cedar.Configuration{
-		MongoDBURI:   "mongodb://localhost:27017",
-		NumWorkers:   2,
-		DatabaseName: testDBName,
+		MongoDBURI:              "mongodb://localhost:27017",
+		NumWorkers:              2,
+		DisableRemoteQueue:      true,
+		DisableRemoteQueueGroup: true,
+		DatabaseName:            "cached-config-test",
 	})
 	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, env.GetDB().Drop(ctx))
+	}()
 
 	conf := NewCedarConfig(env)
 	conf.URL = "https://cedar.mongodb.com"
@@ -157,6 +162,8 @@ func TestCachedConfig(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, conf.URL, cachedConf.URL)
 	})
+	// Give time for the goroutine set up the change stream.
+	time.Sleep(time.Second)
 
 	newConf := NewCedarConfig(env)
 	newConf.URL = "https://evergreen.mongodb.com"
@@ -165,18 +172,18 @@ func TestCachedConfig(t *testing.T) {
 		retyOp := func() (bool, error) {
 			value, ok := env.GetCachedDBValue(cedarConfigurationID)
 			if !ok {
-				return true, errors.New("cached conf not found")
+				return true, errors.New("cached config not found")
 			}
 			cachedConf, ok := value.(CedarConfig)
 			if !ok {
 				return false, errors.New("invalid cached config type")
 			}
 			if newConf.URL != cachedConf.URL {
-				return true, errors.New("cached conf not updated")
+				return true, errors.New("cached config not updated")
 			}
 			return false, nil
 		}
-		require.NoError(t, utility.Retry(ctx, retyOp, utility.RetryOptions{MaxAttempts: 10}))
+		require.NoError(t, utility.Retry(ctx, retyOp, utility.RetryOptions{MaxAttempts: 20, MaxDelay: time.Second}))
 
 		newConf = NewCedarConfig(env)
 		require.NoError(t, newConf.Find())

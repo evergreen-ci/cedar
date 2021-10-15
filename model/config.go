@@ -8,13 +8,13 @@ import (
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -228,14 +228,11 @@ func (c *CedarConfig) Find() error {
 }
 
 func (c *CedarConfig) find() error {
-	conf, session, err := cedar.GetSessionWithConfig(c.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
+	ctx, cancel := c.env.Context()
+	defer cancel()
 
 	c.populated = false
-	err = session.DB(conf.DatabaseName).C(configurationCollection).FindId(cedarConfigurationID).One(c)
+	err := c.env.GetDB().Collection(configurationCollection).FindOne(ctx, bson.M{"_id": cedarConfigurationID}).Decode(c)
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find application configuration in the database")
 	} else if err != nil {
@@ -249,7 +246,7 @@ func (c *CedarConfig) find() error {
 }
 
 func (c *CedarConfig) changeStream(updateChan chan interface{}, closeChan chan struct{}) {
-	defer recovery.LogStackTraceAndContinue("cedar config updater")
+	defer recovery.LogStackTraceAndContinue("cedar config change stream goroutine")
 
 	ctx, cancel := c.env.Context()
 	defer cancel()
@@ -266,7 +263,7 @@ func (c *CedarConfig) changeStream(updateChan chan interface{}, closeChan chan s
 		}
 	}()
 
-	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{})
+	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
 	if err != nil {
 		grip.Error(message.WrapError(err, message.Fields{
 			"message": "getting configuration collection change stream",
@@ -282,6 +279,11 @@ func (c *CedarConfig) changeStream(updateChan chan interface{}, closeChan chan s
 	}()
 
 	for stream.Next(ctx) {
+		grip.Debug(message.Fields{
+			"message": "change stream detected",
+			"ts":      time.Now(),
+			"change":  stream.Current,
+		})
 		updatedConf := &CedarConfig{env: c.env}
 		if err = updatedConf.find(); err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
@@ -307,29 +309,34 @@ func (c *CedarConfig) changeStream(updateChan chan interface{}, closeChan chan s
 }
 
 func (c *CedarConfig) Save() error {
-	// TODO: validate here when that's possible
-
 	if !c.populated {
-		return errors.New("cannot save a non-populated app configuration")
+		return errors.New("cannot save an unpopulated cedar configuration")
 	}
+	if c.env == nil {
+		return errors.New("cannot save cedar configuration with a nil environment")
+	}
+
+	ctx, cancel := c.env.Context()
+	defer cancel()
 
 	c.ID = cedarConfigurationID
-
-	conf, session, err := cedar.GetSessionWithConfig(c.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-
-	changeInfo, err := session.DB(conf.DatabaseName).C(configurationCollection).UpsertId(cedarConfigurationID, c)
-	grip.Debug(message.Fields{
-		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: configurationCollection},
-		"id":          cedarConfigurationID,
-		"operation":   "save application configuration",
-		"change_info": changeInfo,
+	updateResult, err := c.env.GetDB().Collection(configurationCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": cedarConfigurationID},
+		bson.M{"$set": c},
+		options.Update().SetUpsert(true),
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":    configurationCollection,
+		"id":            cedarConfigurationID,
+		"operation":     "save application configuration",
+		"update_result": updateResult,
 	})
+	if err == nil && updateResult.MatchedCount == 0 && updateResult.UpsertedCount == 0 {
+		err = errors.Errorf("could not find cedar configuration with id %s in the database", c.ID)
+	}
 
-	return errors.Wrap(err, "problem saving application configuration")
+	return errors.Wrap(err, "saving application configuration")
 }
 
 func LoadCedarConfig(file string) (*CedarConfig, error) {
