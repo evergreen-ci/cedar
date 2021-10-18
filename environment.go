@@ -231,9 +231,11 @@ type Environment interface {
 	GetSession() db.Session
 	GetClient() *mongo.Client
 	GetDB() *mongo.Database
+	Jasper() jasper.Manager
+	// The database value cache enables caching of values stored in the
+	// environment's database.
 	RegisterDBValueCacher(string, interface{}, chan interface{}) (chan struct{}, bool)
 	GetCachedDBValue(string) (interface{}, bool)
-	Jasper() jasper.Manager
 
 	GetServerCertVersion() int
 	SetServerCertVersion(i int)
@@ -385,6 +387,18 @@ func (c *envState) GetDB() *mongo.Database {
 	return c.client.Database(c.conf.DatabaseName)
 }
 
+// RegisterDBValueCacher adds a new value to the database cache with the given
+// name as the key. It also accepts a channel which it uses to receive updated
+// values in a goroutine. Once an updated value is received, the previous
+// value stored in the cache is replaced with the new one. If an error is
+// received on the channel, the value is removed from the cache entirely and
+// the goroutine exits. This function returns a struct{} channel used to
+// notify the caller that this value cacher is no longer listening on its
+// update channel (i.e. the goroutine exited) and a boolean indicating if the
+// value was successfully cached. False is returned if either the database
+// cache is disabled or a key with the given name already exists in the cache.
+//
+// Note: The database value cache is thread safe.
 func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateChan chan interface{}) (chan struct{}, bool) {
 	c.mutex.Lock()
 	if c.dbValueCache == nil {
@@ -435,6 +449,11 @@ func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateCha
 	return closeChan, true
 }
 
+// GetCachedDBValue returns the database value with the given name from the
+// cache. If the name does not exist in the cache, this returns nil and false,
+// otherwise the value and true are returned.
+//
+// Note: The database value cache is thread safe.
 func (c *envState) GetCachedDBValue(name string) (interface{}, bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
