@@ -234,7 +234,7 @@ type Environment interface {
 	Jasper() jasper.Manager
 	// The database value cache enables caching of values stored in the
 	// environment's database.
-	RegisterDBValueCacher(string, interface{}, chan interface{}) (chan struct{}, bool)
+	RegisterDBValueCacher(name string, val interface{}, updates chan interface{}) (chan struct{}, bool)
 	GetCachedDBValue(string) (interface{}, bool)
 
 	GetServerCertVersion() int
@@ -389,17 +389,17 @@ func (c *envState) GetDB() *mongo.Database {
 
 // RegisterDBValueCacher adds a new value to the database cache with the given
 // name as the key. It also accepts a channel which it uses to receive updated
-// values in a goroutine. Once an updated value is received, the previous
-// value stored in the cache is replaced with the new one. If an error is
-// received on the channel, the value is removed from the cache entirely and
-// the goroutine exits. This function returns a struct{} channel used to
-// notify the caller that this value cacher is no longer listening on its
-// update channel (i.e. the goroutine exited) and a boolean indicating if the
-// value was successfully cached. False is returned if either the database
-// cache is disabled or a key with the given name already exists in the cache.
+// values in a goroutine. Once an updated value is received, the previous value
+// stored in the cache is replaced with the new one. If an error is receieved
+// on the channel, the value is removed from the cache entirely and the
+// the goroutine exits. This function returns a struct{} channel used to notify
+// the caller that this value cacher is no longer listening on its updates
+// (i.e. the goroutine exited) and a boolean indicating if the value was
+// successfully cached. There can be at most one database value cacher
+// registered for a key at a time.
 //
 // Note: The database value cache is thread safe.
-func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateChan chan interface{}) (chan struct{}, bool) {
+func (c *envState) RegisterDBValueCacher(name string, val interface{}, updates chan interface{}) (chan struct{}, bool) {
 	c.mutex.Lock()
 	if c.dbValueCache == nil {
 		c.mutex.Unlock()
@@ -412,20 +412,20 @@ func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateCha
 	c.dbValueCache[name] = val
 	c.mutex.Unlock()
 
-	closeChan := make(chan struct{})
+	closer := make(chan struct{})
 	go func() {
-		defer recovery.LogStackTraceAndContinue(fmt.Sprintf("env database value cache updater for '%s'", name))
 		defer func() {
-			closeChan <- struct{}{}
+			recovery.LogStackTraceAndContinue(fmt.Sprintf("env database value cache updater for '%s'", name))
+			close(closer)
 		}()
 
-		if updateChan == nil {
+		if updates == nil {
 			return
 		}
 
 		for {
 			select {
-			case newVal := <-updateChan:
+			case newVal := <-updates:
 				c.mutex.Lock()
 				switch newVal.(type) {
 				case error:
@@ -446,7 +446,7 @@ func (c *envState) RegisterDBValueCacher(name string, val interface{}, updateCha
 		}
 	}()
 
-	return closeChan, true
+	return closer, true
 }
 
 // GetCachedDBValue returns the database value with the given name from the

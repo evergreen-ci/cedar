@@ -172,7 +172,7 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 			lastVal, ok := env.GetCachedDBValue(key0)
 			newVal0 := "new_value0"
 			updateChan0 <- newVal0
-			retyOp := func() (bool, error) {
+			retryOp := func() (bool, error) {
 				val, ok = env.GetCachedDBValue(key0)
 				if !ok {
 					return false, errors.New("value not found in cache")
@@ -182,13 +182,13 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 				}
 				return false, nil
 			}
-			assert.NoError(t, utility.Retry(context.TODO(), retyOp, utility.RetryOptions{MaxAttempts: 5}))
+			assert.NoError(t, utility.Retry(context.TODO(), retryOp, utility.RetryOptions{MaxAttempts: 5}))
 			assert.Equal(t, newVal0, val)
 
 			lastVal, ok = env.GetCachedDBValue(key1)
 			newVal1 := 10
 			updateChan1 <- newVal1
-			retyOp = func() (bool, error) {
+			retryOp = func() (bool, error) {
 				val, ok = env.GetCachedDBValue(key1)
 				if !ok {
 					return false, errors.New("value not found in cache")
@@ -198,7 +198,7 @@ func TestEnvironmentDBValueCache(t *testing.T) {
 				}
 				return false, nil
 			}
-			assert.NoError(t, utility.Retry(context.TODO(), retyOp, utility.RetryOptions{MaxAttempts: 5}))
+			assert.NoError(t, utility.Retry(context.TODO(), retryOp, utility.RetryOptions{MaxAttempts: 5}))
 			assert.Equal(t, newVal1, val)
 		})
 		t.Run("DeletesValueOnErr", func(t *testing.T) {

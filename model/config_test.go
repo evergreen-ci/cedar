@@ -162,14 +162,12 @@ func TestCachedConfig(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, conf.URL, cachedConf.URL)
 	})
-	// Give time for the goroutine set up the change stream.
-	time.Sleep(time.Second)
 
 	newConf := NewCedarConfig(env)
 	newConf.URL = "https://evergreen.mongodb.com"
 	require.NoError(t, newConf.Save())
 	t.Run("CacheGetsUpdated", func(t *testing.T) {
-		retyOp := func() (bool, error) {
+		retryOp := func() (bool, error) {
 			value, ok := env.GetCachedDBValue(cedarConfigurationID)
 			if !ok {
 				return true, errors.New("cached config not found")
@@ -183,7 +181,7 @@ func TestCachedConfig(t *testing.T) {
 			}
 			return false, nil
 		}
-		require.NoError(t, utility.Retry(ctx, retyOp, utility.RetryOptions{MaxAttempts: 20, MaxDelay: time.Second}))
+		require.NoError(t, utility.Retry(ctx, retryOp, utility.RetryOptions{MaxAttempts: 5}))
 
 		newConf = NewCedarConfig(env)
 		require.NoError(t, newConf.Find())

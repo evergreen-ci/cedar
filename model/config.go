@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -205,6 +206,9 @@ func (c *CedarConfig) Find() error {
 		return errors.New("cannot find configuration with a nil environment")
 	}
 
+	ctx, cancel := c.env.Context()
+	defer cancel()
+
 	if value, ok := c.env.GetCachedDBValue(cedarConfigurationID); ok {
 		switch t := value.(type) {
 		case CedarConfig:
@@ -215,22 +219,19 @@ func (c *CedarConfig) Find() error {
 		}
 	}
 
-	if err := c.find(); err != nil {
+	if err := c.find(ctx); err != nil {
 		return err
 	}
 
-	updateChan := make(chan interface{})
-	if closeChan, ok := c.env.RegisterDBValueCacher(cedarConfigurationID, *c, updateChan); ok {
-		go c.changeStream(updateChan, closeChan)
+	updates := make(chan interface{})
+	if closer, ok := c.env.RegisterDBValueCacher(cedarConfigurationID, *c, updates); ok {
+		return c.createConfigWatcher(ctx, updates, closer)
 	}
 
 	return nil
 }
 
-func (c *CedarConfig) find() error {
-	ctx, cancel := c.env.Context()
-	defer cancel()
-
+func (c *CedarConfig) find(ctx context.Context) error {
 	c.populated = false
 	err := c.env.GetDB().Collection(configurationCollection).FindOne(ctx, bson.M{"_id": cedarConfigurationID}).Decode(c)
 	if db.ResultsNotFound(err) {
@@ -245,67 +246,68 @@ func (c *CedarConfig) find() error {
 	return nil
 }
 
-func (c *CedarConfig) changeStream(updateChan chan interface{}, closeChan chan struct{}) {
-	defer recovery.LogStackTraceAndContinue("cedar config change stream goroutine")
-
-	ctx, cancel := c.env.Context()
-	defer cancel()
-
-	var err error
-	defer func() {
-		if err == nil {
-			return
-		}
-
-		select {
-		case updateChan <- err:
-		case <-ctx.Done():
-		}
-	}()
-
+func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan interface{}, closer chan struct{}) error {
 	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
 	if err != nil {
-		grip.Error(message.WrapError(err, message.Fields{
-			"message": "getting configuration collection change stream",
-		}))
-		return
+		return errors.Wrap(err, "getting configuration collection change stream")
 	}
-	defer func() {
-		if err = stream.Close(nil); err != nil {
+
+	go func() {
+		defer recovery.LogStackTraceAndContinue("cedar config change stream goroutine")
+
+		listenCtx, listenCancel := c.env.Context()
+		defer listenCancel()
+
+		var err error
+		defer func() {
+			if err == nil {
+				return
+			}
+
+			select {
+			case updates <- err:
+			case <-listenCtx.Done():
+			}
+		}()
+
+		defer func() {
+			if err = stream.Close(nil); err != nil {
+				grip.Error(message.WrapError(err, message.Fields{
+					"message": "closing configuration collection change stream",
+				}))
+			}
+		}()
+
+		for stream.Next(listenCtx) {
+			out := struct {
+				FullDocument *CedarConfig `bson:"fullDocument"`
+			}{}
+			stream.Decode(&out)
+			if out.FullDocument == nil {
+				err = errors.New("expected a cedar config document in change stream event, but got nil")
+				grip.Error(message.WrapError(err, message.Fields{
+					"message": "getting updated configuration",
+				}))
+				return
+			}
+
+			select {
+			case updates <- *out.FullDocument:
+			case <-closer:
+				return
+			case <-listenCtx.Done():
+				return
+			}
+		}
+
+		if err = stream.Err(); err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
-				"message": "closing configuration collection change stream",
+				"message": "configuration collection change stream error",
 			}))
 		}
 	}()
 
-	for stream.Next(ctx) {
-		grip.Debug(message.Fields{
-			"message": "change stream detected",
-			"ts":      time.Now(),
-			"change":  stream.Current,
-		})
-		updatedConf := &CedarConfig{env: c.env}
-		if err = updatedConf.find(); err != nil {
-			grip.Error(message.WrapError(err, message.Fields{
-				"message": "getting updated configuration",
-			}))
-			return
-		}
-
-		select {
-		case updateChan <- *updatedConf:
-		case <-closeChan:
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
-
-	if err = stream.Err(); err != nil {
-		grip.Error(message.WrapError(err, message.Fields{
-			"message": "configuration collection change stream error",
-		}))
-	}
+	return nil
 }
 
 func (c *CedarConfig) Save() error {
