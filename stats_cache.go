@@ -97,7 +97,7 @@ func (s *statsCache) startLoggerLoop(ctx context.Context) {
 	defer func() {
 		if err := recovery.HandlePanicWithError(recover(), nil, "stats cache logger"); err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
-				"message": "panic in statsCache logger loop",
+				"message": "panic in stats cache logger loop",
 				"cache":   s.cacheName,
 			}))
 		}
