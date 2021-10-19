@@ -206,16 +206,16 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 }
 
 func (l *Log) addToStatsCache(lines []LogLine) {
-	linesLen := 0
+	linesSize := 0
 	for _, line := range lines {
-		linesLen += len(line.Data)
+		linesSize += len(line.Data)
 	}
-	if linesLen == 0 {
+	if linesSize == 0 {
 		return
 	}
 
 	if err := l.env.GetStatsCache(cedar.StatsCacheBuildlogger).AddStat(cedar.Stat{
-		Count:   linesLen,
+		Count:   linesSize,
 		Project: l.Info.Project,
 		Version: l.Info.Version,
 		TaskID:  l.Info.TaskID,
