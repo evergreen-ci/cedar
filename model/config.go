@@ -282,9 +282,11 @@ func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan inte
 			out := struct {
 				FullDocument *CedarConfig `bson:"fullDocument"`
 			}{}
-			stream.Decode(&out)
-			if out.FullDocument == nil {
+			err = stream.Decode(&out)
+			if err == nil && out.FullDocument == nil {
 				err = errors.New("expected a cedar config document in change stream event, but got nil")
+			}
+			if err != nil {
 				grip.Error(message.WrapError(err, message.Fields{
 					"message": "getting updated configuration",
 				}))
