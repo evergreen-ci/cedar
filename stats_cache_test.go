@@ -14,10 +14,10 @@ func TestStatsCache(t *testing.T) {
 		}
 		assert.Error(t, cache.AddStat(Stat{}))
 	})
-	t.Run("LogStats clears the cache", func(t *testing.T) {
+	t.Run("logStats clears the cache", func(t *testing.T) {
 		cache := newStatsCache("new cache")
 		cache.calls++
-		cache.LogStats()
+		cache.logStats()
 		assert.Equal(t, cache.calls, 0)
 	})
 	t.Run("stat is recorded", func(t *testing.T) {

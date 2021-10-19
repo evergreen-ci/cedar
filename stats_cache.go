@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -22,6 +23,7 @@ func newStatsCacheRegistry(ctx context.Context) map[string]*statsCache {
 	}
 	for _, r := range registry {
 		go r.startConsumerLoop(ctx)
+		go r.startLoggerLoop(ctx)
 	}
 
 	return registry
@@ -91,9 +93,30 @@ func (s *statsCache) startConsumerLoop(ctx context.Context) {
 	}
 }
 
-// LogStats logs the stats in the cache and resets the cache.
-// Project/version/taskID counts are limited to the topN results.
-func (s *statsCache) LogStats() {
+func (s *statsCache) startLoggerLoop(ctx context.Context) {
+	defer func() {
+		if err := recovery.HandlePanicWithError(recover(), nil, "stats cache logger"); err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "panic in statsCache logger loop",
+				"cache":   s.cacheName,
+			}))
+		}
+	}()
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.logStats()
+		}
+	}
+}
+
+func (s *statsCache) logStats() {
 	grip.Info(message.Fields{
 		"message":    fmt.Sprintf("%s stats", s.cacheName),
 		"calls":      s.calls,
