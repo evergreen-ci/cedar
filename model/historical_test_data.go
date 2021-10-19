@@ -168,8 +168,8 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 		ctx,
 		query,
 		pipeline,
-		options.FindOneAndUpdate().SetReturnDocument(options.After),
 		options.FindOneAndUpdate().SetUpsert(true),
+		options.FindOneAndUpdate().SetMaxTime(time.Minute),
 	).Decode(d)
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection": historicalTestDataCollection,
