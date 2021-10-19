@@ -23,7 +23,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
-	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -219,9 +218,9 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		Count:   len(results),
 		Project: t.Info.Project,
 		Version: t.Info.Version,
-		Task:    t.Info.TaskID,
+		TaskID:  t.Info.TaskID,
 	}); err != nil {
-		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message": "stats were dropped",
 			"cache":   cedar.StatsCacheTestResults,
 		}))

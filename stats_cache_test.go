@@ -26,13 +26,13 @@ func TestStatsCache(t *testing.T) {
 			Count:   2,
 			Project: "cedar",
 			Version: "abcdef",
-			Task:    "t1",
+			TaskID:  "t1",
 		})
 		assert.Equal(t, cache.calls, 1)
 		assert.Equal(t, cache.total, 2)
 		assert.Equal(t, cache.byProject["cedar"], 2)
 		assert.Equal(t, cache.byVersion["abcdef"], 2)
-		assert.Equal(t, cache.byTask["t1"], 2)
+		assert.Equal(t, cache.byTaskID["t1"], 2)
 	})
 	t.Run("topNMap", func(t *testing.T) {
 		t.Run("empty map", func(t *testing.T) {

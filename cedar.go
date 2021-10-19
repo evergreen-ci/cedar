@@ -36,7 +36,7 @@ const (
 	MergeTestRequester          = "merge_test"
 	AdHocRequester              = "ad_hoc"
 
-	// stats cache names
+	// Stats cache names.
 	StatsCacheBuildlogger = "buildlogger"
 	StatsCacheTestResults = "test_results"
 	StatsCachePerf        = "perf"

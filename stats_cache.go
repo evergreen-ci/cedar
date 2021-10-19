@@ -8,6 +8,7 @@ import (
 
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 )
 
 const topN = 10
@@ -26,11 +27,12 @@ func newStatsCacheRegistry(ctx context.Context) map[string]*statsCache {
 	return registry
 }
 
+// Stat represents a count to add to the cache for a particular project/version/taskID combination.
 type Stat struct {
 	Count   int
 	Project string
 	Version string
-	Task    string
+	TaskID  string
 }
 
 type statsCache struct {
@@ -41,7 +43,7 @@ type statsCache struct {
 	total     int
 	byProject map[string]int
 	byVersion map[string]int
-	byTask    map[string]int
+	byTaskID  map[string]int
 }
 
 func newStatsCache(name string) *statsCache {
@@ -49,7 +51,7 @@ func newStatsCache(name string) *statsCache {
 		statChan:  make(chan Stat, statChanBufferSize),
 		byProject: make(map[string]int),
 		byVersion: make(map[string]int),
-		byTask:    make(map[string]int),
+		byTaskID:  make(map[string]int),
 	}
 }
 
@@ -58,7 +60,7 @@ func (s *statsCache) resetCache() {
 	s.total = 0
 	s.byProject = make(map[string]int)
 	s.byVersion = make(map[string]int)
-	s.byTask = make(map[string]int)
+	s.byTaskID = make(map[string]int)
 }
 
 func (s *statsCache) cacheStat(newStat Stat) {
@@ -66,10 +68,19 @@ func (s *statsCache) cacheStat(newStat Stat) {
 	s.total += newStat.Count
 	s.byProject[newStat.Project] += newStat.Count
 	s.byVersion[newStat.Version] += newStat.Count
-	s.byTask[newStat.Task] += newStat.Count
+	s.byTaskID[newStat.TaskID] += newStat.Count
 }
 
 func (s *statsCache) startConsumerLoop(ctx context.Context) {
+	defer func() {
+		if err := recovery.HandlePanicWithError(recover(), nil, "stats cache consumer"); err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "panic in statsCache consumer loop",
+				"cache":   s.cacheName,
+			}))
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -80,6 +91,8 @@ func (s *statsCache) startConsumerLoop(ctx context.Context) {
 	}
 }
 
+// LogStats logs the stats in the cache and resets the cache.
+// Project/version/taskID counts are limited to the topN results.
 func (s *statsCache) LogStats() {
 	grip.Info(message.Fields{
 		"message":    fmt.Sprintf("%s stats", s.cacheName),
@@ -87,12 +100,14 @@ func (s *statsCache) LogStats() {
 		"total":      s.total,
 		"by_project": topNMap(s.byProject, topN),
 		"by_version": topNMap(s.byVersion, topN),
-		"by_task":    topNMap(s.byTask, topN),
+		"by_task_id": topNMap(s.byTaskID, topN),
 	})
 
 	s.resetCache()
 }
 
+// AddStat adds a stat to the cache's incoming stats channel.
+// Returns an error when the channel is full.
 func (s *statsCache) AddStat(newStat Stat) error {
 	select {
 	case s.statChan <- newStat:

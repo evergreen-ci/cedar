@@ -14,7 +14,6 @@ import (
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -159,9 +158,9 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		Count:   len(result.Artifacts),
 		Project: result.Info.Project,
 		Version: result.Info.Version,
-		Task:    result.Info.TaskID,
+		TaskID:  result.Info.TaskID,
 	}); err != nil {
-		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message": "stats were dropped",
 			"cache":   cedar.StatsCachePerf,
 		}))
@@ -214,9 +213,9 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		Count:   len(result.Artifacts),
 		Project: result.Info.Project,
 		Version: result.Info.Version,
-		Task:    result.Info.TaskID,
+		TaskID:  result.Info.TaskID,
 	}); err != nil {
-		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message": "stats were dropped",
 			"cache":   cedar.StatsCachePerf,
 		}))

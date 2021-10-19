@@ -234,7 +234,7 @@ type Environment interface {
 	GetServerCertVersion() int
 	SetServerCertVersion(i int)
 
-	// GetStatsCache returns the cache corresponding to the string
+	// GetStatsCache returns the cache corresponding to the string.
 	GetStatsCache(string) *statsCache
 
 	RegisterCloser(string, CloserFunc)

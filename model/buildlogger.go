@@ -19,7 +19,6 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
-	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -232,9 +231,9 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 		Count:   logChunk.NumLines,
 		Project: l.Info.Project,
 		Version: l.Info.Version,
-		Task:    l.Info.TaskID,
+		TaskID:  l.Info.TaskID,
 	}); err != nil {
-		grip.ErrorWhen(sometimes.Percent(10), message.WrapError(err, message.Fields{
+		grip.Error(message.WrapError(err, message.Fields{
 			"message": "stats were dropped",
 			"cache":   cedar.StatsCacheBuildlogger,
 		}))
