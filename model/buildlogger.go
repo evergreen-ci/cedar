@@ -226,6 +226,12 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 		"logChunkInfo": logChunk,
 		"op":           "append log chunk info to buildlogger log",
 	})
+	if err == nil && updateResult.MatchedCount == 0 {
+		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
+	}
+	if err != nil {
+		return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
+	}
 
 	if err = l.env.GetStatsCache(cedar.StatsCacheBuildlogger).AddStat(cedar.Stat{
 		Count:   logChunk.NumLines,
@@ -239,11 +245,7 @@ func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) err
 		}))
 	}
 
-	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
-	}
-
-	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
+	return nil
 }
 
 // Close "closes out" the log by populating the completed_at and info.exit_code

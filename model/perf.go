@@ -208,6 +208,9 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
+	if err != nil {
+		return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+	}
 
 	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
 		Count:   len(result.Artifacts),
@@ -221,7 +224,7 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		}))
 	}
 
-	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+	return nil
 }
 
 // IncFailedRollupAttempts increments the failed_rollup_attempts field by 1.
