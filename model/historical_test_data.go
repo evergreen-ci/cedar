@@ -169,6 +169,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 		query,
 		pipeline,
 		options.FindOneAndUpdate().SetUpsert(true),
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
 		options.FindOneAndUpdate().SetMaxTime(time.Minute),
 	).Decode(d)
 	grip.DebugWhen(err == nil, message.Fields{
