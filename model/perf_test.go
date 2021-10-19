@@ -866,6 +866,7 @@ func (s *perfResultsSuite) TestFindOutdated() {
 	source := []ArtifactInfo{
 		{
 			Format: FileFTDC,
+			Schema: SchemaRawEvents,
 		},
 		{
 			Format: FileBSON,

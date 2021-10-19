@@ -28,6 +28,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 		Bucket: "testdata",
 		Path:   "valid.ftdc",
 		Format: model.FileFTDC,
+		Schema: model.SchemaRawEvents,
 	}
 
 	factories := perf.DefaultRollupFactories()
