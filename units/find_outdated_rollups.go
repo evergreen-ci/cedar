@@ -127,7 +127,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(ctx context.Context, factories []perf.RollupFactory, result model.PerformanceResult) {
 	outdated := findOutdatedFromResult(factories, result)
 
-	job, err := NewFTDCRollupsJob(result.ID, getFTDCArtifact(result.Artifacts), outdated, false)
+	job, err := NewFTDCRollupsJob(result.ID, getRawEventsArtifact(result.Artifacts), outdated, false)
 	if err != nil {
 		j.AddError(errors.Wrapf(err, "problem creating FTDC rollups job for %s", result.ID))
 		return
@@ -141,9 +141,9 @@ func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(ctx context.Context, fact
 	j.seenIDs[result.ID] = true
 }
 
-func getFTDCArtifact(artifacts []model.ArtifactInfo) *model.ArtifactInfo {
+func getRawEventsArtifact(artifacts []model.ArtifactInfo) *model.ArtifactInfo {
 	for _, artifact := range artifacts {
-		if artifact.Format == model.FileFTDC {
+		if artifact.Schema == model.SchemaRawEvents {
 			return &artifact
 		}
 	}
