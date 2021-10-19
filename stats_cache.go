@@ -77,7 +77,7 @@ func (s *statsCache) startConsumerLoop(ctx context.Context) {
 	defer func() {
 		if err := recovery.HandlePanicWithError(recover(), nil, "stats cache consumer"); err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
-				"message": "panic in statsCache consumer loop",
+				"message": "panic in stats cache consumer loop",
 				"cache":   s.cacheName,
 			}))
 		}
