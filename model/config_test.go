@@ -16,12 +16,12 @@ const testDBName = "cedar_test_config"
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
-		MongoDBURI:            "mongodb://localhost:27017",
-		DatabaseName:          testDBName,
-		SocketTimeout:         time.Minute,
-		NumWorkers:            2,
-		DisableRemoteQueue:    true,
-		DisableDBValueCaching: true,
+		MongoDBURI:         "mongodb://localhost:27017",
+		DatabaseName:       testDBName,
+		SocketTimeout:      time.Minute,
+		NumWorkers:         2,
+		DisableRemoteQueue: true,
+		DisableCache:       true,
 	})
 	if err != nil {
 		panic(err)
@@ -57,6 +57,7 @@ func TestCedarConfig(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DisableCache:            true,
 			})
 			require.NoError(t, err)
 
@@ -80,6 +81,7 @@ func TestCedarConfig(t *testing.T) {
 				NumWorkers:              2,
 				DisableRemoteQueue:      true,
 				DisableRemoteQueueGroup: true,
+				DisableCache:            true,
 			})
 			require.NoError(t, err)
 
@@ -145,18 +147,20 @@ func TestCachedConfig(t *testing.T) {
 	defer func() {
 		assert.NoError(t, env.GetDB().Drop(ctx))
 	}()
+	envCache, ok := env.GetCache()
+	require.True(t, ok)
 
 	conf := NewCedarConfig(env)
 	conf.URL = "https://cedar.mongodb.com"
 	require.NoError(t, conf.Save())
 
-	_, ok := env.GetCachedDBValue(cedarConfigurationID)
+	_, ok = envCache.Get(cedarConfigurationID)
 	require.False(t, ok)
 	conf = NewCedarConfig(env)
 	require.NoError(t, conf.Find())
 	require.Equal(t, "https://cedar.mongodb.com", conf.URL)
 	t.Run("FirstFindSetsEnvCache", func(t *testing.T) {
-		value, ok := env.GetCachedDBValue(cedarConfigurationID)
+		value, ok := envCache.Get(cedarConfigurationID)
 		require.True(t, ok)
 		cachedConf, ok := value.(CedarConfig)
 		require.True(t, ok)
@@ -168,7 +172,7 @@ func TestCachedConfig(t *testing.T) {
 	require.NoError(t, newConf.Save())
 	t.Run("CacheGetsUpdated", func(t *testing.T) {
 		retryOp := func() (bool, error) {
-			value, ok := env.GetCachedDBValue(cedarConfigurationID)
+			value, ok := envCache.Get(cedarConfigurationID)
 			if !ok {
 				return true, errors.New("cached config not found")
 			}

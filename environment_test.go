@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evergreen-ci/utility"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,6 +106,22 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			require.NotNil(t, q)
 			assert.True(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
+		"DisablesCache": func(t *testing.T, conf *Configuration) {
+			env, err := NewEnvironment(ctx, ename, conf)
+			require.NoError(t, err)
+
+			cache, ok := env.GetCache()
+			assert.True(t, ok)
+			assert.NotNil(t, cache)
+
+			conf.DisableCache = true
+			env, err = NewEnvironment(ctx, ename, conf)
+			require.NoError(t, err)
+
+			cache, ok = env.GetCache()
+			assert.False(t, ok)
+			assert.Nil(t, cache)
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			conf := &Configuration{
@@ -120,105 +134,4 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			test(t, conf)
 		})
 	}
-}
-
-func TestEnvironmentDBValueCache(t *testing.T) {
-	t.Run("DisabledDBValueCache", func(t *testing.T) {
-		env, err := NewEnvironment(context.TODO(), "test", &Configuration{
-			MongoDBURI:            "mongodb://localhost:27017",
-			NumWorkers:            2,
-			DatabaseName:          testDatabaseName,
-			DisableDBValueCaching: true,
-		})
-		require.NoError(t, err)
-
-		_, ok := env.RegisterDBValueCacher("some_value", "value", nil)
-		assert.False(t, ok)
-	})
-	t.Run("EnabledDBValueCache", func(t *testing.T) {
-		env, err := NewEnvironment(context.TODO(), "test", &Configuration{
-			MongoDBURI:   "mongodb://localhost:27017",
-			NumWorkers:   2,
-			DatabaseName: testDatabaseName,
-		})
-		require.NoError(t, err)
-
-		key0 := "key0"
-		val0 := "value0"
-		updateChan0 := make(chan interface{})
-		closeChan0, ok := env.RegisterDBValueCacher(key0, val0, updateChan0)
-		require.True(t, ok)
-		require.NotNil(t, closeChan0)
-
-		key1 := "key1"
-		val1 := 5
-		updateChan1 := make(chan interface{})
-		closeChan1, ok := env.RegisterDBValueCacher(key1, val1, updateChan1)
-		require.True(t, ok)
-		require.NotNil(t, closeChan1)
-
-		t.Run("ReturnsInitialValue", func(t *testing.T) {
-			val, ok := env.GetCachedDBValue(key0)
-			require.True(t, ok)
-			assert.Equal(t, val0, val)
-
-			val, ok = env.GetCachedDBValue(key1)
-			require.True(t, ok)
-			assert.Equal(t, val1, val)
-		})
-		t.Run("ReturnsUpdatedValue", func(t *testing.T) {
-			var val interface{}
-
-			lastVal, ok := env.GetCachedDBValue(key0)
-			newVal0 := "new_value0"
-			updateChan0 <- newVal0
-			retryOp := func() (bool, error) {
-				val, ok = env.GetCachedDBValue(key0)
-				if !ok {
-					return false, errors.New("value not found in cache")
-				}
-				if lastVal == val {
-					return true, errors.New("value not updated")
-				}
-				return false, nil
-			}
-			assert.NoError(t, utility.Retry(context.TODO(), retryOp, utility.RetryOptions{MaxAttempts: 5}))
-			assert.Equal(t, newVal0, val)
-
-			lastVal, ok = env.GetCachedDBValue(key1)
-			newVal1 := 10
-			updateChan1 <- newVal1
-			retryOp = func() (bool, error) {
-				val, ok = env.GetCachedDBValue(key1)
-				if !ok {
-					return false, errors.New("value not found in cache")
-				}
-				if lastVal == val {
-					return true, errors.New("value not updated")
-				}
-				return false, nil
-			}
-			assert.NoError(t, utility.Retry(context.TODO(), retryOp, utility.RetryOptions{MaxAttempts: 5}))
-			assert.Equal(t, newVal1, val)
-		})
-		t.Run("DeletesValueOnErr", func(t *testing.T) {
-			err := errors.New("some error")
-			updateChan0 <- err
-			time.Sleep(time.Millisecond)
-			val, ok := env.GetCachedDBValue(key0)
-			assert.False(t, ok)
-			assert.Nil(t, val)
-			timer := time.NewTimer(time.Second)
-			var closeSignal bool
-			select {
-			case <-closeChan0:
-				closeSignal = true
-			case <-timer.C:
-			}
-			assert.True(t, closeSignal)
-
-			_, ok = env.GetCachedDBValue(key1)
-			assert.True(t, ok)
-		})
-	})
 }

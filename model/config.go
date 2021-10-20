@@ -207,9 +207,19 @@ func (c *CedarConfig) Find() error {
 	}
 
 	ctx, cancel := c.env.Context()
-	defer cancel()
+	var watching bool
+	defer func() {
+		if !watching {
+			cancel()
+		}
+	}()
 
-	if value, ok := c.env.GetCachedDBValue(cedarConfigurationID); ok {
+	envCache, ok := c.env.GetCache()
+	if !ok {
+		return c.find(ctx)
+	}
+
+	if value, ok := envCache.Get(cedarConfigurationID); ok {
 		switch t := value.(type) {
 		case CedarConfig:
 			*c = t
@@ -219,15 +229,21 @@ func (c *CedarConfig) Find() error {
 		}
 	}
 
+	updates := make(chan interface{})
+	if err := c.createConfigWatcher(ctx, updates); err != nil {
+		return err
+	}
 	if err := c.find(ctx); err != nil {
 		return err
 	}
-
-	updates := make(chan interface{})
-	if closer, ok := c.env.RegisterDBValueCacher(cedarConfigurationID, *c, updates); ok {
-		return c.createConfigWatcher(ctx, updates, closer)
+	if ok = envCache.PutNew(cedarConfigurationID, *c); !ok {
+		return nil
+	}
+	if ok = envCache.RegisterUpdater(ctx, cancel, cedarConfigurationID, updates); !ok {
+		return errors.New("put cedar config in the env cache but failed to register updater")
 	}
 
+	watching = true
 	return nil
 }
 
@@ -246,17 +262,14 @@ func (c *CedarConfig) find(ctx context.Context) error {
 	return nil
 }
 
-func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan interface{}, closer chan struct{}) error {
+func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan interface{}) error {
 	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
 	if err != nil {
 		return errors.Wrap(err, "getting configuration collection change stream")
 	}
 
 	go func() {
-		defer recovery.LogStackTraceAndContinue("cedar config change stream goroutine")
-
-		listenCtx, listenCancel := c.env.Context()
-		defer listenCancel()
+		defer recovery.LogStackTraceAndContinue("cedar config watcher")
 
 		var err error
 		defer func() {
@@ -266,7 +279,7 @@ func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan inte
 
 			select {
 			case updates <- err:
-			case <-listenCtx.Done():
+			case <-ctx.Done():
 			}
 		}()
 
@@ -278,7 +291,7 @@ func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan inte
 			}
 		}()
 
-		for stream.Next(listenCtx) {
+		for stream.Next(ctx) {
 			out := struct {
 				FullDocument *CedarConfig `bson:"fullDocument"`
 			}{}
@@ -295,9 +308,7 @@ func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan inte
 
 			select {
 			case updates <- *out.FullDocument:
-			case <-closer:
-				return
-			case <-listenCtx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
