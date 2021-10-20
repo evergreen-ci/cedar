@@ -35,6 +35,11 @@ const (
 	TriggerRequester            = "trigger_request"
 	MergeTestRequester          = "merge_test"
 	AdHocRequester              = "ad_hoc"
+
+	// Stats cache names.
+	StatsCacheBuildlogger = "buildlogger"
+	StatsCacheTestResults = "test_results"
+	StatsCachePerf        = "perf"
 )
 
 var (
@@ -43,6 +48,13 @@ var (
 		PatchVersionRequester,
 		GithubPRRequester,
 		MergeTestRequester,
+	}
+
+	// Convenience slice for slice cache names.
+	StatsCacheNames = []string{
+		StatsCacheBuildlogger,
+		StatsCacheTestResults,
+		StatsCachePerf,
 	}
 )
 
