@@ -79,10 +79,6 @@ func (c *envCache) RegisterUpdater(ctx context.Context, cancel context.CancelFun
 			c.mu.Unlock()
 		}()
 
-		if updates == nil {
-			return
-		}
-
 		for {
 			select {
 			case newValue := <-updates:

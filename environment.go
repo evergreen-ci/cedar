@@ -399,6 +399,9 @@ func (c *envState) GetConf() *Configuration {
 }
 
 func (c *envState) GetCache() (EnvironmentCache, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	return c.cache, c.cache != nil
 }
 
