@@ -55,7 +55,7 @@ func (c *envCache) PutNew(key string, value interface{}) bool {
 // cannot already have an updater registered. Upon receiving an updated value,
 // the updater will replace the current value of key with the new value. If an
 // error is received, cancel is called and the goroutine exits. The lifespan of
-// the listener is bound to ctx.
+// the updater is bound to ctx.
 func (c *envCache) RegisterUpdater(ctx context.Context, cancel context.CancelFunc, key string, updates chan interface{}) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
