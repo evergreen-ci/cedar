@@ -50,6 +50,7 @@ type statsCache struct {
 
 func newStatsCache(name string) *statsCache {
 	return &statsCache{
+		cacheName: name,
 		statChan:  make(chan Stat, statChanBufferSize),
 		byProject: make(map[string]int),
 		byVersion: make(map[string]int),
