@@ -78,6 +78,10 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 	}
 
+	if !conf.DisableCache {
+		env.cache = newEnvironmentCache()
+	}
+
 	if !conf.DisableLocalQueue {
 		env.localQueue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
@@ -213,6 +217,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 // state, in a way that you can isolate and test for in
 type Environment interface {
 	GetConf() *Configuration
+	GetCache() (EnvironmentCache, bool)
 	Context() (context.Context, context.CancelFunc)
 
 	// GetQueue retrieves the application's shared queue, which is cached
@@ -223,7 +228,6 @@ type Environment interface {
 	GetRemoteManager() management.Manager
 	GetLocalQueue() amboy.Queue
 	SetLocalQueue(amboy.Queue) error
-
 	GetRemoteQueueGroup() amboy.QueueGroup
 
 	GetSession() db.Session
@@ -275,6 +279,7 @@ type envState struct {
 	ctx                context.Context
 	client             *mongo.Client
 	conf               *Configuration
+	cache              *envCache
 	jpm                jasper.Manager
 	statsCacheRegistry map[string]*statsCache
 	serverCertVersion  int
@@ -397,6 +402,13 @@ func (c *envState) GetConf() *Configuration {
 	*out = *c.conf
 
 	return out
+}
+
+func (c *envState) GetCache() (EnvironmentCache, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.cache, c.cache != nil
 }
 
 func (c *envState) GetServerCertVersion() int {

@@ -23,6 +23,7 @@ func init() {
 		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
+		DisableCache:       true,
 	})
 	if err != nil {
 		panic(err)

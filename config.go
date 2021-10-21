@@ -20,6 +20,7 @@ type Configuration struct {
 	DisableLocalQueue       bool
 	DisableRemoteQueue      bool
 	DisableRemoteQueueGroup bool
+	DisableCache            bool
 	NumWorkers              int
 	DBUser                  string
 	DBPwd                   string

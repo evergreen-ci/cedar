@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -8,11 +9,13 @@ import (
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/anser/model"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
+	"github.com/mongodb/grip/recovery"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -199,18 +202,58 @@ type ServiceConfig struct {
 func (c *CedarConfig) Setup(e cedar.Environment) { c.env = e }
 func (c *CedarConfig) IsNil() bool               { return !c.populated }
 func (c *CedarConfig) Find() error {
-	conf, session, err := cedar.GetSessionWithConfig(c.env)
-	if err != nil {
-		return errors.WithStack(err)
+	if c.env == nil {
+		return errors.New("cannot find configuration with a nil environment")
 	}
-	defer session.Close()
 
+	ctx, cancel := c.env.Context()
+	var watching bool
+	defer func() {
+		if !watching {
+			cancel()
+		}
+	}()
+
+	envCache, ok := c.env.GetCache()
+	if !ok {
+		return c.find(ctx)
+	}
+
+	if value, ok := envCache.Get(cedarConfigurationID); ok {
+		switch t := value.(type) {
+		case CedarConfig:
+			*c = t
+			return nil
+		default:
+			return errors.Errorf("unrecognized cached cedar config type '%v'", t)
+		}
+	}
+
+	updates, err := c.createConfigWatcher(ctx)
+	if err != nil {
+		return err
+	}
+	if err := c.find(ctx); err != nil {
+		return err
+	}
+	if ok = envCache.PutNew(cedarConfigurationID, *c); !ok {
+		return nil
+	}
+	if ok = envCache.RegisterUpdater(ctx, cancel, cedarConfigurationID, updates); !ok {
+		return errors.New("put cedar config in the env cache but failed to register updater")
+	}
+
+	watching = true
+	return nil
+}
+
+func (c *CedarConfig) find(ctx context.Context) error {
 	c.populated = false
-	err = session.DB(conf.DatabaseName).C(configurationCollection).FindId(cedarConfigurationID).One(c)
+	err := c.env.GetDB().Collection(configurationCollection).FindOne(ctx, bson.M{"_id": cedarConfigurationID}).Decode(c)
 	if db.ResultsNotFound(err) {
 		return errors.New("could not find application configuration in the database")
 	} else if err != nil {
-		return errors.Wrap(err, "problem finding app config document")
+		return errors.Wrap(err, "finding app config document")
 	}
 
 	c.populated = true
@@ -219,30 +262,97 @@ func (c *CedarConfig) Find() error {
 	return nil
 }
 
-func (c *CedarConfig) Save() error {
-	// TODO: validate here when that's possible
-
-	if !c.populated {
-		return errors.New("cannot save a non-populated app configuration")
+func (c *CedarConfig) createConfigWatcher(ctx context.Context) (chan interface{}, error) {
+	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
+	if err != nil {
+		return nil, errors.Wrap(err, "getting confinuration collection change stream")
 	}
+	updates := make(chan interface{})
+
+	go func() {
+		defer recovery.LogStackTraceAndContinue("cedar config watcher")
+
+		var err error
+		defer func() {
+			if err == nil {
+				return
+			}
+
+			select {
+			case updates <- err:
+			case <-ctx.Done():
+			}
+		}()
+
+		defer func() {
+			if err = stream.Close(nil); err != nil {
+				grip.Error(message.WrapError(err, message.Fields{
+					"message": "closing configuration collection change stream",
+				}))
+			}
+		}()
+
+		for stream.Next(ctx) {
+			out := struct {
+				FullDocument *CedarConfig `bson:"fullDocument"`
+			}{}
+			err = stream.Decode(&out)
+			if err == nil && out.FullDocument == nil {
+				err = errors.New("expected a cedar config document in change stream event, but got nil")
+			}
+			if err != nil {
+				grip.Error(message.WrapError(err, message.Fields{
+					"message": "getting updated configuration",
+				}))
+				return
+			}
+
+			select {
+			case updates <- *out.FullDocument:
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		if err = stream.Err(); err != nil {
+			grip.Error(message.WrapError(err, message.Fields{
+				"message": "configuration collection change stream error",
+			}))
+		}
+	}()
+
+	return updates, nil
+}
+
+func (c *CedarConfig) Save() error {
+	if !c.populated {
+		return errors.New("cannot save an unpopulated cedar configuration")
+	}
+	if c.env == nil {
+		return errors.New("cannot save cedar configuration with a nil environment")
+	}
+
+	ctx, cancel := c.env.Context()
+	defer cancel()
 
 	c.ID = cedarConfigurationID
-
-	conf, session, err := cedar.GetSessionWithConfig(c.env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-
-	changeInfo, err := session.DB(conf.DatabaseName).C(configurationCollection).UpsertId(cedarConfigurationID, c)
-	grip.Debug(message.Fields{
-		"ns":          model.Namespace{DB: conf.DatabaseName, Collection: configurationCollection},
-		"id":          cedarConfigurationID,
-		"operation":   "save application configuration",
-		"change_info": changeInfo,
+	updateResult, err := c.env.GetDB().Collection(configurationCollection).UpdateOne(
+		ctx,
+		bson.M{"_id": cedarConfigurationID},
+		bson.M{"$set": c},
+		options.Update().SetUpsert(true),
+	)
+	grip.DebugWhen(err == nil, message.Fields{
+		"collection":    configurationCollection,
+		"id":            cedarConfigurationID,
+		"operation":     "save application configuration",
+		"update_result": updateResult,
 	})
+	if err == nil && updateResult.MatchedCount == 0 && updateResult.UpsertedCount == 0 {
+		err = errors.Errorf("could not find cedar configuration with id %s in the database", c.ID)
+	}
 
-	return errors.Wrap(err, "problem saving application configuration")
+	return errors.Wrap(err, "saving application configuration")
 }
 
 func LoadCedarConfig(file string) (*CedarConfig, error) {
