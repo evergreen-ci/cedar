@@ -154,6 +154,18 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
 	}
 
+	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(result.Artifacts),
+		Project: result.Info.Project,
+		Version: result.Info.Version,
+		TaskID:  result.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCachePerf,
+		}))
+	}
+
 	return result.MergeRollups(ctx, rollups)
 }
 
@@ -196,8 +208,23 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
+	if err != nil {
+		return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+	}
 
-	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(result.Artifacts),
+		Project: result.Info.Project,
+		Version: result.Info.Version,
+		TaskID:  result.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCachePerf,
+		}))
+	}
+
+	return nil
 }
 
 // IncFailedRollupAttempts increments the failed_rollup_attempts field by 1.
@@ -659,7 +686,7 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 
 	search := bson.M{
 		perfCreatedAtKey: bson.M{"$gt": after},
-		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey): FileFTDC,
+		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoSchemaKey): SchemaRawEvents,
 		perfFailedRollupAttempts: bson.M{"$lt": failureLimit},
 		"$or": []bson.M{
 			{

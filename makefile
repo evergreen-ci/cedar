@@ -6,36 +6,51 @@ orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
 
-
 # start environment setup
-gobin := $(GO_BIN_PATH)
-ifeq ($(gobin),)
 gobin := go
+ifneq (,$(GOROOT))
+gobin := $(GOROOT)/bin/go
 endif
-gopath := $(GOPATH)
+
+gocache := $(GOCACHE)
+ifeq (,$(gocache))
 gocache := $(abspath $(buildDir)/.cache)
-goroot := $(GOROOT)
-ifeq ($(OS),Windows_NT)
-gocache := $(shell cygpath -m $(gocache))
-gopath := $(shell cygpath -m $(gopath))
-goroot := $(shell cygpath -m $(goroot))
+endif
+lintCache := $(GOLANGCI_LINT_CACHE)
+ifeq (,$(lintCache))
+lintCache := $(abspath $(buildDir)/.lint-cache)
 endif
 
-export GOPATH := $(gopath)
-export GOCACHE := $(gocache)
-export GOROOT := $(goroot)
-export GO111MODULE := off
-# end environment setup
+ifeq ($(OS),Windows_NT)
+gobin := $(shell cygpath $(gobin))
+gocache := $(shell cygpath -m $(gocache))
+lintCache := $(shell cygpath -m $(lintCache))
+export GOPATH := $(shell cygpath -m $(GOPATH))
+export GOROOT := $(shell cygpath -m $(GOROOT))
+endif
 
+ifneq ($(gocache),$(GOCACHE))
+export GOCACHE := $(gocache)
+endif
+ifneq ($(lintCache),$(GOLANGCI_LINT_CACHE))
+export GOLANGCI_LINT_CACHE := $(lintCache)
+endif
+
+export GO111MODULE := off
+ifneq (,$(RACE_DETECTOR))
+# cgo is required for using the race detector.
+export CGO_ENABLED=1
+else
+export CGO_ENABLED=0
+endif
+# end environment setup
 
 # Ensure the build directory exists, since most targets require it.
 $(shell mkdir -p $(buildDir))
 
-
 .DEFAULT_GOAL := $(name)
 
 # start lint setup targets
-lintDeps := $(buildDir)/run-linter $(buildDir)/golangci-lint
 $(buildDir)/golangci-lint:
 	@curl  --retry 10 --retry-max-time 60 -sSfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(buildDir) v1.40.0 >/dev/null 2>&1
 $(buildDir)/run-linter:cmd/run-linter/run-linter.go $(buildDir)/golangci-lint $(buildDir)
@@ -47,59 +62,95 @@ $(buildDir)/run-benchmarks:cmd/run-benchmarks/run-benchmarks.go
 	$(gobin) build -o $@ $<
 # end benchmark setup targets
 
-
-# start dependency installation tools
-#   implementation details for being able to lazily install dependencies
-distContents := $(buildDir)/$(name)
-testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
-lintOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).lint)
-coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
-coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
-# end dependency installation tools
-
-
-# implementation details for building the binary and creating a
-# convenient link in the working directory
-$(name):$(buildDir)/$(name)
+# start cli and distribution targets
+$(name): $(buildDir)/$(name)
 	@[ -e $@ ] || ln -s $<
 $(buildDir)/$(name): .FORCE
-	$(gobin) build -ldflags "-w -X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -o $@ cmd/$(name)/$(name).go
+	$(gobin) build -ldflags "-w -X github.com/evergreen-ci/cedar.BuildRevision=`git rev-parse HEAD`" -trimpath -o $@ cmd/$(name)/$(name).go
+$(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
+	@GOOS="" GOARCH="" $(gobin) build -o $@ $<
+distContents := $(buildDir)/$(name)
+dist: $(buildDir)/dist.tar.gz
+$(buildDir)/dist.tar.gz: $(buildDir)/make-tarball $(distContents)
+	./$< --name $@ --prefix $(name) $(foreach item,$(distContents),--item $(item)) --trim $(buildDir)
+	tar -tvf $@
 $(buildDir)/generate-points:cmd/generate-points/generate-points.go
 	$(gobin) build -o $@ $<
 generate-points:$(buildDir)/generate-points
 	./$<
-$(buildDir)/make-tarball:cmd/make-tarball/make-tarball.go
-	@GOOS="" GOARCH="" $(gobin) build -o $@ $<
-# end dependency installation tools
+# end cli and distribution targets
 
+# start output files
+testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
+lintOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).lint)
+coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
+coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
+.PRECIOUS: $(lintOutput) $(testOutput) $(coverageOutput) $(coverageHtmlOutput)
+# end output files
 
-# distribution targets and implementation
-dist:$(buildDir)/dist.tar.gz
-$(buildDir)/dist.tar.gz:$(buildDir)/make-tarball $(distContents)
-	./$< --name $@ --prefix $(name) $(foreach item,$(distContents),--item $(item)) --trim $(buildDir)
-	tar -tvf $@
-# end deploy and distribution targets
-
-
-# userfacing targets for basic build and development operations
+# start basic development targets
 proto:
 	@mkdir -p rpc/internal
 	protoc --go_out=plugins=grpc:rpc/internal *.proto
-lint:$(lintOutput)
-test:$(testOutput)
-$(buildDir):$(buildDir)/$(name)
-.PHONY: benchmark
-benchmark:$(buildDir)/run-benchmarks .FORCE
-	./$(buildDir)/run-benchmarks $(run-benchmark)
-coverage:$(coverageOutput)
-coverage-html:$(coverageHtmlOutput)
-phony += lint $(buildDir) test coverage coverage-html
-.PRECIOUS:$(lintOutput) $(testOutput) $(coverageOutput) $(coverageHtmlOutput)
-# end front-ends
+lint: $(lintOutput)
+test: $(testOutput)
+compile: $(buildDir)/$(name)
+benchmark: $(buildDir)/run-benchmarks .FORCE
+	./$(buildDir)/run-benchmarks
+coverage: $(coverageOutput)
+coverage-html: $(coverageHtmlOutput)
+phony += compile lint test coverage coverage-html proto benchmark
 
+# start convenience targets for running tests and coverage tasks on a
+# specific package.
+test-%:$(buildDir)/output.%.test
+	
+coverage-%:$(buildDir)/output.%.coverage
+	
+html-coverage-%:$(buildDir)/output.%.coverage.html
+	
+lint-%:$(buildDir)/output.%.lint
+	
+# end convenience targets
+# end basic development targets
+
+# start test and coverage artifacts
+testArgs := -v -timeout=20m
+ifeq (,$(DISABLE_COVERAGE))
+testArgs += -cover
+endif
+ifneq (,$(RACE_DETECTOR))
+testArgs += -race
+endif
+ifneq (,$(RUN_COUNT))
+testArgs += -count=$(RUN_COUNT)
+endif
+ifneq (,$(RUN_TEST))
+testArgs += -run='$(RUN_TEST)'
+endif
+ifneq (,$(SKIP_LONG))
+testArgs += -short
+endif
+$(buildDir)/output.%.test: .FORCE
+	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
+	@grep -s -q -e "^PASS" $@
+$(buildDir)/output.%.coverage: .FORCE
+	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
+	@-[ -f $@ ] && $(gobin) tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
+	@grep -s -q -e "^PASS" $(subst coverage,test,$@)
+$(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
+	$(gobin) tool cover -html=$< -o $@
+
+ifneq (go,$(gobin))
+# We have to handle the PATH specially for linting in CI, because if the PATH has a different version of the Go
+# binary in it, the linter won't work properly.
+lintEnvVars := PATH="$(shell dirname $(gobin)):$(PATH)"
+endif
+$(buildDir)/output.%.lint: $(buildDir)/run-linter .FORCE
+	@$(lintEnvVars) ./$< --output=$@ --lintBin=$(buildDir)/golangci-lint --packages='$*'
+# end test and coverage artifacts
 
 # start vendoring configuration
-#    begin with configuration of dependencies
 vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/evergreen-ci/gimlet/
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/github.com/jpillora/backoff/
@@ -224,61 +275,9 @@ vendor-clean:
 	rm -rf vendor/github.com/evergreen-ci/aviation/vendor/google.golang.org/grpc/
 	find vendor/ -name "*.gif" -o -name "*.gz" -o -name "*.png" -o -name "*.ico" -o -name "*testdata*" | xargs rm -rf
 phony += vendor-clean
-# end vendoring tooling configuration
+# end vendoring configuration
 
-
-# convenience targets for runing tests and coverage tasks on a
-# specific package.
-test-%:$(buildDir)/output.%.test
-	@grep -s -q -e "^PASS" $<
-coverage-%:$(buildDir)/output.%.coverage
-	@grep -s -q -e "^PASS" $(buildDir)/output.$*.test
-html-coverage-%:$(buildDir)/output.%.coverage.html
-	@grep -s -q -e "^PASS" $(buildDir)/output.$*.test
-lint-%:$(buildDir)/output.%.lint
-	@grep -v -s -q "^--- FAIL" $<
-# end convenience targets
-
-
-# start test and coverage artifacts
-#    This varable includes everything that the tests actually need to
-#    run.
-testTimeout := -timeout=20m
-testArgs := -v $(testTimeout)
-ifeq (,$(DISABLE_COVERAGE))
-testArgs += -cover
-endif
-ifneq (,$(RACE_DETECTOR))
-testArgs += -race
-endif
-ifneq (,$(RUN_COUNT))
-testArgs += -count=$(RUN_COUNT)
-endif
-ifneq (,$(RUN_TEST))
-testArgs += -run='$(RUN_TEST)'
-endif
-ifneq (,$(SKIP_LONG))
-testArgs += -short
-endif
-# extra dependencies
-# test execution and output handlers
-$(buildDir)/output.%.test: .FORCE
-	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) | tee $@
-	@! grep -s -q -e "^FAIL" $@ && ! grep -s -q "^WARNING: DATA RACE" $@
-$(buildDir)/output.%.coverage: .FORCE
-	$(gobin) test $(testArgs) ./$(if $(subst $(name),,$*),$(subst -,/,$*),) -covermode=count -coverprofile $@ | tee $(buildDir)/output.$*.test
-	-[ -f $@ ] && $(gobin) tool cover -func=$@ | sed 's%$(projectPath)/%%' | column -t
-$(buildDir)/output.%.coverage.html:$(buildDir)/output.%.coverage
-	$(gobin) tool cover -html=$< -o $@
-#  targets to generate gotest output from the linter.
-# We have to handle the PATH specially for CI, because if the PATH has a different version of Go in it, it'll break.
-$(buildDir)/output.%.lint:$(buildDir)/run-linter .FORCE
-	@$(if $(GO_BIN_PATH), PATH="$(shell dirname $(GO_BIN_PATH)):$(PATH)") ./$< --output=$@ --lintBin=$(buildDir)/golangci-lint --packages='$*'
-#  targets to process and generate coverage reports
-# end test and coverage artifacts
-
-
-# mongodb utility targets
+# start mongodb targets
 ifeq ($(OS),Windows_NT)
   decompress := 7z.exe x
 else
@@ -299,18 +298,17 @@ init-rs:mongodb/.get-mongodb
 check-mongod:mongodb/.get-mongodb
 	./mongodb/mongo --nodb --eval "assert.soon(function(x){try{var d = new Mongo(\"localhost:27017\"); return true}catch(e){return false}}, \"timed out connecting\")"
 	@echo "mongod is up"
+phony += get-mongodb start-mongod init-rs check-mongod
 # end mongodb targets
 
-
-# clean and other utility targets
+# start cleanup targts
 clean:
 	rm -rf *.pb.go $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
 phony += clean
-# end dependency targets
-
+# end cleanup targets
 
 # configure phony targets
 .FORCE:
-.PHONY:$(phony) .FORCE
+.PHONY: $(phony) .FORCE

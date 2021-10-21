@@ -80,12 +80,13 @@ func (dbc *DBConnector) FindPerformanceResults(ctx context.Context, opts Perform
 
 	findOpts := model.PerfFindOptions{
 		Info: model.PerformanceResultInfo{
-			Project:  opts.Project,
-			Version:  opts.Version,
-			Variant:  opts.Variant,
-			TaskID:   opts.TaskID,
-			TaskName: opts.TaskName,
-			Tags:     opts.Tags,
+			Project:   opts.Project,
+			Version:   opts.Version,
+			Variant:   opts.Variant,
+			TaskID:    opts.TaskID,
+			Execution: opts.Execution,
+			TaskName:  opts.TaskName,
+			Tags:      opts.Tags,
 		},
 		Interval: opts.Interval,
 		Limit:    opts.Limit,
@@ -252,6 +253,9 @@ func (mc *MockConnector) FindPerformanceResults(_ context.Context, opts Performa
 			continue
 		}
 		if opts.TaskName != "" && opts.TaskName != result.Info.TaskName {
+			continue
+		}
+		if opts.Execution != 0 && opts.Execution != result.Info.Execution {
 			continue
 		}
 		if opts.TaskID == "" && opts.Version == "" {
