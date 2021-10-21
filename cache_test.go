@@ -16,7 +16,9 @@ func TestEnvironmentCache(t *testing.T) {
 		cache := newEnvironmentCache()
 
 		require.True(t, cache.PutNew("key0", "val0"))
+		assert.False(t, cache.PutNew("key0", "val0"))
 		require.True(t, cache.PutNew("key1", 1))
+		assert.False(t, cache.PutNew("key1", 1))
 
 		val0, ok := cache.Get("key0")
 		assert.True(t, ok)
@@ -56,6 +58,12 @@ func TestEnvironmentCache(t *testing.T) {
 			val, ok = cache.Get(key1)
 			require.True(t, ok)
 			assert.Equal(t, val1, val)
+		})
+		t.Run("FailsWhenUpdaterAlreadyExists", func(t *testing.T) {
+			assert.False(t, cache.RegisterUpdater(ctx0, cancel0, key0, make(chan interface{})))
+		})
+		t.Run("FailsWhenKeyDNE", func(t *testing.T) {
+			assert.False(t, cache.RegisterUpdater(ctx0, cancel0, "DNE", make(chan interface{})))
 		})
 		t.Run("ReturnsUpdatedValue", func(t *testing.T) {
 			var val interface{}

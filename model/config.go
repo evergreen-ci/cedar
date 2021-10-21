@@ -229,8 +229,8 @@ func (c *CedarConfig) Find() error {
 		}
 	}
 
-	updates := make(chan interface{})
-	if err := c.createConfigWatcher(ctx, updates); err != nil {
+	updates, err := c.createConfigWatcher(ctx)
+	if err != nil {
 		return err
 	}
 	if err := c.find(ctx); err != nil {
@@ -262,11 +262,12 @@ func (c *CedarConfig) find(ctx context.Context) error {
 	return nil
 }
 
-func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan interface{}) error {
+func (c *CedarConfig) createConfigWatcher(ctx context.Context) (chan interface{}, error) {
 	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
 	if err != nil {
-		return errors.Wrap(err, "getting configuration collection change stream")
+		return nil, errors.Wrap(err, "getting confinuration collection change stream")
 	}
+	updates := make(chan interface{})
 
 	go func() {
 		defer recovery.LogStackTraceAndContinue("cedar config watcher")
@@ -320,7 +321,7 @@ func (c *CedarConfig) createConfigWatcher(ctx context.Context, updates chan inte
 		}
 	}()
 
-	return nil
+	return updates, nil
 }
 
 func (c *CedarConfig) Save() error {

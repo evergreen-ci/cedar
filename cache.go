@@ -11,13 +11,16 @@ import (
 // EnvironmentCache provides thread-safe, in-memory access to data persisted
 // elsewhere, such as on disk or a database.
 type EnvironmentCache interface {
-	// PutNew adds new (key, value) pair to the cache.
+	// PutNew adds new (key, value) pair to the cache and returns whether
+	// the operation was successful or not.
 	PutNew(string, interface{}) bool
 	// RegisterUpdater registers a new cache value updater for the given
-	// key. The updater should listen for updates on the given channel and
-	// use the context and cancel function for signaling.
+	// key and returns whether the operation was successful or not. The
+	// updater should listen for updates on the given channel and use the
+	// context and cancel function for signaling.
 	RegisterUpdater(context.Context, context.CancelFunc, string, chan interface{}) bool
-	// Get returns the value of the given key.
+	// Get returns the value of the given key and if the key exists in the
+	// cache.
 	Get(string) (interface{}, bool)
 	// Delete removes the given key from the cache.
 	Delete(string)
