@@ -45,6 +45,8 @@ type TimeSeriesEntry struct {
 	Value        float64 `bson:"value"`
 	Order        int     `bson:"order"`
 	Version      string  `bson:"version"`
+	TaskID       string  `bson:"task_id"`
+	Execution    int     `bson:"execution"`
 }
 
 // PerformanceData represents information about a performance result series and
@@ -226,6 +228,8 @@ func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceR
 						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
 						"perf_result_id": "$_id",
 						"version":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey),
+						"task_id":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey),
+						"execution":      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoExecutionKey),
 					},
 				},
 			},

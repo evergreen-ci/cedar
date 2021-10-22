@@ -27,6 +27,7 @@ type TimeSeriesDataModel struct {
 	Order               int     `json:"order"`
 	Value               float64 `json:"value"`
 	Version             string  `json:"version"`
+	Execution           int     `json:"execution"`
 }
 
 // TimeSeriesModel is the representation of the meta information and data points that make up a time series.

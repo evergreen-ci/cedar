@@ -125,6 +125,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 				Order:               item.Order,
 				Value:               item.Value,
 				Version:             item.Version,
+				Execution:           item.Execution,
 			})
 		}
 		err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
@@ -134,4 +135,22 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		}
 		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, perfData.PerformanceResultId))
 	}
+}
+
+func filterOldExecutions(timeSeries []model.TimeSeriesEntry) []model.TimeSeriesEntry {
+	maxExecutionMap := make(map[string]int)
+	for _, item := range timeSeries {
+		if item.Execution > maxExecutionMap[item.TaskID] {
+			maxExecutionMap[item.TaskID] = item.Execution
+		}
+	}
+
+	filtered := make([]model.TimeSeriesEntry, 0, len(timeSeries))
+	for _, item := range timeSeries {
+		if item.Execution == maxExecutionMap[item.TaskID] {
+			filtered = append(filtered, item)
+		}
+	}
+
+	return filtered
 }

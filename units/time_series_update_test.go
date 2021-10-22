@@ -12,6 +12,7 @@ import (
 	"github.com/evergreen-ci/cedar/perf"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -235,5 +236,40 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 		j.Run(ctx)
 		require.True(t, j.Status().Completed)
 		require.Len(t, mockDetector.Calls, 0)
+	})
+}
+
+func TestFilterOldExecutions(t *testing.T) {
+	t.Run("all the latest execution", func(t *testing.T) {
+		timeSeries := []model.TimeSeriesEntry{
+			{TaskID: "t0"},
+			{TaskID: "t1"},
+			{TaskID: "t2"},
+		}
+		result := filterOldExecutions(timeSeries)
+		assert.Len(t, result, 3)
+	})
+	t.Run("empty", func(t *testing.T) {
+		timeSeries := []model.TimeSeriesEntry{}
+		result := filterOldExecutions(timeSeries)
+		assert.Len(t, result, 0)
+	})
+	t.Run("extra execution", func(t *testing.T) {
+		timeSeries := []model.TimeSeriesEntry{
+			{TaskID: "t0", Execution: 0},
+			{TaskID: "t0", Execution: 1},
+		}
+		result := filterOldExecutions(timeSeries)
+		require.Len(t, result, 1)
+		assert.Equal(t, result[0].Execution, 1)
+	})
+	t.Run("one task with an extra execution", func(t *testing.T) {
+		timeSeries := []model.TimeSeriesEntry{
+			{TaskID: "t0", Execution: 0},
+			{TaskID: "t0", Execution: 1},
+			{TaskID: "t1", Execution: 0},
+		}
+		result := filterOldExecutions(timeSeries)
+		require.Len(t, result, 2)
 	})
 }
