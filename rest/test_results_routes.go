@@ -56,9 +56,6 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 type testResultsGetByTaskIDHandler struct {
 	sc data.Connector
 	testResultsBaseHandler
-	// TODO: (EVG-15263) Remove this once evg is safely switched to new
-	// REST client.
-	stats bool
 }
 
 func makeGetTestResultsByTaskID(sc data.Connector) gimlet.RouteHandler {
