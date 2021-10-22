@@ -71,9 +71,6 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 
 	catcher.Add(h.testResultsBaseHandler.Parse(ctx, r))
 	vals := r.URL.Query()
-	if vals.Get("stats") == trueString {
-		h.stats = true
-	}
 	testName := vals.Get(testResultsTestName)
 	statuses := vals[testResultsStatus]
 	groupID := vals.Get(testResultsGroupID)
@@ -139,11 +136,7 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 	}
 
 	var resp gimlet.Responder
-	if h.stats {
-		resp = gimlet.NewJSONResponse(testResults)
-	} else {
-		resp = gimlet.NewJSONResponse(testResults.Results)
-	}
+	resp = gimlet.NewJSONResponse(testResults)
 	if h.opts.FilterAndSort != nil && h.opts.FilterAndSort.Limit > 0 {
 		pages := &gimlet.ResponsePages{
 			Prev: &gimlet.Page{
