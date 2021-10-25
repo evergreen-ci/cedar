@@ -122,9 +122,9 @@ func (s *statsCache) logStats() {
 		"message":    fmt.Sprintf("%s stats", s.cacheName),
 		"calls":      s.calls,
 		"total":      s.total,
-		"by_project": topNMap(s.byProject, topN),
-		"by_version": topNMap(s.byVersion, topN),
-		"by_task_id": topNMap(s.byTaskID, topN),
+		"by_project": topNItems(s.byProject, topN),
+		"by_version": topNItems(s.byVersion, topN),
+		"by_task_id": topNItems(s.byTaskID, topN),
 	})
 
 	s.resetCache()
@@ -141,24 +141,21 @@ func (s *statsCache) AddStat(newStat Stat) error {
 	}
 }
 
-func topNMap(fullMap map[string]int, n int) map[string]int {
-	type item struct {
-		identifier string
-		count      int
-	}
+type item struct {
+	Identifier string `json:"identifier"`
+	Count      int    `json:"count"`
+}
+
+func topNItems(fullMap map[string]int, n int) []item {
 	items := make([]item, 0, len(fullMap))
 	for identifier, count := range fullMap {
-		items = append(items, item{identifier: identifier, count: count})
+		items = append(items, item{Identifier: identifier, Count: count})
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].count > items[j].count })
+	sort.Slice(items, func(i, j int) bool { return items[i].Count > items[j].Count })
 
-	result := make(map[string]int, n)
-	for i, item := range items {
-		if i >= n {
-			break
-		}
-		result[item.identifier] = item.count
+	if len(items) < n {
+		n = len(items)
 	}
 
-	return result
+	return items[:n]
 }

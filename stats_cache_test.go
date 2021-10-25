@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStatsCache(t *testing.T) {
@@ -34,20 +35,20 @@ func TestStatsCache(t *testing.T) {
 		assert.Equal(t, cache.byVersion["abcdef"], 2)
 		assert.Equal(t, cache.byTaskID["t1"], 2)
 	})
-	t.Run("topNMap", func(t *testing.T) {
+	t.Run("topNItems", func(t *testing.T) {
 		t.Run("empty map", func(t *testing.T) {
-			assert.Empty(t, topNMap(map[string]int{}, 10))
+			assert.Empty(t, topNItems(map[string]int{}, 10))
 		})
 		t.Run("nil map", func(t *testing.T) {
-			assert.Empty(t, topNMap(nil, 10))
+			assert.Empty(t, topNItems(nil, 10))
 		})
 		t.Run("fewer than n", func(t *testing.T) {
 			fullMap := map[string]int{
 				"one": 1,
 			}
-			newMap := topNMap(fullMap, 10)
-			assert.Len(t, newMap, 1)
-			assert.Contains(t, newMap, "one")
+			items := topNItems(fullMap, 10)
+			require.Len(t, items, 1)
+			assert.Equal(t, items[0].Identifier, "one")
 		})
 		t.Run("greater than n", func(t *testing.T) {
 			fullMap := map[string]int{
@@ -55,10 +56,10 @@ func TestStatsCache(t *testing.T) {
 				"two":   2,
 				"three": 3,
 			}
-			newMap := topNMap(fullMap, 2)
-			assert.Len(t, newMap, 2)
-			assert.Contains(t, newMap, "two")
-			assert.Contains(t, newMap, "three")
+			items := topNItems(fullMap, 2)
+			require.Len(t, items, 2)
+			assert.Equal(t, items[0].Identifier, "three")
+			assert.Equal(t, items[1].Identifier, "two")
 		})
 	})
 }
