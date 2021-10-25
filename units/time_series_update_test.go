@@ -240,7 +240,7 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 }
 
 func TestFilterOldExecutions(t *testing.T) {
-	t.Run("all the latest execution", func(t *testing.T) {
+	t.Run("AllTheLatestExecution", func(t *testing.T) {
 		timeSeries := []model.TimeSeriesEntry{
 			{TaskID: "t0"},
 			{TaskID: "t1"},
@@ -249,12 +249,12 @@ func TestFilterOldExecutions(t *testing.T) {
 		result := filterOldExecutions(timeSeries)
 		assert.Len(t, result, 3)
 	})
-	t.Run("empty", func(t *testing.T) {
+	t.Run("Empty", func(t *testing.T) {
 		timeSeries := []model.TimeSeriesEntry{}
 		result := filterOldExecutions(timeSeries)
 		assert.Len(t, result, 0)
 	})
-	t.Run("extra execution", func(t *testing.T) {
+	t.Run("ExtraExecution", func(t *testing.T) {
 		timeSeries := []model.TimeSeriesEntry{
 			{TaskID: "t0", Execution: 0},
 			{TaskID: "t0", Execution: 1},
@@ -263,7 +263,7 @@ func TestFilterOldExecutions(t *testing.T) {
 		require.Len(t, result, 1)
 		assert.Equal(t, result[0].Execution, 1)
 	})
-	t.Run("one task with an extra execution", func(t *testing.T) {
+	t.Run("OneTaskWithAnExtraExecution", func(t *testing.T) {
 		timeSeries := []model.TimeSeriesEntry{
 			{TaskID: "t0", Execution: 0},
 			{TaskID: "t0", Execution: 1},

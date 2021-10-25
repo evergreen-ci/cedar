@@ -119,7 +119,8 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 				Value: v,
 			})
 		}
-		for _, item := range perfData.TimeSeries {
+		filteredData := filterOldExecutions(perfData.TimeSeries)
+		for _, item := range filteredData {
 			series.Data = append(series.Data, perf.TimeSeriesDataModel{
 				PerformanceResultID: item.PerfResultID,
 				Order:               item.Order,
