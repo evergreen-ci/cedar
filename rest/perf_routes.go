@@ -185,7 +185,13 @@ func (h *perfCountByTaskIdHandler) Factory() gimlet.RouteHandler {
 
 // Parse fetches the task_id from the http request.
 func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
-	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
+	parsedResponse := gimlet.GetVars(r)
+	h.opts.TaskID = parsedResponse["task_id"]
+	var err error
+	h.opts.Execution, err = strconv.Atoi(parsedResponse["execution"])
+	if err != nil {
+		return err
+	}
 	h.opts.Tags = r.URL.Query()[tags]
 	return nil
 }
