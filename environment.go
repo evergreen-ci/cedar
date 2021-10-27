@@ -78,6 +78,10 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 	}
 
+	if !conf.DisableCache {
+		env.cache = newEnvironmentCache()
+	}
+
 	if !conf.DisableLocalQueue {
 		env.localQueue = queue.NewLocalLimitedSize(conf.NumWorkers, 1024)
 		grip.Infof("configured local queue with %d workers", conf.NumWorkers)
@@ -204,6 +208,8 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		return nil
 	})
 
+	env.statsCacheRegistry = newStatsCacheRegistry(env.ctx)
+
 	return env, nil
 }
 
@@ -211,6 +217,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 // state, in a way that you can isolate and test for in
 type Environment interface {
 	GetConf() *Configuration
+	GetCache() (EnvironmentCache, bool)
 	Context() (context.Context, context.CancelFunc)
 
 	// GetQueue retrieves the application's shared queue, which is cached
@@ -221,7 +228,6 @@ type Environment interface {
 	GetRemoteManager() management.Manager
 	GetLocalQueue() amboy.Queue
 	SetLocalQueue(amboy.Queue) error
-
 	GetRemoteQueueGroup() amboy.QueueGroup
 
 	GetSession() db.Session
@@ -231,6 +237,9 @@ type Environment interface {
 
 	GetServerCertVersion() int
 	SetServerCertVersion(i int)
+
+	// GetStatsCache returns the cache corresponding to the string.
+	GetStatsCache(string) *statsCache
 
 	RegisterCloser(string, CloserFunc)
 	Close(context.Context) error
@@ -262,18 +271,20 @@ type closerOp struct {
 }
 
 type envState struct {
-	name              string
-	remoteQueue       amboy.Queue
-	localQueue        amboy.Queue
-	remoteQueueGroup  amboy.QueueGroup
-	remoteManager     management.Manager
-	ctx               context.Context
-	client            *mongo.Client
-	conf              *Configuration
-	jpm               jasper.Manager
-	serverCertVersion int
-	closers           []closerOp
-	mutex             sync.RWMutex
+	name               string
+	remoteQueue        amboy.Queue
+	localQueue         amboy.Queue
+	remoteQueueGroup   amboy.QueueGroup
+	remoteManager      management.Manager
+	ctx                context.Context
+	client             *mongo.Client
+	conf               *Configuration
+	cache              *envCache
+	jpm                jasper.Manager
+	statsCacheRegistry map[string]*statsCache
+	serverCertVersion  int
+	closers            []closerOp
+	mutex              sync.RWMutex
 }
 
 func (c *envState) Context() (context.Context, context.CancelFunc) {
@@ -393,6 +404,13 @@ func (c *envState) GetConf() *Configuration {
 	return out
 }
 
+func (c *envState) GetCache() (EnvironmentCache, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.cache, c.cache != nil
+}
+
 func (c *envState) GetServerCertVersion() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -421,6 +439,13 @@ func (c *envState) Jasper() jasper.Manager {
 	defer c.mutex.RUnlock()
 
 	return c.jpm
+}
+
+func (c *envState) GetStatsCache(name string) *statsCache {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.statsCacheRegistry[name]
 }
 
 func (c *envState) Close(ctx context.Context) error {

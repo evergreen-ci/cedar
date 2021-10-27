@@ -42,6 +42,14 @@ func FromBoolTPtr(in *bool) bool {
 	return *in
 }
 
+// BoolPtrCopy creates a new pointer with the same value as in.
+func BoolPtrCopy(in *bool) *bool {
+	if in == nil {
+		return nil
+	}
+	return ToBoolPtr(*in)
+}
+
 // ToIntPtr returns a pointer to an int value.
 func ToIntPtr(in int) *int {
 	return &in
@@ -50,6 +58,34 @@ func ToIntPtr(in int) *int {
 // FromIntPtr returns the resolved int value from the input int pointer. For nil
 // pointers, it returns 0.
 func FromIntPtr(in *int) int {
+	if in == nil {
+		return 0
+	}
+	return *in
+}
+
+// ToInt64Ptr returns a pointer to an int64 value.
+func ToInt64Ptr(in int64) *int64 {
+	return &in
+}
+
+// FromInt64Ptr returns the resolved int64 value from the input int64 pointer.
+// For nil pointers, it returns 0.
+func FromInt64Ptr(in *int64) int64 {
+	if in == nil {
+		return 0
+	}
+	return *in
+}
+
+// ToInt32Ptr returns a pointer to an int32 value.
+func ToInt32Ptr(in int32) *int32 {
+	return &in
+}
+
+// FromInt32Ptr returns the resolved int32 value from the input int32 pointer.
+// For nil pointers, it returns 0.
+func FromInt32Ptr(in *int32) int32 {
 	if in == nil {
 		return 0
 	}
@@ -156,7 +192,10 @@ func FromStringPtr(in *string) string {
 
 // ToStringPtr returns a slice of string pointers from a slice of strings.
 func ToStringPtrSlice(in []string) []*string {
-	var res []*string
+	if in == nil {
+		return nil
+	}
+	res := []*string{}
 	for _, each := range in {
 		res = append(res, ToStringPtr(each))
 	}
@@ -166,7 +205,10 @@ func ToStringPtrSlice(in []string) []*string {
 // FromStringPtrSlice returns a slice of strings from a slice of string
 // pointers.
 func FromStringPtrSlice(in []*string) []string {
-	var res []string
+	if in == nil {
+		return nil
+	}
+	res := []string{}
 	for _, each := range in {
 		res = append(res, FromStringPtr(each))
 	}

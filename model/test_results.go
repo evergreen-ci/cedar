@@ -214,6 +214,18 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "uploading test results")
 	}
 
+	if err = t.env.GetStatsCache(cedar.StatsCacheTestResults).AddStat(cedar.Stat{
+		Count:   len(results),
+		Project: t.Info.Project,
+		Version: t.Info.Version,
+		TaskID:  t.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCacheTestResults,
+		}))
+	}
+
 	return t.updateStatsAndFailedSample(ctx, results)
 }
 

@@ -89,7 +89,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 		job := NewPeriodicTimeSeriesUpdateJob(utility.RoundPartOfHour(10).Format(tsFormat))
 		return queue.Put(ctx, job)
 	})
-	amboy.IntervalQueueOperation(ctx, remote, time.Hour*24, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
+	amboy.IntervalQueueOperation(ctx, remote, 24*time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
 		conf := model.NewCedarConfig(env)
 		if err := conf.Find(); err != nil {
 			return errors.WithStack(err)

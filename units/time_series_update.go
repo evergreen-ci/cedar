@@ -51,7 +51,7 @@ func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.
 	baseID := fmt.Sprintf("%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
 	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
 	j.SetScopes([]string{baseID})
-	j.SetShouldApplyScopesOnEnqueue(true)
+	j.SetEnqueueAllScopes(true)
 	j.PerformanceResultId = timeSeriesId
 	return j
 }
@@ -119,12 +119,14 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 				Value: v,
 			})
 		}
-		for _, item := range perfData.TimeSeries {
+		filteredData := filterOldExecutions(perfData.TimeSeries)
+		for _, item := range filteredData {
 			series.Data = append(series.Data, perf.TimeSeriesDataModel{
 				PerformanceResultID: item.PerfResultID,
 				Order:               item.Order,
 				Value:               item.Value,
 				Version:             item.Version,
+				Execution:           item.Execution,
 			})
 		}
 		err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
@@ -134,4 +136,22 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		}
 		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, perfData.PerformanceResultId))
 	}
+}
+
+func filterOldExecutions(timeSeries []model.TimeSeriesEntry) []model.TimeSeriesEntry {
+	maxExecutionMap := make(map[string]int)
+	for _, item := range timeSeries {
+		if item.Execution > maxExecutionMap[item.TaskID] {
+			maxExecutionMap[item.TaskID] = item.Execution
+		}
+	}
+
+	filtered := make([]model.TimeSeriesEntry, 0, len(timeSeries))
+	for _, item := range timeSeries {
+		if item.Execution == maxExecutionMap[item.TaskID] {
+			filtered = append(filtered, item)
+		}
+	}
+
+	return filtered
 }

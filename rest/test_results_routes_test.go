@@ -167,11 +167,11 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 	rh := s.rh["task_id"].(*testResultsGetByTaskIDHandler)
 
 	for _, test := range []struct {
-		name            string
-		ctx             context.Context
-		opts            data.TestResultsOptions
-		expectedResults []model.APITestResult
-		errorStatus     int
+		name           string
+		ctx            context.Context
+		opts           data.TestResultsOptions
+		expectedResult *model.APITestResults
+		errorStatus    int
 	}{
 		{
 			name:        "FailsWithContextError",
@@ -195,12 +195,26 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
 			},
-			expectedResults: s.apiResults["abc"],
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{
+					TotalCount:    3,
+					FailedCount:   3,
+					FilteredCount: utility.ToIntPtr(3),
+				},
+				Results: s.apiResults["abc"],
+			},
 		},
 		{
-			name:            "TaskIDWithoutExecution",
-			opts:            data.TestResultsOptions{TaskID: "task1"},
-			expectedResults: s.apiResults["def"],
+			name: "TaskIDWithoutExecution",
+			opts: data.TestResultsOptions{TaskID: "task1"},
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{
+					TotalCount:    3,
+					FailedCount:   3,
+					FilteredCount: utility.ToIntPtr(3),
+				},
+				Results: s.apiResults["def"],
+			},
 		},
 		{
 			name: "SucceedsWithTaskIDAndFilterAndSort",
@@ -211,7 +225,14 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 					TestName: "test1",
 				},
 			},
-			expectedResults: s.apiResults["abc"][1:2],
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{
+					TotalCount:    3,
+					FailedCount:   3,
+					FilteredCount: utility.ToIntPtr(1),
+				},
+				Results: s.apiResults["abc"][1:2],
+			},
 		},
 		{
 			name: "SucceedsWithDisplayTaskIDAndExecution",
@@ -220,7 +241,14 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 				Execution:   utility.ToIntPtr(1),
 				DisplayTask: true,
 			},
-			expectedResults: s.apiResults["def"],
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{
+					TotalCount:    3,
+					FailedCount:   3,
+					FilteredCount: utility.ToIntPtr(3),
+				},
+				Results: s.apiResults["def"],
+			},
 		},
 		{
 			name: "SucceedsWithDisplayTaskIDAndNoExecution",
@@ -228,7 +256,14 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 				TaskID:      "display_task1",
 				DisplayTask: true,
 			},
-			expectedResults: s.apiResults["def"],
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{
+					TotalCount:    3,
+					FailedCount:   3,
+					FilteredCount: utility.ToIntPtr(3),
+				},
+				Results: s.apiResults["def"],
+			},
 		},
 		{
 			name: "SucceedsWithDisplayTaskIDAndFilterAndSort",
@@ -239,7 +274,14 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 					TestName: "test1",
 				},
 			},
-			expectedResults: s.apiResults["def"][1:2],
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{
+					TotalCount:    3,
+					FailedCount:   3,
+					FilteredCount: utility.ToIntPtr(1),
+				},
+				Results: s.apiResults["def"][1:2],
+			},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
@@ -255,9 +297,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 				s.Equal(test.errorStatus, resp.Status())
 			} else {
 				s.Equal(http.StatusOK, resp.Status())
-				actualResults, ok := resp.Data().([]model.APITestResult)
+				actualResult, ok := resp.Data().(*model.APITestResults)
 				s.Require().True(ok)
-				s.Equal(test.expectedResults, actualResults)
+				s.Equal(test.expectedResult, actualResult)
 			}
 		})
 	}

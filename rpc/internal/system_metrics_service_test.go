@@ -490,6 +490,7 @@ func createSystemMetricsEnv() (cedar.Environment, error) {
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
+		DisableCache:  true,
 	})
 
 	return env, err

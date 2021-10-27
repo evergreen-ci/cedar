@@ -31,6 +31,7 @@ func init() {
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
+		DisableCache:  true,
 	})
 	if err != nil {
 		panic(err)

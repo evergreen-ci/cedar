@@ -106,7 +106,22 @@ func TestEnvironmentConfiguration(t *testing.T) {
 			require.NotNil(t, q)
 			assert.True(t, strings.Contains(fmt.Sprintf("%T", q), "remote"))
 		},
-		// "": func(t *testing.T, conf *Configuration) {},
+		"DisablesCache": func(t *testing.T, conf *Configuration) {
+			env, err := NewEnvironment(ctx, ename, conf)
+			require.NoError(t, err)
+
+			cache, ok := env.GetCache()
+			assert.True(t, ok)
+			assert.NotNil(t, cache)
+
+			conf.DisableCache = true
+			env, err = NewEnvironment(ctx, ename, conf)
+			require.NoError(t, err)
+
+			cache, ok = env.GetCache()
+			assert.False(t, ok)
+			assert.Nil(t, cache)
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			conf := &Configuration{
