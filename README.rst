@@ -42,11 +42,9 @@ Use ---
 
 #. Download and compile cedar. I prefer something like: ::
 
-     go get github.com/evergreen-ci/cedar cd $GOPATH/src/github.com/evergreen-ci/cedar
-     make build
-     pushd /usr/local/bin
-     ln -s $GOPATH/src/github.com/evergreen-ci/cedar/build/cedar
-     popd
+     go get github.com/evergreen-ci/cedar
+     cd cedar
+     make cedar
 
 #. Explore the help menus in the ``cedar`` binary: ::
 

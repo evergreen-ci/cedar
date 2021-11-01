@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/aclements/go-moremath/stats"
+	"github.com/evergreen-ci/birch"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/ftdc"
-	"github.com/mongodb/ftdc/bsonx"
 	"github.com/mongodb/ftdc/events"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -349,7 +349,7 @@ func createFTDC(valid bool, samples int) ([]byte, error) {
 
 	} else {
 		for i := 0; i < samples; i++ {
-			err := collector.Add(bsonx.NewDocument(bsonx.EC.Int64("one", rand.Int63()), bsonx.EC.Int64("two", rand.Int63())))
+			err := collector.Add(birch.NewDocument(birch.EC.Int64("one", rand.Int63()), birch.EC.Int64("two", rand.Int63())))
 			if err != nil {
 				return []byte{}, errors.WithStack(err)
 			}
