@@ -42,7 +42,7 @@ Use ---
 
 #. Download and compile cedar. I prefer something like: ::
 
-     go get github.com/evergreen-ci/cedar
+     git clone https://github.com/evergreen-ci/cedar
      cd cedar
      make cedar
 
