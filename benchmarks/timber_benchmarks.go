@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/evergreen-ci/poplar"
-	"github.com/evergreen-ci/timber"
+	"github.com/evergreen-ci/timber/buildlogger"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
@@ -16,12 +17,13 @@ import (
 )
 
 const (
-	confFile   = "cedarconf.yaml"
-	rpcAddress = "localhost:2289"
-	dbName     = "poplar-benchmark"
-	bucketName = "pail-s3-test"
-	cedarBin   = "./build/cedar"
-	lineLength = 200
+	confFile    = "cedarconf.yaml"
+	rpcBaseAddr = "localhost"
+	rpcPort     = 2289
+	dbName      = "poplar-benchmark"
+	bucketName  = "pail-s3-test"
+	cedarBin    = "./build/cedar"
+	lineLength  = 200
 )
 
 // RunBasicSenderBenchmark runs a poplar benchmark suite for timber's basic
@@ -145,14 +147,15 @@ func getBasicSenderBenchmark(logSize, maxBufferSize int) poplar.Benchmark {
 	}
 
 	return func(ctx context.Context, r poplar.Recorder, _ int) error {
-		opts := &timber.LoggerOptions{
+		opts := &buildlogger.LoggerOptions{
 			Project:       "poplar-benchmarking",
 			TaskID:        newUUID(),
-			RPCAddress:    rpcAddress,
+			RPCPort:       strconv.Itoa(rpcPort),
+			BaseAddress:   rpcBaseAddr,
 			Insecure:      true,
 			MaxBufferSize: maxBufferSize,
 		}
-		logger, err := timber.MakeLogger("benchmark", opts)
+		logger, err := buildlogger.MakeLogger("benchmark", opts)
 		if err != nil {
 			return errors.Wrap(err, "problem creating buildlogger sender")
 		}
@@ -164,20 +167,20 @@ func getBasicSenderBenchmark(logSize, maxBufferSize int) poplar.Benchmark {
 			}
 			m := message.ConvertToComposer(level.Debug, line)
 			startAt := time.Now()
-			r.Begin()
+			r.BeginIteration()
 			logger.Send(m)
-			r.End(time.Since(startAt))
-			r.IncOps(1)
+			r.EndIteration(time.Since(startAt))
+			r.IncOperations(1)
 		}
 
 		r.SetState(1)
 		startAt := time.Now()
-		r.Begin()
+		r.BeginIteration()
 		if err = logger.Close(); err != nil {
 			return errors.Wrap(err, "problem closing buildlogger sender")
 		}
-		r.End(time.Since(startAt))
-		r.IncOps(1)
+		r.EndIteration(time.Since(startAt))
+		r.IncOperations(1)
 
 		return nil
 	}

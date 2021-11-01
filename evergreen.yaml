@@ -144,6 +144,9 @@ tasks:
     name: lint-rpc-internal
   - <<: *run-build
     tags: ["lint"]
+    name: lint-benchmarks
+  - <<: *run-build
+    tags: ["lint"]
     name: lint-rpc
   - <<: *run-build
     tags: ["lint"]

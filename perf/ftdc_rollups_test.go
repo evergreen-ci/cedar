@@ -339,11 +339,11 @@ func createFTDC(valid bool, samples int) ([]byte, error) {
 		recorder := events.NewRawRecorder(collector)
 
 		for i := 0; i < samples; i++ {
-			recorder.Begin()
-			recorder.IncOps(rand.Int63n(100) + 1)
-			recorder.End(time.Duration(1000000))
+			recorder.BeginIteration()
+			recorder.IncOperations(rand.Int63n(100) + 1)
+			recorder.EndIteration(time.Duration(1000000))
 		}
-		if err := recorder.Flush(); err != nil {
+		if err := recorder.EndTest(); err != nil {
 			return []byte{}, errors.WithStack(err)
 		}
 
