@@ -132,8 +132,11 @@ func (s *PerfHandlerSuite) setup() {
 
 func TestPerfHandlerSuite(t *testing.T) {
 	s := new(PerfHandlerSuite)
-	s.setup()
 	suite.Run(t, s)
+}
+
+func (s *PerfHandlerSuite) SetupSuite() {
+	s.setup()
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByIdHandlerFound() {

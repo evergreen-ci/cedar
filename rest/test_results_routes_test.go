@@ -59,6 +59,7 @@ type TestResultsHandlerSuite struct {
 	rh         map[string]gimlet.RouteHandler
 	apiResults map[string][]model.APITestResult
 	buckets    map[string]pail.Bucket
+	tempDir    string
 
 	suite.Suite
 }
@@ -147,16 +148,18 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 
 func TestTestResultsHandlerSuite(t *testing.T) {
 	s := new(TestResultsHandlerSuite)
-	tempDir, err := ioutil.TempDir(".", "bucket_test")
-	s.Require().NoError(err)
-	defer func() {
-		s.NoError(os.RemoveAll(tempDir))
-	}()
-	s.setup(tempDir)
 	suite.Run(t, s)
 }
 
+func (s *TestResultsHandlerSuite) SetupSuite() {
+	tempDir, err := ioutil.TempDir(".", "bucket_test")
+	s.Require().NoError(err)
+	s.tempDir = tempDir
+	s.setup(tempDir)
+}
+
 func (s *TestResultsHandlerSuite) TearDownSuite() {
+	s.NoError(os.RemoveAll(s.tempDir))
 	err := tearDownEnv(s.env)
 	s.Require().NoError(err)
 }

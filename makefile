@@ -1,7 +1,8 @@
 # start project configuration
 name := cedar
 buildDir := build
-packages := $(name) evergreen rest rest-data rest-model units operations model perf rpc rpc-internal benchmarks
+testPackages := $(name) evergreen rest rest-data rest-model units operations model perf rpc-internal
+allPackages := $(testPackages) benchmarks rpc
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)
 # end project configuration
@@ -87,10 +88,10 @@ generate-points:$(buildDir)/generate-points
 # end cli and distribution targets
 
 # start output files
-testOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).test)
-lintOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).lint)
-coverageOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage)
-coverageHtmlOutput := $(foreach target,$(packages),$(buildDir)/output.$(target).coverage.html)
+testOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).test)
+lintOutput := $(foreach target,$(allPackages),$(buildDir)/output.$(target).lint)
+coverageOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).coverage)
+coverageHtmlOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).coverage.html)
 .PRECIOUS: $(lintOutput) $(testOutput) $(coverageOutput) $(coverageHtmlOutput)
 # end output files
 

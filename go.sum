@@ -316,6 +316,7 @@ github.com/evergreen-ci/certdepot v0.0.0-20211028185643-bccec0b3cb21/go.mod h1:u
 github.com/evergreen-ci/gimlet v0.0.0-20211018155143-ebbbff34990a/go.mod h1:F2dAoc1x1+JwZH9ylB9tpeOnztafEx2IbZjEz8GQzOM=
 github.com/evergreen-ci/gimlet v0.0.0-20211029160936-5b64c7b33753 h1:VIKaKtaMtTRa6ScX5rA4WCMOKzT6uZDDZozwcLVn7xc=
 github.com/evergreen-ci/gimlet v0.0.0-20211029160936-5b64c7b33753/go.mod h1:57Sr3kCsdBlf9ii/ZYyuNDTzcDLDN7laOyJeIXYPGGs=
+github.com/evergreen-ci/juniper v0.0.0-20210624185208-0fd21a88954c h1:FCDPj6Qu/hvMhSvGsulo/vQdsz8iblPjxlTxqa11F3g=
 github.com/evergreen-ci/juniper v0.0.0-20210624185208-0fd21a88954c/go.mod h1:LewZWRe1jV5XJhNksoB0rpvlwsg+D6M3yvzIFJZ8OJs=
 github.com/evergreen-ci/lru v0.0.0-20211029170532-008d075b972d h1:DdLeUQM7wsrlsiKiI6jYLDCSF6asMuBuT8C4nUIQdJA=
 github.com/evergreen-ci/lru v0.0.0-20211029170532-008d075b972d/go.mod h1:A/RxjQaIiyGDAbbeRcMzbjkiaEqZvaZ8AEGqysO4fhA=
