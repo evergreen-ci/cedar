@@ -27,12 +27,10 @@ type testResultsConnectorSuite struct {
 
 func TestTestResultsConnectorSuiteDB(t *testing.T) {
 	s := new(testResultsConnectorSuite)
-	s.setup()
-	s.sc = CreateNewDBConnector(s.env, "")
 	suite.Run(t, s)
 }
 
-func (s *testResultsConnectorSuite) setup() {
+func (s *testResultsConnectorSuite) setupData() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
 	s.Require().NotNil(s.env)
@@ -116,6 +114,11 @@ func (s *testResultsConnectorSuite) setup() {
 			s.Require().NoError(testResults.Append(s.ctx, []dbModel.TestResult{result}))
 		}
 	}
+}
+
+func (s *testResultsConnectorSuite) SetupSuite() {
+	s.setupData()
+	s.sc = CreateNewDBConnector(s.env, "")
 }
 
 func (s *testResultsConnectorSuite) TearDownSuite() {

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/poplar"
-	"github.com/evergreen-ci/timber"
+	"github.com/evergreen-ci/timber/buildlogger"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
@@ -95,13 +96,14 @@ func RunLogIteratorBenchmark(ctx context.Context) error {
 }
 
 func uploadLog(ctx context.Context, logSize int) (string, error) {
-	opts := &timber.LoggerOptions{
-		Project:    "poplar-benchmarking",
-		TaskID:     newUUID(),
-		RPCAddress: rpcAddress,
-		Insecure:   true,
+	opts := &buildlogger.LoggerOptions{
+		Project:     "poplar-benchmarking",
+		TaskID:      newUUID(),
+		BaseAddress: rpcBaseAddr,
+		RPCPort:     strconv.Itoa(rpcPort),
+		Insecure:    true,
 	}
-	logger, err := timber.MakeLogger("benchmark", opts)
+	logger, err := buildlogger.MakeLogger("benchmark", opts)
 	if err != nil {
 		return "", errors.Wrap(err, "problem creating buildlogger sender")
 	}
@@ -175,20 +177,20 @@ func getLogIteratorBenchmark(it model.LogIterator) poplar.Benchmark {
 	return func(ctx context.Context, r poplar.Recorder, _ int) error {
 		r.SetState(0)
 		startAt := time.Now()
-		r.Begin()
+		r.BeginIteration()
 		for it.Next(ctx) {
 			// do nothing
 			_ = it.Item()
-			r.IncOps(1)
+			r.IncOperations(1)
 		}
-		r.End(time.Since(startAt))
+		r.EndIteration(time.Since(startAt))
 
 		r.SetState(1)
 		startAt = time.Now()
-		r.Begin()
+		r.BeginIteration()
 		err := it.Close()
-		r.End(time.Since(startAt))
-		r.IncOps(1)
+		r.EndIteration(time.Since(startAt))
+		r.IncOperations(1)
 
 		return errors.Wrap(err, "problem closing iterator")
 	}

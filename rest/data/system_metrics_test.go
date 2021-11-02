@@ -19,28 +19,33 @@ type systemMetricsConnectorSuite struct {
 	env           cedar.Environment
 	systemMetrics map[string]dbModel.SystemMetrics
 	tempDir       string
+	setup         func()
 	suite.Suite
 }
 
 func TestSystemMetricsConnectorSuiteDB(t *testing.T) {
 	s := new(systemMetricsConnectorSuite)
-	s.setup()
-	s.sc = CreateNewDBConnector(s.env, "")
+	s.setup = func() {
+		s.setupData()
+		s.sc = CreateNewDBConnector(s.env, "")
+	}
 	suite.Run(t, s)
 }
 
 func TestSystemMetricsConnectorSuiteMock(t *testing.T) {
 	s := new(systemMetricsConnectorSuite)
-	s.setup()
-	s.sc = &MockConnector{
-		CachedSystemMetrics: s.systemMetrics,
-		env:                 cedar.GetEnvironment(),
-		Bucket:              s.tempDir,
+	s.setup = func() {
+		s.setupData()
+		s.sc = &MockConnector{
+			CachedSystemMetrics: s.systemMetrics,
+			env:                 cedar.GetEnvironment(),
+			Bucket:              s.tempDir,
+		}
 	}
 	suite.Run(t, s)
 }
 
-func (s *systemMetricsConnectorSuite) setup() {
+func (s *systemMetricsConnectorSuite) setupData() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
 	s.Require().NotNil(s.env)
@@ -96,6 +101,10 @@ func (s *systemMetricsConnectorSuite) setup() {
 		s.Require().NoError(systemMetrics.Find(s.ctx))
 		s.systemMetrics[systemMetrics.ID] = *systemMetrics
 	}
+}
+
+func (s *systemMetricsConnectorSuite) SetupSuite() {
+	s.setup()
 }
 
 func (s *systemMetricsConnectorSuite) TearDownSuite() {

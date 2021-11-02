@@ -26,6 +26,7 @@ type LogHandlerSuite struct {
 	rh         map[string]gimlet.RouteHandler
 	apiResults map[string]model.APILog
 	buckets    map[string]pail.Bucket
+	tempDir    string
 
 	suite.Suite
 }
@@ -166,13 +167,18 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 
 func TestLogHandlerSuite(t *testing.T) {
 	s := new(LogHandlerSuite)
+	suite.Run(t, s)
+}
+
+func (s *LogHandlerSuite) SetupSuite() {
 	tempDir, err := ioutil.TempDir(".", "bucket_test")
 	s.Require().NoError(err)
-	defer func() {
-		s.NoError(os.RemoveAll(tempDir))
-	}()
+	s.tempDir = tempDir
 	s.setup(tempDir)
-	suite.Run(t, s)
+}
+
+func (s *LogHandlerSuite) TearDownSuite() {
+	s.NoError(os.RemoveAll(s.tempDir))
 }
 
 func (s *LogHandlerSuite) TestLogGetByIDHandlerFound() {

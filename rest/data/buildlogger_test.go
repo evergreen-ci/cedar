@@ -19,6 +19,7 @@ type buildloggerConnectorSuite struct {
 	sc      Connector
 	env     cedar.Environment
 	logs    map[string]model.Log
+	setup   func()
 	tempDir string
 
 	suite.Suite
@@ -26,23 +27,27 @@ type buildloggerConnectorSuite struct {
 
 func TestBuildloggerConnectorSuiteDB(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
-	s.setup()
-	s.sc = CreateNewDBConnector(s.env, "")
+	s.setup = func() {
+		s.setupData()
+		s.sc = CreateNewDBConnector(s.env, "")
+	}
 	suite.Run(t, s)
 }
 
 func TestBuildloggerConnectorSuiteMock(t *testing.T) {
 	s := new(buildloggerConnectorSuite)
-	s.setup()
-	s.sc = &MockConnector{
-		CachedLogs: s.logs,
-		env:        cedar.GetEnvironment(),
-		Bucket:     s.tempDir,
+	s.setup = func() {
+		s.setupData()
+		s.sc = &MockConnector{
+			CachedLogs: s.logs,
+			env:        cedar.GetEnvironment(),
+			Bucket:     s.tempDir,
+		}
 	}
 	suite.Run(t, s)
 }
 
-func (s *buildloggerConnectorSuite) setup() {
+func (s *buildloggerConnectorSuite) setupData() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
 	s.Require().NotNil(s.env)
@@ -255,6 +260,10 @@ func (s *buildloggerConnectorSuite) setup() {
 		s.logs[log.ID] = *log
 		time.Sleep(time.Second)
 	}
+}
+
+func (s *buildloggerConnectorSuite) SetupSuite() {
+	s.setup()
 }
 
 func (s *buildloggerConnectorSuite) TearDownSuite() {
