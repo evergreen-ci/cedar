@@ -186,6 +186,15 @@ func (h *perfCountByTaskIdHandler) Factory() gimlet.RouteHandler {
 // Parse fetches the task_id from the http request.
 func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
+
+	vals := r.URL.Query()
+	if len(vals[execution]) > 0 {
+		exec, err := strconv.Atoi(vals[execution][0])
+		if err != nil {
+			return err
+		}
+		h.opts.Execution = exec
+	}
 	h.opts.Tags = r.URL.Query()[tags]
 	return nil
 }
@@ -197,11 +206,10 @@ func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
-			"request":   gimlet.GetRequestID(ctx),
-			"method":    "GET",
-			"route":     "/perf/task_id/{task_id}/{execution}/count",
-			"task_id":   h.opts.TaskID,
-			"execution": h.opts.Execution,
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "GET",
+			"route":   "/perf/task_id/{task_id}/count",
+			"task_id": h.opts.TaskID,
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
