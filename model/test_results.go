@@ -446,6 +446,13 @@ type TestResultsStats struct {
 	FailedCount int `bson:"failed_count"`
 }
 
+// TestResultsSample contains test names culled from a test result's FailedTestsSample.
+type TestResultsSample struct {
+	TaskID          string
+	Execution       int
+	FailedTestNames []string
+}
+
 var (
 	testResultsStatsTotalCountKey  = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
 	testResultsStatsFailedCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "FailedCount")
@@ -577,6 +584,104 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestRe
 	}
 
 	return results, nil
+}
+
+// FindTestSamplesOptions specifies test results to collect test names from
+// and regex filters to apply to the test names.
+type FindTestSamplesOptions struct {
+	Specifiers []TaskSampleOption
+}
+
+// TaskSampleOption is the information needed to find and filter a
+// specific test result.
+type TaskSampleOption struct {
+	TaskInfo        FindTestResultsOptions
+	TestNameRegexes []string
+}
+
+func (opts *FindTestSamplesOptions) createFindQuery() map[string]interface{} {
+	findQueries := []bson.M{}
+	for _, specifier := range opts.Specifiers {
+		findQueries = append(findQueries, specifier.TaskInfo.createFindQuery())
+	}
+
+	return bson.M{"$or": findQueries}
+}
+
+func (opts *FindTestSamplesOptions) createFindOptions() *options.FindOptions {
+	return options.Find().SetProjection(bson.M{
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey):        1,
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): 1,
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey):     1,
+		testResultsFailedTestsSampleKey:                                                1,
+	})
+}
+
+func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) []TestResultsSample {
+	type taskExecutionPair struct {
+		taskID    string
+		execution int
+	}
+	resultMap := make(map[taskExecutionPair]TestResults)
+	for _, result := range testResults {
+		id := result.Info.DisplayTaskID
+		if id == "" {
+			id = result.Info.TaskID
+		}
+		resultMap[taskExecutionPair{taskID: id, execution: result.Info.Execution}] = result
+	}
+
+	samples := make([]TestResultsSample, 0, len(testResults))
+	for _, specifier := range opts.Specifiers {
+		sample := TestResultsSample{
+			TaskID:    specifier.TaskInfo.TaskID,
+			Execution: utility.FromIntPtr(specifier.TaskInfo.Execution),
+		}
+		result, ok := resultMap[taskExecutionPair{taskID: sample.TaskID, execution: sample.Execution}]
+		if !ok {
+			continue
+		}
+		sample.FailedTestNames = filterTestNames(result.FailedTestsSample, specifier.TestNameRegexes)
+		samples = append(samples, sample)
+	}
+
+	return samples
+}
+
+func filterTestNames(testNames []string, regexes []string) []string {
+	matchingTestNames := []string{}
+	for _, regexString := range regexes {
+		testNameRegex, err := regexp.Compile(regexString)
+		if err != nil {
+			continue
+		}
+		for _, name := range testNames {
+			if testNameRegex.MatchString(name) {
+				matchingTestNames = append(matchingTestNames, name)
+			}
+		}
+	}
+
+	return matchingTestNames
+}
+
+// GetTestResultsFilteredSamples finds the specified test results and returns the filtered samples.
+// The environment should not be nil.
+func GetTestResultsFilteredSamples(ctx context.Context, env cedar.Environment, opts FindTestSamplesOptions) ([]TestResultsSample, error) {
+	if env == nil {
+		return nil, errors.New("cannot find with a nil environment")
+	}
+
+	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
+	if err != nil {
+		return nil, errors.Wrap(err, "finding test results record(s)")
+	}
+	results := []TestResults{}
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, errors.Wrap(err, "decoding test results record(s)")
+	}
+
+	return opts.makeTestSamples(results), nil
 }
 
 // TestResultsSortBy describes the property by which to sort a set of test
