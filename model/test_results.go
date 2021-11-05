@@ -622,13 +622,13 @@ func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) [
 		taskID    string
 		execution int
 	}
-	resultMap := make(map[taskExecutionPair]TestResults)
+	resultMap := make(map[taskExecutionPair][]TestResults)
 	for _, result := range testResults {
-		id := result.Info.DisplayTaskID
-		if id == "" {
-			id = result.Info.TaskID
+		pair := taskExecutionPair{taskID: result.Info.DisplayTaskID, execution: result.Info.Execution}
+		if pair.taskID == "" {
+			pair.taskID = result.Info.TaskID
 		}
-		resultMap[taskExecutionPair{taskID: id, execution: result.Info.Execution}] = result
+		resultMap[pair] = append(resultMap[pair], result)
 	}
 
 	samples := make([]TestResultsSample, 0, len(testResults))
@@ -637,11 +637,13 @@ func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) [
 			TaskID:    specifier.TaskInfo.TaskID,
 			Execution: utility.FromIntPtr(specifier.TaskInfo.Execution),
 		}
-		result, ok := resultMap[taskExecutionPair{taskID: sample.TaskID, execution: sample.Execution}]
+		results, ok := resultMap[taskExecutionPair{taskID: sample.TaskID, execution: sample.Execution}]
 		if !ok {
 			continue
 		}
-		sample.FailedTestNames = filterTestNames(result.FailedTestsSample, specifier.TestNameRegexes)
+		for _, result := range results {
+			sample.FailedTestNames = append(sample.FailedTestNames, filterTestNames(result.FailedTestsSample, specifier.TestNameRegexes)...)
+		}
 		samples = append(samples, sample)
 	}
 
