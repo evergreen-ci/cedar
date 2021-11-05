@@ -649,6 +649,10 @@ func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) [
 }
 
 func filterTestNames(testNames []string, regexes []string) []string {
+	if len(regexes) == 0 {
+		return testNames
+	}
+
 	matchingTestNames := []string{}
 	for _, regexString := range regexes {
 		testNameRegex, err := regexp.Compile(regexString)
