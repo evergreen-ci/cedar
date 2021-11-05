@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -190,7 +191,7 @@ func (h *testResultsGetFilteredSamplesHandler) Factory() gimlet.RouteHandler {
 }
 
 func (h *testResultsGetFilteredSamplesHandler) Parse(_ context.Context, r *http.Request) error {
-	body := util.NewRequestReader(r)
+	body := NewRequestReader(r)
 	defer body.Close()
 
 	if err := utility.ReadJSON(body, h.options); err != nil {
@@ -214,6 +215,31 @@ func (h *testResultsGetFilteredSamplesHandler) Run(ctx context.Context) gimlet.R
 	}
 
 	return gimlet.NewJSONResponse(samples)
+}
+
+// TODO I copy/pasted this out of the evergreen/util package.
+// If the idea here makes sense I can move it to the utility repo.
+const maxRequestSize = 16 * 1024 * 1024 // 16 MB
+type requestReader struct {
+	req *http.Request
+	*io.LimitedReader
+}
+
+// NewRequestReader returns an io.ReadCloser closer for the body of an
+// *http.Request, using a limited reader internally to avoid unbounded
+// reading from the request body. The reader is limited to 16 megabytes.
+func NewRequestReader(req *http.Request) io.ReadCloser {
+	return &requestReader{
+		req: req,
+		LimitedReader: &io.LimitedReader{
+			R: req.Body,
+			N: maxRequestSize,
+		},
+	}
+}
+
+func (r *requestReader) Close() error {
+	return errors.WithStack(r.req.Body.Close())
 }
 
 ///////////////////////////////////////////////////////////////////////////////

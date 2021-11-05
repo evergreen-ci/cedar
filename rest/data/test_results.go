@@ -56,12 +56,7 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 // GetTestResultsFilteredSamples returns test names for the specified test results, filtered by the provided regexes.
 func (dbc *DBConnector) GetTestResultsFilteredSamples(ctx context.Context, opts []TestSampleOptions) ([]model.APITestResultsSample, error) {
 	samples, err := dbModel.GetTestResultsFilteredSamples(ctx, dbc.env, convertToDBFindTestSampleOptions(opts))
-	if db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test results samples not found",
-		}
-	} else if err != nil {
+	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    errors.Wrap(err, "retrieving test results samples").Error(),

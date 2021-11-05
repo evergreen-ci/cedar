@@ -435,3 +435,62 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 		})
 	}
 }
+
+func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
+	for testName, testCase := range map[string]struct {
+		opts           []TestSampleOptions
+		expectedResult []model.APITestResultsSample
+		hasErr         bool
+	}{
+		"SingleTask": {
+			opts: []TestSampleOptions{
+				{TaskID: "display_task2", DisplayTask: true},
+			},
+			expectedResult: []model.APITestResultsSample{
+				{
+					TaskID:          utility.ToStringPtr("display_task2"),
+					FailedTestNames: []string{"test0", "test1", "test2"},
+				},
+			},
+		},
+		"NoMatchingTask": {
+			opts: []TestSampleOptions{
+				{TaskID: "doesNotExist"},
+			},
+			expectedResult: []model.APITestResultsSample{},
+		},
+		"MultipleExecutionTasks": {
+			opts: []TestSampleOptions{
+				{TaskID: "display_task1", DisplayTask: true, Execution: 0},
+			},
+			expectedResult: []model.APITestResultsSample{
+				{
+					TaskID:          utility.ToStringPtr("display_task1"),
+					FailedTestNames: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+				},
+			},
+		},
+		"LaterExecution": {
+			opts: []TestSampleOptions{
+				{TaskID: "display_task1", DisplayTask: true, Execution: 1},
+			},
+			expectedResult: []model.APITestResultsSample{
+				{
+					TaskID:          utility.ToStringPtr("display_task1"),
+					Execution:       1,
+					FailedTestNames: []string{"test0", "test1", "test2"},
+				},
+			},
+		},
+	} {
+		s.Run(testName, func() {
+			samples, err := s.sc.GetTestResultsFilteredSamples(s.ctx, testCase.opts)
+			if testCase.hasErr {
+				s.Error(err)
+			} else {
+				s.NoError(err)
+				s.ElementsMatch(samples, testCase.expectedResult)
+			}
+		})
+	}
+}
