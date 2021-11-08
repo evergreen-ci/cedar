@@ -63,7 +63,7 @@ func (dbc *DBConnector) GetTestResultsFilteredSamples(ctx context.Context, opts 
 		}
 	}
 
-	return importTestResultsSamples(samples), nil
+	return importTestResultsSamples(samples)
 }
 
 func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
@@ -157,17 +157,19 @@ func importTestResults(ctx context.Context, results []dbModel.TestResult) ([]mod
 	return apiResults, nil
 }
 
-func importTestResultsSamples(results []dbModel.TestResultsSample) []model.APITestResultsSample {
+func importTestResultsSamples(results []dbModel.TestResultsSample) ([]model.APITestResultsSample, error) {
 	samples := make([]model.APITestResultsSample, 0, len(results))
 	for _, result := range results {
-		samples = append(samples, model.APITestResultsSample{
-			TaskID:          &result.TaskID,
-			Execution:       result.Execution,
-			FailedTestNames: result.FailedTestNames,
-		})
+		apiSample := model.APITestResultsSample{}
+		if err := apiSample.Import(result); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    errors.Wrapf(err, "importing sample into APITestResultsSample struct").Error(),
+			}
+		}
+		samples = append(samples, apiSample)
 	}
-
-	return samples
+	return samples, nil
 }
 
 func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
