@@ -1189,9 +1189,14 @@ func TestFilterTestNames(t *testing.T) {
 			filters:  []string{`t\d`},
 			expected: []string{"t1", "t2"},
 		},
+		"InvalidRegexIsSkipped": {
+			names:    []string{"t1", "t2"},
+			filters:  []string{`[`},
+			expected: []string{},
+		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			filteredNames := filterTestNames(testCase.names, testCase.filters)
+			filteredNames := filterTestNames([]TestResults{{FailedTestsSample: testCase.names}}, testCase.filters)
 			assert.ElementsMatch(t, filteredNames, testCase.expected)
 		})
 	}

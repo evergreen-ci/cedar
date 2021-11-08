@@ -641,29 +641,35 @@ func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) [
 		if !ok {
 			continue
 		}
-		for _, result := range results {
-			sample.FailedTestNames = append(sample.FailedTestNames, filterTestNames(result.FailedTestsSample, specifier.TestNameRegexes)...)
-		}
+		sample.FailedTestNames = filterTestNames(results, specifier.TestNameRegexes)
 		samples = append(samples, sample)
 	}
 
 	return samples
 }
 
-func filterTestNames(testNames []string, regexes []string) []string {
-	if len(regexes) == 0 {
-		return testNames
-	}
-
-	matchingTestNames := []string{}
-	for _, regexString := range regexes {
+func filterTestNames(results []TestResults, regexStrings []string) []string {
+	regexes := []*regexp.Regexp{}
+	for _, regexString := range regexStrings {
 		testNameRegex, err := regexp.Compile(regexString)
 		if err != nil {
 			continue
 		}
-		for _, name := range testNames {
-			if testNameRegex.MatchString(name) {
-				matchingTestNames = append(matchingTestNames, name)
+		regexes = append(regexes, testNameRegex)
+	}
+
+	matchingTestNames := []string{}
+	for _, result := range results {
+		if len(regexStrings) == 0 {
+			matchingTestNames = append(matchingTestNames, result.FailedTestsSample...)
+			continue
+		}
+
+		for _, regex := range regexes {
+			for _, name := range result.FailedTestsSample {
+				if regex.MatchString(name) {
+					matchingTestNames = append(matchingTestNames, name)
+				}
 			}
 		}
 	}
