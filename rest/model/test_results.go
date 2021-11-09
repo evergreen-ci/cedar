@@ -92,7 +92,7 @@ func (a *APITestResultsStats) Import(i interface{}) error {
 	return nil
 }
 
-// APITestResultsSample is a sample of test names for a given task and execution
+// APITestResultsSample is a sample of test names for a given task and execution.
 type APITestResultsSample struct {
 	TaskID          *string
 	Execution       int
