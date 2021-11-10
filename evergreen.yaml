@@ -176,6 +176,16 @@ tasks:
     tags: ["lint"]
     name: lint-perf
 
+  - name: verify-mod-tidy
+    tags: ["report"]
+    commands:
+      - command: git.get_project
+        type: system
+        params:
+          directory: cedar
+      - func: run-make
+        vars: { target: "${task_name}" }
+
 
 task_groups:
   - name: lintGroup
@@ -233,7 +243,9 @@ buildvariants:
       DISABLE_COVERAGE: true
     run_on:
       - archlinux-new-small
-    tasks: [ "lintGroup" ]
+    tasks:
+      - name: lintGroup
+      - name: verify-mod-tidy
 
   - name: ubuntu
     display_name: Ubuntu 18.04
