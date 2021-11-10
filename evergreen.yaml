@@ -176,6 +176,16 @@ tasks:
     tags: ["lint"]
     name: lint-perf
 
+  - name: verify-mod-tidy
+    tags: ["report"]
+    commands:
+      - command: git.get_project
+        type: system
+        params:
+          directory: cedar
+      - func: run-make
+        vars: { target: "${task_name}" }
+
 
 task_groups:
   - name: lintGroup
