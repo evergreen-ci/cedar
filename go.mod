@@ -11,7 +11,7 @@ require (
 	github.com/evergreen-ci/pail v0.0.0-20211028170419-8efd623fd305
 	github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5
 	github.com/evergreen-ci/timber v0.0.0-20211029170449-9cc62c8d8869
-	github.com/evergreen-ci/utility v0.0.0-20211026201827-97b21fa2660a
+	github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf
 	github.com/golang/protobuf v1.5.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/mongodb/amboy v0.0.0-20211101172957-63ecb128b0be
