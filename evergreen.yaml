@@ -243,7 +243,9 @@ buildvariants:
       DISABLE_COVERAGE: true
     run_on:
       - archlinux-new-small
-    tasks: [ "lintGroup" ]
+    tasks:
+      - name: lintGroup
+      - name: verify-mod-tidy
 
   - name: ubuntu
     display_name: Ubuntu 18.04
