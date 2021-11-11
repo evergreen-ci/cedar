@@ -438,12 +438,12 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 
 func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 	for testName, testCase := range map[string]struct {
-		opts           []TestSampleOptions
+		tasks          []TaskInfo
 		expectedResult []model.APITestResultsSample
 		hasErr         bool
 	}{
 		"SingleTask": {
-			opts: []TestSampleOptions{
+			tasks: []TaskInfo{
 				{TaskID: "display_task2", DisplayTask: true},
 			},
 			expectedResult: []model.APITestResultsSample{
@@ -454,13 +454,13 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 		},
 		"NoMatchingTask": {
-			opts: []TestSampleOptions{
+			tasks: []TaskInfo{
 				{TaskID: "doesNotExist"},
 			},
 			expectedResult: []model.APITestResultsSample{},
 		},
 		"MultipleExecutionTasks": {
-			opts: []TestSampleOptions{
+			tasks: []TaskInfo{
 				{TaskID: "display_task1", DisplayTask: true, Execution: 0},
 			},
 			expectedResult: []model.APITestResultsSample{
@@ -471,7 +471,7 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 		},
 		"LaterExecution": {
-			opts: []TestSampleOptions{
+			tasks: []TaskInfo{
 				{TaskID: "display_task1", DisplayTask: true, Execution: 1},
 			},
 			expectedResult: []model.APITestResultsSample{
@@ -484,7 +484,7 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 		},
 	} {
 		s.Run(testName, func() {
-			samples, err := s.sc.GetTestResultsFilteredSamples(s.ctx, testCase.opts)
+			samples, err := s.sc.GetTestResultsFilteredSamples(s.ctx, TestSampleOptions{Tasks: testCase.tasks})
 			if testCase.hasErr {
 				s.Error(err)
 			} else {

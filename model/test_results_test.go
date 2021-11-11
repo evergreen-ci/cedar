@@ -1164,7 +1164,7 @@ func TestFilterTestNames(t *testing.T) {
 		"NoRegexes": {
 			names:    []string{"t1", "t2"},
 			filters:  []string{},
-			expected: []string{"t1", "t2"},
+			expected: []string{},
 		},
 		"NoNames": {
 			names:    []string{},
@@ -1196,33 +1196,109 @@ func TestFilterTestNames(t *testing.T) {
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			filteredNames := filterTestNames([]TestResults{{FailedTestsSample: testCase.names}}, testCase.filters)
-			assert.ElementsMatch(t, filteredNames, testCase.expected)
+			filteredSamples := filterTestNames([]TestResultsSample{{FailedTestNames: testCase.names}}, testCase.filters)
+			assert.ElementsMatch(t, filteredSamples, []TestResultsSample{{FailedTestNames: testCase.expected}})
+		})
+	}
+}
+
+func TestConsolidateSamples(t *testing.T) {
+	for testName, testCase := range map[string]struct {
+		results  []TestResults
+		expected []TestResultsSample
+	}{
+		"NoDisplayTasks": {
+			results: []TestResults{
+				{
+					Info:              TestResultsInfo{TaskID: "t1"},
+					FailedTestsSample: []string{"test1", "test2"},
+				},
+				{
+					Info:              TestResultsInfo{TaskID: "t2"},
+					FailedTestsSample: []string{"test3", "test4"},
+				},
+			},
+			expected: []TestResultsSample{
+				{TaskID: "t1", FailedTestNames: []string{"test1", "test2"}},
+				{TaskID: "t2", FailedTestNames: []string{"test3", "test4"}},
+			},
+		},
+		"DisplayTasks": {
+			results: []TestResults{
+				{
+					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et1"},
+					FailedTestsSample: []string{"test1"},
+				},
+				{
+					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et2"},
+					FailedTestsSample: []string{"test2"},
+				},
+			},
+			expected: []TestResultsSample{
+				{TaskID: "dt1", FailedTestNames: []string{"test1", "test2"}},
+			},
+		},
+		"Mixed": {
+			results: []TestResults{
+				{
+					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et1"},
+					FailedTestsSample: []string{"test1"},
+				},
+				{
+					Info:              TestResultsInfo{TaskID: "t1"},
+					FailedTestsSample: []string{"test2"},
+				},
+			},
+			expected: []TestResultsSample{
+				{TaskID: "dt1", FailedTestNames: []string{"test1"}},
+				{TaskID: "t1", FailedTestNames: []string{"test2"}},
+			},
+		},
+		"MultipleExecutions": {
+			results: []TestResults{
+				{
+					Info:              TestResultsInfo{TaskID: "t1", Execution: 0},
+					FailedTestsSample: []string{"test1"},
+				},
+				{
+					Info:              TestResultsInfo{TaskID: "t1", Execution: 1},
+					FailedTestsSample: []string{"test2"},
+				},
+			},
+			expected: []TestResultsSample{
+				{TaskID: "t1", Execution: 0, FailedTestNames: []string{"test1"}},
+				{TaskID: "t1", Execution: 1, FailedTestNames: []string{"test2"}},
+			},
+		},
+	} {
+		t.Run(testName, func(t *testing.T) {
+			assert.ElementsMatch(t, consolidateSamples(testCase.results), testCase.expected)
 		})
 	}
 }
 
 func TestMakeTestSamples(t *testing.T) {
 	for testName, testCase := range map[string]struct {
-		specifiers  []TaskSampleOption
+		tasks       []FindTestResultsOptions
+		filters     []string
 		testResults []TestResults
 		expected    []TestResultsSample
 	}{
 		"NoResults": {
-			specifiers:  []TaskSampleOption{},
+			tasks:       []FindTestResultsOptions{},
 			testResults: []TestResults{},
 			expected:    []TestResultsSample{},
 		},
 		"NoMatchingResults": {
-			specifiers: []TaskSampleOption{
-				{TaskInfo: FindTestResultsOptions{TaskID: "t1"}},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
 			},
 			testResults: []TestResults{},
 			expected:    []TestResultsSample{},
 		},
 		"MatchingResults": {
-			specifiers: []TaskSampleOption{
-				{TaskInfo: FindTestResultsOptions{TaskID: "t1"}},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
 			},
 			testResults: []TestResults{
 				{
@@ -1239,9 +1315,9 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 		},
 		"MoreThanOneExecution": {
-			specifiers: []TaskSampleOption{
-				{TaskInfo: FindTestResultsOptions{TaskID: "t1", Execution: utility.ToIntPtr(0)}},
-				{TaskInfo: FindTestResultsOptions{TaskID: "t1", Execution: utility.ToIntPtr(1)}},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1", Execution: utility.ToIntPtr(0)},
+				{TaskID: "t1", Execution: utility.ToIntPtr(1)},
 			},
 			testResults: []TestResults{
 				{
@@ -1267,9 +1343,10 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 		},
 		"Filter": {
-			specifiers: []TaskSampleOption{
-				{TaskInfo: FindTestResultsOptions{TaskID: "t1"}, TestNameRegexes: []string{"test1"}},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
 			},
+			filters: []string{"test1"},
 			testResults: []TestResults{
 				{
 					Info:              TestResultsInfo{TaskID: "t1", Execution: 0},
@@ -1285,8 +1362,8 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 		},
 		"DisplayTask": {
-			specifiers: []TaskSampleOption{
-				{TaskInfo: FindTestResultsOptions{TaskID: "dt1"}},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "dt1", Execution: utility.ToIntPtr(0)},
 			},
 			testResults: []TestResults{
 				{
@@ -1296,10 +1373,6 @@ func TestMakeTestSamples(t *testing.T) {
 				{
 					Info:              TestResultsInfo{TaskID: "et2", DisplayTaskID: "dt1", Execution: 0},
 					FailedTestsSample: []string{"test2"},
-				},
-				{
-					Info:              TestResultsInfo{TaskID: "et3", DisplayTaskID: "dt1", Execution: 1},
-					FailedTestsSample: []string{"test3"},
 				},
 			},
 			expected: []TestResultsSample{
@@ -1312,7 +1385,7 @@ func TestMakeTestSamples(t *testing.T) {
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			opts := FindTestSamplesOptions{Specifiers: testCase.specifiers}
+			opts := FindTestSamplesOptions{Tasks: testCase.tasks, TestNameRegexes: testCase.filters}
 			samples := opts.makeTestSamples(testCase.testResults)
 			assert.ElementsMatch(t, samples, testCase.expected)
 		})
@@ -1329,24 +1402,20 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 	}()
 
 	for testName, testCase := range map[string]struct {
-		specifiers  []TaskSampleOption
+		tasks       []FindTestResultsOptions
 		testResults []interface{}
 		expected    []TestResultsSample
 	}{
 		"NoResults": {
-			specifiers: []TaskSampleOption{
-				{
-					TaskInfo: FindTestResultsOptions{TaskID: "t1"},
-				},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
 			},
 			testResults: []interface{}{},
 			expected:    []TestResultsSample{},
 		},
 		"MatchingResults": {
-			specifiers: []TaskSampleOption{
-				{
-					TaskInfo: FindTestResultsOptions{TaskID: "t1"},
-				},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
 			},
 			testResults: []interface{}{
 				TestResults{
@@ -1362,10 +1431,8 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 			},
 		},
 		"DisplayTask": {
-			specifiers: []TaskSampleOption{
-				{
-					TaskInfo: FindTestResultsOptions{TaskID: "dt1", DisplayTask: true},
-				},
+			tasks: []FindTestResultsOptions{
+				{TaskID: "dt1", DisplayTask: true},
 			},
 			testResults: []interface{}{
 				TestResults{
@@ -1396,7 +1463,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			samples, err := GetTestResultsFilteredSamples(ctx, env, FindTestSamplesOptions{Specifiers: testCase.specifiers})
+			samples, err := GetTestResultsFilteredSamples(ctx, env, FindTestSamplesOptions{Tasks: testCase.tasks})
 			assert.NoError(t, err)
 			assert.ElementsMatch(t, testCase.expected, samples)
 		})

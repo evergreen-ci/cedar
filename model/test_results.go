@@ -589,20 +589,14 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestRe
 // FindTestSamplesOptions specifies test results to collect test names from
 // and regex filters to apply to the test names.
 type FindTestSamplesOptions struct {
-	Specifiers []TaskSampleOption
-}
-
-// TaskSampleOption is the information needed to find and filter a
-// specific test result.
-type TaskSampleOption struct {
-	TaskInfo        FindTestResultsOptions
+	Tasks           []FindTestResultsOptions
 	TestNameRegexes []string
 }
 
 func (opts *FindTestSamplesOptions) createFindQuery() map[string]interface{} {
 	findQueries := []bson.M{}
-	for _, specifier := range opts.Specifiers {
-		findQueries = append(findQueries, specifier.TaskInfo.createFindQuery())
+	for _, task := range opts.Tasks {
+		findQueries = append(findQueries, task.createFindQuery())
 	}
 
 	return bson.M{"$or": findQueries}
@@ -618,37 +612,46 @@ func (opts *FindTestSamplesOptions) createFindOptions() *options.FindOptions {
 }
 
 func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) []TestResultsSample {
-	type taskExecutionPair struct {
-		taskID    string
-		execution int
-	}
-	resultMap := make(map[taskExecutionPair][]TestResults)
-	for _, result := range testResults {
-		pair := taskExecutionPair{taskID: result.Info.DisplayTaskID, execution: result.Info.Execution}
-		if pair.taskID == "" {
-			pair.taskID = result.Info.TaskID
-		}
-		resultMap[pair] = append(resultMap[pair], result)
-	}
-
-	samples := make([]TestResultsSample, 0, len(testResults))
-	for _, specifier := range opts.Specifiers {
-		sample := TestResultsSample{
-			TaskID:    specifier.TaskInfo.TaskID,
-			Execution: utility.FromIntPtr(specifier.TaskInfo.Execution),
-		}
-		results, ok := resultMap[taskExecutionPair{taskID: sample.TaskID, execution: sample.Execution}]
-		if !ok {
-			continue
-		}
-		sample.FailedTestNames = filterTestNames(results, specifier.TestNameRegexes)
-		samples = append(samples, sample)
+	samples := consolidateSamples(testResults)
+	if len(opts.TestNameRegexes) > 0 {
+		samples = filterTestNames(samples, opts.TestNameRegexes)
 	}
 
 	return samples
 }
 
-func filterTestNames(results []TestResults, regexStrings []string) []string {
+func consolidateSamples(testResults []TestResults) []TestResultsSample {
+	type taskExecutionPair struct {
+		taskID    string
+		execution int
+	}
+	taskPairMap := make(map[taskExecutionPair][]string)
+	for _, result := range testResults {
+		taskID := result.Info.DisplayTaskID
+		if taskID == "" {
+			taskID = result.Info.TaskID
+		}
+
+		pair := taskExecutionPair{
+			taskID:    taskID,
+			execution: result.Info.Execution,
+		}
+		taskPairMap[pair] = append(taskPairMap[pair], result.FailedTestsSample...)
+	}
+
+	samples := make([]TestResultsSample, 0, len(taskPairMap))
+	for pair, names := range taskPairMap {
+		samples = append(samples, TestResultsSample{
+			TaskID:          pair.taskID,
+			Execution:       pair.execution,
+			FailedTestNames: names,
+		})
+	}
+
+	return samples
+}
+
+func filterTestNames(samples []TestResultsSample, regexStrings []string) []TestResultsSample {
 	regexes := []*regexp.Regexp{}
 	for _, regexString := range regexStrings {
 		testNameRegex, err := regexp.Compile(regexString)
@@ -658,23 +661,21 @@ func filterTestNames(results []TestResults, regexStrings []string) []string {
 		regexes = append(regexes, testNameRegex)
 	}
 
-	matchingTestNames := []string{}
-	for _, result := range results {
-		if len(regexStrings) == 0 {
-			matchingTestNames = append(matchingTestNames, result.FailedTestsSample...)
-			continue
-		}
-
+	filteredSamples := []TestResultsSample{}
+	for _, sample := range samples {
+		filteredNames := []string{}
 		for _, regex := range regexes {
-			for _, name := range result.FailedTestsSample {
+			for _, name := range sample.FailedTestNames {
 				if regex.MatchString(name) {
-					matchingTestNames = append(matchingTestNames, name)
+					filteredNames = append(filteredNames, name)
 				}
 			}
 		}
+		sample.FailedTestNames = filteredNames
+		filteredSamples = append(filteredSamples, sample)
 	}
 
-	return matchingTestNames
+	return filteredSamples
 }
 
 // GetTestResultsFilteredSamples finds the specified test results and returns the filtered samples.

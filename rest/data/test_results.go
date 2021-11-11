@@ -54,7 +54,7 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 }
 
 // GetTestResultsFilteredSamples returns test names for the specified test results, filtered by the provided regexes.
-func (dbc *DBConnector) GetTestResultsFilteredSamples(ctx context.Context, opts []TestSampleOptions) ([]model.APITestResultsSample, error) {
+func (dbc *DBConnector) GetTestResultsFilteredSamples(ctx context.Context, opts TestSampleOptions) ([]model.APITestResultsSample, error) {
 	samples, err := dbModel.GetTestResultsFilteredSamples(ctx, dbc.env, convertToDBFindTestSampleOptions(opts))
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
@@ -116,7 +116,7 @@ func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOp
 	return nil, errors.New("not implemented")
 }
 
-func (mc *MockConnector) GetTestResultsFilteredSamples(ctx context.Context, opts []TestSampleOptions) ([]model.APITestResultsSample, error) {
+func (mc *MockConnector) GetTestResultsFilteredSamples(ctx context.Context, opts TestSampleOptions) ([]model.APITestResultsSample, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -181,16 +181,13 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 	return sample
 }
 
-func convertToDBFindTestSampleOptions(opts []TestSampleOptions) dbModel.FindTestSamplesOptions {
-	dbOptions := dbModel.FindTestSamplesOptions{}
-	for _, opt := range opts {
-		dbOptions.Specifiers = append(dbOptions.Specifiers, dbModel.TaskSampleOption{
-			TaskInfo: dbModel.FindTestResultsOptions{
-				TaskID:      opt.TaskID,
-				DisplayTask: opt.DisplayTask,
-				Execution:   utility.ToIntPtr(opt.Execution),
-			},
-			TestNameRegexes: opt.TestNameRegexes,
+func convertToDBFindTestSampleOptions(opts TestSampleOptions) dbModel.FindTestSamplesOptions {
+	dbOptions := dbModel.FindTestSamplesOptions{TestNameRegexes: opts.TestNameRegexes}
+	for _, t := range opts.Tasks {
+		dbOptions.Tasks = append(dbOptions.Tasks, dbModel.FindTestResultsOptions{
+			TaskID:      t.TaskID,
+			DisplayTask: t.DisplayTask,
+			Execution:   utility.ToIntPtr(t.Execution),
 		})
 	}
 	return dbOptions

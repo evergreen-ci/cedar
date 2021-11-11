@@ -173,7 +173,7 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 
 type testResultsGetFilteredSamplesHandler struct {
 	sc      data.Connector
-	options []data.TestSampleOptions
+	options data.TestSampleOptions
 }
 
 func makeGetTestResultsFilteredSamples(sc data.Connector) gimlet.RouteHandler {
