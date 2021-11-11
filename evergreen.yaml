@@ -176,7 +176,7 @@ tasks:
     name: test-perf
   - name: test-auth
     commands:
-      - func: get-project
+      - func: get-project-and-modules
       - func: set-up-mongodb-auth
       - func: set-up-curator
       - func: run-make
