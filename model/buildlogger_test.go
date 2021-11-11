@@ -444,66 +444,81 @@ func TestBuildloggerGetChunks(t *testing.T) {
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 	}()
 
-	log := Log{populated: true}
-	log.ID = log.Info.ID()
-	log.Artifact = LogArtifactInfo{
-		Type:    PailLocal,
-		Prefix:  log.Info.ID(),
-		Version: 1,
-	}
-	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: log.Artifact.Prefix})
-	require.NoError(t, err)
-	chunk1 := []LogLine{
-		{
-			Priority:  level.Debug,
-			Timestamp: time.Now().Add(-time.Hour).Round(time.Millisecond).UTC(),
-			Data:      "This is not a test.",
-		},
-		{
-			Priority:  level.Emergency,
-			Timestamp: time.Now().Add(-59 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "This is a test.",
-		},
-	}
-	key1 := createBuildloggerChunkKey(chunk1[0].Timestamp, chunk1[len(chunk1)-1].Timestamp, len(chunk1))
-	require.NoError(t, testBucket.Put(ctx, key1, bytes.NewReader([]byte("some data"))))
-	chunk2 := []LogLine{
-		{
-			Priority:  level.Info,
-			Timestamp: time.Now().Add(-57 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Logging is fun.",
-		},
-		{
-			Priority:  level.Info,
-			Timestamp: time.Now().Add(-56 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Buildlogger logging logs.",
-		},
+	t.Run("UnrecognizedArtifactVersion", func(t *testing.T) {
+		log, _ := getTestLogs(time.Now())
+		log.Artifact.Version = 5
+		chunks, err := log.getChunks(ctx, nil)
+		assert.Error(t, err)
+		assert.Nil(t, chunks)
+	})
+	t.Run("ArtifactVersion0", func(t *testing.T) {
+		_, log := getTestLogs(time.Now())
+		chunks, err := log.getChunks(ctx, nil)
+		require.NoError(t, err)
+		assert.Equal(t, log.Artifact.Chunks, chunks)
+	})
+	t.Run("ArtifactVersion1", func(t *testing.T) {
+		log := Log{populated: true}
+		log.ID = log.Info.ID()
+		log.Artifact = LogArtifactInfo{
+			Type:    PailLocal,
+			Prefix:  log.Info.ID(),
+			Version: 1,
+		}
+		testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: log.Artifact.Prefix})
+		require.NoError(t, err)
+		chunk1 := []LogLine{
+			{
+				Priority:  level.Debug,
+				Timestamp: time.Now().Add(-time.Hour).Round(time.Millisecond).UTC(),
+				Data:      "This is not a test.",
+			},
+			{
+				Priority:  level.Emergency,
+				Timestamp: time.Now().Add(-59 * time.Minute).Round(time.Millisecond).UTC(),
+				Data:      "This is a test.",
+			},
+		}
+		key1 := createBuildloggerChunkKey(chunk1[0].Timestamp, chunk1[len(chunk1)-1].Timestamp, len(chunk1))
+		require.NoError(t, testBucket.Put(ctx, key1, bytes.NewReader([]byte("some data"))))
+		chunk2 := []LogLine{
+			{
+				Priority:  level.Info,
+				Timestamp: time.Now().Add(-57 * time.Minute).Round(time.Millisecond).UTC(),
+				Data:      "Logging is fun.",
+			},
+			{
+				Priority:  level.Info,
+				Timestamp: time.Now().Add(-56 * time.Minute).Round(time.Millisecond).UTC(),
+				Data:      "Buildlogger logging logs.",
+			},
 
-		{
-			Priority:  level.Info,
-			Timestamp: time.Now().Add(-55 * time.Minute).Round(time.Millisecond).UTC(),
-			Data:      "Finished logging.",
-		},
-	}
-	key2 := createBuildloggerChunkKey(chunk2[0].Timestamp, chunk2[len(chunk2)-1].Timestamp, len(chunk2))
-	require.NoError(t, testBucket.Put(ctx, key2, bytes.NewReader([]byte("some more data"))))
+			{
+				Priority:  level.Info,
+				Timestamp: time.Now().Add(-55 * time.Minute).Round(time.Millisecond).UTC(),
+				Data:      "Finished logging.",
+			},
+		}
+		key2 := createBuildloggerChunkKey(chunk2[0].Timestamp, chunk2[len(chunk2)-1].Timestamp, len(chunk2))
+		require.NoError(t, testBucket.Put(ctx, key2, bytes.NewReader([]byte("some more data"))))
 
-	chunks, err := log.getChunks(ctx, testBucket)
-	require.NoError(t, err)
-	assert.Equal(t, []LogChunkInfo{
-		{
-			Key:      key1,
-			NumLines: len(chunk1),
-			Start:    chunk1[0].Timestamp,
-			End:      chunk1[len(chunk1)-1].Timestamp,
-		},
-		{
-			Key:      key2,
-			NumLines: len(chunk2),
-			Start:    chunk2[0].Timestamp,
-			End:      chunk2[len(chunk2)-1].Timestamp,
-		},
-	}, chunks)
+		chunks, err := log.getChunks(ctx, testBucket)
+		require.NoError(t, err)
+		assert.Equal(t, []LogChunkInfo{
+			{
+				Key:      key1,
+				NumLines: len(chunk1),
+				Start:    chunk1[0].Timestamp,
+				End:      chunk1[len(chunk1)-1].Timestamp,
+			},
+			{
+				Key:      key2,
+				NumLines: len(chunk2),
+				Start:    chunk2[0].Timestamp,
+				End:      chunk2[len(chunk2)-1].Timestamp,
+			},
+		}, chunks)
+	})
 }
 
 func TestBuildloggerClose(t *testing.T) {
