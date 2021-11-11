@@ -1,6 +1,9 @@
 package model
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mongodb/anser/bsonutil"
@@ -62,3 +65,34 @@ var (
 	logLogChunkInfoStartKey    = bsonutil.MustHaveTag(LogChunkInfo{}, "Start")
 	logLogChunkInfoEndKey      = bsonutil.MustHaveTag(LogChunkInfo{}, "End")
 )
+
+func createBuildloggerChunkKey(start, end time.Time, numLines int) string {
+	return fmt.Sprintf("%d_%d_%d", start.UnixNano(), end.UnixNano(), numLines)
+}
+
+func parseBuildloggerChunkKey(key string) (LogChunkInfo, error) {
+	chunkInfo := strings.Split(key, "_")
+	if len(chunkInfo) != 3 {
+		return LogChunkInfo{}, errors.New("invalid buildlogger chunk key")
+	}
+
+	start, err := strconv.ParseInt(chunkInfo[0], 10, 64)
+	if err != nil {
+		return LogChunkInfo{}, errors.Wrap(err, "parsing buildlogger chunk start time")
+	}
+	end, err := strconv.ParseInt(chunkInfo[1], 10, 64)
+	if err != nil {
+		return LogChunkInfo{}, errors.Wrap(err, "parsing buildlogger chunk end time")
+	}
+	numLines, err := strconv.Atoi(chunkInfo[2])
+	if err != nil {
+		return LogChunkInfo{}, errors.Wrap(err, "parsing buildlogger chunk num lines")
+	}
+
+	return LogChunkInfo{
+		Key:      key,
+		NumLines: numLines,
+		Start:    time.Unix(0, start).UTC(),
+		End:      time.Unix(0, end).UTC(),
+	}, nil
+}
