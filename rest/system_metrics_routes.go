@@ -82,10 +82,10 @@ func (h *systemMetricsGetByTypeHandler) Run(ctx context.Context) gimlet.Responde
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return newSystemMetricsResponder(data, h.downloadOpts.StartIndex, nextIdx)
+	return newSystemMetricsResponder(h.sc.GetBaseURL(), data, h.downloadOpts.StartIndex, nextIdx)
 }
 
-func newSystemMetricsResponder(data []byte, startIdx, nextIdx int) gimlet.Responder {
+func newSystemMetricsResponder(baseURL string, data []byte, startIdx, nextIdx int) gimlet.Responder {
 	resp := gimlet.NewTextResponse(data)
 
 	pages := &gimlet.ResponsePages{

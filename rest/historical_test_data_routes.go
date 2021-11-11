@@ -103,7 +103,7 @@ func (h *historicalTestDataHandler) Run(ctx context.Context) gimlet.Responder {
 				Relation:        "next",
 				LimitQueryParam: "limit",
 				KeyQueryParam:   "start_at",
-				BaseURL:         baseURL,
+				BaseURL:         h.sc.GetBaseURL(),
 				Key:             data[requestLimit].StartAtKey(),
 				Limit:           requestLimit,
 			},

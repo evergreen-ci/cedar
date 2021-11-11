@@ -23,6 +23,7 @@ func init() {
 		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
+		DisableCache:       true,
 	})
 	if err != nil {
 		panic(err)
@@ -284,11 +285,12 @@ type PerfConnectorSuite struct {
 	results  testResults
 	idMap    map[string]model.PerformanceResult
 	childMap map[string][]string
+	setup    func()
 
 	suite.Suite
 }
 
-func (s *PerfConnectorSuite) setup() {
+func (s *PerfConnectorSuite) setupData() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.env = cedar.GetEnvironment()
 	err := s.createPerformanceResults(s.env)
@@ -304,19 +306,27 @@ func (s *PerfConnectorSuite) TearDownSuite() {
 
 func TestPerfConnectorSuiteDB(t *testing.T) {
 	s := new(PerfConnectorSuite)
-	s.setup()
-	s.sc = CreateNewDBConnector(s.env)
+	s.setup = func() {
+		s.setupData()
+		s.sc = CreateNewDBConnector(s.env, "")
+	}
 	suite.Run(t, s)
 }
 
 func TestPerfConnectorSuiteMock(t *testing.T) {
 	s := new(PerfConnectorSuite)
-	s.setup()
-	s.sc = &MockConnector{
-		CachedPerformanceResults: s.idMap,
-		ChildMap:                 s.childMap,
+	s.setup = func() {
+		s.setupData()
+		s.sc = &MockConnector{
+			CachedPerformanceResults: s.idMap,
+			ChildMap:                 s.childMap,
+		}
 	}
 	suite.Run(t, s)
+}
+
+func (s *PerfConnectorSuite) SetupSuite() {
+	s.setup()
 }
 
 func (s *PerfConnectorSuite) TestFindPerformanceResultById() {

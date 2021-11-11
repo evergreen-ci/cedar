@@ -272,7 +272,9 @@ func TestTestResultsAppend(t *testing.T) {
 		assert.Equal(t, results, savedResults.Results)
 		var saved TestResults
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
-		assert.Empty(t, tr.FailedTestsSample)
+		assert.Equal(t, len(results), saved.Stats.TotalCount)
+		assert.Zero(t, saved.Stats.FailedCount)
+		assert.Empty(t, saved.FailedTestsSample)
 
 		failedResults := make([]TestResult, 2*FailedTestsSampleSize)
 		for i := 0; i < 2*FailedTestsSampleSize; i++ {
@@ -291,8 +293,10 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, bson.Unmarshal(data, &savedResults))
 		assert.Equal(t, append(results, failedResults...), savedResults.Results)
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
-		require.Len(t, tr.FailedTestsSample, FailedTestsSampleSize)
-		for i, testName := range tr.FailedTestsSample {
+		assert.Equal(t, len(results)+len(failedResults), saved.Stats.TotalCount)
+		assert.Equal(t, len(failedResults), saved.Stats.FailedCount)
+		require.Len(t, saved.FailedTestsSample, FailedTestsSampleSize)
+		for i, testName := range saved.FailedTestsSample {
 			assert.Equal(t, failedResults[i].GetDisplayName(), testName)
 		}
 	})
@@ -472,52 +476,51 @@ func TestFindTestResults(t *testing.T) {
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
 	require.NoError(t, err)
 
-	t.Run("NoTaskIDOrDisplayTaskID", func(t *testing.T) {
-		opts := TestResultsFindOptions{}
+	t.Run("NoTaskID", func(t *testing.T) {
+		opts := FindTestResultsOptions{}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
-	t.Run("TaskIDAndDisplayTaskID", func(t *testing.T) {
-		opts := TestResultsFindOptions{
-			TaskID:        tr1.Info.TaskID,
-			DisplayTaskID: "display",
+	t.Run("NegativeExecution", func(t *testing.T) {
+		opts := FindTestResultsOptions{
+			TaskID:    tr1.Info.TaskID,
+			Execution: utility.ToIntPtr(-1),
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
 	t.Run("TaskIDDNE", func(t *testing.T) {
-		opts := TestResultsFindOptions{
-			TaskID:         "DNE",
-			EmptyExecution: true,
+		opts := FindTestResultsOptions{
+			TaskID: "DNE",
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
 	t.Run("DisplayTaskIDDNE", func(t *testing.T) {
-		opts := TestResultsFindOptions{
-			DisplayTaskID:  "DNE",
-			EmptyExecution: true,
+		opts := FindTestResultsOptions{
+			TaskID:      "DNE",
+			DisplayTask: true,
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
 	t.Run("NoEnv", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:    tr1.Info.TaskID,
-			Execution: tr1.Info.Execution,
+			Execution: utility.ToIntPtr(tr1.Info.Execution),
 		}
 		results, err := FindTestResults(ctx, nil, opts)
 		assert.Error(t, err)
 		assert.Nil(t, results)
 	})
 	t.Run("WithTaskIDAndExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
+		opts := FindTestResultsOptions{
 			TaskID:    tr1.Info.TaskID,
-			Execution: tr1.Info.Execution,
+			Execution: utility.ToIntPtr(tr1.Info.Execution),
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
@@ -529,9 +532,8 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, env, results[0].env)
 	})
 	t.Run("WithTaskIDWithoutExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
-			TaskID:         tr2.Info.TaskID,
-			EmptyExecution: true,
+		opts := FindTestResultsOptions{
+			TaskID: tr2.Info.TaskID,
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
@@ -543,7 +545,11 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, env, results[0].env)
 	})
 	t.Run("WithDisplayTaskIDAndExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{DisplayTaskID: "display"}
+		opts := FindTestResultsOptions{
+			TaskID:      "display",
+			Execution:   utility.ToIntPtr(0),
+			DisplayTask: true,
+		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
 		count := 0
@@ -568,9 +574,9 @@ func TestFindTestResults(t *testing.T) {
 		assert.Equal(t, 2, count)
 	})
 	t.Run("WithDisplayTaskIDWithoutExecution", func(t *testing.T) {
-		opts := TestResultsFindOptions{
-			DisplayTaskID:  "display",
-			EmptyExecution: true,
+		opts := FindTestResultsOptions{
+			TaskID:      "display",
+			DisplayTask: true,
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
@@ -634,13 +640,518 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, testBucket2.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 
-	opts := TestResultsFindOptions{DisplayTaskID: "display"}
-	results, err := FindAndDownloadTestResults(ctx, env, opts)
+	t.Run("WithoutFilterAndSortOpts", func(t *testing.T) {
+		opts := FindAndDownloadTestResultsOptions{
+			Find: FindTestResultsOptions{
+				TaskID:      "display",
+				DisplayTask: true,
+			},
+		}
+		results, totalCount, err := FindAndDownloadTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		assert.Equal(t, len(results), totalCount)
+
+		require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
+		for _, result := range append(savedResults1.Results, savedResults2.Results...) {
+			assert.Contains(t, results, result)
+		}
+	})
+	t.Run("WithFilterAndSortOpts", func(t *testing.T) {
+		opts := FindAndDownloadTestResultsOptions{
+			Find:          FindTestResultsOptions{TaskID: tr1.Info.TaskID},
+			FilterAndSort: &FilterAndSortTestResultsOptions{Limit: len(savedResults1.Results) / 2},
+		}
+		results, totalCount, err := FindAndDownloadTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		require.Equal(t, len(savedResults1.Results), totalCount)
+
+		require.Len(t, results, len(savedResults1.Results)/2)
+		for i, result := range results {
+			assert.Equal(t, results[i], result)
+		}
+	})
+}
+
+func TestGetTestResultsStats(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr1 := getTestResults()
+	tr1.Info.DisplayTaskID = "display"
+	tr1.Info.Execution = 0
+	tr1.Stats.TotalCount = 10
+	tr1.Stats.FailedCount = 5
+	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
 	require.NoError(t, err)
 
-	require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
-	for _, result := range append(savedResults1.Results, savedResults2.Results...) {
-		assert.Contains(t, results, result)
+	tr2 := getTestResults()
+	tr2.Info.DisplayTaskID = "display"
+	tr2.Info.TaskID = tr1.Info.TaskID
+	tr2.Info.Execution = 1
+	tr2.Stats.TotalCount = 30
+	tr2.Stats.FailedCount = 10
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
+	require.NoError(t, err)
+
+	tr3 := getTestResults()
+	tr3.Info.DisplayTaskID = "display"
+	tr3.Info.Execution = 1
+	tr3.Stats.TotalCount = 100
+	tr3.Stats.FailedCount = 15
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
+	require.NoError(t, err)
+
+	tr4 := getTestResults()
+	tr4.Info.DisplayTaskID = "display"
+	tr4.Info.Execution = 0
+	tr4.Stats.TotalCount = 40
+	tr4.Stats.FailedCount = 20
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr4)
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name          string
+		env           cedar.Environment
+		opts          FindTestResultsOptions
+		expectedStats TestResultsStats
+		hasErr        bool
+	}{
+		{
+			name: "FailsWithNoTaskID",
+			env:  env,
+			// Set DisplayTask to true to check that the function
+			// does its own validation, otherwise, if DisplayTask
+			// is false, the function just calls FindTestResults
+			// and the options validation is done there.
+			opts:   FindTestResultsOptions{DisplayTask: true},
+			hasErr: true,
+		},
+		{
+			name: "FailsWithNegativeExecution",
+			env:  env,
+			opts: FindTestResultsOptions{
+				TaskID:      tr1.Info.DisplayTaskID,
+				DisplayTask: true,
+				Execution:   utility.ToIntPtr(-1),
+			},
+			hasErr: true,
+		},
+		{
+			name: "FailsWithNilEnv",
+			env:  nil,
+			opts: FindTestResultsOptions{
+				TaskID:      tr1.Info.DisplayTaskID,
+				DisplayTask: true,
+			},
+			hasErr: true,
+		},
+		{
+			name:   "FailsWhenTaskIDDNE",
+			env:    env,
+			opts:   FindTestResultsOptions{TaskID: "DNE"},
+			hasErr: true,
+		},
+		{
+			name: "FailsWhenDisplayTaskIDDNE",
+			env:  env,
+			opts: FindTestResultsOptions{
+				TaskID:      "DNE",
+				DisplayTask: true,
+			},
+			hasErr: true,
+		},
+		{
+			name: "SucceedsWithTaskIDAndExecution",
+			env:  env,
+			opts: FindTestResultsOptions{
+				TaskID:    tr1.Info.TaskID,
+				Execution: utility.ToIntPtr(0),
+			},
+			expectedStats: tr1.Stats,
+		},
+		{
+			name:          "SucceedsWithTaskIDAndNoExecution",
+			env:           env,
+			opts:          FindTestResultsOptions{TaskID: tr1.Info.TaskID},
+			expectedStats: tr2.Stats,
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndExecution",
+			env:  env,
+			opts: FindTestResultsOptions{
+				TaskID:      "display",
+				Execution:   utility.ToIntPtr(0),
+				DisplayTask: true,
+			},
+			expectedStats: TestResultsStats{
+				TotalCount:  tr1.Stats.TotalCount + tr4.Stats.TotalCount,
+				FailedCount: tr1.Stats.FailedCount + tr4.Stats.FailedCount,
+			},
+		},
+		{
+			name: "SucceedsWithDisplayTaskIDAndNoExecution",
+			env:  env,
+			opts: FindTestResultsOptions{
+				TaskID:      "display",
+				DisplayTask: true,
+			},
+			expectedStats: TestResultsStats{
+				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount,
+				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stats, err := GetTestResultsStats(ctx, test.env, test.opts)
+			if test.hasErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedStats, stats)
+			}
+		})
+	}
+}
+
+func TestFilterAndSortTestResults(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "filter-and-sort-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+	conf := &CedarConfig{
+		Bucket:    BucketConfig{TestResultsBucket: tmpDir},
+		populated: true,
+	}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+
+	getResults := func() []TestResult {
+		return []TestResult{
+			{
+				TestName:      "A test",
+				Status:        "Pass",
+				TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 1, time.UTC),
+				TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 12, 0, time.UTC),
+			},
+			{
+				TestName:        "B test",
+				DisplayTestName: "Display",
+				Status:          "Fail",
+				TestStartTime:   time.Date(1996, time.August, 31, 12, 5, 10, 3, time.UTC),
+				TestEndTime:     time.Date(1996, time.August, 31, 12, 5, 16, 0, time.UTC),
+			},
+			{
+				TestName:      "C test",
+				Status:        "Fail",
+				TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 2, time.UTC),
+				TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 15, 0, time.UTC),
+			},
+			{
+				TestName:      "D test",
+				Status:        "Pass",
+				TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 4, time.UTC),
+				TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 11, 0, time.UTC),
+				GroupID:       "llama",
+			},
+		}
+	}
+	results := getResults()
+
+	base := getTestResults()
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, base)
+	require.NoError(t, err)
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: base.ID})
+	require.NoError(t, err)
+	trDoc := testResultsDoc{}
+	for _, result := range []TestResult{
+		{
+			TestName: "A test",
+			Status:   "Pass",
+		},
+		{
+			TestName:        "B test",
+			DisplayTestName: "Display",
+			Status:          "Fail",
+		},
+		{
+			TestName: "C test",
+			Status:   "Pass",
+		},
+		{
+			TestName: "D test",
+			Status:   "Fail",
+		},
+	} {
+		trDoc.Results = append(trDoc.Results, result)
+	}
+	data, err := bson.Marshal(&trDoc)
+	require.NoError(t, err)
+	require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+	resultsWithBaseStatus := getResults()
+	require.Len(t, resultsWithBaseStatus, len(trDoc.Results))
+	for i := range resultsWithBaseStatus {
+		resultsWithBaseStatus[i].BaseStatus = trDoc.Results[i].Status
+	}
+
+	for _, test := range []struct {
+		name            string
+		opts            *FilterAndSortTestResultsOptions
+		expectedResults []TestResult
+		expectedCount   int
+		hasErr          bool
+	}{
+		{
+			name:   "InvalidSortBy",
+			opts:   &FilterAndSortTestResultsOptions{SortBy: "invalid"},
+			hasErr: true,
+		},
+		{
+			name:   "SortByBaseStatusWithoutBaseResultsFindOptions",
+			opts:   &FilterAndSortTestResultsOptions{SortBy: TestResultsSortByBaseStatus},
+			hasErr: true,
+		},
+		{
+			name:   "NegativeLimit",
+			opts:   &FilterAndSortTestResultsOptions{Limit: -1},
+			hasErr: true,
+		},
+		{
+
+			name: "NegativePage",
+			opts: &FilterAndSortTestResultsOptions{
+				Limit: 1,
+				Page:  -1,
+			},
+			hasErr: true,
+		},
+		{
+			name:   "PageWithoutLimit",
+			opts:   &FilterAndSortTestResultsOptions{Page: 1},
+			hasErr: true,
+		},
+		{
+			name:   "InvalidTestNameRegex",
+			opts:   &FilterAndSortTestResultsOptions{TestName: "*"},
+			hasErr: true,
+		},
+		{
+			name:            "EmptyOptions",
+			expectedResults: results,
+			expectedCount:   4,
+		},
+		{
+			name:            "TestNameExactMatchFilter",
+			opts:            &FilterAndSortTestResultsOptions{TestName: "A test"},
+			expectedResults: results[0:1],
+			expectedCount:   1,
+		},
+		{
+			name: "TestNameRegexFilter",
+			opts: &FilterAndSortTestResultsOptions{TestName: "A|C"},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+			},
+			expectedCount: 2,
+		},
+		{
+			name:            "DisplayTestNameFilter",
+			opts:            &FilterAndSortTestResultsOptions{TestName: "Display"},
+			expectedResults: results[1:2],
+			expectedCount:   1,
+		},
+		{
+			name:            "StatusFilter",
+			opts:            &FilterAndSortTestResultsOptions{Statuses: []string{"Fail"}},
+			expectedResults: results[1:3],
+			expectedCount:   2,
+		},
+		{
+			name:            "GroupIDFilter",
+			opts:            &FilterAndSortTestResultsOptions{GroupID: "llama"},
+			expectedResults: results[3:4],
+			expectedCount:   1,
+		},
+		{
+			name: "SortByDurationASC",
+			opts: &FilterAndSortTestResultsOptions{SortBy: TestResultsSortByDuration},
+			expectedResults: []TestResult{
+				results[3],
+				results[0],
+				results[2],
+				results[1],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByDurationDSC",
+			opts: &FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByDuration,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[1],
+				results[2],
+				results[0],
+				results[3],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByTestNameASC",
+			opts: &FilterAndSortTestResultsOptions{SortBy: TestResultsSortByTestName},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+				results[3],
+				results[1],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByTestNameDCS",
+			opts: &FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByTestName,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[1],
+				results[3],
+				results[2],
+				results[0],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByStatusASC",
+			opts: &FilterAndSortTestResultsOptions{SortBy: TestResultsSortByStatus},
+			expectedResults: []TestResult{
+				results[1],
+				results[2],
+				results[0],
+				results[3],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByStatusDSC",
+			opts: &FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByStatus,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[0],
+				results[3],
+				results[1],
+				results[2],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByStartTimeASC",
+			opts: &FilterAndSortTestResultsOptions{SortBy: TestResultsSortByStart},
+			expectedResults: []TestResult{
+				results[0],
+				results[2],
+				results[1],
+				results[3],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByStartTimeDCS",
+			opts: &FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByStart,
+				SortOrderDSC: true,
+			},
+			expectedResults: []TestResult{
+				results[3],
+				results[1],
+				results[2],
+				results[0],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByBaseStatusASC",
+			opts: &FilterAndSortTestResultsOptions{
+				SortBy:      TestResultsSortByBaseStatus,
+				BaseResults: &FindTestResultsOptions{TaskID: base.Info.TaskID},
+			},
+			expectedResults: []TestResult{
+				resultsWithBaseStatus[1],
+				resultsWithBaseStatus[3],
+				resultsWithBaseStatus[0],
+				resultsWithBaseStatus[2],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "SortByBaseStatusDSC",
+			opts: &FilterAndSortTestResultsOptions{
+				SortBy:       TestResultsSortByBaseStatus,
+				SortOrderDSC: true,
+				BaseResults:  &FindTestResultsOptions{TaskID: base.Info.TaskID},
+			},
+			expectedResults: []TestResult{
+				resultsWithBaseStatus[0],
+				resultsWithBaseStatus[2],
+				resultsWithBaseStatus[1],
+				resultsWithBaseStatus[3],
+			},
+			expectedCount: 4,
+		},
+		{
+			name: "BaseStatus",
+			opts: &FilterAndSortTestResultsOptions{BaseResults: &FindTestResultsOptions{TaskID: base.Info.TaskID}},
+			expectedResults: []TestResult{
+				resultsWithBaseStatus[0],
+				resultsWithBaseStatus[1],
+				resultsWithBaseStatus[2],
+				resultsWithBaseStatus[3],
+			},
+			expectedCount: 4,
+		},
+		{
+			name:            "Limit",
+			opts:            &FilterAndSortTestResultsOptions{Limit: 3},
+			expectedResults: results[0:3],
+			expectedCount:   4,
+		},
+		{
+			name: "LimitAndPage",
+			opts: &FilterAndSortTestResultsOptions{
+				Limit: 3,
+				Page:  1,
+			},
+			expectedResults: results[3:],
+			expectedCount:   4,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			actualResults, count, err := filterAndSortTestResults(context.TODO(), env, getResults(), test.opts)
+			if test.hasErr {
+				assert.Nil(t, actualResults)
+				assert.Zero(t, count)
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, test.expectedResults, actualResults)
+				assert.Equal(t, test.expectedCount, count)
+			}
+		})
 	}
 }
 

@@ -19,8 +19,9 @@ import (
 )
 
 type systemMetricsHandlerSuite struct {
-	sc data.MockConnector
-	rh map[string]gimlet.RouteHandler
+	sc      data.MockConnector
+	rh      map[string]gimlet.RouteHandler
+	tempDir string
 
 	suite.Suite
 }
@@ -115,13 +116,18 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 
 func TestSystemMetricsHandlerSuite(t *testing.T) {
 	s := new(systemMetricsHandlerSuite)
+	suite.Run(t, s)
+}
+
+func (s *systemMetricsHandlerSuite) SetupTest() {
 	tempDir, err := ioutil.TempDir(".", "system-metrics")
 	s.Require().NoError(err)
-	defer func() {
-		assert.NoError(t, os.RemoveAll(tempDir))
-	}()
+	s.tempDir = tempDir
 	s.setup(tempDir)
-	suite.Run(t, s)
+}
+
+func (s *systemMetricsHandlerSuite) TearDownTest() {
+	s.NoError(os.RemoveAll(s.tempDir))
 }
 
 func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
@@ -189,20 +195,20 @@ func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeNotFound() {
 func TestNewSystemMetricsResponder(t *testing.T) {
 	data := []byte("data")
 	t.Run("PaginatedWithNonZeroNext", func(t *testing.T) {
-		resp := newSystemMetricsResponder(data, 0, 5)
+		resp := newSystemMetricsResponder("base", data, 0, 5)
 		assert.Equal(t, data, resp.Data())
 		assert.Equal(t, gimlet.TEXT, resp.Format())
 		pages := resp.Pages()
 		require.NotNil(t, pages)
 		expectedPrev := &gimlet.Page{
-			BaseURL:         baseURL,
+			BaseURL:         "base",
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
 			Key:             "0",
 			Relation:        "prev",
 		}
 		expectedNext := &gimlet.Page{
-			BaseURL:         baseURL,
+			BaseURL:         "base",
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
 			Key:             "5",
@@ -212,13 +218,13 @@ func TestNewSystemMetricsResponder(t *testing.T) {
 		assert.Equal(t, expectedNext, pages.Next)
 	})
 	t.Run("PaginatedWithZeroNext", func(t *testing.T) {
-		resp := newSystemMetricsResponder(data, 5, 5)
+		resp := newSystemMetricsResponder("base", data, 5, 5)
 		assert.Equal(t, data, resp.Data())
 		assert.Equal(t, gimlet.TEXT, resp.Format())
 		pages := resp.Pages()
 		require.NotNil(t, pages)
 		expectedPrev := &gimlet.Page{
-			BaseURL:         baseURL,
+			BaseURL:         "base",
 			KeyQueryParam:   startIndex,
 			LimitQueryParam: limit,
 			Key:             "5",

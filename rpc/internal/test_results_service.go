@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
@@ -190,7 +189,7 @@ func (s *testResultsService) updateHistoricalData(record *model.TestResults, res
 		}
 		htd.Setup(s.env)
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := s.env.Context()
 		defer cancel()
 		grip.Error(message.WrapError(htd.Update(ctx, res), message.Fields{
 			"message":                   "failed to update historical test data",

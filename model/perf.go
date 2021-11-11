@@ -16,6 +16,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -153,6 +154,18 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
 	}
 
+	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(result.Artifacts),
+		Project: result.Info.Project,
+		Version: result.Info.Version,
+		TaskID:  result.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCachePerf,
+		}))
+	}
+
 	return result.MergeRollups(ctx, rollups)
 }
 
@@ -195,8 +208,23 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
 	}
+	if err != nil {
+		return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+	}
 
-	return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
+		Count:   len(result.Artifacts),
+		Project: result.Info.Project,
+		Version: result.Info.Version,
+		TaskID:  result.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCachePerf,
+		}))
+	}
+
+	return nil
 }
 
 // IncFailedRollupAttempts increments the failed_rollup_attempts field by 1.
@@ -332,19 +360,29 @@ var (
 )
 
 // PerformanceArguments wraps map[string]int32 and implements the
-// bson.Marshaler interface in order to have a unified ordering of keys. BSON
-// objects are only equal if the key/value pairs match AND are in the same
+// bson.ValueMarshler interface in order to have a unified ordering of keys.
+// BSON objects are only equal if the key/value pairs match AND are in the same
 // order. Since maps are not ordered but still marshalled into BSON objects,
 // marshalling two equal Go maps into BSON can result in two BSON objects that
-// are not equal. By implementing the bson.Marshal interface, we are able to
-// first sort the keys of the map and convert the key/value pairs into a bson.D
-// object, where ordered is preserved.
+// are not equal. By implementing the bson.ValueMarshaler interface, we are
+// able to first sort the keys of the map and convert the key/value pairs into
+// a bson.D object, where ordered is preserved.
 //
 // See: `https://docs.mongodb.com/manual/reference/bson-type-comparison-order/#objects`
 // for more information.
 type PerformanceArguments map[string]int32
 
-func (args PerformanceArguments) MarshalBSON() ([]byte, error) {
+func (args PerformanceArguments) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	// Since PerformanceArguments is never recognized as a nil
+	// implementation of the bson.ValueMarshaler (see
+	// `https://github.com/mongodb/mongo-go-driver/blob/v1.7.2/bson/bsoncodec/default_value_encoders.go#L767`
+	// for more information), when it is nil we need to first cast it to a
+	// map[string]int32 and then call bson.MarshalValue to get the desired
+	// null BSON value.
+	if args == nil {
+		return bson.MarshalValue(map[string]int32(args))
+	}
+
 	sortedArgs := bson.D{}
 	for key, value := range args {
 		sortedArgs = append(sortedArgs, bson.E{Key: key, Value: value})
@@ -353,7 +391,7 @@ func (args PerformanceArguments) MarshalBSON() ([]byte, error) {
 		return sortedArgs[i].Key < sortedArgs[j].Key
 	})
 
-	return bson.Marshal(&sortedArgs)
+	return bson.MarshalValue(&sortedArgs)
 }
 
 // ID creates a unique hash for a performance result.
@@ -648,7 +686,7 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 
 	search := bson.M{
 		perfCreatedAtKey: bson.M{"$gt": after},
-		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey): FileFTDC,
+		bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoSchemaKey): SchemaRawEvents,
 		perfFailedRollupAttempts: bson.M{"$lt": failureLimit},
 		"$or": []bson.M{
 			{

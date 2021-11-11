@@ -31,6 +31,7 @@ func init() {
 		DatabaseName:  testDBName,
 		SocketTimeout: time.Minute,
 		NumWorkers:    2,
+		DisableCache:  true,
 	})
 	if err != nil {
 		panic(err)
@@ -106,7 +107,11 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 	require.NoError(t, err)
 	result := &model.PerformanceResult{}
 	assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(id).One(result))
-	assert.True(t, len(result.Rollups.Stats) > len(rollups), "%s", id)
+	if len(result.Artifacts) > 0 {
+		assert.True(t, len(result.Rollups.Stats) > len(rollups), "%s", id)
+	} else {
+		assert.True(t, len(result.Rollups.Stats) == len(rollups), "%s", id)
+	}
 
 	rollupMap := map[string]model.PerfRollupValue{}
 	for _, rollup := range result.Rollups.Stats {
@@ -126,6 +131,17 @@ func checkRollups(t *testing.T, ctx context.Context, env cedar.Environment, id s
 		assert.Equal(t, int(rollup.Version), actualRollup.Version)
 		assert.Equal(t, rollup.UserSubmitted, actualRollup.UserSubmitted)
 	}
+}
+
+func foundSignalProcessingJob(t *testing.T, ctx context.Context, env cedar.Environment, id string) bool {
+	q := env.GetRemoteQueue()
+	require.NotNil(t, q)
+	for j := range q.JobInfo(ctx) {
+		if j.Type.Name == "time-series-update" {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCreateMetricSeries(t *testing.T) {
@@ -184,6 +200,31 @@ func TestCreateMetricSeries(t *testing.T) {
 			},
 			err: true,
 		},
+		{
+			name: "TestRollupsNoArtifacts",
+			data: &ResultData{
+				Id: &ResultID{
+					Project:  "testProject",
+					Version:  "testVersion",
+					Mainline: true,
+				},
+				Rollups: []*RollupValue{
+					{
+						Name:    "Max",
+						Value:   &RollupValue_Int{Int: 5},
+						Type:    0,
+						Version: 1,
+					},
+				},
+			},
+			expectedResp: &MetricsResponse{
+				Id: (&model.PerformanceResultInfo{
+					Project: "testProject",
+					Version: "testVersion",
+				}).ID(),
+				Success: true,
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			port := getPort()
@@ -206,6 +247,7 @@ func TestCreateMetricSeries(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
+				assert.True(t, foundSignalProcessingJob(t, ctx, env, resp.Id))
 			}
 		})
 	}

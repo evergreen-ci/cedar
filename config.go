@@ -1,7 +1,6 @@
 package cedar
 
 import (
-	"errors"
 	"time"
 
 	"github.com/mongodb/amboy"
@@ -21,6 +20,7 @@ type Configuration struct {
 	DisableLocalQueue       bool
 	DisableRemoteQueue      bool
 	DisableRemoteQueueGroup bool
+	DisableCache            bool
 	NumWorkers              int
 	DBUser                  string
 	DBPwd                   string
@@ -32,10 +32,10 @@ func (c *Configuration) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	if c.MongoDBURI == "" {
-		catcher.Add(errors.New("must specify a mongodb url"))
+		catcher.New("must specify a mongodb url")
 	}
 	if c.NumWorkers < 1 {
-		catcher.Add(errors.New("must specify a valid number of amboy workers"))
+		catcher.New("must specify a valid number of amboy workers")
 	}
 	if c.MongoDBDialTimeout <= 0 {
 		c.MongoDBDialTimeout = 2 * time.Second

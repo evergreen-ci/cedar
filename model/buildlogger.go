@@ -196,7 +196,35 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 		Start:    lines[0].Timestamp,
 		End:      lines[len(lines)-1].Timestamp,
 	}
-	return errors.Wrap(l.appendLogChunkInfo(ctx, info), "problem updating log metadata during upload")
+	if err = l.appendLogChunkInfo(ctx, info); err != nil {
+		return errors.Wrap(err, "problem updating log metadata during upload")
+	}
+
+	l.addToStatsCache(lines)
+
+	return nil
+}
+
+func (l *Log) addToStatsCache(lines []LogLine) {
+	linesSize := 0
+	for _, line := range lines {
+		linesSize += len(line.Data)
+	}
+	if linesSize == 0 {
+		return
+	}
+
+	if err := l.env.GetStatsCache(cedar.StatsCacheBuildlogger).AddStat(cedar.Stat{
+		Count:   linesSize,
+		Project: l.Info.Project,
+		Version: l.Info.Version,
+		TaskID:  l.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCacheBuildlogger,
+		}))
+	}
 }
 
 // appendLogChunkInfo adds a new log chunk to the log's chunks array in the

@@ -163,6 +163,64 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// GET /perf/task_id/{task_id}/count
+
+type perfCountByTaskIdHandler struct {
+	opts data.PerformanceOptions
+	sc   data.Connector
+}
+
+func makeCountPerfByTaskId(sc data.Connector) gimlet.RouteHandler {
+	return &perfCountByTaskIdHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new perfCountByTaskIdHandler.
+func (h *perfCountByTaskIdHandler) Factory() gimlet.RouteHandler {
+	return &perfCountByTaskIdHandler{
+		sc: h.sc,
+	}
+}
+
+// Parse fetches the task_id from the http request.
+func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
+	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
+
+	vals := r.URL.Query()
+	if len(vals[execution]) > 0 {
+		exec, err := strconv.Atoi(vals[execution][0])
+		if err != nil {
+			return err
+		}
+		h.opts.Execution = exec
+	}
+	h.opts.Tags = r.URL.Query()[tags]
+	return nil
+}
+
+// Run calls the data FindPerformanceResults function and returns the
+// number of PerformanceResults found
+func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
+	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
+	if err != nil {
+		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "GET",
+			"route":   "/perf/task_id/{task_id}/count",
+			"task_id": h.opts.TaskID,
+		}))
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+	countResult := model.APIPerformanceResultCount{
+		NumberOfResults: len(perfResults),
+	}
+	return gimlet.NewJSONResponse(countResult)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // GET /perf/task_name/{task_name}
 
 type perfGetByTaskNameHandler struct {
@@ -204,6 +262,12 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	} else {
 		h.opts.Limit = 0
 	}
+	skip := vals.Get(perfSkip)
+	if skip != "" {
+		h.opts.Skip, err = strconv.Atoi(skip)
+		catcher.Wrap(err, "invalid skip value")
+		catcher.NewWhen(h.opts.Skip < 0, "cannot have negative skip value")
+	}
 	return catcher.Resolve()
 }
 
@@ -221,7 +285,8 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 		}))
 		return gimlet.MakeJSONErrorResponder(err)
 	}
-	return gimlet.NewJSONResponse(perfResults)
+
+	return paginatePerfResults(h.sc.GetBaseURL(), perfResults, h.opts.Limit, h.opts.Skip)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -286,7 +351,7 @@ func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return paginatePerfResults(perfResults, h.opts.Limit, h.opts.Skip)
+	return paginatePerfResults(h.sc.GetBaseURL(), perfResults, h.opts.Limit, h.opts.Skip)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -382,7 +447,7 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 //
 // Helper functions
 
-func paginatePerfResults(data []model.APIPerformanceResult, limitVal, skipVal int) gimlet.Responder {
+func paginatePerfResults(baseURL string, data []model.APIPerformanceResult, limitVal, skipVal int) gimlet.Responder {
 	resp := gimlet.NewJSONResponse(data)
 
 	if limitVal > 0 {

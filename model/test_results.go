@@ -8,13 +8,16 @@ import (
 	"hash"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -42,6 +45,7 @@ type TestResults struct {
 	CreatedAt   time.Time               `bson:"created_at"`
 	CompletedAt time.Time               `bson:"completed_at"`
 	Artifact    TestResultsArtifactInfo `bson:"artifact"`
+	Stats       TestResultsStats        `bson:"stats"`
 	// FailedTestsSample is the first X failing tests of the test results.
 	// This is an optimization for Evergreen's UI features that display a
 	// limited number of failing tests for a task.
@@ -58,6 +62,7 @@ var (
 	testResultsCreatedAtKey         = bsonutil.MustHaveTag(TestResults{}, "CreatedAt")
 	testResultsCompletedAtKey       = bsonutil.MustHaveTag(TestResults{}, "CompletedAt")
 	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
+	testResultsStatsKey             = bsonutil.MustHaveTag(TestResults{}, "Stats")
 	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
@@ -173,10 +178,6 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	if err := t.appendToFailedTestsSample(ctx, results); err != nil {
-		return err
-	}
-
 	bucket, err := t.GetBucket(ctx)
 	if err != nil {
 		return err
@@ -209,25 +210,44 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "marshalling test results")
 	}
 
-	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading test results")
+	if err := bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)); err != nil {
+		return errors.Wrap(err, "uploading test results")
+	}
+
+	if err = t.env.GetStatsCache(cedar.StatsCacheTestResults).AddStat(cedar.Stat{
+		Count:   len(results),
+		Project: t.Info.Project,
+		Version: t.Info.Version,
+		TaskID:  t.Info.TaskID,
+	}); err != nil {
+		grip.Error(message.WrapError(err, message.Fields{
+			"message": "stats were dropped",
+			"cache":   cedar.StatsCacheTestResults,
+		}))
+	}
+
+	return t.updateStatsAndFailedSample(ctx, results)
 }
 
-func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []TestResult) error {
-	var update bool
-	for i := 0; i < len(results) && len(t.FailedTestsSample) < FailedTestsSampleSize; i++ {
+func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
+	var failedCount int
+	for i := 0; i < len(results); i++ {
 		if strings.Contains(strings.ToLower(results[i].Status), "fail") {
-			t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
-			update = true
+			if len(t.FailedTestsSample) < FailedTestsSampleSize {
+				t.FailedTestsSample = append(t.FailedTestsSample, results[i].GetDisplayName())
+			}
+			failedCount++
 		}
-	}
-	if !update {
-		return nil
 	}
 
 	updateResult, err := t.env.GetDB().Collection(testResultsCollection).UpdateOne(
 		ctx,
 		bson.M{testResultsIDKey: t.ID},
 		bson.M{
+			"$inc": bson.M{
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey):  len(results),
+				bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey): failedCount,
+			},
 			"$set": bson.M{
 				testResultsFailedTestsSampleKey: t.FailedTestsSample,
 			},
@@ -236,13 +256,18 @@ func (t *TestResults) appendToFailedTestsSample(ctx context.Context, results []T
 	grip.DebugWhen(err == nil, message.Fields{
 		"collection":          testResultsCollection,
 		"id":                  t.ID,
+		"inc_total_count":     len(results),
+		"inc_failed_count":    failedCount,
 		"failed_tests_sample": t.FailedTestsSample,
-		"updateResult":        updateResult,
-		"op":                  "append to failing tests sample",
+		"update_result":       updateResult,
+		"op":                  "updating stats and failing tests sample",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
 	}
+
+	t.Stats.TotalCount += len(results)
+	t.Stats.FailedCount += failedCount
 
 	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
 }
@@ -322,11 +347,11 @@ func (t *TestResults) Close(ctx context.Context) error {
 		},
 	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   testResultsCollection,
-		"id":           t.ID,
-		"completed_at": completedAt,
-		"updateResult": updateResult,
-		"op":           "close test results record",
+		"collection":    testResultsCollection,
+		"id":            t.ID,
+		"completed_at":  completedAt,
+		"update_result": updateResult,
+		"op":            "close test results record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
 		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
@@ -415,6 +440,17 @@ func (id *TestResultsInfo) ID() string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
+// TestResultsStats describes basic stats of the test results.
+type TestResultsStats struct {
+	TotalCount  int `bson:"total_count"`
+	FailedCount int `bson:"failed_count"`
+}
+
+var (
+	testResultsStatsTotalCountKey  = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
+	testResultsStatsFailedCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "FailedCount")
+)
+
 // TestResult describes a single test result to be stored as a BSON object in
 // some type of pail bucket storage.
 type TestResult struct {
@@ -425,6 +461,7 @@ type TestResult struct {
 	GroupID         string    `bson:"group_id,omitempty"`
 	Trial           int       `bson:"trial,omitempty"`
 	Status          string    `bson:"status"`
+	BaseStatus      string    `bson:"-"`
 	LogTestName     string    `bson:"log_test_name,omitempty"`
 	LogURL          string    `bson:"log_url,omitempty"`
 	RawLogURL       string    `bson:"raw_log_url,omitempty"`
@@ -442,50 +479,62 @@ func (t TestResult) GetDisplayName() string {
 	return t.TestName
 }
 
+func (t TestResult) getDuration() time.Duration {
+	return t.TestEndTime.Sub(t.TestStartTime)
+}
+
 type testResultsDoc struct {
 	Results []TestResult `bson:"results"`
 }
 
-// TestResultsFindOptions allows for querying for test results with or without
+// FindTestResultsOptions allow for querying for test results with or without
 // an execution value.
-type TestResultsFindOptions struct {
-	TaskID         string
-	DisplayTaskID  string
-	Execution      int
-	EmptyExecution bool
+type FindTestResultsOptions struct {
+	TaskID      string
+	Execution   *int
+	DisplayTask bool
 }
 
-func (opts *TestResultsFindOptions) createFindOptions() *options.FindOptions {
+func (opts *FindTestResultsOptions) validate() error {
+	catcher := grip.NewBasicCatcher()
+
+	catcher.NewWhen(opts.TaskID == "", "must specify a task ID")
+	catcher.NewWhen(utility.FromIntPtr(opts.Execution) < 0, "cannot specify a negative execution number")
+
+	return catcher.Resolve()
+}
+
+func (opts *FindTestResultsOptions) createFindOptions() *options.FindOptions {
 	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
-	if opts.TaskID != "" {
+	if !opts.DisplayTask {
 		findOpts = findOpts.SetLimit(1)
 	}
 
 	return findOpts
 }
 
-func (opts *TestResultsFindOptions) createFindQuery() map[string]interface{} {
+func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
 	search := bson.M{}
-	if opts.TaskID != "" {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
+	if opts.DisplayTask {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.TaskID
 	} else {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey)] = opts.DisplayTaskID
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey)] = opts.TaskID
 	}
-	if !opts.EmptyExecution {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = opts.Execution
+	if opts.Execution != nil {
+		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
 	}
 
 	return search
 }
 
-func (opts *TestResultsFindOptions) createErrorMessage() string {
+func (opts *FindTestResultsOptions) createErrorMessage() string {
 	var msg string
-	if opts.TaskID != "" {
-		msg = fmt.Sprintf("could not find test result record with task_id %s", opts.TaskID)
+	if opts.DisplayTask {
+		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.DisplayTaskID)
+		msg = fmt.Sprintf("could not find test results record with task_id %s", opts.TaskID)
 	}
-	if !opts.EmptyExecution {
+	if opts.Execution != nil {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
 	}
 	msg += " in the database"
@@ -495,14 +544,14 @@ func (opts *TestResultsFindOptions) createErrorMessage() string {
 
 // FindTestResults searches the database for the TestResults associated with
 // the provided options. The environment should not be nil. If execution is
-// empty, it will default to the most recent execution.
-func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResults, error) {
+// nil, it will default to the most recent execution.
+func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) ([]TestResults, error) {
 	if env == nil {
 		return nil, errors.New("cannot find with a nil environment")
 	}
 
-	if (opts.TaskID == "" && opts.DisplayTaskID == "") || (opts.TaskID != "" && opts.DisplayTaskID != "") {
-		return nil, errors.New("must specify either task_id or display_task_id")
+	if err := opts.validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid find options")
 	}
 
 	results := []TestResults{}
@@ -530,14 +579,79 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts TestResult
 	return results, nil
 }
 
+// TestResultsSortBy describes the property by which to sort a set of test
+// results.
+type TestResultsSortBy string
+
+const (
+	TestResultsSortByStart      TestResultsSortBy = "start"
+	TestResultsSortByDuration   TestResultsSortBy = "duration"
+	TestResultsSortByTestName   TestResultsSortBy = "test_name"
+	TestResultsSortByStatus     TestResultsSortBy = "status"
+	TestResultsSortByBaseStatus TestResultsSortBy = "base_status"
+)
+
+func (s TestResultsSortBy) validate() error {
+	switch s {
+	case TestResultsSortByStart, TestResultsSortByDuration, TestResultsSortByTestName,
+		TestResultsSortByStatus, TestResultsSortByBaseStatus:
+		return nil
+	default:
+		return errors.Errorf("unrecognized test results sort by key '%s'", s)
+	}
+}
+
+// FilterAndSortTestResultsOptions allow for filtering, sorting, and paginating
+// a set of test results.
+type FilterAndSortTestResultsOptions struct {
+	TestName     string
+	Statuses     []string
+	GroupID      string
+	SortBy       TestResultsSortBy
+	SortOrderDSC bool
+	Limit        int
+	Page         int
+	BaseResults  *FindTestResultsOptions
+
+	testNameRegex *regexp.Regexp
+	baseStatusMap map[string]string
+}
+
+func (o *FilterAndSortTestResultsOptions) validate() error {
+	catcher := grip.NewBasicCatcher()
+
+	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
+	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && o.BaseResults == nil, "must specify base task ID when sorting by base status")
+	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
+	catcher.NewWhen(o.Page < 0, "page cannot be negative")
+	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
+
+	if o.TestName != "" {
+		var err error
+		o.testNameRegex, err = regexp.Compile(o.TestName)
+		catcher.Wrapf(err, "compiling test name regex")
+	}
+
+	o.baseStatusMap = map[string]string{}
+
+	return catcher.Resolve()
+}
+
+// FindAndDownloadTestResults allow for finding, downloading, filtering,
+// sorting, and paginating test results.
+type FindAndDownloadTestResultsOptions struct {
+	Find          FindTestResultsOptions
+	FilterAndSort *FilterAndSortTestResultsOptions
+}
+
 // FindAndDownloadTestResults searches the database for the TestResults
-// associated with the provided options and returns a TestResultsIterator with
-// the downloaded test results. The environment should not be nil. If execution
-// is empty it will default to the most recent execution.
-func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts TestResultsFindOptions) ([]TestResult, error) {
-	testResults, err := FindTestResults(ctx, env, opts)
+// associated with the provided options and returns the downloaded test
+// results filtered, sorted, and paginated. The environment should not be nil.
+// If execution is nil, it will default to the most recent execution.
+func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts FindAndDownloadTestResultsOptions) ([]TestResult, int, error) {
+	testResults, err := FindTestResults(ctx, env, opts.Find)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	testResultsChan := make(chan TestResults, len(testResults))
@@ -593,5 +707,172 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 	close(combinedResultsChan)
 	cwg.Wait()
 
-	return combinedResults, catcher.Resolve()
+	if catcher.HasErrors() {
+		return nil, 0, catcher.Resolve()
+	}
+
+	return filterAndSortTestResults(ctx, env, combinedResults, opts.FilterAndSort)
+}
+
+// filterAndSortCedarTestResults takes a slice of TestResult objects and
+// returns a filtered sorted and paginated version of that slice.
+func filterAndSortTestResults(ctx context.Context, env cedar.Environment, results []TestResult, opts *FilterAndSortTestResultsOptions) ([]TestResult, int, error) {
+	if opts == nil {
+		return results, len(results), nil
+	}
+
+	if err := opts.validate(); err != nil {
+		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
+	}
+
+	if opts.BaseResults != nil {
+		baseResults, _, err := FindAndDownloadTestResults(ctx, env, FindAndDownloadTestResultsOptions{Find: *opts.BaseResults})
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "getting base test results")
+		}
+		for _, result := range baseResults {
+			opts.baseStatusMap[result.GetDisplayName()] = result.Status
+		}
+	}
+
+	results = filterTestResults(results, opts)
+	sortTestResults(results, opts)
+
+	totalCount := len(results)
+	if opts.Limit > 0 {
+		offset := opts.Limit * opts.Page
+		end := offset + opts.Limit
+		if offset > totalCount {
+			offset = totalCount
+		}
+		if end > totalCount {
+			end = totalCount
+		}
+		results = results[offset:end]
+	}
+
+	if len(opts.baseStatusMap) > 0 {
+		for i := range results {
+			results[i].BaseStatus = opts.baseStatusMap[results[i].GetDisplayName()]
+		}
+	}
+
+	return results, totalCount, nil
+}
+
+func filterTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions) []TestResult {
+	if opts.testNameRegex == nil && len(opts.Statuses) == 0 && opts.GroupID == "" {
+		return results
+	}
+
+	var filteredResults []TestResult
+	for _, result := range results {
+		if opts.testNameRegex != nil && !opts.testNameRegex.MatchString(result.GetDisplayName()) {
+			continue
+		}
+		if len(opts.Statuses) > 0 && !utility.StringSliceContains(opts.Statuses, result.Status) {
+			continue
+		}
+		if opts.GroupID != "" && opts.GroupID != result.GroupID {
+			continue
+		}
+
+		filteredResults = append(filteredResults, result)
+	}
+
+	return filteredResults
+}
+
+func sortTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions) {
+	switch opts.SortBy {
+	case TestResultsSortByStart:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].TestStartTime.After(results[j].TestStartTime)
+			}
+			return results[i].TestStartTime.Before(results[j].TestStartTime)
+		})
+	case TestResultsSortByDuration:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].getDuration() > results[j].getDuration()
+			}
+			return results[i].getDuration() < results[j].getDuration()
+		})
+	case TestResultsSortByTestName:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].GetDisplayName() > results[j].GetDisplayName()
+			}
+			return results[i].GetDisplayName() < results[j].GetDisplayName()
+		})
+	case TestResultsSortByStatus:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return results[i].Status > results[j].Status
+			}
+			return results[i].Status < results[j].Status
+		})
+	case TestResultsSortByBaseStatus:
+		sort.SliceStable(results, func(i, j int) bool {
+			if opts.SortOrderDSC {
+				return opts.baseStatusMap[results[i].GetDisplayName()] > opts.baseStatusMap[results[j].GetDisplayName()]
+			}
+			return opts.baseStatusMap[results[i].GetDisplayName()] < opts.baseStatusMap[results[j].GetDisplayName()]
+		})
+	}
+}
+
+// GetTestResultsStats fetches basic stats for the test results associated with
+// the provided options. The environment should not be nil. If execution is
+// nil, it will default to the most recent execution.
+func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) (TestResultsStats, error) {
+	var stats TestResultsStats
+
+	if !opts.DisplayTask {
+		testResultsRecords, err := FindTestResults(ctx, env, opts)
+		if err != nil {
+			return stats, err
+		}
+
+		return testResultsRecords[0].Stats, nil
+	}
+
+	if env == nil {
+		return stats, errors.New("cannot find with a nil environment")
+	}
+	if err := opts.validate(); err != nil {
+		return stats, errors.Wrap(err, "invalid find options")
+	}
+
+	pipeline := []bson.M{
+		{"$match": opts.createFindQuery()},
+		{"$group": bson.M{
+			"_id": "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey),
+			testResultsStatsTotalCountKey: bson.M{
+				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
+			},
+			testResultsStatsFailedCountKey: bson.M{
+				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey),
+			},
+		}},
+	}
+	if opts.Execution == nil {
+		pipeline = append(pipeline, bson.M{
+			"$sort": bson.D{
+				{Key: "_id", Value: -1},
+			},
+		})
+	}
+	pipeline = append(pipeline, bson.M{"$limit": 1})
+
+	cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return stats, errors.Wrap(err, "aggregating test results stats")
+	}
+	if !cur.Next(ctx) {
+		return stats, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
+	}
+
+	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
 }

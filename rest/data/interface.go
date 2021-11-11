@@ -12,6 +12,9 @@ import (
 // allowing for changes in the service architecture without forcing changes to
 // the API.
 type Connector interface {
+	// GetBaseURL returns the API service URL.
+	GetBaseURL() string
+
 	////////////////////
 	// PerformanceResult
 	////////////////////
@@ -84,14 +87,19 @@ type Connector interface {
 	// Test Results
 	///////////////
 	// FindTestResults queries the database to find all test results with
-	// the given options. If the execution is not specified, this will
-	// return the test results from the most recent execution.
-	FindTestResults(context.Context, TestResultsOptions) ([]model.APITestResult, error)
-	// FindFailedTestResultsSample queries the database to find all the
+	// the given options. If the execution is nil, this will return the
+	// test results from the most recent execution.
+	FindTestResults(context.Context, TestResultsOptions) (*model.APITestResults, error)
+	// GetFailedTestResultsSample queries the database to find all the
 	// sample of failed test results for the given options. If the
-	// execution is not specified, this will return the sample from the
-	// the most recent execution.
-	FindFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
+	// execution is nil, this will return the sample from the most recent
+	// execution. Filtering, sorting, and paginating is not supported.
+	GetFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
+	// GetTestResultsStats queries the database to aggregate basic stats
+	// of test results for the given options. If the execution is nil, this
+	// will return stats for the most recent execution. Filtering, sorting,
+	// and paginating is not supported.
+	GetTestResultsStats(context.Context, TestResultsOptions) (*model.APITestResultsStats, error)
 
 	///////////////////////
 	// Historical Test Data
@@ -132,23 +140,36 @@ type BuildloggerOptions struct {
 // TestResultsOptions holds all values required to find a specific TestResults
 // or TestResult object using connector functions.
 type TestResultsOptions struct {
-	TaskID         string
-	TestName       string
-	Execution      int
-	EmptyExecution bool
-	DisplayTask    bool
+	TaskID        string
+	Execution     *int
+	DisplayTask   bool
+	FilterAndSort *TestResultsFilterAndSortOptions
+}
+
+// TestResultsFilterAndSortOptions holds all values required for filtering,
+// sorting, and paginating TestResult objects using connector functions.
+type TestResultsFilterAndSortOptions struct {
+	TestName     string
+	Statuses     []string
+	GroupID      string
+	SortBy       string
+	SortOrderDSC bool
+	Limit        int
+	Page         int
+	BaseResults  *TestResultsOptions
 }
 
 // PerformanceOptions holds all values required to find a specific
 // PerformanceResult or PerformanceResults using connector functions.
 type PerformanceOptions struct {
-	Project  string
-	Version  string
-	Variant  string
-	TaskID   string
-	TaskName string
-	Tags     []string
-	Interval dbModel.TimeRange
-	Limit    int
-	Skip     int
+	Project   string
+	Version   string
+	Variant   string
+	TaskID    string
+	Execution int
+	TaskName  string
+	Tags      []string
+	Interval  dbModel.TimeRange
+	Limit     int
+	Skip      int
 }

@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
-	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
@@ -48,8 +48,10 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 // NewUpdateTimeSeriesJob creates a new amboy job to update a time series.
 func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
 	j := makeTimeSeriesJob()
-	timestamp := utility.RoundPartOfHour(0)
-	j.SetID(fmt.Sprintf("%s.%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test, timestamp))
+	baseID := fmt.Sprintf("%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
+	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
+	j.SetScopes([]string{baseID})
+	j.SetEnqueueAllScopes(true)
 	j.PerformanceResultId = timeSeriesId
 	return j
 }
@@ -67,27 +69,32 @@ func (j *timeSeriesUpdateJob) makeMessage(msg string, id model.PerformanceResult
 
 func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 	defer j.MarkComplete()
+
+	if j.env == nil {
+		j.env = cedar.GetEnvironment()
+	}
+
 	if j.conf == nil {
 		j.conf = model.NewCedarConfig(j.env)
+		err := j.conf.Find()
+		if err != nil {
+			j.AddError(errors.Wrap(err, "getting cedar configuration"))
+			return
+		}
 	}
+
 	if j.conf.Flags.DisableSignalProcessing {
 		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.PerformanceResultId))
 		return
 	}
-	if j.env == nil {
-		j.env = cedar.GetEnvironment()
-	}
+
 	if j.performanceAnalysisService == nil {
-		err := j.conf.Find()
-		if err != nil {
-			j.AddError(errors.Wrap(err, "Unable to get cedar configuration"))
-			return
-		}
 		j.performanceAnalysisService = perf.NewPerformanceAnalysisService(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
+
 	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "Unable to aggregate time perfData %s", j.PerformanceResultId.String()))
+		j.AddError(errors.Wrapf(err, "aggregating time perfData %s", j.PerformanceResultId.String()))
 		return
 	}
 	if performanceData == nil {
@@ -112,19 +119,39 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 				Value: v,
 			})
 		}
-		for _, item := range perfData.TimeSeries {
+		filteredData := filterOldExecutions(perfData.TimeSeries)
+		for _, item := range filteredData {
 			series.Data = append(series.Data, perf.TimeSeriesDataModel{
 				PerformanceResultID: item.PerfResultID,
 				Order:               item.Order,
 				Value:               item.Value,
 				Version:             item.Version,
+				Execution:           item.Execution,
 			})
 		}
 		err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "Unable to update time series for perfData %s", j.PerformanceResultId.String()))
+			j.AddError(errors.Wrapf(err, "updating time series for perfData %s", j.PerformanceResultId.String()))
 			return
 		}
 		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, perfData.PerformanceResultId))
 	}
+}
+
+func filterOldExecutions(timeSeries []model.TimeSeriesEntry) []model.TimeSeriesEntry {
+	maxExecutionMap := make(map[string]int)
+	for _, item := range timeSeries {
+		if item.Execution > maxExecutionMap[item.TaskID] {
+			maxExecutionMap[item.TaskID] = item.Execution
+		}
+	}
+
+	filtered := make([]model.TimeSeriesEntry, 0, len(timeSeries))
+	for _, item := range timeSeries {
+		if item.Execution == maxExecutionMap[item.TaskID] {
+			filtered = append(filtered, item)
+		}
+	}
+
+	return filtered
 }

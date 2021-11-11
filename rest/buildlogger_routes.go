@@ -25,7 +25,6 @@ const (
 	paginate      = "paginate"
 	trueString    = "true"
 	softSizeLimit = 10 * 1024 * 1024
-	baseURL       = "https://cedar.mongodb.com"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -86,7 +85,7 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return newBuildloggerResponder(data, h.opts.TimeRange.StartAt, next, paginated)
+	return newBuildloggerResponder(h.sc.GetBaseURL(), data, h.opts.TimeRange.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -204,7 +203,7 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return newBuildloggerResponder(data, h.opts.TimeRange.StartAt, next, paginated)
+	return newBuildloggerResponder(h.sc.GetBaseURL(), data, h.opts.TimeRange.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -330,7 +329,7 @@ func (h *logGroupByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return newBuildloggerResponder(data, h.opts.TimeRange.StartAt, next, paginated)
+	return newBuildloggerResponder(h.sc.GetBaseURL(), data, h.opts.TimeRange.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -401,7 +400,7 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return newBuildloggerResponder(data, h.opts.TimeRange.StartAt, next, paginated)
+	return newBuildloggerResponder(h.sc.GetBaseURL(), data, h.opts.TimeRange.StartAt, next, paginated)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -555,6 +554,9 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 				h.opts.TimeRange.EndAt = time.Time(log.CompletedAt)
 			}
 		}
+		if h.opts.TimeRange.EndAt.IsZero() {
+			h.opts.TimeRange.EndAt = time.Now()
+		}
 	}
 
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
@@ -572,10 +574,10 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
-	return newBuildloggerResponder(data, h.opts.TimeRange.StartAt, next, paginated)
+	return newBuildloggerResponder(h.sc.GetBaseURL(), data, h.opts.TimeRange.StartAt, next, paginated)
 }
 
-func newBuildloggerResponder(data []byte, last, next time.Time, paginated bool) gimlet.Responder {
+func newBuildloggerResponder(baseURL string, data []byte, last, next time.Time, paginated bool) gimlet.Responder {
 	resp := gimlet.NewTextResponse(data)
 
 	if paginated {
