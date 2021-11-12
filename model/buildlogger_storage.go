@@ -37,10 +37,12 @@ func (lf LogFormat) Validate() error {
 // "sub-bucket". The top level bucket is accesible via the cedar.Environment
 // interface.
 type LogArtifactInfo struct {
-	Type    PailType       `bson:"type"`
-	Prefix  string         `bson:"prefix"`
-	Version int            `bson:"version"`
-	Chunks  []LogChunkInfo `bson:"chunks,omitempty"`
+	Type    PailType `bson:"type"`
+	Prefix  string   `bson:"prefix"`
+	Version int      `bson:"version"`
+	// This field is part of the version 0 LogArtifactInfo model, we are
+	// keeping it for backwards compatibility.
+	Chunks []LogChunkInfo `bson:"chunks,omitempty"`
 }
 
 var (
@@ -66,10 +68,20 @@ var (
 	logLogChunkInfoEndKey      = bsonutil.MustHaveTag(LogChunkInfo{}, "End")
 )
 
+// createBuildloggerChunkKey returns a pail-backed offline storage key that
+// encodes the given log chunk information. This is used primarily for
+// downloading logs (see `model/log_iterator.go`).
 func createBuildloggerChunkKey(start, end time.Time, numLines int) string {
+	// We use millisecond precision for log timestamps, so we need to
+	// truncate here.
+	start = start.Truncate(time.Millisecond)
+	end = end.Truncate(time.Millisecond)
 	return fmt.Sprintf("%d_%d_%d", start.UnixNano(), end.UnixNano(), numLines)
 }
 
+// parseBuildloggerChunkKey returns a LogChunkInfo object with the information
+// encoded in the given key. The key must have been created by
+// createBuildloggerChunkKey (see above).
 func parseBuildloggerChunkKey(key string) (LogChunkInfo, error) {
 	chunkInfo := strings.Split(key, "_")
 	if len(chunkInfo) != 3 {

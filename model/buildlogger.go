@@ -295,8 +295,11 @@ func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo
 	var chunks []LogChunkInfo
 	switch l.Artifact.Version {
 	case 0:
+		// Version 0 stores chunks directly in the database.
 		chunks = l.Artifact.Chunks
 	case 1:
+		// Version 1 uses the key of the chunk in the pail-backed
+		// offline storage to encode the chunk information.
 		it, err := bucket.List(ctx, "")
 		if err != nil {
 			return nil, errors.Wrap(err, "listing chunks")
@@ -305,7 +308,7 @@ func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo
 		for it.Next(ctx) {
 			chunk, err := parseBuildloggerChunkKey(it.Item().Name())
 			if err != nil {
-				return nil, errors.Wrap(err, "parsing chunk key")
+				return nil, errors.Wrapf(err, "parsing chunk key '%s'", it.Item().Name())
 			}
 			chunks = append(chunks, chunk)
 		}
