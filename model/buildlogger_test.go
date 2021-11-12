@@ -461,6 +461,7 @@ func TestBuildloggerGetChunks(t *testing.T) {
 		bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: log.Artifact.Prefix})
 		require.NoError(t, err)
 		chunks, _, err := GenerateTestLog(ctx, bucket, 100, 10)
+		require.NoError(t, err)
 
 		bucketChunks, err := log.getChunks(ctx, bucket)
 		require.NoError(t, err)
