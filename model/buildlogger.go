@@ -295,7 +295,8 @@ func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo
 	var chunks []LogChunkInfo
 	switch l.Artifact.Version {
 	case 0:
-		// Version 0 stores chunks directly in the database.
+		// Version 0 stores log chunk information directly in the
+		// database.
 		chunks = l.Artifact.Chunks
 	case 1:
 		// Version 1 uses the key of the chunk in the pail-backed
