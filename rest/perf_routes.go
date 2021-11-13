@@ -203,7 +203,8 @@ func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) err
 // number of PerformanceResults found
 func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
-	if err != nil {
+	errResp, ok := err.(gimlet.ErrorResponse)
+	if err != nil && (!ok || errResp.StatusCode != http.StatusNotFound) {
 		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),

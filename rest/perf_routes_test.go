@@ -217,11 +217,15 @@ func (s *PerfHandlerSuite) TestPerfCountByTaskIdHandlerFound() {
 
 func (s *PerfHandlerSuite) TestPerfCountByTaskIdHandlerNotFound() {
 	rh := s.rh["task_id_count"]
+	expected := datamodel.APIPerformanceResultCount{
+		NumberOfResults: 0,
+	}
 	rh.(*perfCountByTaskIdHandler).opts.TaskID = "555"
 
 	resp := rh.Run(context.TODO())
 	s.Require().NotNil(resp)
-	s.NotEqual(http.StatusOK, resp.Status())
+	s.Equal(http.StatusOK, resp.Status())
+	s.Equal(expected, resp.Data())
 }
 
 func (s *PerfHandlerSuite) TestPerfGetByTaskNameHandlerFound() {
