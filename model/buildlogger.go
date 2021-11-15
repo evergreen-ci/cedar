@@ -13,7 +13,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
-	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
@@ -36,7 +35,7 @@ func CreateLog(info LogInfo, artifactStorageType PailType) *Log {
 		Artifact: LogArtifactInfo{
 			Type:    artifactStorageType,
 			Prefix:  info.ID(),
-			Version: 0,
+			Version: 1,
 		},
 		populated: true,
 	}
@@ -139,8 +138,7 @@ func (l *Log) Remove(ctx context.Context) error {
 }
 
 // Append uploads a chunk of log lines to the offline blob storage bucket
-// configured for the log and updates the metadata in the database to reflect
-// the uploaded lines. The environment should not be nil.
+// configured for the log. The environment should not be nil.
 func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 	if l.env == nil {
 		return errors.New("cannot not append log lines with a nil environment")
@@ -153,7 +151,6 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 		})
 		return nil
 	}
-	key := fmt.Sprint(utility.UnixMilli(time.Now()))
 
 	lineBuffer := &bytes.Buffer{}
 	for _, line := range lines {
@@ -166,14 +163,14 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 
 		_, err := lineBuffer.WriteString(prependPriorityAndTimestamp(line.Priority, line.Timestamp, line.Data))
 		if err != nil {
-			return errors.Wrap(err, "problem buffering lines")
+			return errors.Wrap(err, "buffering lines")
 		}
 	}
 
 	conf := &CedarConfig{}
 	conf.Setup(l.env)
 	if err := conf.Find(); err != nil {
-		return errors.Wrap(err, "problem getting application configuration")
+		return errors.Wrap(err, "getting application configuration")
 	}
 	bucket, err := l.Artifact.Type.Create(
 		ctx,
@@ -184,20 +181,12 @@ func (l *Log) Append(ctx context.Context, lines []LogLine) error {
 		true,
 	)
 	if err != nil {
-		return errors.Wrap(err, "problem creating bucket")
-	}
-	if err := bucket.Put(ctx, key, lineBuffer); err != nil {
-		return errors.Wrap(err, "problem uploading log lines to bucket")
+		return errors.Wrap(err, "creating bucket")
 	}
 
-	info := LogChunkInfo{
-		Key:      key,
-		NumLines: len(lines),
-		Start:    lines[0].Timestamp,
-		End:      lines[len(lines)-1].Timestamp,
-	}
-	if err = l.appendLogChunkInfo(ctx, info); err != nil {
-		return errors.Wrap(err, "problem updating log metadata during upload")
+	key := createBuildloggerChunkKey(lines[0].Timestamp, lines[len(lines)-1].Timestamp, len(lines))
+	if err := bucket.Put(ctx, key, lineBuffer); err != nil {
+		return errors.Wrap(err, "uploading log lines to bucket")
 	}
 
 	l.addToStatsCache(lines)
@@ -225,40 +214,6 @@ func (l *Log) addToStatsCache(lines []LogLine) {
 			"cache":   cedar.StatsCacheBuildlogger,
 		}))
 	}
-}
-
-// appendLogChunkInfo adds a new log chunk to the log's chunks array in the
-// database. The environment should not be nil.
-func (l *Log) appendLogChunkInfo(ctx context.Context, logChunk LogChunkInfo) error {
-	if l.env == nil {
-		return errors.New("cannot append to a log with a nil environment")
-	}
-
-	if l.ID == "" {
-		l.ID = l.Info.ID()
-	}
-
-	updateResult, err := l.env.GetDB().Collection(buildloggerCollection).UpdateOne(
-		ctx,
-		bson.M{"_id": l.ID},
-		bson.M{
-			"$push": bson.M{
-				bsonutil.GetDottedKeyName(logArtifactKey, logArtifactInfoChunksKey): logChunk,
-			},
-		},
-	)
-	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   buildloggerCollection,
-		"id":           l.ID,
-		"updateResult": updateResult,
-		"logChunkInfo": logChunk,
-		"op":           "append log chunk info to buildlogger log",
-	})
-	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
-	}
-
-	return errors.Wrapf(err, "problem appending log chunk info to %s", l.ID)
 }
 
 // Close "closes out" the log by populating the completed_at and info.exit_code
@@ -313,7 +268,7 @@ func (l *Log) Download(ctx context.Context, timeRange TimeRange) (LogIterator, e
 	conf := &CedarConfig{}
 	conf.Setup(l.env)
 	if err := conf.Find(); err != nil {
-		return nil, errors.Wrap(err, "problem getting application configuration")
+		return nil, errors.Wrap(err, "getting application configuration")
 	}
 
 	bucket, err := l.Artifact.Type.Create(
@@ -325,10 +280,51 @@ func (l *Log) Download(ctx context.Context, timeRange TimeRange) (LogIterator, e
 		false,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem creating bucket")
+		return nil, errors.Wrap(err, "creating bucket")
 	}
 
-	return NewBatchedLogIterator(bucket, l.Artifact.Chunks, 2, timeRange), nil
+	chunks, err := l.getChunks(ctx, bucket)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting chunks")
+	}
+
+	return NewBatchedLogIterator(bucket, chunks, 2, timeRange), nil
+}
+
+func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo, error) {
+	var chunks []LogChunkInfo
+	switch l.Artifact.Version {
+	case 0:
+		// Version 0 stores log chunk information directly in the
+		// database.
+		chunks = l.Artifact.Chunks
+	case 1:
+		// Version 1 uses the key of the chunk in the pail-backed
+		// offline storage to encode the chunk information.
+		it, err := bucket.List(ctx, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "listing chunks")
+		}
+
+		for it.Next(ctx) {
+			chunk, err := parseBuildloggerChunkKey(it.Item().Name())
+			if err != nil {
+				return nil, errors.Wrapf(err, "parsing chunk key '%s'", it.Item().Name())
+			}
+			chunks = append(chunks, chunk)
+		}
+		if err = it.Err(); err != nil {
+			return nil, errors.Wrap(err, "iterating chunks")
+		}
+
+		sort.Slice(chunks, func(i, j int) bool {
+			return chunks[i].Start.Before(chunks[j].Start)
+		})
+	default:
+		return nil, errors.Errorf("invalid artifact version '%d'", l.Artifact.Version)
+	}
+
+	return chunks, nil
 }
 
 // LogInfo describes information unique to a single buildlogger log.

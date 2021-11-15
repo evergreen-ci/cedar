@@ -271,9 +271,13 @@ func TestAppendLogLines(t *testing.T) {
 				l.Setup(env)
 				require.NoError(t, l.Find(ctx))
 				assert.Equal(t, log.ID, log.Info.ID())
-				assert.Len(t, l.Artifact.Chunks, 1)
-				_, err := bucket.Get(ctx, l.Artifact.Chunks[0].Key)
+				iter, err := bucket.List(ctx, "")
 				assert.NoError(t, err)
+				var chunkCount int
+				for iter.Next(ctx) {
+					chunkCount++
+				}
+				assert.Equal(t, 1, chunkCount)
 			}
 		})
 	}
@@ -510,12 +514,13 @@ func TestStreamLogLines(t *testing.T) {
 				l.Setup(env)
 				require.NoError(t, l.Find(ctx))
 				assert.Equal(t, log.ID, log.Info.ID())
-				assert.Len(t, l.Artifact.Chunks, len(test.lines))
-				for _, chunk := range l.Artifact.Chunks {
-					r, err := bucket.Get(ctx, chunk.Key)
-					assert.NoError(t, err)
-					assert.NoError(t, r.Close())
+				iter, err := bucket.List(ctx, "")
+				assert.NoError(t, err)
+				var chunkCount int
+				for iter.Next(ctx) {
+					chunkCount++
 				}
+				assert.Equal(t, len(test.lines), chunkCount)
 			}
 		})
 	}

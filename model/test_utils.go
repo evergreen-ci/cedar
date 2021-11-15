@@ -27,11 +27,7 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 
 	for i := 0; i < numChunks; i++ {
 		rawLines := ""
-		chunks[i] = LogChunkInfo{
-			Key:   newRandCharSetString(16),
-			Start: ts,
-		}
-
+		chunks[i] = LogChunkInfo{Start: ts}
 		j := 0
 		for j < chunkSize && j+i*chunkSize < size {
 			line := newRandCharSetString(100)
@@ -44,13 +40,14 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 			ts = ts.Add(time.Millisecond)
 			j++
 		}
+		chunks[i].NumLines = j
+		chunks[i].End = ts.Add(-time.Millisecond)
+		chunks[i].Key = createBuildloggerChunkKey(chunks[i].Start, chunks[i].End, chunks[i].NumLines)
 
 		if err := bucket.Put(ctx, chunks[i].Key, strings.NewReader(rawLines)); err != nil {
 			return []LogChunkInfo{}, []LogLine{}, errors.Wrap(err, "failed to add chunk to bucket")
 		}
 
-		chunks[i].NumLines = j
-		chunks[i].End = ts.Add(-time.Millisecond)
 		ts = ts.Add(time.Hour)
 	}
 
