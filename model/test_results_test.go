@@ -1196,18 +1196,23 @@ func TestFilterTestNames(t *testing.T) {
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			filteredSamples := filterTestNames([]TestResultsSample{{FailedTestNames: testCase.names}}, testCase.filters)
-			assert.ElementsMatch(t, filteredSamples, []TestResultsSample{{FailedTestNames: testCase.expected}})
+			filteredSamples := filterTestNames([]TestResultsSample{{MatchingFailedTestNames: testCase.names}}, testCase.filters)
+			assert.ElementsMatch(t, filteredSamples, []TestResultsSample{{MatchingFailedTestNames: testCase.expected}})
 		})
 	}
 }
 
 func TestConsolidateSamples(t *testing.T) {
 	for testName, testCase := range map[string]struct {
+		tasks    []FindTestResultsOptions
 		results  []TestResults
 		expected []TestResultsSample
 	}{
 		"NoDisplayTasks": {
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
+				{TaskID: "t2"},
+			},
 			results: []TestResults{
 				{
 					Info:              TestResultsInfo{TaskID: "t1"},
@@ -1219,11 +1224,14 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "t1", FailedTestNames: []string{"test1", "test2"}},
-				{TaskID: "t2", FailedTestNames: []string{"test3", "test4"}},
+				{TaskID: "t1", MatchingFailedTestNames: []string{"test1", "test2"}, LengthFailedTestNames: 2},
+				{TaskID: "t2", MatchingFailedTestNames: []string{"test3", "test4"}, LengthFailedTestNames: 2},
 			},
 		},
 		"DisplayTasks": {
+			tasks: []FindTestResultsOptions{
+				{TaskID: "dt1"},
+			},
 			results: []TestResults{
 				{
 					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et1"},
@@ -1235,10 +1243,14 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "dt1", FailedTestNames: []string{"test1", "test2"}},
+				{TaskID: "dt1", MatchingFailedTestNames: []string{"test1", "test2"}, LengthFailedTestNames: 2},
 			},
 		},
 		"Mixed": {
+			tasks: []FindTestResultsOptions{
+				{TaskID: "dt1"},
+				{TaskID: "t1"},
+			},
 			results: []TestResults{
 				{
 					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et1"},
@@ -1250,11 +1262,15 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "dt1", FailedTestNames: []string{"test1"}},
-				{TaskID: "t1", FailedTestNames: []string{"test2"}},
+				{TaskID: "dt1", MatchingFailedTestNames: []string{"test1"}, LengthFailedTestNames: 1},
+				{TaskID: "t1", MatchingFailedTestNames: []string{"test2"}, LengthFailedTestNames: 1},
 			},
 		},
 		"MultipleExecutions": {
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1", Execution: utility.ToIntPtr(0)},
+				{TaskID: "t1", Execution: utility.ToIntPtr(1)},
+			},
 			results: []TestResults{
 				{
 					Info:              TestResultsInfo{TaskID: "t1", Execution: 0},
@@ -1266,13 +1282,32 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "t1", Execution: 0, FailedTestNames: []string{"test1"}},
-				{TaskID: "t1", Execution: 1, FailedTestNames: []string{"test2"}},
+				{TaskID: "t1", Execution: 0, MatchingFailedTestNames: []string{"test1"}, LengthFailedTestNames: 1},
+				{TaskID: "t1", Execution: 1, MatchingFailedTestNames: []string{"test2"}, LengthFailedTestNames: 1},
+			},
+		},
+		"ExecutionTaskRequested": {
+			tasks: []FindTestResultsOptions{
+				{TaskID: "et1"},
+			},
+			results: []TestResults{
+				{
+					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et1"},
+					FailedTestsSample: []string{"test1"},
+				},
+				{
+					Info:              TestResultsInfo{DisplayTaskID: "dt1", TaskID: "et2"},
+					FailedTestsSample: []string{"test2"},
+				},
+			},
+			expected: []TestResultsSample{
+				{TaskID: "et1", Execution: 0, MatchingFailedTestNames: []string{"test1"}, LengthFailedTestNames: 1},
 			},
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			assert.ElementsMatch(t, consolidateSamples(testCase.results), testCase.expected)
+			opts := FindTestSamplesOptions{Tasks: testCase.tasks}
+			assert.ElementsMatch(t, opts.consolidateSamples(testCase.results), testCase.expected)
 		})
 	}
 }
@@ -1308,9 +1343,10 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 			expected: []TestResultsSample{
 				{
-					TaskID:          "t1",
-					Execution:       0,
-					FailedTestNames: []string{"test1", "test2"},
+					TaskID:                  "t1",
+					Execution:               0,
+					MatchingFailedTestNames: []string{"test1", "test2"},
+					LengthFailedTestNames:   2,
 				},
 			},
 		},
@@ -1331,14 +1367,16 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 			expected: []TestResultsSample{
 				{
-					TaskID:          "t1",
-					Execution:       0,
-					FailedTestNames: []string{"test1", "test2"},
+					TaskID:                  "t1",
+					Execution:               0,
+					MatchingFailedTestNames: []string{"test1", "test2"},
+					LengthFailedTestNames:   2,
 				},
 				{
-					TaskID:          "t1",
-					Execution:       1,
-					FailedTestNames: []string{"test3", "test4"},
+					TaskID:                  "t1",
+					Execution:               1,
+					MatchingFailedTestNames: []string{"test3", "test4"},
+					LengthFailedTestNames:   2,
 				},
 			},
 		},
@@ -1355,9 +1393,10 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 			expected: []TestResultsSample{
 				{
-					TaskID:          "t1",
-					Execution:       0,
-					FailedTestNames: []string{"test1"},
+					TaskID:                  "t1",
+					Execution:               0,
+					MatchingFailedTestNames: []string{"test1"},
+					LengthFailedTestNames:   2,
 				},
 			},
 		},
@@ -1377,9 +1416,10 @@ func TestMakeTestSamples(t *testing.T) {
 			},
 			expected: []TestResultsSample{
 				{
-					TaskID:          "dt1",
-					Execution:       0,
-					FailedTestNames: []string{"test1", "test2"},
+					TaskID:                  "dt1",
+					Execution:               0,
+					MatchingFailedTestNames: []string{"test1", "test2"},
+					LengthFailedTestNames:   2,
 				},
 			},
 		},
@@ -1425,8 +1465,9 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 			},
 			expected: []TestResultsSample{
 				{
-					TaskID:          "t1",
-					FailedTestNames: []string{"test1", "test2"},
+					TaskID:                  "t1",
+					MatchingFailedTestNames: []string{"test1", "test2"},
+					LengthFailedTestNames:   2,
 				},
 			},
 		},
@@ -1450,8 +1491,9 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 			},
 			expected: []TestResultsSample{
 				{
-					TaskID:          "dt1",
-					FailedTestNames: []string{"test1", "test2"},
+					TaskID:                  "dt1",
+					MatchingFailedTestNames: []string{"test1", "test2"},
+					LengthFailedTestNames:   2,
 				},
 			},
 		},

@@ -448,9 +448,10 @@ type TestResultsStats struct {
 
 // TestResultsSample contains test names culled from a test result's FailedTestsSample.
 type TestResultsSample struct {
-	TaskID          string
-	Execution       int
-	FailedTestNames []string
+	TaskID                  string
+	Execution               int
+	MatchingFailedTestNames []string
+	LengthFailedTestNames   int
 }
 
 var (
@@ -612,7 +613,7 @@ func (opts *FindTestSamplesOptions) createFindOptions() *options.FindOptions {
 }
 
 func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) []TestResultsSample {
-	samples := consolidateSamples(testResults)
+	samples := opts.consolidateSamples(testResults)
 	if len(opts.TestNameRegexes) > 0 {
 		samples = filterTestNames(samples, opts.TestNameRegexes)
 	}
@@ -620,32 +621,44 @@ func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) [
 	return samples
 }
 
-func consolidateSamples(testResults []TestResults) []TestResultsSample {
+func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults) []TestResultsSample {
 	type taskExecutionPair struct {
 		taskID    string
 		execution int
 	}
-	taskPairMap := make(map[taskExecutionPair][]string)
-	for _, result := range testResults {
-		taskID := result.Info.DisplayTaskID
-		if taskID == "" {
-			taskID = result.Info.TaskID
-		}
-
-		pair := taskExecutionPair{
-			taskID:    taskID,
-			execution: result.Info.Execution,
-		}
-		taskPairMap[pair] = append(taskPairMap[pair], result.FailedTestsSample...)
+	requestedPairs := make(map[taskExecutionPair]bool, len(opts.Tasks))
+	for _, t := range opts.Tasks {
+		requestedPairs[taskExecutionPair{taskID: t.TaskID, execution: utility.FromIntPtr(t.Execution)}] = true
 	}
 
-	samples := make([]TestResultsSample, 0, len(taskPairMap))
-	for pair, names := range taskPairMap {
-		samples = append(samples, TestResultsSample{
-			TaskID:          pair.taskID,
-			Execution:       pair.execution,
-			FailedTestNames: names,
-		})
+	samples := make([]TestResultsSample, 0, len(requestedPairs))
+	sampleIndexMap := make(map[taskExecutionPair]int)
+	for _, result := range testResults {
+		pair := taskExecutionPair{
+			taskID:    result.Info.TaskID,
+			execution: result.Info.Execution,
+		}
+		if !requestedPairs[pair] {
+			pair.taskID = result.Info.DisplayTaskID
+			if !requestedPairs[pair] {
+				continue
+			}
+		}
+
+		if requestedPairs[pair] {
+			if idx, ok := sampleIndexMap[pair]; ok {
+				samples[idx].MatchingFailedTestNames = append(samples[idx].MatchingFailedTestNames, result.FailedTestsSample...)
+				samples[idx].LengthFailedTestNames += len(result.FailedTestsSample)
+			} else {
+				sampleIndexMap[pair] = len(samples)
+				samples = append(samples, TestResultsSample{
+					TaskID:                  pair.taskID,
+					Execution:               pair.execution,
+					MatchingFailedTestNames: result.FailedTestsSample,
+					LengthFailedTestNames:   len(result.FailedTestsSample),
+				})
+			}
+		}
 	}
 
 	return samples
@@ -665,13 +678,13 @@ func filterTestNames(samples []TestResultsSample, regexStrings []string) []TestR
 	for _, sample := range samples {
 		filteredNames := []string{}
 		for _, regex := range regexes {
-			for _, name := range sample.FailedTestNames {
+			for _, name := range sample.MatchingFailedTestNames {
 				if regex.MatchString(name) {
 					filteredNames = append(filteredNames, name)
 				}
 			}
 		}
-		sample.FailedTestNames = filteredNames
+		sample.MatchingFailedTestNames = filteredNames
 		filteredSamples = append(filteredSamples, sample)
 	}
 

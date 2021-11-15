@@ -106,7 +106,7 @@ func (a *APITestResultsSample) Import(i interface{}) error {
 	case dbModel.TestResultsSample:
 		a.TaskID = utility.ToStringPtr(sample.TaskID)
 		a.Execution = sample.Execution
-		a.FailedTestNames = sample.FailedTestNames
+		a.FailedTestNames = sample.MatchingFailedTestNames
 	default:
 		return errors.New("incorrect type when converting to APITestResultsSample type")
 	}
