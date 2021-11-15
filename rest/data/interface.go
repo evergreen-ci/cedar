@@ -169,6 +169,7 @@ type TestSampleOptions struct {
 	TestNameRegexes []string
 }
 
+// TaskInfo specifies a set of test results to find.
 type TaskInfo struct {
 	TaskID      string
 	Execution   int

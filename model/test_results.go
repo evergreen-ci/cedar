@@ -612,13 +612,13 @@ func (opts *FindTestSamplesOptions) createFindOptions() *options.FindOptions {
 	})
 }
 
-func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) []TestResultsSample {
+func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) ([]TestResultsSample, error) {
 	samples := opts.consolidateSamples(testResults)
-	if len(opts.TestNameRegexes) > 0 {
-		samples = filterTestNames(samples, opts.TestNameRegexes)
+	if len(opts.TestNameRegexes) == 0 {
+		return samples, nil
 	}
 
-	return samples
+	return filterTestNames(samples, opts.TestNameRegexes)
 }
 
 func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults) []TestResultsSample {
@@ -672,12 +672,12 @@ func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults
 	return samples
 }
 
-func filterTestNames(samples []TestResultsSample, regexStrings []string) []TestResultsSample {
+func filterTestNames(samples []TestResultsSample, regexStrings []string) ([]TestResultsSample, error) {
 	regexes := []*regexp.Regexp{}
 	for _, regexString := range regexStrings {
 		testNameRegex, err := regexp.Compile(regexString)
 		if err != nil {
-			continue
+			return nil, errors.Wrap(err, "invalid regex")
 		}
 		regexes = append(regexes, testNameRegex)
 	}
@@ -696,7 +696,7 @@ func filterTestNames(samples []TestResultsSample, regexStrings []string) []TestR
 		filteredSamples = append(filteredSamples, sample)
 	}
 
-	return filteredSamples
+	return filteredSamples, nil
 }
 
 // GetTestResultsFilteredSamples finds the specified test results and returns the filtered samples.
@@ -715,7 +715,7 @@ func GetTestResultsFilteredSamples(ctx context.Context, env cedar.Environment, o
 		return nil, errors.Wrap(err, "decoding test results record(s)")
 	}
 
-	return opts.makeTestSamples(results), nil
+	return opts.makeTestSamples(results)
 }
 
 // TestResultsSortBy describes the property by which to sort a set of test

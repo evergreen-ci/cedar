@@ -1160,6 +1160,7 @@ func TestFilterTestNames(t *testing.T) {
 		names    []string
 		filters  []string
 		expected []string
+		hasErr   bool
 	}{
 		"NoRegexes": {
 			names:    []string{"t1", "t2"},
@@ -1189,15 +1190,20 @@ func TestFilterTestNames(t *testing.T) {
 			filters:  []string{`t\d`},
 			expected: []string{"t1", "t2"},
 		},
-		"InvalidRegexIsSkipped": {
-			names:    []string{"t1", "t2"},
-			filters:  []string{`[`},
-			expected: []string{},
+		"InvalidRegexHasError": {
+			names:   []string{"t1", "t2"},
+			filters: []string{`[`},
+			hasErr:  true,
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			filteredSamples := filterTestNames([]TestResultsSample{{MatchingFailedTestNames: testCase.names}}, testCase.filters)
-			assert.ElementsMatch(t, filteredSamples, []TestResultsSample{{MatchingFailedTestNames: testCase.expected}})
+			filteredSamples, err := filterTestNames([]TestResultsSample{{MatchingFailedTestNames: testCase.names}}, testCase.filters)
+			if testCase.hasErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, filteredSamples, []TestResultsSample{{MatchingFailedTestNames: testCase.expected}})
+			}
 		})
 	}
 }
@@ -1318,6 +1324,7 @@ func TestMakeTestSamples(t *testing.T) {
 		filters     []string
 		testResults []TestResults
 		expected    []TestResultsSample
+		hasErr      bool
 	}{
 		"NoResults": {
 			tasks:       []FindTestResultsOptions{},
@@ -1400,6 +1407,13 @@ func TestMakeTestSamples(t *testing.T) {
 				},
 			},
 		},
+		"InvalidFilter": {
+			tasks: []FindTestResultsOptions{
+				{TaskID: "t1"},
+			},
+			filters: []string{`[`},
+			hasErr:  true,
+		},
 		"DisplayTask": {
 			tasks: []FindTestResultsOptions{
 				{TaskID: "dt1", Execution: utility.ToIntPtr(0), DisplayTask: true},
@@ -1426,8 +1440,13 @@ func TestMakeTestSamples(t *testing.T) {
 	} {
 		t.Run(testName, func(t *testing.T) {
 			opts := FindTestSamplesOptions{Tasks: testCase.tasks, TestNameRegexes: testCase.filters}
-			samples := opts.makeTestSamples(testCase.testResults)
-			assert.ElementsMatch(t, samples, testCase.expected)
+			samples, err := opts.makeTestSamples(testCase.testResults)
+			if testCase.hasErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, samples, testCase.expected)
+			}
 		})
 	}
 }

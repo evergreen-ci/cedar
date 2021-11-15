@@ -194,7 +194,7 @@ func (h *testResultsGetFilteredSamplesHandler) Parse(_ context.Context, r *http.
 	defer body.Close()
 
 	if err := utility.ReadJSON(body, h.options); err != nil {
-		return errors.Wrap(err, "Argument read error")
+		return errors.Wrap(err, "argument read error")
 	}
 
 	return nil
