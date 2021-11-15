@@ -626,39 +626,47 @@ func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults
 		taskID    string
 		execution int
 	}
-	requestedPairs := make(map[taskExecutionPair]bool, len(opts.Tasks))
-	for _, t := range opts.Tasks {
-		requestedPairs[taskExecutionPair{taskID: t.TaskID, execution: utility.FromIntPtr(t.Execution)}] = true
-	}
-
-	samples := make([]TestResultsSample, 0, len(requestedPairs))
-	sampleIndexMap := make(map[taskExecutionPair]int)
+	displayTaskMap := make(map[taskExecutionPair][]string)
+	executionTaskMap := make(map[taskExecutionPair][]string)
 	for _, result := range testResults {
-		pair := taskExecutionPair{
+		if result.Info.DisplayTaskID != "" {
+			dt := taskExecutionPair{
+				taskID:    result.Info.DisplayTaskID,
+				execution: result.Info.Execution,
+			}
+			displayTaskMap[dt] = append(displayTaskMap[dt], result.FailedTestsSample...)
+		}
+		et := taskExecutionPair{
 			taskID:    result.Info.TaskID,
 			execution: result.Info.Execution,
 		}
-		if !requestedPairs[pair] {
-			pair.taskID = result.Info.DisplayTaskID
-			if !requestedPairs[pair] {
-				continue
-			}
+		executionTaskMap[et] = result.FailedTestsSample
+	}
+
+	samples := make([]TestResultsSample, 0, len(opts.Tasks))
+	for _, t := range opts.Tasks {
+		pair := taskExecutionPair{
+			taskID:    t.TaskID,
+			execution: utility.FromIntPtr(t.Execution),
 		}
 
-		if requestedPairs[pair] {
-			if idx, ok := sampleIndexMap[pair]; ok {
-				samples[idx].MatchingFailedTestNames = append(samples[idx].MatchingFailedTestNames, result.FailedTestsSample...)
-				samples[idx].LengthFailedTestNames += len(result.FailedTestsSample)
-			} else {
-				sampleIndexMap[pair] = len(samples)
-				samples = append(samples, TestResultsSample{
-					TaskID:                  pair.taskID,
-					Execution:               pair.execution,
-					MatchingFailedTestNames: result.FailedTestsSample,
-					LengthFailedTestNames:   len(result.FailedTestsSample),
-				})
-			}
+		var names []string
+		var ok bool
+		if t.DisplayTask {
+			names, ok = displayTaskMap[pair]
+		} else {
+			names, ok = executionTaskMap[pair]
 		}
+		if !ok {
+			continue
+		}
+
+		samples = append(samples, TestResultsSample{
+			TaskID:                  t.TaskID,
+			Execution:               utility.FromIntPtr(t.Execution),
+			MatchingFailedTestNames: names,
+			LengthFailedTestNames:   len(names),
+		})
 	}
 
 	return samples

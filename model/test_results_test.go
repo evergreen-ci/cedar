@@ -1230,7 +1230,7 @@ func TestConsolidateSamples(t *testing.T) {
 		},
 		"DisplayTasks": {
 			tasks: []FindTestResultsOptions{
-				{TaskID: "dt1"},
+				{TaskID: "dt1", DisplayTask: true},
 			},
 			results: []TestResults{
 				{
@@ -1248,7 +1248,7 @@ func TestConsolidateSamples(t *testing.T) {
 		},
 		"Mixed": {
 			tasks: []FindTestResultsOptions{
-				{TaskID: "dt1"},
+				{TaskID: "dt1", DisplayTask: true},
 				{TaskID: "t1"},
 			},
 			results: []TestResults{
@@ -1402,7 +1402,7 @@ func TestMakeTestSamples(t *testing.T) {
 		},
 		"DisplayTask": {
 			tasks: []FindTestResultsOptions{
-				{TaskID: "dt1", Execution: utility.ToIntPtr(0)},
+				{TaskID: "dt1", Execution: utility.ToIntPtr(0), DisplayTask: true},
 			},
 			testResults: []TestResults{
 				{
