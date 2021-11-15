@@ -448,8 +448,9 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
-					TaskID:          utility.ToStringPtr("display_task2"),
-					FailedTestNames: []string{"test0", "test1", "test2"},
+					TaskID:                  utility.ToStringPtr("display_task2"),
+					MatchingFailedTestNames: []string{"test0", "test1", "test2"},
+					TotalFailedNames:        3,
 				},
 			},
 		},
@@ -465,8 +466,9 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
-					TaskID:          utility.ToStringPtr("display_task1"),
-					FailedTestNames: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+					TaskID:                  utility.ToStringPtr("display_task1"),
+					MatchingFailedTestNames: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+					TotalFailedNames:        6,
 				},
 			},
 		},
@@ -476,9 +478,10 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
-					TaskID:          utility.ToStringPtr("display_task1"),
-					Execution:       1,
-					FailedTestNames: []string{"test0", "test1", "test2"},
+					TaskID:                  utility.ToStringPtr("display_task1"),
+					Execution:               1,
+					MatchingFailedTestNames: []string{"test0", "test1", "test2"},
+					TotalFailedNames:        3,
 				},
 			},
 		},

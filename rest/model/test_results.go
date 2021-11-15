@@ -94,9 +94,10 @@ func (a *APITestResultsStats) Import(i interface{}) error {
 
 // APITestResultsSample is a sample of test names for a given task and execution.
 type APITestResultsSample struct {
-	TaskID          *string
-	Execution       int
-	FailedTestNames []string
+	TaskID                  *string
+	Execution               int
+	MatchingFailedTestNames []string
+	TotalFailedNames        int
 }
 
 // Import transforms a TestResultsSample object into an APITestResultsSample
@@ -106,7 +107,8 @@ func (a *APITestResultsSample) Import(i interface{}) error {
 	case dbModel.TestResultsSample:
 		a.TaskID = utility.ToStringPtr(sample.TaskID)
 		a.Execution = sample.Execution
-		a.FailedTestNames = sample.MatchingFailedTestNames
+		a.MatchingFailedTestNames = sample.MatchingFailedTestNames
+		a.TotalFailedNames = sample.TotalFailedTestNames
 	default:
 		return errors.New("incorrect type when converting to APITestResultsSample type")
 	}

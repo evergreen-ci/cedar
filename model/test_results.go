@@ -451,7 +451,7 @@ type TestResultsSample struct {
 	TaskID                  string
 	Execution               int
 	MatchingFailedTestNames []string
-	LengthFailedTestNames   int
+	TotalFailedTestNames    int
 }
 
 var (
@@ -665,7 +665,7 @@ func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults
 			TaskID:                  t.TaskID,
 			Execution:               utility.FromIntPtr(t.Execution),
 			MatchingFailedTestNames: names,
-			LengthFailedTestNames:   len(names),
+			TotalFailedTestNames:    len(names),
 		})
 	}
 

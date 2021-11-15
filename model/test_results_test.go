@@ -1224,8 +1224,8 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "t1", MatchingFailedTestNames: []string{"test1", "test2"}, LengthFailedTestNames: 2},
-				{TaskID: "t2", MatchingFailedTestNames: []string{"test3", "test4"}, LengthFailedTestNames: 2},
+				{TaskID: "t1", MatchingFailedTestNames: []string{"test1", "test2"}, TotalFailedTestNames: 2},
+				{TaskID: "t2", MatchingFailedTestNames: []string{"test3", "test4"}, TotalFailedTestNames: 2},
 			},
 		},
 		"DisplayTasks": {
@@ -1243,7 +1243,7 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "dt1", MatchingFailedTestNames: []string{"test1", "test2"}, LengthFailedTestNames: 2},
+				{TaskID: "dt1", MatchingFailedTestNames: []string{"test1", "test2"}, TotalFailedTestNames: 2},
 			},
 		},
 		"Mixed": {
@@ -1262,8 +1262,8 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "dt1", MatchingFailedTestNames: []string{"test1"}, LengthFailedTestNames: 1},
-				{TaskID: "t1", MatchingFailedTestNames: []string{"test2"}, LengthFailedTestNames: 1},
+				{TaskID: "dt1", MatchingFailedTestNames: []string{"test1"}, TotalFailedTestNames: 1},
+				{TaskID: "t1", MatchingFailedTestNames: []string{"test2"}, TotalFailedTestNames: 1},
 			},
 		},
 		"MultipleExecutions": {
@@ -1282,8 +1282,8 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "t1", Execution: 0, MatchingFailedTestNames: []string{"test1"}, LengthFailedTestNames: 1},
-				{TaskID: "t1", Execution: 1, MatchingFailedTestNames: []string{"test2"}, LengthFailedTestNames: 1},
+				{TaskID: "t1", Execution: 0, MatchingFailedTestNames: []string{"test1"}, TotalFailedTestNames: 1},
+				{TaskID: "t1", Execution: 1, MatchingFailedTestNames: []string{"test2"}, TotalFailedTestNames: 1},
 			},
 		},
 		"ExecutionTaskRequested": {
@@ -1301,7 +1301,7 @@ func TestConsolidateSamples(t *testing.T) {
 				},
 			},
 			expected: []TestResultsSample{
-				{TaskID: "et1", Execution: 0, MatchingFailedTestNames: []string{"test1"}, LengthFailedTestNames: 1},
+				{TaskID: "et1", Execution: 0, MatchingFailedTestNames: []string{"test1"}, TotalFailedTestNames: 1},
 			},
 		},
 	} {
@@ -1346,7 +1346,7 @@ func TestMakeTestSamples(t *testing.T) {
 					TaskID:                  "t1",
 					Execution:               0,
 					MatchingFailedTestNames: []string{"test1", "test2"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 			},
 		},
@@ -1370,13 +1370,13 @@ func TestMakeTestSamples(t *testing.T) {
 					TaskID:                  "t1",
 					Execution:               0,
 					MatchingFailedTestNames: []string{"test1", "test2"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 				{
 					TaskID:                  "t1",
 					Execution:               1,
 					MatchingFailedTestNames: []string{"test3", "test4"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 			},
 		},
@@ -1396,7 +1396,7 @@ func TestMakeTestSamples(t *testing.T) {
 					TaskID:                  "t1",
 					Execution:               0,
 					MatchingFailedTestNames: []string{"test1"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 			},
 		},
@@ -1419,7 +1419,7 @@ func TestMakeTestSamples(t *testing.T) {
 					TaskID:                  "dt1",
 					Execution:               0,
 					MatchingFailedTestNames: []string{"test1", "test2"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 			},
 		},
@@ -1467,7 +1467,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 				{
 					TaskID:                  "t1",
 					MatchingFailedTestNames: []string{"test1", "test2"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 			},
 		},
@@ -1493,7 +1493,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 				{
 					TaskID:                  "dt1",
 					MatchingFailedTestNames: []string{"test1", "test2"},
-					LengthFailedTestNames:   2,
+					TotalFailedTestNames:    2,
 				},
 			},
 		},
