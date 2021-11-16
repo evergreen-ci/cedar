@@ -123,9 +123,6 @@ lint-%:$(buildDir)/output.%.lint
 
 # start test and coverage artifacts
 testArgs := -v -timeout=20m
-ifeq (,$(DISABLE_COVERAGE))
-testArgs += -cover
-endif
 ifneq (,$(RACE_DETECTOR))
 testArgs += -race
 endif

@@ -43,7 +43,7 @@ functions:
       working_dir: cedar
       binary: make
       args: ["${target}"]
-      include_expansions_in_env: ["DISABLE_COVERAGE", "GOROOT", "RACE_DETECTOR"]
+      include_expansions_in_env: ["GOROOT", "RACE_DETECTOR"]
       env:
         AUTH_USER: ${auth_user}
         AUTH_API_KEY: ${auth_api_key}
@@ -227,7 +227,6 @@ buildvariants:
   - name: race-detector
     display_name: Race Detector (Arch Linux)
     expansions:
-      DISABLE_COVERAGE: true
       RACE_DETECTOR: true
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
       GOROOT: /opt/golang/go1.16
@@ -240,7 +239,6 @@ buildvariants:
     display_name: Lint (Arch Linux)
     expansions:
       GOROOT: /opt/golang/go1.16
-      DISABLE_COVERAGE: true
     run_on:
       - archlinux-new-small
     tasks:
@@ -250,7 +248,6 @@ buildvariants:
   - name: ubuntu
     display_name: Ubuntu 18.04
     expansions:
-      DISABLE_COVERAGE: true
       GOROOT: /opt/golang/go1.16
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
       curator_build: linux-amd64
@@ -261,7 +258,6 @@ buildvariants:
   - name: macos
     display_name: macOS
     expansions:
-      DISABLE_COVERAGE: true
       GOROOT: /opt/golang/go1.16
       MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-4.2.0.tgz
       curator_build: darwin-amd64
@@ -278,7 +274,6 @@ buildvariants:
       - windows-64-vs2017-large
     expansions:
       MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2012plus-4.2.0.zip
-      DISABLE_COVERAGE: true
       GOROOT: C:/golang/go1.16
       curator_build: windows-amd64
     tasks: [ "testGroup" ]
