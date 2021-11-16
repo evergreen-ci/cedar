@@ -91,3 +91,27 @@ func (a *APITestResultsStats) Import(i interface{}) error {
 
 	return nil
 }
+
+// APITestResultsSample is a sample of test names for a given task and execution.
+type APITestResultsSample struct {
+	TaskID                  *string  `json:"task_id"`
+	Execution               int      `json:"execution"`
+	MatchingFailedTestNames []string `json:"matching_failed_test_names"`
+	TotalFailedNames        int      `json:"total_failed_names"`
+}
+
+// Import transforms a TestResultsSample object into an APITestResultsSample
+// object.
+func (a *APITestResultsSample) Import(i interface{}) error {
+	switch sample := i.(type) {
+	case dbModel.TestResultsSample:
+		a.TaskID = utility.ToStringPtr(sample.TaskID)
+		a.Execution = sample.Execution
+		a.MatchingFailedTestNames = sample.MatchingFailedTestNames
+		a.TotalFailedNames = sample.TotalFailedTestNames
+	default:
+		return errors.New("incorrect type when converting to APITestResultsSample type")
+	}
+
+	return nil
+}

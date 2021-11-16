@@ -90,6 +90,9 @@ type Connector interface {
 	// the given options. If the execution is nil, this will return the
 	// test results from the most recent execution.
 	FindTestResults(context.Context, TestResultsOptions) (*model.APITestResults, error)
+	// GetTestResultsFilteredSamples gets test result samples and filters them
+	// by test name regexes. Sorting and paginating are not supported.
+	GetTestResultsFilteredSamples(context.Context, TestSampleOptions) ([]model.APITestResultsSample, error)
 	// GetFailedTestResultsSample queries the database to find all the
 	// sample of failed test results for the given options. If the
 	// execution is nil, this will return the sample from the most recent
@@ -157,6 +160,20 @@ type TestResultsFilterAndSortOptions struct {
 	Limit        int
 	Page         int
 	BaseResults  *TestResultsOptions
+}
+
+// TestSampleOptions specifies the tasks to get the sample for
+// and regexes to filter the test names by.
+type TestSampleOptions struct {
+	Tasks           []TaskInfo
+	TestNameRegexes []string
+}
+
+// TaskInfo specifies a set of test results to find.
+type TaskInfo struct {
+	TaskID      string
+	Execution   int
+	DisplayTask bool
 }
 
 // PerformanceOptions holds all values required to find a specific

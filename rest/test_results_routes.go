@@ -169,6 +169,55 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// GET /test_results/filtered_sample
+
+type testResultsGetFilteredSamplesHandler struct {
+	sc      data.Connector
+	options data.TestSampleOptions
+}
+
+func makeGetTestResultsFilteredSamples(sc data.Connector) gimlet.RouteHandler {
+	return &testResultsGetFilteredSamplesHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new testResultsGetFilteredSamplesHandler.
+func (h *testResultsGetFilteredSamplesHandler) Factory() gimlet.RouteHandler {
+	return &testResultsGetFilteredSamplesHandler{
+		sc: h.sc,
+	}
+}
+
+func (h *testResultsGetFilteredSamplesHandler) Parse(_ context.Context, r *http.Request) error {
+	body := utility.NewRequestReader(r)
+	defer body.Close()
+
+	if err := utility.ReadJSON(body, h.options); err != nil {
+		return errors.Wrap(err, "argument read error")
+	}
+
+	return nil
+}
+
+// Run finds and returns the filtered test results sample.
+func (h *testResultsGetFilteredSamplesHandler) Run(ctx context.Context) gimlet.Responder {
+	samples, err := h.sc.GetTestResultsFilteredSamples(ctx, h.options)
+	if err != nil {
+		err = errors.Wrap(err, "getting filtered test results sample")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "GET",
+			"route":   "/test_results/filtered_samples",
+		}))
+		return gimlet.MakeJSONInternalErrorResponder(err)
+	}
+
+	return gimlet.NewJSONResponse(samples)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // GET /test_results/task_id/{task_id}/failed_sample
 
 type testResultsGetFailedSampleHandler struct {

@@ -7,6 +7,7 @@ import (
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
@@ -50,6 +51,19 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 		Stats:   *apiStats,
 		Results: apiResults,
 	}, nil
+}
+
+// GetTestResultsFilteredSamples returns test names for the specified test results, filtered by the provided regexes.
+func (dbc *DBConnector) GetTestResultsFilteredSamples(ctx context.Context, opts TestSampleOptions) ([]model.APITestResultsSample, error) {
+	samples, err := dbModel.GetTestResultsFilteredSamples(ctx, dbc.env, convertToDBFindTestSampleOptions(opts))
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "retrieving test results samples").Error(),
+		}
+	}
+
+	return importTestResultsSamples(samples)
 }
 
 func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
@@ -102,6 +116,10 @@ func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOp
 	return nil, errors.New("not implemented")
 }
 
+func (mc *MockConnector) GetTestResultsFilteredSamples(ctx context.Context, opts TestSampleOptions) ([]model.APITestResultsSample, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (mc *MockConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
 	return nil, errors.New("not implemented")
 }
@@ -139,6 +157,21 @@ func importTestResults(ctx context.Context, results []dbModel.TestResult) ([]mod
 	return apiResults, nil
 }
 
+func importTestResultsSamples(results []dbModel.TestResultsSample) ([]model.APITestResultsSample, error) {
+	samples := make([]model.APITestResultsSample, 0, len(results))
+	for _, result := range results {
+		apiSample := model.APITestResultsSample{}
+		if err := apiSample.Import(result); err != nil {
+			return nil, gimlet.ErrorResponse{
+				StatusCode: http.StatusInternalServerError,
+				Message:    errors.Wrapf(err, "importing sample into APITestResultsSample struct").Error(),
+			}
+		}
+		samples = append(samples, apiSample)
+	}
+	return samples, nil
+}
+
 func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 	var sample []string
 	for i := 0; i < len(results) && len(sample) < dbModel.FailedTestsSampleSize; i++ {
@@ -146,6 +179,18 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 	}
 
 	return sample
+}
+
+func convertToDBFindTestSampleOptions(opts TestSampleOptions) dbModel.FindTestSamplesOptions {
+	dbOptions := dbModel.FindTestSamplesOptions{TestNameRegexes: opts.TestNameRegexes}
+	for _, t := range opts.Tasks {
+		dbOptions.Tasks = append(dbOptions.Tasks, dbModel.FindTestResultsOptions{
+			TaskID:      t.TaskID,
+			DisplayTask: t.DisplayTask,
+			Execution:   utility.ToIntPtr(t.Execution),
+		})
+	}
+	return dbOptions
 }
 
 func convertToDBFindTestResultsOptions(opts TestResultsOptions) dbModel.FindTestResultsOptions {

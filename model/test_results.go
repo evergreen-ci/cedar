@@ -446,6 +446,14 @@ type TestResultsStats struct {
 	FailedCount int `bson:"failed_count"`
 }
 
+// TestResultsSample contains test names culled from a test result's FailedTestsSample.
+type TestResultsSample struct {
+	TaskID                  string
+	Execution               int
+	MatchingFailedTestNames []string
+	TotalFailedTestNames    int
+}
+
 var (
 	testResultsStatsTotalCountKey  = bsonutil.MustHaveTag(TestResultsStats{}, "TotalCount")
 	testResultsStatsFailedCountKey = bsonutil.MustHaveTag(TestResultsStats{}, "FailedCount")
@@ -577,6 +585,137 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestRe
 	}
 
 	return results, nil
+}
+
+// FindTestSamplesOptions specifies test results to collect test names from
+// and regex filters to apply to the test names.
+type FindTestSamplesOptions struct {
+	Tasks           []FindTestResultsOptions
+	TestNameRegexes []string
+}
+
+func (opts *FindTestSamplesOptions) createFindQuery() map[string]interface{} {
+	findQueries := []bson.M{}
+	for _, task := range opts.Tasks {
+		findQueries = append(findQueries, task.createFindQuery())
+	}
+
+	return bson.M{"$or": findQueries}
+}
+
+func (opts *FindTestSamplesOptions) createFindOptions() *options.FindOptions {
+	return options.Find().SetProjection(bson.M{
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey):        1,
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): 1,
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey):     1,
+		testResultsFailedTestsSampleKey:                                                1,
+	})
+}
+
+func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) ([]TestResultsSample, error) {
+	samples := opts.consolidateSamples(testResults)
+	if len(opts.TestNameRegexes) == 0 {
+		return samples, nil
+	}
+
+	return filterTestNames(samples, opts.TestNameRegexes)
+}
+
+func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults) []TestResultsSample {
+	type taskExecutionPair struct {
+		taskID    string
+		execution int
+	}
+	displayTaskMap := make(map[taskExecutionPair][]string)
+	executionTaskMap := make(map[taskExecutionPair][]string)
+	for _, result := range testResults {
+		if result.Info.DisplayTaskID != "" {
+			dt := taskExecutionPair{
+				taskID:    result.Info.DisplayTaskID,
+				execution: result.Info.Execution,
+			}
+			displayTaskMap[dt] = append(displayTaskMap[dt], result.FailedTestsSample...)
+		}
+		et := taskExecutionPair{
+			taskID:    result.Info.TaskID,
+			execution: result.Info.Execution,
+		}
+		executionTaskMap[et] = result.FailedTestsSample
+	}
+
+	samples := make([]TestResultsSample, 0, len(opts.Tasks))
+	for _, t := range opts.Tasks {
+		pair := taskExecutionPair{
+			taskID:    t.TaskID,
+			execution: utility.FromIntPtr(t.Execution),
+		}
+
+		var names []string
+		var ok bool
+		if t.DisplayTask {
+			names, ok = displayTaskMap[pair]
+		} else {
+			names, ok = executionTaskMap[pair]
+		}
+		if !ok {
+			continue
+		}
+
+		samples = append(samples, TestResultsSample{
+			TaskID:                  t.TaskID,
+			Execution:               utility.FromIntPtr(t.Execution),
+			MatchingFailedTestNames: names,
+			TotalFailedTestNames:    len(names),
+		})
+	}
+
+	return samples
+}
+
+func filterTestNames(samples []TestResultsSample, regexStrings []string) ([]TestResultsSample, error) {
+	regexes := []*regexp.Regexp{}
+	for _, regexString := range regexStrings {
+		testNameRegex, err := regexp.Compile(regexString)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid regex")
+		}
+		regexes = append(regexes, testNameRegex)
+	}
+
+	filteredSamples := []TestResultsSample{}
+	for _, sample := range samples {
+		filteredNames := []string{}
+		for _, regex := range regexes {
+			for _, name := range sample.MatchingFailedTestNames {
+				if regex.MatchString(name) {
+					filteredNames = append(filteredNames, name)
+				}
+			}
+		}
+		sample.MatchingFailedTestNames = filteredNames
+		filteredSamples = append(filteredSamples, sample)
+	}
+
+	return filteredSamples, nil
+}
+
+// GetTestResultsFilteredSamples finds the specified test results and returns the filtered samples.
+// The environment should not be nil.
+func GetTestResultsFilteredSamples(ctx context.Context, env cedar.Environment, opts FindTestSamplesOptions) ([]TestResultsSample, error) {
+	if env == nil {
+		return nil, errors.New("cannot find with a nil environment")
+	}
+
+	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
+	if err != nil {
+		return nil, errors.Wrap(err, "finding test results record(s)")
+	}
+	results := []TestResults{}
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, errors.Wrap(err, "decoding test results record(s)")
+	}
+
+	return opts.makeTestSamples(results)
 }
 
 // TestResultsSortBy describes the property by which to sort a set of test

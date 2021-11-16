@@ -331,8 +331,9 @@ github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5 h1:nFR0q4RmLKb
 github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5/go.mod h1:RHBpqOlxE28M/lUgWRpxJ+WrHqCuY8a7EcXIvzqiPys=
 github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672 h1:fszOmIyi0lmRNCLrNY5DvfaMCLdzNWS/LzrmdVQbIwQ=
 github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672/go.mod h1:iDWgPhWFrCZ/aTvUwmAjn7YvVh5TmmYtpm79VJuS2kA=
-github.com/evergreen-ci/utility v0.0.0-20211026201827-97b21fa2660a h1:rCM80/P6uEBpRnL+OLKf0ybMyEpnqQ5UQURxHlapbAc=
 github.com/evergreen-ci/utility v0.0.0-20211026201827-97b21fa2660a/go.mod h1:fuEDytmDhOv+UCUwRPG/qD7mjVkUgx37KEv+thUgHVk=
+github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf h1:wmZjMsG2Jg7N4Ni/Yd3RpzMzNDFni0kr8hhIBPBzN14=
+github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf/go.mod h1:fuEDytmDhOv+UCUwRPG/qD7mjVkUgx37KEv+thUgHVk=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.1.0 h1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
