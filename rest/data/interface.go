@@ -165,15 +165,15 @@ type TestResultsFilterAndSortOptions struct {
 // TestSampleOptions specifies the tasks to get the sample for
 // and regexes to filter the test names by.
 type TestSampleOptions struct {
-	Tasks           []TaskInfo
-	TestNameRegexes []string
+	Tasks        []TaskInfo `json:"tasks"`
+	RegexFilters []string   `json:"regex_filters"`
 }
 
 // TaskInfo specifies a set of test results to find.
 type TaskInfo struct {
-	TaskID      string
-	Execution   int
-	DisplayTask bool
+	TaskID      string `json:"task_id"`
+	Execution   int    `json:"execution"`
+	DisplayTask bool   `json:"display_task"`
 }
 
 // PerformanceOptions holds all values required to find a specific

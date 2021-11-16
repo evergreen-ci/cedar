@@ -182,7 +182,7 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 }
 
 func convertToDBFindTestSampleOptions(opts TestSampleOptions) dbModel.FindTestSamplesOptions {
-	dbOptions := dbModel.FindTestSamplesOptions{TestNameRegexes: opts.TestNameRegexes}
+	dbOptions := dbModel.FindTestSamplesOptions{TestNameRegexes: opts.RegexFilters}
 	for _, t := range opts.Tasks {
 		dbOptions.Tasks = append(dbOptions.Tasks, dbModel.FindTestResultsOptions{
 			TaskID:      t.TaskID,
