@@ -91,8 +91,8 @@ generate-points:$(buildDir)/generate-points
 testOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).test)
 lintOutput := $(foreach target,$(allPackages),$(buildDir)/output.$(target).lint)
 coverageOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).coverage)
-coverageHtmlOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).coverage.html)
-.PRECIOUS: $(lintOutput) $(testOutput) $(coverageOutput) $(coverageHtmlOutput)
+htmlCoverageOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(target).coverage.html)
+.PRECIOUS: $(lintOutput) $(testOutput) $(coverageOutput) $(htmlCoverageOutput)
 # end output files
 
 # start basic development targets
@@ -105,8 +105,8 @@ compile: $(buildDir)/$(name)
 benchmark: $(buildDir)/run-benchmarks .FORCE
 	./$(buildDir)/run-benchmarks
 coverage: $(coverageOutput)
-coverage-html: $(coverageHtmlOutput)
-phony += compile lint test coverage coverage-html proto benchmark
+html-coverage: $(htmlCoverageOutput)
+phony += compile lint test coverage html-coverage proto benchmark
 
 # start convenience targets for running tests and coverage tasks on a
 # specific package.
@@ -123,9 +123,6 @@ lint-%:$(buildDir)/output.%.lint
 
 # start test and coverage artifacts
 testArgs := -v -timeout=20m
-ifeq (,$(DISABLE_COVERAGE))
-testArgs += -cover
-endif
 ifneq (,$(RACE_DETECTOR))
 testArgs += -race
 endif
