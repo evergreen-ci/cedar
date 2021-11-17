@@ -59,12 +59,12 @@ func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResult, err := h.sc.FindPerformanceResultById(ctx, h.id)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance result by id '%s'", h.id)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/{id}",
 			"id":      h.id,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResult)
@@ -150,12 +150,12 @@ func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/task_id/{task_id}",
 			"task_id": h.opts.TaskID,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResults)
@@ -278,12 +278,12 @@ func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by task_name '%s'", h.opts.TaskName)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
 			"route":     "/perf/task_name/{task_name}",
 			"task_name": h.opts.TaskName,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -343,12 +343,12 @@ func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance results by version '%s'", h.opts.Version)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/version/{version}",
 			"version": h.opts.Version,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -395,12 +395,12 @@ func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultWithChildren(ctx, h.id, h.maxDepth, h.tags...)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting performance result and children by id '%s'", h.id)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/perf/children/{id}",
 			"id":      h.id,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(perfResults)
@@ -434,11 +434,11 @@ func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet
 	err := h.sc.ScheduleSignalProcessingRecalculateJobs(ctx)
 	if err != nil {
 		err = errors.Wrapf(err, "Error scheduling signal processing recalculation jobs")
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",
 			"route":   "/perf/change_points",
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(struct{}{})

@@ -9,7 +9,6 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/data"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 )
@@ -72,13 +71,13 @@ func (h *systemMetricsGetByTypeHandler) Run(ctx context.Context) gimlet.Responde
 	data, nextIdx, err := h.sc.FindSystemMetricsByType(ctx, h.findOpts, h.downloadOpts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting metric type '%s' for task id '%s'", h.downloadOpts.MetricType, h.findOpts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":     gimlet.GetRequestID(ctx),
 			"method":      "GET",
 			"route":       "/system_metrics/type/{task_id}/{type}",
 			"task_id":     h.findOpts.TaskID,
 			"metric_type": h.downloadOpts.MetricType,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 

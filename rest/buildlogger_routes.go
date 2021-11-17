@@ -76,12 +76,12 @@ func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogByID(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting log by id '%s'", h.opts.ID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/buildlogger/{id}",
 			"id":      h.opts.ID,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -121,12 +121,12 @@ func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLog, err := h.sc.FindLogMetadataByID(ctx, h.id)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting log metadata by id '%s'", h.id)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/buildlogger/{id}/meta",
 			"id":      h.id,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -194,12 +194,12 @@ func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTaskID(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting logs by task id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/buildlogger/task_id/{task_id}",
 			"task_id": h.opts.TaskID,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -249,12 +249,12 @@ func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting log metadata by task id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/buildlogger/task_id/{task_id}/meta",
 			"task_id": h.opts.TaskID,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -319,13 +319,13 @@ func (h *logGroupByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting logs by task id '%s' and group id '%s'", h.opts.TaskID, h.opts.Group)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":  gimlet.GetRequestID(ctx),
 			"method":   "GET",
 			"route":    "/buildlogger/task_id/{task_id}/group/{group_id}",
 			"task_id":  h.opts.TaskID,
 			"group_id": h.opts.Group,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -390,13 +390,13 @@ func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTestName(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting logs by test name '%s'", h.opts.TestName)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
 			"route":     "/buildlogger/test_name/{task_id}/{test_name}",
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.TestName,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -447,13 +447,13 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "problem getting log metadata by test name '%s'", h.opts.TestName)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
 			"route":     "/buildlogger/test_name/{task_id}/{test_name}/meta",
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.TestName,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	h.opts.EmptyTestName = true
@@ -535,14 +535,14 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 		if err != nil {
 			err = errors.Wrapf(err, "problem getting log metadata by test name '%s'", h.opts.TestName)
-			grip.Error(message.WrapError(err, message.Fields{
+			logFindError(err, message.Fields{
 				"request":   gimlet.GetRequestID(ctx),
 				"method":    "GET",
 				"route":     "/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}",
 				"task_id":   h.opts.TaskID,
 				"test_name": h.opts.TestName,
 				"group_id":  h.opts.Group,
-			}))
+			})
 			return gimlet.MakeJSONErrorResponder(err)
 		}
 
