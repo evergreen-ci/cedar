@@ -57,7 +57,6 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			SetConnectTimeout(conf.MongoDBDialTimeout).
 			SetSocketTimeout(conf.SocketTimeout).
 			SetServerSelectionTimeout(conf.SocketTimeout).
-			SetMaxPoolSize(1000).
 			SetMonitor(apm.NewLoggingMonitor(ctx, time.Minute, apm.NewBasicMonitor(&apm.MonitorConfig{AllTags: true})).DriverAPM())
 		if conf.HasAuth() {
 			credential := options.Credential{
