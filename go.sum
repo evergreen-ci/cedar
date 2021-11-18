@@ -329,6 +329,7 @@ github.com/evergreen-ci/pail v0.0.0-20211028170419-8efd623fd305/go.mod h1:ch0TKj
 github.com/evergreen-ci/poplar v0.0.0-20211028170046-0999224b53df/go.mod h1:xiggfkrlxlu2C2e58tvk0WAYFetgNC7U9ONqcP29xZs=
 github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5 h1:nFR0q4RmLKbxnbsvC7nyL24UIZIVmTU2XwUlTd+Hx9k=
 github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5/go.mod h1:RHBpqOlxE28M/lUgWRpxJ+WrHqCuY8a7EcXIvzqiPys=
+github.com/evergreen-ci/tarjan v0.0.0-20170824211642-fcd3f3321826/go.mod h1:SnQ9F63VSR6kHbC4aFE+f7+iL3yANhjaN9TT9T4skao=
 github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672 h1:fszOmIyi0lmRNCLrNY5DvfaMCLdzNWS/LzrmdVQbIwQ=
 github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672/go.mod h1:iDWgPhWFrCZ/aTvUwmAjn7YvVh5TmmYtpm79VJuS2kA=
 github.com/evergreen-ci/utility v0.0.0-20211026201827-97b21fa2660a/go.mod h1:fuEDytmDhOv+UCUwRPG/qD7mjVkUgx37KEv+thUgHVk=
@@ -647,8 +648,8 @@ github.com/mongodb/amboy v0.0.0-20211101161704-2b42087d24e6/go.mod h1:aYcnjrBUtb
 github.com/mongodb/amboy v0.0.0-20211101172957-63ecb128b0be h1:Mp3Ug8NdkteeINBvMgO30E32Jdz4qkl+j/ylhkzCMDU=
 github.com/mongodb/amboy v0.0.0-20211101172957-63ecb128b0be/go.mod h1:aYcnjrBUtbgB+naQ6FlVltCdprHv9Td2GOkQkZUqPvY=
 github.com/mongodb/anser v0.0.0-20190422213746-1fb43a6d9968/go.mod h1:ESqf0zBEuYrqL0xADbIAFgdEOaBFpwZ4tkzY84ge+QA=
-github.com/mongodb/anser v0.0.0-20211101170237-60a39d433c32 h1:Xtx1I6AACPv+Rn0DT9pAM5a7YGe9zKtpC7pBzQp+cHM=
-github.com/mongodb/anser v0.0.0-20211101170237-60a39d433c32/go.mod h1:R3l2t3pQ8iAYLHcbrcf6cV+WEZBaPwbO1Ahvg/rAoQU=
+github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f h1:9KlMr1bk46vuZemTgi01rAM7lOrOtfrBuz82aTJZjbI=
+github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f/go.mod h1:jDikxuo5FKbiTMAb8B5AMT3QqFSNrim2+GiRTSCdazU=
 github.com/mongodb/ftdc v0.0.0-20211018154918-80dd1c22e4cf/go.mod h1:qd800FxWJIh4VUqu2d9Cmzdpv1CGXMqdwkntAKbaLlY=
 github.com/mongodb/ftdc v0.0.0-20211028165431-67f017692185 h1:SmFnrK5+eDC3MWPO0meWWy5cZVdLZtWUsr4H4rXOydA=
 github.com/mongodb/ftdc v0.0.0-20211028165431-67f017692185/go.mod h1:r7lJoletuTMfdKxFs/1WJfqjynicCsoHZmdL/UN0lpQ=
@@ -656,8 +657,8 @@ github.com/mongodb/grip v0.0.0-20211018154934-e661a71929d5/go.mod h1:g0r93iHSTLD
 github.com/mongodb/grip v0.0.0-20211028155128-86e6e47bafdb/go.mod h1:0CTWxPoPDJPkpJvh5ejbCxbwVdPEea6Ap6vgpstiWsg=
 github.com/mongodb/grip v0.0.0-20211101151816-abbea0c0d465 h1:roArDXftboUy4WHPhIQ0CkNl9d2pBzr45NxvbJlbE2I=
 github.com/mongodb/grip v0.0.0-20211101151816-abbea0c0d465/go.mod h1:686LUUoh+vP85XVjr1ZYqC2mk52m138QmCZ4B2HZYkI=
-github.com/mongodb/jasper v0.0.0-20211109153730-344834c07b95 h1:4LrgFmKttk1TB+tAKMQ+MqKUcCR342bRFQGlEW3pzQ0=
-github.com/mongodb/jasper v0.0.0-20211109153730-344834c07b95/go.mod h1:2evzMngJ71hNcp9Bsuq4xXlt80flKzVlw2ZCE3pyh0I=
+github.com/mongodb/jasper v0.0.0-20211118154831-ee0b5744e192 h1:/Uqo3Nq/567BZFFZLA/CRG4IR5HCKGuLzc57srhV/bE=
+github.com/mongodb/jasper v0.0.0-20211118154831-ee0b5744e192/go.mod h1:tN7jl317E+1xojD1/DYRrTkQhBqpmkiSm23efJIdCds=
 github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe/go.mod h1:wL8QJuTMNUDYhXwkmfOly8iTdp5TEcJFWZD2D7SIkUc=
 github.com/montanaflynn/stats v0.0.0-20180911141734-db72e6cae808/go.mod h1:wL8QJuTMNUDYhXwkmfOly8iTdp5TEcJFWZD2D7SIkUc=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
@@ -850,7 +851,6 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/trivago/tgo v1.0.7 h1:uaWH/XIy9aWYWpjm2CU3RpcqZXmX2ysQ9/Go+d9gyrM=
 github.com/trivago/tgo v1.0.7/go.mod h1:w4dpD+3tzNIIiIfkWWa85w5/B77tlvdZckQ+6PkFnhc=
-github.com/tychoish/tarjan v0.0.0-20170824211642-fcd3f3321826/go.mod h1:9ldxz2jdgw75YMkrPSevxE1ozaC51voWlXAoN8j0mgk=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go/codec v1.1.7/go.mod h1:Ax+UKWsSmolVDwsd+7N3ZtXu+yMGCf907BLYF3GoBXY=
