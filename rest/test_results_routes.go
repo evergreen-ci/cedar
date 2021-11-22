@@ -125,13 +125,13 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "getting test results by task_id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":    gimlet.GetRequestID(ctx),
 			"method":     "GET",
 			"route":      "/test_results/task_id/{task_id}",
 			"task_id":    h.opts.TaskID,
 			"is_display": h.opts.DisplayTask,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
@@ -243,13 +243,13 @@ func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Resp
 	sample, err := h.sc.GetFailedTestResultsSample(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "getting failed test results sample by task_id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
 			"route":           "/test_results/task_id/{task_id}/failed_sample",
 			"task_id":         h.opts.TaskID,
 			"is_display_task": h.opts.DisplayTask,
-		}))
+		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 
@@ -283,13 +283,13 @@ func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
 	stats, err := h.sc.GetTestResultsStats(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "getting test results stats by task_id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
 			"route":           "/test_results/task_id/{task_id}/stats",
 			"task_id":         h.opts.TaskID,
 			"is_display_task": h.opts.DisplayTask,
-		}))
+		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 
@@ -341,12 +341,12 @@ func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.R
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "getting test results by display_task_id '%s'", h.opts.TaskID)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
 			"route":   "/test_results/display_task_id/{display_task_id}",
 			"task_id": h.opts.TaskID,
-		}))
+		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 	return gimlet.NewJSONResponse(testResults.Results)
@@ -398,13 +398,13 @@ func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Respond
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
 		err = errors.Wrapf(err, "getting test result by task_id '%s' and test_name '%s'", h.opts.TaskID, h.opts.FilterAndSort.TestName)
-		grip.Error(message.WrapError(err, message.Fields{
+		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
 			"route":     "/test_results/test_name/{task_id}/{test_name}",
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.FilterAndSort.TestName,
-		}))
+		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 
