@@ -16,6 +16,7 @@ import (
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/logging"
 	"github.com/mongodb/grip/recovery"
+	"github.com/mongodb/grip/sometimes"
 	"github.com/pkg/errors"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -93,8 +94,13 @@ func (c *AuthConfig) ResolveTLS() (*tls.Config, error) {
 }
 
 func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
-	unaryInterceptors := []grpc.UnaryServerInterceptor{aviation.MakeGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()))}
-	streamInterceptors := []grpc.StreamServerInterceptor{aviation.MakeGripStreamInterceptor(logging.MakeGrip(grip.GetSender()))}
+	logWhen := func() bool { return sometimes.Percent(10) }
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		aviation.MakeConditionalGripUnaryInterceptor(logging.MakeGrip(grip.GetSender()), logWhen),
+	}
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		aviation.MakeConditionalGripStreamInterceptor(logging.MakeGrip(grip.GetSender()), logWhen),
+	}
 	opts := []grpc.ServerOption{}
 
 	if err := conf.Validate(); err != nil {
