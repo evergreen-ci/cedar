@@ -189,7 +189,7 @@ phony += get-mongodb start-mongod init-rs check-mongod
 
 # start cleanup targts
 clean:
-	rm -rf *.pb.go $(buildDir)
+	rm -rf *.pb.go $(name) $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
 phony += clean
