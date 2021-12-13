@@ -7,7 +7,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
@@ -35,8 +34,6 @@ func init() {
 	registry.AddJobType(parseSimpleLogJobName, func() amboy.Job {
 		sp := &parseSimpleLog{}
 		sp.setup()
-		sp.SetDependency(dependency.NewAlways())
-
 		return sp
 	})
 }
