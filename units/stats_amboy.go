@@ -6,7 +6,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/amboy"
-	"github.com/mongodb/amboy/dependency"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
 	"github.com/mongodb/grip"
@@ -59,8 +58,6 @@ func makeAmboyStatsCollector() *amboyStatsCollector {
 			},
 		},
 	}
-
-	j.SetDependency(dependency.NewAlways())
 	return j
 }
 
