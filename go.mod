@@ -14,7 +14,7 @@ require (
 	github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf
 	github.com/golang/protobuf v1.5.2
 	github.com/jpillora/backoff v1.0.0
-	github.com/mongodb/amboy v0.0.0-20211101172957-63ecb128b0be
+	github.com/mongodb/amboy v0.0.0-20211213142319-cd190dc4cf43
 	github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f
 	github.com/mongodb/ftdc v0.0.0-20211028165431-67f017692185
 	github.com/mongodb/grip v0.0.0-20211119154157-aca5d459de3f
