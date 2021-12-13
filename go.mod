@@ -18,7 +18,7 @@ require (
 	github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f
 	github.com/mongodb/ftdc v0.0.0-20211028165431-67f017692185
 	github.com/mongodb/grip v0.0.0-20211119154157-aca5d459de3f
-	github.com/mongodb/jasper v0.0.0-20211118154831-ee0b5744e192
+	github.com/mongodb/jasper v0.0.0-20211213143437-1d373fd6f2c6
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.8.0
 	github.com/stretchr/testify v1.7.0
