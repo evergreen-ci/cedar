@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/mongodb/grip"
@@ -22,8 +23,8 @@ func newStatsCacheRegistry(ctx context.Context) map[string]*statsCache {
 		StatsCachePerf:        newStatsCache(StatsCachePerf),
 	}
 	for _, r := range registry {
-		go r.startConsumerLoop(ctx)
-		go r.startLoggerLoop(ctx)
+		go r.consumerLoop(ctx)
+		go r.loggerLoop(ctx)
 	}
 
 	return registry
@@ -38,6 +39,7 @@ type Stat struct {
 }
 
 type statsCache struct {
+	mu        sync.Mutex
 	cacheName string
 	statChan  chan Stat
 
@@ -67,6 +69,9 @@ func (s *statsCache) resetCache() {
 }
 
 func (s *statsCache) cacheStat(newStat Stat) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.calls++
 	s.total += newStat.Count
 	s.byProject[newStat.Project] += newStat.Count
@@ -74,7 +79,23 @@ func (s *statsCache) cacheStat(newStat Stat) {
 	s.byTaskID[newStat.TaskID] += newStat.Count
 }
 
-func (s *statsCache) startConsumerLoop(ctx context.Context) {
+func (s *statsCache) logStats() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	grip.Info(message.Fields{
+		"message":    fmt.Sprintf("%s stats", s.cacheName),
+		"calls":      s.calls,
+		"total":      s.total,
+		"by_project": topNItems(s.byProject, topN),
+		"by_version": topNItems(s.byVersion, topN),
+		"by_task_id": topNItems(s.byTaskID, topN),
+	})
+
+	s.resetCache()
+}
+
+func (s *statsCache) consumerLoop(ctx context.Context) {
 	defer func() {
 		if err := recovery.HandlePanicWithError(recover(), nil, "stats cache consumer"); err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
@@ -94,7 +115,7 @@ func (s *statsCache) startConsumerLoop(ctx context.Context) {
 	}
 }
 
-func (s *statsCache) startLoggerLoop(ctx context.Context) {
+func (s *statsCache) loggerLoop(ctx context.Context) {
 	defer func() {
 		if err := recovery.HandlePanicWithError(recover(), nil, "stats cache logger"); err != nil {
 			grip.Error(message.WrapError(err, message.Fields{
@@ -115,19 +136,6 @@ func (s *statsCache) startLoggerLoop(ctx context.Context) {
 			s.logStats()
 		}
 	}
-}
-
-func (s *statsCache) logStats() {
-	grip.Info(message.Fields{
-		"message":    fmt.Sprintf("%s stats", s.cacheName),
-		"calls":      s.calls,
-		"total":      s.total,
-		"by_project": topNItems(s.byProject, topN),
-		"by_version": topNItems(s.byVersion, topN),
-		"by_task_id": topNItems(s.byTaskID, topN),
-	})
-
-	s.resetCache()
 }
 
 // AddStat adds a stat to the cache's incoming stats channel.
