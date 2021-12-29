@@ -96,9 +96,26 @@ htmlCoverageOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(targ
 # end output files
 
 # start basic development targets
-proto:
+ifeq ($(OS),WINDOWS_NT)
+ifeq ($(shell wmic OS get OSArchitecture /value | sed 's/\r//g;s/^M$//;/^$/d;s/.*=//'),64-bit)
+protoOS := win64
+else
+protoOS := win32
+endif
+else
+protoOS := $(shell uname -s | tr A-Z a-z)
+ifeq ($(protoOS),darwin)
+protoOS := osx
+endif
+protoOS := $(protoOS)-$(shell uname -m | tr A-Z a-z)
+endif
+$(buildDir)/protoc:
+	@curl --retry 10 --retry-max-time 60 -L0 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-$(protoOS).zip --output protoc-3.6.1-$(protoOS).zip
+	@unzip -q protoc-3.6.1-$(protoOS).zip -d $(buildDir)/protoc
+	@rm -f protoc-3.6.1-$(protoOS).zip
+proto: $(buildDir)/protoc
 	@mkdir -p rpc/internal
-	protoc --go_out=plugins=grpc:rpc/internal *.proto
+	$(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:rpc/internal *.proto
 lint: $(lintOutput)
 test: $(testOutput)
 compile: $(buildDir)/$(name)
@@ -188,10 +205,12 @@ phony += get-mongodb start-mongod init-rs check-mongod
 # end mongodb targets
 
 # start cleanup targts
-clean:
-	rm -rf *.pb.go $(name) $(buildDir)
+clean: clean-proto
+	rm -rf $(name) $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
+clean-proto:
+	rm -rf rpc/internal/*.pb.go $(buildDir)/protoc
 phony += clean
 # end cleanup targets
 
