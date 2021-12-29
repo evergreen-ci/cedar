@@ -110,9 +110,10 @@ endif
 protoOS := $(protoOS)-$(shell uname -m | tr A-Z a-z)
 endif
 $(buildDir)/protoc:
-	@curl --retry 10 --retry-max-time 60 -L0 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-$(protoOS).zip --output protoc-3.6.1-$(protoOS).zip
-	@unzip -q protoc-3.6.1-$(protoOS).zip -d $(buildDir)/protoc
-	@rm -f protoc-3.6.1-$(protoOS).zip
+	curl --retry 10 --retry-max-time 60 -L0 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-$(protoOS).zip --output protoc-3.6.1-$(protoOS).zip
+	unzip -q protoc-3.6.1-$(protoOS).zip -d $(buildDir)/protoc
+	rm -f protoc-3.6.1-$(protoOS).zip
+	$(gobin) install github.com/golang/protobuf@v1.5.2
 proto: $(buildDir)/protoc
 	@mkdir -p rpc/internal
 	$(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:rpc/internal *.proto
