@@ -20,7 +20,7 @@ require (
 	github.com/mongodb/grip v0.0.0-20211119154157-aca5d459de3f
 	github.com/mongodb/jasper v0.0.0-20211213143437-1d373fd6f2c6
 	github.com/pkg/errors v0.9.1
-	github.com/rs/cors v1.8.0
+	github.com/rs/cors v1.8.2
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli v1.22.5
 	go.mongodb.org/mongo-driver v1.8.1
