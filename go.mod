@@ -14,7 +14,7 @@ require (
 	github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf
 	github.com/golang/protobuf v1.5.2
 	github.com/jpillora/backoff v1.0.0
-	github.com/mongodb/amboy v0.0.0-20211213142319-cd190dc4cf43
+	github.com/mongodb/amboy v0.0.0-20220106171416-066b9040aafb
 	github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f
 	github.com/mongodb/ftdc v0.0.0-20211028165431-67f017692185
 	github.com/mongodb/grip v0.0.0-20211119154157-aca5d459de3f
@@ -24,7 +24,6 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli v1.22.5
 	go.mongodb.org/mongo-driver v1.8.1
-	golang.org/x/net v0.0.0-20211118161319-6a13c67c3ce4 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab // indirect
 	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
