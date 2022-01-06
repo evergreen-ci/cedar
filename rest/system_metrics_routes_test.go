@@ -30,7 +30,7 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 	s.sc = data.MockConnector{
 		Bucket: tempDir,
 		CachedSystemMetrics: map[string]dbModel.SystemMetrics{
-			"abc": dbModel.SystemMetrics{
+			"abc": {
 				ID: "abc",
 				Info: dbModel.SystemMetricsInfo{
 					Project:   "test",
@@ -48,7 +48,7 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 					},
 				},
 			},
-			"def": dbModel.SystemMetrics{
+			"def": {
 				ID: "def",
 				Info: dbModel.SystemMetricsInfo{
 					Project:   "test",
@@ -66,7 +66,7 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 					},
 				},
 			},
-			"ghi": dbModel.SystemMetrics{
+			"ghi": {
 				ID: "ghi",
 				Info: dbModel.SystemMetricsInfo{
 					Project:   "test",
@@ -89,7 +89,7 @@ func (s *systemMetricsHandlerSuite) setup(tempDir string) {
 
 	for key, val := range s.sc.CachedSystemMetrics {
 		val.Artifact.MetricChunks = map[string]dbModel.MetricChunks{
-			"uptime": dbModel.MetricChunks{
+			"uptime": {
 				Chunks: []string{"chunk1", "chunk2"},
 				Format: dbModel.FileText,
 			},

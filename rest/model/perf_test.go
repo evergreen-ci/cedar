@@ -98,18 +98,18 @@ func TestImportHelperFunctions(t *testing.T) {
 			name: "GetPerfRollups",
 			input: dbmodel.PerfRollups{
 				Stats: []dbmodel.PerfRollupValue{
-					dbmodel.PerfRollupValue{
+					{
 						Name:    "stat0",
 						Value:   "value0",
 						Version: 1,
 					},
-					dbmodel.PerfRollupValue{
+					{
 						Name:          "stat1",
 						Value:         "value1",
 						Version:       2,
 						UserSubmitted: true,
 					},
-					dbmodel.PerfRollupValue{
+					{
 						Name:    "stat2",
 						Value:   "value2",
 						Version: 3,
@@ -119,18 +119,18 @@ func TestImportHelperFunctions(t *testing.T) {
 			},
 			expectedOutput: APIPerfRollups{
 				Stats: []APIPerfRollupValue{
-					APIPerfRollupValue{
+					{
 						Name:    utility.ToStringPtr("stat0"),
 						Value:   "value0",
 						Version: 1,
 					},
-					APIPerfRollupValue{
+					{
 						Name:          utility.ToStringPtr("stat1"),
 						Value:         "value1",
 						Version:       2,
 						UserSubmitted: true,
 					},
-					APIPerfRollupValue{
+					{
 						Name:    utility.ToStringPtr("stat2"),
 						Value:   "value2",
 						Version: 3,
@@ -195,7 +195,7 @@ func TestImport(t *testing.T) {
 				CompletedAt: time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 				Version:     1,
 				Artifacts: []dbmodel.ArtifactInfo{
-					dbmodel.ArtifactInfo{
+					{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket0",
 						Path:        "path0",
@@ -205,7 +205,7 @@ func TestImport(t *testing.T) {
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
-					dbmodel.ArtifactInfo{
+					{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket1",
 						Prefix:      "prefix1",
@@ -216,7 +216,7 @@ func TestImport(t *testing.T) {
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC),
 					},
-					dbmodel.ArtifactInfo{
+					{
 						Type:        dbmodel.PailS3,
 						Bucket:      "bucket2",
 						Prefix:      "prefix2",
@@ -230,17 +230,17 @@ func TestImport(t *testing.T) {
 				},
 				Rollups: dbmodel.PerfRollups{
 					Stats: []dbmodel.PerfRollupValue{
-						dbmodel.PerfRollupValue{
+						{
 							Name:    "stat0",
 							Value:   "value0",
 							Version: 1,
 						},
-						dbmodel.PerfRollupValue{
+						{
 							Name:    "stat1",
 							Value:   "value1",
 							Version: 2,
 						},
-						dbmodel.PerfRollupValue{
+						{
 							Name:    "stat2",
 							Value:   "value2",
 							Version: 3,
@@ -275,7 +275,7 @@ func TestImport(t *testing.T) {
 				CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				CompletedAt: NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 				Artifacts: []APIArtifactInfo{
-					APIArtifactInfo{
+					{
 						Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
 						Bucket:      utility.ToStringPtr("bucket0"),
 						Prefix:      utility.ToStringPtr(""),
@@ -286,7 +286,7 @@ func TestImport(t *testing.T) {
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   NewTime(time.Date(2018, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
-					APIArtifactInfo{
+					{
 						Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
 						Bucket:      utility.ToStringPtr("bucket1"),
 						Prefix:      utility.ToStringPtr("prefix1"),
@@ -297,7 +297,7 @@ func TestImport(t *testing.T) {
 						Tags:        []string{"tag0", "tag1", "tag2"},
 						CreatedAt:   NewTime(time.Date(2012, time.December, 31, 23, 59, 59, 0, time.UTC)),
 					},
-					APIArtifactInfo{
+					{
 						Type:        utility.ToStringPtr(string(dbmodel.PailS3)),
 						Bucket:      utility.ToStringPtr("bucket2"),
 						Prefix:      utility.ToStringPtr("prefix2"),
@@ -311,17 +311,17 @@ func TestImport(t *testing.T) {
 				},
 				Rollups: APIPerfRollups{
 					Stats: []APIPerfRollupValue{
-						APIPerfRollupValue{
+						{
 							Name:    utility.ToStringPtr("stat0"),
 							Value:   "value0",
 							Version: 1,
 						},
-						APIPerfRollupValue{
+						{
 							Name:    utility.ToStringPtr("stat1"),
 							Value:   "value1",
 							Version: 2,
 						},
-						APIPerfRollupValue{
+						{
 							Name:    utility.ToStringPtr("stat2"),
 							Value:   "value2",
 							Version: 3,

@@ -29,21 +29,21 @@ func (s *UserTestSuite) SetupTest() {
 	_ = s.c.DropCollection()
 
 	s.users = []*User{
-		&User{
+		{
 			ID: "Test1",
 			LoginCache: LoginCache{
 				Token: "1234",
 				TTL:   time.Now(),
 			},
 		},
-		&User{
+		{
 			ID: "Test2",
 			LoginCache: LoginCache{
 				Token: "4321",
 				TTL:   time.Now().Add(-time.Hour),
 			},
 		},
-		&User{
+		{
 			ID: "Test3",
 			LoginCache: LoginCache{
 				Token: "5678",
