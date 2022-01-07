@@ -374,7 +374,7 @@ func (f *durationSum) Names() []string { return []string{durationSumName} }
 func (f *durationSum) Version() int    { return durationSumVersion }
 func (f *durationSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
 	return []model.PerfRollupValue{
-		model.PerfRollupValue{
+		{
 			Name:          durationSumName,
 			Value:         s.timers.totalWallTime,
 			Version:       durationSumVersion,
@@ -396,7 +396,7 @@ func (f *errorsSum) Names() []string { return []string{errorsSumName} }
 func (f *errorsSum) Version() int    { return errorsSumVersion }
 func (f *errorsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
 	return []model.PerfRollupValue{
-		model.PerfRollupValue{
+		{
 			Name:          errorsSumName,
 			Value:         s.counters.errorsTotal,
 			Version:       errorsSumVersion,
@@ -418,7 +418,7 @@ func (f *operationsSum) Names() []string { return []string{operationsSumName} }
 func (f *operationsSum) Version() int    { return operationsSumVersion }
 func (f *operationsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
 	return []model.PerfRollupValue{
-		model.PerfRollupValue{
+		{
 			Name:          operationsSumName,
 			Value:         s.counters.operationsTotal,
 			Version:       operationsSumVersion,
@@ -440,7 +440,7 @@ func (f *documentsSum) Names() []string { return []string{documentsSumName} }
 func (f *documentsSum) Version() int    { return documentsSumVersion }
 func (f *documentsSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
 	return []model.PerfRollupValue{
-		model.PerfRollupValue{
+		{
 			Name:          documentsSumName,
 			Value:         s.counters.documentsTotal,
 			Version:       documentsSumVersion,
@@ -462,7 +462,7 @@ func (f *sizeSum) Names() []string { return []string{sizeSumName} }
 func (f *sizeSum) Version() int    { return sizeSumVersion }
 func (f *sizeSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
 	return []model.PerfRollupValue{
-		model.PerfRollupValue{
+		{
 			Name:          sizeSumName,
 			Value:         s.counters.sizeTotal,
 			Version:       sizeSumVersion,
@@ -484,7 +484,7 @@ func (f *overheadSum) Names() []string { return []string{overheadSumName} }
 func (f *overheadSum) Version() int    { return overheadSumVersion }
 func (f *overheadSum) Calc(s *PerformanceStatistics, user bool) []model.PerfRollupValue {
 	return []model.PerfRollupValue{
-		model.PerfRollupValue{
+		{
 			Name:          overheadSumName,
 			Value:         s.timers.total - s.timers.durationTotal,
 			Version:       overheadSumVersion,

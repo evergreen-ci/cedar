@@ -809,11 +809,11 @@ func getSystemMetrics() *SystemMetrics {
 		Artifact: SystemMetricsArtifactInfo{
 			Prefix: info.ID(),
 			MetricChunks: map[string]MetricChunks{
-				"TestType1": MetricChunks{
+				"TestType1": {
 					Chunks: []string{"TestType1-first", "TestType1-second"},
 					Format: FileText,
 				},
-				"TestType2": MetricChunks{
+				"TestType2": {
 					Chunks: []string{"TestType2-first", "TestType2-second"},
 					Format: FileText,
 				},

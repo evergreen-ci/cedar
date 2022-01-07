@@ -26,7 +26,7 @@ type PerfHandlerSuite struct {
 func (s *PerfHandlerSuite) setup() {
 	s.sc = data.MockConnector{
 		CachedPerformanceResults: map[string]model.PerformanceResult{
-			"abc": model.PerformanceResult{
+			"abc": {
 				ID: "abc",
 				Info: model.PerformanceResultInfo{
 					Version:   "1",
@@ -38,7 +38,7 @@ func (s *PerfHandlerSuite) setup() {
 					Mainline:  true,
 				},
 			},
-			"def": model.PerformanceResult{
+			"def": {
 				ID:          "def",
 				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 1, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
@@ -52,7 +52,7 @@ func (s *PerfHandlerSuite) setup() {
 					Mainline:  true,
 				},
 			},
-			"ghi": model.PerformanceResult{
+			"ghi": {
 				ID:          "ghi",
 				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 2, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
@@ -66,7 +66,7 @@ func (s *PerfHandlerSuite) setup() {
 					Mainline:  true,
 				},
 			},
-			"jkl": model.PerformanceResult{
+			"jkl": {
 				ID:          "jkl",
 				CreatedAt:   time.Date(2018, time.December, 1, 1, 1, 3, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 1, 2, 1, 0, 0, time.UTC),
@@ -80,7 +80,7 @@ func (s *PerfHandlerSuite) setup() {
 					Mainline:  true,
 				},
 			},
-			"lmn": model.PerformanceResult{
+			"lmn": {
 				ID:          "lmn",
 				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 0, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
@@ -93,7 +93,7 @@ func (s *PerfHandlerSuite) setup() {
 					Mainline:  true,
 				},
 			},
-			"delete": model.PerformanceResult{
+			"delete": {
 				ID:          "delete",
 				CreatedAt:   time.Date(2018, time.December, 5, 1, 1, 4, 0, time.UTC),
 				CompletedAt: time.Date(2018, time.December, 6, 2, 1, 0, 0, time.UTC),
@@ -109,8 +109,8 @@ func (s *PerfHandlerSuite) setup() {
 		},
 	}
 	s.sc.ChildMap = map[string][]string{
-		"abc": []string{"def"},
-		"def": []string{"jkl"},
+		"abc": {"def"},
+		"def": {"jkl"},
 	}
 	s.rh = map[string]gimlet.RouteHandler{
 		"id":            makeGetPerfById(&s.sc),

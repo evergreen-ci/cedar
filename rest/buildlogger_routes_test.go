@@ -35,7 +35,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 	s.sc = data.MockConnector{
 		Bucket: tempDir,
 		CachedLogs: map[string]dbModel.Log{
-			"abc": dbModel.Log{
+			"abc": {
 				ID: "abc",
 				Info: dbModel.LogInfo{
 					Project:     "project",
@@ -53,7 +53,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 					Prefix: "abc",
 				},
 			},
-			"def": dbModel.Log{
+			"def": {
 				ID: "def",
 				Info: dbModel.LogInfo{
 					Project:  "project",
@@ -69,7 +69,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 					Prefix: "def",
 				},
 			},
-			"ghi": dbModel.Log{
+			"ghi": {
 				ID: "ghi",
 				Info: dbModel.LogInfo{
 					Project:  "project",
@@ -84,7 +84,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 					Prefix: "ghi",
 				},
 			},
-			"jkl": dbModel.Log{
+			"jkl": {
 				ID: "jkl",
 				Info: dbModel.LogInfo{
 					Project:     "project",
@@ -101,7 +101,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 					Prefix: "jkl",
 				},
 			},
-			"mno": dbModel.Log{
+			"mno": {
 				ID: "mno",
 				Info: dbModel.LogInfo{
 					Project:     "project",
@@ -117,7 +117,7 @@ func (s *LogHandlerSuite) setup(tempDir string) {
 					Prefix: "mno",
 				},
 			},
-			"pqr": dbModel.Log{
+			"pqr": {
 				ID: "pqr",
 				Info: dbModel.LogInfo{
 					Project:     "project",
