@@ -114,6 +114,7 @@ $(buildDir)/protoc:
 	unzip -q protoc-3.6.1-$(protoOS).zip -d $(buildDir)/protoc
 	rm -f protoc-3.6.1-$(protoOS).zip
 	$(gobin) install github.com/golang/protobuf@v1.5.2
+	$(gobin) install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
 proto: $(buildDir)/protoc
 	@mkdir -p rpc/internal
 	$(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:rpc/internal *.proto
