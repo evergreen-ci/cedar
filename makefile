@@ -97,7 +97,7 @@ htmlCoverageOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(targ
 
 # start basic development targets
 ifeq ($(OS),Windows_NT)
-ifeq ($(shell wmic OS get OSArchitecture /value | sed 's/\r//g;s/^M$//;/^$/d;s/.*=//'),64-bit)
+ifneq ($(shell wmic OS get OSArchitecture /value | grep 64),)
 protoOS := win64
 else
 protoOS := win32
