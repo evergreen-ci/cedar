@@ -113,11 +113,10 @@ $(buildDir)/protoc:
 	curl --retry 10 --retry-max-time 60 -L0 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-$(protoOS).zip --output protoc-3.6.1-$(protoOS).zip
 	unzip -q protoc-3.6.1-$(protoOS).zip -d $(buildDir)/protoc
 	rm -f protoc-3.6.1-$(protoOS).zip
-	$(gobin) install github.com/golang/protobuf@v1.5.2
-	$(gobin) install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+	GOBIN=$(abspath $(buildDir)) $(gobin) install github.com/golang/protobuf/protoc-gen-go@v1.3.2
 proto: $(buildDir)/protoc
 	@mkdir -p rpc/internal
-	$(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:rpc/internal *.proto
+	PATH=$(PATH):$(abspath $(buildDir)) $(buildDir)/protoc/bin/protoc --go_out=plugins=grpc:rpc/internal *.proto
 lint: $(lintOutput)
 test: $(testOutput)
 compile: $(buildDir)/$(name)
@@ -212,7 +211,7 @@ clean: clean-proto
 clean-results:
 	rm -rf $(buildDir)/output.*
 clean-proto:
-	rm -rf rpc/internal/*.pb.go $(buildDir)/protoc
+	rm -rf rpc/internal/*.pb.go $(buildDir)/protoc $(buildDir)/protoc-gen-go
 phony += clean
 # end cleanup targets
 
