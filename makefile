@@ -1,6 +1,6 @@
 # start project configuration
 name := cedar
-buildDir := $(abspath build)
+buildDir := build
 testPackages := $(name) evergreen rest rest-data rest-model units operations model perf rpc-internal
 allPackages := $(testPackages) benchmarks rpc
 orgPath := github.com/evergreen-ci
@@ -97,15 +97,11 @@ htmlCoverageOutput := $(foreach target,$(testPackages),$(buildDir)/output.$(targ
 # end output files
 
 # start basic development targets
-ifeq ($(OS),Windows_NT)
-protoOS := win32
-else
 protoOS := $(shell uname -s | tr A-Z a-z)
 ifeq ($(protoOS),darwin)
 protoOS := osx
 endif
 protoOS := $(protoOS)-$(shell uname -m | tr A-Z a-z)
-endif
 $(buildDir)/protoc:
 	curl --retry 10 --retry-max-time 60 -L0 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-$(protoOS).zip --output protoc-3.6.1-$(protoOS).zip
 	unzip -q protoc-3.6.1-$(protoOS).zip -d $(buildDir)/protoc
