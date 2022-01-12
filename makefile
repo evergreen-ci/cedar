@@ -27,7 +27,6 @@ lintCache := $(abspath $(buildDir)/.lint-cache)
 endif
 
 ifeq ($(OS),Windows_NT)
-buildDir := $(shell cygpath -m $(buildDir))
 gobin := $(shell cygpath $(gobin))
 goCache := $(shell cygpath -m $(goCache))
 goModCache := $(shell cygpath -m $(goModCache))
