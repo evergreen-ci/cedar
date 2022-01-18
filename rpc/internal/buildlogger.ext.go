@@ -41,7 +41,7 @@ func (l LogStorage) Export() model.PailType {
 
 // Export exports LogLine to the corresponding LogLine type in the model
 // package.
-func (l LogLine) Export() (model.LogLine, error) {
+func (l *LogLine) Export() (model.LogLine, error) {
 	ts, err := ptypes.Timestamp(l.Timestamp)
 	if err != nil {
 		return model.LogLine{}, errors.Wrap(err, "problem converting log line timestamp value")
@@ -56,7 +56,7 @@ func (l LogLine) Export() (model.LogLine, error) {
 
 // Export exports LogInfo to the corresponding LogInfo type in the model
 // package.
-func (l LogInfo) Export() model.LogInfo {
+func (l *LogInfo) Export() model.LogInfo {
 	return model.LogInfo{
 		Project:     l.Project,
 		Version:     l.Version,

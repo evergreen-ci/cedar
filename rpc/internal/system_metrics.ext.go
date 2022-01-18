@@ -6,7 +6,7 @@ import (
 
 // Export exports SystemMetricsInfo to the corresponding SystemMetricsInfo
 // type in the model package.
-func (sm SystemMetricsInfo) Export() model.SystemMetricsInfo {
+func (sm *SystemMetricsInfo) Export() model.SystemMetricsInfo {
 	return model.SystemMetricsInfo{
 		Project:   sm.Project,
 		Version:   sm.Version,
@@ -20,7 +20,7 @@ func (sm SystemMetricsInfo) Export() model.SystemMetricsInfo {
 
 // Export exports SystemMetricsArtifactInfo to the corresponding SystemMetricsInfo
 // type in the model package.
-func (sm SystemMetricsArtifactInfo) Export() model.SystemMetricsArtifactOptions {
+func (sm *SystemMetricsArtifactInfo) Export() model.SystemMetricsArtifactOptions {
 	return model.SystemMetricsArtifactOptions{
 		Compression: sm.Compression.Export(),
 		Schema:      sm.Schema.Export(),

@@ -11,7 +11,7 @@ import (
 
 // Export exports TestResultsInfo to the corresponding TestResultsInfo type in
 // the model package.
-func (t TestResultsInfo) Export() (model.TestResultsInfo, error) {
+func (t *TestResultsInfo) Export() (model.TestResultsInfo, error) {
 	ignore := true
 	if !t.HistoricalDataDisabled {
 		taskName := t.DisplayTaskName
@@ -63,7 +63,7 @@ func historicalTestDataIgnore(ignore []string, taskName string) (bool, error) {
 
 // Export exports TestResult to the corresponding TestResult type in the model
 // package.
-func (t TestResult) Export() (model.TestResult, error) {
+func (t *TestResult) Export() (model.TestResult, error) {
 	taskCreateTime, err := ptypes.Timestamp(t.TaskCreateTime)
 	if err != nil {
 		return model.TestResult{}, errors.Wrap(err, "problem converting task create time timestamp")
