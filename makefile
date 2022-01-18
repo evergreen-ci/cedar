@@ -109,8 +109,7 @@ $(buildDir)/protoc:
 	GOBIN="$(abspath $(buildDir))" $(gobin) install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	GOBIN="$(abspath $(buildDir))" $(gobin) install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 proto: $(buildDir)/protoc
-	mkdir -p rpc/internal
-	PATH="$(abspath $(buildDir)):$(PATH)" $(buildDir)/protoc/bin/protoc --go_out=rpc --go-grpc_out=rpc *.proto
+	PATH="$(abspath $(buildDir)):$(PATH)" $(buildDir)/protoc/bin/protoc --go_out=. --go-grpc_out=. *.proto
 lint: $(lintOutput)
 test: $(testOutput)
 compile: $(buildDir)/$(name)
@@ -200,12 +199,12 @@ phony += get-mongodb start-mongod init-rs check-mongod
 # end mongodb targets
 
 # start cleanup targts
-clean: clean-proto
+clean:
 	rm -rf $(name) $(buildDir)
 clean-results:
 	rm -rf $(buildDir)/output.*
 clean-proto:
-	rm -rf rpc/internal/*.pb.go $(buildDir)/protoc $(buildDir)/protoc-gen-go
+	rm -rf $(buildDir)/protoc $(buildDir)/protoc-gen-go $(buildDir)/protoc-gen-go-grpc
 phony += clean
 # end cleanup targets
 
