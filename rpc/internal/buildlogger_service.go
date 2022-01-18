@@ -14,6 +14,10 @@ import (
 
 type buildloggerService struct {
 	env cedar.Environment
+
+	// UnimplementedBuildloggerServer must be embedded for forward
+	// compatibility. See buildlogger_grpc.pb.go for more information.
+	UnimplementedBuildloggerServer
 }
 
 // AttachBuildloggerService attaches the buildlogger service to the given gRPC
@@ -27,7 +31,7 @@ func AttachBuildloggerService(env cedar.Environment, s *grpc.Server) {
 
 // BuildloggerServiceName returns the grpc service identifier for this service.
 func BuildloggerServiceName() string {
-	return _Buildlogger_serviceDesc.ServiceName
+	return Buildlogger_ServiceDesc.ServiceName
 }
 
 // CreateLog creates a new buildlogger log record in the database.

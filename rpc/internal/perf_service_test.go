@@ -241,11 +241,14 @@ func TestCreateMetricSeries(t *testing.T) {
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
-			require.Equal(t, test.expectedResp, resp)
 			if test.err {
-				require.Error(t, err)
+				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
 				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.expectedResp.Id, resp.Id)
+				assert.Equal(t, test.expectedResp.Success, resp.Success)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 				assert.True(t, foundSignalProcessingJob(t, ctx, env, resp.Id))
 			}
@@ -362,12 +365,14 @@ func TestAttachResultData(t *testing.T) {
 				t.Error("unknown attached data type")
 			}
 
-			assert.Equal(t, test.expectedResp, resp)
-
 			if test.err {
 				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.expectedResp.Id, resp.Id)
+				assert.Equal(t, test.expectedResp.Success, resp.Success)
 			}
 
 			if test.checkRollups {

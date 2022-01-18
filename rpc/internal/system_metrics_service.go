@@ -15,6 +15,10 @@ import (
 
 type systemMetricsService struct {
 	env cedar.Environment
+
+	// UnimplementedCedarSystemMetricsServer must be embedded for forward
+	// compatibility. See system_metrics_grpc.pb.go for more information.
+	UnimplementedCedarSystemMetricsServer
 }
 
 // AttachSystemMetricsService attaches the systemMetrics service to the given gRPC
@@ -29,7 +33,7 @@ func AttachSystemMetricsService(env cedar.Environment, s *grpc.Server) {
 // SystemMetricsServiceName returns the grpc service identifier for this
 // service.
 func SystemMetricsServiceName() string {
-	return _CedarSystemMetrics_serviceDesc.ServiceName
+	return CedarSystemMetrics_ServiceDesc.ServiceName
 }
 
 // CreateSystemMetricsRecord creates a new system metrics record in the database.

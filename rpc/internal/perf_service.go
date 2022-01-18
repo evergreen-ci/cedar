@@ -23,6 +23,10 @@ import (
 
 type perfService struct {
 	env cedar.Environment
+
+	// UnimplementedCedarPerformanceMetricsServer must be embedded for
+	// forward compatibility. See perf_grpc.pb.go for more information.
+	UnimplementedCedarPerformanceMetricsServer
 }
 
 // AttachPerfService attaches the perf service to the given gRPC server.
@@ -35,7 +39,7 @@ func AttachPerfService(env cedar.Environment, s *grpc.Server) {
 
 // PerfServiceName returns the grpc service identifier for this service.
 func PerfServiceName() string {
-	return _CedarPerformanceMetrics_serviceDesc.ServiceName
+	return CedarPerformanceMetrics_ServiceDesc.ServiceName
 }
 
 // CreateMetricSeries creates a new performance result record in the database.
