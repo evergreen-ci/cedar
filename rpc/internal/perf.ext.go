@@ -4,9 +4,7 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/ftdc/events"
-	"github.com/pkg/errors"
 )
 
 type RollupValues []*RollupValue
@@ -75,12 +73,7 @@ func (m *ResultID) Export() model.PerformanceResultInfo {
 	}
 }
 
-func (a *ArtifactInfo) Export() (*model.ArtifactInfo, error) {
-	ts, err := ptypes.Timestamp(a.CreatedAt)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem converting timestamp value artifact")
-	}
-
+func (a *ArtifactInfo) Export() *model.ArtifactInfo {
 	return &model.ArtifactInfo{
 		Type:        a.Location.Export(),
 		Bucket:      a.Bucket,
@@ -90,54 +83,31 @@ func (a *ArtifactInfo) Export() (*model.ArtifactInfo, error) {
 		Tags:        a.Tags,
 		Compression: a.Compression.Export(),
 		Schema:      a.Schema.Export(),
-		CreatedAt:   ts,
-	}, nil
+		CreatedAt:   a.CreatedAt.AsTime(),
+	}
 }
 
-func (r *ResultData) Export() (*model.PerformanceResult, error) {
+func (r *ResultData) Export() *model.PerformanceResult {
 	artifacts := []model.ArtifactInfo{}
 
 	for _, a := range r.Artifacts {
-		artifact, err := a.Export()
-		if err != nil {
-			return nil, errors.Wrap(err, "problem exporting artifacts")
-		}
-		artifacts = append(artifacts, *artifact)
+		artifacts = append(artifacts, *a.Export())
 	}
 
 	result := model.CreatePerformanceResult(r.Id.Export(), artifacts, ExportRollupValues(r.Rollups))
 
 	if r.Id.CreatedAt != nil {
-		ts, err := ptypes.Timestamp(r.Id.CreatedAt)
-		if err != nil {
-			return nil, errors.Wrap(err, "problem converting timestamp value artifact")
-		}
-
-		result.CreatedAt = ts
+		result.CreatedAt = r.Id.CreatedAt.AsTime()
 	} else {
 		result.CreatedAt = time.Now()
 	}
 
-	return result, nil
+	return result
 }
 
-func (m *MetricsPoint) Export() (*events.Performance, error) {
-	dur, err := ptypes.Duration(m.Timers.Duration)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem converting duration value")
-	}
-	total, err := ptypes.Duration(m.Timers.Total)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem converting duration value")
-	}
-
-	ts, err := ptypes.Timestamp(m.Time)
-	if err != nil {
-		return nil, errors.Wrap(err, "problem converting timestamp value")
-	}
-
+func (m *MetricsPoint) Export() *events.Performance {
 	point := &events.Performance{
-		Timestamp: ts,
+		Timestamp: m.Time.AsTime(),
 	}
 
 	point.Counters.Size = m.Counters.Size
@@ -145,10 +115,10 @@ func (m *MetricsPoint) Export() (*events.Performance, error) {
 	point.Counters.Operations = m.Counters.Ops
 	point.Gauges.Failed = m.Gauges.Failed
 	point.Gauges.Workers = m.Gauges.Workers
-	point.Timers.Duration = dur
-	point.Timers.Total = total
+	point.Timers.Duration = m.Timers.Duration.AsDuration()
+	point.Timers.Total = m.Timers.Total.AsDuration()
 
-	return point, nil
+	return point
 }
 
 func (r *RollupValue) Export() model.PerfRollupValue {

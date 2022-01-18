@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 )
 
@@ -63,20 +62,7 @@ func historicalTestDataIgnore(ignore []string, taskName string) (bool, error) {
 
 // Export exports TestResult to the corresponding TestResult type in the model
 // package.
-func (t *TestResult) Export() (model.TestResult, error) {
-	taskCreateTime, err := ptypes.Timestamp(t.TaskCreateTime)
-	if err != nil {
-		return model.TestResult{}, errors.Wrap(err, "problem converting task create time timestamp")
-	}
-	testStartTime, err := ptypes.Timestamp(t.TestStartTime)
-	if err != nil {
-		return model.TestResult{}, errors.Wrap(err, "problem converting test start time timestamp")
-	}
-	testEndTime, err := ptypes.Timestamp(t.TestEndTime)
-	if err != nil {
-		return model.TestResult{}, errors.Wrap(err, "problem converting test end time timestamp")
-	}
-
+func (t *TestResult) Export() model.TestResult {
 	return model.TestResult{
 		TestName:        t.TestName,
 		DisplayTestName: t.DisplayTestName,
@@ -87,8 +73,8 @@ func (t *TestResult) Export() (model.TestResult, error) {
 		LogURL:          t.LogUrl,
 		RawLogURL:       t.RawLogUrl,
 		LineNum:         int(t.LineNum),
-		TaskCreateTime:  taskCreateTime,
-		TestStartTime:   testStartTime,
-		TestEndTime:     testEndTime,
-	}, nil
+		TaskCreateTime:  t.TaskCreateTime.AsTime(),
+		TestStartTime:   t.TestStartTime.AsTime(),
+		TestEndTime:     t.TestEndTime.AsTime(),
+	}
 }

@@ -2,11 +2,10 @@ package internal
 
 import (
 	"testing"
-	"time"
 
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestTestResultsInfoExport(t *testing.T) {
@@ -108,46 +107,22 @@ func TestTestResultExport(t *testing.T) {
 		LogUrl:         "log_url",
 		RawLogUrl:      "raw_log_url",
 		LineNum:        1000,
-		TaskCreateTime: &timestamp.Timestamp{Seconds: 1588278536},
-		TestStartTime:  &timestamp.Timestamp{Seconds: 1588278500},
-		TestEndTime:    &timestamp.Timestamp{Seconds: 1588278490},
+		TaskCreateTime: &timestamppb.Timestamp{Seconds: 1588278536},
+		TestStartTime:  &timestamppb.Timestamp{Seconds: 1588278500},
+		TestEndTime:    &timestamppb.Timestamp{Seconds: 1588278490},
 	}
 
-	t.Run("ValidTimestamps", func(t *testing.T) {
-		modelResult, err := result.Export()
-		require.NoError(t, err)
-		assert.Equal(t, result.TestName, modelResult.TestName)
-		assert.Equal(t, result.DisplayTestName, modelResult.DisplayTestName)
-		assert.Equal(t, int(result.Trial), modelResult.Trial)
-		assert.Equal(t, result.Status, modelResult.Status)
-		assert.Equal(t, result.GroupId, modelResult.GroupID)
-		assert.Equal(t, result.LogTestName, modelResult.LogTestName)
-		assert.Equal(t, result.LogUrl, modelResult.LogURL)
-		assert.Equal(t, result.RawLogUrl, modelResult.RawLogURL)
-		assert.Equal(t, int(result.LineNum), modelResult.LineNum)
-		assert.Equal(t, time.Unix(result.TaskCreateTime.Seconds, 0).UTC(), modelResult.TaskCreateTime)
-		assert.Equal(t, time.Unix(result.TestStartTime.Seconds, 0).UTC(), modelResult.TestStartTime)
-		assert.Equal(t, time.Unix(result.TestEndTime.Seconds, 0).UTC(), modelResult.TestEndTime)
-	})
-	t.Run("InvalidTaskCreateTime", func(t *testing.T) {
-		taskCreateTime := result.TaskCreateTime
-		result.TaskCreateTime = &timestamp.Timestamp{Seconds: -1000000000000000000}
-		_, err := result.Export()
-		assert.Error(t, err)
-		result.TaskCreateTime = taskCreateTime
-	})
-	t.Run("InvalidTestStartTime", func(t *testing.T) {
-		testStartTime := result.TestStartTime
-		result.TestStartTime = &timestamp.Timestamp{Seconds: -1000000000000000000}
-		_, err := result.Export()
-		assert.Error(t, err)
-		result.TestStartTime = testStartTime
-	})
-	t.Run("InvalidTestEndTime", func(t *testing.T) {
-		testEndTime := result.TestEndTime
-		result.TestEndTime = &timestamp.Timestamp{Seconds: -1000000000000000000}
-		_, err := result.Export()
-		assert.Error(t, err)
-		result.TestEndTime = testEndTime
-	})
+	modelResult := result.Export()
+	assert.Equal(t, result.TestName, modelResult.TestName)
+	assert.Equal(t, result.DisplayTestName, modelResult.DisplayTestName)
+	assert.Equal(t, int(result.Trial), modelResult.Trial)
+	assert.Equal(t, result.Status, modelResult.Status)
+	assert.Equal(t, result.GroupId, modelResult.GroupID)
+	assert.Equal(t, result.LogTestName, modelResult.LogTestName)
+	assert.Equal(t, result.LogUrl, modelResult.LogURL)
+	assert.Equal(t, result.RawLogUrl, modelResult.RawLogURL)
+	assert.Equal(t, int(result.LineNum), modelResult.LineNum)
+	assert.Equal(t, result.TaskCreateTime.AsTime(), modelResult.TaskCreateTime)
+	assert.Equal(t, result.TestStartTime.AsTime(), modelResult.TestStartTime)
+	assert.Equal(t, result.TestEndTime.AsTime(), modelResult.TestEndTime)
 }

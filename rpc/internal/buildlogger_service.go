@@ -57,11 +57,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 
 	exportedLines := []model.LogLine{}
 	for _, line := range lines.Lines {
-		exportedLine, err := line.Export()
-		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem exporting log lines"))
-		}
-		exportedLines = append(exportedLines, exportedLine)
+		exportedLines = append(exportedLines, line.Export())
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},

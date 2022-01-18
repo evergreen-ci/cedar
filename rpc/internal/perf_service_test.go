@@ -2,21 +2,21 @@ package internal
 
 import (
 	"context"
-	fmt "fmt"
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -167,7 +167,7 @@ func TestCreateMetricSeries(t *testing.T) {
 						Location:  5,
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
+						CreatedAt: &timestamppb.Timestamp{},
 					},
 				},
 				Rollups: []*RollupValue{
@@ -283,7 +283,7 @@ func TestAttachResultData(t *testing.T) {
 						Location:  5,
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
+						CreatedAt: &timestamppb.Timestamp{},
 					},
 				},
 			},
@@ -302,7 +302,7 @@ func TestAttachResultData(t *testing.T) {
 						Location:  5,
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
+						CreatedAt: &timestamppb.Timestamp{},
 					},
 				},
 			},

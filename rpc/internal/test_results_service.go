@@ -73,10 +73,7 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 
 	exportedResults := make([]model.TestResult, len(results.Results))
 	for i, result := range results.Results {
-		exportedResult, err := result.Export()
-		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem exporting test result"))
-		}
+		exportedResult := result.Export()
 		exportedResult.TaskID = record.Info.TaskID
 		exportedResult.Execution = record.Info.Execution
 		exportedResults[i] = exportedResult
