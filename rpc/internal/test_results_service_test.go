@@ -13,13 +13,12 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/utility"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestCreateTestResultsRecord(t *testing.T) {
@@ -151,15 +150,6 @@ func TestAddTestResults(t *testing.T) {
 			hasErr: true,
 		},
 		{
-			name: "InvalidTS",
-			results: &TestResults{
-				TestResultsRecordId: record.ID,
-				Results:             []*TestResult{getTestResult(), getTestResult(), getInvalidTestResult()},
-			},
-			env:    env,
-			hasErr: true,
-		},
-		{
 			name: "InvalidConfig",
 			results: &TestResults{
 				TestResultsRecordId: record.ID,
@@ -209,8 +199,7 @@ func TestAddTestResults(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, results, len(test.results.Results))
 				for i, result := range results {
-					exportedResult, err := test.results.Results[i].Export()
-					require.NoError(t, err)
+					exportedResult := test.results.Results[i].Export()
 					exportedResult.TaskID = record.Info.TaskID
 					exportedResult.Execution = record.Info.Execution
 					assert.Equal(t, exportedResult, result)
@@ -218,15 +207,13 @@ func TestAddTestResults(t *testing.T) {
 
 				time.Sleep(time.Second)
 				for _, res := range test.results.Results {
-					testEndTime, err := ptypes.Timestamp(res.TestEndTime)
-					require.NoError(t, err)
 					htdInfo := model.HistoricalTestDataInfo{
 						Project:     record.Info.Project,
 						Variant:     record.Info.Variant,
 						TaskName:    record.Info.DisplayTaskName,
 						TestName:    res.DisplayTestName,
 						RequestType: record.Info.RequestType,
-						Date:        testEndTime,
+						Date:        res.TestEndTime.AsTime(),
 					}
 					htd, err := model.CreateHistoricalTestData(htdInfo)
 					require.NoError(t, err)
@@ -292,17 +279,6 @@ func TestStreamTestResults(t *testing.T) {
 				{
 					TestResultsRecordId: "DNE",
 					Results:             []*TestResult{getTestResult(), getTestResult(), getTestResult()},
-				},
-			},
-			env:    env,
-			hasErr: true,
-		},
-		{
-			name: "InvalidTS",
-			results: []*TestResults{
-				{
-					TestResultsRecordId: record1.ID,
-					Results:             []*TestResult{getTestResult(), getTestResult(), getInvalidTestResult()},
 				},
 			},
 			env:    env,
@@ -397,15 +373,13 @@ func TestStreamTestResults(t *testing.T) {
 				time.Sleep(time.Second)
 				for _, results := range test.results {
 					for _, res := range results.Results {
-						testEndTime, err := ptypes.Timestamp(res.TestEndTime)
-						require.NoError(t, err)
 						htdInfo := model.HistoricalTestDataInfo{
 							Project:     record1.Info.Project,
 							Variant:     record1.Info.Variant,
 							TaskName:    record1.Info.DisplayTaskName,
 							TestName:    res.DisplayTestName,
 							RequestType: record1.Info.RequestType,
-							Date:        testEndTime,
+							Date:        res.TestEndTime.AsTime(),
 						}
 						htd, err := model.CreateHistoricalTestData(htdInfo)
 						require.NoError(t, err)
@@ -560,9 +534,9 @@ func getTestResult() *TestResult {
 		Trial:           rand.Int31n(10),
 		Status:          "Pass",
 		LineNum:         rand.Int31n(1000),
-		TaskCreateTime:  &timestamp.Timestamp{Seconds: now.Add(-time.Hour).Unix()},
-		TestStartTime:   &timestamp.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
-		TestEndTime:     &timestamp.Timestamp{Seconds: now.Unix()},
+		TaskCreateTime:  &timestamppb.Timestamp{Seconds: now.Add(-time.Hour).Unix()},
+		TestStartTime:   &timestamppb.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
+		TestEndTime:     &timestamppb.Timestamp{Seconds: now.Unix()},
 	}
 }
 
@@ -575,8 +549,8 @@ func getInvalidTestResult() *TestResult {
 		Trial:           rand.Int31n(10),
 		Status:          "Pass",
 		LineNum:         rand.Int31n(1000),
-		TaskCreateTime:  &timestamp.Timestamp{Seconds: -100000000000},
-		TestStartTime:   &timestamp.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
-		TestEndTime:     &timestamp.Timestamp{Seconds: now.Unix()},
+		TaskCreateTime:  &timestamppb.Timestamp{Seconds: -100000000000},
+		TestStartTime:   &timestamppb.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
+		TestEndTime:     &timestamppb.Timestamp{Seconds: now.Unix()},
 	}
 }

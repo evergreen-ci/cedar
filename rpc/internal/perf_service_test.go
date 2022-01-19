@@ -2,21 +2,21 @@ package internal
 
 import (
 	"context"
-	fmt "fmt"
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -167,7 +167,7 @@ func TestCreateMetricSeries(t *testing.T) {
 						Location:  5,
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
+						CreatedAt: &timestamppb.Timestamp{},
 					},
 				},
 				Rollups: []*RollupValue{
@@ -241,11 +241,14 @@ func TestCreateMetricSeries(t *testing.T) {
 			require.NoError(t, err)
 
 			resp, err := client.CreateMetricSeries(ctx, test.data)
-			require.Equal(t, test.expectedResp, resp)
 			if test.err {
-				require.Error(t, err)
+				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
 				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.expectedResp.Id, resp.Id)
+				assert.Equal(t, test.expectedResp.Success, resp.Success)
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 				assert.True(t, foundSignalProcessingJob(t, ctx, env, resp.Id))
 			}
@@ -280,7 +283,7 @@ func TestAttachResultData(t *testing.T) {
 						Location:  5,
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
+						CreatedAt: &timestamppb.Timestamp{},
 					},
 				},
 			},
@@ -299,7 +302,7 @@ func TestAttachResultData(t *testing.T) {
 						Location:  5,
 						Bucket:    "testdata",
 						Path:      "valid.ftdc",
-						CreatedAt: &timestamp.Timestamp{},
+						CreatedAt: &timestamppb.Timestamp{},
 					},
 				},
 			},
@@ -362,12 +365,14 @@ func TestAttachResultData(t *testing.T) {
 				t.Error("unknown attached data type")
 			}
 
-			assert.Equal(t, test.expectedResp, resp)
-
 			if test.err {
 				assert.Error(t, err)
+				assert.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, test.expectedResp.Id, resp.Id)
+				assert.Equal(t, test.expectedResp.Success, resp.Success)
 			}
 
 			if test.checkRollups {

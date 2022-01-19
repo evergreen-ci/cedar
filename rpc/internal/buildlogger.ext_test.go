@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/grip/level"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestLogFormatExport(t *testing.T) {
@@ -82,28 +82,15 @@ func TestLogStorageExport(t *testing.T) {
 }
 
 func TestLogLineExport(t *testing.T) {
-	t.Run("ValidTimestamp", func(t *testing.T) {
-		logLine := LogLine{
-			Priority:  90,
-			Timestamp: &timestamp.Timestamp{Seconds: 253402300799},
-			Data:      []byte("Goodbye year 9999\n"),
-		}
-		modelLogLine, err := logLine.Export()
-		assert.NoError(t, err)
-		assert.Equal(t, modelLogLine.Priority, level.Alert)
-		assert.Equal(t, time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC), modelLogLine.Timestamp)
-		assert.EqualValues(t, logLine.Data, modelLogLine.Data)
-	})
-	t.Run("InvalidTimestamp", func(t *testing.T) {
-		logLine := LogLine{
-			Priority:  30,
-			Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
-			Data:      []byte("Hello year 10000\n"),
-		}
-		modelLogLine, err := logLine.Export()
-		assert.Error(t, err)
-		assert.Zero(t, modelLogLine)
-	})
+	logLine := LogLine{
+		Priority:  90,
+		Timestamp: &timestamppb.Timestamp{Seconds: 253402300799},
+		Data:      []byte("Goodbye year 9999\n"),
+	}
+	modelLogLine := logLine.Export()
+	assert.Equal(t, modelLogLine.Priority, level.Alert)
+	assert.Equal(t, time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC), modelLogLine.Timestamp)
+	assert.EqualValues(t, logLine.Data, modelLogLine.Data)
 }
 
 func TestLogInfoExport(t *testing.T) {

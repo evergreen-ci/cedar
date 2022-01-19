@@ -9,7 +9,6 @@ import (
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/cedar/units"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/anser/db"
 	"github.com/mongodb/ftdc/events"
@@ -23,6 +22,10 @@ import (
 
 type perfService struct {
 	env cedar.Environment
+
+	// UnimplementedCedarPerformanceMetricsServer must be embedded for
+	// forward compatibility. See perf_grpc.pb.go for more information.
+	UnimplementedCedarPerformanceMetricsServer
 }
 
 // AttachPerfService attaches the perf service to the given gRPC server.
@@ -35,7 +38,7 @@ func AttachPerfService(env cedar.Environment, s *grpc.Server) {
 
 // PerfServiceName returns the grpc service identifier for this service.
 func PerfServiceName() string {
-	return _CedarPerformanceMetrics_serviceDesc.ServiceName
+	return CedarPerformanceMetrics_ServiceDesc.ServiceName
 }
 
 // CreateMetricSeries creates a new performance result record in the database.
@@ -44,10 +47,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		return nil, newRPCError(codes.InvalidArgument, errors.New("invalid data"))
 	}
 
-	record, err := result.Export()
-	if err != nil {
-		return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "exporting result"))
-	}
+	record := result.Export()
 	record.Setup(srv.env)
 
 	resp := &MetricsResponse{}
@@ -186,15 +186,9 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 			}
 
 			for _, event := range point.Event {
-				pp, err := event.Export()
-				if err != nil {
-					catcher.Add(err)
-					continue
-				}
-
 				select {
 				case <-ctx.Done():
-				case pipe <- *pp:
+				case pipe <- *event.Export():
 					count++
 				}
 			}
@@ -226,11 +220,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 
 	completedAt := time.Now()
 	if end.CompletedAt != nil {
-		ts, err := ptypes.Timestamp(end.CompletedAt)
-		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrap(err, "converting timestamp for completed at"))
-		}
-		completedAt = ts
+		completedAt = end.CompletedAt.AsTime()
 	}
 
 	record.Setup(srv.env)
@@ -244,12 +234,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 
 func (srv *perfService) addArtifacts(ctx context.Context, record *model.PerformanceResult, artifacts []*ArtifactInfo) error {
 	for _, a := range artifacts {
-		artifact, err := a.Export()
-		if err != nil {
-			return newRPCError(codes.InvalidArgument, errors.Wrap(err, "exporting artifacts"))
-		}
-
-		record.Artifacts = append(record.Artifacts, *artifact)
+		record.Artifacts = append(record.Artifacts, *a.Export())
 	}
 
 	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "creating ftdc rollups job")

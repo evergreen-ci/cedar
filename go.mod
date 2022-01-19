@@ -12,7 +12,6 @@ require (
 	github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5
 	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
 	github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf
-	github.com/golang/protobuf v1.5.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/mongodb/amboy v0.0.0-20220106171416-066b9040aafb
 	github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f
@@ -28,6 +27,7 @@ require (
 	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab // indirect
 	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
 	google.golang.org/grpc v1.43.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 	gopkg.in/yaml.v2 v2.4.0
 )

@@ -2,7 +2,7 @@ package internal
 
 import (
 	"context"
-	fmt "fmt"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -13,12 +13,12 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestCreateLog(t *testing.T) {
@@ -125,17 +125,17 @@ func TestAppendLogLines(t *testing.T) {
 				Lines: []*LogLine{
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the first log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the second log line.\n"),
 					},
 					{
 						Priority:  10,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the third log line.\n"),
 					},
 				},
@@ -149,43 +149,18 @@ func TestAppendLogLines(t *testing.T) {
 				Lines: []*LogLine{
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the first log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the second log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the third log line.\n"),
-					},
-				},
-			},
-			env:    env,
-			hasErr: true,
-		},
-		{
-			name: "InvalidTimestamp",
-			lines: &LogLines{
-				LogId: log.ID,
-				Lines: []*LogLine{
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      []byte("This is the first log line.\n"),
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
-						Data:      []byte("This is the second log line.\n"),
-					},
-					{
-						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
-						Data:      []byte("This is the third log line, which is invalid.\n"),
 					},
 				},
 			},
@@ -199,17 +174,17 @@ func TestAppendLogLines(t *testing.T) {
 				Lines: []*LogLine{
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the first log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the second log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the third log line.\n"),
 					},
 				},
@@ -224,17 +199,17 @@ func TestAppendLogLines(t *testing.T) {
 				Lines: []*LogLine{
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the first log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the second log line.\n"),
 					},
 					{
 						Priority:  30,
-						Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+						Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 						Data:      []byte("This is the third log line.\n"),
 					},
 				},
@@ -328,17 +303,17 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the first log line.\n"),
 						},
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the second log line.\n"),
 						},
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the third log line.\n"),
 						},
 					},
@@ -348,7 +323,7 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the fourth log line.\n"),
 						},
 					},
@@ -358,12 +333,12 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the fifth log line.\n"),
 						},
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the sixth log line.\n"),
 						},
 					},
@@ -379,17 +354,17 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the first log line.\n"),
 						},
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the second log line.\n"),
 						},
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the third log line.\n"),
 						},
 					},
@@ -399,7 +374,7 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the fourth log line.\n"),
 						},
 					},
@@ -416,25 +391,8 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the first log line.\n"),
-						},
-					},
-				},
-			},
-			env:    env,
-			hasErr: true,
-		},
-		{
-			name: "InvalidTimestamp",
-			lines: []*LogLines{
-				{
-					LogId: log.ID,
-					Lines: []*LogLine{
-						{
-							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: 253402300800},
-							Data:      []byte("This is the third log line, which is invalid.\n"),
 						},
 					},
 				},
@@ -450,7 +408,7 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the first log line.\n"),
 						},
 					},
@@ -467,7 +425,7 @@ func TestStreamLogLines(t *testing.T) {
 					Lines: []*LogLine{
 						{
 							Priority:  30,
-							Timestamp: &timestamp.Timestamp{Seconds: time.Now().Unix()},
+							Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 							Data:      []byte("This is the first log line.\n"),
 						},
 					},

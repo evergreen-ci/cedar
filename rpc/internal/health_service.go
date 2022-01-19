@@ -10,11 +10,15 @@ import (
 
 type healthService struct {
 	services map[string]HealthCheckResponse_ServingStatus
+
+	// UnimplementedHealthServer must be embedded for forward
+	// compatibility. See health_grpc.pb.go for more information.
+	UnimplementedHealthServer
 }
 
 // HealthServiceName returns the grpc service identifier for this service.
 func HealthServiceName() string {
-	return _Health_serviceDesc.ServiceName
+	return Health_ServiceDesc.ServiceName
 }
 
 // AttachHealthService attaches the health check service to the given gRPC

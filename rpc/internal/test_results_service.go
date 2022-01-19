@@ -17,6 +17,10 @@ import (
 
 type testResultsService struct {
 	env cedar.Environment
+
+	// UnimplementedCedarTestResultsServer must be embedded for forward
+	// compatibility. See test_results_grpc.pb.go for more information.
+	UnimplementedCedarTestResultsServer
 }
 
 // AttachTestResultsService attaches the test results service to the given gRPC
@@ -30,7 +34,7 @@ func AttachTestResultsService(env cedar.Environment, s *grpc.Server) {
 
 // TestResultsServiceName returns the grpc service identifier for this service.
 func TestResultsServiceName() string {
-	return _CedarTestResults_serviceDesc.ServiceName
+	return CedarTestResults_ServiceDesc.ServiceName
 }
 
 // CreateTestResultsRecord creates a new test results record in the database.
@@ -69,10 +73,7 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 
 	exportedResults := make([]model.TestResult, len(results.Results))
 	for i, result := range results.Results {
-		exportedResult, err := result.Export()
-		if err != nil {
-			return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "problem exporting test result"))
-		}
+		exportedResult := result.Export()
 		exportedResult.TaskID = record.Info.TaskID
 		exportedResult.Execution = record.Info.Execution
 		exportedResults[i] = exportedResult
