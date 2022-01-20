@@ -7,6 +7,7 @@ import (
 	"hash"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -392,6 +393,18 @@ func (args PerformanceArguments) MarshalBSONValue() (bsontype.Type, []byte, erro
 	})
 
 	return bson.MarshalValue(&sortedArgs)
+}
+
+func (args PerformanceArguments) String() string {
+	var sortedArgs []string
+	for key, value := range args {
+		sortedArgs = append(sortedArgs, fmt.Sprintf("%s:%d", key, value))
+	}
+	sort.Slice(sortedArgs, func(i, j int) bool {
+		return sortedArgs[i] < sortedArgs[j]
+	})
+
+	return fmt.Sprintf("[%s]", strings.Join(sortedArgs, " "))
 }
 
 // ID creates a unique hash for a performance result.

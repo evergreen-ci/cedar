@@ -9,7 +9,6 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // PerfAnalysis contains information about when the associated performance
@@ -185,68 +184,6 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrap(err, "decoding time series ids")
-	}
-	return res, nil
-}
-
-// GetPerformanceData queries the database to get the performance result time
-// series data associated with the given series ID.
-func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
-	opts := options.Aggregate().SetAllowDiskUse(true)
-	pipe := []bson.M{
-		{
-			"$match": bson.M{
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
-			},
-		},
-		{
-			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"project":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
-					"measurement": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
-					"args":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
-				},
-				"time_series": bson.M{
-					"$push": bson.M{
-						"value": bson.M{
-							"$ifNull": bson.A{
-								"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
-								0,
-							},
-						},
-						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
-						"perf_result_id": "$_id",
-						"version":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey),
-						"task_id":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey),
-						"execution":      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoExecutionKey),
-					},
-				},
-			},
-		},
-	}
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, opts)
-	if err != nil {
-		return nil, errors.Wrap(err, "aggregating time series")
-	}
-	defer cur.Close(ctx)
-	var res []PerformanceData
-	err = cur.All(ctx, &res)
-	if err != nil {
-		return nil, errors.Wrap(err, "decoding time series")
-	}
-	if len(res) == 0 {
-		return nil, nil
 	}
 	return res, nil
 }
