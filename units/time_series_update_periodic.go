@@ -11,15 +11,15 @@ import (
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/job"
 	"github.com/mongodb/amboy/registry"
-	"github.com/mongodb/grip"
 )
 
 const periodicTimeSeriesUpdateJobName = "periodic-time-series-update"
 
 type periodicTimeSeriesJob struct {
 	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env       cedar.Environment
-	queue     amboy.Queue
+
+	env   cedar.Environment
+	queue amboy.Queue
 }
 
 func init() {
@@ -46,23 +46,27 @@ func NewPeriodicTimeSeriesUpdateJob(id string) amboy.Job {
 }
 
 func (j *periodicTimeSeriesJob) Run(ctx context.Context) {
+	defer j.MarkComplete()
 
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
 	}
+
 	if j.queue == nil {
 		j.queue = j.env.GetRemoteQueue()
 	}
-	defer j.MarkComplete()
-	grip.Info("Scanning for performance data in need of analysis")
-	needUpdates, err := model.GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx, j.env)
+
+	outdatedSeries, err := model.GetUnanalyzedPerformanceSeries(ctx, j.env)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "Unable to get metrics needing time series update"))
+		j.AddError(errors.Wrap(err, "getting metrics needing time series update"))
+		return
 	}
-	for _, id := range needUpdates {
-		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewUpdateTimeSeriesJob(id))
+
+	for _, series := range outdatedSeries {
+		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewUpdateTimeSeriesJob(series))
 		if err != nil {
 			j.AddError(err)
+			return
 		}
 	}
 }

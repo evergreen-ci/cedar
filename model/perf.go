@@ -63,12 +63,21 @@ var (
 	perfVersionKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
-func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResultSeriesID {
-	return PerformanceResultSeriesID{
-		Project: info.Project,
-		Variant: info.Variant,
-		Task:    info.TaskName,
-		Test:    info.TestName,
+// CreateUnanalyzedSeries converts the PerformanceResult into an
+// UnanalyzedPerformanceSeries for comminication with the signal processing
+// service.
+func (result PerformanceResult) CreateUnanalyzedSeries() UnanalyzedPerformanceSeries {
+	measurements := make([]string, len(result.Rollups.Stats))
+	for i, stat := range result.Rollups.Stats {
+		measurements[i] = stat.Name
+	}
+
+	return UnanalyzedPerformanceSeries{
+		Project:   result.Info.Project,
+		Variant:   result.Info.Variant,
+		Task:      result.Info.TaskName,
+		Test:      result.Info.TestName,
+		Arguments: result.Info.Arguments,
 	}
 }
 
@@ -317,7 +326,6 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 	}
 
 	return errors.Wrapf(err, "problem closing performance result with id %s", result.ID)
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////

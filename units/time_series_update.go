@@ -19,11 +19,12 @@ import (
 )
 
 type timeSeriesUpdateJob struct {
-	*job.Base                  `bson:"metadata" json:"metadata" yaml:"metadata"`
-	env                        cedar.Environment
-	conf                       *model.CedarConfig
-	PerformanceResultId        model.PerformanceResultSeriesID `bson:"time_series_id" json:"time_series_id" yaml:"time_series_id"`
-	performanceAnalysisService perf.PerformanceAnalysisService
+	Series    model.UnanalyzedPerformanceSeries `bson:"series" json:"series" yaml:"series"`
+	*job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
+
+	env     cedar.Environment
+	conf    *model.CedarConfig
+	service perf.PerformanceAnalysisService
 }
 
 func init() {
@@ -44,24 +45,33 @@ func makeTimeSeriesJob() *timeSeriesUpdateJob {
 }
 
 // NewUpdateTimeSeriesJob creates a new amboy job to update a time series.
-func NewUpdateTimeSeriesJob(timeSeriesId model.PerformanceResultSeriesID) amboy.Job {
+func NewUpdateTimeSeriesJob(series model.UnanalyzedPerformanceSeries) amboy.Job {
 	j := makeTimeSeriesJob()
-	baseID := fmt.Sprintf("%s.%s.%s.%s.%s", j.JobType.Name, timeSeriesId.Project, timeSeriesId.Variant, timeSeriesId.Task, timeSeriesId.Test)
+	baseID := fmt.Sprintf(
+		"%s.%s.%s.%s.%s.%s",
+		j.JobType.Name,
+		series.Project,
+		series.Variant,
+		series.Task,
+		series.Test,
+		series.Arguments,
+	)
 	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
 	j.SetScopes([]string{baseID})
 	j.SetEnqueueAllScopes(true)
-	j.PerformanceResultId = timeSeriesId
+	j.Series = series
 	return j
 }
 
-func (j *timeSeriesUpdateJob) makeMessage(msg string, id model.PerformanceResultSeriesID) message.Fields {
+func (j *timeSeriesUpdateJob) makeMessage(msg string) message.Fields {
 	return message.Fields{
-		"job_id":  j.ID(),
-		"message": msg,
-		"project": id.Project,
-		"variant": id.Variant,
-		"task":    id.Task,
-		"test":    id.Test,
+		"job_id":    j.ID(),
+		"message":   msg,
+		"project":   j.Series.Project,
+		"variant":   j.Series.Variant,
+		"task_name": j.Series.Task,
+		"test_name": j.Series.Test,
+		"args":      j.Series.Arguments,
 	}
 }
 
@@ -81,75 +91,45 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		}
 	}
 
+	baseID := j.Series.CreateBaseSeriesID()
+
 	if j.conf.Flags.DisableSignalProcessing {
-		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing", j.PerformanceResultId))
+		grip.InfoWhen(sometimes.Percent(10), j.makeMessage("signal processing is disabled, skipping processing"))
 		return
 	}
 
-	if j.performanceAnalysisService == nil {
-		j.performanceAnalysisService = perf.NewPerformanceAnalysisService(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
+	if j.service == nil {
+		j.service = perf.NewPerformanceAnalysisService(j.conf.ChangeDetector.URI, j.conf.ChangeDetector.User, j.conf.ChangeDetector.Token)
 	}
 
-	performanceData, err := model.GetPerformanceData(ctx, j.env, j.PerformanceResultId)
-	if err != nil {
-		j.AddError(errors.Wrapf(err, "aggregating time perfData %s", j.PerformanceResultId.String()))
-		return
-	}
-	if performanceData == nil {
-		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, j.PerformanceResultId))
-		return
-	}
-	for _, perfData := range performanceData {
-		sort.Slice(perfData.TimeSeries, func(i, j int) bool {
-			return perfData.TimeSeries[i].Order < perfData.TimeSeries[j].Order
-		})
-		series := perf.TimeSeriesModel{
-			Project:     perfData.PerformanceResultId.Project,
-			Variant:     perfData.PerformanceResultId.Variant,
-			Task:        perfData.PerformanceResultId.Task,
-			Test:        perfData.PerformanceResultId.Test,
-			Measurement: perfData.PerformanceResultId.Measurement,
-		}
-		series.Arguments = []perf.ArgumentsModel{}
-		for k, v := range perfData.PerformanceResultId.Arguments {
-			series.Arguments = append(series.Arguments, perf.ArgumentsModel{
-				Name:  k,
-				Value: v,
-			})
-		}
-		filteredData := filterOldExecutions(perfData.TimeSeries)
-		for _, item := range filteredData {
-			series.Data = append(series.Data, perf.TimeSeriesDataModel{
-				PerformanceResultID: item.PerfResultID,
-				Order:               item.Order,
-				Value:               item.Value,
-				Version:             item.Version,
-				Execution:           item.Execution,
-			})
-		}
-		err := j.performanceAnalysisService.ReportUpdatedTimeSeries(ctx, series)
-		if err != nil {
-			j.AddError(errors.Wrapf(err, "updating time series for perfData %s", j.PerformanceResultId.String()))
+	for _, id := range j.Series.CreateSeriesIDs() {
+		if err := j.service.ReportUpdatedTimeSeries(ctx, createTimeSeriesModel(id)); err != nil {
+			j.AddError(errors.Wrapf(err, "updating time series for perfData %s", baseID))
 			return
 		}
-		j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, perfData.PerformanceResultId))
 	}
+
+	j.AddError(model.MarkPerformanceResultsAsAnalyzed(ctx, j.env, baseID))
 }
 
-func filterOldExecutions(timeSeries []model.TimeSeriesEntry) []model.TimeSeriesEntry {
-	maxExecutionMap := make(map[string]int)
-	for _, item := range timeSeries {
-		if item.Execution > maxExecutionMap[item.TaskID] {
-			maxExecutionMap[item.TaskID] = item.Execution
-		}
+func createTimeSeriesModel(id model.PerformanceResultSeriesID) perf.TimeSeriesModel {
+	series := perf.TimeSeriesModel{
+		Project:     id.Project,
+		Variant:     id.Variant,
+		Task:        id.Task,
+		Test:        id.Test,
+		Measurement: id.Measurement,
 	}
-
-	filtered := make([]model.TimeSeriesEntry, 0, len(timeSeries))
-	for _, item := range timeSeries {
-		if item.Execution == maxExecutionMap[item.TaskID] {
-			filtered = append(filtered, item)
-		}
+	series.Arguments = []perf.ArgumentsModel{}
+	for k, v := range id.Arguments {
+		series.Arguments = append(series.Arguments, perf.ArgumentsModel{
+			Name:  k,
+			Value: v,
+		})
 	}
+	sort.Slice(series.Arguments, func(i, j int) bool {
+		return series.Arguments[i].Name < series.Arguments[j].Name
+	})
 
-	return filtered
+	return series
 }

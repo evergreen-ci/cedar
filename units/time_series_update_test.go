@@ -12,7 +12,6 @@ import (
 	"github.com/evergreen-ci/cedar/perf"
 	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -189,40 +188,35 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 
 	t.Run("ReportsTimeSeries", func(t *testing.T) {
 		_ = env.GetDB().Drop(ctx)
-		rollups, timeSeries := makePerfResultsWithChangePoints("a", time.Now().UnixNano())
-		provisionDb(ctx, env, rollups)
-
-		timeSeriesId := model.PerformanceResultSeriesID{
-			Project: "projecta",
-			Variant: "variant",
-			Task:    "task",
-			Test:    "test",
+		series := model.UnanalyzedPerformanceSeries{
+			Project:      "project",
+			Variant:      "variant",
+			Task:         "task",
+			Test:         "test",
+			Arguments:    map[string]int32{"thread_level": 20},
+			Measurements: []string{"ops_per_sec", "avg", "latency"},
 		}
-		j := NewUpdateTimeSeriesJob(timeSeriesId)
+
+		j := NewUpdateTimeSeriesJob(series)
 		mockDetector := &MockPerformanceAnalysisService{}
 		job := j.(*timeSeriesUpdateJob)
-		job.performanceAnalysisService = mockDetector
+		job.service = mockDetector
 		job.conf = model.NewCedarConfig(env)
 		j.Run(ctx)
 		require.True(t, j.Status().Completed)
-		require.Equal(t, len(mockDetector.Calls), len(timeSeries))
-		for _, call := range mockDetector.Calls {
-			timeSeriesIndex, _ := strconv.Atoi(string(call.Measurement[len(call.Measurement)-1]))
-			require.Equal(t, timeSeriesId.Project, call.Project)
-			require.Equal(t, timeSeriesId.Variant, call.Variant)
-			require.Equal(t, timeSeriesId.Task, call.Task)
-			require.Equal(t, timeSeriesId.Test, call.Test)
+		require.Equal(t, len(mockDetector.Calls), len(series.Measurements))
+		for i, call := range mockDetector.Calls {
+			require.Equal(t, series.Project, call.Project)
+			require.Equal(t, series.Variant, call.Variant)
+			require.Equal(t, series.Task, call.Task)
+			require.Equal(t, series.Test, call.Test)
 			require.Equal(t, []perf.ArgumentsModel{{Name: "thread_level", Value: int32(20)}}, call.Arguments)
-			data := make([]int, len(call.Data))
-			for i, timeSeriesData := range call.Data {
-				data[i] = int(timeSeriesData.Value)
-			}
-			require.Equal(t, timeSeries[timeSeriesIndex], data)
+			require.Equal(t, series.Measurements[i], call.Measurement)
 		}
 	})
 
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
-		j := NewUpdateTimeSeriesJob(model.PerformanceResultSeriesID{
+		j := NewUpdateTimeSeriesJob(model.UnanalyzedPerformanceSeries{
 			Project: "projecta",
 			Variant: "variant",
 			Task:    "task",
@@ -230,46 +224,11 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 		})
 		mockDetector := &MockPerformanceAnalysisService{}
 		job := j.(*timeSeriesUpdateJob)
-		job.performanceAnalysisService = mockDetector
+		job.service = mockDetector
 		job.conf = model.NewCedarConfig(env)
 		job.conf.Flags.DisableSignalProcessing = true
 		j.Run(ctx)
 		require.True(t, j.Status().Completed)
 		require.Len(t, mockDetector.Calls, 0)
-	})
-}
-
-func TestFilterOldExecutions(t *testing.T) {
-	t.Run("AllTheLatestExecution", func(t *testing.T) {
-		timeSeries := []model.TimeSeriesEntry{
-			{TaskID: "t0"},
-			{TaskID: "t1"},
-			{TaskID: "t2"},
-		}
-		result := filterOldExecutions(timeSeries)
-		assert.Len(t, result, 3)
-	})
-	t.Run("Empty", func(t *testing.T) {
-		timeSeries := []model.TimeSeriesEntry{}
-		result := filterOldExecutions(timeSeries)
-		assert.Len(t, result, 0)
-	})
-	t.Run("ExtraExecution", func(t *testing.T) {
-		timeSeries := []model.TimeSeriesEntry{
-			{TaskID: "t0", Execution: 0},
-			{TaskID: "t0", Execution: 1},
-		}
-		result := filterOldExecutions(timeSeries)
-		require.Len(t, result, 1)
-		assert.Equal(t, result[0].Execution, 1)
-	})
-	t.Run("OneTaskWithAnExtraExecution", func(t *testing.T) {
-		timeSeries := []model.TimeSeriesEntry{
-			{TaskID: "t0", Execution: 0},
-			{TaskID: "t0", Execution: 1},
-			{TaskID: "t1", Execution: 0},
-		}
-		result := filterOldExecutions(timeSeries)
-		require.Len(t, result, 2)
 	})
 }

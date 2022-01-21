@@ -168,23 +168,24 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 // each project/version/task/test combination
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	queue := dbc.env.GetRemoteQueue()
-	ids, err := model.GetPerformanceResultSeriesIDs(ctx, dbc.env)
+	allSeries, err := model.GetAllPerformanceResultSeriesIDs(ctx, dbc.env)
 	if err != nil {
 		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
 	}
 
 	catcher := grip.NewBasicCatcher()
 
-	for _, id := range ids {
-		job := units.NewUpdateTimeSeriesJob(id)
+	for _, series := range allSeries {
+		job := units.NewUpdateTimeSeriesJob(series)
 		err := amboy.EnqueueUniqueJob(ctx, queue, job)
 		if err != nil {
 			catcher.Add(errors.New(message.WrapError(err, message.Fields{
 				"message": "Unable to enqueue recalculation job for metric",
-				"project": id.Project,
-				"variant": id.Variant,
-				"task":    id.Task,
-				"test":    id.Test,
+				"project": series.Project,
+				"variant": series.Variant,
+				"task":    series.Task,
+				"test":    series.Test,
+				"args":    series.Arguments,
 			}).String()))
 		}
 	}
