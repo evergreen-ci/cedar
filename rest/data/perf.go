@@ -179,7 +179,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 		err := amboy.EnqueueUniqueJob(ctx, queue, job)
 		if err != nil {
 			catcher.Add(message.WrapError(err, message.Fields{
-				"message": "Unable to enqueue recalculation job for metric",
+				"message": "unable to enqueue recalculation job for metric",
 				"project": series.Project,
 				"variant": series.Variant,
 				"task":    series.Task,
