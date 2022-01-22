@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mongodb/amboy/queue"
-	"github.com/mongodb/grip"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,21 +75,21 @@ func generateDistinctRandoms(existing []int, min, max, num int) []int {
 	}
 	return newVals
 }
+
 func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAndRollups, [][]int) {
-	// deterministic testing on failure
-	grip.Debug("Seed for recalculate test: " + strconv.FormatInt(seed, 10))
+	// Deterministic testing on failure.
 	rand.Seed(seed)
 	numTimeSeries := rand.Intn(10) + 1
 	timeSeriesLengths := make([]int, numTimeSeries)
 	timeSeriesChangePoints := make([][]int, numTimeSeries)
 	timeSeries := make([][]int, numTimeSeries)
 
-	// generate series of random length in range [100, 300]
+	// Generate series of random length in range [100, 300].
 	for i := 0; i < numTimeSeries; i++ {
 		timeSeriesLengths[i] = rand.Intn(201) + 100
 	}
 
-	// sprinkle in some random change points
+	// Sprinkle in some random change points.
 	for measurement, length := range timeSeriesLengths {
 		remainingPoints := length
 		for remainingPoints > 0 {
@@ -98,14 +97,15 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 				remainingPoints = 0
 				continue
 			}
-			// make sure there are 10 points on either side of the cp
+			// Make sure there are 10 points on either side of the
+			// change point.
 			changePoint := rand.Intn(remainingPoints-20) + 10
 			timeSeriesChangePoints[measurement] = append(timeSeriesChangePoints[measurement], changePoint+length-remainingPoints)
 			remainingPoints = remainingPoints - changePoint
 		}
 	}
 
-	// let's create our time series
+	// Create the time series.
 	for measurement, length := range timeSeriesLengths {
 		changePoints := timeSeriesChangePoints[measurement]
 		startingPoint := 0
@@ -123,16 +123,18 @@ func makePerfResultsWithChangePoints(unique string, seed int64) ([]testResultsAn
 		}
 	}
 
-	// measurements/rollups can be added/removed over time, so we should chop up and group our time series randomly
+	// Measurements/rollups can be added/removed over time, so we should
+	// chop up and group our time series randomly.
 	consumed := make([]int, numTimeSeries)
 	var finishedConsuming []int
 	var rollups []testResultsAndRollups
 
 	i := 0
 	for len(finishedConsuming) != numTimeSeries {
-		// Let's record a random number of measurements this run, drawn from [1, numTimeSeries-len(finishedConsuming)]
+		// Record a random number of measurements this run, drawn from
+		// [1, numTimeSeries-len(finishedConsuming)].
 		measurementsThisRun := rand.Intn(numTimeSeries-len(finishedConsuming)) + 1
-		// Get measurements that aren't yet finished being persisted
+		// Get measurements that aren't yet finished being persisted.
 		measurements := generateDistinctRandoms(finishedConsuming, 0, numTimeSeries-1, measurementsThisRun)
 
 		newRollup := testResultsAndRollups{

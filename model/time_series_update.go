@@ -29,7 +29,7 @@ type PerformanceResultSeriesID struct {
 	Task        string               `bson:"task"`
 	Test        string               `bson:"test"`
 	Measurement string               `bson:"measurement"`
-	Arguments   PerformanceArguments `bson:"args,omitempty"`
+	Arguments   PerformanceArguments `bson:"args"`
 }
 
 // String creates a string representation of a performance result series ID.
@@ -68,9 +68,18 @@ type UnanalyzedPerformanceSeries struct {
 	Variant      string               `bson:"variant"`
 	Task         string               `bson:"task"`
 	Test         string               `bson:"test"`
-	Measurements []string             `bson:"measurement"`
-	Arguments    PerformanceArguments `bson:"args,omitempty"`
+	Measurements []string             `bson:"measurements"`
+	Arguments    PerformanceArguments `bson:"args"`
 }
+
+var (
+	unanalyzedPerformanceSeriesProjectKey      = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Project")
+	unanalyzedPerformanceSeriesVariantKey      = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Variant")
+	unanalyzedPerformanceSeriesTaskKey         = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Task")
+	unanalyzedPerformanceSeriesTestKey         = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Test")
+	unanalyzedPerformanceSeriesMeasurementsKey = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Measurements")
+	unanalyzedPerformanceSeriesArgumentsKey    = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Arguments")
+)
 
 // CreateBaseSeriesID returns a PerformanceSeriesID without a measurement.
 func (s UnanalyzedPerformanceSeries) CreateBaseSeriesID() PerformanceResultSeriesID {
@@ -139,13 +148,13 @@ func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) 
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
-					"args":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
+					unanalyzedPerformanceSeriesProjectKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					unanalyzedPerformanceSeriesTestKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					unanalyzedPerformanceSeriesArgumentsKey: "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
 				},
-				"measurements": bson.M{
+				unanalyzedPerformanceSeriesMeasurementsKey: bson.M{
 					"$addToSet": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
 				},
 			},
@@ -159,12 +168,12 @@ func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) 
 		{
 			"$replaceRoot": bson.M{
 				"newRoot": bson.M{
-					"project":      "$" + "_id.project",
-					"variant":      "$" + "_id.variant",
-					"task":         "$" + "_id.task",
-					"test":         "$" + "_id.test",
-					"args":         "$" + "_id.args",
-					"measurements": "$" + "measurements",
+					unanalyzedPerformanceSeriesProjectKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTaskKey),
+					unanalyzedPerformanceSeriesTestKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTestKey),
+					unanalyzedPerformanceSeriesArgumentsKey:    "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesArgumentsKey),
+					unanalyzedPerformanceSeriesMeasurementsKey: "$" + unanalyzedPerformanceSeriesMeasurementsKey,
 				},
 			},
 		},
@@ -202,13 +211,13 @@ func GetAllPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
-					"args":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
+					unanalyzedPerformanceSeriesProjectKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					unanalyzedPerformanceSeriesTestKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					unanalyzedPerformanceSeriesArgumentsKey: "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
 				},
-				"measurements": bson.M{
+				unanalyzedPerformanceSeriesMeasurementsKey: bson.M{
 					"$addToSet": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
 				},
 			},
@@ -216,12 +225,12 @@ func GetAllPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment
 		{
 			"$replaceRoot": bson.M{
 				"newRoot": bson.M{
-					"project":      "$" + "_id.project",
-					"variant":      "$" + "_id.variant",
-					"task":         "$" + "_id.task",
-					"test":         "$" + "_id.test",
-					"args":         "$" + "_id.args",
-					"measurements": "$" + "measurements",
+					unanalyzedPerformanceSeriesProjectKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTaskKey),
+					unanalyzedPerformanceSeriesTestKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTestKey),
+					unanalyzedPerformanceSeriesArgumentsKey:    "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesArgumentsKey),
+					unanalyzedPerformanceSeriesMeasurementsKey: "$" + unanalyzedPerformanceSeriesMeasurementsKey,
 				},
 			},
 		},

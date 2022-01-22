@@ -53,7 +53,6 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 			require.Equal(t, series.Measurements[i], call.Measurement)
 		}
 	})
-
 	t.Run("DoesNothingWhenDisabled", func(t *testing.T) {
 		j := NewUpdateTimeSeriesJob(model.UnanalyzedPerformanceSeries{
 			Project: "projecta",
