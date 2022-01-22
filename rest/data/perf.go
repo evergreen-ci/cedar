@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sort"
 	"time"
@@ -165,12 +164,12 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 }
 
 // ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
-// each project/version/task/test combination
+// each project/version/task/test/args combination.
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	queue := dbc.env.GetRemoteQueue()
 	allSeries, err := model.GetAllPerformanceResultSeriesIDs(ctx, dbc.env)
 	if err != nil {
-		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: errors.Wrap(err, "failed to get time series ids").Error()}
 	}
 
 	catcher := grip.NewBasicCatcher()

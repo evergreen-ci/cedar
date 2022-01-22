@@ -133,7 +133,7 @@ func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) 
 		},
 		{
 			"$unwind": bson.M{
-				"path": bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
+				"path": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
 			},
 		},
 		{
@@ -208,9 +208,9 @@ func GetAllPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment
 					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
 					"args":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
 				},
-			},
-			"measurements": bson.M{
-				"$addToSet": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
+				"measurements": bson.M{
+					"$addToSet": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
+				},
 			},
 		},
 		{

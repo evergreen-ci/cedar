@@ -64,7 +64,7 @@ var (
 )
 
 // CreateUnanalyzedSeries converts the PerformanceResult into an
-// UnanalyzedPerformanceSeries for comminication with the signal processing
+// UnanalyzedPerformanceSeries for communication with the signal processing
 // service.
 func (result PerformanceResult) CreateUnanalyzedSeries() UnanalyzedPerformanceSeries {
 	measurements := make([]string, len(result.Rollups.Stats))
