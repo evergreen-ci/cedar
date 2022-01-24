@@ -39,15 +39,12 @@ func tearDownPeriodicTest(env cedar.Environment) error {
 	return errors.WithStack(session.DB(conf.DatabaseName).DropDatabase())
 }
 
-func provisionDb(ctx context.Context, env cedar.Environment, rollups []testResultsAndRollups) {
+func provisionDB(ctx context.Context, t *testing.T, env cedar.Environment, rollups []testResultsAndRollups) {
 	for _, result := range rollups {
 		performanceResult := model.CreatePerformanceResult(*result.info, nil, result.rollups)
-		performanceResult.CreatedAt = time.Now().Add(time.Second * -1)
+		performanceResult.CreatedAt = time.Now().Add(-time.Second)
 		performanceResult.Setup(env)
-		err := performanceResult.SaveNew(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, performanceResult.SaveNew(ctx))
 	}
 }
 
@@ -179,11 +176,11 @@ func TestPeriodicTimeSeriesUpdateJob(t *testing.T) {
 	}()
 
 	t.Run("PeriodicallySchedules", func(t *testing.T) {
-		_ = env.GetDB().Drop(ctx)
+		require.NoError(t, env.GetDB().Drop(ctx))
 
 		aRollups, _ := makePerfResultsWithChangePoints("e", time.Now().UnixNano())
 		bRollups, _ := makePerfResultsWithChangePoints("f", time.Now().UnixNano())
-		provisionDb(ctx, env, append(aRollups, bRollups...))
+		provisionDB(ctx, t, env, append(aRollups, bRollups...))
 
 		j := NewPeriodicTimeSeriesUpdateJob("someId")
 		job := j.(*periodicTimeSeriesJob)

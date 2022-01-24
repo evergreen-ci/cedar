@@ -73,11 +73,12 @@ func (result PerformanceResult) CreateUnanalyzedSeries() UnanalyzedPerformanceSe
 	}
 
 	return UnanalyzedPerformanceSeries{
-		Project:   result.Info.Project,
-		Variant:   result.Info.Variant,
-		Task:      result.Info.TaskName,
-		Test:      result.Info.TestName,
-		Arguments: result.Info.Arguments,
+		Project:      result.Info.Project,
+		Variant:      result.Info.Variant,
+		Task:         result.Info.TaskName,
+		Test:         result.Info.TestName,
+		Arguments:    result.Info.Arguments,
+		Measurements: measurements,
 	}
 }
 

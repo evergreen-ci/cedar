@@ -26,7 +26,7 @@ func TestUpdateTimeSeriesJob(t *testing.T) {
 	defer cancel()
 
 	t.Run("ReportsTimeSeries", func(t *testing.T) {
-		_ = env.GetDB().Drop(ctx)
+		require.NoError(t, env.GetDB().Drop(ctx))
 		series := model.UnanalyzedPerformanceSeries{
 			Project:      "project",
 			Variant:      "variant",

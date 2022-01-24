@@ -63,8 +63,7 @@ func (j *periodicTimeSeriesJob) Run(ctx context.Context) {
 	}
 
 	for _, series := range outdatedSeries {
-		err := amboy.EnqueueUniqueJob(ctx, j.queue, NewUpdateTimeSeriesJob(series))
-		if err != nil {
+		if err := amboy.EnqueueUniqueJob(ctx, j.queue, NewUpdateTimeSeriesJob(series)); err != nil {
 			j.AddError(err)
 			return
 		}
