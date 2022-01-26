@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -455,6 +456,33 @@ func TestPerformanceArgumentsBSONMarshalValue(t *testing.T) {
 		require.NoError(t, bson.Unmarshal(data, &out))
 		assert.Nil(t, out.Arguments)
 	})
+}
+
+func TestPerformanceArgumentsStringer(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		args     PerformanceArguments
+		expected string
+	}{
+		{
+			name:     "UnsortedArguments",
+			args:     PerformanceArguments{"spruce": 2, "evergreen": 0, "cedar": 1},
+			expected: "[cedar:1 evergreen:0 spruce:2]",
+		},
+		{
+			name:     "EmptyArguments",
+			args:     PerformanceArguments{},
+			expected: "[]",
+		},
+		{
+			name:     "NilArguments",
+			expected: "[]",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, fmt.Sprintf("%s", test.args))
+		})
+	}
 }
 
 func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {

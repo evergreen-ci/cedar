@@ -7,6 +7,7 @@ import (
 	"hash"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -62,12 +63,22 @@ var (
 	perfVersionKey           = bsonutil.MustHaveTag(PerformanceResult{}, "Version")
 )
 
-func (info *PerformanceResultInfo) ToPerformanceResultSeriesID() PerformanceResultSeriesID {
-	return PerformanceResultSeriesID{
-		Project: info.Project,
-		Variant: info.Variant,
-		Task:    info.TaskName,
-		Test:    info.TestName,
+// CreateUnanalyzedSeries converts the PerformanceResult into an
+// UnanalyzedPerformanceSeries for communication with the signal processing
+// service.
+func (result PerformanceResult) CreateUnanalyzedSeries() UnanalyzedPerformanceSeries {
+	measurements := make([]string, len(result.Rollups.Stats))
+	for i, stat := range result.Rollups.Stats {
+		measurements[i] = stat.Name
+	}
+
+	return UnanalyzedPerformanceSeries{
+		Project:      result.Info.Project,
+		Variant:      result.Info.Variant,
+		Task:         result.Info.TaskName,
+		Test:         result.Info.TestName,
+		Arguments:    result.Info.Arguments,
+		Measurements: measurements,
 	}
 }
 
@@ -316,7 +327,6 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 	}
 
 	return errors.Wrapf(err, "problem closing performance result with id %s", result.ID)
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -392,6 +402,18 @@ func (args PerformanceArguments) MarshalBSONValue() (bsontype.Type, []byte, erro
 	})
 
 	return bson.MarshalValue(&sortedArgs)
+}
+
+func (args PerformanceArguments) String() string {
+	var sortedArgs []string
+	for key, value := range args {
+		sortedArgs = append(sortedArgs, fmt.Sprintf("%s:%d", key, value))
+	}
+	sort.Slice(sortedArgs, func(i, j int) bool {
+		return sortedArgs[i] < sortedArgs[j]
+	})
+
+	return fmt.Sprintf("[%s]", strings.Join(sortedArgs, " "))
 }
 
 // ID creates a unique hash for a performance result.

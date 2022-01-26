@@ -433,7 +433,7 @@ func (h *perfSignalProcessingRecalculateHandler) Parse(_ context.Context, r *htt
 func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet.Responder {
 	err := h.sc.ScheduleSignalProcessingRecalculateJobs(ctx)
 	if err != nil {
-		err = errors.Wrapf(err, "Error scheduling signal processing recalculation jobs")
+		err = errors.Wrapf(err, "error scheduling signal processing recalculation jobs")
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",

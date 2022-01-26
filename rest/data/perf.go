@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sort"
 	"time"
@@ -165,27 +164,27 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 }
 
 // ScheduleSignalProcessingRecalculateJobs schedules signal processing recalculation jobs for
-// each project/version/task/test combination
+// each project/version/task/test/args combination.
 func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Context) error {
 	queue := dbc.env.GetRemoteQueue()
-	ids, err := model.GetPerformanceResultSeriesIDs(ctx, dbc.env)
+	allSeries, err := model.GetAllPerformanceResultSeriesIDs(ctx, dbc.env)
 	if err != nil {
-		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: fmt.Sprint("Failed to get time series ids")}
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: errors.Wrap(err, "failed to get time series ids").Error()}
 	}
 
 	catcher := grip.NewBasicCatcher()
 
-	for _, id := range ids {
-		job := units.NewUpdateTimeSeriesJob(id)
-		err := amboy.EnqueueUniqueJob(ctx, queue, job)
-		if err != nil {
-			catcher.Add(errors.New(message.WrapError(err, message.Fields{
-				"message": "Unable to enqueue recalculation job for metric",
-				"project": id.Project,
-				"variant": id.Variant,
-				"task":    id.Task,
-				"test":    id.Test,
-			}).String()))
+	for _, series := range allSeries {
+		job := units.NewUpdateTimeSeriesJob(series)
+		if err := amboy.EnqueueUniqueJob(ctx, queue, job); err != nil {
+			catcher.Add(message.WrapError(err, message.Fields{
+				"message": "unable to enqueue recalculation job for metric",
+				"project": series.Project,
+				"variant": series.Variant,
+				"task":    series.Task,
+				"test":    series.Test,
+				"args":    series.Arguments,
+			}))
 		}
 	}
 	return catcher.Resolve()

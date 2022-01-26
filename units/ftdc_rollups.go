@@ -96,18 +96,18 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	inc := func() {
 		result := &model.PerformanceResult{ID: j.PerfID}
 		result.Setup(j.env)
-		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "problem incrementing failed rollup attempts"))
+		j.AddError(errors.Wrap(result.IncFailedRollupAttempts(ctx), "incrementing failed rollup attempts"))
 	}
 	bucket, err := j.ArtifactInfo.Type.Create(ctx, j.env, j.ArtifactInfo.Bucket, j.ArtifactInfo.Prefix, "", false)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem resolving bucket"))
+		j.AddError(errors.Wrap(err, "resolving bucket"))
 		inc()
 		return
 	}
 
 	data, err := bucket.Get(ctx, j.ArtifactInfo.Path)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem fetching artifact"))
+		j.AddError(errors.Wrap(err, "fetching artifact"))
 		inc()
 		return
 	}
@@ -115,7 +115,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 
 	perfStats, err := perf.CreatePerformanceStats(iter)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem computing performance statistics from raw data"))
+		j.AddError(errors.Wrap(err, "computing performance statistics from raw data"))
 		inc()
 		return
 	}
@@ -124,7 +124,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	for _, t := range j.RollupTypes {
 		factory := perf.RollupFactoryFromType(t)
 		if factory == nil {
-			j.AddError(errors.Errorf("problem resolving rollup factory type %s", t))
+			j.AddError(errors.Errorf("resolving rollup factory type %s", t))
 			continue
 		}
 		rollups = append(rollups, factory.Calc(perfStats, j.UserSubmitted)...)
@@ -134,7 +134,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	result.Setup(j.env)
 	err = result.Find(ctx)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem running query"))
+		j.AddError(errors.Wrap(err, "running query"))
 		return
 	}
 
@@ -142,7 +142,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	for _, r := range rollups {
 		err = result.Rollups.Add(ctx, r)
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "problem adding rollup %s for perf result %s", r.Name, j.PerfID))
+			j.AddError(errors.Wrapf(err, "adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
 	}
 	j.createSignalProcessingJob(ctx, result)
@@ -152,9 +152,9 @@ func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *
 	if j.queue == nil {
 		j.queue = j.env.GetRemoteQueue()
 	}
-	processingJob := NewUpdateTimeSeriesJob(result.Info.ToPerformanceResultSeriesID())
+	processingJob := NewUpdateTimeSeriesJob(result.CreateUnanalyzedSeries())
 
-	err := errors.Wrapf(amboy.EnqueueUniqueJob(ctx, j.queue, processingJob), "problem putting signal processing job %s on remote queue", j.ID())
+	err := errors.Wrapf(amboy.EnqueueUniqueJob(ctx, j.queue, processingJob), "putting signal processing job %s on remote queue", j.ID())
 	if err != nil {
 		j.AddError(err)
 	}

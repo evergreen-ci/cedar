@@ -9,7 +9,6 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // PerfAnalysis contains information about when the associated performance
@@ -30,30 +29,12 @@ type PerformanceResultSeriesID struct {
 	Task        string               `bson:"task"`
 	Test        string               `bson:"test"`
 	Measurement string               `bson:"measurement"`
-	Arguments   PerformanceArguments `bson:"args,omitempty"`
+	Arguments   PerformanceArguments `bson:"args"`
 }
 
 // String creates a string representation of a performance result series ID.
 func (p PerformanceResultSeriesID) String() string {
-	return fmt.Sprintf("%s %s %s %s %v", p.Project, p.Variant, p.Task, p.Test, p.Arguments)
-}
-
-// TimeSeriesEntry represents information about a single performance result in
-// a series.
-type TimeSeriesEntry struct {
-	PerfResultID string  `bson:"perf_result_id"`
-	Value        float64 `bson:"value"`
-	Order        int     `bson:"order"`
-	Version      string  `bson:"version"`
-	TaskID       string  `bson:"task_id"`
-	Execution    int     `bson:"execution"`
-}
-
-// PerformanceData represents information about a performance result series and
-// its associated measurement data.
-type PerformanceData struct {
-	PerformanceResultId PerformanceResultSeriesID `bson:"_id"`
-	TimeSeries          []TimeSeriesEntry         `bson:"time_series"`
+	return fmt.Sprintf("%s %s %s %s %s", p.Project, p.Variant, p.Task, p.Test, p.Arguments)
 }
 
 // MarkPerformanceResultsAsAnalyzed marks all the performance results with the
@@ -79,10 +60,59 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 	return nil
 }
 
-// GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate queries the database
-// and gets all the performance result series IDs that contain results that
-// have not yet been analyzed.
-func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
+// UnanalyzedPerformanceSeries represents a set of series with the same
+// project/variant/task/test/args combination and varying measurements that
+// need to be analyzed by the signal processing service.
+type UnanalyzedPerformanceSeries struct {
+	Project      string               `bson:"project"`
+	Variant      string               `bson:"variant"`
+	Task         string               `bson:"task"`
+	Test         string               `bson:"test"`
+	Measurements []string             `bson:"measurements"`
+	Arguments    PerformanceArguments `bson:"args"`
+}
+
+var (
+	unanalyzedPerformanceSeriesProjectKey      = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Project")
+	unanalyzedPerformanceSeriesVariantKey      = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Variant")
+	unanalyzedPerformanceSeriesTaskKey         = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Task")
+	unanalyzedPerformanceSeriesTestKey         = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Test")
+	unanalyzedPerformanceSeriesMeasurementsKey = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Measurements")
+	unanalyzedPerformanceSeriesArgumentsKey    = bsonutil.MustHaveTag(UnanalyzedPerformanceSeries{}, "Arguments")
+)
+
+// CreateBaseSeriesID returns a PerformanceSeriesID without a measurement.
+func (s UnanalyzedPerformanceSeries) CreateBaseSeriesID() PerformanceResultSeriesID {
+	return PerformanceResultSeriesID{
+		Project:   s.Project,
+		Variant:   s.Variant,
+		Task:      s.Task,
+		Test:      s.Test,
+		Arguments: s.Arguments,
+	}
+}
+
+// CreateSeriesIDs unwinds the Measurements slice to create an individual
+// PerformanceResultSeriesID for each measurement.
+func (s UnanalyzedPerformanceSeries) CreateSeriesIDs() []PerformanceResultSeriesID {
+	ids := make([]PerformanceResultSeriesID, len(s.Measurements))
+	for i, measurement := range s.Measurements {
+		ids[i] = PerformanceResultSeriesID{
+			Project:     s.Project,
+			Variant:     s.Variant,
+			Task:        s.Task,
+			Test:        s.Test,
+			Measurement: measurement,
+			Arguments:   s.Arguments,
+		}
+	}
+
+	return ids
+}
+
+// GetUnanalyzedPerformanceSeries queries the database and gets all the
+// performance series that contain results that have not yet been analyzed.
+func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) ([]UnanalyzedPerformanceSeries, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -111,12 +141,21 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 			"$limit": 1000,
 		},
 		{
+			"$unwind": bson.M{
+				"path": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
+			},
+		},
+		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					unanalyzedPerformanceSeriesProjectKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					unanalyzedPerformanceSeriesTestKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					unanalyzedPerformanceSeriesArgumentsKey: "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
+				},
+				unanalyzedPerformanceSeriesMeasurementsKey: bson.M{
+					"$addToSet": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
 				},
 			},
 		},
@@ -128,7 +167,14 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 		},
 		{
 			"$replaceRoot": bson.M{
-				"newRoot": "$_id",
+				"newRoot": bson.M{
+					unanalyzedPerformanceSeriesProjectKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTaskKey),
+					unanalyzedPerformanceSeriesTestKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTestKey),
+					unanalyzedPerformanceSeriesArgumentsKey:    "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesArgumentsKey),
+					unanalyzedPerformanceSeriesMeasurementsKey: "$" + unanalyzedPerformanceSeriesMeasurementsKey,
+				},
 			},
 		},
 	})
@@ -136,7 +182,7 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 		return nil, errors.Wrapf(err, "getting metrics needing change point detection")
 	}
 	defer cur.Close(ctx)
-	var res []PerformanceResultSeriesID
+	var res []UnanalyzedPerformanceSeries
 	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrapf(err, "decoding metrics needing change results")
@@ -144,9 +190,9 @@ func GetPerformanceResultSeriesIdsNeedingTimeSeriesUpdate(ctx context.Context, e
 	return res, nil
 }
 
-// GetPerformanceResultSeriesIDs finds all performance result series IDs in the
-// the database.
-func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]PerformanceResultSeriesID, error) {
+// GetAllPerformanceResultSeriesIDs finds all performance result series in the
+// database.
+func GetAllPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]UnanalyzedPerformanceSeries, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -156,6 +202,7 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
+				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey):    bson.M{"$not": bson.M{"$size": 0}},
 			},
 		},
 		{
@@ -164,16 +211,27 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"project": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant": "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":    "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					unanalyzedPerformanceSeriesProjectKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:   "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
+					unanalyzedPerformanceSeriesTestKey:      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
+					unanalyzedPerformanceSeriesArgumentsKey: "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
+				},
+				unanalyzedPerformanceSeriesMeasurementsKey: bson.M{
+					"$addToSet": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
 				},
 			},
 		},
 		{
 			"$replaceRoot": bson.M{
-				"newRoot": "$_id",
+				"newRoot": bson.M{
+					unanalyzedPerformanceSeriesProjectKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesProjectKey),
+					unanalyzedPerformanceSeriesVariantKey:      "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesVariantKey),
+					unanalyzedPerformanceSeriesTaskKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTaskKey),
+					unanalyzedPerformanceSeriesTestKey:         "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesTestKey),
+					unanalyzedPerformanceSeriesArgumentsKey:    "$" + bsonutil.GetDottedKeyName("_id", unanalyzedPerformanceSeriesArgumentsKey),
+					unanalyzedPerformanceSeriesMeasurementsKey: "$" + unanalyzedPerformanceSeriesMeasurementsKey,
+				},
 			},
 		},
 	})
@@ -181,72 +239,10 @@ func GetPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) (
 		return nil, errors.Wrap(err, "aggregating time series ids")
 	}
 	defer cur.Close(ctx)
-	var res []PerformanceResultSeriesID
+	var res []UnanalyzedPerformanceSeries
 	err = cur.All(ctx, &res)
 	if err != nil {
 		return nil, errors.Wrap(err, "decoding time series ids")
-	}
-	return res, nil
-}
-
-// GetPerformanceData queries the database to get the performance result time
-// series data associated with the given series ID.
-func GetPerformanceData(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) ([]PerformanceData, error) {
-	opts := options.Aggregate().SetAllowDiskUse(true)
-	pipe := []bson.M{
-		{
-			"$match": bson.M{
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):  performanceResultId.Project,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey):  performanceResultId.Variant,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey):    bson.M{"$exists": true},
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): performanceResultId.Task,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): performanceResultId.Test,
-				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey): true,
-			},
-		},
-		{
-			"$unwind": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey),
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"project":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey),
-					"variant":     "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey),
-					"task":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey),
-					"test":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey),
-					"measurement": "$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey),
-					"args":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey),
-				},
-				"time_series": bson.M{
-					"$push": bson.M{
-						"value": bson.M{
-							"$ifNull": bson.A{
-								"$" + bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueValueKey),
-								0,
-							},
-						},
-						"order":          "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey),
-						"perf_result_id": "$_id",
-						"version":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey),
-						"task_id":        "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey),
-						"execution":      "$" + bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoExecutionKey),
-					},
-				},
-			},
-		},
-	}
-	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, pipe, opts)
-	if err != nil {
-		return nil, errors.Wrap(err, "aggregating time series")
-	}
-	defer cur.Close(ctx)
-	var res []PerformanceData
-	err = cur.All(ctx, &res)
-	if err != nil {
-		return nil, errors.Wrap(err, "decoding time series")
-	}
-	if len(res) == 0 {
-		return nil, nil
 	}
 	return res, nil
 }

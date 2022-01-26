@@ -58,7 +58,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	}
 
 	if record.Info.Mainline && len(record.Rollups.Stats) > 0 {
-		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
+		processingJob := units.NewUpdateTimeSeriesJob(record.CreateUnanalyzedSeries())
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {
@@ -130,7 +130,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 	}
 
 	if record.Info.Mainline {
-		processingJob := units.NewUpdateTimeSeriesJob(record.Info.ToPerformanceResultSeriesID())
+		processingJob := units.NewUpdateTimeSeriesJob(record.CreateUnanalyzedSeries())
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {
