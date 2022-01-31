@@ -56,6 +56,7 @@ func (c *Configuration) GetQueueOptions() queue.MongoDBOptions {
 	return queue.MongoDBOptions{
 		URI:                      c.MongoDBURI,
 		DB:                       c.DatabaseName,
+		Collection:               c.QueueName,
 		CheckWaitUntil:           true,
 		Format:                   amboy.BSON2,
 		WaitInterval:             time.Second,
