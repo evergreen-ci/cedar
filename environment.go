@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/amboy/management"
 	"github.com/mongodb/amboy/pool"
@@ -106,14 +107,13 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 
 	if !conf.DisableRemoteQueue {
 		opts := conf.GetQueueOptions()
+		opts.Client = env.client
 
-		args := queue.MongoDBQueueCreationOptions{
-			Size:    conf.NumWorkers,
-			Name:    conf.QueueName,
-			Ordered: false,
-			Client:  env.client,
-			MDB:     opts,
-			Retryable: queue.RetryableQueueOptions{
+		queueOpts := queue.MongoDBQueueOptions{
+			NumWorkers: utility.ToIntPtr(conf.NumWorkers),
+			Ordered:    utility.FalsePtr(),
+			DB:         &opts,
+			Retryable: &queue.RetryableQueueOptions{
 				RetryHandler: amboy.RetryHandlerOptions{
 					NumWorkers:       2,
 					MaxCapacity:      4096,
@@ -126,7 +126,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 
 		var rq amboy.Queue
-		rq, err = queue.NewMongoDBQueue(ctx, args)
+		rq, err = queue.NewMongoDBQueue(ctx, queueOpts)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem setting main queue backend")
 		}
@@ -150,10 +150,9 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			return nil, errors.Wrap(err, "problem starting remote queue")
 		}
 		managementOpts := management.DBQueueManagerOptions{
-			Name:    conf.QueueName,
 			Options: opts,
 		}
-		env.remoteManager, err = management.MakeDBQueueManager(ctx, managementOpts, env.client)
+		env.remoteManager, err = management.MakeDBQueueManager(ctx, managementOpts)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem starting remote reporter")
 		}
@@ -161,14 +160,13 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 
 	if !conf.DisableRemoteQueueGroup {
 		opts := conf.GetQueueGroupOptions()
-		args := queue.MongoDBQueueGroupOptions{
-			Prefix:                    conf.QueueName,
-			DefaultWorkers:            conf.NumWorkers,
-			Ordered:                   false,
-			BackgroundCreateFrequency: 10 * time.Minute,
-			PruneFrequency:            10 * time.Minute,
-			TTL:                       time.Minute,
-			Retryable: queue.RetryableQueueOptions{
+		opts.Client = env.client
+
+		queueOpts := queue.MongoDBQueueOptions{
+			NumWorkers: utility.ToIntPtr(conf.NumWorkers),
+			Ordered:    utility.FalsePtr(),
+			DB:         &opts,
+			Retryable: &queue.RetryableQueueOptions{
 				RetryHandler: amboy.RetryHandlerOptions{
 					NumWorkers:       2,
 					MaxCapacity:      4096,
@@ -180,7 +178,14 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			},
 		}
 
-		env.remoteQueueGroup, err = queue.NewMongoDBSingleQueueGroup(ctx, args, env.client, opts)
+		groupOpts := queue.MongoDBQueueGroupOptions{
+			Queue:                     queueOpts,
+			BackgroundCreateFrequency: 10 * time.Minute,
+			PruneFrequency:            10 * time.Minute,
+			TTL:                       time.Minute,
+		}
+
+		env.remoteQueueGroup, err = queue.NewMongoDBSingleQueueGroup(ctx, groupOpts)
 		if err != nil {
 			return nil, errors.Wrap(err, "problem starting remote queue group")
 		}
