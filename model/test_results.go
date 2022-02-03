@@ -24,6 +24,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"github.com/xitongsys/parquet-go/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -489,6 +490,25 @@ func (t TestResult) GetDisplayName() string {
 
 func (t TestResult) getDuration() time.Duration {
 	return t.TestEndTime.Sub(t.TestStartTime)
+}
+
+func (t TestResult) ConvertToParquetTestResult() ParquetTestResult {
+	return ParquetTestResult{
+		TaskID:          t.TaskID,
+		Execution:       int32(t.Execution),
+		TestName:        t.TestName,
+		DisplayTestName: t.DisplayTestName,
+		GroupID:         t.GroupID,
+		Trial:           int32(t.Trial),
+		Status:          t.Status,
+		LogTestName:     t.LogTestName,
+		LogURL:          t.LogURL,
+		RawLogURL:       t.RawLogURL,
+		LineNum:         int32(t.LineNum),
+		TaskCreateTime:  types.TimeToTIMESTAMP_MILLIS(t.TaskCreateTime.UTC(), true),
+		TestStartTime:   types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true),
+		TestEndTime:     types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true),
+	}
 }
 
 type testResultsDoc struct {
@@ -1014,4 +1034,26 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 	}
 
 	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
+}
+
+// ParquetTestResult describes a single test result to be stored in Apache
+// Parquet file format.
+type ParquetTestResult struct {
+	Project         string `parquet:"name=project, type=BYTE_ARRAY"`
+	Version         string `parquet:"name=version, type=BYTE_ARRAY"`
+	Variant         string `parquet:"name=variant, type=BYTE_ARRAY"`
+	TaskID          string `parquet:"name=task_id, type=BYTE_ARRAY"`
+	Execution       int32  `parquet:"name=execution, type=INT32"`
+	TestName        string `parquet:"name=test_name, type=BYTE_ARRAY"`
+	DisplayTestName string `parquet:"name=display_test_name, type=BYTE_ARRAY"`
+	GroupID         string `parquet:"name=group_id, type=BYTE_ARRAY"`
+	Trial           int32  `parquet:"name=trial, type=INT32"`
+	Status          string `parquet:"name=status, type=BYTE_ARRAY"`
+	LogTestName     string `parquet:"name=log_test_name, type=BYTE_ARRAY"`
+	LogURL          string `parquet:"name=log_url, type=BYTE_ARRAY"`
+	RawLogURL       string `parquet:"name=raw_log_url, type=BYTE_ARRAY"`
+	LineNum         int32  `parquet:"name=line_num, type=INT32"`
+	TaskCreateTime  int64  `parquet:"name=task_create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestStartTime   int64  `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestEndTime     int64  `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
 }
