@@ -4,7 +4,8 @@ go 1.16
 
 require (
 	github.com/aclements/go-moremath v0.0.0-20210112150236-f10218a38794
-	github.com/apache/arrow/go/parquet v0.0.0-20211112161151-bc219186db40
+	github.com/apache/arrow/go/arrow v0.0.0-20211025125312-be665ef948cb // indirect
+	github.com/apache/thrift v0.15.0 // indirect
 	github.com/evergreen-ci/aviation v0.0.0-20211123195311-5ddfd75b3753
 	github.com/evergreen-ci/birch v0.0.0-20211025210128-7f3409c2b515
 	github.com/evergreen-ci/certdepot v0.0.0-20211109153348-d681ebe95b66
@@ -26,6 +27,7 @@ require (
 	github.com/xitongsys/parquet-go v1.6.2
 	github.com/xitongsys/parquet-go-source v0.0.0-20200817004010-026bad9b25d0
 	go.mongodb.org/mongo-driver v1.8.1
+	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab // indirect
 	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
