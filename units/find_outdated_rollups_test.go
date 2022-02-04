@@ -38,7 +38,7 @@ func TestFindOutdatedRollupsJob(t *testing.T) {
 	require.Len(t, factories[1].Names(), 1)
 	require.Len(t, factories[2].Names(), 1)
 
-	resultInfo := model.PerformanceResultInfo{Project: "HasOutdatedRollups"}
+	resultInfo := model.PerformanceResultInfo{Project: "HasOutdatedRollups", Mainline: true}
 	outdatedResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{ftdcArtifact}, nil)
 	outdatedResult.CreatedAt = time.Now().Add(-90*24*time.Hour + time.Hour)
 	outdatedResult.Rollups.Stats = append(

@@ -145,7 +145,10 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 			j.AddError(errors.Wrapf(err, "adding rollup %s for perf result %s", r.Name, j.PerfID))
 		}
 	}
-	j.createSignalProcessingJob(ctx, result)
+
+	if result.Info.Mainline {
+		j.createSignalProcessingJob(ctx, result)
+	}
 }
 
 func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *model.PerformanceResult) {

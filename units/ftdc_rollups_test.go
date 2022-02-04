@@ -65,10 +65,14 @@ func TestFTDCRollupsJob(t *testing.T) {
 		Bucket: "testdata",
 		Path:   "invalid.ftdc",
 	}
-	resultInfo := model.PerformanceResultInfo{Project: "valid"}
-	validResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact}, nil)
-	validResult.Setup(env)
-	assert.NoError(t, validResult.SaveNew(ctx))
+	resultInfo := model.PerformanceResultInfo{Project: "valid_mainline", Mainline: true}
+	validResultMainline := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact}, nil)
+	validResultMainline.Setup(env)
+	assert.NoError(t, validResultMainline.SaveNew(ctx))
+	resultInfo = model.PerformanceResultInfo{Project: "valid_patch"}
+	validResultPatch := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{validArtifact}, nil)
+	validResultPatch.Setup(env)
+	assert.NoError(t, validResultPatch.SaveNew(ctx))
 	resultInfo = model.PerformanceResultInfo{Project: "invalid"}
 	invalidResult := model.CreatePerformanceResult(resultInfo, []model.ArtifactInfo{invalidArtifact}, nil)
 	invalidResult.Setup(env)
@@ -80,10 +84,10 @@ func TestFTDCRollupsJob(t *testing.T) {
 	}
 	invalidRollupTypes := append([]string{"DNE"}, validRollupTypes...)
 
-	t.Run("ValidData", func(t *testing.T) {
+	t.Run("ValidDataMainline", func(t *testing.T) {
 		for _, user := range []bool{true, false} {
 			j := &ftdcRollupsJob{
-				PerfID:        validResult.ID,
+				PerfID:        validResultMainline.ID,
 				ArtifactInfo:  &validArtifact,
 				RollupTypes:   validRollupTypes,
 				UserSubmitted: user,
@@ -96,7 +100,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 			assert.True(t, j.Status().Completed)
 			assert.False(t, j.HasErrors())
 			result := &model.PerformanceResult{}
-			res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
+			res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResultMainline.ID})
 			require.NoError(t, res.Err())
 			assert.NoError(t, res.Decode(result))
 			require.NotNil(t, result.Rollups)
@@ -108,9 +112,37 @@ func TestFTDCRollupsJob(t *testing.T) {
 			}
 		}
 	})
+	t.Run("ValidDataPatch", func(t *testing.T) {
+		for _, user := range []bool{true, false} {
+			j := &ftdcRollupsJob{
+				PerfID:        validResultPatch.ID,
+				ArtifactInfo:  &validArtifact,
+				RollupTypes:   validRollupTypes,
+				UserSubmitted: user,
+			}
+			assert.NoError(t, j.validate())
+
+			j.queue = queue.NewLocalLimitedSize(1, 100)
+			_ = j.queue.Start(ctx)
+			j.Run(ctx)
+			assert.True(t, j.Status().Completed)
+			assert.False(t, j.HasErrors())
+			result := &model.PerformanceResult{}
+			res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResultPatch.ID})
+			require.NoError(t, res.Err())
+			assert.NoError(t, res.Decode(result))
+			require.NotNil(t, result.Rollups)
+			assert.True(t, len(j.RollupTypes) <= len(result.Rollups.Stats))
+			assert.Equal(t, 0, j.queue.Stats(ctx).Total)
+			assert.Zero(t, result.FailedRollupAttempts)
+			for _, stats := range result.Rollups.Stats {
+				assert.Equal(t, user, stats.UserSubmitted)
+			}
+		}
+	})
 	t.Run("InvalidRollupTypes", func(t *testing.T) {
 		j := &ftdcRollupsJob{
-			PerfID:       validResult.ID,
+			PerfID:       validResultMainline.ID,
 			ArtifactInfo: &validArtifact,
 			RollupTypes:  invalidRollupTypes,
 		}
@@ -120,7 +152,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.True(t, j.Status().Completed)
 		assert.Error(t, j.Error())
 		result := &model.PerformanceResult{}
-		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
+		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResultMainline.ID})
 		require.NoError(t, res.Err())
 		assert.NoError(t, res.Decode(result))
 		require.NotNil(t, result.Rollups)
@@ -157,7 +189,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 	})
 	t.Run("InvalidSetup", func(t *testing.T) {
 		j := &ftdcRollupsJob{
-			PerfID:      validResult.ID,
+			PerfID:      validResultMainline.ID,
 			RollupTypes: validRollupTypes,
 		}
 		assert.Error(t, j.validate())
@@ -171,7 +203,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.False(t, j.Status().Completed)
 
 		j = &ftdcRollupsJob{
-			PerfID:       validResult.ID,
+			PerfID:       validResultMainline.ID,
 			ArtifactInfo: &validArtifact,
 		}
 		assert.Error(t, j.validate())
@@ -180,7 +212,7 @@ func TestFTDCRollupsJob(t *testing.T) {
 	})
 	t.Run("InvalidBucket", func(t *testing.T) {
 		j := &ftdcRollupsJob{
-			PerfID: validResult.ID,
+			PerfID: validResultMainline.ID,
 			ArtifactInfo: &model.ArtifactInfo{
 				Type:   model.PailLocal,
 				Bucket: "DNE",
@@ -194,16 +226,16 @@ func TestFTDCRollupsJob(t *testing.T) {
 		assert.Error(t, j.Error())
 
 		result := &model.PerformanceResult{}
-		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResult.ID})
+		res := env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": validResultMainline.ID})
 		require.NoError(t, res.Err())
 		assert.NoError(t, res.Decode(result))
 		assert.Equal(t, 1, result.FailedRollupAttempts)
 	})
 	t.Run("PublicFunction", func(t *testing.T) {
 		for _, user := range []bool{true, false} {
-			j, err := NewFTDCRollupsJob(validResult.ID, &validArtifact, perf.DefaultRollupFactories(), user)
+			j, err := NewFTDCRollupsJob(validResultMainline.ID, &validArtifact, perf.DefaultRollupFactories(), user)
 			require.NoError(t, err)
-			assert.Equal(t, validResult.ID, j.(*ftdcRollupsJob).PerfID)
+			assert.Equal(t, validResultMainline.ID, j.(*ftdcRollupsJob).PerfID)
 			assert.Equal(t, &validArtifact, j.(*ftdcRollupsJob).ArtifactInfo)
 			assert.Equal(t, user, j.(*ftdcRollupsJob).UserSubmitted)
 			j.Run(ctx)
