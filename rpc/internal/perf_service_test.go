@@ -159,8 +159,9 @@ func TestCreateMetricSeries(t *testing.T) {
 			name: "TestValidData",
 			data: &ResultData{
 				Id: &ResultID{
-					Project: "testProject",
-					Version: "testVersion",
+					Project:  "testProject",
+					Version:  "testVersion",
+					Mainline: true,
 				},
 				Artifacts: []*ArtifactInfo{
 					{
