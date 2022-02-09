@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -205,12 +206,11 @@ func convertAndUploadFromCSV(filename string) error {
 		}
 
 		created := types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true)
-		exec := int32(results.Results[0].Execution)
 		parquetResults := model.ParquetTestResults{
 			Version:        &data.Version,
 			Variant:        &data.Variant,
 			TaskID:         &results.Results[0].TaskID,
-			Execution:      &exec,
+			Execution:      utility.ToInt32Ptr(int32(results.Results[0].Execution)),
 			TaskCreateTime: &created,
 			Results:        make([]model.ParquetTestResult, 0),
 		}
@@ -219,7 +219,8 @@ func convertAndUploadFromCSV(filename string) error {
 			parquetResults.Results = append(parquetResults.Results, converted)
 		}
 
-		w, err := b.Writer(context.Background(), data.Prefix)
+		key := fmt.Sprint("project=%s/task_create_iso=%s", data.Project, results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"))
+		w, err := b.Writer(context.Background(), key)
 		if err != nil {
 			return errors.Wrap(err, "creating bucket writer")
 		}
