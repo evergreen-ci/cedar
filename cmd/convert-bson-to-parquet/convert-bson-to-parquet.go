@@ -69,8 +69,8 @@ func convertTestResults() cli.Command {
 			created := types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true)
 			exec := int32(results.Results[0].Execution)
 			parquetResults := model.ParquetTestResults{
-				Version:        &data.Version,
-				Variant:        &data.Variant,
+				Version:        utility.ToStringPtr("some-version"),
+				Variant:        utility.ToStringPtr("some-variant"),
 				TaskID:         &results.Results[0].TaskID,
 				Execution:      &exec,
 				TaskCreateTime: &created,
