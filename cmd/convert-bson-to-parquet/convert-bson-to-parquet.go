@@ -170,7 +170,7 @@ func convertAndUploadFromCSV(filename string) error {
 		Name:                     "mongodatalake-dev-prod-staging",
 		Prefix:                   "cedar_test_results_landing",
 		Region:                   "us-east-1",
-		Permissions:              pail.S3PermissionsPublicRead,
+		Permissions:              pail.S3PermissionsPrivate,
 		SharedCredentialsProfile: "presto",
 		MaxRetries:               10,
 	}
@@ -182,23 +182,28 @@ func convertAndUploadFromCSV(filename string) error {
 	for _, data := range md {
 		results, err := getBSONFromPrefix(data.Prefix)
 		if err != nil {
-			return errors.Wrap(err, "getting BSON test result")
+			return errors.Wrap(err, "getting BSON test result. Prefix="+data.Prefix)
 		}
 		if len(results.Results) == 0 {
 			continue
 		}
 
+		created := types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true)
+		// created_iso := results.Results[0].TaskCreateTime.UTC().Format("2021-01-01")
+		exec := int32(results.Results[0].Execution)
 		parquetResults := model.ParquetTestResults{
-			Project:        data.Project,
-			Version:        data.Version,
-			Variant:        data.Variant,
-			TaskID:         results.Results[0].TaskID,
-			Execution:      int32(results.Results[0].Execution),
-			TaskCreateTime: types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true),
-			TaskCreateISO:  results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"),
+			//Project:        data.Project,
+			Version:        &data.Version,
+			Variant:        &data.Variant,
+			TaskID:         &results.Results[0].TaskID,
+			Execution:      &exec,
+			TaskCreateTime: &created,
+			// TaskCreateISO:  results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"),
+			Results: make([]model.ParquetTestResult, 0),
 		}
 		for _, result := range results.Results {
-			parquetResults.Results = append(parquetResults.Results, result.ConvertToParquetTestResult())
+			converted := result.ConvertToParquetTestResult()
+			parquetResults.Results = append(parquetResults.Results, converted)
 		}
 
 		w, err := b.Writer(context.Background(), data.Prefix)
@@ -228,8 +233,8 @@ func convertAndUploadFromCSV(filename string) error {
 
 func getBSONFromPrefix(prefix string) (*testResultsDoc, error) {
 	opts := pail.S3Options{
-		Name:                     "cedar-test-results",
-		Prefix:                   prefix,
+		Name: "cedar-test-results",
+		// Prefix:                   prefix,
 		Region:                   "us-east-1",
 		Permissions:              pail.S3PermissionsPublicRead,
 		SharedCredentialsProfile: "cedar",
@@ -240,7 +245,7 @@ func getBSONFromPrefix(prefix string) (*testResultsDoc, error) {
 		return nil, errors.Wrap(err, "creating bucket")
 	}
 
-	r, err := b.Get(context.Background(), "test_results")
+	r, err := b.Get(context.Background(), prefix+"/test_results")
 	if err != nil {
 		return nil, errors.Wrap(err, "getting test results")
 	}
@@ -251,28 +256,28 @@ func getBSONFromPrefix(prefix string) (*testResultsDoc, error) {
 		return nil, errors.Wrap(err, "reading test results")
 	}
 
-	var results *testResultsDoc
-	if err = bson.Unmarshal(data, results); err != nil {
+	var results testResultsDoc
+	if err = bson.Unmarshal(data, &results); err != nil {
 		return nil, errors.Wrap(err, "unmarshalling test results")
 	}
 
-	return results, nil
+	return &results, nil
 }
 
 func mergeFlags(flags ...cli.Flag) []cli.Flag {
 	mergedFlags := []cli.Flag{
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  s3URLFlag,
 			Usage: "S3 download link for BSON file, must specify when not using a local file",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  localFileFlag,
 			Usage: "local BSON file, must specify when not using an S3 download link",
 		},
-		cli.StringFlag{
-			Name: "csv_file",
+		&cli.StringFlag{
+			Name: "csv-file",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:     outputFlag,
 			Usage:    "name of the output file, if none specified the output will go to stdout",
 			Required: true,

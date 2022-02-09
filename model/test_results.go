@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	// "github.com/apache/arrow/go/parquet"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -1034,15 +1035,15 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 }
 
 type ParquetTestResults struct {
-	Project        string              `parquet:"name=project, type=BYTE_ARRAY"`
-	Version        string              `parquet:"name=version, type=BYTE_ARRAY"`
-	Variant        string              `parquet:"name=variant, type=BYTE_ARRAY"`
-	TaskID         string              `parquet:"name=task_id, type=BYTE_ARRAY"`
-	Execution      int32               `parquet:"name=execution, type=INT32"`
-	TaskCreateTime int64               `parquet:"name=task_create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TaskCreateISO  string              `parquet:"name=task_create_iso, type=BYTE_ARRAY`
-	Results        []ParquetTestResult `parquet:"name=results" type=LIST`
+	TaskCreateTime *int64               `parquet:"name=task_create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TaskID         *string              `parquet:"name=task_id, type=BYTE_ARRAY"`
+	Execution      *int32               `parquet:"name=execution, type=INT32"`
+	Variant        *string              `parquet:"name=variant, type=BYTE_ARRAY"`
+	Version        *string              `parquet:"name=version, type=BYTE_ARRAY"`
+	//TaskCreateISO  string              `parquet:"name=task_create_iso, type=BYTE_ARRAY`
+	Results       []ParquetTestResult   `parquet:"name=results, type=ParquetTestResult, repetitiontype=REPEATED`
 }
+
 
 // ParquetTestResult describes a single test result to be stored in Apache
 // Parquet file format.
