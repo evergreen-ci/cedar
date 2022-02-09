@@ -62,8 +62,8 @@ func convertTestResults() cli.Command {
 			if err = bson.Unmarshal(data, &results); err != nil {
 				return errors.Wrap(err, "unmarshalling test results")
 			}
-			if len(results) == 0 {
-				return
+			if len(results.Results) == 0 {
+				return nil
 			}
 
 			created := types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true)
