@@ -222,7 +222,7 @@ func convertAndUploadFromCSV(filename string) error {
 		key := fmt.Sprintf("project=%s/task_create_iso=%s/%s", data.Project, results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"), data.Prefix)
 		fmt.Println(key)
 		fmt.Println(results.Results[0].TaskCreateTime.UTC())
-		fmt.Println(results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"))
+		fmt.Println(results.Results[0].TaskCreateTime.UTC().Format("2006-01-02"))
 		w, err := b.Writer(context.Background(), key)
 		if err != nil {
 			return errors.Wrap(err, "creating bucket writer")
