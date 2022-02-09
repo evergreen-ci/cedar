@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
+	"encoding/csv"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"github.com/xitongsys/parquet-go-source/local"
+	"github.com/xitongsys/parquet-go/types"
 	"github.com/xitongsys/parquet-go/writer"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -44,6 +49,10 @@ func convertTestResults() cli.Command {
 		Usage: "convert a test results BSON file to Parquet",
 		Flags: mergeFlags(),
 		Action: func(c *cli.Context) error {
+			if fn := c.String("csv-file"); fn != "" {
+				return convertAndUploadFromCSV(fn)
+			}
+
 			data, err := getBSON(c)
 			if err != nil {
 				return errors.Wrap(err, "getting BSON data")
@@ -118,6 +127,138 @@ func downloadFile(url string) ([]byte, error) {
 	return data, errors.Wrap(err, "reading response body")
 }
 
+type metadata struct {
+	Project string
+	Variant string
+	Version string
+	Prefix  string
+}
+
+func readCSV(filename string) ([]metadata, error) {
+	fr, err := os.Open(filename)
+	if err != nil {
+		return nil, errors.Wrap(err, "opening csv file")
+	}
+	defer fr.Close()
+
+	r := csv.NewReader(fr)
+	rows, err := r.ReadAll()
+	if err != nil {
+		return nil, errors.Wrap(err, "reading csv")
+	}
+
+	data := make([]metadata, len(rows)-1)
+	for i := 1; i < len(rows); i++ {
+		data[i-1] = metadata{
+			Prefix:  rows[i][1],
+			Project: rows[i][2],
+			Version: rows[i][3],
+			Variant: rows[i][4],
+		}
+	}
+
+	return data, nil
+}
+
+func convertAndUploadFromCSV(filename string) error {
+	md, err := readCSV(filename)
+	if err != nil {
+		return err
+	}
+
+	opts := pail.S3Options{
+		Name:                     "mongodatalake-dev-prod-staging",
+		Prefix:                   "cedar_test_results_landing",
+		Region:                   "us-east-1",
+		Permissions:              pail.S3PermissionsPublicRead,
+		SharedCredentialsProfile: "presto",
+		MaxRetries:               10,
+	}
+	b, err := pail.NewS3Bucket(opts)
+	if err != nil {
+		return errors.Wrap(err, "creating bucket")
+	}
+
+	for _, data := range md {
+		results, err := getBSONFromPrefix(data.Prefix)
+		if err != nil {
+			return errors.Wrap(err, "getting BSON test result")
+		}
+		if len(results.Results) == 0 {
+			continue
+		}
+
+		parquetResults := model.ParquetTestResults{
+			Project:        data.Project,
+			Version:        data.Version,
+			Variant:        data.Variant,
+			TaskID:         results.Results[0].TaskID,
+			Execution:      int32(results.Results[0].Execution),
+			TaskCreateTime: types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true),
+			TaskCreateISO:  results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"),
+		}
+		for _, result := range results.Results {
+			parquetResults.Results = append(parquetResults.Results, result.ConvertToParquetTestResult())
+		}
+
+		w, err := b.Writer(context.Background(), data.Prefix)
+		if err != nil {
+			return errors.Wrap(err, "creating bucket writer")
+		}
+
+		pw, err := writer.NewParquetWriterFromWriter(w, new(model.ParquetTestResults), 4)
+		if err != nil {
+			return errors.Wrap(err, "creating new parquet writer")
+		}
+
+		if err = pw.Write(parquetResults); err != nil {
+			return errors.Wrap(err, "writing results to parquet")
+		}
+		if err = pw.WriteStop(); err != nil {
+			return errors.Wrap(err, "stopping parquet writer")
+		}
+
+		if err := w.Close(); err != nil {
+			return errors.Wrap(err, "writing parquet to bucket")
+		}
+	}
+
+	return nil
+}
+
+func getBSONFromPrefix(prefix string) (*testResultsDoc, error) {
+	opts := pail.S3Options{
+		Name:                     "cedar-test-results",
+		Prefix:                   prefix,
+		Region:                   "us-east-1",
+		Permissions:              pail.S3PermissionsPublicRead,
+		SharedCredentialsProfile: "cedar",
+		MaxRetries:               10,
+	}
+	b, err := pail.NewS3Bucket(opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating bucket")
+	}
+
+	r, err := b.Get(context.Background(), "test_results")
+	if err != nil {
+		return nil, errors.Wrap(err, "getting test results")
+	}
+	defer r.Close()
+
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "reading test results")
+	}
+
+	var results *testResultsDoc
+	if err = bson.Unmarshal(data, results); err != nil {
+		return nil, errors.Wrap(err, "unmarshalling test results")
+	}
+
+	return results, nil
+}
+
 func mergeFlags(flags ...cli.Flag) []cli.Flag {
 	mergedFlags := []cli.Flag{
 		cli.StringFlag{
@@ -127,6 +268,9 @@ func mergeFlags(flags ...cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:  localFileFlag,
 			Usage: "local BSON file, must specify when not using an S3 download link",
+		},
+		cli.StringFlag{
+			Name: "csv_file",
 		},
 		cli.StringFlag{
 			Name:     outputFlag,
