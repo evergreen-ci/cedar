@@ -179,7 +179,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 
 		groupOpts := queue.MongoDBQueueGroupOptions{
-			Queue:                     queueOpts,
+			DefaultQueue:              queueOpts,
 			BackgroundCreateFrequency: 10 * time.Minute,
 			PruneFrequency:            10 * time.Minute,
 			TTL:                       time.Minute,
