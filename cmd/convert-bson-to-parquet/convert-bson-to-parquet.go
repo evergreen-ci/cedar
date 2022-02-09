@@ -62,6 +62,24 @@ func convertTestResults() cli.Command {
 			if err = bson.Unmarshal(data, &results); err != nil {
 				return errors.Wrap(err, "unmarshalling test results")
 			}
+			if len(results) == 0 {
+				return
+			}
+
+			created := types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true)
+			exec := int32(results.Results[0].Execution)
+			parquetResults := model.ParquetTestResults{
+				Version:        &data.Version,
+				Variant:        &data.Variant,
+				TaskID:         &results.Results[0].TaskID,
+				Execution:      &exec,
+				TaskCreateTime: &created,
+				Results:        make([]model.ParquetTestResult, 0),
+			}
+			for _, result := range results.Results {
+				converted := result.ConvertToParquetTestResult()
+				parquetResults.Results = append(parquetResults.Results, converted)
+			}
 
 			fw, err := local.NewLocalFileWriter(c.String(outputFlag))
 			if err != nil {
@@ -74,10 +92,8 @@ func convertTestResults() cli.Command {
 				return errors.Wrap(err, "creating new parquet writer")
 			}
 
-			for _, result := range results.Results {
-				if err = pw.Write(result.ConvertToParquetTestResult()); err != nil {
-					return errors.Wrap(err, "writing result")
-				}
+			if err = pw.Write(parquetResults); err != nil {
+				return errors.Wrap(err, "writing result")
 			}
 			if err = pw.WriteStop(); err != nil {
 				return errors.Wrap(err, "stopping parquet writer")
@@ -189,17 +205,14 @@ func convertAndUploadFromCSV(filename string) error {
 		}
 
 		created := types.TimeToTIMESTAMP_MILLIS(results.Results[0].TaskCreateTime.UTC(), true)
-		// created_iso := results.Results[0].TaskCreateTime.UTC().Format("2021-01-01")
 		exec := int32(results.Results[0].Execution)
 		parquetResults := model.ParquetTestResults{
-			//Project:        data.Project,
 			Version:        &data.Version,
 			Variant:        &data.Variant,
 			TaskID:         &results.Results[0].TaskID,
 			Execution:      &exec,
 			TaskCreateTime: &created,
-			// TaskCreateISO:  results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"),
-			Results: make([]model.ParquetTestResult, 0),
+			Results:        make([]model.ParquetTestResult, 0),
 		}
 		for _, result := range results.Results {
 			converted := result.ConvertToParquetTestResult()
