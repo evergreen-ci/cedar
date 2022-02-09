@@ -69,7 +69,7 @@ func convertTestResults() cli.Command {
 			}
 			defer fw.Close()
 
-			pw, err := writer.NewParquetWriter(fw, new(model.ParquetTestResult), 4)
+			pw, err := writer.NewParquetWriter(fw, new(model.ParquetTestResults), 4)
 			if err != nil {
 				return errors.Wrap(err, "creating new parquet writer")
 			}

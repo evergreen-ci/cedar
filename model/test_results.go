@@ -1039,9 +1039,9 @@ type ParquetTestResults struct {
 	TaskID         *string              `parquet:"name=task_id, type=BYTE_ARRAY"`
 	Execution      *int32               `parquet:"name=execution, type=INT32"`
 	Variant        *string              `parquet:"name=variant, type=BYTE_ARRAY"`
-	Version        *string              `parquet:"name=version, type=BYTE_ARRAY"`
+	Version        *string              `parquet:"name=versionidk, type=BYTE_ARRAY"`
 	//TaskCreateISO  string              `parquet:"name=task_create_iso, type=BYTE_ARRAY`
-	Results       []ParquetTestResult   `parquet:"name=results, type=ParquetTestResult, repetitiontype=REPEATED`
+	Results       []ParquetTestResult   `parquet:"name=results, type=LIST`
 }
 
 
