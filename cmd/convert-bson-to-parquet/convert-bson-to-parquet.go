@@ -219,7 +219,7 @@ func convertAndUploadFromCSV(filename string) error {
 			parquetResults.Results = append(parquetResults.Results, converted)
 		}
 
-		key := fmt.Sprint("project=%s/task_create_iso=%s", data.Project, results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"))
+		key := fmt.Sprintf("project=%s/task_create_iso=%s", data.Project, results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"))
 		w, err := b.Writer(context.Background(), key)
 		if err != nil {
 			return errors.Wrap(err, "creating bucket writer")
