@@ -219,7 +219,7 @@ func convertAndUploadFromCSV(filename string) error {
 			parquetResults.Results = append(parquetResults.Results, converted)
 		}
 
-		key := fmt.Sprintf("project=%s/task_create_iso=%s/%s", data.Project, results.Results[0].TaskCreateTime.UTC().Format("2021-01-01"), data.Prefix)
+		key := fmt.Sprintf("project=%s/task_create_iso=%s/%s", data.Project, results.Results[0].TaskCreateTime.UTC().Format("2006-01-02"), data.Prefix)
 		fmt.Println(key)
 		fmt.Println(results.Results[0].TaskCreateTime.UTC())
 		fmt.Println(results.Results[0].TaskCreateTime.UTC().Format("2006-01-02"))
