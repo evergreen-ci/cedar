@@ -15,6 +15,7 @@ import (
 	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xitongsys/parquet-go/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -390,6 +391,91 @@ func TestTestResultsDownload(t *testing.T) {
 			assert.Equal(t, expected, result)
 			delete(resultMap, result.TestName)
 		}
+	})
+}
+
+func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "download-and-convert-parquet-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr := getTestResults()
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		tr.populated = true
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		tr.populated = false
+		tr.Setup(env)
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	tr.populated = true
+	t.Run("NoConfig", func(t *testing.T) {
+		tr.Setup(env)
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		tr.Setup(env)
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	conf.Setup(env)
+	require.NoError(t, conf.Find())
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("DownloadFromBucket", func(t *testing.T) {
+		savedResults := testResultsDoc{}
+		savedResults.Results = make([]TestResult, 10)
+		for i := 0; i < 10; i++ {
+			savedResults.Results[i] = getTestResult()
+		}
+		data, err := bson.Marshal(&savedResults)
+		require.NoError(t, err)
+		require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+		expected := &ParquetTestResults{
+			Version:   utility.ToStringPtr(tr.Info.Version),
+			Variant:   utility.ToStringPtr(tr.Info.Variant),
+			TaskID:    utility.ToStringPtr(tr.Info.TaskID),
+			Execution: utility.ToInt32Ptr(int32(tr.Info.Execution)),
+			CreatedAt: utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true)),
+		}
+		for _, result := range savedResults.Results {
+			expected.Results = append(expected.Results, ParquetTestResult{
+				TestName:        result.TestName,
+				DisplayTestName: result.DisplayTestName,
+				GroupID:         result.GroupID,
+				Trial:           int32(result.Trial),
+				Status:          result.Status,
+				LogTestName:     result.LogTestName,
+				LogURL:          result.LogURL,
+				RawLogURL:       result.RawLogURL,
+				LineNum:         int32(result.LineNum),
+				TestStartTime:   types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
+				TestEndTime:     types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+			})
+		}
+
+		tr.Setup(env)
+		convertedResults, err := tr.DownloadAndConvertToParquet(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, expected, convertedResults)
 	})
 }
 

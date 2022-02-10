@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+
 	// "github.com/apache/arrow/go/parquet"
 	"hash"
 	"io"
@@ -327,6 +328,33 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	return results.Results, catcher.Resolve()
 }
 
+// DownloadAndConvertToParquet returns all of the test results stored in
+// offline blob storage converted to a ParquetTestResults struct for writing to
+// Apache Parquet format. The TestResults should be populated and the
+/// environment should not be nil.
+func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*ParquetTestResults, error) {
+	results, err := t.Download(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "downloading test results")
+	}
+
+	convertedResults := make([]ParquetTestResult, len(results))
+	for i, result := range results {
+		convertedResults[i] = result.convertToParquet()
+	}
+
+	return &ParquetTestResults{
+		TaskID:    utility.ToStringPtr(t.Info.TaskID),
+		Execution: utility.ToInt32Ptr(int32(t.Info.Execution)),
+		Variant:   utility.ToStringPtr(t.Info.Variant),
+		Version:   utility.ToStringPtr(t.Info.Version),
+		// TODO (EVG-16137): Figure out of using the created_at time is OK for all
+		// of these test results.
+		CreatedAt: utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true)),
+		Results:   convertedResults,
+	}, nil
+}
+
 // Close "closes out" by populating the completed_at field. The environment
 // should not be nil.
 func (t *TestResults) Close(ctx context.Context) error {
@@ -493,7 +521,7 @@ func (t TestResult) getDuration() time.Duration {
 	return t.TestEndTime.Sub(t.TestStartTime)
 }
 
-func (t TestResult) ConvertToParquetTestResult() ParquetTestResult {
+func (t TestResult) convertToParquet() ParquetTestResult {
 	return ParquetTestResult{
 		TestName:        t.TestName,
 		DisplayTestName: t.DisplayTestName,
@@ -1034,15 +1062,16 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
 }
 
+// ParquetTestResults describes a set of test results from a task execution to
+// be stored in Apache Parquet format.
 type ParquetTestResults struct {
-	TaskCreateTime *int64               `parquet:"name=task_create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TaskID         *string              `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Execution      *int32               `parquet:"name=execution, type=INT32"`
-	Variant        *string              `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Version        *string              `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Results       []ParquetTestResult   `parquet:"name=results, type=LIST"`
+	Version   *string             `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Variant   *string             `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
+	TaskID    *string             `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Execution *int32              `parquet:"name=execution, type=INT32"`
+	CreatedAt *int64              `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	Results   []ParquetTestResult `parquet:"name=results, type=LIST"`
 }
-
 
 // ParquetTestResult describes a single test result to be stored in Apache
 // Parquet file format.
