@@ -74,7 +74,7 @@ func convertTestResults() cli.Command {
 				Usage: "profile of AWS credentials, if not default",
 			},
 			&cli.StringFlag{
-				Name:     mongoURI,
+				Name:     mongoURIFlagName,
 				Usage:    "connection string for the Cedar database",
 				Required: true,
 			},
@@ -92,12 +92,11 @@ func convertTestResults() cli.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			env, err := setupEnv(c)
+			env, err := setupEnv(ctx, c)
 			if err != nil {
 				return errors.Wrap(err, "setting up environment")
 			}
 
-			// get test results by project and date range
 			testResults, err := model.FindTestResultsByProject(ctx, env, model.FindTestResultsByProjectOptions{
 				Projects: strings.Split(c.String(projectsFlagName), ","),
 				StartAt:  startAt,
@@ -149,8 +148,8 @@ func convertTestResults() cli.Command {
 	}
 }
 
-func setupEnv(c *cli.Context) (cedar.Environment, error) {
-	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
+func setupEnv(ctx context.Context, c *cli.Context) (cedar.Environment, error) {
+	env, err := cedar.NewEnvironment(ctx, "convert-bson-to-parquet", &cedar.Configuration{
 		MongoDBURI:         c.String(mongoURIFlagName),
 		DatabaseName:       "cedar",
 		SocketTimeout:      time.Minute,
