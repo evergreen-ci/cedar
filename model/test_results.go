@@ -91,6 +91,11 @@ func (t *TestResults) Setup(e cedar.Environment) { t.env = e }
 // IsNil returns if the TestResults is populated or not.
 func (t *TestResults) IsNil() bool { return !t.populated }
 
+// PrestoPartitionKey returns the partition key for the S3 bucket in Presto.
+func (t *TestResults) PrestoPartitionKey() string {
+	return fmt.Sprintf("project=%s/task_create_iso=%s/%s", t.Info.Project, t.createdAt.UTC().Format(dateFormat), tr.ID)
+}
+
 // Find searches the database for the TestResults. The environment should not be
 // nil.
 func (t *TestResults) Find(ctx context.Context) error {
@@ -1078,8 +1083,8 @@ func (o FindTestResultsByProjectOptions) validate() error {
 	return catcher.Resolve()
 }
 
-// FindTestResultsByProject returns all test results with the given set of
-// project names and within the given date interval.
+// FindTestResultsByProject returns all test results in the database with the
+// given set of project names and within the given date interval.
 func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts FindTestResultsByProjectOptions) ([]TestResults, error) {
 	if err := opts.validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid options")
