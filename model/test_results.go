@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	// "github.com/apache/arrow/go/parquet"
 	"hash"
 	"io"
 	"io/ioutil"
