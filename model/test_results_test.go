@@ -450,23 +450,23 @@ func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 		expected := &ParquetTestResults{
-			Version:   utility.ToStringPtr(tr.Info.Version),
-			Variant:   utility.ToStringPtr(tr.Info.Variant),
-			TaskID:    utility.ToStringPtr(tr.Info.TaskID),
-			Execution: utility.ToInt32Ptr(int32(tr.Info.Execution)),
-			CreatedAt: utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true)),
+			Version:   tr.Info.Version,
+			Variant:   tr.Info.Variant,
+			TaskID:    tr.Info.TaskID,
+			Execution: int32(tr.Info.Execution),
+			CreatedAt: types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
 		}
 		for _, result := range savedResults.Results {
 			expected.Results = append(expected.Results, ParquetTestResult{
 				TestName:        result.TestName,
-				DisplayTestName: result.DisplayTestName,
-				GroupID:         result.GroupID,
-				Trial:           int32(result.Trial),
+				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
+				GroupID:         utility.ToStringPtr(result.GroupID),
+				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
 				Status:          result.Status,
-				LogTestName:     result.LogTestName,
-				LogURL:          result.LogURL,
-				RawLogURL:       result.RawLogURL,
-				LineNum:         int32(result.LineNum),
+				LogTestName:     utility.ToStringPtr(result.LogTestName),
+				LogURL:          utility.ToStringPtr(result.LogURL),
+				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
+				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
 				TestStartTime:   types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
 				TestEndTime:     types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
 			})

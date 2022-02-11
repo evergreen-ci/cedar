@@ -349,11 +349,11 @@ func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*Parquet
 	}
 
 	return &ParquetTestResults{
-		TaskID:    utility.ToStringPtr(t.Info.TaskID),
-		Execution: utility.ToInt32Ptr(int32(t.Info.Execution)),
-		Variant:   utility.ToStringPtr(t.Info.Variant),
-		Version:   utility.ToStringPtr(t.Info.Version),
-		CreatedAt: utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true)),
+		TaskID:    t.Info.TaskID,
+		Execution: int32(t.Info.Execution),
+		Variant:   t.Info.Variant,
+		Version:   t.Info.Version,
+		CreatedAt: types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true),
 		Results:   convertedResults,
 	}, nil
 }
@@ -527,14 +527,14 @@ func (t TestResult) getDuration() time.Duration {
 func (t TestResult) convertToParquet() ParquetTestResult {
 	return ParquetTestResult{
 		TestName:        t.TestName,
-		DisplayTestName: t.DisplayTestName,
-		GroupID:         t.GroupID,
-		Trial:           int32(t.Trial),
+		DisplayTestName: utility.ToStringPtr(t.DisplayTestName),
+		GroupID:         utility.ToStringPtr(t.GroupID),
+		Trial:           utility.ToInt32Ptr(int32(t.Trial)),
 		Status:          t.Status,
-		LogTestName:     t.LogTestName,
-		LogURL:          t.LogURL,
-		RawLogURL:       t.RawLogURL,
-		LineNum:         int32(t.LineNum),
+		LogTestName:     utility.ToStringPtr(t.LogTestName),
+		LogURL:          utility.ToStringPtr(t.LogURL),
+		RawLogURL:       utility.ToStringPtr(t.RawLogURL),
+		LineNum:         utility.ToInt32Ptr(int32(t.LineNum)),
 		TestStartTime:   types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true),
 		TestEndTime:     types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true),
 	}
@@ -1119,26 +1119,26 @@ func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts F
 // ParquetTestResults describes a set of test results from a task execution to
 // be stored in Apache Parquet format.
 type ParquetTestResults struct {
-	Version   *string             `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Variant   *string             `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
-	TaskID    *string             `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Execution *int32              `parquet:"name=execution, type=INT32"`
-	CreatedAt *int64              `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	Version   string              `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Variant   string              `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
+	TaskID    string              `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Execution int32               `parquet:"name=execution, type=INT32"`
+	CreatedAt int64               `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
 	Results   []ParquetTestResult `parquet:"name=results, type=LIST"`
 }
 
 // ParquetTestResult describes a single test result to be stored in Apache
 // Parquet file format.
 type ParquetTestResult struct {
-	TestName        string `parquet:"name=test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	DisplayTestName string `parquet:"name=display_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	GroupID         string `parquet:"name=group_id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Trial           int32  `parquet:"name=trial, type=INT32"`
-	Status          string `parquet:"name=status, type=BYTE_ARRAY, convertedtype=UTF8"`
-	LogTestName     string `parquet:"name=log_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	LogURL          string `parquet:"name=log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
-	RawLogURL       string `parquet:"name=raw_log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
-	LineNum         int32  `parquet:"name=line_num, type=INT32"`
-	TestStartTime   int64  `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TestEndTime     int64  `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestName        string  `parquet:"name=test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	DisplayTestName *string `parquet:"name=display_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	GroupID         *string `parquet:"name=group_id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Trial           *int32  `parquet:"name=trial, type=INT32"`
+	Status          string  `parquet:"name=status, type=BYTE_ARRAY, convertedtype=UTF8"`
+	LogTestName     *string `parquet:"name=log_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	LogURL          *string `parquet:"name=log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
+	RawLogURL       *string `parquet:"name=raw_log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
+	LineNum         *int32  `parquet:"name=line_num, type=INT32"`
+	TestStartTime   int64   `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestEndTime     int64   `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
 }
