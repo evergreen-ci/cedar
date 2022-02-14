@@ -92,7 +92,7 @@ func (t *TestResults) IsNil() bool { return !t.populated }
 
 // PrestoPartitionKey returns the partition key for the S3 bucket in Presto.
 func (t *TestResults) PrestoPartitionKey() string {
-	return fmt.Sprintf("project=%s/task_create_iso=%s/%s", t.Info.Project, t.CreatedAt.UTC().Format("2006-01-02"), t.ID)
+	return fmt.Sprintf("task_create_iso=%s/project=%s/%s", t.CreatedAt.UTC().Format("2006-01-02"), t.Info.Project, t.ID)
 }
 
 // Find searches the database for the TestResults. The environment should not be
