@@ -44,7 +44,7 @@ func (c *serviceConf) export() *cedar.Configuration {
 	}
 }
 
-func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
+func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (send.Sender, error) {
 	senders := []send.Sender{}
 
 	if c.interactive {
@@ -77,10 +77,19 @@ func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
 			return nil, errors.Wrap(err, "problem building splunk logger")
 		}
 		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
-			return nil, errors.Wrap(err, "problem configuring error handler")
+			return nil, errors.Wrap(err, "configuring splunk logger error handler")
 		}
-
-		senders = append(senders, send.NewBufferedSender(sender, loggingBufferDuration, loggingBufferCount))
+		opts := send.BufferedAsyncSenderOptions{}
+		opts.FlushInterval = loggingBufferDuration
+		opts.BufferSize = loggingBufferCount
+		bufferedSender, err := send.NewBufferedAsyncSender(ctx, sender, opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "building buffered splunk logger")
+		}
+		if err = bufferedSender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
+			return nil, errors.Wrap(err, "configuring buffered splunk logger error handler")
+		}
+		senders = append(senders, bufferedSender)
 	}
 
 	if conf.Slack.Options != nil {
@@ -107,7 +116,11 @@ func (c *serviceConf) getSenders(conf *model.CedarConfig) (send.Sender, error) {
 
 		// TODO consider using a local queue to buffer
 		// these messages
-		senders = append(senders, send.NewBufferedSender(sender, loggingBufferDuration, loggingBufferCount))
+		bufferedSender, err := send.NewBufferedSender(ctx, sender, send.BufferedSenderOptions{FlushInterval: loggingBufferDuration, BufferSize: loggingBufferCount})
+		if err != nil {
+			return nil, errors.Wrap(err, "building buffered slack logger")
+		}
+		senders = append(senders, bufferedSender)
 	}
 
 	return send.NewConfiguredMultiSender(senders...), nil
@@ -124,7 +137,7 @@ func (c *serviceConf) setup(ctx context.Context) error {
 	conf.Setup(env)
 	grip.Warning(conf.Find())
 
-	sender, err := c.getSenders(conf)
+	sender, err := c.getSenders(ctx, conf)
 	if err != nil {
 		return errors.WithStack(err)
 	}
