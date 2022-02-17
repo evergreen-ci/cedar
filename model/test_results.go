@@ -38,6 +38,7 @@ const (
 	FailedTestsSampleSize = 10
 
 	testResultsCollection = "test_results"
+	parquetDateFormat     = "2006-01-02"
 )
 
 // TestResults describes metadata for a task execution and its test results.
@@ -92,7 +93,7 @@ func (t *TestResults) IsNil() bool { return !t.populated }
 
 // PrestoPartitionKey returns the partition key for the S3 bucket in Presto.
 func (t *TestResults) PrestoPartitionKey() string {
-	return fmt.Sprintf("task_create_iso=%s/project=%s/%s", t.CreatedAt.UTC().Format("2006-01-02"), t.Info.Project, t.ID)
+	return fmt.Sprintf("task_create_iso=%s/project=%s/%s", t.CreatedAt.UTC().Format(parquetDateFormat), t.Info.Project, t.ID)
 }
 
 // Find searches the database for the TestResults. The environment should not be
@@ -1093,7 +1094,7 @@ func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts F
 		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoProjectKey): bson.M{"$in": opts.Projects},
 		testResultsCreatedAtKey: bson.M{
 			"$gte": opts.StartAt,
-			"$lte": opts.EndAt,
+			"$lt":  opts.EndAt,
 		},
 	}
 

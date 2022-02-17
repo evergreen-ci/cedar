@@ -436,8 +436,6 @@ func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
 		_, err = tr.DownloadAndConvertToParquet(ctx)
 		assert.Error(t, err)
 	})
-	conf.Setup(env)
-	require.NoError(t, conf.Find())
 	conf.Bucket.TestResultsBucket = tmpDir
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucket", func(t *testing.T) {

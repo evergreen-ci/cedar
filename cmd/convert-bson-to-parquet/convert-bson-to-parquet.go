@@ -57,7 +57,7 @@ func convertTestResults() cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     endDateFlagName,
-				Usage:    "the end date (inclusive) of the targeted interval, format YYYY-MM-DD",
+				Usage:    "the end date (exclusive) of the targeted interval, format YYYY-MM-DD",
 				Required: true,
 			},
 			&cli.StringFlag{
