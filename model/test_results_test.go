@@ -15,6 +15,7 @@ import (
 	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xitongsys/parquet-go/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -390,6 +391,89 @@ func TestTestResultsDownload(t *testing.T) {
 			assert.Equal(t, expected, result)
 			delete(resultMap, result.TestName)
 		}
+	})
+}
+
+func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tmpDir, err := ioutil.TempDir(".", "download-and-convert-parquet-test")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(tmpDir))
+		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr := getTestResults()
+	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
+	require.NoError(t, err)
+
+	t.Run("NoEnv", func(t *testing.T) {
+		tr.populated = true
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	t.Run("Unpopulated", func(t *testing.T) {
+		tr.populated = false
+		tr.Setup(env)
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	tr.populated = true
+	t.Run("NoConfig", func(t *testing.T) {
+		tr.Setup(env)
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	conf := &CedarConfig{populated: true}
+	conf.Setup(env)
+	require.NoError(t, conf.Save())
+	t.Run("ConfigWithoutBucket", func(t *testing.T) {
+		tr.Setup(env)
+		_, err = tr.DownloadAndConvertToParquet(ctx)
+		assert.Error(t, err)
+	})
+	conf.Bucket.TestResultsBucket = tmpDir
+	require.NoError(t, conf.Save())
+	t.Run("DownloadFromBucket", func(t *testing.T) {
+		savedResults := testResultsDoc{}
+		savedResults.Results = make([]TestResult, 10)
+		for i := 0; i < 10; i++ {
+			savedResults.Results[i] = getTestResult()
+		}
+		data, err := bson.Marshal(&savedResults)
+		require.NoError(t, err)
+		require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+		expected := &ParquetTestResults{
+			Version:   tr.Info.Version,
+			Variant:   tr.Info.Variant,
+			TaskID:    tr.Info.TaskID,
+			Execution: int32(tr.Info.Execution),
+			CreatedAt: types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+		}
+		for _, result := range savedResults.Results {
+			expected.Results = append(expected.Results, ParquetTestResult{
+				TestName:        result.TestName,
+				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
+				GroupID:         utility.ToStringPtr(result.GroupID),
+				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
+				Status:          result.Status,
+				LogTestName:     utility.ToStringPtr(result.LogTestName),
+				LogURL:          utility.ToStringPtr(result.LogURL),
+				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
+				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
+				TestStartTime:   types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
+				TestEndTime:     types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+			})
+		}
+
+		tr.Setup(env)
+		convertedResults, err := tr.DownloadAndConvertToParquet(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, expected, convertedResults)
 	})
 }
 
@@ -813,6 +897,100 @@ func TestGetTestResultsStats(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, test.expectedStats, stats)
+			}
+		})
+	}
+}
+
+func TestFindTestResultsByProject(t *testing.T) {
+	env := cedar.GetEnvironment()
+	db := env.GetDB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer func() {
+		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
+	}()
+
+	tr1 := getTestResults()
+	tr1.CreatedAt = time.Date(2022, 2, 1, 0, 0, 0, 0, time.UTC)
+	tr1.Info.Project = "p1"
+	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
+	require.NoError(t, err)
+
+	tr2 := getTestResults()
+	tr2.CreatedAt = time.Date(2022, 2, 5, 0, 0, 0, 0, time.UTC)
+	tr2.Info.Project = "p1"
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
+	require.NoError(t, err)
+
+	tr3 := getTestResults()
+	tr3.CreatedAt = time.Date(2022, 2, 10, 0, 0, 0, 0, time.UTC)
+	tr3.Info.Project = "p1"
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
+	require.NoError(t, err)
+
+	tr4 := getTestResults()
+	tr4.CreatedAt = time.Date(2022, 2, 1, 0, 0, 0, 0, time.UTC)
+	tr4.Info.Project = "p2"
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr4)
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name     string
+		opts     FindTestResultsByProjectOptions
+		expected map[string]bool
+		hasErr   bool
+	}{
+		{
+			name:   "NoProjectsSpecified",
+			opts:   FindTestResultsByProjectOptions{EndAt: time.Now()},
+			hasErr: true,
+		},
+		{
+			name: "StartAtAfterEndAt",
+			opts: FindTestResultsByProjectOptions{
+				Projects: []string{"p1"},
+				StartAt:  time.Now(),
+				EndAt:    time.Now().Add(-time.Hour),
+			},
+			hasErr: true,
+		},
+		{
+			name: "ZeroEndAt",
+			opts: FindTestResultsByProjectOptions{
+				Projects: []string{"p1"},
+				StartAt:  time.Now(),
+			},
+			hasErr: true,
+		},
+		{
+			name: "ExcludesResultsOutsideOfDateInterval",
+			opts: FindTestResultsByProjectOptions{
+				Projects: []string{"p1"},
+				StartAt:  time.Date(2022, 2, 1, 0, 0, 0, 0, time.UTC),
+				EndAt:    time.Date(2022, 2, 9, 0, 0, 0, 0, time.UTC),
+			},
+			expected: map[string]bool{tr1.ID: true, tr2.ID: true},
+		},
+		{
+			name: "FetchesResultsFromMultipleProjects",
+			opts: FindTestResultsByProjectOptions{
+				Projects: []string{"p1", "p2"},
+				EndAt:    time.Now(),
+			},
+			expected: map[string]bool{tr1.ID: true, tr2.ID: true, tr3.ID: true, tr4.ID: true},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			results, err := FindTestResultsByProject(ctx, env, test.opts)
+
+			if test.hasErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				for _, tr := range results {
+					assert.True(t, test.expected[tr.ID])
+				}
 			}
 		})
 	}

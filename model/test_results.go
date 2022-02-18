@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+
 	"hash"
 	"io"
 	"io/ioutil"
@@ -24,6 +25,7 @@ import (
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
+	"github.com/xitongsys/parquet-go/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -36,6 +38,7 @@ const (
 	FailedTestsSampleSize = 10
 
 	testResultsCollection = "test_results"
+	parquetDateFormat     = "2006-01-02"
 )
 
 // TestResults describes metadata for a task execution and its test results.
@@ -87,6 +90,11 @@ func (t *TestResults) Setup(e cedar.Environment) { t.env = e }
 
 // IsNil returns if the TestResults is populated or not.
 func (t *TestResults) IsNil() bool { return !t.populated }
+
+// PrestoPartitionKey returns the partition key for the S3 bucket in Presto.
+func (t *TestResults) PrestoPartitionKey() string {
+	return fmt.Sprintf("task_create_iso=%s/project=%s/%s", t.CreatedAt.UTC().Format(parquetDateFormat), t.Info.Project, t.ID)
+}
 
 // Find searches the database for the TestResults. The environment should not be
 // nil.
@@ -325,6 +333,31 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	return results.Results, catcher.Resolve()
 }
 
+// DownloadAndConvertToParquet returns all of the test results stored in
+// offline blob storage converted to a ParquetTestResults struct for writing to
+// Apache Parquet format. The TestResults should be populated and the
+/// environment should not be nil.
+func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*ParquetTestResults, error) {
+	results, err := t.Download(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "downloading test results")
+	}
+
+	convertedResults := make([]ParquetTestResult, len(results))
+	for i, result := range results {
+		convertedResults[i] = result.convertToParquet()
+	}
+
+	return &ParquetTestResults{
+		TaskID:    t.Info.TaskID,
+		Execution: int32(t.Info.Execution),
+		Variant:   t.Info.Variant,
+		Version:   t.Info.Version,
+		CreatedAt: types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true),
+		Results:   convertedResults,
+	}, nil
+}
+
 // Close "closes out" by populating the completed_at field. The environment
 // should not be nil.
 func (t *TestResults) Close(ctx context.Context) error {
@@ -489,6 +522,22 @@ func (t TestResult) GetDisplayName() string {
 
 func (t TestResult) getDuration() time.Duration {
 	return t.TestEndTime.Sub(t.TestStartTime)
+}
+
+func (t TestResult) convertToParquet() ParquetTestResult {
+	return ParquetTestResult{
+		TestName:        t.TestName,
+		DisplayTestName: utility.ToStringPtr(t.DisplayTestName),
+		GroupID:         utility.ToStringPtr(t.GroupID),
+		Trial:           utility.ToInt32Ptr(int32(t.Trial)),
+		Status:          t.Status,
+		LogTestName:     utility.ToStringPtr(t.LogTestName),
+		LogURL:          utility.ToStringPtr(t.LogURL),
+		RawLogURL:       utility.ToStringPtr(t.RawLogURL),
+		LineNum:         utility.ToInt32Ptr(int32(t.LineNum)),
+		TestStartTime:   types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true),
+		TestEndTime:     types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true),
+	}
 }
 
 type testResultsDoc struct {
@@ -1014,4 +1063,82 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 	}
 
 	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
+}
+
+// FindTestResultsByProjectOptions represent the set of options for finding
+// test results in the database by project name.
+type FindTestResultsByProjectOptions struct {
+	Projects []string
+	StartAt  time.Time
+	EndAt    time.Time
+}
+
+func (o FindTestResultsByProjectOptions) validate() error {
+	catcher := grip.NewBasicCatcher()
+
+	catcher.NewWhen(len(o.Projects) == 0, "must specify at least one project")
+	catcher.NewWhen(o.StartAt.After(o.EndAt), "the start date cannot be greater than the end date")
+	catcher.NewWhen(o.EndAt.IsZero(), "end date cannot be zero")
+
+	return catcher.Resolve()
+}
+
+// FindTestResultsByProject returns all test results in the database with the
+// given set of project names and within the given date interval.
+func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts FindTestResultsByProjectOptions) ([]TestResults, error) {
+	if err := opts.validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid options")
+	}
+
+	filter := bson.M{
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoProjectKey): bson.M{"$in": opts.Projects},
+		testResultsCreatedAtKey: bson.M{
+			"$gte": opts.StartAt,
+			"$lt":  opts.EndAt,
+		},
+	}
+
+	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, filter)
+	if err != nil {
+		return nil, errors.Wrap(err, "finding test results")
+	}
+
+	var results []TestResults
+	if err = cur.All(ctx, &results); err != nil {
+		return nil, errors.Wrap(err, "decoding test results")
+	}
+
+	for i := range results {
+		results[i].env = env
+		results[i].populated = true
+	}
+
+	return results, nil
+}
+
+// ParquetTestResults describes a set of test results from a task execution to
+// be stored in Apache Parquet format.
+type ParquetTestResults struct {
+	Version   string              `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Variant   string              `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
+	TaskID    string              `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Execution int32               `parquet:"name=execution, type=INT32"`
+	CreatedAt int64               `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	Results   []ParquetTestResult `parquet:"name=results, type=LIST"`
+}
+
+// ParquetTestResult describes a single test result to be stored in Apache
+// Parquet file format.
+type ParquetTestResult struct {
+	TestName        string  `parquet:"name=test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	DisplayTestName *string `parquet:"name=display_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	GroupID         *string `parquet:"name=group_id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Trial           *int32  `parquet:"name=trial, type=INT32"`
+	Status          string  `parquet:"name=status, type=BYTE_ARRAY, convertedtype=UTF8"`
+	LogTestName     *string `parquet:"name=log_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	LogURL          *string `parquet:"name=log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
+	RawLogURL       *string `parquet:"name=raw_log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
+	LineNum         *int32  `parquet:"name=line_num, type=INT32"`
+	TestStartTime   int64   `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestEndTime     int64   `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
 }
