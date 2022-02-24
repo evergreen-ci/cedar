@@ -128,7 +128,7 @@ func convertTestResults() cli.Command {
 				if err != nil {
 					return errors.Wrap(err, "creating bucket writer")
 				}
-				pw, err := writer.NewParquetWriterFromWriter(w, new(model.ParquetTestResults), 4)
+				pw, err := writer.NewParquetWriterFromWriter(w, new(model.ParquetTestResults), 1)
 				if err != nil {
 					return errors.Wrap(err, "creating new parquet writer")
 				}
