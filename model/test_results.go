@@ -199,7 +199,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	allResults, err := t.downloadParquet(ctx)
+	allResults, err := t.downloadBSON(ctx)
 	if err != nil && !pail.IsKeyNotFoundError(err) {
 		return errors.Wrap(err, "getting uploaded test results")
 	}
@@ -669,9 +669,9 @@ func (t TestResult) convertToParquet() ParquetTestResult {
 		LogURL:          utility.ToStringPtr(t.LogURL),
 		RawLogURL:       utility.ToStringPtr(t.RawLogURL),
 		LineNum:         utility.ToInt32Ptr(int32(t.LineNum)),
-		TaskCreateTime:  types.TimeToTIMESTAMP_MILLIS(t.TaskCreateTime.UTC(), true),
-		TestStartTime:   types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true),
-		TestEndTime:     types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true),
+		TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TaskCreateTime.UTC(), true)),
+		TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true)),
+		TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true)),
 	}
 }
 
@@ -1277,9 +1277,9 @@ func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
 			LogURL:          utility.FromStringPtr(r.Results[i].LogURL),
 			RawLogURL:       utility.FromStringPtr(r.Results[i].RawLogURL),
 			LineNum:         int(utility.FromInt32Ptr(r.Results[i].LineNum)),
-			TaskCreateTime:  time.Unix(0, r.Results[i].TaskCreateTime*1e6).UTC(),
-			TestStartTime:   time.Unix(0, r.Results[i].TestStartTime*1e6).UTC(),
-			TestEndTime:     time.Unix(0, r.Results[i].TestEndTime*1e6).UTC(),
+			TaskCreateTime:  time.Unix(0, utility.FromInt64Ptr(r.Results[i].TaskCreateTime)*1e6).UTC(),
+			TestStartTime:   time.Unix(0, utility.FromInt64Ptr(r.Results[i].TestStartTime)*1e6).UTC(),
+			TestEndTime:     time.Unix(0, utility.FromInt64Ptr(r.Results[i].TestEndTime)*1e6).UTC(),
 		}
 	}
 
@@ -1298,7 +1298,7 @@ type ParquetTestResult struct {
 	LogURL          *string `parquet:"name=log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
 	RawLogURL       *string `parquet:"name=raw_log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
 	LineNum         *int32  `parquet:"name=line_num, type=INT32"`
-	TaskCreateTime  int64   `parquet:"name=task_Create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TestStartTime   int64   `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TestEndTime     int64   `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TaskCreateTime  *int64  `parquet:"name=task_Create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestStartTime   *int64  `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestEndTime     *int64  `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
 }

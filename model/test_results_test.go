@@ -419,9 +419,9 @@ func TestTestResultsDownload(t *testing.T) {
 				LogURL:          utility.ToStringPtr(result.LogURL),
 				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
 				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
-				TaskCreateTime:  types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true),
-				TestStartTime:   types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
-				TestEndTime:     types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
+				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
+				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
 			}
 		}
 
@@ -521,6 +521,7 @@ func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
 	})
 	conf.Bucket.TestResultsBucket = tmpDir
 	conf.Bucket.PrestoBucket = tmpDir
+	conf.Bucket.PrestoTestResultsPrefix = "presto-test-results"
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucket", func(t *testing.T) {
 		savedResults := testResultsDoc{}
@@ -549,9 +550,9 @@ func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
 				LogURL:          utility.ToStringPtr(result.LogURL),
 				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
 				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
-				TaskCreateTime:  types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true),
-				TestStartTime:   types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
-				TestEndTime:     types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
+				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
+				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
 			})
 		}
 
@@ -772,8 +773,9 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	}()
 	conf := &CedarConfig{
 		Bucket: BucketConfig{
-			TestResultsBucket: tmpDir,
-			PrestoBucket:      tmpDir,
+			TestResultsBucket:       tmpDir,
+			PrestoBucket:            tmpDir,
+			PrestoTestResultsPrefix: "presto-test-results",
 		},
 		populated: true,
 	}
@@ -1098,8 +1100,9 @@ func TestFilterAndSortTestResults(t *testing.T) {
 	}()
 	conf := &CedarConfig{
 		Bucket: BucketConfig{
-			TestResultsBucket: tmpDir,
-			PrestoBucket:      tmpDir,
+			TestResultsBucket:       tmpDir,
+			PrestoBucket:            tmpDir,
+			PrestoTestResultsPrefix: "presto-test-results",
 		},
 		populated: true,
 	}

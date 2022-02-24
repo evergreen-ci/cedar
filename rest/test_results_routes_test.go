@@ -71,7 +71,11 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 
 	s.Require().NoError(err)
 	conf := dbModel.NewCedarConfig(s.env)
-	conf.Bucket = dbModel.BucketConfig{TestResultsBucket: tempDir}
+	conf.Bucket = dbModel.BucketConfig{
+		TestResultsBucket:       tempDir,
+		PrestoBucket:            tempDir,
+		PrestoTestResultsPrefix: "presto-test-results",
+	}
 	s.Require().NoError(conf.Save())
 
 	s.sc = data.CreateNewDBConnector(s.env, "")
