@@ -376,9 +376,12 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 		return nil, errors.Wrap(err, "getting Parquet test results")
 	}
 
+	catcher := grip.NewBasicCatcher()
 	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "reading Parquet test results")
+	catcher.Wrap(err, "reading Parquet test results")
+	catcher.Wrap(r.Close(), "closing Presto bucket reader")
+	if err = catcher.Resolve(); err != nil {
+		return nil, err
 	}
 
 	pr, err := reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
