@@ -219,6 +219,12 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if err != nil {
 		return errors.Wrap(err, "creating Presto bucket writer")
 	}
+	var closedWriter bool
+	defer func() {
+		if !closedWriter {
+			_ = w.Close()
+		}
+	}()
 	pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
 	if err != nil {
 		return errors.Wrap(err, "creating new Parquet writer")
@@ -229,6 +235,7 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if err = pw.WriteStop(); err != nil {
 		return errors.Wrap(err, "stopping Parquet writer")
 	}
+	closedWriter = true
 	if err := w.Close(); err != nil {
 		return errors.Wrap(err, "closing Presto bucket writer")
 	}
@@ -323,7 +330,6 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 
 	switch t.Artifact.Version {
 	case 0:
-		catcher := grip.NewBasicCatcher()
 		bucket, err := t.GetBucket(ctx)
 		if err != nil {
 			return nil, err
@@ -334,6 +340,8 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		for iter.Next(ctx) {
 			results = append(results, iter.Item())
 		}
+
+		catcher := grip.NewBasicCatcher()
 		catcher.Wrap(iter.Err(), "iterating test results")
 		catcher.Wrap(iter.Close(), "closing test results iterator")
 
@@ -380,8 +388,8 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 	data, err := ioutil.ReadAll(r)
 	catcher.Wrap(err, "reading Parquet test results")
 	catcher.Wrap(r.Close(), "closing Presto bucket reader")
-	if err = catcher.Resolve(); err != nil {
-		return nil, err
+	if catcher.HasErrors() {
+		return nil, catcher.Resolve()
 	}
 
 	pr, err := reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
