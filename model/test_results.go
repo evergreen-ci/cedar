@@ -48,9 +48,26 @@ const (
 // invalidParquetAlertCount is a temporary count to avoid over-logging when we
 // detect invalid Parquet test results.
 //
-// TODO (EVG-16140): Remove this variable after we do the BSON to Parquet
-// cutover.
-var invalidParquetAlertCount = 0
+// TODO (EVG-16140): Remove this var and related functions after we do the BSON
+// to Parquet cutover.
+var invalidParquetAlertCount = struct {
+	mu    sync.RWMutex
+	count int
+}{}
+
+func getInvalidParquetAlertCount() int {
+	invalidParquetAlertCount.mu.RLock()
+	defer invalidParquetAlertCount.mu.RUnlock()
+
+	return invalidParquetAlertCount.count
+}
+
+func incInvalidParquetAlertCount() {
+	invalidParquetAlertCount.mu.Lock()
+	defer invalidParquetAlertCount.mu.Unlock()
+
+	invalidParquetAlertCount.count++
+}
 
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
@@ -354,14 +371,14 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		parquetResults, err := t.downloadParquet(ctx)
 		if err != nil && !pail.IsKeyNotFoundError(err) {
 			return nil, err
-		} else if err == nil && invalidParquetAlertCount < 5 {
+		} else if err == nil && getInvalidParquetAlertCount() < 5 {
 			if !reflect.DeepEqual(parquetResults, bsonResults) {
 				grip.Warning(message.Fields{
 					"message":   "BSON and Parquet test results differ",
 					"task_id":   t.Info.TaskID,
 					"execution": t.Info.Execution,
 				})
-				invalidParquetAlertCount++
+				incInvalidParquetAlertCount()
 			}
 		}
 
