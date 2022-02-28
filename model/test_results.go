@@ -355,7 +355,7 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		if err != nil && !pail.IsKeyNotFoundError(err) {
 			return nil, err
 		} else if err == nil && invalidParquetAlertCount < 5 {
-			if reflect.DeepEqual(parquetResults, bsonResults) {
+			if !reflect.DeepEqual(parquetResults, bsonResults) {
 				grip.Warning(message.Fields{
 					"message":   "BSON and Parquet test results differ",
 					"task_id":   t.Info.TaskID,
