@@ -42,7 +42,11 @@ func (s *testResultsConnectorSuite) setupData() {
 	s.tempDir, err = ioutil.TempDir(".", "testResults_connector")
 	s.Require().NoError(err)
 	conf := dbModel.NewCedarConfig(s.env)
-	conf.Bucket = dbModel.BucketConfig{TestResultsBucket: s.tempDir}
+	conf.Bucket = dbModel.BucketConfig{
+		TestResultsBucket:       s.tempDir,
+		PrestoBucket:            s.tempDir,
+		PrestoTestResultsPrefix: "presto-test-results",
+	}
 	s.Require().NoError(conf.Save())
 
 	testResultInfos := []dbModel.TestResultsInfo{

@@ -178,6 +178,8 @@ func TestAddTestResults(t *testing.T) {
 				conf.Bucket.TestResultsBucket = ""
 			} else {
 				conf.Bucket.TestResultsBucket = tmpDir
+				conf.Bucket.PrestoBucket = tmpDir
+				conf.Bucket.PrestoTestResultsPrefix = "presto-test-results"
 			}
 			require.NoError(t, conf.Save())
 
@@ -337,6 +339,8 @@ func TestStreamTestResults(t *testing.T) {
 				conf.Bucket.TestResultsBucket = ""
 			} else {
 				conf.Bucket.TestResultsBucket = tmpDir
+				conf.Bucket.PrestoBucket = tmpDir
+				conf.Bucket.PrestoTestResultsPrefix = "presto-test-results"
 			}
 			require.NoError(t, conf.Save())
 
