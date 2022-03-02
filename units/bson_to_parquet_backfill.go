@@ -19,6 +19,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// TODO (EVG-16138): Remove this job once we do the BSON to Parquet cutover.
+
 const bsonToParquetBackfillJobName = "bson-to-parquet-backfill"
 
 type bsonToParquetBackfillJob struct {
@@ -45,6 +47,8 @@ func makeBSONToParquetBackfillJob() *bsonToParquetBackfillJob {
 	}
 }
 
+// NewBSONToParquetBackfillJob returns a new Amboy job that migrates, in
+// batches, BSON test results to the Presto Bucket in Apache Parquet format.
 func NewBSONToParquetBackfillJob(id string) amboy.Job {
 	j := makeBSONToParquetBackfillJob()
 	j.SetID(fmt.Sprintf("%s.%s", bsonToParquetBackfillJobName, id))

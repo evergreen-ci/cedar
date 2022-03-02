@@ -487,7 +487,8 @@ func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*Parquet
 
 // DownloadConvertAndWriteParquet downloads existing BSON test results,
 // converts them to Apache Parquet format, and writes them to the Presto
-// bucket.
+// bucket. The TestResults should be populated and the environment should not
+// be nil.
 //
 // TODO (EVG-16140): Remove this function once we do the BSON to Parquet
 // cutover.
