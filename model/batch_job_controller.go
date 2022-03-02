@@ -24,14 +24,16 @@ type BatchJobController struct {
 	BatchSize  int           `bson:"batch_size"`
 	Iterations int           `bson:"iterations,omitempty"`
 	Timeout    time.Duration `bson:"timeout,omitempty"`
+	Version    int           `bson:"version"`
 }
 
 var (
 	batchJobControllerIDKey         = bsonutil.MustHaveTag(BatchJobController{}, "ID")
-	batchJobControllelCollectioKey  = bsonutil.MustHaveTag(BatchJobController{}, "Collection")
-	batchJobControllelBatchSizeKey  = bsonutil.MustHaveTag(BatchJobController{}, "BatchSize")
-	batchJobControllelIterationsKey = bsonutil.MustHaveTag(BatchJobController{}, "Iterations")
-	batchJobControllelTimeoutKey    = bsonutil.MustHaveTag(BatchJobController{}, "Timeout")
+	batchJobControllerCollectioKey  = bsonutil.MustHaveTag(BatchJobController{}, "Collection")
+	batchJobControllerBatchSizeKey  = bsonutil.MustHaveTag(BatchJobController{}, "BatchSize")
+	batchJobControllerIterationsKey = bsonutil.MustHaveTag(BatchJobController{}, "Iterations")
+	batchJobControllerTimeoutKey    = bsonutil.MustHaveTag(BatchJobController{}, "Timeout")
+	batchJobControllerVersionKey    = bsonutil.MustHaveTag(BatchJobController{}, "Version")
 )
 
 // FindBatchJobController searches the database for the BatchJobController with
