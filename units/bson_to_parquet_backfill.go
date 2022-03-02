@@ -47,8 +47,9 @@ func makeBSONToParquetBackfillJob() *bsonToParquetBackfillJob {
 	}
 }
 
-// NewBSONToParquetBackfillJob returns a new Amboy job that migrates, in
-// batches, BSON test results to the Presto Bucket in Apache Parquet format.
+// NewBSONToParquetBackfillJob returns a new Amboy job that does batched
+// migrations of existing BSON test results to Apache Parquet test results
+// stored in the Presto bucket.
 func NewBSONToParquetBackfillJob(id string) amboy.Job {
 	j := makeBSONToParquetBackfillJob()
 	j.SetID(fmt.Sprintf("%s.%s", bsonToParquetBackfillJobName, id))
