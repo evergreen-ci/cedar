@@ -13,7 +13,7 @@ require (
 	github.com/evergreen-ci/pail v0.0.0-20211028170419-8efd623fd305
 	github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5
 	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
-	github.com/evergreen-ci/utility v0.0.0-20211110193450-ca4da694edcf
+	github.com/evergreen-ci/utility v0.0.0-20220302150552-3f7a1a268ea7
 	github.com/jpillora/backoff v1.0.0
 	github.com/mongodb/amboy v0.0.0-20220209145213-c1c572da4472
 	github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f
