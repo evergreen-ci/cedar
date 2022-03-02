@@ -106,17 +106,14 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 				{model.TestResultsMigrationKey: bson.M{"$exists": false}},
 				{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsVersionKey): bson.M{"$lt": j.controller.Version}},
 				{"$and": []bson.M{
-					{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsStartedAtKey): bson.M{"$and": []bson.M{
-						{"gt": time.Time{}},
-						{"lt": time.Now().Add(-j.controller.Timeout)},
-					}}},
-					{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsCompletedAtKey): time.Time{}},
+					{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsStartedAtKey): bson.M{"$lte": time.Now().Add(-j.controller.Timeout)}},
+					{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsCompletedAtKey): nil},
 				}},
 			}}).
 			SetUpdate(bson.M{"$set": bson.M{
 				model.TestResultsMigrationKey: &model.MigrationStats{
 					MigratorID: j.ID(),
-					StartedAt:  start,
+					StartedAt:  &start,
 					Version:    j.controller.Version,
 				},
 			}})
@@ -137,7 +134,7 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 		ctx,
 		bson.M{
 			bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsMigratorIDKey):  j.ID(),
-			bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsCompletedAtKey): time.Time{},
+			bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsCompletedAtKey): nil,
 		},
 		options.Find().SetLimit(int64(j.controller.BatchSize)),
 	)
@@ -162,9 +159,6 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 		toUpdate[i] = result.ID
 	}
 
-	// TODO: Should this be a bulk update? Or should we update each
-	// individual test result doc after a successful write to the Presto
-	// bucket above?
 	updateResult, err := collection.UpdateMany(
 		ctx,
 		bson.M{"_id": bson.M{"$in": toUpdate}},

@@ -10,10 +10,10 @@ import (
 // typically should be used as a temporary sub-document within the relevant
 // documents in question.
 type MigrationStats struct {
-	MigratorID  string    `bson:"migrator_id"`
-	StartedAt   time.Time `bson:"started_at"`
-	CompletedAt time.Time `bson:"completed_at"`
-	Version     int       `bson:"version"`
+	MigratorID  string     `bson:"migrator_id"`
+	StartedAt   *time.Time `bson:"started_at"`
+	CompletedAt *time.Time `bson:"completed_at"`
+	Version     int        `bson:"version"`
 }
 
 var (
