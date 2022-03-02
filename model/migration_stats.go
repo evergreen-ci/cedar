@@ -6,8 +6,8 @@ import (
 	"github.com/mongodb/anser/bsonutil"
 )
 
-// MigrationStats represents statistics for migration jobs done with documents
-// in the database. It should be used as a temporary sub-document within the
+// MigrationStats represents statistics for batched migration jobs. It
+// typically should be used as a temporary sub-document within the relevant
 // documents in question.
 type MigrationStats struct {
 	MigratorID  string    `bson:"migrator_id"`
