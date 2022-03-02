@@ -102,14 +102,14 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 	for i := 0; i < j.controller.BatchSize; i++ {
 		updates[i] = mongo.NewUpdateOneModel().
 			SetFilter(bson.M{"$or": []bson.M{
-				bson.M{model.TestResultsMigrationKey: bson.M{"$exists": false}},
-				bson.M{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsVersionKey): bson.M{"$lt": j.controller.Version}},
-				bson.M{"$and": []bson.M{
-					bson.M{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsStartedAtKey): bson.M{"$and": []bson.M{
-						bson.M{"gt": time.Time{}},
-						bson.M{"lt": time.Now().Add(-j.controller.Timeout)},
+				{model.TestResultsMigrationKey: bson.M{"$exists": false}},
+				{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsVersionKey): bson.M{"$lt": j.controller.Version}},
+				{"$and": []bson.M{
+					{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsStartedAtKey): bson.M{"$and": []bson.M{
+						{"gt": time.Time{}},
+						{"lt": time.Now().Add(-j.controller.Timeout)},
 					}}},
-					bson.M{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsCompletedAtKey): time.Time{}},
+					{bsonutil.GetDottedKeyName(model.TestResultsMigrationKey, model.MigrationStatsCompletedAtKey): time.Time{}},
 				}},
 			}}).
 			SetUpdate(bson.M{"$set": bson.M{
