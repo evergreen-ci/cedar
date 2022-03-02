@@ -40,7 +40,7 @@ func makeBSONToParquetBackfillJob() *bsonToParquetBackfillJob {
 	return &bsonToParquetBackfillJob{
 		Base: job.Base{
 			JobType: amboy.JobType{
-				Name:    findOutdatedRollupsJobName,
+				Name:    bsonToParquetBackfillJobName,
 				Version: 1,
 			},
 		},
