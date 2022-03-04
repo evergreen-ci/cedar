@@ -471,12 +471,12 @@ func (t *TestResults) downloadBSON(ctx context.Context) ([]TestResult, error) {
 
 // DownloadAndConvertToParquet returns all of the test results stored in
 // offline blob storage converted to a ParquetTestResults struct for writing to
-// Apache Parquet format. The TestResults should be populated and the
-// environment should not be nil.
+// Apache Parquet format. The environment should not be nil.
 //
 // TODO (EVG-16140): Remove this function once we do the BSON to Parquet
 // cutover.
 func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*ParquetTestResults, error) {
+	t.populated = true
 	results, err := t.Download(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "downloading BSON test results")
@@ -487,12 +487,12 @@ func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*Parquet
 
 // DownloadConvertAndWriteParquet downloads existing BSON test results,
 // converts them to Apache Parquet format, and writes them to the Presto
-// bucket. The TestResults should be populated and the environment should not
-// be nil.
+// bucket. The environment should not be nil.
 //
 // TODO (EVG-16140): Remove this function once we do the BSON to Parquet
 // cutover.
 func (t *TestResults) DownloadConvertAndWriteParquet(ctx context.Context) error {
+	t.populated = true
 	results, err := t.DownloadAndConvertToParquet(ctx)
 	if err != nil {
 		return err

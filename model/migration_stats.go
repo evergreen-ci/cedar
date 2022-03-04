@@ -20,5 +20,5 @@ var (
 	MigrationStatsMigratorIDKey  = bsonutil.MustHaveTag(MigrationStats{}, "MigratorID")
 	MigrationStatsStartedAtKey   = bsonutil.MustHaveTag(MigrationStats{}, "StartedAt")
 	MigrationStatsCompletedAtKey = bsonutil.MustHaveTag(MigrationStats{}, "CompletedAt")
-	MigrationStatsVersionKey     = bsonutil.MustHaveTag(MigrationStats{}, "CompletedAt")
+	MigrationStatsVersionKey     = bsonutil.MustHaveTag(MigrationStats{}, "Version")
 )

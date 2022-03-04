@@ -495,13 +495,6 @@ func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("NoEnv", func(t *testing.T) {
-		tr.populated = true
-		_, err = tr.DownloadAndConvertToParquet(ctx)
-		assert.Error(t, err)
-	})
-	t.Run("Unpopulated", func(t *testing.T) {
-		tr.populated = false
-		tr.Setup(env)
 		_, err = tr.DownloadAndConvertToParquet(ctx)
 		assert.Error(t, err)
 	})

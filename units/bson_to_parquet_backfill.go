@@ -53,7 +53,6 @@ func makeBSONToParquetBackfillJob() *bsonToParquetBackfillJob {
 func NewBSONToParquetBackfillJob(id string) amboy.Job {
 	j := makeBSONToParquetBackfillJob()
 	j.SetID(fmt.Sprintf("%s.%s", bsonToParquetBackfillJobName, id))
-	j.SetEnqueueAllScopes(true)
 
 	return j
 }
@@ -76,23 +75,29 @@ func (j *bsonToParquetBackfillJob) Run(ctx context.Context) {
 	if controller.Iterations <= 0 {
 		controller.Iterations = 1
 	}
+	if controller.Timeout <= 0 {
+		controller.Timeout = time.Minute
+	}
 	j.controller = controller
 
-	if j.controller.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, j.controller.Timeout)
-		defer cancel()
-	}
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, j.controller.Timeout)
+	defer cancel()
 
 	for i := 0; i < j.controller.Iterations; i++ {
-		if err = j.runIteration(ctx); err != nil {
+		count, err := j.runIteration(ctx)
+		if err != nil {
 			j.AddError(err)
+			return
+		}
+		if count == 0 {
 			return
 		}
 	}
 }
 
-func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
+func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) (int64, error) {
+	var count int64
 	start := time.Now().UTC()
 	collection := j.env.GetDB().Collection(j.controller.Collection)
 
@@ -120,15 +125,16 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 	}
 	bulkWriteResult, err := collection.BulkWrite(ctx, updates)
 	if err != nil {
-		return errors.Wrap(err, "marking test results for migration in temporary collection")
+		return count, errors.Wrap(err, "marking test results for migration in temporary collection")
 	}
 	if bulkWriteResult.MatchedCount == 0 {
 		grip.Info(message.Fields{
 			"job_name": bsonToParquetBackfillJobName,
 			"message":  "test results BSON to Parquet backfill complete",
 		})
-		return nil
+		return count, nil
 	}
+	count = bulkWriteResult.MatchedCount
 
 	cur, err := collection.Find(
 		ctx,
@@ -139,7 +145,7 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 		options.Find().SetLimit(int64(j.controller.BatchSize)),
 	)
 	if err != nil {
-		return errors.Wrap(err, "getting test results from temporary collection")
+		return count, errors.Wrap(err, "getting test results from temporary collection")
 	}
 	defer func() {
 		j.AddError(errors.Wrap(cur.Close(ctx), "closing DB cursor"))
@@ -147,13 +153,14 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 
 	var results []model.TestResults
 	if err = cur.All(ctx, &results); err != nil {
-		return errors.Wrap(err, "decoding test results from temporary collection")
+		return count, errors.Wrap(err, "decoding test results from temporary collection")
 	}
 
 	toUpdate := make([]string, len(results))
 	for i, result := range results {
+		result.Setup(j.env)
 		if err = result.DownloadConvertAndWriteParquet(ctx); err != nil {
-			return errors.Wrap(err, "downloading, converting, and writing Parquet test results")
+			return count, errors.Wrap(err, "downloading, converting, and writing Parquet test results")
 		}
 
 		toUpdate[i] = result.ID
@@ -167,11 +174,11 @@ func (j *bsonToParquetBackfillJob) runIteration(ctx context.Context) error {
 		}},
 	)
 	if err != nil {
-		return errors.Wrap(err, "marking migrated test results complete in temporary collection")
+		return count, errors.Wrap(err, "marking migrated test results complete in temporary collection")
 	}
 	if updateResult.ModifiedCount != int64(len(toUpdate)) {
-		return errors.Errorf("expected to mark complete %d migrated test results documents from temporary collection, but marked %d instead", len(toUpdate), updateResult.ModifiedCount)
+		return count, errors.Errorf("expected to mark complete %d migrated test results documents from temporary collection, but marked %d instead", len(toUpdate), updateResult.ModifiedCount)
 	}
 
-	return nil
+	return count, nil
 }

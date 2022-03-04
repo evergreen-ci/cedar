@@ -16,7 +16,7 @@ func TestFindBatchJobController(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
-		assert.NoError(t, db.Collection(batchJobControllerCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(BatchJobControllerCollection).Drop(ctx))
 	}()
 
 	c1 := &BatchJobController{
@@ -33,7 +33,7 @@ func TestFindBatchJobController(t *testing.T) {
 		Iterations: 20,
 		Timeout:    20 * time.Minute,
 	}
-	_, err := db.Collection(batchJobControllerCollection).InsertMany(ctx, []interface{}{c1, c2})
+	_, err := db.Collection(BatchJobControllerCollection).InsertMany(ctx, []interface{}{c1, c2})
 	require.NoError(t, err)
 
 	t.Run("DNE", func(t *testing.T) {
