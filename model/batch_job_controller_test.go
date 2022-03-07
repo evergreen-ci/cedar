@@ -15,6 +15,8 @@ func TestFindBatchJobController(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	require.NoError(t, db.Collection(BatchJobControllerCollection).Drop(ctx))
 	defer func() {
 		assert.NoError(t, db.Collection(BatchJobControllerCollection).Drop(ctx))
 	}()

@@ -14,7 +14,7 @@ import (
 const (
 	// BatchJobControllerCollection is the name of the database collection
 	// for batch job controller documents.
-	BatchJobControllerCollection = "batch_job_controller"
+	BatchJobControllerCollection = "batch_job_controllers"
 )
 
 // BatchJobController represents a set of handles for controlling automatic

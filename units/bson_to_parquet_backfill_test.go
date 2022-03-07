@@ -39,8 +39,9 @@ func TestBSONToParquetBackfillJob(t *testing.T) {
 	controller := model.BatchJobController{
 		ID:         bsonToParquetBackfillJobName,
 		Collection: "backfill_test_results",
-		Iterations: 10,
 		BatchSize:  10,
+		Iterations: 10,
+		Timeout:    time.Minute,
 	}
 	numDocs := controller.Iterations * controller.BatchSize
 	updateController(t, ctx, env, controller)

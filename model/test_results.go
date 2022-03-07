@@ -84,7 +84,7 @@ type TestResults struct {
 	// Migration holds statistics for the BSON to Parquet backfill, it is
 	// only present in the temporary test results migration collection.
 	//
-	// TODO (EVG-16140): Remove once we do the  BSON to Parquet cutover.
+	// TODO (EVG-16140): Remove once we do the BSON to Parquet cutover.
 	Migration *MigrationStats `bson:"migration,omitempty"`
 
 	env                cedar.Environment

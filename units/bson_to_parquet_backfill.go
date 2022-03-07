@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// TODO (EVG-16138): Remove this job once we do the BSON to Parquet cutover.
+// TODO (EVG-16140): Remove this job once we do the BSON to Parquet cutover.
 
 const bsonToParquetBackfillJobName = "bson-to-parquet-backfill"
 
@@ -72,16 +72,9 @@ func (j *bsonToParquetBackfillJob) Run(ctx context.Context) {
 		j.AddError(errors.Wrap(err, "getting batch job controller"))
 		return
 	}
-	if controller.Iterations <= 0 {
-		controller.Iterations = 1
-	}
-	if controller.Timeout <= 0 {
-		controller.Timeout = time.Minute
-	}
 	j.controller = controller
 
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, j.controller.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, j.controller.Timeout)
 	defer cancel()
 
 	for i := 0; i < j.controller.Iterations; i++ {
