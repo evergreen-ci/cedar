@@ -27,7 +27,6 @@ type bsonToParquetBackfillJob struct {
 	job.Base `bson:"metadata" json:"metadata" yaml:"metadata"`
 
 	env         cedar.Environment
-	queue       amboy.Queue
 	controller  *model.BatchJobController
 	migrationID string
 }
@@ -62,9 +61,6 @@ func (j *bsonToParquetBackfillJob) Run(ctx context.Context) {
 
 	if j.env == nil {
 		j.env = cedar.GetEnvironment()
-	}
-	if j.queue == nil {
-		j.queue = j.env.GetRemoteQueue()
 	}
 
 	controller, err := model.FindBatchJobController(ctx, j.env, bsonToParquetBackfillJobName)
