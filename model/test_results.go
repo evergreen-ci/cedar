@@ -89,7 +89,6 @@ type TestResults struct {
 
 	env                cedar.Environment
 	bucket             string
-	prestoBucket       string
 	prestoBucketPrefix string
 	populated          bool
 }
@@ -587,21 +586,19 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 // TODO (EVG-16140): Remove this and use GetBucket (above) once we do the BSON
 // to Parquet cutover.
 func (t *TestResults) GetPrestoBucket(ctx context.Context) (pail.Bucket, error) {
-	if t.prestoBucket == "" {
+	if t.prestoBucketPrefix == "" {
 		conf := &CedarConfig{}
 		conf.Setup(t.env)
 		if err := conf.Find(); err != nil {
 			return nil, errors.Wrap(err, "getting application configuration")
 		}
 
-		t.prestoBucket = conf.Bucket.PrestoBucket
 		t.prestoBucketPrefix = conf.Bucket.PrestoTestResultsPrefix
 	}
 
-	bucket, err := t.Artifact.Type.Create(
+	bucket, err := t.Artifact.Type.CreatePresto(
 		ctx,
 		t.env,
-		t.prestoBucket,
 		t.prestoBucketPrefix,
 		string(pail.S3PermissionsPrivate),
 		false,

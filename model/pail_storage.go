@@ -24,7 +24,7 @@ const (
 	defaultS3Region = "us-east-1"
 )
 
-// Create returns a pail Bucket backed by PailType.
+// Create returns a Pail Bucket backed by PailType.
 func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, prefix, permissions string, compress bool) (pail.Bucket, error) {
 	var b pail.Bucket
 	var err error
@@ -34,7 +34,7 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 		conf := &CedarConfig{}
 		conf.Setup(env)
 		if err = conf.Find(); err != nil {
-			return nil, errors.Wrap(err, "problem getting application configuration")
+			return nil, errors.Wrap(err, "getting application configuration")
 		}
 
 		opts := pail.S3Options{
@@ -80,6 +80,42 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 		return nil, errors.WithStack(err)
 	}
 	return b, nil
+}
+
+// CreatePresto returns a Pail Bucket backed by PailType specifically for
+// buckets in our Presto ecosystem.
+func (t PailType) CreatePresto(ctx context.Context, env cedar.Environment, prefix, permissions string, compress bool) (pail.Bucket, error) {
+	conf := &CedarConfig{}
+	conf.Setup(env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.Wrap(err, "getting application configuration")
+	}
+
+	switch t {
+	case PailS3:
+		opts := pail.S3Options{
+			Name:          conf.Bucket.PrestoBucket,
+			Prefix:        prefix,
+			Region:        defaultS3Region,
+			Permissions:   pail.S3Permissions(permissions),
+			Credentials:   pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
+			AssumeRoleARN: conf.Bucket.PrestoRoleARN,
+			MaxRetries:    10,
+			Compress:      compress,
+		}
+		b, err := pail.NewS3Bucket(opts)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		if err = b.Check(ctx); err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		return b, nil
+	default:
+		return t.Create(ctx, env, conf.Bucket.PrestoBucket, prefix, permissions, compress)
+	}
 }
 
 // GetDownloadURL returns, if applicable, the download URL for the object at

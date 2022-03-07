@@ -187,6 +187,7 @@ type BucketConfig struct {
 	TestResultsBucket       string   `bson:"test_results_bucket" json:"test_results_bucket" yaml:"test_results_bucket"`
 	TestResultsBucketType   PailType `bson:"test_results_bucket_type" json:"test_results_bucket_type" yaml:"test_results_bucket_type"`
 
+	PrestoRoleARN           string `bson:"presto_role_arn" json:"presto_role_arn" yaml:"presto_role_arn"`
 	PrestoBucket            string `bson:"presto_bucket" json:"presto_bucket" yaml:"presto_bucket"`
 	PrestoTestResultsPrefix string `bson:"presto_test_results_prefix" json:"presto_test_results_prefix" yaml:"presto_test_results_prefix"`
 }
