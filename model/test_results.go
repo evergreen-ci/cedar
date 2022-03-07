@@ -81,6 +81,11 @@ type TestResults struct {
 	// This is an optimization for Evergreen's UI features that display a
 	// limited number of failing tests for a task.
 	FailedTestsSample []string `bson:"failed_tests_sample"`
+	// Migration holds statistics for the BSON to Parquet backfill, it is
+	// only present in the temporary test results migration collection.
+	//
+	// TODO (EVG-16140): Remove once we do the BSON to Parquet cutover.
+	Migration *MigrationStats `bson:"migration,omitempty"`
 
 	env                cedar.Environment
 	bucket             string
@@ -97,6 +102,8 @@ var (
 	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
 	testResultsStatsKey             = bsonutil.MustHaveTag(TestResults{}, "Stats")
 	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
+	// TODO (EVG-16140): Remove once we do the BSON to Parquet cutover.
+	TestResultsMigrationKey = bsonutil.MustHaveTag(TestResults{}, "Migration")
 )
 
 // CreateTestResults is an entry point for creating a new TestResults.
@@ -228,33 +235,8 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return errors.Wrap(err, "appending BSON test results")
 	}
 
-	bucket, err := t.GetPrestoBucket(ctx)
-	if err != nil {
-		return err
-	}
-	w, err := bucket.Writer(ctx, t.PrestoPartitionKey())
-	if err != nil {
-		return errors.Wrap(err, "creating Presto bucket writer")
-	}
-	var closedWriter bool
-	defer func() {
-		if !closedWriter {
-			_ = w.Close()
-		}
-	}()
-	pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
-	if err != nil {
-		return errors.Wrap(err, "creating new Parquet writer")
-	}
-	if err = pw.Write(t.convertToParquet(allResults)); err != nil {
-		return errors.Wrap(err, "writing Parquet test results")
-	}
-	if err = pw.WriteStop(); err != nil {
-		return errors.Wrap(err, "stopping Parquet writer")
-	}
-	closedWriter = true
-	if err := w.Close(); err != nil {
-		return errors.Wrap(err, "closing Presto bucket writer")
+	if err = t.uploadParquet(ctx, t.convertToParquet(allResults)); err != nil {
+		return errors.Wrap(err, "appending Parquet test results")
 	}
 
 	if err = t.env.GetStatsCache(cedar.StatsCacheTestResults).AddStat(cedar.Stat{
@@ -285,6 +267,36 @@ func (t *TestResults) uploadBSON(ctx context.Context, results []TestResult) erro
 	}
 
 	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading BSON test results")
+}
+
+func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestResults) error {
+	bucket, err := t.GetPrestoBucket(ctx)
+	if err != nil {
+		return err
+	}
+	w, err := bucket.Writer(ctx, t.PrestoPartitionKey())
+	if err != nil {
+		return errors.Wrap(err, "creating Presto bucket writer")
+	}
+	var closedWriter bool
+	defer func() {
+		if !closedWriter {
+			_ = w.Close()
+		}
+	}()
+	pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
+	if err != nil {
+		return errors.Wrap(err, "creating new Parquet writer")
+	}
+	if err = pw.Write(results); err != nil {
+		return errors.Wrap(err, "writing Parquet test results")
+	}
+	if err = pw.WriteStop(); err != nil {
+		return errors.Wrap(err, "stopping Parquet writer")
+	}
+
+	closedWriter = true
+	return errors.Wrap(w.Close(), "closing Presto bucket writer")
 }
 
 func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
@@ -459,15 +471,34 @@ func (t *TestResults) downloadBSON(ctx context.Context) ([]TestResult, error) {
 
 // DownloadAndConvertToParquet returns all of the test results stored in
 // offline blob storage converted to a ParquetTestResults struct for writing to
-// Apache Parquet format. The TestResults should be populated and the
-/// environment should not be nil.
+// Apache Parquet format. The environment should not be nil.
+//
+// TODO (EVG-16140): Remove this function once we do the BSON to Parquet
+// cutover.
 func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*ParquetTestResults, error) {
+	t.populated = true
 	results, err := t.Download(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "downloading test results")
+		return nil, errors.Wrap(err, "downloading BSON test results")
 	}
 
 	return t.convertToParquet(results), nil
+}
+
+// DownloadConvertAndWriteParquet downloads existing BSON test results,
+// converts them to Apache Parquet format, and writes them to the Presto
+// bucket. The environment should not be nil.
+//
+// TODO (EVG-16140): Remove this function once we do the BSON to Parquet
+// cutover.
+func (t *TestResults) DownloadConvertAndWriteParquet(ctx context.Context) error {
+	t.populated = true
+	results, err := t.DownloadAndConvertToParquet(ctx)
+	if err != nil {
+		return err
+	}
+
+	return t.uploadParquet(ctx, results)
 }
 
 func (t *TestResults) convertToParquet(results []TestResult) *ParquetTestResults {
