@@ -21,7 +21,8 @@ const (
 	PailGridFS       PailType = "gridfs"
 	PailLocal        PailType = "local"
 
-	defaultS3Region = "us-east-1"
+	defaultS3Region     = "us-east-1"
+	defaultS3MaxRetries = 10
 )
 
 // Create returns a Pail Bucket backed by PailType.
@@ -43,7 +44,7 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 			Region:      defaultS3Region,
 			Permissions: pail.S3Permissions(permissions),
 			Credentials: pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
-			MaxRetries:  10,
+			MaxRetries:  defaultS3MaxRetries,
 			Compress:    compress,
 		}
 		b, err = pail.NewS3Bucket(opts)
@@ -100,7 +101,7 @@ func (t PailType) CreatePresto(ctx context.Context, env cedar.Environment, prefi
 			Permissions:   pail.S3Permissions(permissions),
 			Credentials:   pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
 			AssumeRoleARN: conf.Bucket.PrestoRoleARN,
-			MaxRetries:    10,
+			MaxRetries:    defaultS3MaxRetries,
 			Compress:      compress,
 		}
 		b, err := pail.NewS3Bucket(opts)
