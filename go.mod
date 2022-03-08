@@ -10,7 +10,7 @@ require (
 	github.com/evergreen-ci/birch v0.0.0-20211025210128-7f3409c2b515
 	github.com/evergreen-ci/certdepot v0.0.0-20211109153348-d681ebe95b66
 	github.com/evergreen-ci/gimlet v0.0.0-20211119154230-7c9e13926e12
-	github.com/evergreen-ci/pail v0.0.0-20211028170419-8efd623fd305
+	github.com/evergreen-ci/pail v0.0.0-20220307214448-15cf7c468168
 	github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5
 	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
 	github.com/evergreen-ci/utility v0.0.0-20220302150552-3f7a1a268ea7
@@ -29,7 +29,6 @@ require (
 	go.mongodb.org/mongo-driver v1.8.3
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab // indirect
 	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
