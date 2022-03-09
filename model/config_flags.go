@@ -11,6 +11,8 @@ type OperationalFlags struct {
 	DisableInternalMetricsReporting bool `bson:"disable_internal_metrics_reporting" json:"disable_internal_metrics_reporting" yaml:"disable_internal_metrics_reporting"`
 	DisableSignalProcessing         bool `bson:"disable_signal_processing" json:"disable_signal_processing" yaml:"disable_signal_processing"`
 	DisableHistoricalTestData       bool `bson:"disable_historical_test_data" json:"disable_historical_test_data" yaml:"disable_historical_test_data"`
+	// TODO (EVG-16140): Remove this field once we do the BSON to Parquet cutover.
+	DisableTestResultsBackfill bool `bson:"disable_test_results_backfill" json:"disable_test_results_backfill" yaml:"disable_test_results_backfill"`
 
 	env cedar.Environment
 }
