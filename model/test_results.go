@@ -269,6 +269,15 @@ func (t *TestResults) uploadBSON(ctx context.Context, results []TestResult) erro
 }
 
 func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestResults) error {
+	conf := &CedarConfig{}
+	conf.Setup(t.env)
+	if err := conf.Find(); err != nil {
+		return errors.Wrap(err, "getting application configuration")
+	}
+	if conf.Flags.DisableParquetTestResults {
+		return nil
+	}
+
 	bucket, err := t.GetPrestoBucket(ctx)
 	if err != nil {
 		return err
@@ -507,12 +516,14 @@ func (t *TestResults) convertToParquet(results []TestResult) *ParquetTestResults
 	}
 
 	return &ParquetTestResults{
-		TaskID:    t.Info.TaskID,
-		Execution: int32(t.Info.Execution),
-		Variant:   t.Info.Variant,
-		Version:   t.Info.Version,
-		CreatedAt: types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true),
-		Results:   convertedResults,
+		Version:     t.Info.Version,
+		Variant:     t.Info.Variant,
+		TaskName:    t.Info.TaskName,
+		TaskID:      t.Info.TaskID,
+		Execution:   int32(t.Info.Execution),
+		RequestType: t.Info.RequestType,
+		CreatedAt:   types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true),
+		Results:     convertedResults,
 	}
 }
 
@@ -1310,12 +1321,14 @@ func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts F
 // ParquetTestResults describes a set of test results from a task execution to
 // be stored in Apache Parquet format.
 type ParquetTestResults struct {
-	Version   string              `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Variant   string              `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
-	TaskID    string              `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Execution int32               `parquet:"name=execution, type=INT32"`
-	CreatedAt int64               `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	Results   []ParquetTestResult `parquet:"name=results, type=LIST"`
+	Version     string              `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Variant     string              `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
+	TaskName    string              `parquet:"name=task_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	TaskID      string              `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Execution   int32               `parquet:"name=execution, type=INT32"`
+	RequestType string              `parquet:"name=request_type, type=BYTE_ARRAY, convertedtype=UTF8"`
+	CreatedAt   int64               `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	Results     []ParquetTestResult `parquet:"name=results, type=LIST"`
 }
 
 func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
