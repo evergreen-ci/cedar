@@ -291,7 +291,32 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, pr.Read(&parquetResults))
 		pr.ReadStop()
 		require.Len(t, parquetResults, 1)
-		assert.Equal(t, results, parquetResults[0].convertToTestResultSlice())
+		expectedParquet := ParquetTestResults{
+			Version:     tr.Info.Version,
+			Variant:     tr.Info.Variant,
+			TaskName:    tr.Info.TaskName,
+			TaskID:      tr.Info.TaskID,
+			Execution:   int32(tr.Info.Execution),
+			RequestType: tr.Info.RequestType,
+			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+		}
+		for _, result := range results {
+			expectedParquet.Results = append(expectedParquet.Results, ParquetTestResult{
+				TestName:        result.TestName,
+				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
+				GroupID:         utility.ToStringPtr(result.GroupID),
+				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
+				Status:          result.Status,
+				LogTestName:     utility.ToStringPtr(result.LogTestName),
+				LogURL:          utility.ToStringPtr(result.LogURL),
+				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
+				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
+				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
+				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
+				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
+			})
+		}
+		assert.Equal(t, expectedParquet, parquetResults[0])
 
 		// Check metadata.
 		var saved TestResults
@@ -332,7 +357,23 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, pr.Read(&parquetResults))
 		pr.ReadStop()
 		require.Len(t, parquetResults, 1)
-		assert.Equal(t, append(results, failedResults...), parquetResults[0].convertToTestResultSlice())
+		for _, result := range failedResults {
+			expectedParquet.Results = append(expectedParquet.Results, ParquetTestResult{
+				TestName:        result.TestName,
+				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
+				GroupID:         utility.ToStringPtr(result.GroupID),
+				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
+				Status:          result.Status,
+				LogTestName:     utility.ToStringPtr(result.LogTestName),
+				LogURL:          utility.ToStringPtr(result.LogURL),
+				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
+				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
+				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
+				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
+				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
+			})
+		}
+		assert.Equal(t, expectedParquet, parquetResults[0])
 
 		// Check metadata.
 		require.NoError(t, db.Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": tr.ID}).Decode(&saved))
@@ -397,12 +438,14 @@ func TestTestResultsDownload(t *testing.T) {
 		savedBSON := testResultsDoc{}
 		savedBSON.Results = make([]TestResult, 10)
 		savedParquet := ParquetTestResults{
-			Version:   tr.Info.Version,
-			Variant:   tr.Info.Variant,
-			TaskID:    tr.Info.TaskID,
-			Execution: int32(tr.Info.Execution),
-			CreatedAt: types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
-			Results:   make([]ParquetTestResult, 10),
+			Version:     tr.Info.Version,
+			Variant:     tr.Info.Variant,
+			TaskName:    tr.Info.TaskName,
+			TaskID:      tr.Info.TaskID,
+			Execution:   int32(tr.Info.Execution),
+			RequestType: tr.Info.RequestType,
+			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+			Results:     make([]ParquetTestResult, 10),
 		}
 		for i := 0; i < 10; i++ {
 			result := getTestResult()
@@ -526,11 +569,13 @@ func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
 		expected := &ParquetTestResults{
-			Version:   tr.Info.Version,
-			Variant:   tr.Info.Variant,
-			TaskID:    tr.Info.TaskID,
-			Execution: int32(tr.Info.Execution),
-			CreatedAt: types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+			Version:     tr.Info.Version,
+			Variant:     tr.Info.Variant,
+			TaskName:    tr.Info.TaskName,
+			TaskID:      tr.Info.TaskID,
+			Execution:   int32(tr.Info.Execution),
+			RequestType: tr.Info.RequestType,
+			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
 		}
 		for _, result := range savedResults.Results {
 			expected.Results = append(expected.Results, ParquetTestResult{
