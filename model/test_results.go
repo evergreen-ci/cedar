@@ -269,6 +269,15 @@ func (t *TestResults) uploadBSON(ctx context.Context, results []TestResult) erro
 }
 
 func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestResults) error {
+	conf := &CedarConfig{}
+	conf.Setup(t.env)
+	if err := conf.Find(); err != nil {
+		return nil, errors.Wrap(err, "getting application configuration")
+	}
+	if conf.Flags.DisableParquetTestResults {
+		return nil
+	}
+
 	bucket, err := t.GetPrestoBucket(ctx)
 	if err != nil {
 		return err
