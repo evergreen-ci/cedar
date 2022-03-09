@@ -272,7 +272,7 @@ func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestRes
 	conf := &CedarConfig{}
 	conf.Setup(t.env)
 	if err := conf.Find(); err != nil {
-		return nil, errors.Wrap(err, "getting application configuration")
+		return errors.Wrap(err, "getting application configuration")
 	}
 	if conf.Flags.DisableParquetTestResults {
 		return nil
