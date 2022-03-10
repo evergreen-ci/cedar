@@ -385,7 +385,7 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		return results, catcher.Resolve()
 	case 1:
 		bsonResults, err := t.downloadBSON(ctx)
-		if err != nil {
+		if err != nil && !pail.IsKeyNotFoundError(err) {
 			return nil, err
 		}
 
