@@ -388,17 +388,25 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		parquetResults, err := t.downloadParquet(ctx)
-		if err != nil && !pail.IsKeyNotFoundError(err) {
-			return nil, err
-		} else if err == nil && getInvalidParquetAlertCount() < 5 {
-			if !reflect.DeepEqual(parquetResults, bsonResults) {
-				grip.Warning(message.Fields{
-					"message":   "BSON and Parquet test results differ",
-					"task_id":   t.Info.TaskID,
-					"execution": t.Info.Execution,
-				})
-				incInvalidParquetAlertCount()
+
+		conf := &CedarConfig{}
+		conf.Setup(t.env)
+		if err := conf.Find(); err != nil {
+			return nil, errors.Wrap(err, "getting application configuration")
+		}
+		if !conf.Flags.DisableParquetTestResults {
+			parquetResults, err := t.downloadParquet(ctx)
+			if err != nil && !pail.IsKeyNotFoundError(err) {
+				return nil, err
+			} else if err == nil && getInvalidParquetAlertCount() < 5 {
+				if !reflect.DeepEqual(parquetResults, bsonResults) {
+					grip.Warning(message.Fields{
+						"message":   "BSON and Parquet test results differ",
+						"task_id":   t.Info.TaskID,
+						"execution": t.Info.Execution,
+					})
+					incInvalidParquetAlertCount()
+				}
 			}
 		}
 
