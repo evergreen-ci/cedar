@@ -28,6 +28,7 @@ type CedarConfig struct {
 	URL            string                    `bson:"url" json:"url" yaml:"url"`
 	Evergreen      EvergreenConfig           `bson:"evergreen" json:"evergreen" yaml:"evergreen"`
 	Splunk         send.SplunkConnectionInfo `bson:"splunk" json:"splunk" yaml:"splunk"`
+	LoggerConfig   LoggerParams              `bson:"logger_config" json:"logger_config" yaml:"logger_config"`
 	Slack          SlackConfig               `bson:"slack" json:"slack" yaml:"slack"`
 	LDAP           LDAPConfig                `bson:"ldap" json:"ldap" yaml:"ldap"`
 	ServiceAuth    ServiceAuthConfig         `bson:"service_auth" json:"service_auth" yaml:"service_auth"`
@@ -109,6 +110,18 @@ var (
 	cedarSlackConfigOptionsKey = bsonutil.MustHaveTag(SlackConfig{}, "Options")
 	cedarSlackConfigTokenKey   = bsonutil.MustHaveTag(SlackConfig{}, "Token")
 	cedarSlackConfigLevelKey   = bsonutil.MustHaveTag(SlackConfig{}, "Level")
+)
+
+type LoggerParams struct {
+	BufferCount           int  `bson:"buffer_count" json:"buffer_count" yaml:"buffer_count"`
+	BufferDurationSeconds int  `bson:"buffer_duration_secs" json:"buffer_duration_secs" yaml:"buffer_duration_secs"`
+	UseAsync              bool `bson:"use_async" json:"use_async" yaml:"use_async"`
+}
+
+var (
+	cedarLoggerConfigBufferCountKey        = bsonutil.MustHaveTag(LoggerParams{}, "BufferCount")
+	cedarLoggerConfigBufferDurationSecsKey = bsonutil.MustHaveTag(LoggerParams{}, "BufferDurationSecs")
+	cedarLoggerConfigBufferUseAsyncKey     = bsonutil.MustHaveTag(LoggerParams{}, "UseAsync")
 )
 
 // LDAPConfig contains settings for interacting with an LDAP server.

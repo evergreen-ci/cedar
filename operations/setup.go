@@ -14,11 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	loggingBufferCount    = 100
-	loggingBufferDuration = 20 * time.Second
-)
-
 type serviceConf struct {
 	numWorkers  int
 	localQueue  bool
@@ -79,19 +74,27 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
 			return nil, errors.Wrap(err, "configuring splunk logger error handler")
 		}
-		bufferedSender, err := send.NewBufferedAsyncSender(ctx, sender, send.BufferedAsyncSenderOptions{
-			BufferedSenderOptions: send.BufferedSenderOptions{
-				FlushInterval: loggingBufferDuration,
-				BufferSize:    loggingBufferCount,
-			},
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "building buffered splunk logger")
+
+		opts := send.BufferedSenderOptions{
+			FlushInterval: time.Duration(conf.LoggerConfig.BufferDurationSeconds) * time.Second,
+			BufferSize:    conf.LoggerConfig.BufferCount,
 		}
-		if err = bufferedSender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
+		if conf.LoggerConfig.UseAsync {
+			sender, err = send.NewBufferedAsyncSender(ctx, sender, send.BufferedAsyncSenderOptions{BufferedSenderOptions: opts})
+			if err != nil {
+				return nil, errors.Wrap(err, "building buffered async splunk logger")
+			}
+		} else {
+			sender, err = send.NewBufferedSender(ctx, sender, opts)
+			if err != nil {
+				return nil, errors.Wrap(err, "building buffered splunk logger")
+			}
+		}
+
+		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
 			return nil, errors.Wrap(err, "configuring buffered splunk logger error handler")
 		}
-		senders = append(senders, bufferedSender)
+		senders = append(senders, sender)
 	}
 
 	if conf.Slack.Options != nil {
@@ -118,7 +121,10 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 
 		// TODO consider using a local queue to buffer
 		// these messages
-		bufferedSender, err := send.NewBufferedSender(ctx, sender, send.BufferedSenderOptions{FlushInterval: loggingBufferDuration, BufferSize: loggingBufferCount})
+		bufferedSender, err := send.NewBufferedSender(ctx, sender, send.BufferedSenderOptions{
+			FlushInterval: time.Duration(conf.LoggerConfig.BufferDurationSeconds) * time.Second,
+			BufferSize:    conf.LoggerConfig.BufferCount,
+		})
 		if err != nil {
 			return nil, errors.Wrap(err, "building buffered slack logger")
 		}
