@@ -113,15 +113,15 @@ var (
 )
 
 type LoggerParams struct {
-	BufferCount           int  `bson:"buffer_count" json:"buffer_count" yaml:"buffer_count"`
-	BufferDurationSeconds int  `bson:"buffer_duration_secs" json:"buffer_duration_secs" yaml:"buffer_duration_secs"`
-	UseAsync              bool `bson:"use_async" json:"use_async" yaml:"use_async"`
+	BufferCount    int           `bson:"buffer_count" json:"buffer_count" yaml:"buffer_count"`
+	BufferDuration time.Duration `bson:"buffer_duration" json:"buffer_duration" yaml:"buffer_duration"`
+	UseAsync       bool          `bson:"use_async" json:"use_async" yaml:"use_async"`
 }
 
 var (
-	cedarLoggerConfigBufferCountKey        = bsonutil.MustHaveTag(LoggerParams{}, "BufferCount")
-	cedarLoggerConfigBufferDurationSecsKey = bsonutil.MustHaveTag(LoggerParams{}, "BufferDurationSecs")
-	cedarLoggerConfigBufferUseAsyncKey     = bsonutil.MustHaveTag(LoggerParams{}, "UseAsync")
+	cedarLoggerConfigBufferCountKey    = bsonutil.MustHaveTag(LoggerParams{}, "BufferCount")
+	cedarLoggerConfigBufferDurationKey = bsonutil.MustHaveTag(LoggerParams{}, "BufferDuration")
+	cedarLoggerConfigBufferUseAsyncKey = bsonutil.MustHaveTag(LoggerParams{}, "UseAsync")
 )
 
 // LDAPConfig contains settings for interacting with an LDAP server.

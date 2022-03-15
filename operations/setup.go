@@ -76,7 +76,7 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 		}
 
 		opts := send.BufferedSenderOptions{
-			FlushInterval: time.Duration(conf.LoggerConfig.BufferDurationSeconds) * time.Second,
+			FlushInterval: conf.LoggerConfig.BufferDuration * time.Second,
 			BufferSize:    conf.LoggerConfig.BufferCount,
 		}
 		if conf.LoggerConfig.UseAsync {
@@ -122,7 +122,7 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 		// TODO consider using a local queue to buffer
 		// these messages
 		bufferedSender, err := send.NewBufferedSender(ctx, sender, send.BufferedSenderOptions{
-			FlushInterval: time.Duration(conf.LoggerConfig.BufferDurationSeconds) * time.Second,
+			FlushInterval: conf.LoggerConfig.BufferDuration * time.Second,
 			BufferSize:    conf.LoggerConfig.BufferCount,
 		})
 		if err != nil {
