@@ -111,7 +111,7 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 			return nil
 		}
 
-		return queue.Put(ctx, NewBSONToParquetBackfillJob(time.Now().Format(tsFormat)))
+		return queue.Put(ctx, NewBSONToParquetBackfillJob(utility.RandomString()))
 	})
 
 	return nil
