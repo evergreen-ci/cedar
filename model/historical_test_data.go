@@ -318,16 +318,14 @@ func GetHistoricalTestData(ctx context.Context, env cedar.Environment, filter Hi
 	var prestoData []AggregatedHistoricalTestData
 	cursor, err = env.GetDB().Collection(prestoHistoricalTestDataCollection).Aggregate(ctx, pipeline)
 	if err != nil {
-		grip.Warning(message.Fields{
-			"message": errors.Wrap(err, "aggregating Presto historical test data").Error(),
-			"filter":  filter,
-		})
+		grip.Warning(message.WrapError(errors.Wrap(err, "aggregating Presto historical test data"), message.Fields{
+			"filter": filter,
+		}))
 	} else {
 		if err = cursor.All(ctx, &prestoData); err != nil {
-			grip.Warning(message.Fields{
-				"message": errors.Wrap(err, "unmarshaling Presto historical test data").Error(),
-				"filter":  filter,
-			})
+			grip.Warning(message.WrapError(errors.Wrap(err, "unmarshaling Presto historical test data"), message.Fields{
+				"filter": filter,
+			}))
 		} else if !reflect.DeepEqual(prestoData, data) {
 			grip.Warning(message.Fields{
 				"message": "Presto historical test data and Cedar historical test data differ",
