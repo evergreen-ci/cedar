@@ -113,9 +113,10 @@ var (
 )
 
 type LoggerParams struct {
-	BufferCount    int           `bson:"buffer_count" json:"buffer_count" yaml:"buffer_count"`
-	BufferDuration time.Duration `bson:"buffer_duration" json:"buffer_duration" yaml:"buffer_duration"`
-	UseAsync       bool          `bson:"use_async" json:"use_async" yaml:"use_async"`
+	BufferCount          int           `bson:"buffer_count" json:"buffer_count" yaml:"buffer_count"`
+	BufferDuration       time.Duration `bson:"buffer_duration" json:"buffer_duration" yaml:"buffer_duration"`
+	IncomingBufferFactor int           `bson:"incoming_buffer_factor" json:"incoming_buffer_factor" yaml:"incoming_buffer_factor"`
+	UseAsync             bool          `bson:"use_async" json:"use_async" yaml:"use_async"`
 }
 
 var (

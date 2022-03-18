@@ -79,7 +79,10 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 			BufferSize:    conf.LoggerConfig.BufferCount,
 		}
 		if conf.LoggerConfig.UseAsync {
-			sender, err = send.NewBufferedAsyncSender(ctx, sender, send.BufferedAsyncSenderOptions{BufferedSenderOptions: opts})
+			sender, err = send.NewBufferedAsyncSender(ctx, sender, send.BufferedAsyncSenderOptions{
+				BufferedSenderOptions: opts,
+				IncomingBufferFactor:  conf.LoggerConfig.IncomingBufferFactor,
+			})
 			if err != nil {
 				return nil, errors.Wrap(err, "building buffered async splunk logger")
 			}
