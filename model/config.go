@@ -120,9 +120,10 @@ type LoggerParams struct {
 }
 
 var (
-	cedarLoggerConfigBufferCountKey    = bsonutil.MustHaveTag(LoggerParams{}, "BufferCount")
-	cedarLoggerConfigBufferDurationKey = bsonutil.MustHaveTag(LoggerParams{}, "BufferDuration")
-	cedarLoggerConfigBufferUseAsyncKey = bsonutil.MustHaveTag(LoggerParams{}, "UseAsync")
+	cedarLoggerConfigBufferCountKey          = bsonutil.MustHaveTag(LoggerParams{}, "BufferCount")
+	cedarLoggerConfigBufferDurationKey       = bsonutil.MustHaveTag(LoggerParams{}, "BufferDuration")
+	cedarLoggerConfigIncomingBufferFactorKey = bsonutil.MustHaveTag(LoggerParams{}, "IncomingBufferFactor")
+	cedarLoggerConfigBufferUseAsyncKey       = bsonutil.MustHaveTag(LoggerParams{}, "UseAsync")
 )
 
 // LDAPConfig contains settings for interacting with an LDAP server.
