@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -19,7 +20,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const historicalTestDataCollection = "historical_test_data"
+const (
+	historicalTestDataCollection = "historical_test_data"
+	// TODO (16140): Remove this once we do the BSON to Parquet cutover.
+	prestoHistoricalTestDataCollection = "presto_historical_test_data"
+)
 
 // HistoricalTestData describes aggregated test result data for a given date
 // range.
@@ -302,10 +307,33 @@ func GetHistoricalTestData(ctx context.Context, env cedar.Environment, filter Hi
 	pipeline := filter.queryPipeline()
 	cursor, err := env.GetDB().Collection(historicalTestDataCollection).Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem aggregating test data")
+		return nil, errors.Wrap(err, "aggregating test data")
 	}
 	if err = cursor.All(ctx, &data); err != nil {
-		return nil, errors.Wrap(err, "problem unmarshaling aggregated test data")
+		return nil, errors.Wrap(err, "unmarshaling aggregated test data")
+	}
+
+	// TODO (16140): Remove this comparison logic once we do the BSON to
+	// Parquet cutover.
+	var prestoData []AggregatedHistoricalTestData
+	cursor, err = env.GetDB().Collection(prestoHistoricalTestDataCollection).Aggregate(ctx, pipeline)
+	if err != nil {
+		grip.Warning(message.Fields{
+			"message": errors.Wrap(err, "aggregating Presto historical test data").Error(),
+			"filter":  filter,
+		})
+	} else {
+		if err = cursor.All(ctx, &prestoData); err != nil {
+			grip.Warning(message.Fields{
+				"message": errors.Wrap(err, "unmarshaling Presto historical test data").Error(),
+				"filter":  filter,
+			})
+		} else if !reflect.DeepEqual(prestoData, data) {
+			grip.Warning(message.Fields{
+				"message": "Presto historical test data and Cedar historical test data differ",
+				"filter":  filter,
+			})
+		}
 	}
 
 	return data, nil
