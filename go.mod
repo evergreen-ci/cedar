@@ -11,15 +11,15 @@ require (
 	github.com/evergreen-ci/certdepot v0.0.0-20211109153348-d681ebe95b66
 	github.com/evergreen-ci/gimlet v0.0.0-20211119154230-7c9e13926e12
 	github.com/evergreen-ci/pail v0.0.0-20220307214448-15cf7c468168
-	github.com/evergreen-ci/poplar v0.0.0-20211028171636-d45516ea1ce5
+	github.com/evergreen-ci/poplar v0.0.0-20220119144730-b220d71c0330
 	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
 	github.com/evergreen-ci/utility v0.0.0-20220302150552-3f7a1a268ea7
 	github.com/jpillora/backoff v1.0.0
 	github.com/mongodb/amboy v0.0.0-20220209145213-c1c572da4472
 	github.com/mongodb/anser v0.0.0-20211116195831-fdc43007b59f
 	github.com/mongodb/ftdc v0.0.0-20211028165431-67f017692185
-	github.com/mongodb/grip v0.0.0-20211119154157-aca5d459de3f
-	github.com/mongodb/jasper v0.0.0-20211213143437-1d373fd6f2c6
+	github.com/mongodb/grip v0.0.0-20220210164115-898ba2888109
+	github.com/mongodb/jasper v0.0.0-20220214215554-82e5a72cff6b
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.8.2
 	github.com/stretchr/testify v1.7.0
