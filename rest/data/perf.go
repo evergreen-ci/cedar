@@ -169,7 +169,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 	queue := dbc.env.GetRemoteQueue()
 	allSeries, err := model.GetAllPerformanceResultSeriesIDs(ctx, dbc.env)
 	if err != nil {
-		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: errors.Wrap(err, "failed to get time series ids").Error()}
+		return gimlet.ErrorResponse{StatusCode: http.StatusInternalServerError, Message: errors.Wrap(err, "getting time series ids").Error()}
 	}
 
 	catcher := grip.NewBasicCatcher()

@@ -59,11 +59,8 @@ func (i *SystemInformationRecord) Find() error {
 	defer session.Close()
 
 	i.populated = false
-	err = session.DB(conf.DatabaseName).C(sysInfoCollection).FindId(i.ID).One(i)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find document with id '%s'", i.ID)
-	} else if err != nil {
-		return errors.WithStack(err)
+	if err = session.DB(conf.DatabaseName).C(sysInfoCollection).FindId(i.ID).One(i); err != nil {
+		return errors.Wrapf(err, "finding system information record with id '%s' in the database", i.ID)
 	}
 
 	return nil

@@ -63,7 +63,7 @@ func (a *APITestResult) Import(i interface{}) error {
 		a.TestStartTime = NewTime(tr.TestStartTime)
 		a.TestEndTime = NewTime(tr.TestEndTime)
 	default:
-		return errors.New("incorrect type when converting to APITestResult type")
+		return errors.Errorf("incorrect type %T when converting to APITestResult type", i)
 	}
 
 	return nil
@@ -86,7 +86,7 @@ func (a *APITestResultsStats) Import(i interface{}) error {
 	case int:
 		a.FilteredCount = utility.ToIntPtr(stats)
 	default:
-		return errors.New("incorrect type when converting to APITTestResultsStats type")
+		return errors.Errorf("incorrect type %T when converting to APITTestResultsStats type", i)
 	}
 
 	return nil
@@ -110,7 +110,7 @@ func (a *APITestResultsSample) Import(i interface{}) error {
 		a.MatchingFailedTestNames = sample.MatchingFailedTestNames
 		a.TotalFailedNames = sample.TotalFailedTestNames
 	default:
-		return errors.New("incorrect type when converting to APITestResultsSample type")
+		return errors.Errorf("incorrect type %T when converting to APITestResultsSample type", i)
 	}
 
 	return nil

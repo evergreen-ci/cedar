@@ -130,7 +130,7 @@ func createEvgAuthRequest(ctx context.Context, r *http.Request, evgConf *model.E
 	urlString := fmt.Sprintf("%s/rest/v2/auth?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceID)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
 	if err != nil {
-		return nil, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
+		return nil, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "creating http request"))
 	}
 	req = req.WithContext(ctx)
 	if cookie != nil {
@@ -150,7 +150,7 @@ func doEvgAuthRequest(req *http.Request, resourceID string) gimlet.Responder {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error authenticating user"))
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "authenticating user"))
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
@@ -161,7 +161,7 @@ func doEvgAuthRequest(req *http.Request, resourceID string) gimlet.Responder {
 
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error reading response body"))
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "reading response body"))
 	}
 
 	if string(bytes) != trueString {

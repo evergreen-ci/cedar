@@ -31,7 +31,7 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, findOpts db
 	} else if err != nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "problem retrieving system metrics data for task id '%s'", findOpts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "retrieving system metrics data for task id '%s'", findOpts.TaskID).Error(),
 		}
 	}
 
@@ -49,7 +49,7 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, findOpts db
 	if err != nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "problem downloading raw system metrics data for task id '%s'", findOpts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "downloading raw system metrics data for task id '%s'", findOpts.TaskID).Error(),
 		}
 	}
 	return data, idx, nil
@@ -101,7 +101,7 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, findOpts d
 	if err != nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem creating bucket")),
+			Message:    fmt.Sprintf("%s", errors.Wrap(err, "creating bucket")),
 		}
 	}
 
@@ -115,14 +115,14 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, findOpts d
 		if err != nil {
 			return nil, 0, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("%s", errors.Wrap(err, "problem  fetching data")),
+				Message:    fmt.Sprintf("%s", errors.Wrap(err, "fetching data")),
 			}
 		}
 
 		catcher := grip.NewBasicCatcher()
 		chunkData, err := ioutil.ReadAll(r)
-		catcher.Add(errors.Wrap(err, "problem reading data"))
-		catcher.Add(errors.Wrap(r.Close(), "problem closing read closer"))
+		catcher.Wrap(err, "reading data")
+		catcher.Wrap(r.Close(), "closing read closer")
 		if catcher.HasErrors() {
 			return nil, 0, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,

@@ -70,7 +70,7 @@ func (f *OperationalFlags) update(key string, value bool) error {
 
 	err = session.DB(conf.DatabaseName).C(configurationCollection).UpdateId(cedarConfigurationID, bson.M{"$set": bson.M{key: value}})
 	if err != nil {
-		return errors.Wrapf(err, "problem setting %s to %t", key, value)
+		return errors.Wrapf(err, "setting operational flag %s to %t", key, value)
 	}
 
 	return nil

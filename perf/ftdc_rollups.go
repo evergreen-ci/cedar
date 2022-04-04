@@ -37,7 +37,7 @@ func CalculateDefaultRollups(dx *ftdc.ChunkIterator, user bool) ([]model.PerfRol
 
 	perfStats, err := CreatePerformanceStats(dx)
 	if err != nil {
-		return rollups, errors.Wrap(err, "problem calculating perf statistics")
+		return rollups, errors.Wrap(err, "calculating perf statistics")
 	}
 
 	factories := DefaultRollupFactories()
@@ -98,7 +98,7 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 			case "id":
 				continue
 			default:
-				return nil, errors.Errorf("unknown field name %s", name)
+				return nil, errors.Errorf("unknown field name '%s'", name)
 			}
 		}
 	}

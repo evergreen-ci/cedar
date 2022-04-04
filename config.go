@@ -32,7 +32,7 @@ func (c *Configuration) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	if c.MongoDBURI == "" {
-		catcher.New("must specify a mongodb url")
+		catcher.New("must specify a MongoDB URI")
 	}
 	if c.NumWorkers < 1 {
 		catcher.New("must specify a valid number of amboy workers")

@@ -79,24 +79,37 @@ func (c *Client) retryRequest(ctx context.Context, method, path string) (*http.R
 		case <-timer.C:
 			resp, err := c.doReq(ctx, method, path)
 			if err != nil {
-				grip.Warningf("request %s of %s encountered error '%v'; retrying", method, path, err)
+				grip.Warning(message.WrapError(err, message.Fields{
+					"message": "request errored",
+					"method":  method,
+					"path":    path,
+				}))
 			} else if resp == nil {
-				grip.Warningf("request %s of %s encountered nil result; retrying", method, path)
+				grip.Warning(message.Fields{
+					"message": "request received nil response",
+					"method":  method,
+					"path":    path,
+				})
 			} else if resp.StatusCode == http.StatusOK {
 				return resp, nil
 			} else if resp.StatusCode == http.StatusNotFound {
 				return nil, errors.Errorf("%s resource (%s) is not found", path, method)
 			} else if resp.StatusCode == http.StatusUnauthorized {
 				return nil, errors.Errorf("access denied for %s of %s", method, path)
-			} else { // nolint
-				grip.Infof("problem with status %s on request %s of %s, retrying", resp.StatusCode, method, path)
+			} else {
+				grip.Info(message.Fields{
+					"message": "unexpected status received for request",
+					"status":  resp.StatusCode,
+					"method":  method,
+					"path":    path,
+				})
 			}
 
 			timer.Reset(backoff.Duration())
 		}
 	}
 
-	return nil, errors.Errorf("%d of %d reached maximum retries", c.maxRetries, c.maxRetries)
+	return nil, errors.Errorf("hit maximum retries %d", c.maxRetries)
 }
 
 // doReq performs a request of the given method type against path.
@@ -127,7 +140,7 @@ func (c *Client) doReq(ctx context.Context, method, path string) (*http.Response
 		return nil, err
 	}
 	if resp == nil {
-		msg := fmt.Sprintf("empty response from server for %s request for URL %s", method, url)
+		msg := fmt.Sprintf("empty response from server for '%s' request for URL '%s'", method, url)
 		return nil, errors.New(msg)
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -152,7 +165,7 @@ func (c *Client) doReq(ctx context.Context, method, path string) (*http.Response
 		}
 
 		grip.Warning(msg)
-		return nil, errors.Errorf("http request failed with status %s", resp.Status)
+		return nil, errors.Errorf("HTTP request failed with status '%s'", resp.Status)
 	}
 
 	grip.Info(message.Fields{
@@ -217,7 +230,7 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, string, error) {
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "problem reading response")
+		return nil, "", errors.Wrap(err, "reading response")
 	}
 
 	links := resp.Header["Link"]

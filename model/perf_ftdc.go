@@ -31,26 +31,26 @@ conversion:
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.New("operation canceled")
+			return errors.Wrap(ctx.Err(), "operation canceled")
 		case point, ok := <-stream:
 			if !ok {
 				break conversion
 			}
 
 			if err := collector.Add(point); err != nil {
-				return errors.Wrap(err, "problem adding document to ftdc")
+				return errors.Wrap(err, "adding document to FTDC")
 			}
 		}
 	}
 
 	payload, err := collector.Resolve()
 	if err != nil {
-		return errors.Wrap(err, "problem dumping ftdc data")
+		return errors.Wrap(err, "dumping FTDC data")
 	}
 
 	n, err := output.Write(payload)
 	if err != nil {
-		return errors.Wrap(err, "problem writing data")
+		return errors.Wrap(err, "writing data")
 	}
 	if n != len(payload) {
 		return errors.New("data improperly flushed")

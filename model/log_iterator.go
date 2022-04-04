@@ -96,7 +96,7 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 			var err error
 			i.currentReadCloser, err = i.bucket.Get(ctx, i.chunks[i.keyIndex].Key)
 			if err != nil {
-				i.catcher.Add(errors.Wrap(err, "problem downloading log artifact"))
+				i.catcher.Wrap(err, "downloading log artifact")
 				return false
 			}
 			if i.reverse {
@@ -118,7 +118,7 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 				i.catcher.Add(errors.New("corrupt data"))
 			}
 
-			i.catcher.Add(errors.Wrap(i.currentReadCloser.Close(), "problem closing ReadCloser"))
+			i.catcher.Wrap(i.currentReadCloser.Close(), "closing ReadCloser")
 			i.currentReadCloser = nil
 			i.currentReverseReader = nil
 			i.currentReader = nil
@@ -128,13 +128,13 @@ func (i *serializedIterator) Next(ctx context.Context) bool {
 			return i.Next(ctx)
 		}
 		if err != nil {
-			i.catcher.Add(errors.Wrap(err, "problem getting line"))
+			i.catcher.Wrap(err, "getting line")
 			return false
 		}
 
 		item, err := parseLogLineString(data)
 		if err != nil {
-			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
+			i.catcher.Wrap(err, "parsing timestamp")
 			return false
 		}
 		i.lineCount++
@@ -247,7 +247,7 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 		catcher.Add(r.Close())
 	}
 	if err := catcher.Resolve(); err != nil {
-		return errors.Wrap(err, "problem closing readers")
+		return errors.Wrap(err, "closing readers")
 	}
 
 	end := i.chunkIndex + i.batchSize
@@ -293,7 +293,7 @@ func (i *batchedIterator) getNextBatch(ctx context.Context) error {
 
 	i.chunkIndex = end
 	i.readers = readers
-	return errors.Wrap(catcher.Resolve(), "problem downloading log artifacts")
+	return errors.Wrap(catcher.Resolve(), "downloading log artifacts")
 }
 
 func (i *batchedIterator) Next(ctx context.Context) bool {
@@ -343,13 +343,13 @@ func (i *batchedIterator) Next(ctx context.Context) bool {
 
 			return i.Next(ctx)
 		} else if err != nil {
-			i.catcher.Add(errors.Wrap(err, "problem getting line"))
+			i.catcher.Wrap(err, "getting line")
 			return false
 		}
 
 		item, err := parseLogLineString(data)
 		if err != nil {
-			i.catcher.Add(errors.Wrap(err, "problem parsing timestamp"))
+			i.catcher.Wrap(err, "parsing timestamp")
 			return false
 		}
 		i.lineCount++
@@ -749,7 +749,7 @@ type logIteratorTailReader struct {
 func (r *logIteratorTailReader) Read(p []byte) (int, error) {
 	if r.r == nil {
 		if err := r.getReader(); err != nil {
-			return 0, errors.Wrap(err, "problem reading data")
+			return 0, errors.Wrap(err, "reading data")
 		}
 	}
 
@@ -796,7 +796,7 @@ func newReverseLineReader(r io.Reader) *reverseLineReader {
 func (r *reverseLineReader) ReadLine() (string, error) {
 	if r.lines == nil {
 		if err := r.getLines(); err != nil {
-			return "", errors.Wrap(err, "problem reading lines")
+			return "", errors.Wrap(err, "reading lines")
 		}
 	}
 

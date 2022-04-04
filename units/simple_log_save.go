@@ -82,17 +82,17 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 
 	writer, err := bucket.Writer(ctx, s3Key)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem constructing bucket object"))
+		j.AddError(errors.Wrap(err, "constructing bucket object"))
 		return
 	}
 
 	_, err = writer.Write([]byte(strings.Join(j.Content, "\n")))
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem writing to s3"))
+		j.AddError(errors.Wrap(err, "writing to s3"))
 		return
 	}
 	if err = writer.Close(); err != nil {
-		j.AddError(errors.Wrap(err, "problem flushing data to s3"))
+		j.AddError(errors.Wrap(err, "flushing data to s3"))
 	}
 
 	// if we get here the data is safe in s3 so we can clear this.
@@ -112,11 +112,12 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	}
 
 	if err = doc.Insert(); err != nil {
-		grip.Warning(message.Fields{"msg": "problem inserting document for log",
-			"id":    doc.ID,
-			"error": err,
-			"doc":   fmt.Sprintf("%+v", doc)})
-		j.AddError(errors.Wrap(err, "problem inserting record for document"))
+		grip.Warning(message.Fields{
+			"message": "problem inserting document for log",
+			"id":      doc.ID,
+			"error":   err,
+			"doc":     fmt.Sprintf("%+v", doc)})
+		j.AddError(errors.Wrap(err, "inserting record for document"))
 		return
 	}
 
@@ -130,7 +131,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	// slices of parsers and run the validate->put steps in a loop.
 	//
 	if err = parser.Validate(); err != nil {
-		err = errors.Wrap(err, "problem creating parser job")
+		err = errors.Wrap(err, "creating parser job")
 		grip.Error(err)
 		j.AddError(err)
 		return

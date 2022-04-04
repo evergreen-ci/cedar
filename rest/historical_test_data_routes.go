@@ -83,7 +83,7 @@ func (h *historicalTestDataHandler) Parse(ctx context.Context, r *http.Request) 
 func (h *historicalTestDataHandler) Run(ctx context.Context) gimlet.Responder {
 	data, err := h.sc.GetHistoricalTestData(ctx, h.filter)
 	if err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem to fetching historical test data"))
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "fetching historical test data"))
 	}
 	if len(data) == 0 {
 		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
@@ -109,12 +109,11 @@ func (h *historicalTestDataHandler) Run(ctx context.Context) gimlet.Responder {
 			},
 		})
 		if err != nil {
-			return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err,
-				"problem paginating response"))
+			return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "paginating response"))
 		}
 	}
 	if err = resp.AddData(data[:lastIndex]); err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem creating response"))
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "creating response"))
 	}
 
 	return resp

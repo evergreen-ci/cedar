@@ -79,7 +79,7 @@ func (sp *parseSimpleLog) Run(ctx context.Context) {
 	l := &model.LogSegment{}
 	l.Setup(cedar.GetEnvironment())
 	if err := l.Find(sp.Key, sp.Segment); err != nil {
-		err = errors.Wrap(err, "problem running query")
+		err = errors.Wrap(err, "running query")
 		grip.Warning(err)
 		sp.AddError(err)
 		return
@@ -108,7 +108,7 @@ func (sp *parseSimpleLog) Run(ctx context.Context) {
 	l.Metrics.NumberLines = len(sp.Content)
 
 	if err := l.Save(); err != nil {
-		err = errors.Wrap(err, "problem setting metadata")
+		err = errors.Wrap(err, "setting metadata")
 		grip.Warning(err)
 		sp.AddError(err)
 	}

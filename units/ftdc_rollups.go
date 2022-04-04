@@ -75,7 +75,7 @@ func NewFTDCRollupsJob(perfId string, artifactInfo *model.ArtifactInfo, factorie
 	}
 
 	if err := j.validate(); err != nil {
-		return nil, errors.Wrap(err, "failed to create new ftdc rollups job")
+		return nil, errors.Wrap(err, "invalid FTDC rollups job")
 	}
 
 	timestamp := utility.RoundPartOfHour(0)
@@ -124,7 +124,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	for _, t := range j.RollupTypes {
 		factory := perf.RollupFactoryFromType(t)
 		if factory == nil {
-			j.AddError(errors.Errorf("resolving rollup factory type %s", t))
+			j.AddError(errors.Errorf("resolving rollup factory type '%s'", t))
 			continue
 		}
 		rollups = append(rollups, factory.Calc(perfStats, j.UserSubmitted)...)
@@ -142,7 +142,7 @@ func (j *ftdcRollupsJob) Run(ctx context.Context) {
 	for _, r := range rollups {
 		err = result.Rollups.Add(ctx, r)
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "adding rollup %s for perf result %s", r.Name, j.PerfID))
+			j.AddError(errors.Wrapf(err, "adding rollup '%s' for perf result '%s'", r.Name, j.PerfID))
 		}
 	}
 
@@ -157,7 +157,7 @@ func (j *ftdcRollupsJob) createSignalProcessingJob(ctx context.Context, result *
 	}
 	processingJob := NewUpdateTimeSeriesJob(result.CreateUnanalyzedSeries())
 
-	err := errors.Wrapf(amboy.EnqueueUniqueJob(ctx, j.queue, processingJob), "putting signal processing job %s on remote queue", j.ID())
+	err := errors.Wrapf(amboy.EnqueueUniqueJob(ctx, j.queue, processingJob), "putting signal processing job '%s' in remote queue", j.ID())
 	if err != nil {
 		j.AddError(err)
 	}

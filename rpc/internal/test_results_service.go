@@ -41,7 +41,7 @@ func TestResultsServiceName() string {
 func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *TestResultsInfo) (*TestResultsResponse, error) {
 	conf := model.NewCedarConfig(s.env)
 	if err := conf.Find(); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem fetching cedar config"))
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "fetching cedar config"))
 	}
 	if conf.Bucket.TestResultsBucketType == "" {
 		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
@@ -55,7 +55,7 @@ func (s *testResultsService) CreateTestResultsRecord(ctx context.Context, info *
 	record := model.CreateTestResults(exported, conf.Bucket.TestResultsBucketType)
 	record.Setup(s.env)
 	if err := record.SaveNew(ctx); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrap(err, "problem saving test results record"))
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "saving test results record"))
 	}
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }
@@ -68,7 +68,7 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding test results record for '%s'", results.TestResultsRecordId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding test results record for '%s'", results.TestResultsRecordId))
 	}
 
 	exportedResults := make([]model.TestResult, len(results.Results))
@@ -80,7 +80,7 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 	}
 
 	if err := record.Append(ctx, exportedResults); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem appending test results for '%s'", results.TestResultsRecordId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "appending test results for '%s'", results.TestResultsRecordId))
 	}
 
 	if !record.Info.HistoricalDataDisabled {
@@ -146,11 +146,11 @@ func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *T
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding test results record for '%s'", info.TestResultsRecordId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding test results record with id '%s'", info.TestResultsRecordId))
 	}
 
 	if err := record.Close(ctx); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem closing test results with id %s", record.ID))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing test results with id %s", record.ID))
 	}
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }

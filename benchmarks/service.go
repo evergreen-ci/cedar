@@ -24,18 +24,18 @@ func setupBenchmark(ctx context.Context) error {
 	}
 	yaml, err := yaml.Marshal(conf)
 	if err != nil {
-		return errors.Wrap(err, "problem marshalling conf into yaml")
+		return errors.Wrap(err, "marshalling conf into yaml")
 	}
 
 	f, err := os.Create(confFile)
 	if err != nil {
-		return errors.Wrap(err, "problem creating new file")
+		return errors.Wrap(err, "creating new file")
 	}
 	_, err = f.Write(yaml)
 	if err != nil {
 		catcher := grip.NewBasicCatcher()
 		catcher.Add(errors.WithStack(f.Close()))
-		catcher.Add(errors.Wrap(err, "problem writing conf to file"))
+		catcher.Add(errors.Wrap(err, "writing conf to file"))
 		return catcher.Resolve()
 	} else if err = f.Close(); err != nil {
 		return errors.WithStack(err)
@@ -52,7 +52,7 @@ func setupBenchmark(ctx context.Context) error {
 	}
 	cmd := exec.Command(cedarBin, args...)
 	if err = cmd.Run(); err != nil {
-		return errors.Wrap(err, "problem loading cedar config")
+		return errors.Wrap(err, "loading cedar config")
 	}
 
 	args = []string{
@@ -63,7 +63,7 @@ func setupBenchmark(ctx context.Context) error {
 	}
 	cmd = exec.CommandContext(ctx, cedarBin, args...)
 	if err = cmd.Start(); err != nil {
-		return errors.Wrap(err, "problem starting local cedar service")
+		return errors.Wrap(err, "starting local cedar service")
 	}
 
 	return nil
@@ -75,9 +75,9 @@ func teardownBenchmark(ctx context.Context) error {
 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		catcher.Add(errors.Wrap(err, "problem connecting to mongo"))
+		catcher.Add(errors.Wrap(err, "connecting to DB"))
 	} else {
-		catcher.Add(errors.Wrap(client.Database(dbName).Drop(ctx), "problem dropping db"))
+		catcher.Add(errors.Wrap(client.Database(dbName).Drop(ctx), "dropping DB"))
 	}
 
 	opts := pail.S3Options{
@@ -86,9 +86,9 @@ func teardownBenchmark(ctx context.Context) error {
 	}
 	bucket, err := pail.NewS3Bucket(opts)
 	if err != nil {
-		catcher.Add(errors.Wrap(err, "problem connecting to s3"))
+		catcher.Wrap(err, "connecting to s3")
 	} else {
-		catcher.Add(errors.Wrap(bucket.RemovePrefix(ctx, ""), "problem removing s3 files"))
+		catcher.Wrap(bucket.RemovePrefix(ctx, ""), "removing s3 files")
 	}
 
 	catcher.Add(os.RemoveAll(confFile))

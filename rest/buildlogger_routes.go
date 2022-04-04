@@ -75,7 +75,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogByID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting log by id '%s'", h.opts.ID)
+		err = errors.Wrapf(err, "getting log by id '%s'", h.opts.ID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -120,7 +120,7 @@ func (h *logMetaGetByIDHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLog, err := h.sc.FindLogMetadataByID(ctx, h.id)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting log metadata by id '%s'", h.id)
+		err = errors.Wrapf(err, "getting log metadata by id '%s'", h.id)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -193,7 +193,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTaskID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting logs by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting logs by task id '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -248,7 +248,7 @@ func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) er
 func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting log metadata by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting log metadata by task id '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -318,7 +318,7 @@ func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) erro
 func (h *logGroupByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting logs by task id '%s' and group id '%s'", h.opts.TaskID, h.opts.Group)
+		err = errors.Wrapf(err, "getting logs by task id '%s' and group id '%s'", h.opts.TaskID, h.opts.Group)
 		logFindError(err, message.Fields{
 			"request":  gimlet.GetRequestID(ctx),
 			"method":   "GET",
@@ -389,7 +389,7 @@ func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) erro
 func (h *logGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTestName(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting logs by test name '%s'", h.opts.TestName)
+		err = errors.Wrapf(err, "getting logs by test name '%s'", h.opts.TestName)
 		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
@@ -446,7 +446,7 @@ func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) 
 func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting log metadata by test name '%s'", h.opts.TestName)
+		err = errors.Wrapf(err, "getting log metadata by test name '%s'", h.opts.TestName)
 		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
@@ -460,7 +460,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 	globalLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 	errResp, ok := err.(gimlet.ErrorResponse)
 	if err != nil && (!ok || errResp.StatusCode != http.StatusNotFound) {
-		err = errors.Wrapf(err, "problem getting log metadata by test name '%s'", h.opts.TestName)
+		err = errors.Wrapf(err, "getting log metadata by test name '%s'", h.opts.TestName)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
@@ -468,7 +468,7 @@ func (h *logMetaGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder 
 			"task_id":   h.opts.TaskID,
 			"test_name": h.opts.TestName,
 		}))
-		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "Error getting log metadata by test name '%s'", h.opts.TestName))
+		return gimlet.MakeJSONErrorResponder(errors.Wrapf(err, "getting log metadata by test name '%s'", h.opts.TestName))
 	}
 
 	return gimlet.NewJSONResponse(append(testLogs, globalLogs...))
@@ -534,7 +534,7 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	if h.opts.TimeRange.IsZero() {
 		testLogs, err := h.sc.FindLogMetadataByTestName(ctx, h.opts)
 		if err != nil {
-			err = errors.Wrapf(err, "problem getting log metadata by test name '%s'", h.opts.TestName)
+			err = errors.Wrapf(err, "getting log metadata by test name '%s'", h.opts.TestName)
 			logFindError(err, message.Fields{
 				"request":   gimlet.GetRequestID(ctx),
 				"method":    "GET",
@@ -561,7 +561,7 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting grouped logs with task_id/test_name/group_id '%s/%s/%s'",
+		err = errors.Wrapf(err, "getting grouped logs with task_id/test_name/group_id '%s/%s/%s'",
 			h.opts.TaskID, h.opts.TestName, h.opts.Group)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
@@ -601,7 +601,7 @@ func newBuildloggerResponder(baseURL string, data []byte, last, next time.Time, 
 		}
 
 		if err := resp.SetPages(pages); err != nil {
-			return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem setting response pages"))
+			return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "setting response pages"))
 		}
 	}
 

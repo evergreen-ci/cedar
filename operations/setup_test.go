@@ -40,7 +40,6 @@ func TestServiceConfiguration(t *testing.T) {
 		"ConfigurationOfLogging": func(t *testing.T, env cedar.Environment) {
 			t.Skip("skipping because the code is improperly factored to support testing")
 		},
-		// "": func(t *testing.T, env cedar.Environment) {},
 	} {
 		t.Run(name, func(t *testing.T) {
 			env := cedar.GetEnvironment()

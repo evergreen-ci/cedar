@@ -130,16 +130,16 @@ func convertTestResults() cli.Command {
 				}
 				pw, err := writer.NewParquetWriterFromWriter(w, new(model.ParquetTestResults), 1)
 				if err != nil {
-					return errors.Wrap(err, "creating new parquet writer")
+					return errors.Wrap(err, "creating new Parquet writer")
 				}
 				if err = pw.Write(ptr); err != nil {
-					return errors.Wrap(err, "writing results to parquet")
+					return errors.Wrap(err, "writing results to Parquet")
 				}
 				if err = pw.WriteStop(); err != nil {
-					return errors.Wrap(err, "stopping parquet writer")
+					return errors.Wrap(err, "stopping Parquet writer")
 				}
 				if err := w.Close(); err != nil {
-					return errors.Wrap(err, "writing parquet to bucket")
+					return errors.Wrap(err, "writing Parquet to bucket")
 				}
 			}
 

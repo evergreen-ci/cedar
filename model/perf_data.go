@@ -86,14 +86,14 @@ func (v *PerfRollupValue) getIntLong() (int64, error) {
 	} else if val, ok := v.Value.(int); ok {
 		return int64(val), nil
 	}
-	return 0, errors.Errorf("mismatched type for name %s", v.Name)
+	return 0, errors.Errorf("mismatched type for name '%s'", v.Name)
 }
 
 func (v *PerfRollupValue) getFloat() (float64, error) {
 	if val, ok := v.Value.(float64); ok {
 		return val, nil
 	}
-	return 0, errors.Errorf("mismatched type for name %s", v.Name)
+	return 0, errors.Errorf("mismatched type for name '%s'", v.Name)
 }
 
 func (r *PerfRollups) Setup(env cedar.Environment) {
@@ -128,7 +128,7 @@ func (r *PerfRollups) Add(ctx context.Context, rollup PerfRollupValue) error {
 		)
 	}
 	if err != nil {
-		return errors.Wrap(err, "problem adding rollup")
+		return errors.Wrap(err, "adding rollup")
 	}
 
 	for i := range r.Stats {
@@ -187,11 +187,11 @@ func (r *PerfRollups) GetInt(name string) (int, error) {
 			} else if val, ok := rollup.Value.(int32); ok {
 				return int(val), nil
 			} else {
-				return 0, errors.Errorf("mismatched type for name %s", name)
+				return 0, errors.Errorf("mismatched type for name '%s'", name)
 			}
 		}
 	}
-	return 0, errors.Errorf("name %s does not exist", name)
+	return 0, errors.Errorf("name '%s' does not exist", name)
 }
 
 func (r *PerfRollups) GetInt32(name string) (int32, error) {
@@ -205,7 +205,7 @@ func (r *PerfRollups) GetInt64(name string) (int64, error) {
 			return rollup.getIntLong()
 		}
 	}
-	return 0, errors.Errorf("name %s does not exist", name)
+	return 0, errors.Errorf("name '%s' does not exist", name)
 }
 
 func (r *PerfRollups) GetFloat(name string) (float64, error) {
@@ -214,7 +214,7 @@ func (r *PerfRollups) GetFloat(name string) (float64, error) {
 			return rollup.getFloat()
 		}
 	}
-	return 0, errors.Errorf("name %s does not exist", name)
+	return 0, errors.Errorf("name '%s' does not exist", name)
 }
 
 func (r *PerfRollups) Map() map[string]int64 {

@@ -61,7 +61,7 @@ func NewFindOutdatedRollupsJob(factories []perf.RollupFactory) (amboy.Job, error
 	}
 
 	if err := j.validate(); err != nil {
-		return nil, errors.Wrap(err, "failed to create new ftdc rollups job")
+		return nil, errors.Wrap(err, "creating new FTDC rollups job")
 	}
 
 	j.SetID(fmt.Sprintf("find-outdated-rollups.%s", time.Now()))
@@ -86,7 +86,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 	for _, t := range j.RollupTypes {
 		factory := perf.RollupFactoryFromType(t)
 		if factory == nil {
-			j.AddError(errors.Errorf("problem resolving rollup factory type %s", t))
+			j.AddError(errors.Errorf("resolving rollup factory type '%s'", t))
 			continue
 		}
 		factories = append(factories, factory)
@@ -99,7 +99,7 @@ func (j *findOutdatedRollupsJob) Run(ctx context.Context) {
 		for _, name := range factory.Names() {
 			after := time.Now().Add(-90 * 24 * time.Hour)
 			if err := results.FindOutdatedRollups(ctx, name, factory.Version(), after, 3); err != nil {
-				j.AddError(errors.Wrapf(err, "problem checking for outdated rollups for %s", name))
+				j.AddError(errors.Wrapf(err, "checking for outdated rollups for '%s'", name))
 				continue
 			}
 
@@ -126,12 +126,12 @@ func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(ctx context.Context, fact
 
 	job, err := NewFTDCRollupsJob(result.ID, getRawEventsArtifact(result.Artifacts), outdated, false)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "problem creating FTDC rollups job for %s", result.ID))
+		j.AddError(errors.Wrapf(err, "creating FTDC rollups job for performance result with id '%s'", result.ID))
 		return
 	}
 
 	if err = j.queue.Put(ctx, job); err != nil {
-		j.AddError(errors.Wrapf(err, "problem putting FTDC rollups job %s on remote queue", j.ID()))
+		j.AddError(errors.Wrapf(err, "putting FTDC rollups job '%s' in remote queue", j.ID()))
 		return
 	}
 

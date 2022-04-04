@@ -64,12 +64,12 @@ func setFeatureFlag() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			state, err := client.EnableFeatureFlag(ctx, flag)
 			if err != nil {
-				return errors.Wrapf(err, "problem encountered setting flag '%s', reported state %t", flag, state)
+				return errors.Wrapf(err, "setting flag '%s' to %t", flag, state)
 			}
 			grip.Infof("successfully set '%s' to '%t", flag, state)
 			return nil
@@ -95,12 +95,12 @@ func unsetFeatureFlag() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			state, err := client.DisableFeatureFlag(ctx, flag)
 			if err != nil {
-				return errors.Wrapf(err, "problem encountered setting flag '%s', reported state %t", flag, state)
+				return errors.Wrapf(err, "setting flag '%s' to %t", flag, state)
 			}
 			grip.Infof("successfully set '%s' to '%t", flag, state)
 			return nil
@@ -147,12 +147,12 @@ func getUserCert() cli.Command {
 				Prefix: "rest",
 			})
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			ca, err := client.GetRootCertificate(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem fetching authority certificate")
+				return errors.Wrap(err, "fetching authority certificate")
 			}
 			grip.Notice("fetched certificate authority certificate")
 
@@ -171,7 +171,7 @@ func getUserCert() cli.Command {
 
 			cert, err := client.GetUserCertificate(ctx, user, "", apiKey)
 			if err != nil {
-				return errors.Wrap(err, "problem resolving certificate")
+				return errors.Wrap(err, "resolving certificate")
 			}
 			grip.Notice(message.Fields{
 				"op":   "retrieved user certificate",
@@ -193,7 +193,7 @@ func getUserCert() cli.Command {
 
 			key, err := client.GetUserCertificateKey(ctx, user, "", apiKey)
 			if err != nil {
-				return errors.Wrap(err, "problem resolving certificate key")
+				return errors.Wrap(err, "resolving certificate key")
 			}
 
 			grip.Notice(message.Fields{
@@ -251,27 +251,27 @@ func uploadCerts() cli.Command {
 
 			crt, err := ioutil.ReadFile(certName + ".crt")
 			if err != nil {
-				return errors.Wrap(err, "could not read cert file")
+				return errors.Wrap(err, "reading cert file")
 			}
 
 			key, err := ioutil.ReadFile(certName + ".key")
 			if err != nil {
-				return errors.Wrap(err, "could not read cert key file")
+				return errors.Wrap(err, "reading cert key file")
 			}
 
 			mdepot, err := certdepot.NewMongoDBCertDepot(context.Background(), opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating depot interface")
+				return errors.Wrap(err, "creating depot interface")
 			}
 
 			err = mdepot.Put(certdepot.CrtTag(certName), crt)
 			if err != nil {
-				return errors.Wrap(err, "could not save cert file")
+				return errors.Wrap(err, "saving cert file")
 			}
 
 			err = mdepot.Put(certdepot.PrivKeyTag(certName), key)
 			if err != nil {
-				return errors.Wrap(err, "could not save cert key file")
+				return errors.Wrap(err, "saving cert key file")
 			}
 
 			return nil

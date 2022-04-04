@@ -40,7 +40,7 @@ func Client() cli.Command {
 func printStatus() cli.Command {
 	return cli.Command{
 		Name:  "status",
-		Usage: "prints json document for the status of the service",
+		Usage: "prints JSON document for the status of the service",
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
 
@@ -51,12 +51,12 @@ func printStatus() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			status, err := client.GetStatus(ctx)
 			if err != nil {
-				return errors.Wrap(err, "problem getting status")
+				return errors.Wrap(err, "getting status")
 			}
 
 			grip.Debug(status)
@@ -74,7 +74,7 @@ func printStatus() cli.Command {
 func prettyJSON(data interface{}) (string, error) {
 	out, err := json.MarshalIndent(data, "", "   ")
 	if err != nil {
-		return "", errors.Wrap(err, "problem rendering status result")
+		return "", errors.Wrap(err, "rendering status result")
 	}
 
 	return string(out), nil
@@ -95,7 +95,7 @@ func postSimpleLog() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			logID := c.String(simpleLogIDFlag)
@@ -108,8 +108,7 @@ func postSimpleLog() cli.Command {
 				if len(batch) >= 100 {
 					resp, err := client.WriteSimpleLog(ctx, logID, strings.Join(batch, "\n"), inc)
 					if err != nil {
-						return errors.Wrapf(err, "problem sending batch %d for log '%s'",
-							inc, logID)
+						return errors.Wrapf(err, "sending batch %d for log '%s'", inc, logID)
 					}
 					respRendered, err := prettyJSON(resp)
 					if err != nil {
@@ -126,8 +125,7 @@ func postSimpleLog() cli.Command {
 				// post one final do one final batch
 				resp, err := client.WriteSimpleLog(ctx, logID, strings.Join(batch, "\n"), inc)
 				if err != nil {
-					return errors.Wrapf(err, "problem sending batch %d for log '%s'",
-						inc, logID)
+					return errors.Wrapf(err, "sending batch %d for log '%s'", inc, logID)
 				}
 				respRendered, err := prettyJSON(resp)
 				if err != nil {
@@ -145,7 +143,7 @@ func postSimpleLog() cli.Command {
 func getSimpleLog() cli.Command {
 	return cli.Command{
 		Name:  "get-simple-log",
-		Usage: "prints json document for the simple log",
+		Usage: "prints JSON document for the simple log",
 		Flags: simpleLogIDFlags(),
 		Action: func(c *cli.Context) error {
 			ctx := context.Background()
@@ -158,12 +156,12 @@ func getSimpleLog() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			resp, err := client.GetSimpleLog(ctx, logID)
 			if err != nil {
-				return errors.Wrapf(err, "problem getting log for '%s'", logID)
+				return errors.Wrapf(err, "getting log for '%s'", logID)
 			}
 			grip.Debug(resp)
 			out, err := prettyJSON(resp)
@@ -181,7 +179,7 @@ func getSimpleLog() cli.Command {
 func getSystemStatusEvents() cli.Command {
 	return cli.Command{
 		Name:  "get-system-events",
-		Usage: "prints json for all system events of a specified level",
+		Usage: "prints JSON for all system events of a specified level",
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  "level",
@@ -203,12 +201,12 @@ func getSystemStatusEvents() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			resp, err := client.GetSystemEvents(ctx, c.String("level"), c.Int("limit"))
 			if err != nil {
-				return errors.Wrap(err, "problem getting system event log")
+				return errors.Wrap(err, "getting system event log")
 			}
 
 			grip.Debug(resp)
@@ -231,7 +229,7 @@ func systemEvent() cli.Command {
 
 	return cli.Command{
 		Name:  "system-event",
-		Usage: "prints json for a specific system event",
+		Usage: "prints JSON for a specific system event",
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  idFlag,
@@ -252,7 +250,7 @@ func systemEvent() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			id := c.String(idFlag)
@@ -266,7 +264,7 @@ func systemEvent() cli.Command {
 			}
 
 			if err != nil {
-				return errors.Wrap(err, "problem with system event request")
+				return errors.Wrap(err, "with system event request")
 			}
 
 			grip.Debug(resp)
@@ -334,7 +332,7 @@ func systemInfoGet() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			catcher := grip.NewCatcher()
@@ -343,7 +341,7 @@ func systemInfoGet() cli.Command {
 			end, err := time.Parse(time.RFC3339, c.String("end"))
 			catcher.Add(err)
 			if catcher.HasErrors() {
-				return errors.Wrap(err, "problem pasring dates")
+				return errors.Wrap(err, "parsing dates")
 			}
 
 			msgs, err := client.GetSystemInformation(ctx, c.String("host"), start, end, c.Int("limit"))
@@ -376,14 +374,14 @@ func systemInfoSend() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			msg := message.CollectSystemInfo().(*message.SystemInfo)
 
 			resp, err := client.SendSystemInfo(ctx, msg)
 			if err != nil {
-				return errors.Wrap(err, "problem sending system info")
+				return errors.Wrap(err, "sending system info")
 			}
 
 			grip.Debug(resp)
@@ -402,7 +400,7 @@ func systemInfoSend() cli.Command {
 func systemInfoImport() cli.Command {
 	return cli.Command{
 		Name:   "import",
-		Usage:  "import system info data from a json file, one line per document",
+		Usage:  "import system info data from a JSON file, one line per document",
 		Flags:  addPathFlag(),
 		Before: requireFileExists(pathFlagName),
 		Action: func(c *cli.Context) error {
@@ -415,13 +413,13 @@ func systemInfoImport() cli.Command {
 			}
 			client, err := rest.NewClient(opts)
 			if err != nil {
-				return errors.Wrap(err, "problem creating REST client")
+				return errors.Wrap(err, "creating REST client")
 			}
 
 			fn := c.String(pathFlagName)
 			f, err := os.Open(fn)
 			if err != nil {
-				return errors.Wrapf(err, "problem opening file '%s'", fn)
+				return errors.Wrapf(err, "opening file '%s'", fn)
 			}
 			defer f.Close()
 			r := bufio.NewReader(f)
@@ -434,7 +432,7 @@ func systemInfoImport() cli.Command {
 				if err == io.EOF {
 					break
 				} else if err != nil {
-					return errors.Wrap(err, "problem reading file: "+fn)
+					return errors.Wrapf(err, "reading file '%s'", fn)
 				}
 
 				count++
@@ -456,7 +454,7 @@ func systemInfoImport() cli.Command {
 					if err != nil {
 						grip.Warning(err)
 						grip.Alert(resp.Error)
-						return errors.Wrap(err, "problem sending data")
+						return errors.Wrap(err, "sending data")
 					}
 					line = []byte{}
 				}
@@ -472,7 +470,7 @@ func systemInfoImport() cli.Command {
 				if err != nil {
 					grip.Warning(err)
 					grip.Alert(resp.Error)
-					return errors.Wrap(err, "problem sending data")
+					return errors.Wrap(err, "sending data")
 				}
 			}
 

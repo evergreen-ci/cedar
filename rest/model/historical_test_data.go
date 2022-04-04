@@ -40,7 +40,7 @@ func (a *APIAggregatedHistoricalTestData) Import(i interface{}) error {
 		a.NumFail = hd.NumFail
 		a.AverageDuration = hd.AverageDuration.Seconds()
 	default:
-		return errors.New("incorrect type when converting to APIHistoricalTestData type")
+		return errors.Errorf("incorrect type %T when converting to APIHistoricalTestData type", i)
 	}
 	return nil
 }

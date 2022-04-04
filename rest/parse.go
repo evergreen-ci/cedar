@@ -13,7 +13,7 @@ func parseTimeRange(format, start, end string) (model.TimeRange, error) {
 	if start != "" {
 		s, err := time.ParseInLocation(format, start, time.UTC)
 		if err != nil {
-			return model.TimeRange{}, errors.Errorf("problem parsing start time '%s'", start)
+			return model.TimeRange{}, errors.Wrapf(err, "parsing start time '%s'", start)
 		}
 		tr.StartAt = s
 	}
@@ -21,7 +21,7 @@ func parseTimeRange(format, start, end string) (model.TimeRange, error) {
 	if end != "" {
 		e, err := time.ParseInLocation(format, end, time.UTC)
 		if err != nil {
-			return model.TimeRange{}, errors.Errorf("problem parsing end time '%s'", end)
+			return model.TimeRange{}, errors.Wrapf(err, "parsing end time '%s'", end)
 		}
 		tr.EndAt = e
 	}

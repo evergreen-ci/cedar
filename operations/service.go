@@ -133,17 +133,17 @@ func Service() cli.Command {
 
 			restWait, err := service.Start(ctx)
 			if err != nil {
-				return errors.Wrap(err, "starting public rest service")
+				return errors.Wrap(err, "starting public REST service")
 			}
 
 			adminService, err := getAdminService(env)
 			if err != nil {
-				return errors.Wrap(err, "resolving admin rest interface")
+				return errors.Wrap(err, "resolving admin REST interface")
 			}
 
 			adminWait, err := adminService.BackgroundRun(ctx)
 			if err != nil {
-				return errors.Wrap(err, "starting admin rest service")
+				return errors.Wrap(err, "starting admin REST service")
 			}
 
 			///////////////////////////////////

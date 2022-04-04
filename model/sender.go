@@ -84,10 +84,8 @@ func (e *Event) Find() error {
 
 	e.populated = false
 	err = session.DB(conf.DatabaseName).C(eventCollection).FindId(e.ID).One(e)
-	if db.ResultsNotFound(err) {
-		return errors.Errorf("could not find event %s", e.ID)
-	} else if err != nil {
-		return errors.Wrapf(err, "problem finding document %s", e.ID)
+	if err != nil {
+		return errors.Wrapf(err, "finding event with id '%s'", e.ID)
 	}
 
 	e.populated = true
@@ -194,14 +192,14 @@ func NewDBSender(e cedar.Environment, name string) (send.Sender, error) {
 	}
 	conf, session, err := cedar.GetSessionWithConfig(s.env)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem getting")
+		return nil, errors.Wrap(err, "getting DB session and config")
 	}
 	s.session = session
 	s.collection = s.session.DB(conf.DatabaseName).C(eventCollection)
 
 	err = s.SetErrorHandler(send.ErrorHandlerFromSender(grip.GetSender()))
 	if err != nil {
-		return nil, errors.Wrap(err, "problem getting default sender")
+		return nil, errors.Wrap(err, "getting default sender")
 	}
 
 	return s, nil

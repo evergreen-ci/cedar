@@ -3,7 +3,6 @@ package model
 import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -84,11 +83,8 @@ func (l *LogSegment) Find(logID string, segment int) error {
 	}
 
 	l.populated = false
-	err = session.DB(conf.DatabaseName).C(logSegmentsCollection).Find(filter).One(l)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find documet with id %s", logID)
-	} else if err != nil {
-		return errors.Wrapf(err, "problem running log query %+v", filter)
+	if err = session.DB(conf.DatabaseName).C(logSegmentsCollection).Find(filter).One(l); err != nil {
+		return errors.Wrapf(err, "finding log segment with id '%s'", logID)
 	}
 	l.populated = true
 
@@ -147,11 +143,8 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 	}
 
 	l.populated = false
-	err = query.All(l.logs)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "problem finding document with id '%s'", logID)
-	} else if err != nil {
-		return errors.Wrapf(err, "problem running log query %+v", query)
+	if err = query.All(l.logs); err != nil {
+		return errors.Wrapf(err, "finding log segment with id '%s'", logID)
 	}
 
 	l.populated = true

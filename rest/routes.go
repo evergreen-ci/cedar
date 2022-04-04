@@ -61,14 +61,14 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !level.FromString(l).IsValid() {
-		resp.Err = fmt.Sprintf("%s is not a valid level", l)
+		resp.Err = fmt.Sprintf("'%s' is not a valid level", l)
 	}
 	resp.Level = l
 
 	limitArg := r.URL.Query()["limit"][0]
 	limit, err := strconv.Atoi(limitArg)
 	if err != nil {
-		resp.Err = fmt.Sprintf("%s is not a valid limit [%s]", limitArg, err.Error())
+		resp.Err = fmt.Sprintf("'%s' is not a valid limit: %s", limitArg, err.Error())
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -76,7 +76,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	e := &model.Events{}
 	err = e.FindLevel(l, limit)
 	if err != nil {
-		resp.Err = "problem running query for events"
+		resp.Err = fmt.Sprintf("finding events: %s", err.Error())
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -84,7 +84,7 @@ func (s *Service) getSystemEvents(w http.ResponseWriter, r *http.Request) {
 	resp.Events = e.Slice()
 	resp.Total, err = e.CountLevel(l)
 	if err != nil {
-		resp.Err = fmt.Sprintf("problem fetching errors: %+v", err)
+		resp.Err = fmt.Sprintf("counting events at level '%s': %s", l, err.Error())
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -367,8 +367,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 
 	start, err := time.Parse(time.RFC3339, startArg)
 	if err != nil {
-		resp.Error = fmt.Sprintf("could not parse time string '%s' in to RFC3339: %+v",
-			startArg, err.Error())
+		resp.Error = fmt.Sprintf("parsing time string '%s' into RFC3339: %s", startArg, err.Error())
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -399,7 +398,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 	out := &model.SystemInformationRecords{}
 	count, err := out.CountHostname(host)
 	if err != nil {
-		resp.Error = fmt.Sprintf("could not count '%s' host: %s", host, err.Error())
+		resp.Error = fmt.Sprintf("counting host '%s': %s", host, err.Error())
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -407,7 +406,7 @@ func (s *Service) fetchSystemInfo(w http.ResponseWriter, r *http.Request) {
 
 	err = out.FindHostnameBetween(host, start, end, resp.Limit)
 	if err != nil {
-		resp.Error = fmt.Sprintf("could not retrieve results, %s", err.Error())
+		resp.Error = fmt.Sprintf("finding hostnames: %s", err.Error())
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -478,14 +477,13 @@ func (s *Service) fetchRootCert(rw http.ResponseWriter, r *http.Request) {
 
 	rootcrt, err := certdepot.GetCertificate(s.Depot, s.Conf.CA.CertDepot.CAName)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting root certificate '%s'", s.Conf.CA.CertDepot.CAName)
+		err = errors.Wrapf(err, "getting root certificate '%s'", s.Conf.CA.CertDepot.CAName)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := rootcrt.Export()
 	if err != nil {
-		err = errors.Wrap(err, "problem exporting root certificate")
-		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "problem exporting root certificate")))
+		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "exporting root certificate")))
 		return
 	}
 
@@ -524,20 +522,20 @@ func (s *Service) fetchUserCert(rw http.ResponseWriter, r *http.Request) {
 	}
 	_, err = opts.CreateCertificateOnExpiration(s.Depot, s.Conf.CA.SSLRenewalBefore)
 	if err != nil {
-		err = errors.Wrapf(err, "problem updating certificate for '%s'", usr)
+		err = errors.Wrapf(err, "updating certificate for '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 
 	crt, err := certdepot.GetCertificate(s.Depot, usr)
 	if err != nil {
-		err = errors.Wrapf(err, "problem fetching certificate for '%s'", usr)
+		err = errors.Wrapf(err, "fetching certificate for '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := crt.Export()
 	if err != nil {
-		err = errors.Wrapf(err, "problem exporting certificate for '%s'", usr)
+		err = errors.Wrapf(err, "exporting certificate for '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
@@ -581,7 +579,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 			Expires:    s.Conf.CA.SSLExpireAfter,
 		}
 		if err = opts.CreateCertificate(s.Depot); err != nil {
-			err = errors.Wrapf(err, "generating certificate for '%s'", usr)
+			err = errors.Wrapf(err, "generating certificate for user with id '%s'", usr)
 			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 			return
 		}
@@ -589,13 +587,13 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 
 	key, err := certdepot.GetPrivateKey(s.Depot, usr)
 	if err != nil {
-		err = errors.Wrapf(err, "fetching certificate key for '%s'", usr)
+		err = errors.Wrapf(err, "fetching certificate key for user with id '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := key.ExportPrivate()
 	if err != nil {
-		err = errors.Wrapf(err, "exporting certificate key '%s'", usr)
+		err = errors.Wrapf(err, "exporting certificate key for user with id '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
@@ -620,8 +618,8 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 
 	creds := &userCredentials{}
 	if err = gimlet.GetJSON(r.Body, creds); err != nil {
-		err = errors.Wrap(err, "problem reading request body")
-		return "", errors.Wrap(err, "problem reading response body")
+		err = errors.Wrap(err, "reading request body")
+		return "", errors.Wrap(err, "reading response body")
 	}
 
 	if creds.Username == "" {
@@ -630,7 +628,7 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 
 	user, err := s.UserManager.GetUserByID(creds.Username)
 	if err != nil {
-		return "", errors.Wrapf(err, "problem finding user '%s'", creds.Username)
+		return "", errors.Wrapf(err, "finding user with id '%s'", creds.Username)
 	} else if user == nil {
 		return "", errors.Errorf("user '%s' not defined", creds.Username)
 	}

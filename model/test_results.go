@@ -21,7 +21,6 @@ import (
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
@@ -144,11 +143,8 @@ func (t *TestResults) Find(ctx context.Context) error {
 	}
 
 	t.populated = false
-	err := t.env.GetDB().Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": t.ID}).Decode(t)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find test results record with id %s in the database", t.ID)
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding test results record")
+	if err := t.env.GetDB().Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": t.ID}).Decode(t); err != nil {
+		return errors.Wrapf(err, "finding test results record with id '%s' in the database", t.ID)
 	}
 	t.populated = true
 
@@ -178,7 +174,7 @@ func (t *TestResults) SaveNew(ctx context.Context) error {
 		"op":           "save new test results record",
 	})
 
-	return errors.Wrapf(err, "problem saving new test results record %s", t.ID)
+	return errors.Wrapf(err, "saving new test results record with id '%s'", t.ID)
 }
 
 // Remove removes the test results document from the database. The environment
@@ -200,7 +196,7 @@ func (t *TestResults) Remove(ctx context.Context) error {
 		"op":           "remove test results record",
 	})
 
-	return errors.Wrapf(err, "problem removing test results record with _id %s", t.ID)
+	return errors.Wrapf(err, "removing test results record with id '%s'", t.ID)
 }
 
 // Append uploads test results to the offline blob storage bucket configured
@@ -341,13 +337,13 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 		"op":                  "updating stats and failing tests sample",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
+		err = errors.Errorf("could not find test results record with id '%s' in the database", t.ID)
 	}
 
 	t.Stats.TotalCount += len(results)
 	t.Stats.FailedCount += failedCount
 
-	return errors.Wrapf(err, "appending to failing tests sample for test result record with id %s", t.ID)
+	return errors.Wrapf(err, "appending to failing tests sample for test result record with id '%s'", t.ID)
 }
 
 // Download returns a TestResult slice with the corresponding results stored in
@@ -564,10 +560,10 @@ func (t *TestResults) Close(ctx context.Context) error {
 		"op":            "close test results record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find test results record with id %s in the database", t.ID)
+		err = errors.Errorf("could not find test results record with id '%s' in the database", t.ID)
 	}
 
-	return errors.Wrapf(err, "problem closing test result record with id %s", t.ID)
+	return errors.Wrapf(err, "closing test result record with id '%s'", t.ID)
 }
 
 // GetBucket returns a bucket of all test results specified by the TestResults
@@ -797,9 +793,9 @@ func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
 func (opts *FindTestResultsOptions) createErrorMessage() string {
 	var msg string
 	if opts.DisplayTask {
-		msg = fmt.Sprintf("could not find test results records with display_task_id %s", opts.TaskID)
+		msg = fmt.Sprintf("could not find test results records with display_task_id '%s'", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test results record with task_id %s", opts.TaskID)
+		msg = fmt.Sprintf("could not find test results record with task_id '%s'", opts.TaskID)
 	}
 	if opts.Execution != nil {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
