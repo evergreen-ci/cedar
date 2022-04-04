@@ -26,7 +26,7 @@ func TestServiceConfiguration(t *testing.T) {
 		"ErrorsWithInvalidConfigDatabase": func(t *testing.T, env cedar.Environment) {
 			err := configure(env, 2, true, "", "", "")
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "mongodb")
+			assert.Contains(t, err.Error(), "MongoDB URI")
 		},
 		"ErrorsWithInvalidConfigWorkers": func(t *testing.T, env cedar.Environment) {
 			err := configure(env, -1, true, "mongodb://localhost:27017", "", "")

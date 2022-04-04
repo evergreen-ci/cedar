@@ -7,6 +7,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/utility"
+	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,7 +49,7 @@ func TestCedarConfig(t *testing.T) {
 			conf.Setup(env)
 			err := conf.Find()
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "could not find")
+			assert.True(t, db.ResultsNotFound(err))
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CedarConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
