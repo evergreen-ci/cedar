@@ -40,7 +40,7 @@ func RunLogIteratorBenchmark(ctx context.Context) error {
 		fmt.Sprintf("log_iterator_benchmark_report_%d", time.Now().Unix()),
 	)
 	if err := os.Mkdir(prefix, os.ModePerm); err != nil {
-		return errors.Wrap(err, "problem creating top level directory")
+		return errors.Wrap(err, "creating top level directory")
 	}
 
 	logSizes := []int{1e5}
@@ -48,28 +48,28 @@ func RunLogIteratorBenchmark(ctx context.Context) error {
 	for _, logSize := range logSizes {
 		id, err := uploadLog(ctx, logSize)
 		if err != nil {
-			return errors.Wrap(err, "problem uploading log")
+			return errors.Wrap(err, "uploading log")
 		}
 
 		clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
 		client, err := mongo.Connect(ctx, clientOptions)
 		if err != nil {
-			return errors.Wrap(err, "problem connecting to mongo")
+			return errors.Wrap(err, "connecting to DB")
 		}
 		log := &model.Log{}
 		err = client.Database(dbName).Collection("buildlogs").FindOne(ctx, bson.M{"_id": id}).Decode(log)
 		if err != nil {
-			return errors.Wrap(err, "problem fetching log from db")
+			return errors.Wrap(err, "fetching log from DB")
 		}
 
 		suite, err := getLogIteratorBenchmarkSuite(ctx, log.Artifact)
 		if err != nil {
-			return errors.Wrap(err, "problem creating benchmark suite")
+			return errors.Wrap(err, "creating benchmark suite")
 		}
 
 		suitePrefix := filepath.Join(prefix, fmt.Sprintf("%d", logSize))
 		if err = os.Mkdir(suitePrefix, os.ModePerm); err != nil {
-			return errors.Wrap(err, "problem creating subdirectory")
+			return errors.Wrapf(err, "creating subdirectory '%s'", suitePrefix)
 		}
 
 		results, err := suite.Run(ctx, suitePrefix)
@@ -81,15 +81,16 @@ func RunLogIteratorBenchmark(ctx context.Context) error {
 		combinedReports += fmt.Sprintf("Log Size: %d\n===============\n%s\n", logSize, results.Report())
 	}
 
-	f, err := os.Create(filepath.Join(prefix, "results.txt"))
+	resultsFile := filepath.Join(prefix, "results.txt")
+	f, err := os.Create(resultsFile)
 	if err != nil {
-		return errors.Wrap(err, "problem creating new file")
+		return errors.Wrapf(err, "creating new file '%s'", resultsFile)
 	}
 	defer f.Close()
 
 	_, err = f.WriteString(combinedReports)
 	if err != nil {
-		return errors.Wrap(err, "problem writing to file")
+		return errors.Wrapf(err, "writing to file '%s'", resultsFile)
 	}
 
 	return nil
@@ -105,7 +106,7 @@ func uploadLog(ctx context.Context, logSize int) (string, error) {
 	}
 	logger, err := buildlogger.MakeLogger("benchmark", opts)
 	if err != nil {
-		return "", errors.Wrap(err, "problem creating buildlogger sender")
+		return "", errors.Wrap(err, "creating buildlogger sender")
 	}
 
 	numLines := logSize / lineLength
@@ -116,7 +117,7 @@ func uploadLog(ctx context.Context, logSize int) (string, error) {
 		logger.Send(message.ConvertToComposer(level.Debug, newRandCharSetString(lineLength)))
 	}
 
-	return opts.GetLogID(), errors.Wrap(logger.Close(), "problem closing buildlogger sender")
+	return opts.GetLogID(), errors.Wrap(logger.Close(), "closing buildlogger sender")
 }
 
 func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifactInfo) (poplar.BenchmarkSuite, error) {
@@ -127,7 +128,7 @@ func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifac
 	}
 	bucket, err := pail.NewS3Bucket(opts)
 	if err != nil {
-		return poplar.BenchmarkSuite{}, errors.Wrap(err, "problem connecting to s3")
+		return poplar.BenchmarkSuite{}, errors.Wrap(err, "connecting to S3")
 	}
 
 	tr := model.TimeRange{
@@ -192,6 +193,6 @@ func getLogIteratorBenchmark(it model.LogIterator) poplar.Benchmark {
 		r.EndIteration(time.Since(startAt))
 		r.IncOperations(1)
 
-		return errors.Wrap(err, "problem closing iterator")
+		return errors.Wrap(err, "closing iterator")
 	}
 }

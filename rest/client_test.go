@@ -1,6 +1,3 @@
-//go:build go1.7
-// +build go1.7
-
 package rest
 
 import (
@@ -63,11 +60,11 @@ func (s *ClientSuite) SetupSuite() {
 	require.NoError(err)
 	s.info.host = s.server.URL[:portStart]
 	s.info.port = port
-	grip.Infof("running test rest service at '%s', on port '%d'", s.info.host, s.info.port)
+	grip.Infof("running test REST service at '%s', on port '%d'", s.info.host, s.info.port)
 }
 
 func (s *ClientSuite) TearDownSuite() {
-	grip.Infof("closing test rest service at '%s', on port '%d'", s.info.host, s.info.port)
+	grip.Infof("closing test REST service at '%s', on port '%d'", s.info.host, s.info.port)
 	s.server.Close()
 	s.closer()
 }
@@ -79,7 +76,7 @@ func (s *ClientSuite) SetupTest() {
 ////////////////////////////////////////////////////////////////////////
 //
 // A collection of tests that exercise and test the consistency and
-// validation in the configuration interface for the rest client.
+// validation in the configuration interface for the REST client.
 //
 ////////////////////////////////////////////////////////////////////////
 

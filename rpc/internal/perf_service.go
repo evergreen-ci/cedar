@@ -41,7 +41,7 @@ func PerfServiceName() string {
 	return CedarPerformanceMetrics_ServiceDesc.ServiceName
 }
 
-// CreateMetricSeries creates a new performance result record in the database.
+// CreateMetricSeries creates a new performance result record.
 func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
 	if result.Id == nil {
 		return nil, newRPCError(codes.InvalidArgument, errors.New("invalid data"))
@@ -90,7 +90,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for '%s'", artifactData.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record '%s'", artifactData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -118,7 +118,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for '%s'", rollupData.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for rollup '%s'", rollupData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -181,7 +181,7 @@ func (srv *perfService) SendMetrics(stream CedarPerformanceMetrics_SendMetricsSe
 					return
 				}
 			} else if point.Id != record.ID {
-				catcher.Add(errors.New("metric point in stream does not match reference, aborting"))
+				catcher.New("metric point in stream does not match reference")
 				return
 			}
 
@@ -212,7 +212,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for '%s'", end.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for metric series '%s'", end.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -237,7 +237,7 @@ func (srv *perfService) addArtifacts(ctx context.Context, record *model.Performa
 		record.Artifacts = append(record.Artifacts, *a.Export())
 	}
 
-	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "creating ftdc rollups job")
+	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "creating FTDC rollups job")
 }
 
 func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) error {
@@ -261,7 +261,7 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 
 		if err = q.Put(ctx, job); err != nil {
-			return newRPCError(codes.Internal, errors.Wrap(err, "problem putting FTDC rollups job on the remote queue"))
+			return newRPCError(codes.Internal, errors.Wrap(err, "putting FTDC rollups job in the remote queue"))
 		}
 	}
 

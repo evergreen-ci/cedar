@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // inspired by https://gist.github.com/jonmorehouse/9060515
@@ -59,7 +61,7 @@ func getContents(paths []string, exclusions []string) <-chan archiveWorkUnit {
 			})
 
 			if err != nil {
-				panic(fmt.Sprintf("caught error walking file system: %+v", err))
+				panic(fmt.Sprintf("walking file system: %+v", err))
 			}
 		}
 		close(output)
@@ -94,7 +96,6 @@ func addFile(tw *tar.Writer, prefix string, unit archiveWorkUnit, trimPrefix str
 		return err
 	}
 
-	// fmt.Printf("DEBUG: added %s to archive\n", header.Name)
 	return nil
 }
 
@@ -102,7 +103,7 @@ func makeTarball(fileName, prefix string, paths []string, exclude []string, trim
 	// set up the output file
 	file, err := os.Create(fileName)
 	if err != nil {
-		return fmt.Errorf("problem creating file %s: %v", fileName, err)
+		return errors.Wrapf(err, "creating file '%s'")
 	}
 	defer file.Close()
 
@@ -117,8 +118,7 @@ func makeTarball(fileName, prefix string, paths []string, exclude []string, trim
 	for unit := range getContents(paths, exclude) {
 		err := addFile(tw, prefix, unit, trimPrefix)
 		if err != nil {
-			return fmt.Errorf("error adding path: %s [%+v]: %+v",
-				unit.path, unit, err)
+			return errors.Wrapf(err, "adding path '%s'", unit.path)
 		}
 	}
 

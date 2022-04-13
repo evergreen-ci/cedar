@@ -45,7 +45,7 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 		chunks[i].Key = createBuildloggerChunkKey(chunks[i].Start, chunks[i].End, chunks[i].NumLines)
 
 		if err := bucket.Put(ctx, chunks[i].Key, strings.NewReader(rawLines)); err != nil {
-			return []LogChunkInfo{}, []LogLine{}, errors.Wrap(err, "failed to add chunk to bucket")
+			return []LogChunkInfo{}, []LogLine{}, errors.Wrap(err, "adding chunk to bucket")
 		}
 
 		ts = ts.Add(time.Hour)
@@ -66,7 +66,7 @@ func GenerateSystemMetrics(ctx context.Context, bucket pail.Bucket, num int) ([]
 		data := []byte(utility.RandomString())
 		dataChunks[key] = data
 		if err := bucket.Put(ctx, key, bytes.NewReader(data)); err != nil {
-			return []string{}, map[string][]byte{}, errors.Wrap(err, "problem creating system metrics chunks")
+			return []string{}, map[string][]byte{}, errors.Wrap(err, "creating system metrics chunks")
 		}
 	}
 

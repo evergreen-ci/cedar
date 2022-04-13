@@ -47,7 +47,7 @@ func (h *perfGetByIdHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the ID from the HTTP request.
 func (h *perfGetByIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 	return nil
@@ -58,7 +58,7 @@ func (h *perfGetByIdHandler) Parse(_ context.Context, r *http.Request) error {
 func (h *perfGetByIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResult, err := h.sc.FindPerformanceResultById(ctx, h.id)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance result by id '%s'", h.id)
+		err = errors.Wrapf(err, "getting performance result by ID '%s'", h.id)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -92,7 +92,7 @@ func (h *perfRemoveByIdHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the ID from the HTTP request.
 func (h *perfRemoveByIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 	return nil
@@ -103,7 +103,7 @@ func (h *perfRemoveByIdHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *perfRemoveByIdHandler) Run(ctx context.Context) gimlet.Responder {
 	numRemoved, err := h.sc.RemovePerformanceResultById(ctx, h.id)
 	if err != nil {
-		err = errors.Wrapf(err, "problem removing performance result by id '%s'", h.id)
+		err = errors.Wrapf(err, "removing performance result by ID '%s'", h.id)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "DELETE",
@@ -137,7 +137,7 @@ func (h *perfGetByTaskIdHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task_id from the http request.
+// Parse fetches the task ID from the HTTP request.
 func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.Tags = r.URL.Query()[tags]
@@ -149,7 +149,7 @@ func (h *perfGetByTaskIdHandler) Parse(_ context.Context, r *http.Request) error
 func (h *perfGetByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting performance results by task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -183,7 +183,7 @@ func (h *perfCountByTaskIdHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task_id from the http request.
+// Parse fetches the task ID from the HTTP request.
 func (h *perfCountByTaskIdHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 
@@ -205,7 +205,7 @@ func (h *perfCountByTaskIdHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	errResp, ok := err.(gimlet.ErrorResponse)
 	if err != nil && (!ok || errResp.StatusCode != http.StatusNotFound) {
-		err = errors.Wrapf(err, "problem getting performance results by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting performance results by task ID '%s'", h.opts.TaskID)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -242,7 +242,7 @@ func (h *perfGetByTaskNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task_name from the http request.
+// Parse fetches the task name from the HTTP request.
 func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskName = gimlet.GetVars(r)["task_name"]
 	vals := r.URL.Query()
@@ -252,13 +252,13 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 	catcher := grip.NewBasicCatcher()
 	var err error
 	h.opts.Interval, err = parseTimeRange(timeRangeFormatYearMonthDay, vals.Get(perfStartAt), vals.Get(perfEndAt))
-	catcher.Add(errors.Wrap(err, "invalid time range"))
+	catcher.Wrap(err, "invalid time range")
 	catcher.NewWhen(h.opts.Interval.IsZero(), "time interval must have start and end")
 	catcher.NewWhen(!h.opts.Interval.IsValid(), "time interval must have a start time before its end time")
 	limit := vals.Get(limit)
 	if limit != "" {
 		h.opts.Limit, err = strconv.Atoi(limit)
-		catcher.Add(errors.Wrap(err, "invalid limit"))
+		catcher.Wrap(err, "invalid limit")
 		catcher.NewWhen(h.opts.Limit < 0, "cannot have negative limit")
 	} else {
 		h.opts.Limit = 0
@@ -277,7 +277,7 @@ func (h *perfGetByTaskNameHandler) Parse(_ context.Context, r *http.Request) err
 func (h *perfGetByTaskNameHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance results by task_name '%s'", h.opts.TaskName)
+		err = errors.Wrapf(err, "getting performance results by task name '%s'", h.opts.TaskName)
 		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",
@@ -312,7 +312,7 @@ func (h *perfGetByVersionHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the version from the http request.
+// Parse fetches the version from the HTTP request.
 func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.Version = gimlet.GetVars(r)["version"]
 
@@ -342,7 +342,7 @@ func (h *perfGetByVersionHandler) Parse(_ context.Context, r *http.Request) erro
 func (h *perfGetByVersionHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance results by version '%s'", h.opts.Version)
+		err = errors.Wrapf(err, "getting performance results by version '%s'", h.opts.Version)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -379,7 +379,7 @@ func (h *perfGetChildrenHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the ID from the http request.
 func (h *perfGetChildrenHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 	vals := r.URL.Query()
@@ -394,7 +394,7 @@ func (h *perfGetChildrenHandler) Parse(_ context.Context, r *http.Request) error
 func (h *perfGetChildrenHandler) Run(ctx context.Context) gimlet.Responder {
 	perfResults, err := h.sc.FindPerformanceResultWithChildren(ctx, h.id, h.maxDepth, h.tags...)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting performance result and children by id '%s'", h.id)
+		err = errors.Wrapf(err, "getting performance result and children by ID '%s'", h.id)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -433,7 +433,7 @@ func (h *perfSignalProcessingRecalculateHandler) Parse(_ context.Context, r *htt
 func (h *perfSignalProcessingRecalculateHandler) Run(ctx context.Context) gimlet.Responder {
 	err := h.sc.ScheduleSignalProcessingRecalculateJobs(ctx)
 	if err != nil {
-		err = errors.Wrapf(err, "error scheduling signal processing recalculation jobs")
+		err = errors.Wrapf(err, "scheduling signal processing recalculation jobs")
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "POST",

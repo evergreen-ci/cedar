@@ -14,7 +14,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/message"
@@ -68,7 +67,7 @@ func (l *Log) Setup(e cedar.Environment) { l.env = e }
 // IsNil returns if the log is populated or not.
 func (l *Log) IsNil() bool { return !l.populated }
 
-// Find searches the database for the log. The enviromemt should not be nil.
+// Find searches the DB for the log. The enviromemt should not be nil.
 func (l *Log) Find(ctx context.Context) error {
 	if l.env == nil {
 		return errors.New("cannot find with a nil environment")
@@ -79,18 +78,15 @@ func (l *Log) Find(ctx context.Context) error {
 	}
 
 	l.populated = false
-	err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find log record with id %s in the database", l.ID)
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding log record")
+	if err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l); err != nil {
+		return errors.Wrapf(err, "finding log record '%s'", l.ID)
 	}
 	l.populated = true
 
 	return nil
 }
 
-// SaveNew saves a new log to the database, if a log with the same ID already
+// SaveNew saves a new log to the DB, if a log with the same ID already
 // exists an error is returned. The log should be populated and the environment
 // should not be nil.
 func (l *Log) SaveNew(ctx context.Context) error {
@@ -113,10 +109,10 @@ func (l *Log) SaveNew(ctx context.Context) error {
 		"op":           "save new buildlogger log",
 	})
 
-	return errors.Wrapf(err, "problem saving new log %s", l.ID)
+	return errors.Wrapf(err, "saving new log '%s'", l.ID)
 }
 
-// Remove removes the log from the database. The environment should not be nil.
+// Remove removes the log from the DB. The environment should not be nil.
 func (l *Log) Remove(ctx context.Context) error {
 	if l.env == nil {
 		return errors.New("cannot remove a log with a nil environment")
@@ -134,7 +130,7 @@ func (l *Log) Remove(ctx context.Context) error {
 		"op":           "remove log",
 	})
 
-	return errors.Wrapf(err, "problem removing log record with _id %s", l.ID)
+	return errors.Wrapf(err, "removing log record '%s'", l.ID)
 }
 
 // Append uploads a chunk of log lines to the offline blob storage bucket
@@ -210,8 +206,9 @@ func (l *Log) addToStatsCache(lines []LogLine) {
 		TaskID:  l.Info.TaskID,
 	}); err != nil {
 		grip.Error(message.WrapError(err, message.Fields{
-			"message": "stats were dropped",
-			"cache":   cedar.StatsCacheBuildlogger,
+			"message":  "stats were dropped",
+			"log_info": l.Info,
+			"cache":    cedar.StatsCacheBuildlogger,
 		}))
 	}
 }
@@ -247,10 +244,10 @@ func (l *Log) Close(ctx context.Context, exitCode int) error {
 		"op":           "close buildlogger log",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find log record with id %s in the database", l.ID)
+		return errors.Errorf("could not find log record '%s'", l.ID)
 	}
 
-	return errors.Wrapf(err, "problem closing log with id %s", l.ID)
+	return errors.Wrapf(err, "closing log '%s'", l.ID)
 
 }
 
@@ -296,7 +293,7 @@ func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo
 	switch l.Artifact.Version {
 	case 0:
 		// Version 0 stores log chunk information directly in the
-		// database.
+		// DB.
 		chunks = l.Artifact.Chunks
 	case 1:
 		// Version 1 uses the key of the chunk in the pail-backed
@@ -321,7 +318,7 @@ func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo
 			return chunks[i].Start.Before(chunks[j].Start)
 		})
 	default:
-		return nil, errors.Errorf("invalid artifact version '%d'", l.Artifact.Version)
+		return nil, errors.Errorf("invalid artifact version %d", l.Artifact.Version)
 	}
 
 	return chunks, nil
@@ -466,8 +463,8 @@ func (l *Logs) Find(ctx context.Context, opts LogFindOptions) error {
 
 	if err = it.All(ctx, &l.Logs); err != nil {
 		catcher := grip.NewBasicCatcher()
-		catcher.Add(errors.WithStack(err))
-		catcher.Add(errors.WithStack(it.Close(ctx)))
+		catcher.Add(err)
+		catcher.Add(it.Close(ctx))
 		return catcher.Resolve()
 	} else if err = it.Close(ctx); err != nil {
 		return errors.WithStack(err)
@@ -580,7 +577,7 @@ func (l *Logs) Merge(ctx context.Context) (LogIterator, error) {
 				catcher.Add(iterator.Close())
 			}
 			catcher.Add(err)
-			return nil, errors.Wrap(catcher.Resolve(), "problem downloading log")
+			return nil, errors.Wrap(catcher.Resolve(), "downloading log")
 		}
 		iterators = append(iterators, it)
 	}

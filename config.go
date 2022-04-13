@@ -9,7 +9,7 @@ import (
 )
 
 // Configuration defines configuration settings to initialize the global
-// environment without the presence of a database to store the settings.
+// environment without the presence of a DB to store the settings.
 type Configuration struct {
 	BucketName              string
 	DatabaseName            string
@@ -32,7 +32,7 @@ func (c *Configuration) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	if c.MongoDBURI == "" {
-		catcher.New("must specify a mongodb url")
+		catcher.New("must specify a MongoDB URI")
 	}
 	if c.NumWorkers < 1 {
 		catcher.New("must specify a valid number of amboy workers")
@@ -75,7 +75,7 @@ func (c *Configuration) GetQueueGroupOptions() queue.MongoDBOptions {
 	return opts
 }
 
-// HasAuth returns whether or not the database uses authentication.
+// HasAuth returns whether or not the DB uses authentication.
 func (c *Configuration) HasAuth() bool {
 	return c.DBUser != ""
 }

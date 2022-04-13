@@ -39,7 +39,7 @@ func (h *systemMetricsGetByTypeHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task_id and metric type from the http request.
+// Parse fetches the task ID and metric type from the HTTP request.
 func (h *systemMetricsGetByTypeHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 
@@ -65,12 +65,12 @@ func (h *systemMetricsGetByTypeHandler) Parse(_ context.Context, r *http.Request
 	return nil
 }
 
-// Run finds and returns the desired system metric data based on task id and
+// Run finds and returns the desired system metric data based on task ID and
 // metric type.
 func (h *systemMetricsGetByTypeHandler) Run(ctx context.Context) gimlet.Responder {
 	data, nextIdx, err := h.sc.FindSystemMetricsByType(ctx, h.findOpts, h.downloadOpts)
 	if err != nil {
-		err = errors.Wrapf(err, "problem getting metric type '%s' for task id '%s'", h.downloadOpts.MetricType, h.findOpts.TaskID)
+		err = errors.Wrapf(err, "getting metric type '%s' for task ID '%s'", h.downloadOpts.MetricType, h.findOpts.TaskID)
 		logFindError(err, message.Fields{
 			"request":     gimlet.GetRequestID(ctx),
 			"method":      "GET",
@@ -107,7 +107,7 @@ func newSystemMetricsResponder(baseURL string, data []byte, startIdx, nextIdx in
 	}
 
 	if err := resp.SetPages(pages); err != nil {
-		return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "problem setting response pages"))
+		return gimlet.MakeJSONErrorResponder(errors.Wrap(err, "setting response pages"))
 	}
 
 	return resp

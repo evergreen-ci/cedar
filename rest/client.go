@@ -197,7 +197,7 @@ func (c *Client) getURL(endpoint string) string {
 func (c *Client) makeRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequest(method, c.getURL(url), body)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "creating request")
 	}
 	req = req.WithContext(ctx)
 
@@ -233,12 +233,12 @@ func (c *Client) GetStatus(ctx context.Context) (*StatusResponse, error) {
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading status result")
+		return nil, errors.Wrap(err, "reading status result")
 	}
 
 	return out, nil
@@ -255,7 +255,7 @@ func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increme
 		Content:   data,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "problem converting json")
+		return nil, errors.Wrap(err, "converting JSON")
 	}
 
 	r, err := c.makeRequest(ctx, http.MethodPost, fmt.Sprintf("/v1/simple_log/%s", logID), bytes.NewBuffer(payload))
@@ -266,14 +266,14 @@ func (c *Client) WriteSimpleLog(ctx context.Context, logID, data string, increme
 	resp, err := c.client.Do(r)
 	if err != nil {
 		grip.Warning(err)
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &SimpleLogIngestionResponse{}
 
 	if err := gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem parsing request")
+		return nil, errors.Wrap(err, "parsing request")
 	}
 
 	return out, nil
@@ -287,13 +287,13 @@ func (c *Client) GetSimpleLog(ctx context.Context, logID string) (*SimpleLogCont
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &SimpleLogContentResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading simple log result")
+		return nil, errors.Wrap(err, "reading simple log result")
 	}
 
 	return out, nil
@@ -307,7 +307,7 @@ func (c *Client) GetSimpleLogText(ctx context.Context, logID string) ([]string, 
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
@@ -318,7 +318,7 @@ func (c *Client) GetSimpleLogText(ctx context.Context, logID string) ([]string, 
 		out = append(out, scanner.Text())
 	}
 
-	return out, errors.Wrap(scanner.Err(), "problem reading output")
+	return out, errors.Wrap(scanner.Err(), "reading output")
 }
 
 ///////////////////////////////////
@@ -333,13 +333,13 @@ func (c *Client) GetSystemEvents(ctx context.Context, level string, limit int) (
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &SystemEventsResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading system status result")
+		return nil, errors.Wrap(err, "reading system status result")
 	}
 
 	return out, nil
@@ -353,14 +353,14 @@ func (c *Client) GetSystemEvent(ctx context.Context, id string) (*SystemEventRes
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 
 	defer resp.Body.Close()
 
 	out := &SystemEventResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading system status result")
+		return nil, errors.Wrap(err, "reading system status result")
 	}
 
 	return out, nil
@@ -374,14 +374,14 @@ func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*System
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 
 	defer resp.Body.Close()
 
 	out := &SystemEventResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading system status result")
+		return nil, errors.Wrap(err, "reading system status result")
 	}
 
 	return out, nil
@@ -394,7 +394,7 @@ func (c *Client) AcknowledgeSystemEvent(ctx context.Context, id string) (*System
 func (c *Client) SendSystemInfo(ctx context.Context, info *message.SystemInfo) (*SystemInfoReceivedResponse, error) {
 	payload, err := json.Marshal(info)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem converting json")
+		return nil, errors.Wrap(err, "converting JSON")
 	}
 
 	req, err := c.makeRequest(ctx, http.MethodPost, "/v1/system_info", bytes.NewBuffer(payload))
@@ -404,13 +404,13 @@ func (c *Client) SendSystemInfo(ctx context.Context, info *message.SystemInfo) (
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &SystemInfoReceivedResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading system info result")
+		return nil, errors.Wrap(err, "reading system info result")
 	}
 
 	return out, nil
@@ -433,17 +433,17 @@ func (c *Client) GetSystemInformation(ctx context.Context, host string, start, e
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &SystemInformationResponse{}
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return nil, errors.Wrap(err, "problem reading system status result")
+		return nil, errors.Wrap(err, "reading system status result")
 	}
 
 	if out.Error != "" {
-		return nil, errors.Errorf("encountered problem server-side: %s", out.Error)
+		return nil, errors.Errorf("encountered server-side error: %s", out.Error)
 	}
 
 	return out.Data, nil
@@ -458,23 +458,23 @@ func (c *Client) EnableFeatureFlag(ctx context.Context, name string) (bool, erro
 
 	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
 	if err != nil {
-		return false, errors.Wrap(err, "problem building request")
+		return false, errors.Wrap(err, "building request")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return false, errors.Wrap(err, "problem with request")
+		return false, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &serviceFlagResponse{}
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return false, errors.Wrap(err, "problem reading feature flag result")
+		return false, errors.Wrap(err, "reading feature flag result")
 	}
 
 	if out.Error != "" {
-		return out.State, errors.Errorf("encountered problem server-side: %s", out.Error)
+		return out.State, errors.Errorf("encountered server-side error: %s", out.Error)
 	}
 	return out.State, nil
 }
@@ -484,23 +484,23 @@ func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, err
 
 	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
 	if err != nil {
-		return false, errors.Wrap(err, "problem building request")
+		return false, errors.Wrap(err, "building request")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return false, errors.Wrap(err, "problem with request")
+		return false, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	out := &serviceFlagResponse{}
 
 	if err = gimlet.GetJSON(resp.Body, out); err != nil {
-		return false, errors.Wrap(err, "problem reading feature flag result")
+		return false, errors.Wrap(err, "reading feature flag result")
 	}
 
 	if out.Error != "" {
-		return out.State, errors.Errorf("encountered problem server-side: %s", out.Error)
+		return out.State, errors.Errorf("encountered server-side: %s", out.Error)
 	}
 	return out.State, nil
 }
@@ -508,19 +508,19 @@ func (c *Client) DisableFeatureFlag(ctx context.Context, name string) (bool, err
 func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 	req, err := c.makeRequest(ctx, http.MethodGet, c.getURL("/v1/admin/ca"), nil)
 	if err != nil {
-		return "", errors.Wrap(err, "problem building request")
+		return "", errors.Wrap(err, "building request")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "problem with request")
+		return "", errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		srverr := gimlet.ErrorResponse{}
 		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return "", errors.Wrap(err, "problem parsing error message")
+			return "", errors.Wrap(err, "parsing error message")
 		}
 
 		return "", srverr
@@ -528,7 +528,7 @@ func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "problem reading certificate from response")
+		return "", errors.Wrap(err, "reading certificate from response")
 	}
 
 	return string(out), nil
@@ -537,7 +537,7 @@ func (c *Client) GetRootCertificate(ctx context.Context) (string, error) {
 func (c *Client) authCredRequest(ctx context.Context, url, username, password, apiKey string) (string, error) {
 	req, err := c.makeRequest(ctx, http.MethodPost, url, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "problem building request")
+		return "", errors.Wrap(err, "building request")
 	}
 
 	if apiKey != "" {
@@ -555,7 +555,7 @@ func (c *Client) authCredRequest(ctx context.Context, url, username, password, a
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "problem with request")
+		return "", errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
@@ -575,7 +575,7 @@ func (c *Client) authCredRequest(ctx context.Context, url, username, password, a
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "problem reading certificate from response")
+		return "", errors.Wrap(err, "reading certificate from response")
 	}
 
 	return string(out), nil
@@ -594,19 +594,19 @@ func (c *Client) FindPerformanceResultById(ctx context.Context, id string) (*mod
 
 	req, err := c.makeRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem building request")
+		return nil, errors.Wrap(err, "building request")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem with request")
+		return nil, errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		srverr := gimlet.ErrorResponse{}
 		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return nil, errors.Wrap(err, "problem parsing error message")
+			return nil, errors.Wrap(err, "parsing error message")
 		}
 
 		return nil, srverr
@@ -614,11 +614,11 @@ func (c *Client) FindPerformanceResultById(ctx context.Context, id string) (*mod
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem reading response")
+		return nil, errors.Wrap(err, "reading response")
 	}
 	result := &model.APIPerformanceResult{}
 	if err = json.Unmarshal(out, result); err != nil {
-		return nil, errors.Wrap(err, "problem unmarshaling response data")
+		return nil, errors.Wrap(err, "unmarshalling response data")
 	}
 
 	return result, nil
@@ -629,19 +629,19 @@ func (c *Client) RemovePerformanceResultById(ctx context.Context, id string) (st
 
 	req, err := c.makeRequest(ctx, http.MethodDelete, url, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "problem building request")
+		return "", errors.Wrap(err, "building request")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "problem with request")
+		return "", errors.Wrap(err, "making request")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		srverr := gimlet.ErrorResponse{}
 		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return "", errors.Wrap(err, "problem parsing error message")
+			return "", errors.Wrap(err, "parsing error message")
 		}
 
 		return "", srverr
@@ -649,7 +649,7 @@ func (c *Client) RemovePerformanceResultById(ctx context.Context, id string) (st
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "problem reading response")
+		return "", errors.Wrap(err, "reading response")
 	}
 
 	return string(out), nil

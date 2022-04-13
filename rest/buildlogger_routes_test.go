@@ -716,7 +716,7 @@ func (s *LogHandlerSuite) TestLogGroupByTaskIDHandlerFound() {
 func (s *LogHandlerSuite) TestLogGroupByTaskIDHandlerNotFound() {
 	rh := s.rh["group_task_id"].Factory()
 
-	// Task id does not exist.
+	// Task ID does not exist.
 	rh.(*logGroupByTaskIDHandler).opts.TaskID = "DNE"
 	rh.(*logGroupByTaskIDHandler).opts.Group = "group"
 	rh.(*logGroupByTaskIDHandler).opts.TimeRange = dbModel.TimeRange{

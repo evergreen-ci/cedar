@@ -164,7 +164,7 @@ func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeFound() {
 }
 
 func (s *systemMetricsHandlerSuite) TestGetSystemMetricsByTypeNotFound() {
-	// task id DNE
+	// task ID DNE
 	rh := s.rh["type"]
 	rh.(*systemMetricsGetByTypeHandler).findOpts.TaskID = "DNE"
 	rh.(*systemMetricsGetByTypeHandler).findOpts.Execution = 0

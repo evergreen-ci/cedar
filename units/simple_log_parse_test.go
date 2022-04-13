@@ -16,12 +16,4 @@ func TestSimpleParser(t *testing.T) {
 	}
 	assert.NoError(parser.Validate())
 	parser.Run(context.TODO())
-	// assert.True(parser.Completed())
-
-	// TODO: setupChangePointsTest local queue or db service as a prereq
-
-	// assert.NoError(parser.Error())
-
-	// assert.Equal(parser.numLines, 2)
-	// assert.Equal(parser.freq["o"], 2)
 }

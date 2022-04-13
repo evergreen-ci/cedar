@@ -34,11 +34,11 @@ func BuildloggerServiceName() string {
 	return Buildlogger_ServiceDesc.ServiceName
 }
 
-// CreateLog creates a new buildlogger log record in the database.
+// CreateLog creates a new buildlogger log record.
 func (s *buildloggerService) CreateLog(ctx context.Context, data *LogData) (*BuildloggerResponse, error) {
 	log := model.CreateLog(data.Info.Export(), data.Storage.Export())
 	log.Setup(s.env)
-	return &BuildloggerResponse{LogId: log.ID}, newRPCError(codes.Internal, errors.Wrap(log.SaveNew(ctx), "problem saving log record"))
+	return &BuildloggerResponse{LogId: log.ID}, newRPCError(codes.Internal, errors.Wrap(log.SaveNew(ctx), "saving log record"))
 }
 
 // AppendLogLines adds log lines to an existing buildlogger log.
@@ -52,7 +52,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding log record for '%s'", lines.LogId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding log record '%s'", lines.LogId))
 	}
 
 	exportedLines := []model.LogLine{}
@@ -61,7 +61,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.Append(ctx, exportedLines), "problem appending log lines for '%s'", lines.LogId))
+		newRPCError(codes.Internal, errors.Wrapf(log.Append(ctx, exportedLines), "appending log lines '%s'", lines.LogId))
 }
 
 // StreamLogLines adds log lines via client-side streaming to an existing
@@ -105,9 +105,9 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "problem finding log record for '%s'", info.LogId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding log record '%s'", info.LogId))
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.Close(ctx, int(info.ExitCode)), "problem closing log with id %s", log.ID))
+		newRPCError(codes.Internal, errors.Wrapf(log.Close(ctx, int(info.ExitCode)), "closing log '%s'", log.ID))
 }

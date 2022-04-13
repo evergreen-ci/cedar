@@ -12,7 +12,7 @@ import (
 )
 
 // DBConnector is a struct that implements the Connector interface backed by
-// the service layer of cedar.
+// the service layer of Cedar.
 type DBConnector struct {
 	env     cedar.Environment
 	baseURL string // Cache the base URL since it will likely not change.
@@ -30,7 +30,7 @@ func CreateNewDBConnector(env cedar.Environment, baseURL string) Connector {
 func (dbc *DBConnector) GetBaseURL() string { return dbc.baseURL }
 
 // MockConnector is a struct that implements the Connector interface backed by
-// a mock cedar service layer.
+// a mock Cedar service layer.
 type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string

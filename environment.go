@@ -68,13 +68,13 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		}
 		env.client, err = mongo.NewClient(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem constructing mongodb client")
+			return nil, errors.Wrap(err, "constructing DB client")
 		}
 		if err = env.client.Ping(ctx, nil); err != nil {
 			connctx, cancel := context.WithTimeout(ctx, conf.MongoDBDialTimeout)
 			defer cancel()
 			if err = env.client.Connect(connctx); err != nil {
-				return nil, errors.Wrap(err, "problem connecting to database")
+				return nil, errors.Wrap(err, "connecting to DB")
 			}
 		}
 	}
@@ -94,14 +94,14 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 					"queue":   "system",
 					"status":  env.localQueue.Stats(ctx),
 				})
-				return errors.New("failed to stop with running jobs")
+				return errors.New("local queue did not complete all jobs before shutdown")
 			}
-			env.localQueue.Runner().Close(ctx)
+			env.localQueue.Close(ctx)
 			return nil
 		})
 
 		if err = env.localQueue.Start(ctx); err != nil {
-			return nil, errors.Wrap(err, "problem starting remote queue")
+			return nil, errors.Wrap(err, "starting local queue")
 		}
 	}
 
@@ -128,15 +128,15 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 		var rq amboy.Queue
 		rq, err = queue.NewMongoDBQueue(ctx, queueOpts)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem setting main queue backend")
+			return nil, errors.Wrap(err, "creating main remote queue")
 		}
 
 		if err = rq.SetRunner(pool.NewAbortablePool(conf.NumWorkers, rq)); err != nil {
-			return nil, errors.Wrap(err, "problem configuring worker pool for main remote queue")
+			return nil, errors.Wrap(err, "configuring worker pool for main remote queue")
 		}
 		env.remoteQueue = rq
 		env.RegisterCloser("application-queue", func(ctx context.Context) error {
-			env.remoteQueue.Runner().Close(ctx)
+			env.remoteQueue.Close(ctx)
 			return nil
 		})
 
@@ -147,14 +147,14 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			"priority": true})
 
 		if err = env.remoteQueue.Start(ctx); err != nil {
-			return nil, errors.Wrap(err, "problem starting remote queue")
+			return nil, errors.Wrap(err, "starting remote queue")
 		}
 		managementOpts := management.DBQueueManagerOptions{
 			Options: opts,
 		}
 		env.remoteManager, err = management.MakeDBQueueManager(ctx, managementOpts)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem starting remote reporter")
+			return nil, errors.Wrap(err, "starting remote queue manager")
 		}
 	}
 
@@ -187,11 +187,11 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 
 		env.remoteQueueGroup, err = queue.NewMongoDBSingleQueueGroup(ctx, groupOpts)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem starting remote queue group")
+			return nil, errors.Wrap(err, "starting remote queue group")
 		}
 
 		env.RegisterCloser("remote-queue-group", func(ctx context.Context) error {
-			return errors.Wrap(env.remoteQueueGroup.Close(ctx), "problem waiting for remote queue group to close")
+			return errors.Wrap(env.remoteQueueGroup.Close(ctx), "waiting for remote queue group to close")
 		})
 	}
 
@@ -221,7 +221,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
 type Environment interface {
-	GetConf() *Configuration
+	GetConfig() *Configuration
 	GetCache() (EnvironmentCache, bool)
 	Context() (context.Context, context.CancelFunc)
 
@@ -255,9 +255,9 @@ func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 		return nil, nil, errors.New("env is nil")
 	}
 
-	conf := env.GetConf()
+	conf := env.GetConfig()
 	if conf == nil {
-		return nil, nil, errors.New("conf is nil")
+		return nil, nil, errors.New("config is nil")
 	}
 
 	session := env.GetSession()
@@ -304,7 +304,7 @@ func (c *envState) SetRemoteQueue(q amboy.Queue) error {
 	defer c.mutex.Unlock()
 
 	if c.remoteQueue != nil {
-		return errors.New("remote queue exists, cannot overwrite")
+		return errors.New("cannot overwrite existing remote queue")
 	}
 
 	if q == nil {
@@ -342,7 +342,7 @@ func (c *envState) SetLocalQueue(q amboy.Queue) error {
 	defer c.mutex.Unlock()
 
 	if c.localQueue != nil {
-		return errors.New("local queue exists, cannot overwrite")
+		return errors.New("cannot overwrite existing local queue")
 	}
 
 	if q == nil {
@@ -394,7 +394,7 @@ func (c *envState) GetDB() *mongo.Database {
 	return c.client.Database(c.conf.DatabaseName)
 }
 
-func (c *envState) GetConf() *Configuration {
+func (c *envState) GetConfig() *Configuration {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

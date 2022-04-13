@@ -47,7 +47,7 @@ func (apiResult *APIPerformanceResult) Import(i interface{}) error {
 		}
 		apiResult.Artifacts = apiArtifacts
 	default:
-		return errors.New("incorrect type when fetching converting PerformanceResult type")
+		return errors.Errorf("incorrect type %T when fetching converting PerformanceResult type", i)
 	}
 	return nil
 }

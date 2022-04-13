@@ -45,7 +45,7 @@ func RunBasicSenderBenchmark(ctx context.Context) error {
 		fmt.Sprintf("basic_sender_benchmark_report_%d", time.Now().Unix()),
 	)
 	if err := os.Mkdir(prefix, os.ModePerm); err != nil {
-		return errors.Wrap(err, "failed to create top level directory")
+		return errors.Wrapf(err, "creating top level directory '%s'", prefix)
 	}
 
 	logSizes := []int{1e5, 1e7, 1e8}
@@ -53,7 +53,7 @@ func RunBasicSenderBenchmark(ctx context.Context) error {
 	for _, logSize := range logSizes {
 		suitePrefix := filepath.Join(prefix, fmt.Sprintf("%d", logSize))
 		if err := os.Mkdir(suitePrefix, os.ModePerm); err != nil {
-			return errors.Wrap(err, "failed to create subdirectory")
+			return errors.Wrapf(err, "creating subdirectory '%s'", suitePrefix)
 		}
 
 		suite := getBasicSenderSuite(logSize)
@@ -66,15 +66,16 @@ func RunBasicSenderBenchmark(ctx context.Context) error {
 		combinedReports += fmt.Sprintf("Log Size: %d\n===============\n%s\n", logSize, results.Report())
 	}
 
-	f, err := os.Create(filepath.Join(prefix, "results.txt"))
+	resultsFile := filepath.Join(prefix, "results.txt")
+	f, err := os.Create(resultsFile)
 	if err != nil {
-		return errors.Wrap(err, "problem creating new file")
+		return errors.Wrapf(err, "creating new file '%s'", resultsFile)
 	}
 	defer f.Close()
 
 	_, err = f.WriteString(combinedReports)
 	if err != nil {
-		return errors.Wrap(err, "problem writing to file")
+		return errors.Wrapf(err, "writing to file '%s'", resultsFile)
 	}
 
 	return nil
@@ -157,13 +158,13 @@ func getBasicSenderBenchmark(logSize, maxBufferSize int) poplar.Benchmark {
 		}
 		logger, err := buildlogger.MakeLogger("benchmark", opts)
 		if err != nil {
-			return errors.Wrap(err, "problem creating buildlogger sender")
+			return errors.Wrap(err, "creating buildlogger sender")
 		}
 
 		r.SetState(0)
 		for _, line := range lines {
 			if err = ctx.Err(); err != nil {
-				return errors.Wrap(err, "context error while sending")
+				return errors.Wrap(err, "sending buildlogger lines")
 			}
 			m := message.ConvertToComposer(level.Debug, line)
 			startAt := time.Now()
@@ -177,7 +178,7 @@ func getBasicSenderBenchmark(logSize, maxBufferSize int) poplar.Benchmark {
 		startAt := time.Now()
 		r.BeginIteration()
 		if err = logger.Close(); err != nil {
-			return errors.Wrap(err, "problem closing buildlogger sender")
+			return errors.Wrap(err, "closing buildlogger sender")
 		}
 		r.EndIteration(time.Since(startAt))
 		r.IncOperations(1)

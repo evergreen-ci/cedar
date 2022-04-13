@@ -174,7 +174,7 @@ func TestAddSystemMetrics(t *testing.T) {
 				Id:     "DNE",
 				Type:   "Test",
 				Format: DataFormat_FTDC,
-				Data:   []byte("Byte chunk when id doesn't exist"),
+				Data:   []byte("Byte chunk when ID doesn't exist"),
 			},
 			env:    env,
 			hasErr: true,
@@ -196,7 +196,7 @@ func TestAddSystemMetrics(t *testing.T) {
 				Id:     systemMetrics.ID,
 				Type:   "Test",
 				Format: DataFormat_FTDC,
-				Data:   []byte("Byte chunk with no conf"),
+				Data:   []byte("Byte chunk with no config"),
 			},
 			env:         env,
 			invalidConf: true,
@@ -352,13 +352,13 @@ func TestStreamSystemMetrics(t *testing.T) {
 			hasErr: true,
 		},
 		{
-			name: "InvalidConf",
+			name: "InvalidConfig",
 			chunks: []*SystemMetricsData{
 				{
 					Id:     systemMetrics.ID,
 					Type:   "Test",
 					Format: DataFormat_FTDC,
-					Data:   []byte("First byte chunk for invalid conf"),
+					Data:   []byte("First byte chunk for invalid config"),
 				},
 			},
 			env:         env,

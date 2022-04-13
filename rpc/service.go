@@ -39,7 +39,7 @@ func (c *AuthConfig) Validate() error {
 
 	catcher.AddWhen(c.TLS && c.Depot == nil, errors.New("must specify a certificate depot"))
 	catcher.AddWhen(c.TLS && c.CAName == "", errors.New("must specify a CA Name"))
-	catcher.AddWhen(c.TLS && c.ServiceName == "", errors.New("must specify a service  Name"))
+	catcher.AddWhen(c.TLS && c.ServiceName == "", errors.New("must specify a service name"))
 	catcher.AddWhen((c.TLS || c.UserAuth) && c.UserManager == nil, errors.New("must specify a user manager"))
 
 	return catcher.Resolve()
@@ -110,7 +110,7 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 	if conf.TLS {
 		tlsConf, err := conf.ResolveTLS()
 		if err != nil {
-			return nil, errors.Wrap(err, "generating tls config")
+			return nil, errors.Wrap(err, "generating TLS config")
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConf)))
 		unaryInterceptors = append(unaryInterceptors, aviation.MakeCertificateUserValidationUnaryInterceptor(conf.UserManager))
@@ -119,7 +119,7 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 	if conf.UserAuth {
 		umConf := cedar.GetUserMiddlewareConfiguration()
 		if err := umConf.Validate(); err != nil {
-			return nil, errors.New("programmer error; invalid user manager configuration")
+			return nil, errors.New("programmer error: invalid user manager configuration")
 		}
 
 		// The health check end point should not be protected.

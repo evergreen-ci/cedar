@@ -14,11 +14,11 @@ import (
 func dumpCedarConfig() cli.Command {
 	return cli.Command{
 		Name:  "dump",
-		Usage: "write current cedar application configuration to a file",
+		Usage: "write current Cedar application configuration to a file",
 		Flags: dbFlags(
 			cli.StringFlag{
 				Name:  "file",
-				Usage: "specify path to a cedar application config file",
+				Usage: "specify path to a Cedar application config file",
 			}),
 		Action: func(c *cli.Context) error {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -52,11 +52,11 @@ func dumpCedarConfig() cli.Command {
 func loadCedarConfig() cli.Command {
 	return cli.Command{
 		Name:  "load",
-		Usage: "loads cedar application configuration from a file",
+		Usage: "loads Cedar application configuration from a file",
 		Flags: dbFlags(
 			cli.StringFlag{
 				Name:  "file",
-				Usage: "specify path to a cedar application config file",
+				Usage: "specify path to a Cedar application config file",
 			}),
 		Action: func(c *cli.Context) error {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -84,7 +84,7 @@ func loadCedarConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			grip.Infoln("successfully application configuration to database at:", mongodbURI)
+			grip.Infoln("successfully application configuration to DB at:", mongodbURI)
 			return nil
 		},
 	}

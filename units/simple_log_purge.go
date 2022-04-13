@@ -60,8 +60,7 @@ func MakeMergeSimpleLogJob(env cedar.Environment, logID string) amboy.Job {
 func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 	logs := &model.LogSegments{}
 
-	err := errors.Wrap(logs.Find(j.LogID, true),
-		"problem running query for all logs of a segment")
+	err := errors.Wrap(logs.Find(j.LogID, true), "running query for all logs of a segment")
 
 	if err != nil {
 		grip.Warning(err)
@@ -79,7 +78,7 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 
 		prototypeLog := &model.LogSegment{}
 		if err = prototypeLog.Find(j.LogID, -1); err != nil {
-			err = errors.Wrapf(err, "problem finding a prototype log for %s", j.LogID)
+			err = errors.Wrapf(err, "finding a prototype log for '%s'", j.LogID)
 			grip.Warning(err)
 			j.AddError(err)
 			return
@@ -89,14 +88,14 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		record.KeyName = fmt.Sprintf("simple-log/%s", j.LogID)
 
 		if err = record.Save(); err != nil {
-			err = errors.Wrap(err, "problem inserting log record document")
+			err = errors.Wrap(err, "inserting log record document")
 			grip.Warning(err)
 			j.AddError(err)
 			return
 		}
 
 	}
-	conf := j.env.GetConf()
+	conf := j.env.GetConfig()
 
 	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
 	if err != nil {
@@ -120,13 +119,12 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 
 		seg, err = ioutil.ReadAll(reader)
 		if err != nil {
-			j.AddError(errors.Wrapf(err, "problem reading segment %s from bucket %s",
-				log.KeyName, bucket))
+			j.AddError(errors.Wrapf(err, "reading segment '%s' from bucket '%s'", log.KeyName, bucket))
 			continue
 		}
 		_, err = buffer.Write(seg)
 		if err != nil {
-			j.AddError(errors.Wrap(err, "problem writing data to buffer"))
+			j.AddError(errors.Wrap(err, "writing data to buffer"))
 			return
 		}
 
@@ -135,13 +133,13 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		}
 	}
 
-	if err = errors.Wrap(bucket.Put(ctx, record.KeyName, buffer), "problem writing merged data to s3"); err != nil {
+	if err = errors.Wrap(bucket.Put(ctx, record.KeyName, buffer), "writing merged data to S3"); err != nil {
 		j.AddError(err)
 		return
 	}
 
 	for _, log := range segments {
-		if err = errors.Wrap(bucket.Remove(ctx, log.KeyName), "problem deleting segment from logs"); err != nil {
+		if err = errors.Wrap(bucket.Remove(ctx, log.KeyName), "deleting segment from logs"); err != nil {
 			j.AddError(err)
 			continue
 		}
@@ -149,5 +147,5 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		j.AddError(log.Remove())
 	}
 
-	j.AddError(errors.Wrapf(record.Save(), "problem saving master log record for %s", j.LogID))
+	j.AddError(errors.Wrapf(record.Save(), "saving master log record for log ID '%s'", j.LogID))
 }

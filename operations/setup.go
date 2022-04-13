@@ -60,7 +60,7 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 
 	fallback, err := send.NewErrorLogger("cedar.error", logLevel)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem configuring err fallback logger")
+		return nil, errors.Wrap(err, "configuring fallback error logger")
 	}
 
 	var sender send.Sender
@@ -68,10 +68,10 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 	if conf.Splunk.Populated() {
 		sender, err = send.NewSplunkLogger("cedar", conf.Splunk, logLevel)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem building splunk logger")
+			return nil, errors.Wrap(err, "building Splunk logger")
 		}
 		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
-			return nil, errors.Wrap(err, "configuring splunk logger error handler")
+			return nil, errors.Wrap(err, "configuring Splunk logger error handler")
 		}
 
 		opts := send.BufferedSenderOptions{
@@ -84,28 +84,28 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 				IncomingBufferFactor:  conf.LoggerConfig.IncomingBufferFactor,
 			})
 			if err != nil {
-				return nil, errors.Wrap(err, "building buffered async splunk logger")
+				return nil, errors.Wrap(err, "building buffered async Splunk logger")
 			}
 		} else {
 			sender, err = send.NewBufferedSender(ctx, sender, opts)
 			if err != nil {
-				return nil, errors.Wrap(err, "building buffered splunk logger")
+				return nil, errors.Wrap(err, "building buffered Splunk logger")
 			}
 		}
 
 		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
-			return nil, errors.Wrap(err, "configuring buffered splunk logger error handler")
+			return nil, errors.Wrap(err, "configuring buffered Splunk logger error handler")
 		}
 		senders = append(senders, sender)
 	}
 
 	if conf.Slack.Options != nil {
 		if err = conf.Slack.Options.Validate(); err != nil {
-			return nil, errors.Wrap(err, "non-nil slack configuration is not valid")
+			return nil, errors.Wrap(err, "invalid Slack configuration")
 		}
 
 		if conf.Slack.Token == "" || conf.Slack.Level == "" {
-			return nil, errors.Wrap(err, "must specify slack token and threshold")
+			return nil, errors.Wrap(err, "must specify Slack token and logging threshold")
 		}
 
 		lvl := send.LevelInfo{
@@ -115,10 +115,10 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 
 		sender, err = send.NewSlackLogger(conf.Slack.Options, conf.Slack.Token, lvl)
 		if err != nil {
-			return nil, errors.Wrap(err, "problem constructing slack alert logger")
+			return nil, errors.Wrap(err, "constructing Slack alert logger")
 		}
 		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
-			return nil, errors.Wrap(err, "problem configuring error handler")
+			return nil, errors.Wrap(err, "configuring error handler")
 		}
 
 		// TODO consider using a local queue to buffer
@@ -128,7 +128,7 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 			BufferSize:    conf.LoggerConfig.BufferCount,
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "building buffered slack logger")
+			return nil, errors.Wrap(err, "building buffered Slack logger")
 		}
 		senders = append(senders, bufferedSender)
 	}

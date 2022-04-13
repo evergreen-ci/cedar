@@ -22,13 +22,13 @@ type Connector interface {
 	// given id.
 	FindPerformanceResultById(context.Context, string) (*model.APIPerformanceResult, error)
 	// RemovePerformanceResultById removes the performance result with the
-	// given id and its children.
+	// given ID and its children.
 	RemovePerformanceResultById(context.Context, string) (int, error)
 	// FindPerformanceResults returns all performance results that match the
 	// given options.
 	FindPerformanceResults(context.Context, PerformanceOptions) ([]model.APIPerformanceResult, error)
 	// FindPerformanceResultWithChildren returns the the performance result
-	// with the given id and its children up to the given depth and
+	// with the given ID and its children up to the given depth and
 	// filtered by the optional tags.
 	FindPerformanceResultWithChildren(context.Context, string, int, ...string) ([]model.APIPerformanceResult, error)
 	// ScheduleSignalProcessingRecalculateJobs returns once a signal
@@ -39,7 +39,7 @@ type Connector interface {
 	//////////////////
 	// Buildlogger Log
 	//////////////////
-	// FindLogById returns the buildlogger log with the given id. The time
+	// FindLogById returns the buildlogger log with the given ID. The time
 	// returned is the next timestamp for pagination and the bool indicates
 	// whether the log is paginated or not. If the log is not paginated,
 	// the timestamp should be ignored.
@@ -47,7 +47,7 @@ type Connector interface {
 	// are respected from BuildloggerOptions.
 	FindLogByID(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogMetadataByID returns the metadata for the buildlogger log
-	// with the given id.
+	// with the given ID.
 	FindLogMetadataByID(context.Context, string) (*model.APILog, error)
 	// FindLogsByTaskID returns the buildlogger logs with the given task
 	// id. The time returned is the next timestamp for pagination and the
@@ -58,10 +58,10 @@ type Connector interface {
 	// BuildloggerOptions.
 	FindLogsByTaskID(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogsByTaskID returns the metadata for the buildlogger logs with
-	// the given task id and tags.
+	// the given task ID and tags.
 	FindLogMetadataByTaskID(context.Context, BuildloggerOptions) ([]model.APILog, error)
 	// FindLogsByTestName returns the buildlogger logs with the given task
-	// id and test name. The time returned is the next timestamp for
+	// ID and test name. The time returned is the next timestamp for
 	// pagination and the bool indicates whether the logs are paginated
 	// or not. If the logs are not paginated, the timestamp should be
 	// ignored.
@@ -70,11 +70,11 @@ type Connector interface {
 	// from BuildloggerOptions.
 	FindLogsByTestName(context.Context, BuildloggerOptions) ([]byte, time.Time, bool, error)
 	// FindLogsByTestName returns the metadata for the buildlogger logs
-	// with the given task id, test name, and tags.
+	// with the given task ID, test name, and tags.
 	FindLogMetadataByTestName(context.Context, BuildloggerOptions) ([]model.APILog, error)
 	// FindGroupedLogs finds logs that are grouped via a "group id" held in
 	// the tags field. These groups have a hierarchy of test level and task
-	// level. This function returns logs with the given task id and group
+	// level. This function returns logs with the given task ID and group
 	// id. The time returned is the next timestamp for pagination and the
 	// bool indicates whether the logs are paginated or not. If the logs
 	// are not paginated, the timestamp should be ignored.
@@ -86,19 +86,19 @@ type Connector interface {
 	///////////////
 	// Test Results
 	///////////////
-	// FindTestResults queries the database to find all test results with
+	// FindTestResults queries the DB to find all test results with
 	// the given options. If the execution is nil, this will return the
 	// test results from the most recent execution.
 	FindTestResults(context.Context, TestResultsOptions) (*model.APITestResults, error)
 	// GetTestResultsFilteredSamples gets test result samples and filters them
 	// by test name regexes. Sorting and paginating are not supported.
 	GetTestResultsFilteredSamples(context.Context, TestSampleOptions) ([]model.APITestResultsSample, error)
-	// GetFailedTestResultsSample queries the database to find all the
+	// GetFailedTestResultsSample queries the DB to find all the
 	// sample of failed test results for the given options. If the
 	// execution is nil, this will return the sample from the most recent
 	// execution. Filtering, sorting, and paginating is not supported.
 	GetFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
-	// GetTestResultsStats queries the database to aggregate basic stats
+	// GetTestResultsStats queries the DB to aggregate basic stats
 	// of test results for the given options. If the execution is nil, this
 	// will return stats for the most recent execution. Filtering, sorting,
 	// and paginating is not supported.

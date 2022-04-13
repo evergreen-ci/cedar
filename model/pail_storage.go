@@ -53,7 +53,7 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 		}
 	case PailLegacyGridFS, PailGridFS:
 		client := env.GetClient()
-		conf := env.GetConf()
+		conf := env.GetConfig()
 
 		opts := pail.GridFSOptions{
 			Database: conf.DatabaseName,

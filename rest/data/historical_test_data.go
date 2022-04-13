@@ -21,7 +21,7 @@ func (dbc *DBConnector) GetHistoricalTestData(ctx context.Context, f dbModel.His
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "problem fetching historical test data").Error(),
+			Message:    errors.Wrap(err, "fetching historical test data").Error(),
 		}
 	}
 

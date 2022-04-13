@@ -50,7 +50,7 @@ func (s *Service) Validate() error {
 
 	s.umConf = cedar.GetUserMiddlewareConfiguration()
 	if err = s.umConf.Validate(); err != nil {
-		return errors.New("programmer error; invalid user manager configuration")
+		return errors.New("programmer error: invalid user manager configuration")
 	}
 
 	if err = s.setupUserAuth(); err != nil {
@@ -179,7 +179,7 @@ func (s *Service) setupServiceAuth() (gimlet.UserManager, error) {
 			var user gimlet.User
 			user, _, err := model.GetUser(u.Username())
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to find user and cannot create new one")
+				return nil, errors.Wrap(err, "finding existing user")
 			}
 			return user, nil
 		},
@@ -214,7 +214,7 @@ func (s *Service) setupLDAPAuth() (gimlet.UserManager, error) {
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "setting up ldap user manager")
+		return nil, errors.Wrap(err, "setting up LDAP user manager")
 	}
 	return usrMngr, nil
 }

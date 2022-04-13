@@ -11,7 +11,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/pkg/errors"
@@ -67,7 +66,7 @@ func (d *HistoricalTestData) Setup(e cedar.Environment) { d.env = e }
 // IsNil returns if the HistoricalTestData is populated or not.
 func (d *HistoricalTestData) IsNil() bool { return !d.populated }
 
-// Find searches the database for the HistoricalTestData by ID. The environmemt
+// Find searches the DB for the HistoricalTestData by ID. The environmemt
 // should not be nil.
 func (d *HistoricalTestData) Find(ctx context.Context) error {
 	if d.env == nil {
@@ -79,11 +78,8 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 	}
 
 	d.populated = false
-	err := d.env.GetDB().Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": d.ID}).Decode(d)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find historical test data record with id %s in the database", d.ID)
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding historical test data record")
+	if err := d.env.GetDB().Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": d.ID}).Decode(d); err != nil {
+		return errors.Wrapf(err, "finding historical test data record '%s'", d.ID)
 	}
 	d.populated = true
 
@@ -178,7 +174,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 		"op":         "update historical test data record",
 	})
 	if err != nil {
-		return errors.Wrapf(err, "problem updating historical test data with id %s", d.ID)
+		return errors.Wrapf(err, "updating historical test data '%s'", d.ID)
 	}
 
 	d.populated = true
@@ -186,7 +182,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 	return nil
 }
 
-// Remove deletes the HistoricalTestData file from database. The environment
+// Remove deletes the HistoricalTestData file from DB. The environment
 // should not be nil.
 func (d *HistoricalTestData) Remove(ctx context.Context) error {
 	if d.env == nil {
@@ -205,7 +201,7 @@ func (d *HistoricalTestData) Remove(ctx context.Context) error {
 		"op":           "remove historical test data record",
 	})
 
-	return errors.Wrapf(err, "problem removing test results record with id %s", d.ID)
+	return errors.Wrapf(err, "removing historical test data record '%s'", d.ID)
 }
 
 // HistoricalTestDataDateFormat represents the standard timestamp format for
@@ -302,10 +298,10 @@ func GetHistoricalTestData(ctx context.Context, env cedar.Environment, filter Hi
 	pipeline := filter.queryPipeline()
 	cursor, err := env.GetDB().Collection(historicalTestDataCollection).Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, errors.Wrap(err, "problem aggregating test data")
+		return nil, errors.Wrap(err, "aggregating test data")
 	}
 	if err = cursor.All(ctx, &data); err != nil {
-		return nil, errors.Wrap(err, "problem unmarshaling aggregated test data")
+		return nil, errors.Wrap(err, "unmarshalling aggregated test data")
 	}
 
 	return data, nil
@@ -326,7 +322,7 @@ func (gb HTDGroupBy) validate() error {
 	switch gb {
 	case HTDGroupByVariant, HTDGroupByTask, HTDGroupByTest:
 	default:
-		return errors.Errorf("invalid HTDGroupBy value: %s", gb)
+		return errors.Errorf("invalid HTDGroupBy value '%s'", gb)
 	}
 
 	return nil
@@ -344,7 +340,7 @@ func (s HTDSort) validate() error {
 	switch s {
 	case HTDSortEarliestFirst, HTDSortLatestFirst:
 	default:
-		return errors.Errorf("invalid HTDSort value: %s", s)
+		return errors.Errorf("invalid HTDSort value '%s'", s)
 	}
 
 	return nil

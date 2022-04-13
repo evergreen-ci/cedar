@@ -86,7 +86,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		j.conf = model.NewCedarConfig(j.env)
 		err := j.conf.Find()
 		if err != nil {
-			j.AddError(errors.Wrap(err, "getting cedar configuration"))
+			j.AddError(errors.Wrap(err, "getting Cedar configuration"))
 			return
 		}
 	}
@@ -104,7 +104,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 
 	for _, id := range j.Series.CreateSeriesIDs() {
 		if err := j.service.ReportUpdatedTimeSeries(ctx, createTimeSeriesModel(id)); err != nil {
-			j.AddError(errors.Wrapf(err, "updating time series for perfData %s", baseID))
+			j.AddError(errors.Wrapf(err, "updating time series for perf data '%s'", baseID))
 			return
 		}
 	}

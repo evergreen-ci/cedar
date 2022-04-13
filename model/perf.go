@@ -111,7 +111,7 @@ func (result *PerformanceResult) Setup(e cedar.Environment) { result.env = e }
 // IsNil returns if the performance result is populated or not.
 func (result *PerformanceResult) IsNil() bool { return !result.populated }
 
-// Find searches the database for the performance result. The environment should
+// Find searches the DB for the performance result. The environment should
 // not be nil.
 func (result *PerformanceResult) Find(ctx context.Context) error {
 	if result.env == nil {
@@ -123,11 +123,8 @@ func (result *PerformanceResult) Find(ctx context.Context) error {
 	}
 
 	result.populated = false
-	err := result.env.GetDB().Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result)
-	if db.ResultsNotFound(err) {
-		return errors.New("could not find performance result record in the database")
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding performance result")
+	if err := result.env.GetDB().Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result); err != nil {
+		return errors.Wrapf(err, "finding performance result record '%s'", result.ID)
 	}
 
 	result.populated = true
@@ -136,7 +133,7 @@ func (result *PerformanceResult) Find(ctx context.Context) error {
 	return nil
 }
 
-// SaveNew saves a new performance result to the database, if a result with the
+// SaveNew saves a new performance result to the DB, if a result with the
 // same ID already exists an error is returned. The result should be populated
 // and the environment should not be nil.
 func (result *PerformanceResult) SaveNew(ctx context.Context) error {
@@ -162,7 +159,7 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		"op":           "save new performance result",
 	})
 	if err != nil {
-		return errors.Wrapf(err, "problem saving new performance result %s", result.ID)
+		return errors.Wrapf(err, "saving new performance result '%s'", result.ID)
 	}
 
 	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
@@ -210,17 +207,17 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		},
 	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":   perfResultCollection,
-		"id":           result.ID,
-		"updateResult": updateResult,
-		"artifacts":    artifacts,
-		"op":           "append artifacts to a performance result",
+		"collection":    perfResultCollection,
+		"id":            result.ID,
+		"update_result": updateResult,
+		"artifacts":     artifacts,
+		"op":            "append artifacts to a performance result",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
+		err = errors.Errorf("could not find performance result record '%s'", result.ID)
 	}
 	if err != nil {
-		return errors.Wrapf(err, "problem appending artifacts to performance result with id %s", result.ID)
+		return errors.Wrapf(err, "appending artifacts to performance result '%s'", result.ID)
 	}
 
 	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
@@ -230,8 +227,9 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		TaskID:  result.Info.TaskID,
 	}); err != nil {
 		grip.Error(message.WrapError(err, message.Fields{
-			"message": "stats were dropped",
-			"cache":   cedar.StatsCachePerf,
+			"message":           "stats were dropped",
+			"perf_results_info": result.Info,
+			"cache":             cedar.StatsCachePerf,
 		}))
 	}
 
@@ -255,13 +253,13 @@ func (result *PerformanceResult) IncFailedRollupAttempts(ctx context.Context) er
 		bson.M{"$inc": bson.M{perfFailedRollupAttempts: 1}},
 	)
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
+		err = errors.Errorf("could not find performance result record '%s'", result.ID)
 	}
 
-	return errors.Wrapf(err, "problem incrementing failed rollup attempts for performance result with id %s", result.ID)
+	return errors.Wrapf(err, "incrementing failed rollup attempts for performance result '%s'", result.ID)
 }
 
-// Remove removes the performance result from the database. The environment
+// Remove removes the performance result from the DB. The environment
 // should not be nil.
 func (result *PerformanceResult) Remove(ctx context.Context) (int, error) {
 	if result.env == nil {
@@ -274,7 +272,7 @@ func (result *PerformanceResult) Remove(ctx context.Context) (int, error) {
 
 	children := PerformanceResults{env: result.env}
 	if err := children.findAllChildrenGraphLookup(ctx, result.ID, -1, []string{}); err != nil {
-		return -1, errors.Wrap(err, "problem getting children to remove")
+		return -1, errors.Wrap(err, "getting children to remove")
 	}
 
 	ids := []string{result.ID}
@@ -294,7 +292,7 @@ func (result *PerformanceResult) Remove(ctx context.Context) (int, error) {
 		"op":           "remove performance result",
 	})
 	if err != nil {
-		return -1, errors.Wrap(err, "problem removing performance results")
+		return -1, errors.Wrap(err, "removing performance results")
 	}
 	return int(deleteResult.DeletedCount), nil
 }
@@ -323,10 +321,10 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 		"op":           "close perf result",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find performance result record with id %s in the database", result.ID)
+		err = errors.Errorf("could not find performance result record '%s'", result.ID)
 	}
 
-	return errors.Wrapf(err, "problem closing performance result with id %s", result.ID)
+	return errors.Wrapf(err, "closing performance result '%s'", result.ID)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -422,7 +420,7 @@ func (id *PerformanceResultInfo) ID() string {
 
 	if id.Schema == 0 {
 		// This hash does not include order because it was added as a
-		// field after data existed in the database. The order field
+		// field after data existed. The order field
 		// does not affect uniqueness but will be added in later schema
 		// versions.
 		hash = sha1.New()
@@ -526,8 +524,8 @@ func (r *PerformanceResults) Find(ctx context.Context, opts PerfFindOptions) err
 	}
 	if err = it.All(ctx, &r.Results); err != nil {
 		catcher := grip.NewBasicCatcher()
-		catcher.Add(errors.WithStack(err))
-		catcher.Add(errors.WithStack(it.Close(ctx)))
+		catcher.Add(err)
+		catcher.Add(it.Close(ctx))
 		return catcher.Resolve()
 	} else if err = it.Close(ctx); err != nil {
 		return errors.WithStack(err)
@@ -725,16 +723,15 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 		},
 	}
 	it, err := r.env.GetDB().Collection(perfResultCollection).Find(ctx, search)
-	if db.ResultsNotFound(err) {
-		return errors.WithStack(it.Close(ctx))
-	} else if err != nil {
-		return errors.Wrapf(err, "problem finding performance results with outdated rollup %s, version %d", name, version)
+	if err != nil {
+		return errors.Wrapf(err, "finding performance results with outdated rollup '%s' and version %d", name, version)
 	}
+
 	if err = it.All(ctx, &r.Results); err != nil {
 		catcher := grip.NewBasicCatcher()
-		catcher.Add(errors.WithStack(err))
-		catcher.Add(errors.WithStack(it.Close(ctx)))
-		return errors.Wrapf(catcher.Resolve(), "problem finding performance results with outdated rollup %s, version %d", name, version)
+		catcher.Add(err)
+		catcher.Add(it.Close(ctx))
+		return errors.Wrapf(catcher.Resolve(), "finding performance results with outdated rollup '%s' and version %d", name, version)
 	}
 
 	return errors.WithStack(it.Close(ctx))

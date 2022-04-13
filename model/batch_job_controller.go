@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// BatchJobControllerCollection is the name of the database collection
+	// BatchJobControllerCollection is the name of the DB collection
 	// for batch job controller documents.
 	BatchJobControllerCollection = "batch_job_controllers"
 )
@@ -38,15 +38,16 @@ var (
 	batchJobControllerVersionKey    = bsonutil.MustHaveTag(BatchJobController{}, "Version")
 )
 
-// FindBatchJobController searches the database for the BatchJobController with
+// FindBatchJobController searches the DB for the BatchJobController with
 // the given ID.
 func FindBatchJobController(ctx context.Context, env cedar.Environment, id string) (*BatchJobController, error) {
 	var controller BatchJobController
 	err := env.GetDB().Collection(BatchJobControllerCollection).FindOne(ctx, bson.M{batchJobControllerIDKey: id}).Decode(&controller)
 	if db.ResultsNotFound(err) {
-		return nil, errors.Wrapf(err, "could not find batch job controller with id %s in the database", id)
-	} else if err != nil {
-		return nil, errors.Wrap(err, "finding batch job controller")
+		return nil, errors.Wrapf(err, "batch job controller '%s' not found", id)
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "finding batch job controller '%s'", id)
 	}
 
 	return &controller, nil

@@ -58,11 +58,8 @@ func (u *User) Find() error {
 	defer session.Close()
 
 	u.populated = false
-	err = session.DB(conf.DatabaseName).C(userCollection).FindId(u.ID).One(u)
-	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find user %s in the database", u.Username())
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding user")
+	if err = session.DB(conf.DatabaseName).C(userCollection).FindId(u.ID).One(u); err != nil {
+		return errors.Wrapf(err, "finding user '%s'", u.Username())
 	}
 
 	u.populated = true
@@ -111,11 +108,8 @@ func (u *User) CreateAPIKey() (string, error) {
 	err = session.DB(conf.DatabaseName).C(userCollection).UpdateId(u.ID, bson.M{
 		dbUserAPIKeyKey: k,
 	})
-
-	if db.ResultsNotFound(err) {
-		return "", errors.New("could not find user in the database")
-	} else if err != nil {
-		return "", errors.Wrap(err, "problem updating user key document")
+	if err != nil {
+		return "", errors.Wrapf(err, "updating user '%s'", u.ID)
 	}
 
 	u.APIKey = k
@@ -145,7 +139,7 @@ func (u *User) UpdateLoginCache() (string, error) {
 	}
 
 	if err = session.DB(conf.DatabaseName).C(userCollection).UpdateId(u.ID, update); err != nil {
-		return "", errors.Wrap(err, "problem updating user cache")
+		return "", errors.Wrap(err, "updating user cache")
 	}
 
 	return u.LoginCache.Token, nil
@@ -158,12 +152,8 @@ func PutLoginCache(user gimlet.User) (string, error) {
 
 	u := &User{ID: user.Username()}
 	u.Setup(env)
-	err := u.Find()
-
-	if db.ResultsNotFound(errors.Cause(err)) {
-		return "", errors.Errorf("could not find user %s in the database", user.Username())
-	} else if err != nil {
-		return "", errors.Wrap(err, "problem finding user")
+	if err := u.Find(); err != nil {
+		return "", errors.Wrapf(err, "finding user '%s'", user.Username())
 	}
 
 	u.Setup(env)
@@ -201,7 +191,7 @@ func GetLoginCache(token string) (gimlet.User, bool, error) {
 	if db.ResultsNotFound(err) {
 		return nil, false, nil
 	} else if err != nil {
-		return nil, false, errors.Wrap(err, "problem getting user from cache")
+		return nil, false, errors.Wrap(err, "getting user from cache")
 	}
 	if time.Since(user.LoginCache.TTL) > cedar.TokenExpireAfter {
 		return user, false, nil
@@ -225,7 +215,7 @@ func ClearLoginCache(user gimlet.User, all bool) error {
 		query := bson.M{}
 		_, err = session.DB(conf.DatabaseName).C(userCollection).UpdateAll(query, update)
 		if err != nil {
-			return errors.Wrap(err, "problem updating user cache")
+			return errors.Wrap(err, "updating user cache")
 		}
 	} else {
 		u := &User{ID: user.Username()}
@@ -235,13 +225,13 @@ func ClearLoginCache(user gimlet.User, all bool) error {
 		}
 
 		if err := session.DB(conf.DatabaseName).C(userCollection).UpdateId(u.ID, update); err != nil {
-			return errors.Wrap(err, "problem updating user cache")
+			return errors.Wrap(err, "updating user cache")
 		}
 	}
 	return nil
 }
 
-// GetUser gets a user by id from persistent storage, and returns whether the
+// GetUser gets a user by ID from persistent storage, and returns whether the
 // returned user's token is valid or not.
 func GetUser(id string) (gimlet.User, bool, error) {
 	env := cedar.GetEnvironment()
@@ -263,7 +253,7 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 	u := &User{ID: user.Username()}
 	u.Setup(env)
 	err := u.Find()
-	if db.ResultsNotFound(errors.Cause(err)) {
+	if db.ResultsNotFound(err) {
 		u.ID = user.Username()
 		u.Display = user.DisplayName()
 		u.EmailAddress = user.Email()
@@ -273,10 +263,10 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 		u.LoginCache = LoginCache{Token: utility.RandomString(), TTL: time.Now()}
 		u.populated = true
 		if err = u.Save(); err != nil {
-			return nil, errors.Wrapf(err, "problem inserting user %s", user.Username())
+			return nil, errors.Wrapf(err, "inserting user '%s'", user.Username())
 		}
 	} else if err != nil {
-		return nil, errors.Wrapf(err, "problem finding user %s by id", user.Username())
+		return nil, errors.Wrapf(err, "finding user '%s'", user.Username())
 	}
 
 	return u, nil

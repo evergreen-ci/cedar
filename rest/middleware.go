@@ -42,7 +42,7 @@ type evgAuthReadLogByIDMiddleware struct {
 }
 
 // newEvgAuthReadLogByIDMiddlware returns an implementation of
-// gimlet.Middleware that sends a http request to Evergreen to check if the
+// gimlet.Middleware that sends a HTTP request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given ID.
 func newEvgAuthReadLogByIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) *evgAuthReadLogByIDMiddleware {
@@ -76,7 +76,7 @@ type evgAuthReadLogByTaskIDMiddleware struct {
 }
 
 // newEvgAuthReadLogByTaskIDMiddlware returns an implementation of
-// gimlet.Middleware that sends a http request to Evergreen to check if the
+// gimlet.Middleware that sends a HTTP request to Evergreen to check if the
 // user is authorized to read the log they are trying to access based on the
 // given task ID.
 func newEvgAuthReadLogByTaskIDMiddleware(sc data.Connector, evgConf *model.EvergreenConfig) *evgAuthReadLogByTaskIDMiddleware {
@@ -130,7 +130,7 @@ func createEvgAuthRequest(ctx context.Context, r *http.Request, evgConf *model.E
 	urlString := fmt.Sprintf("%s/rest/v2/auth?resource=%s&resource_type=project&permission=project_logs&required_level=10", evgConf.URL, resourceID)
 	req, err := http.NewRequest(http.MethodGet, urlString, nil)
 	if err != nil {
-		return nil, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error creating http request"))
+		return nil, gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "creating HTTP request"))
 	}
 	req = req.WithContext(ctx)
 	if cookie != nil {
@@ -150,7 +150,7 @@ func doEvgAuthRequest(req *http.Request, resourceID string) gimlet.Responder {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error authenticating user"))
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "authenticating user"))
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return gimlet.MakeTextErrorResponder(gimlet.ErrorResponse{
@@ -161,7 +161,7 @@ func doEvgAuthRequest(req *http.Request, resourceID string) gimlet.Responder {
 
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "error reading response body"))
+		return gimlet.MakeJSONInternalErrorResponder(errors.Wrap(err, "reading response body"))
 	}
 
 	if string(bytes) != trueString {

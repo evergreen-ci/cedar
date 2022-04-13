@@ -1,6 +1,6 @@
 /*
 Package cedar holds a a number of application level constants and shared
-resources for the cedar application.
+resources for the Cedar application.
 */
 package cedar
 

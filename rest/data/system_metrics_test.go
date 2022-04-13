@@ -154,7 +154,7 @@ func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeFound() {
 }
 
 func (s *systemMetricsConnectorSuite) TestFindSystemMetricsByTypeNotFound() {
-	// task id DNE
+	// task ID DNE
 	findOpts := dbModel.SystemMetricsFindOptions{
 		TaskID:         "DNE",
 		EmptyExecution: true,

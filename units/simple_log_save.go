@@ -69,36 +69,36 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 		j.env = cedar.GetEnvironment()
 	}
 
-	conf := j.env.GetConf()
+	conf := j.env.GetConfig()
 
 	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
 	if err != nil {
 		j.AddError(errors.WithStack(err))
 		return
 	}
-	grip.Infoln("got s3 bucket object for:", conf.BucketName)
+	grip.Infoln("got S3 bucket object for:", conf.BucketName)
 
 	s3Key := fmt.Sprintf("simple-log/%s.%d", j.LogID, j.Increment)
 
 	writer, err := bucket.Writer(ctx, s3Key)
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem constructing bucket object"))
+		j.AddError(errors.Wrap(err, "constructing bucket object"))
 		return
 	}
 
 	_, err = writer.Write([]byte(strings.Join(j.Content, "\n")))
 	if err != nil {
-		j.AddError(errors.Wrap(err, "problem writing to s3"))
+		j.AddError(errors.Wrap(err, "writing to S3"))
 		return
 	}
 	if err = writer.Close(); err != nil {
-		j.AddError(errors.Wrap(err, "problem flushing data to s3"))
+		j.AddError(errors.Wrap(err, "flushing data to S3"))
 	}
 
-	// if we get here the data is safe in s3 so we can clear this.
+	// if we get here the data is safe in S3 so we can clear this.
 	defer func() { j.Content = []string{} }()
 
-	// in a simple log the log id and the id are different
+	// in a simple log the log ID and the ID are different
 	doc := &model.LogSegment{
 		LogID:   j.LogID,
 		Segment: j.Increment,
@@ -112,15 +112,16 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	}
 
 	if err = doc.Insert(); err != nil {
-		grip.Warning(message.Fields{"msg": "problem inserting document for log",
-			"id":    doc.ID,
-			"error": err,
-			"doc":   fmt.Sprintf("%+v", doc)})
-		j.AddError(errors.Wrap(err, "problem inserting record for document"))
+		grip.Warning(message.Fields{
+			"message": "problem inserting document for log",
+			"id":      doc.ID,
+			"error":   err,
+			"doc":     fmt.Sprintf("%+v", doc)})
+		j.AddError(errors.Wrap(err, "inserting record for document"))
 		return
 	}
 
-	// TODO: I think this needs to get data out of s3 rather than
+	// TODO: I think this needs to get data out of S3 rather than
 	// get handed to it from memory, which requires a DB round trip.
 	//
 	parser := &parseSimpleLog{Key: j.LogID, Segment: j.Increment, Content: j.Content}
@@ -130,7 +131,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 	// slices of parsers and run the validate->put steps in a loop.
 	//
 	if err = parser.Validate(); err != nil {
-		err = errors.Wrap(err, "problem creating parser job")
+		err = errors.Wrap(err, "creating parser job")
 		grip.Error(err)
 		j.AddError(err)
 		return

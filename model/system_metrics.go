@@ -15,7 +15,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/mongodb/anser/bsonutil"
-	"github.com/mongodb/anser/db"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
@@ -95,7 +94,7 @@ var (
 	systemMetricsInfoSuccessKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Success")
 )
 
-// Find searches the database for the system metrics object. The environment
+// Find searches the DB for the system metrics object. The environment
 // should not be nil. Either the ID or full Info of the system metrics object
 // needs to be specified.
 func (sm *SystemMetrics) Find(ctx context.Context) error {
@@ -108,11 +107,8 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	}
 
 	sm.populated = false
-	err := sm.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm.ID}).Decode(sm)
-	if db.ResultsNotFound(err) {
-		return fmt.Errorf("could not find system metrics record in the database with id %s", sm.ID)
-	} else if err != nil {
-		return errors.Wrapf(err, "problem finding system metrics with id %s", sm.ID)
+	if err := sm.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm.ID}).Decode(sm); err != nil {
+		return errors.Wrapf(err, "finding system metrics record '%s'", sm.ID)
 	}
 
 	sm.populated = true
@@ -120,7 +116,7 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	return nil
 }
 
-// SystemMetricsFindOptions allows for querying by task id with or without an
+// SystemMetricsFindOptions allows for querying by task ID with or without an
 // execution value.
 type SystemMetricsFindOptions struct {
 	TaskID         string
@@ -128,7 +124,7 @@ type SystemMetricsFindOptions struct {
 	EmptyExecution bool
 }
 
-// FindByTaskID searches the database for the SystemMetrics object associated
+// FindByTaskID searches the DB for the SystemMetrics object associated
 // with the provided options. The environment should not be nil. If execution
 // is empty, it will default to most recent execution.
 func (t *SystemMetrics) FindByTaskID(ctx context.Context, opts SystemMetricsFindOptions) error {
@@ -137,19 +133,16 @@ func (t *SystemMetrics) FindByTaskID(ctx context.Context, opts SystemMetricsFind
 	}
 
 	if opts.TaskID == "" {
-		return errors.New("cannot find without a task id")
+		return errors.New("cannot find without a task ID")
 	}
 
 	t.populated = false
 	findOneOpts := options.FindOne().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoExecutionKey), Value: -1}})
-	err := t.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, createSystemMetricsFindQuery(opts), findOneOpts).Decode(t)
-	if db.ResultsNotFound(err) {
+	if err := t.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, createSystemMetricsFindQuery(opts), findOneOpts).Decode(t); err != nil {
 		if opts.EmptyExecution {
-			return errors.Wrapf(err, "could not find system metrics record with task_id %s in the database", opts.TaskID)
+			return errors.Wrapf(err, "finding system metrics record with task ID '%s'", opts.TaskID)
 		}
-		return errors.Wrapf(err, "could not find system metrics record with task_id %s and execution %d in the database", opts.TaskID, opts.Execution)
-	} else if err != nil {
-		return errors.Wrap(err, "problem finding system metrics record")
+		return errors.Wrapf(err, "finding system metrics record with task ID '%s' and execution %d", opts.TaskID, opts.Execution)
 	}
 	t.populated = true
 
@@ -166,7 +159,7 @@ func createSystemMetricsFindQuery(opts SystemMetricsFindOptions) map[string]inte
 	return search
 }
 
-// SaveNew saves a new system metrics record to the database. If a record with
+// SaveNew saves a new system metrics record to the DB. If a record with
 // the same ID already exists an error is returned. The record should be
 // populated and the environment should not be nil.
 func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
@@ -191,10 +184,10 @@ func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
 		"op":           "save new system metrics record",
 	})
 
-	return errors.Wrapf(err, "problem saving new system metrics record %s", sm.ID)
+	return errors.Wrapf(err, "saving new system metrics record '%s'", sm.ID)
 }
 
-// Remove removes the system metrics record from the database. The environment
+// Remove removes the system metrics record from the DB. The environment
 // should not be nil.
 func (sm *SystemMetrics) Remove(ctx context.Context) error {
 	if sm.env == nil {
@@ -215,12 +208,12 @@ func (sm *SystemMetrics) Remove(ctx context.Context) error {
 		"op":           "remove system metrics record",
 	})
 
-	return errors.Wrapf(err, "problem removing system metrics record with _id %s", sm.ID)
+	return errors.Wrapf(err, "removing system metrics record '%s'", sm.ID)
 }
 
 // Append uploads a chunk of system metrics data to the offline blob storage
 // bucket configured for the system metrics and updates the metadata in the
-// database to reflect the uploaded data. The environment should not be nil.
+// DB to reflect the uploaded data. The environment should not be nil.
 func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format FileDataFormat, data []byte) error {
 	if sm.env == nil {
 		return errors.New("cannot not append system metrics data with a nil environment")
@@ -247,7 +240,7 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format F
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
 	if err := conf.Find(); err != nil {
-		return errors.Wrap(err, "problem getting application configuration")
+		return errors.Wrap(err, "getting application configuration")
 	}
 	bucket, err := sm.Artifact.Options.Type.Create(
 		ctx,
@@ -258,17 +251,17 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format F
 		true,
 	)
 	if err != nil {
-		return errors.Wrap(err, "problem creating bucket")
+		return errors.Wrap(err, "creating bucket")
 	}
 	if err := bucket.Put(ctx, key, bytes.NewReader(data)); err != nil {
-		return errors.Wrap(err, "problem uploading system metrics data to bucket")
+		return errors.Wrap(err, "uploading system metrics data to bucket")
 	}
 
-	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, metricType, format, key), "problem updating system metrics metadata during upload")
+	return errors.Wrap(sm.appendSystemMetricsChunkKey(ctx, metricType, format, key), "updating system metrics metadata during upload")
 }
 
 // appendSystemMetricsChunkKey adds a new key to the system metrics's chunks
-// array in the database. The environment should not be nil.
+// array. The environment should not be nil.
 func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metricType string, format FileDataFormat, key string) error {
 	if sm.env == nil {
 		return errors.New("cannot append to a system metrics object with a nil environment")
@@ -316,10 +309,10 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 		"op":           "append data chunk key to system metrics metadata",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find system metrics object with id %s in the database", sm.ID)
+		err = errors.Errorf("could not find system metrics record '%s'", sm.ID)
 	}
 
-	return errors.Wrapf(err, "problem appending system metrics data chunk to %s", sm.ID)
+	return errors.Wrapf(err, "appending system metrics data chunk to system metrics record '%s'", sm.ID)
 }
 
 // Download returns a system metrics reader for the system metrics data of the
@@ -371,7 +364,7 @@ func (sm *SystemMetrics) DownloadWithPagination(ctx context.Context, opts System
 	defer r.Close()
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "problem reading system metrics data")
+		return nil, 0, errors.Wrap(err, "reading system metrics data")
 	}
 
 	return data, opts.StartIndex + r.readerIndex, nil
@@ -389,7 +382,7 @@ func (sm *SystemMetrics) download(ctx context.Context, metricType string) (pail.
 	conf := &CedarConfig{}
 	conf.Setup(sm.env)
 	if err := conf.Find(); err != nil {
-		return nil, MetricChunks{}, errors.Wrap(err, "problem getting application configuration")
+		return nil, MetricChunks{}, errors.Wrap(err, "getting application configuration")
 	}
 
 	bucket, err := sm.Artifact.Options.Type.Create(
@@ -401,12 +394,12 @@ func (sm *SystemMetrics) download(ctx context.Context, metricType string) (pail.
 		false,
 	)
 	if err != nil {
-		return nil, MetricChunks{}, errors.Wrap(err, "problem creating bucket")
+		return nil, MetricChunks{}, errors.Wrap(err, "creating bucket")
 	}
 
 	chunks, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
-		return nil, MetricChunks{}, fmt.Errorf("invalid metric type %s for id %s", metricType, sm.ID)
+		return nil, MetricChunks{}, errors.Errorf("invalid metric type '%s' for system metrics record '%s'", metricType, sm.ID)
 	}
 
 	return bucket, chunks, nil
@@ -444,10 +437,10 @@ func (sm *SystemMetrics) Close(ctx context.Context, success bool) error {
 		"op":           "close system metrics record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find system metrics record with id %s in the database", sm.ID)
+		err = errors.Errorf("could not find system metrics record '%s'", sm.ID)
 	}
 
-	return errors.Wrapf(err, "problem closing system metrics record with id %s", sm.ID)
+	return errors.Wrapf(err, "closing system metrics record '%s'", sm.ID)
 
 }
 
@@ -555,13 +548,13 @@ func (s *systemMetricsReadCloser) readChunks(buffer []byte, n int) (int, error) 
 
 		if s.readerIndex >= s.chunkIndex {
 			if err := s.getNextBatch(); err != nil {
-				return n, errors.Wrapf(err, "problem loading data")
+				return n, errors.Wrapf(err, "loading data")
 			}
 		}
 
 		data, err := ioutil.ReadAll(s.readers[s.chunks[s.readerIndex]])
 		if err != nil {
-			return n, errors.Wrapf(err, "problem reading data for chunk %s", s.chunks[s.readerIndex])
+			return n, errors.Wrapf(err, "reading data for chunk '%s'", s.chunks[s.readerIndex])
 		}
 		s.readerIndex += 1
 
@@ -613,7 +606,7 @@ func (s *systemMetricsReadCloser) getNextBatch() error {
 		catcher.Add(r.Close())
 	}
 	if err := catcher.Resolve(); err != nil {
-		return errors.Wrap(err, "problem closing readers")
+		return errors.Wrap(err, "closing readers")
 	}
 
 	end := s.chunkIndex + s.batchSize
@@ -636,14 +629,14 @@ func (s *systemMetricsReadCloser) getNextBatch() error {
 
 	s.chunkIndex = end
 	s.readers = readers
-	return errors.Wrap(catcher.Resolve(), "problem downloading system metrics data")
+	return errors.Wrap(catcher.Resolve(), "downloading system metrics data")
 }
 
 // getChunks performs the actual work to download and read the chunks from the
 // remote data source.
 func (s *systemMetricsReadCloser) getChunks(work chan string, readers map[string]io.ReadCloser, catcher grip.Catcher) {
 	defer func() {
-		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "recover system metrics reader goroutine panic"))
+		catcher.Add(recovery.HandlePanicWithError(recover(), nil, "system metrics chunk reader"))
 		s.wg.Done()
 	}()
 
