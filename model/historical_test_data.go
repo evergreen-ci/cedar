@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const historicalTestDataCollection = "presto_historical_test_data"
+const historicalTestDataCollection = "historical_test_data"
 
 // HistoricalTestData describes aggregated test result data for a given date
 // range.
