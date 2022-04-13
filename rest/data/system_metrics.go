@@ -115,7 +115,7 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, findOpts d
 		if err != nil {
 			return nil, 0, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("%s", errors.Wrap(err, "fetching data")),
+				Message:    errors.Wrap(err, "fetching data").Error(),
 			}
 		}
 

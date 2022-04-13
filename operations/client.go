@@ -264,7 +264,7 @@ func systemEvent() cli.Command {
 			}
 
 			if err != nil {
-				return errors.Wrap(err, "with system event request")
+				return errors.Wrap(err, "requesting system event")
 			}
 
 			grip.Debug(resp)

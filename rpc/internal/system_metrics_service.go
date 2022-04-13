@@ -2,7 +2,6 @@ package internal
 
 import (
 	context "context"
-	fmt "fmt"
 	"io"
 
 	"github.com/evergreen-ci/cedar"
@@ -91,7 +90,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 		if id == "" {
 			id = chunk.Id
 		} else if chunk.Id != id {
-			return newRPCError(codes.Aborted, fmt.Errorf("system metrics chunk '%s' in stream does not match reference chunk id '%s'", chunk.Id, id))
+			return newRPCError(codes.Aborted, errors.Errorf("system metrics chunk '%s' in stream does not match reference chunk ID '%s'", chunk.Id, id))
 		}
 
 		_, err = s.AddSystemMetrics(ctx, chunk)

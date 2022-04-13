@@ -283,7 +283,7 @@ func (h *logGroupByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task id, group id, and parameters from the HTTP request.
+// Parse fetches the task ID, group ID, and parameters from the HTTP request.
 func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
@@ -354,7 +354,7 @@ func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, time range, and tags from the HTTP request.
+// Parse fetches the ID, name, time range, and tags from the HTTP request.
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	catcher := grip.NewBasicCatcher()
 	var err error
@@ -425,7 +425,7 @@ func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, and tags from the HTTP request.
+// Parse fetches the ID, name, and tags from the HTTP request.
 func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.TestName = gimlet.GetVars(r)["test_name"]
@@ -496,7 +496,7 @@ func (h *logGroupByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, time range, and tags from the HTTP request.
+// Parse fetches the ID, name, time range, and tags from the HTTP request.
 func (h *logGroupByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()

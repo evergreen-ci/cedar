@@ -201,7 +201,7 @@ func (d *HistoricalTestData) Remove(ctx context.Context) error {
 		"op":           "remove historical test data record",
 	})
 
-	return errors.Wrapf(err, "removing test results record '%s'", d.ID)
+	return errors.Wrapf(err, "removing historical test data record '%s'", d.ID)
 }
 
 // HistoricalTestDataDateFormat represents the standard timestamp format for

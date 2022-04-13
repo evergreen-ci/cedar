@@ -52,7 +52,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding log record with log ID '%s'", lines.LogId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding log record '%s'", lines.LogId))
 	}
 
 	exportedLines := []model.LogLine{}
@@ -61,7 +61,7 @@ func (s *buildloggerService) AppendLogLines(ctx context.Context, lines *LogLines
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},
-		newRPCError(codes.Internal, errors.Wrapf(log.Append(ctx, exportedLines), "appending log lines with log ID '%s'", lines.LogId))
+		newRPCError(codes.Internal, errors.Wrapf(log.Append(ctx, exportedLines), "appending log lines '%s'", lines.LogId))
 }
 
 // StreamLogLines adds log lines via client-side streaming to an existing
@@ -105,7 +105,7 @@ func (s *buildloggerService) CloseLog(ctx context.Context, info *LogEndInfo) (*B
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding log record with log ID '%s'", info.LogId))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding log record '%s'", info.LogId))
 	}
 
 	return &BuildloggerResponse{LogId: log.ID},

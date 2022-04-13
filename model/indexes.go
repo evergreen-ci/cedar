@@ -260,7 +260,7 @@ func GetRequiredIndexes() []SystemIndexes {
 	}
 }
 
-// CheckIndexes checks that all the given indexes are. It does
+// CheckIndexes checks that all the given indexes are in the DB. It does
 // not check specifically for any index options (e.g. unique indexes).
 func CheckIndexes(ctx context.Context, db *mongo.Database, indexes []SystemIndexes) error {
 	found := map[string]bool{}
