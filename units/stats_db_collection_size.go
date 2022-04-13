@@ -41,7 +41,7 @@ func makeStatsDBCollectionSizeJob() *statsDBCollectionSizeJob {
 }
 
 // NewStatsDBCollectionSizeJob creates a new amboy job to collect the sizes of
-// all collections in the cedar db and send them to splunk
+// all collections in the Cedar DB and send them to Splunk.
 func NewStatsDBCollectionSizeJob(env cedar.Environment, id string) amboy.Job {
 	j := makeStatsDBCollectionSizeJob()
 	j.SetID(fmt.Sprintf("%s.%s", statsDBCollectionSizeJobName, id))

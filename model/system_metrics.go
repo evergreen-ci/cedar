@@ -94,7 +94,7 @@ var (
 	systemMetricsInfoSuccessKey   = bsonutil.MustHaveTag(SystemMetricsInfo{}, "Success")
 )
 
-// Find searches the database for the system metrics object. The environment
+// Find searches the DB for the system metrics object. The environment
 // should not be nil. Either the ID or full Info of the system metrics object
 // needs to be specified.
 func (sm *SystemMetrics) Find(ctx context.Context) error {
@@ -108,7 +108,7 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 
 	sm.populated = false
 	if err := sm.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, bson.M{"_id": sm.ID}).Decode(sm); err != nil {
-		return errors.Wrapf(err, "finding system metrics record with id '%s' in the database", sm.ID)
+		return errors.Wrapf(err, "finding system metrics record '%s'", sm.ID)
 	}
 
 	sm.populated = true
@@ -116,7 +116,7 @@ func (sm *SystemMetrics) Find(ctx context.Context) error {
 	return nil
 }
 
-// SystemMetricsFindOptions allows for querying by task id with or without an
+// SystemMetricsFindOptions allows for querying by task ID with or without an
 // execution value.
 type SystemMetricsFindOptions struct {
 	TaskID         string
@@ -124,7 +124,7 @@ type SystemMetricsFindOptions struct {
 	EmptyExecution bool
 }
 
-// FindByTaskID searches the database for the SystemMetrics object associated
+// FindByTaskID searches the DB for the SystemMetrics object associated
 // with the provided options. The environment should not be nil. If execution
 // is empty, it will default to most recent execution.
 func (t *SystemMetrics) FindByTaskID(ctx context.Context, opts SystemMetricsFindOptions) error {
@@ -133,16 +133,16 @@ func (t *SystemMetrics) FindByTaskID(ctx context.Context, opts SystemMetricsFind
 	}
 
 	if opts.TaskID == "" {
-		return errors.New("cannot find without a task id")
+		return errors.New("cannot find without a task ID")
 	}
 
 	t.populated = false
 	findOneOpts := options.FindOne().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoExecutionKey), Value: -1}})
 	if err := t.env.GetDB().Collection(systemMetricsCollection).FindOne(ctx, createSystemMetricsFindQuery(opts), findOneOpts).Decode(t); err != nil {
 		if opts.EmptyExecution {
-			return errors.Wrapf(err, "finding system metrics record with task_id '%s' in the database", opts.TaskID)
+			return errors.Wrapf(err, "finding system metrics record with task ID '%s'", opts.TaskID)
 		}
-		return errors.Wrapf(err, "finding system metrics record with task_id '%s' and execution %d in the database", opts.TaskID, opts.Execution)
+		return errors.Wrapf(err, "finding system metrics record with task ID '%s' and execution %d", opts.TaskID, opts.Execution)
 	}
 	t.populated = true
 
@@ -159,7 +159,7 @@ func createSystemMetricsFindQuery(opts SystemMetricsFindOptions) map[string]inte
 	return search
 }
 
-// SaveNew saves a new system metrics record to the database. If a record with
+// SaveNew saves a new system metrics record to the DB. If a record with
 // the same ID already exists an error is returned. The record should be
 // populated and the environment should not be nil.
 func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
@@ -184,10 +184,10 @@ func (sm *SystemMetrics) SaveNew(ctx context.Context) error {
 		"op":           "save new system metrics record",
 	})
 
-	return errors.Wrapf(err, "saving new system metrics record with id '%s'", sm.ID)
+	return errors.Wrapf(err, "saving new system metrics record '%s'", sm.ID)
 }
 
-// Remove removes the system metrics record from the database. The environment
+// Remove removes the system metrics record from the DB. The environment
 // should not be nil.
 func (sm *SystemMetrics) Remove(ctx context.Context) error {
 	if sm.env == nil {
@@ -208,12 +208,12 @@ func (sm *SystemMetrics) Remove(ctx context.Context) error {
 		"op":           "remove system metrics record",
 	})
 
-	return errors.Wrapf(err, "removing system metrics record with id '%s'", sm.ID)
+	return errors.Wrapf(err, "removing system metrics record '%s'", sm.ID)
 }
 
 // Append uploads a chunk of system metrics data to the offline blob storage
 // bucket configured for the system metrics and updates the metadata in the
-// database to reflect the uploaded data. The environment should not be nil.
+// DB to reflect the uploaded data. The environment should not be nil.
 func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format FileDataFormat, data []byte) error {
 	if sm.env == nil {
 		return errors.New("cannot not append system metrics data with a nil environment")
@@ -261,7 +261,7 @@ func (sm *SystemMetrics) Append(ctx context.Context, metricType string, format F
 }
 
 // appendSystemMetricsChunkKey adds a new key to the system metrics's chunks
-// array in the database. The environment should not be nil.
+// array. The environment should not be nil.
 func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metricType string, format FileDataFormat, key string) error {
 	if sm.env == nil {
 		return errors.New("cannot append to a system metrics object with a nil environment")
@@ -309,10 +309,10 @@ func (sm *SystemMetrics) appendSystemMetricsChunkKey(ctx context.Context, metric
 		"op":           "append data chunk key to system metrics metadata",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find system metrics record with id '%s' in the database", sm.ID)
+		err = errors.Errorf("could not find system metrics record '%s'", sm.ID)
 	}
 
-	return errors.Wrapf(err, "appending system metrics data chunk to system metrics record with id '%s'", sm.ID)
+	return errors.Wrapf(err, "appending system metrics data chunk to system metrics record '%s'", sm.ID)
 }
 
 // Download returns a system metrics reader for the system metrics data of the
@@ -399,7 +399,7 @@ func (sm *SystemMetrics) download(ctx context.Context, metricType string) (pail.
 
 	chunks, ok := sm.Artifact.MetricChunks[metricType]
 	if !ok {
-		return nil, MetricChunks{}, fmt.Errorf("invalid metric type '%s' for system metrics record with id '%s'", metricType, sm.ID)
+		return nil, MetricChunks{}, errors.Errorf("invalid metric type '%s' for system metrics record '%s'", metricType, sm.ID)
 	}
 
 	return bucket, chunks, nil
@@ -437,10 +437,10 @@ func (sm *SystemMetrics) Close(ctx context.Context, success bool) error {
 		"op":           "close system metrics record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find system metrics record with id '%s' in the database", sm.ID)
+		err = errors.Errorf("could not find system metrics record '%s'", sm.ID)
 	}
 
-	return errors.Wrapf(err, "closing system metrics record with id '%s'", sm.ID)
+	return errors.Wrapf(err, "closing system metrics record '%s'", sm.ID)
 
 }
 

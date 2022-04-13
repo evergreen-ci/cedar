@@ -36,11 +36,11 @@ func SystemMetricsServiceName() string {
 	return CedarSystemMetrics_ServiceDesc.ServiceName
 }
 
-// CreateSystemMetricsRecord creates a new system metrics record in the database.
+// CreateSystemMetricsRecord creates a new system metrics record.
 func (s *systemMetricsService) CreateSystemMetricsRecord(ctx context.Context, data *SystemMetrics) (*SystemMetricsResponse, error) {
 	conf := model.NewCedarConfig(s.env)
 	if err := conf.Find(); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrap(err, "fetching cedar config"))
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "fetching Cedar config"))
 	}
 	if conf.Bucket.SystemMetricsBucketType == "" {
 		return nil, newRPCError(codes.Internal, errors.New("bucket type not specified"))
@@ -61,12 +61,12 @@ func (s *systemMetricsService) AddSystemMetrics(ctx context.Context, data *Syste
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding system metrics record with id '%s'", data.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding system metrics record '%s'", data.Id))
 	}
 
 	err := systemMetrics.Append(ctx, data.Type, data.Format.Export(), data.Data)
 	return &SystemMetricsResponse{Id: systemMetrics.ID},
-		newRPCError(codes.Internal, errors.Wrapf(err, "appending system metrics data for record with id '%s'", data.Id))
+		newRPCError(codes.Internal, errors.Wrapf(err, "appending system metrics data for record '%s'", data.Id))
 }
 
 // StreamSystemMetrics adds system metrics data via client-side streaming to an existing
@@ -77,7 +77,7 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return newRPCError(codes.Aborted, errors.Wrapf(err, "stream aborted for id '%s'", id))
+			return newRPCError(codes.Aborted, errors.Wrapf(err, "stream aborted for system metrics record '%s'", id))
 		}
 
 		chunk, err := stream.Recv()
@@ -91,12 +91,12 @@ func (s *systemMetricsService) StreamSystemMetrics(stream CedarSystemMetrics_Str
 		if id == "" {
 			id = chunk.Id
 		} else if chunk.Id != id {
-			return newRPCError(codes.Aborted, fmt.Errorf("system metrics chunk with id '%s' in stream does not match reference chunk id '%s'", chunk.Id, id))
+			return newRPCError(codes.Aborted, fmt.Errorf("system metrics chunk '%s' in stream does not match reference chunk id '%s'", chunk.Id, id))
 		}
 
 		_, err = s.AddSystemMetrics(ctx, chunk)
 		if err != nil {
-			return newRPCError(codes.Internal, errors.Wrapf(err, "adding data for chunk with id '%s'", id))
+			return newRPCError(codes.Internal, errors.Wrapf(err, "adding data for chunk '%s'", id))
 		}
 	}
 }
@@ -111,9 +111,9 @@ func (s *systemMetricsService) CloseMetrics(ctx context.Context, info *SystemMet
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding system metrics record with id '%s'", info.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding system metrics record '%s'", info.Id))
 	}
 	err := systemMetrics.Close(ctx, info.Success)
 	return &SystemMetricsResponse{Id: systemMetrics.ID},
-		newRPCError(codes.Internal, errors.Wrapf(err, "closing system metrics record with id '%s'", systemMetrics.ID))
+		newRPCError(codes.Internal, errors.Wrapf(err, "closing system metrics record '%s'", systemMetrics.ID))
 }

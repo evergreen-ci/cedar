@@ -84,7 +84,7 @@ func (l *LogSegment) Find(logID string, segment int) error {
 
 	l.populated = false
 	if err = session.DB(conf.DatabaseName).C(logSegmentsCollection).Find(filter).One(l); err != nil {
-		return errors.Wrapf(err, "finding log segment with id '%s'", logID)
+		return errors.Wrapf(err, "finding log segment '%s'", logID)
 	}
 	l.populated = true
 
@@ -144,7 +144,7 @@ func (l *LogSegments) Find(logID string, sorted bool) error {
 
 	l.populated = false
 	if err = query.All(l.logs); err != nil {
-		return errors.Wrapf(err, "finding log segment with id '%s'", logID)
+		return errors.Wrapf(err, "finding log segment '%s'", logID)
 	}
 
 	l.populated = true

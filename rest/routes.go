@@ -106,7 +106,7 @@ func (s *Service) getSystemEvent(w http.ResponseWriter, r *http.Request) {
 	id := gimlet.GetVars(r)["id"]
 	resp := &SystemEventResponse{}
 	if id == "" {
-		resp.Error = "id not specified"
+		resp.Error = "ID not specified"
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -136,7 +136,7 @@ func (s *Service) acknowledgeSystemEvent(w http.ResponseWriter, r *http.Request)
 	id := gimlet.GetVars(r)["id"]
 	resp := &SystemEventResponse{}
 	if id == "" {
-		resp.Error = "id not specified"
+		resp.Error = "ID not specified"
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -189,7 +189,7 @@ func (s *Service) simpleLogIngestion(w http.ResponseWriter, r *http.Request) {
 	resp.LogID = gimlet.GetVars(r)["id"]
 
 	if resp.LogID == "" {
-		resp.Errors = []string{"no log id specified"}
+		resp.Errors = []string{"no log ID specified"}
 		gimlet.WriteJSONError(w, resp)
 		return
 	}
@@ -224,7 +224,7 @@ type SimpleLogContentResponse struct {
 	URLS  []string `json:"urls"`
 }
 
-// simpleLogRetrieval takes in a log id and returns the log documents associated with that log id.
+// simpleLogRetrieval takes in a log ID and returns the log documents associated with that log ID.
 func (s *Service) simpleLogRetrieval(w http.ResponseWriter, r *http.Request) {
 	resp := &SimpleLogContentResponse{}
 
@@ -579,7 +579,7 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 			Expires:    s.Conf.CA.SSLExpireAfter,
 		}
 		if err = opts.CreateCertificate(s.Depot); err != nil {
-			err = errors.Wrapf(err, "generating certificate for user with id '%s'", usr)
+			err = errors.Wrapf(err, "generating certificate for user '%s'", usr)
 			gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 			return
 		}
@@ -587,13 +587,13 @@ func (s *Service) fetchUserCertKey(rw http.ResponseWriter, r *http.Request) {
 
 	key, err := certdepot.GetPrivateKey(s.Depot, usr)
 	if err != nil {
-		err = errors.Wrapf(err, "fetching certificate key for user with id '%s'", usr)
+		err = errors.Wrapf(err, "fetching certificate key for user '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
 	payload, err := key.ExportPrivate()
 	if err != nil {
-		err = errors.Wrapf(err, "exporting certificate key for user with id '%s'", usr)
+		err = errors.Wrapf(err, "exporting certificate key for user '%s'", usr)
 		gimlet.WriteResponse(rw, gimlet.MakeJSONInternalErrorResponder(err))
 		return
 	}
@@ -618,7 +618,6 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 
 	creds := &userCredentials{}
 	if err = gimlet.GetJSON(r.Body, creds); err != nil {
-		err = errors.Wrap(err, "reading request body")
 		return "", errors.Wrap(err, "reading response body")
 	}
 
@@ -628,7 +627,7 @@ func (s *Service) checkPayloadCreds(rw http.ResponseWriter, r *http.Request) (st
 
 	user, err := s.UserManager.GetUserByID(creds.Username)
 	if err != nil {
-		return "", errors.Wrapf(err, "finding user with id '%s'", creds.Username)
+		return "", errors.Wrapf(err, "finding user '%s'", creds.Username)
 	} else if user == nil {
 		return "", errors.Errorf("user '%s' not defined", creds.Username)
 	}

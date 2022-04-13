@@ -10,8 +10,8 @@ import (
 const logRecordCollection = "simple.log.records"
 
 // GOAL: the model package should export types with methods that wrap
-//    up all required database interaction using functionality from the
-//    database package. We should not export Key names or query builders
+//    up all required DB interaction using functionality from the
+//    DB package. We should not export Key names or query builders.
 
 type LogRecord struct {
 	LogID       string `bson:"_id"`
@@ -60,7 +60,7 @@ func (l *LogRecord) Find() error {
 	err = session.DB(conf.DatabaseName).C(logRecordCollection).FindId(l.LogID).One(l)
 
 	if db.ResultsNotFound(err) {
-		return errors.Wrapf(err, "could not find log record with id '%s'", l.LogID)
+		return errors.Wrapf(err, "could not find log record '%s'", l.LogID)
 	} else if err != nil {
 		return errors.Wrap(err, "running log query")
 	}

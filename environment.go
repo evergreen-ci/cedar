@@ -74,7 +74,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 			connctx, cancel := context.WithTimeout(ctx, conf.MongoDBDialTimeout)
 			defer cancel()
 			if err = env.client.Connect(connctx); err != nil {
-				return nil, errors.Wrap(err, "connecting to database")
+				return nil, errors.Wrap(err, "connecting to DB")
 			}
 		}
 	}
@@ -221,7 +221,7 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 // Environment objects provide access to shared configuration and
 // state, in a way that you can isolate and test for in
 type Environment interface {
-	GetConf() *Configuration
+	GetConfig() *Configuration
 	GetCache() (EnvironmentCache, bool)
 	Context() (context.Context, context.CancelFunc)
 
@@ -255,9 +255,9 @@ func GetSessionWithConfig(env Environment) (*Configuration, db.Session, error) {
 		return nil, nil, errors.New("env is nil")
 	}
 
-	conf := env.GetConf()
+	conf := env.GetConfig()
 	if conf == nil {
-		return nil, nil, errors.New("conf is nil")
+		return nil, nil, errors.New("config is nil")
 	}
 
 	session := env.GetSession()
@@ -394,7 +394,7 @@ func (c *envState) GetDB() *mongo.Database {
 	return c.client.Database(c.conf.DatabaseName)
 }
 
-func (c *envState) GetConf() *Configuration {
+func (c *envState) GetConfig() *Configuration {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

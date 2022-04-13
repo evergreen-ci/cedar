@@ -31,12 +31,12 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("log with id '%s' not found", opts.ID),
+			Message:    fmt.Sprintf("log '%s' not found", opts.ID),
 		}
 	} else if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "finding log with id '%s'", opts.ID).Error(),
+			Message:    errors.Wrapf(err, "finding log '%s'", opts.ID).Error(),
 		}
 	}
 
@@ -45,7 +45,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "downloading log with id '%s'", opts.ID).Error(),
+			Message:    errors.Wrapf(err, "downloading log '%s'", opts.ID).Error(),
 		}
 	}
 
@@ -54,7 +54,7 @@ func (dbc *DBConnector) FindLogByID(ctx context.Context, opts BuildloggerOptions
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "paginating log with id '%s'", opts.ID).Error(),
+			Message:    errors.Wrapf(err, "paginating log '%s'", opts.ID).Error(),
 		}
 	}
 
@@ -71,12 +71,12 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 	if err := log.Find(ctx); db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("log with id '%s' not found", id),
+			Message:    fmt.Sprintf("log '%s' not found", id),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "finding log with id '%s'", id).Error(),
+			Message:    errors.Wrapf(err, "finding log '%s'", id).Error(),
 		}
 	}
 
@@ -84,7 +84,7 @@ func (dbc *DBConnector) FindLogMetadataByID(ctx context.Context, id string) (*mo
 	if err := apiLog.Import(log); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "corrupt data for log with id '%s'", id).Error(),
+			Message:    errors.Wrapf(err, "corrupt data for log '%s'", id).Error(),
 		}
 	}
 
@@ -112,12 +112,12 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	if err := logs.Find(ctx, dbOpts); db.ResultsNotFound(err) {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", opts.TaskID),
+			Message:    fmt.Sprintf("logs with task ID '%s' not found", opts.TaskID),
 		}
 	} else if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "finding logs with task id '%s'", opts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "finding logs with task ID '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -126,7 +126,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "downloading logs with task id '%s'", opts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "downloading logs with task ID '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -134,7 +134,7 @@ func (dbc *DBConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerOp
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "paginating logs with task id '%s'", opts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "paginating logs with task ID '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -160,12 +160,12 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 	if err := logs.Find(ctx, dbOpts); db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", opts.TaskID),
+			Message:    fmt.Sprintf("logs with task ID '%s' not found", opts.TaskID),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "finding logs with task id '%s'", opts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "finding logs with task ID '%s'", opts.TaskID).Error(),
 		}
 	}
 
@@ -174,7 +174,7 @@ func (dbc *DBConnector) FindLogMetadataByTaskID(ctx context.Context, opts Buildl
 		if err := apiLogs[i].Import(log); err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    errors.Wrapf(err, "corrupt data for logs with task id '%s'", opts.TaskID).Error(),
+				Message:    errors.Wrapf(err, "corrupt data for logs with task ID '%s'", opts.TaskID).Error(),
 			}
 		}
 	}
@@ -199,7 +199,7 @@ func (dbc *DBConnector) FindLogsByTestName(ctx context.Context, opts Buildlogger
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "paginating logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
+			Message:    errors.Wrapf(err, "paginating logs with task ID '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -230,12 +230,12 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 	if err := logs.Find(ctx, dbOpts); db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
+			Message:    fmt.Sprintf("logs with task ID '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "finding logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
+			Message:    errors.Wrapf(err, "finding logs with task ID '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -244,7 +244,7 @@ func (dbc *DBConnector) FindLogMetadataByTestName(ctx context.Context, opts Buil
 		if err := apiLogs[i].Import(log); err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    errors.Wrapf(err, "corrupt data for logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
+				Message:    errors.Wrapf(err, "corrupt data for logs with task ID '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 			}
 		}
 	}
@@ -284,7 +284,7 @@ func (dbc *DBConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOpt
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "paginating grouped logs with task id '%s', test name '%s'", opts.TaskID, opts.TestName).Error(),
+			Message:    errors.Wrapf(err, "paginating grouped logs with task ID '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -314,12 +314,12 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts *Buildlogge
 	if err := logs.Find(ctx, dbOpts); db.ResultsNotFound(err) {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
+			Message:    fmt.Sprintf("logs with task ID '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
 		}
 	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "finding logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
+			Message:    errors.Wrapf(err, "finding logs with task ID '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 	opts.Execution = logs.Logs[0].Info.Execution
@@ -329,7 +329,7 @@ func (dbc *DBConnector) findLogsByTestName(ctx context.Context, opts *Buildlogge
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "downloading logs with task id '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
+			Message:    errors.Wrapf(err, "downloading logs with task ID '%s' and test name '%s'", opts.TaskID, opts.TestName).Error(),
 		}
 	}
 
@@ -350,7 +350,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 	if !ok {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("log with id '%s' not found", opts.ID),
+			Message:    fmt.Sprintf("log '%s' not found", opts.ID),
 		}
 	}
 
@@ -362,7 +362,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "creating bucket")),
+			Message:    errors.Wrap(err, "creating bucket").Error(),
 		}
 	}
 	it := dbModel.NewBatchedLogIterator(bucket, log.Artifact.Chunks, 2, opts.TimeRange)
@@ -372,7 +372,7 @@ func (mc *MockConnector) FindLogByID(ctx context.Context, opts BuildloggerOption
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "paginating log")),
+			Message:    errors.Wrap(err, "paginating log").Error(),
 		}
 	}
 
@@ -388,7 +388,7 @@ func (mc *MockConnector) FindLogMetadataByID(ctx context.Context, id string) (*m
 	if !ok {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("log with id '%s' not found", id),
+			Message:    fmt.Sprintf("log '%s' not found", id),
 		}
 	}
 
@@ -417,7 +417,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 	if len(logs) == 0 {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", opts.TaskID),
+			Message:    fmt.Sprintf("logs with task ID '%s' not found", opts.TaskID),
 		}
 	}
 
@@ -446,7 +446,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 		if err != nil {
 			return data, time.Time{}, paginated, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("%s", errors.Wrap(err, "creating bucket")),
+				Message:    errors.Wrap(err, "creating bucket").Error(),
 			}
 		}
 
@@ -459,7 +459,7 @@ func (mc *MockConnector) FindLogsByTaskID(ctx context.Context, opts BuildloggerO
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "paginating log")),
+			Message:    errors.Wrap(err, "paginating log").Error(),
 		}
 	}
 
@@ -480,7 +480,7 @@ func (mc *MockConnector) FindLogMetadataByTaskID(ctx context.Context, opts Build
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' not found", opts.TaskID),
+			Message:    fmt.Sprintf("logs with task ID '%s' not found", opts.TaskID),
 		}
 	}
 
@@ -527,7 +527,7 @@ func (mc *MockConnector) FindLogsByTestName(ctx context.Context, opts Buildlogge
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "paginating log")),
+			Message:    errors.Wrap(err, "paginating log").Error(),
 		}
 	}
 
@@ -555,7 +555,7 @@ func (mc *MockConnector) FindLogMetadataByTestName(ctx context.Context, opts Bui
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
+			Message:    fmt.Sprintf("logs with task ID '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
 		}
 	}
 
@@ -617,7 +617,7 @@ func (mc *MockConnector) FindGroupedLogs(ctx context.Context, opts BuildloggerOp
 	if err != nil {
 		return data, time.Time{}, paginated, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "paginating log")),
+			Message:    errors.Wrap(err, "paginating log").Error(),
 		}
 	}
 
@@ -651,7 +651,7 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts *Buildlogg
 	if len(logs) == 0 {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("logs with task id '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
+			Message:    fmt.Sprintf("logs with task ID '%s' and test name '%s' not found", opts.TaskID, opts.TestName),
 		}
 	}
 
@@ -674,7 +674,7 @@ func (mc *MockConnector) findLogsByTestName(ctx context.Context, opts *Buildlogg
 		if err != nil {
 			return nil, gimlet.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Message:    fmt.Sprintf("%s", errors.Wrap(err, "creating bucket")),
+				Message:    errors.Wrap(err, "creating bucket").Error(),
 			}
 		}
 

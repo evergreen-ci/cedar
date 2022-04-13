@@ -66,7 +66,7 @@ func (d *HistoricalTestData) Setup(e cedar.Environment) { d.env = e }
 // IsNil returns if the HistoricalTestData is populated or not.
 func (d *HistoricalTestData) IsNil() bool { return !d.populated }
 
-// Find searches the database for the HistoricalTestData by ID. The environmemt
+// Find searches the DB for the HistoricalTestData by ID. The environmemt
 // should not be nil.
 func (d *HistoricalTestData) Find(ctx context.Context) error {
 	if d.env == nil {
@@ -79,7 +79,7 @@ func (d *HistoricalTestData) Find(ctx context.Context) error {
 
 	d.populated = false
 	if err := d.env.GetDB().Collection(historicalTestDataCollection).FindOne(ctx, bson.M{"_id": d.ID}).Decode(d); err != nil {
-		return errors.Wrapf(err, "finding historical test data record with id '%s' in the database", d.ID)
+		return errors.Wrapf(err, "finding historical test data record '%s'", d.ID)
 	}
 	d.populated = true
 
@@ -174,7 +174,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 		"op":         "update historical test data record",
 	})
 	if err != nil {
-		return errors.Wrapf(err, "updating historical test data with id %s", d.ID)
+		return errors.Wrapf(err, "updating historical test data '%s'", d.ID)
 	}
 
 	d.populated = true
@@ -182,7 +182,7 @@ func (d *HistoricalTestData) Update(ctx context.Context, result TestResult) erro
 	return nil
 }
 
-// Remove deletes the HistoricalTestData file from database. The environment
+// Remove deletes the HistoricalTestData file from DB. The environment
 // should not be nil.
 func (d *HistoricalTestData) Remove(ctx context.Context) error {
 	if d.env == nil {
@@ -201,7 +201,7 @@ func (d *HistoricalTestData) Remove(ctx context.Context) error {
 		"op":           "remove historical test data record",
 	})
 
-	return errors.Wrapf(err, "removing test results record with id %s", d.ID)
+	return errors.Wrapf(err, "removing test results record '%s'", d.ID)
 }
 
 // HistoricalTestDataDateFormat represents the standard timestamp format for

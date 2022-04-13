@@ -19,11 +19,11 @@ import (
 
 // Client returns the entry point for the ./cedar client sub-command,
 // which itself hosts a number of sub-commands. This client relies on
-// an accessible cedar service.
+// an accessible Cedar service.
 func Client() cli.Command {
 	return cli.Command{
 		Name:   "client",
-		Usage:  "run a simple cedar client",
+		Usage:  "run a simple Cedar client",
 		Flags:  restServiceFlags(),
 		Before: mergeBeforeFuncs(requireClientHostFlag, setDefaultClientPortFlag),
 		Subcommands: []cli.Command{

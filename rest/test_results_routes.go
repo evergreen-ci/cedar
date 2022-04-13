@@ -30,7 +30,7 @@ type testResultsBaseHandler struct {
 	opts data.TestResultsOptions
 }
 
-// Parse fetches the task_id from the http request.
+// Parse fetches the task ID from the HTTP request.
 func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 
@@ -64,7 +64,7 @@ func makeGetTestResultsByTaskID(sc data.Connector) gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task_id from the http request and any filter, sort, or
+// Parse fetches the task ID from the HTTP request and any filter, sort, or
 // pagination options.
 func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Request) error {
 	catcher := grip.NewBasicCatcher()
@@ -120,11 +120,11 @@ func (h *testResultsGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Run finds and returns the desired test result based on task_id.
+// Run finds and returns the desired test result based on the task ID.
 func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results by task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request":    gimlet.GetRequestID(ctx),
 			"method":     "GET",
@@ -242,7 +242,7 @@ func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
 	sample, err := h.sc.GetFailedTestResultsSample(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting failed test results sample by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting failed test results sample by task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
@@ -282,7 +282,7 @@ func (h *testResultsGetStatsHandler) Factory() gimlet.RouteHandler {
 func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
 	stats, err := h.sc.GetTestResultsStats(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results stats by task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results stats by task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
@@ -318,7 +318,7 @@ func (h *testResultsGetByDisplayTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the display_task_id from the http request.
+// Parse fetches the display task ID from the HTTP request.
 func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 
 	h.opts.TaskID = gimlet.GetVars(r)["display_task_id"]
@@ -340,7 +340,7 @@ func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.
 func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results by display_task_id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results by display task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -374,8 +374,8 @@ func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task_id, test_name, and execution (if present)
-// from the http request.
+// Parse fetches the task ID, test name, and execution (if present)
+// from the HTTP request.
 func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{
@@ -397,7 +397,7 @@ func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Reques
 func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 	testResults, err := h.sc.FindTestResults(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting test result by task_id '%s' and test_name '%s'", h.opts.TaskID, h.opts.FilterAndSort.TestName)
+		err = errors.Wrapf(err, "getting test result by task ID '%s' and test name '%s'", h.opts.TaskID, h.opts.FilterAndSort.TestName)
 		logFindError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),
 			"method":    "GET",

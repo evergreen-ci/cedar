@@ -67,7 +67,7 @@ func (l *Log) Setup(e cedar.Environment) { l.env = e }
 // IsNil returns if the log is populated or not.
 func (l *Log) IsNil() bool { return !l.populated }
 
-// Find searches the database for the log. The enviromemt should not be nil.
+// Find searches the DB for the log. The enviromemt should not be nil.
 func (l *Log) Find(ctx context.Context) error {
 	if l.env == nil {
 		return errors.New("cannot find with a nil environment")
@@ -79,14 +79,14 @@ func (l *Log) Find(ctx context.Context) error {
 
 	l.populated = false
 	if err := l.env.GetDB().Collection(buildloggerCollection).FindOne(ctx, bson.M{"_id": l.ID}).Decode(l); err != nil {
-		return errors.Wrapf(err, "finding log record with id '%s' in the database", l.ID)
+		return errors.Wrapf(err, "finding log record '%s'", l.ID)
 	}
 	l.populated = true
 
 	return nil
 }
 
-// SaveNew saves a new log to the database, if a log with the same ID already
+// SaveNew saves a new log to the DB, if a log with the same ID already
 // exists an error is returned. The log should be populated and the environment
 // should not be nil.
 func (l *Log) SaveNew(ctx context.Context) error {
@@ -109,10 +109,10 @@ func (l *Log) SaveNew(ctx context.Context) error {
 		"op":           "save new buildlogger log",
 	})
 
-	return errors.Wrapf(err, "saving new log with id '%s'", l.ID)
+	return errors.Wrapf(err, "saving new log '%s'", l.ID)
 }
 
-// Remove removes the log from the database. The environment should not be nil.
+// Remove removes the log from the DB. The environment should not be nil.
 func (l *Log) Remove(ctx context.Context) error {
 	if l.env == nil {
 		return errors.New("cannot remove a log with a nil environment")
@@ -244,7 +244,7 @@ func (l *Log) Close(ctx context.Context, exitCode int) error {
 		"op":           "close buildlogger log",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find log record with id '%s' in the database", l.ID)
+		return errors.Errorf("could not find log record '%s'", l.ID)
 	}
 
 	return errors.Wrapf(err, "closing log '%s'", l.ID)
@@ -293,7 +293,7 @@ func (l *Log) getChunks(ctx context.Context, bucket pail.Bucket) ([]LogChunkInfo
 	switch l.Artifact.Version {
 	case 0:
 		// Version 0 stores log chunk information directly in the
-		// database.
+		// DB.
 		chunks = l.Artifact.Chunks
 	case 1:
 		// Version 1 uses the key of the chunk in the pail-backed

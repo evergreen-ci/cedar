@@ -103,7 +103,7 @@ func makeTarball(fileName, prefix string, paths []string, exclude []string, trim
 	// set up the output file
 	file, err := os.Create(fileName)
 	if err != nil {
-		return fmt.Errorf("creating file %s: %v", fileName, err)
+		return errors.Wrapf(err, "creating file '%s'")
 	}
 	defer file.Close()
 

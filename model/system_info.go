@@ -60,7 +60,7 @@ func (i *SystemInformationRecord) Find() error {
 
 	i.populated = false
 	if err = session.DB(conf.DatabaseName).C(sysInfoCollection).FindId(i.ID).One(i); err != nil {
-		return errors.Wrapf(err, "finding system information record with id '%s' in the database", i.ID)
+		return errors.Wrapf(err, "finding system information record '%s'", i.ID)
 	}
 
 	return nil

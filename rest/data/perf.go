@@ -21,8 +21,8 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-// FindPerformanceResultById queries the database to find the performance
-// result with the given id.
+// FindPerformanceResultById queries the DB to find the performance
+// result with the given ID.
 func (dbc *DBConnector) FindPerformanceResultById(ctx context.Context, id string) (*dataModel.APIPerformanceResult, error) {
 	result := model.PerformanceResult{}
 	result.Setup(dbc.env)
@@ -37,7 +37,7 @@ func (dbc *DBConnector) FindPerformanceResultById(ctx context.Context, id string
 		}
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "database error").Error(),
+			Message:    errors.Wrap(err, "DB error").Error(),
 		}
 	}
 
@@ -52,9 +52,9 @@ func (dbc *DBConnector) FindPerformanceResultById(ctx context.Context, id string
 	return &apiResult, nil
 }
 
-// RemovePerformanceResultById removes the performance result with the given id
-// from the database. Note that this function deletes all children. No error is
-// returned if the id does not exist.
+// RemovePerformanceResultById removes the performance result with the given ID
+// from the DB. Note that this function deletes all children. No error is
+// returned if the ID does not exist.
 func (dbc *DBConnector) RemovePerformanceResultById(ctx context.Context, id string) (int, error) {
 	result := model.PerformanceResult{}
 	result.Setup(dbc.env)
@@ -64,13 +64,13 @@ func (dbc *DBConnector) RemovePerformanceResultById(ctx context.Context, id stri
 	if err != nil {
 		return numRemoved, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    "failed to remove performance result from database",
+			Message:    "failed to remove performance result from DB",
 		}
 	}
 	return numRemoved, nil
 }
 
-// FindPerformanceResults queries the database to find all performance results
+// FindPerformanceResults queries the DB to find all performance results
 // that match the given options. If querying by task name, results are sorted
 // (descending) by the Evergreen order.
 func (dbc *DBConnector) FindPerformanceResults(ctx context.Context, opts PerformanceOptions) ([]dataModel.APIPerformanceResult, error) {
@@ -98,7 +98,7 @@ func (dbc *DBConnector) FindPerformanceResults(ctx context.Context, opts Perform
 	if err := results.Find(ctx, findOpts); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "database error").Error(),
+			Message:    errors.Wrap(err, "DB error").Error(),
 		}
 	}
 	if results.IsNil() {
@@ -121,8 +121,8 @@ func (dbc *DBConnector) FindPerformanceResults(ctx context.Context, opts Perform
 	return apiResults, nil
 }
 
-// FindPerformanceResultWithChildren queries the database to find a performance
-// result with the given id and its children up to maxDepth and filtered by
+// FindPerformanceResultWithChildren queries the DB to find a performance
+// result with the given ID and its children up to maxDepth and filtered by
 // tags. If maxDepth is less than 0, the child search is exhaustive.
 func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {
 	results := model.PerformanceResults{}
@@ -140,7 +140,7 @@ func (dbc *DBConnector) FindPerformanceResultWithChildren(ctx context.Context, i
 	if err := results.Find(ctx, options); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "database error").Error(),
+			Message:    errors.Wrap(err, "DB error").Error(),
 		}
 	}
 	if results.IsNil() {
@@ -195,7 +195,7 @@ func (dbc *DBConnector) ScheduleSignalProcessingRecalculateJobs(ctx context.Cont
 ///////////////////////////////
 
 // FindPerformanceResultById queries the mock cache to find the performance
-// result with the given id.
+// result with the given ID.
 func (mc *MockConnector) FindPerformanceResultById(_ context.Context, id string) (*dataModel.APIPerformanceResult, error) {
 	result, ok := mc.CachedPerformanceResults[id]
 	apiResult := dataModel.APIPerformanceResult{}
@@ -216,9 +216,9 @@ func (mc *MockConnector) FindPerformanceResultById(_ context.Context, id string)
 	return &apiResult, nil
 }
 
-// RemovePerformanceResultById removes the performance result with the given id
+// RemovePerformanceResultById removes the performance result with the given ID
 // from the mock cache. Note that this function deletes all children. No error
-// is returned if the id does not exist.
+// is returned if the ID does not exist.
 func (mc *MockConnector) RemovePerformanceResultById(_ context.Context, id string) (int, error) {
 	_, ok := mc.CachedPerformanceResults[id]
 	if ok {
@@ -303,7 +303,7 @@ func (mc *MockConnector) FindPerformanceResults(_ context.Context, opts Performa
 }
 
 // FindPerformanceResultWithChildren queries the mock cache to find a
-// performance result with the given id and its children up to maxDepth and
+// performance result with the given ID and its children up to maxDepth and
 // filtered by tags. If maxDepth is less than 0, the child search is
 // exhaustive.
 func (mc *MockConnector) FindPerformanceResultWithChildren(ctx context.Context, id string, maxDepth int, tags ...string) ([]dataModel.APIPerformanceResult, error) {

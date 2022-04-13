@@ -131,7 +131,7 @@ func (t *TestResults) PrestoPartitionKey() string {
 	return fmt.Sprintf("task_create_iso=%s/project=%s/%s", t.CreatedAt.UTC().Format(parquetDateFormat), t.Info.Project, t.Artifact.Prefix)
 }
 
-// Find searches the database for the TestResults. The environment should not be
+// Find searches the DB for the TestResults. The environment should not be
 // nil.
 func (t *TestResults) Find(ctx context.Context) error {
 	if t.env == nil {
@@ -144,14 +144,14 @@ func (t *TestResults) Find(ctx context.Context) error {
 
 	t.populated = false
 	if err := t.env.GetDB().Collection(testResultsCollection).FindOne(ctx, bson.M{"_id": t.ID}).Decode(t); err != nil {
-		return errors.Wrapf(err, "finding test results record with id '%s' in the database", t.ID)
+		return errors.Wrapf(err, "finding test results record '%s'", t.ID)
 	}
 	t.populated = true
 
 	return nil
 }
 
-// SaveNew saves a new TestResults to the database, if a document with the same
+// SaveNew saves a new TestResults to the DB, if a document with the same
 // ID already exists an error is returned. The TestResults should be populated
 // and the environment should not be nil.
 func (t *TestResults) SaveNew(ctx context.Context) error {
@@ -174,10 +174,10 @@ func (t *TestResults) SaveNew(ctx context.Context) error {
 		"op":           "save new test results record",
 	})
 
-	return errors.Wrapf(err, "saving new test results record with id '%s'", t.ID)
+	return errors.Wrapf(err, "saving new test results record '%s'", t.ID)
 }
 
-// Remove removes the test results document from the database. The environment
+// Remove removes the test results document from the DB. The environment
 // should not be nil.
 func (t *TestResults) Remove(ctx context.Context) error {
 	if t.env == nil {
@@ -196,7 +196,7 @@ func (t *TestResults) Remove(ctx context.Context) error {
 		"op":           "remove test results record",
 	})
 
-	return errors.Wrapf(err, "removing test results record with id '%s'", t.ID)
+	return errors.Wrapf(err, "removing test results record '%s'", t.ID)
 }
 
 // Append uploads test results to the offline blob storage bucket configured
@@ -337,13 +337,13 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 		"op":                  "updating stats and failing tests sample",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find test results record with id '%s' in the database", t.ID)
+		err = errors.Errorf("could not find test results record '%s'", t.ID)
 	}
 
 	t.Stats.TotalCount += len(results)
 	t.Stats.FailedCount += failedCount
 
-	return errors.Wrapf(err, "appending to failing tests sample for test result record with id '%s'", t.ID)
+	return errors.Wrapf(err, "appending to failing tests sample for test result record '%s'", t.ID)
 }
 
 // Download returns a TestResult slice with the corresponding results stored in
@@ -560,10 +560,10 @@ func (t *TestResults) Close(ctx context.Context) error {
 		"op":            "close test results record",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find test results record with id '%s' in the database", t.ID)
+		err = errors.Errorf("could not find test results record '%s'", t.ID)
 	}
 
-	return errors.Wrapf(err, "closing test result record with id '%s'", t.ID)
+	return errors.Wrapf(err, "closing test result record '%s'", t.ID)
 }
 
 // GetBucket returns a bucket of all test results specified by the TestResults
@@ -793,19 +793,19 @@ func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
 func (opts *FindTestResultsOptions) createErrorMessage() string {
 	var msg string
 	if opts.DisplayTask {
-		msg = fmt.Sprintf("could not find test results records with display_task_id '%s'", opts.TaskID)
+		msg = fmt.Sprintf("could not find test results records with display task ID '%s'", opts.TaskID)
 	} else {
-		msg = fmt.Sprintf("could not find test results record with task_id '%s'", opts.TaskID)
+		msg = fmt.Sprintf("could not find test results record with task ID '%s'", opts.TaskID)
 	}
 	if opts.Execution != nil {
 		msg += fmt.Sprintf(" and execution %d", opts.Execution)
 	}
-	msg += " in the database"
+	msg += ""
 
 	return msg
 }
 
-// FindTestResults searches the database for the TestResults associated with
+// FindTestResults searches the DB for the TestResults associated with
 // the provided options. The environment should not be nil. If execution is
 // nil, it will default to the most recent execution.
 func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) ([]TestResults, error) {
@@ -1038,7 +1038,7 @@ type FindAndDownloadTestResultsOptions struct {
 	FilterAndSort *FilterAndSortTestResultsOptions
 }
 
-// FindAndDownloadTestResults searches the database for the TestResults
+// FindAndDownloadTestResults searches the DB for the TestResults
 // associated with the provided options and returns the downloaded test
 // results filtered, sorted, and paginated. The environment should not be nil.
 // If execution is nil, it will default to the most recent execution.
@@ -1272,7 +1272,7 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 }
 
 // FindTestResultsByProjectOptions represent the set of options for finding
-// test results in the database by project name.
+// test results by project name.
 type FindTestResultsByProjectOptions struct {
 	Projects []string
 	StartAt  time.Time
@@ -1289,7 +1289,7 @@ func (o FindTestResultsByProjectOptions) validate() error {
 	return catcher.Resolve()
 }
 
-// FindTestResultsByProject returns all test results in the database with the
+// FindTestResultsByProject returns all test results with the
 // given set of project names and within the given date interval.
 func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts FindTestResultsByProjectOptions) ([]TestResults, error) {
 	if err := opts.validate(); err != nil {

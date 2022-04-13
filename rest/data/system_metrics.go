@@ -26,12 +26,12 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, findOpts db
 	if err := sm.FindByTaskID(ctx, findOpts); db.ResultsNotFound(err) {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("system metrics for task id '%s' not found", findOpts.TaskID),
+			Message:    fmt.Sprintf("system metrics for task ID '%s' not found", findOpts.TaskID),
 		}
 	} else if err != nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "retrieving system metrics data for task id '%s'", findOpts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "retrieving system metrics data for task ID '%s'", findOpts.TaskID).Error(),
 		}
 	}
 
@@ -41,7 +41,7 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, findOpts db
 	if !ok {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("metric type '%s' for task id '%s' not found", downloadOpts.MetricType, findOpts.TaskID),
+			Message:    fmt.Sprintf("metric type '%s' for task ID '%s' not found", downloadOpts.MetricType, findOpts.TaskID),
 		}
 	}
 
@@ -49,7 +49,7 @@ func (dbc *DBConnector) FindSystemMetricsByType(ctx context.Context, findOpts db
 	if err != nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrapf(err, "downloading raw system metrics data for task id '%s'", findOpts.TaskID).Error(),
+			Message:    errors.Wrapf(err, "downloading raw system metrics data for task ID '%s'", findOpts.TaskID).Error(),
 		}
 	}
 	return data, idx, nil
@@ -75,7 +75,7 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, findOpts d
 	if sm == nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("system metrics for task id '%s' not found", findOpts.TaskID),
+			Message:    fmt.Sprintf("system metrics for task ID '%s' not found", findOpts.TaskID),
 		}
 	}
 
@@ -85,7 +85,7 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, findOpts d
 	if !ok {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusNotFound,
-			Message:    fmt.Sprintf("metric type '%s' for task id '%s' not found", downloadOpts.MetricType, findOpts.TaskID),
+			Message:    fmt.Sprintf("metric type '%s' for task ID '%s' not found", downloadOpts.MetricType, findOpts.TaskID),
 		}
 	}
 
@@ -101,7 +101,7 @@ func (mc *MockConnector) FindSystemMetricsByType(ctx context.Context, findOpts d
 	if err != nil {
 		return nil, 0, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
-			Message:    fmt.Sprintf("%s", errors.Wrap(err, "creating bucket")),
+			Message:    errors.Wrap(err, "creating bucket").Error(),
 		}
 	}
 

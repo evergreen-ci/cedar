@@ -53,7 +53,7 @@ func (sp *parseSimpleLog) Validate() error {
 	sp.setup()
 
 	if sp.Key == "" {
-		return errors.New("no id given")
+		return errors.New("no ID given")
 	}
 
 	if len(sp.Content) == 0 {

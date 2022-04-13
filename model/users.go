@@ -59,7 +59,7 @@ func (u *User) Find() error {
 
 	u.populated = false
 	if err = session.DB(conf.DatabaseName).C(userCollection).FindId(u.ID).One(u); err != nil {
-		return errors.Wrapf(err, "finding user with id '%s' in the database", u.Username())
+		return errors.Wrapf(err, "finding user '%s'", u.Username())
 	}
 
 	u.populated = true
@@ -109,7 +109,7 @@ func (u *User) CreateAPIKey() (string, error) {
 		dbUserAPIKeyKey: k,
 	})
 	if err != nil {
-		return "", errors.Wrapf(err, "updating user with id '%s' in the database", u.ID)
+		return "", errors.Wrapf(err, "updating user '%s'", u.ID)
 	}
 
 	u.APIKey = k
@@ -153,7 +153,7 @@ func PutLoginCache(user gimlet.User) (string, error) {
 	u := &User{ID: user.Username()}
 	u.Setup(env)
 	if err := u.Find(); err != nil {
-		return "", errors.Wrapf(err, "finding user with id '%s' in the database", user.Username())
+		return "", errors.Wrapf(err, "finding user '%s'", user.Username())
 	}
 
 	u.Setup(env)
@@ -231,7 +231,7 @@ func ClearLoginCache(user gimlet.User, all bool) error {
 	return nil
 }
 
-// GetUser gets a user by id from persistent storage, and returns whether the
+// GetUser gets a user by ID from persistent storage, and returns whether the
 // returned user's token is valid or not.
 func GetUser(id string) (gimlet.User, bool, error) {
 	env := cedar.GetEnvironment()
@@ -263,10 +263,10 @@ func GetOrAddUser(user gimlet.User) (gimlet.User, error) {
 		u.LoginCache = LoginCache{Token: utility.RandomString(), TTL: time.Now()}
 		u.populated = true
 		if err = u.Save(); err != nil {
-			return nil, errors.Wrapf(err, "inserting user with id '%s'", user.Username())
+			return nil, errors.Wrapf(err, "inserting user '%s'", user.Username())
 		}
 	} else if err != nil {
-		return nil, errors.Wrapf(err, "finding user with id '%s'", user.Username())
+		return nil, errors.Wrapf(err, "finding user '%s'", user.Username())
 	}
 
 	return u, nil

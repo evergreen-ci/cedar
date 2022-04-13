@@ -95,7 +95,7 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		}
 
 	}
-	conf := j.env.GetConf()
+	conf := j.env.GetConfig()
 
 	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
 	if err != nil {
@@ -133,7 +133,7 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		}
 	}
 
-	if err = errors.Wrap(bucket.Put(ctx, record.KeyName, buffer), "writing merged data to s3"); err != nil {
+	if err = errors.Wrap(bucket.Put(ctx, record.KeyName, buffer), "writing merged data to S3"); err != nil {
 		j.AddError(err)
 		return
 	}
@@ -147,5 +147,5 @@ func (j *mergeSimpleLogJob) Run(ctx context.Context) {
 		j.AddError(log.Remove())
 	}
 
-	j.AddError(errors.Wrapf(record.Save(), "saving master log record for log id '%s'", j.LogID))
+	j.AddError(errors.Wrapf(record.Save(), "saving master log record for log ID '%s'", j.LogID))
 }

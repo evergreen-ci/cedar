@@ -49,7 +49,7 @@ func makeFTDCRollupsJob() *ftdcRollupsJob {
 
 func (j *ftdcRollupsJob) validate() error {
 	if j.PerfID == "" {
-		return errors.New("no id given")
+		return errors.New("no ID given")
 	}
 
 	if j.ArtifactInfo == nil {

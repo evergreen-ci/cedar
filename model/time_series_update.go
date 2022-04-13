@@ -110,7 +110,7 @@ func (s UnanalyzedPerformanceSeries) CreateSeriesIDs() []PerformanceResultSeries
 	return ids
 }
 
-// GetUnanalyzedPerformanceSeries queries the database and gets all the
+// GetUnanalyzedPerformanceSeries queries the DB and gets all the
 // performance series that contain results that have not yet been analyzed.
 func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) ([]UnanalyzedPerformanceSeries, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
@@ -191,7 +191,7 @@ func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) 
 }
 
 // GetAllPerformanceResultSeriesIDs finds all performance result series in the
-// database.
+// DB.
 func GetAllPerformanceResultSeriesIDs(ctx context.Context, env cedar.Environment) ([]UnanalyzedPerformanceSeries, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{

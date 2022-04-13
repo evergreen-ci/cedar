@@ -3,7 +3,6 @@ package evergreen
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -140,8 +139,7 @@ func (c *Client) doReq(ctx context.Context, method, path string) (*http.Response
 		return nil, err
 	}
 	if resp == nil {
-		msg := fmt.Sprintf("empty response from server for '%s' request for URL '%s'", method, url)
-		return nil, errors.New(msg)
+		return nil, errors.Errorf("empty response from server for '%s' request for URL '%s'", method, url)
 	}
 	if resp.StatusCode != http.StatusOK {
 		msg := message.Fields{

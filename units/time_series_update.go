@@ -86,7 +86,7 @@ func (j *timeSeriesUpdateJob) Run(ctx context.Context) {
 		j.conf = model.NewCedarConfig(j.env)
 		err := j.conf.Find()
 		if err != nil {
-			j.AddError(errors.Wrap(err, "getting cedar configuration"))
+			j.AddError(errors.Wrap(err, "getting Cedar configuration"))
 			return
 		}
 	}

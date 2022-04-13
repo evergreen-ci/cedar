@@ -111,7 +111,7 @@ func (result *PerformanceResult) Setup(e cedar.Environment) { result.env = e }
 // IsNil returns if the performance result is populated or not.
 func (result *PerformanceResult) IsNil() bool { return !result.populated }
 
-// Find searches the database for the performance result. The environment should
+// Find searches the DB for the performance result. The environment should
 // not be nil.
 func (result *PerformanceResult) Find(ctx context.Context) error {
 	if result.env == nil {
@@ -124,7 +124,7 @@ func (result *PerformanceResult) Find(ctx context.Context) error {
 
 	result.populated = false
 	if err := result.env.GetDB().Collection(perfResultCollection).FindOne(ctx, bson.M{"_id": result.ID}).Decode(result); err != nil {
-		return errors.Wrapf(err, "finding performance result record with id '%s' in the database", result.ID)
+		return errors.Wrapf(err, "finding performance result record '%s'", result.ID)
 	}
 
 	result.populated = true
@@ -133,7 +133,7 @@ func (result *PerformanceResult) Find(ctx context.Context) error {
 	return nil
 }
 
-// SaveNew saves a new performance result to the database, if a result with the
+// SaveNew saves a new performance result to the DB, if a result with the
 // same ID already exists an error is returned. The result should be populated
 // and the environment should not be nil.
 func (result *PerformanceResult) SaveNew(ctx context.Context) error {
@@ -159,7 +159,7 @@ func (result *PerformanceResult) SaveNew(ctx context.Context) error {
 		"op":           "save new performance result",
 	})
 	if err != nil {
-		return errors.Wrapf(err, "saving new performance result %s", result.ID)
+		return errors.Wrapf(err, "saving new performance result '%s'", result.ID)
 	}
 
 	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
@@ -214,10 +214,10 @@ func (result *PerformanceResult) AppendArtifacts(ctx context.Context, artifacts 
 		"op":            "append artifacts to a performance result",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find performance result record with id '%s' in the database", result.ID)
+		err = errors.Errorf("could not find performance result record '%s'", result.ID)
 	}
 	if err != nil {
-		return errors.Wrapf(err, "appending artifacts to performance result with id '%s'", result.ID)
+		return errors.Wrapf(err, "appending artifacts to performance result '%s'", result.ID)
 	}
 
 	if err = result.env.GetStatsCache(cedar.StatsCachePerf).AddStat(cedar.Stat{
@@ -253,13 +253,13 @@ func (result *PerformanceResult) IncFailedRollupAttempts(ctx context.Context) er
 		bson.M{"$inc": bson.M{perfFailedRollupAttempts: 1}},
 	)
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find performance result record with id '%s' in the database", result.ID)
+		err = errors.Errorf("could not find performance result record '%s'", result.ID)
 	}
 
-	return errors.Wrapf(err, "incrementing failed rollup attempts for performance result with id '%s'", result.ID)
+	return errors.Wrapf(err, "incrementing failed rollup attempts for performance result '%s'", result.ID)
 }
 
-// Remove removes the performance result from the database. The environment
+// Remove removes the performance result from the DB. The environment
 // should not be nil.
 func (result *PerformanceResult) Remove(ctx context.Context) (int, error) {
 	if result.env == nil {
@@ -321,10 +321,10 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 		"op":           "close perf result",
 	})
 	if err == nil && updateResult.MatchedCount == 0 {
-		err = errors.Errorf("could not find performance result record with id '%s' in the database", result.ID)
+		err = errors.Errorf("could not find performance result record '%s'", result.ID)
 	}
 
-	return errors.Wrapf(err, "closing performance result with id '%s'", result.ID)
+	return errors.Wrapf(err, "closing performance result '%s'", result.ID)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -420,7 +420,7 @@ func (id *PerformanceResultInfo) ID() string {
 
 	if id.Schema == 0 {
 		// This hash does not include order because it was added as a
-		// field after data existed in the database. The order field
+		// field after data existed. The order field
 		// does not affect uniqueness but will be added in later schema
 		// versions.
 		hash = sha1.New()

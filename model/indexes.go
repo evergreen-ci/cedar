@@ -22,7 +22,7 @@ type SystemIndexes struct {
 	Collection string
 }
 
-// GetRequiredIndexes returns required indexes for the Cedar database.
+// GetRequiredIndexes returns required indexes for the Cedar DB.
 // IMPORTANT: this should be updated whenever an index is created.
 func GetRequiredIndexes() []SystemIndexes {
 	return []SystemIndexes{
@@ -260,7 +260,7 @@ func GetRequiredIndexes() []SystemIndexes {
 	}
 }
 
-// CheckIndexes checks that all the given indexes are in the database. It does
+// CheckIndexes checks that all the given indexes are. It does
 // not check specifically for any index options (e.g. unique indexes).
 func CheckIndexes(ctx context.Context, db *mongo.Database, indexes []SystemIndexes) error {
 	found := map[string]bool{}
@@ -285,7 +285,7 @@ func CheckIndexes(ctx context.Context, db *mongo.Database, indexes []SystemIndex
 		for _, collIndex := range collIndexes {
 			docStr := docToString(collIndex.Key)
 			if _, ok := found[docStr]; !ok {
-				// Ignore extra indexes in the database.
+				// Ignore extra indexes.
 				continue
 			}
 			found[docStr] = true

@@ -918,7 +918,7 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsTaskIDLevel() {
 }
 
 func (s *buildloggerConnectorSuite) TestFindGroupedLogsDNE() {
-	// Task id does not exist.
+	// Task ID does not exist.
 	findOpts := BuildloggerOptions{
 		TaskID:   "DNE",
 		TestName: "test0",
@@ -938,14 +938,14 @@ func (s *buildloggerConnectorSuite) TestFindGroupedLogsDNE() {
 	_, _, _, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 	s.Error(err)
 
-	// Group does not exist with test name and task id.
+	// Group does not exist with test name and task ID.
 	findOpts.TestName = "test0"
 	findOpts.Group = "DNE"
 
 	_, _, _, err = s.sc.FindGroupedLogs(s.ctx, findOpts)
 	s.Error(err)
 
-	// Group does not exist with task id only.
+	// Group does not exist with task ID only.
 	findOpts.TestName = ""
 
 	_, _, _, err = s.sc.FindGroupedLogs(s.ctx, findOpts)

@@ -54,7 +54,7 @@ func mergeFlags(in ...[]cli.Flag) []cli.Flag {
 func addPathFlag(flags ...cli.Flag) []cli.Flag {
 	return append(flags, cli.StringFlag{
 		Name:  joinFlagNames(pathFlagName, "filename", "file", "f"),
-		Usage: "path to cedar input file",
+		Usage: "path to Cedar input file",
 	})
 }
 
@@ -86,12 +86,12 @@ func restServiceFlags(flags ...cli.Flag) []cli.Flag {
 	return append(flags,
 		cli.StringFlag{
 			Name:  clientHostFlag,
-			Usage: "host for the remote cedar instance.",
+			Usage: "host for the remote Cedar instance.",
 			Value: "http://localhost",
 		},
 		cli.IntFlag{
 			Name:  clientPortFlag,
-			Usage: "port for the remote cedar service. (Default port is 3000 if host is not explicitly set. If host is set, the port has no default.)",
+			Usage: "port for the remote Cedar service. (Default port is 3000 if host is not explicitly set. If host is set, the port has no default.)",
 		},
 	)
 
@@ -107,7 +107,7 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:   dbNameFlag,
-			Usage:  "specify a database name to use",
+			Usage:  "specify a DB name to use",
 			Value:  "cedar",
 			EnvVar: "CEDAR_DATABASE_NAME",
 		},
@@ -149,7 +149,7 @@ func baseFlags(flags ...cli.Flag) []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:   bucketNameFlag,
-			Usage:  "specify a bucket name to use for storing data in s3",
+			Usage:  "specify a bucket name to use for storing data in S3",
 			EnvVar: "CEDAR_BUCKET_NAME",
 			Value:  "build-test-curator",
 		})

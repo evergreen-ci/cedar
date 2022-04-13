@@ -49,7 +49,7 @@ func (h *logGetByIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id and time range from the http request.
+// Parse fetches the ID and time range from the HTTP request.
 func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
@@ -75,7 +75,7 @@ func (h *logGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 func (h *logGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogByID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting log by id '%s'", h.opts.ID)
+		err = errors.Wrapf(err, "getting log by ID '%s'", h.opts.ID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -110,7 +110,7 @@ func (h *logMetaGetByIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the ID from the HTTP request.
 func (h *logMetaGetByIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.id = gimlet.GetVars(r)["id"]
 	return nil
@@ -120,7 +120,7 @@ func (h *logMetaGetByIDHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *logMetaGetByIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLog, err := h.sc.FindLogMetadataByID(ctx, h.id)
 	if err != nil {
-		err = errors.Wrapf(err, "getting log metadata by id '%s'", h.id)
+		err = errors.Wrapf(err, "getting log metadata by ID '%s'", h.id)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -155,7 +155,7 @@ func (h *logGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id and time range from the http request.
+// Parse fetches the ID and time range from the HTTP request.
 func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
@@ -193,7 +193,7 @@ func (h *logGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error 
 func (h *logGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindLogsByTaskID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting logs by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting logs by task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -228,7 +228,7 @@ func (h *logMetaGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id from the http request.
+// Parse fetches the ID from the HTTP request.
 func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	vals := r.URL.Query()
@@ -248,7 +248,7 @@ func (h *logMetaGetByTaskIDHandler) Parse(_ context.Context, r *http.Request) er
 func (h *logMetaGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	apiLogs, err := h.sc.FindLogMetadataByTaskID(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting log metadata by task id '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting log metadata by task ID '%s'", h.opts.TaskID)
 		logFindError(err, message.Fields{
 			"request": gimlet.GetRequestID(ctx),
 			"method":  "GET",
@@ -283,7 +283,7 @@ func (h *logGroupByTaskIDHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the task id, group id, and parameters from the http request.
+// Parse fetches the task id, group id, and parameters from the HTTP request.
 func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
@@ -318,7 +318,7 @@ func (h *logGroupByTaskIDHandler) Parse(_ context.Context, r *http.Request) erro
 func (h *logGroupByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting logs by task id '%s' and group id '%s'", h.opts.TaskID, h.opts.Group)
+		err = errors.Wrapf(err, "getting logs by task ID '%s' and group ID '%s'", h.opts.TaskID, h.opts.Group)
 		logFindError(err, message.Fields{
 			"request":  gimlet.GetRequestID(ctx),
 			"method":   "GET",
@@ -354,7 +354,7 @@ func (h *logGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, time range, and tags from the http request.
+// Parse fetches the id, name, time range, and tags from the HTTP request.
 func (h *logGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	catcher := grip.NewBasicCatcher()
 	var err error
@@ -425,7 +425,7 @@ func (h *logMetaGetByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, and tags from the http request.
+// Parse fetches the id, name, and tags from the HTTP request.
 func (h *logMetaGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
 	h.opts.TestName = gimlet.GetVars(r)["test_name"]
@@ -496,7 +496,7 @@ func (h *logGroupByTestNameHandler) Factory() gimlet.RouteHandler {
 	}
 }
 
-// Parse fetches the id, name, time range, and tags from the http request.
+// Parse fetches the id, name, time range, and tags from the HTTP request.
 func (h *logGroupByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
 	var err error
 	catcher := grip.NewBasicCatcher()
@@ -561,7 +561,7 @@ func (h *logGroupByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
 
 	data, next, paginated, err := h.sc.FindGroupedLogs(ctx, h.opts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting grouped logs with task_id/test_name/group_id '%s/%s/%s'",
+		err = errors.Wrapf(err, "getting grouped logs with task ID/test name/group ID '%s/%s/%s'",
 			h.opts.TaskID, h.opts.TestName, h.opts.Group)
 		grip.Error(message.WrapError(err, message.Fields{
 			"request":   gimlet.GetRequestID(ctx),

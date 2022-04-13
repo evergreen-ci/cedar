@@ -126,7 +126,7 @@ func (j *findOutdatedRollupsJob) createFTDCRollupsJobs(ctx context.Context, fact
 
 	job, err := NewFTDCRollupsJob(result.ID, getRawEventsArtifact(result.Artifacts), outdated, false)
 	if err != nil {
-		j.AddError(errors.Wrapf(err, "creating FTDC rollups job for performance result with id '%s'", result.ID))
+		j.AddError(errors.Wrapf(err, "creating FTDC rollups job for performance result '%s'", result.ID))
 		return
 	}
 

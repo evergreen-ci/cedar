@@ -17,7 +17,7 @@ import (
 func Admin() cli.Command {
 	return cli.Command{
 		Name:  "admin",
-		Usage: "manage a deployed cedar application",
+		Usage: "manage a deployed Cedar application",
 		Subcommands: []cli.Command{
 			{
 				Name:  "conf",
@@ -29,7 +29,7 @@ func Admin() cli.Command {
 			},
 			{
 				Name:  "flags",
-				Usage: "manage cedar feature flags over a rest interface",
+				Usage: "manage Cedar feature flags over a REST interface",
 				Subcommands: []cli.Command{
 					setFeatureFlag(),
 					unsetFeatureFlag(),
@@ -222,7 +222,7 @@ func getUserCert() cli.Command {
 func uploadCerts() cli.Command {
 	return cli.Command{
 		Name:  "upload-cert",
-		Usage: "upload certificate to a database backed depot",
+		Usage: "upload certificate to a DB backed depot",
 		Flags: dbFlags(
 			cli.StringFlag{
 				Name:  "name",

@@ -41,7 +41,7 @@ func PerfServiceName() string {
 	return CedarPerformanceMetrics_ServiceDesc.ServiceName
 }
 
-// CreateMetricSeries creates a new performance result record in the database.
+// CreateMetricSeries creates a new performance result record.
 func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultData) (*MetricsResponse, error) {
 	if result.Id == nil {
 		return nil, newRPCError(codes.InvalidArgument, errors.New("invalid data"))
@@ -62,7 +62,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result with id '%s'", record.ID))
+			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
 		}
 	}
 
@@ -90,7 +90,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record with id '%s'", artifactData.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record '%s'", artifactData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -102,7 +102,7 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 
 	record.Setup(srv.env)
 	if err := record.AppendArtifacts(ctx, record.Artifacts); err != nil {
-		return resp, newRPCError(codes.Internal, errors.Wrapf(err, "appending artifacts to perf result with id '%s'", record.ID))
+		return resp, newRPCError(codes.Internal, errors.Wrapf(err, "appending artifacts to perf result '%s'", record.ID))
 	}
 
 	resp.Success = true
@@ -118,7 +118,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for rollup with id '%s'", rollupData.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for rollup '%s'", rollupData.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -126,7 +126,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 
 	record.Setup(srv.env)
 	if err := record.MergeRollups(ctx, ExportRollupValues(rollupData.Rollups)); err != nil {
-		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "attaching rollup data for perf result with id '%s'", record.ID))
+		return nil, newRPCError(codes.InvalidArgument, errors.Wrapf(err, "attaching rollup data for perf result '%s'", record.ID))
 	}
 
 	if record.Info.Mainline {
@@ -134,7 +134,7 @@ func (srv *perfService) AttachRollups(ctx context.Context, rollupData *RollupDat
 		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
 
 		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result with id '%s'", record.ID))
+			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
 		}
 	}
 
@@ -212,7 +212,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		if db.ResultsNotFound(err) {
 			return nil, newRPCError(codes.NotFound, err)
 		}
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for metric series with id '%s'", end.Id))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "finding perf result record for metric series '%s'", end.Id))
 	}
 
 	resp := &MetricsResponse{}
@@ -225,7 +225,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 
 	record.Setup(srv.env)
 	if err := record.Close(ctx, completedAt); err != nil {
-		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing perf result record with id '%s'", record.ID))
+		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing perf result record '%s'", record.ID))
 	}
 
 	resp.Success = true

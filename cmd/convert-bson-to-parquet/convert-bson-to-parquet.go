@@ -75,7 +75,7 @@ func convertTestResults() cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     mongoURIFlagName,
-				Usage:    "connection string for the Cedar database",
+				Usage:    "connection string for the Cedar DB",
 				Required: true,
 			},
 		},
@@ -103,7 +103,7 @@ func convertTestResults() cli.Command {
 				EndAt:    endAt,
 			})
 			if err != nil {
-				return errors.Wrap(err, "getting test results from the database")
+				return errors.Wrap(err, "getting test results from the DB")
 			}
 
 			b, err := pail.NewS3Bucket(pail.S3Options{

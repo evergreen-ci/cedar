@@ -9,7 +9,7 @@ import (
 )
 
 // EnvironmentCache provides thread-safe, in-memory access to data persisted
-// elsewhere, such as on disk or a database.
+// elsewhere, such as on disk or a DB.
 type EnvironmentCache interface {
 	// PutNew adds new (key, value) pair to the cache and returns whether
 	// the operation was successful or not.

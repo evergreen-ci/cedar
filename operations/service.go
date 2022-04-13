@@ -39,7 +39,7 @@ func Service() cli.Command {
 
 	return cli.Command{
 		Name:  "service",
-		Usage: "run the cedar api service",
+		Usage: "run the Cedar API service",
 		Flags: mergeFlags(
 			baseFlags(),
 			dbFlags(
@@ -118,7 +118,7 @@ func Service() cli.Command {
 
 			///////////////////////////////////
 			//
-			// starting rest service
+			// starting REST service
 			//
 			service := &rest.Service{
 				Port:        port,
@@ -175,7 +175,7 @@ func Service() cli.Command {
 			if c.String(dbURIFlag) != "mongodb://localhost:27017" {
 				// Check indexes in production only.
 				if err := model.CheckIndexes(ctx, env.GetDB(), model.GetRequiredIndexes()); err != nil {
-					grip.Error(errors.Wrap(err, "missing expected database indexes"))
+					grip.Error(errors.Wrap(err, "missing expected DB indexes"))
 				}
 			}
 

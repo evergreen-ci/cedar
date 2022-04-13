@@ -6,12 +6,13 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/mongodb/anser/bsonutil"
+	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
-	// BatchJobControllerCollection is the name of the database collection
+	// BatchJobControllerCollection is the name of the DB collection
 	// for batch job controller documents.
 	BatchJobControllerCollection = "batch_job_controllers"
 )
@@ -37,12 +38,16 @@ var (
 	batchJobControllerVersionKey    = bsonutil.MustHaveTag(BatchJobController{}, "Version")
 )
 
-// FindBatchJobController searches the database for the BatchJobController with
+// FindBatchJobController searches the DB for the BatchJobController with
 // the given ID.
 func FindBatchJobController(ctx context.Context, env cedar.Environment, id string) (*BatchJobController, error) {
 	var controller BatchJobController
-	if err := env.GetDB().Collection(BatchJobControllerCollection).FindOne(ctx, bson.M{batchJobControllerIDKey: id}).Decode(&controller); err != nil {
-		return nil, errors.Wrapf(err, "finding batch job controller with id '%s' in the database", id)
+	err := env.GetDB().Collection(BatchJobControllerCollection).FindOne(ctx, bson.M{batchJobControllerIDKey: id}).Decode(&controller)
+	if db.ResultsNotFound(err) {
+		return nil, errors.Wrapf(err, "batch job controller '%s' not found", id)
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "finding batch job controller '%s'", id)
 	}
 
 	return &controller, nil

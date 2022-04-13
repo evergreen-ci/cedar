@@ -85,7 +85,7 @@ func (e *Event) Find() error {
 	e.populated = false
 	err = session.DB(conf.DatabaseName).C(eventCollection).FindId(e.ID).One(e)
 	if err != nil {
-		return errors.Wrapf(err, "finding event with id '%s'", e.ID)
+		return errors.Wrapf(err, "finding event '%s'", e.ID)
 	}
 
 	e.populated = true
