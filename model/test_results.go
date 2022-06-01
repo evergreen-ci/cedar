@@ -451,9 +451,6 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 // GetPrestoBucket returns an S3 bucket of all test results specified by the
 // TestResults metadata object it's called on to be used with Presto. The
 // environment should not be nil.
-//
-// TODO (EVG-16140): Remove this and use GetBucket (above) once we do the BSON
-// to Parquet cutover.
 func (t *TestResults) GetPrestoBucket(ctx context.Context) (pail.Bucket, error) {
 	if t.prestoBucketPrefix == "" {
 		conf := &CedarConfig{}
