@@ -1,11 +1,9 @@
 package model
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"reflect"
 
 	"hash"
 	"io"
@@ -44,30 +42,6 @@ const (
 	parquetDateFormat     = "2006-01-02"
 )
 
-// invalidParquetAlertCount is a temporary count to avoid over-logging when we
-// detect invalid Parquet test results.
-//
-// TODO (EVG-16140): Remove this var and related functions after we do the BSON
-// to Parquet cutover.
-var invalidParquetAlertCount = struct {
-	mu    sync.RWMutex
-	count int
-}{}
-
-func getInvalidParquetAlertCount() int {
-	invalidParquetAlertCount.mu.RLock()
-	defer invalidParquetAlertCount.mu.RUnlock()
-
-	return invalidParquetAlertCount.count
-}
-
-func incInvalidParquetAlertCount() {
-	invalidParquetAlertCount.mu.Lock()
-	defer invalidParquetAlertCount.mu.Unlock()
-
-	invalidParquetAlertCount.count++
-}
-
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
 	ID          string                  `bson:"_id,omitempty"`
@@ -80,11 +54,6 @@ type TestResults struct {
 	// This is an optimization for Evergreen's UI features that display a
 	// limited number of failing tests for a task.
 	FailedTestsSample []string `bson:"failed_tests_sample"`
-	// Migration holds statistics for the BSON to Parquet backfill, it is
-	// only present in the temporary test results migration collection.
-	//
-	// TODO (EVG-16140): Remove once we do the BSON to Parquet cutover.
-	Migration *MigrationStats `bson:"migration,omitempty"`
 
 	env                cedar.Environment
 	bucket             string
@@ -100,8 +69,6 @@ var (
 	testResultsArtifactKey          = bsonutil.MustHaveTag(TestResults{}, "Artifact")
 	testResultsStatsKey             = bsonutil.MustHaveTag(TestResults{}, "Stats")
 	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
-	// TODO (EVG-16140): Remove once we do the BSON to Parquet cutover.
-	TestResultsMigrationKey = bsonutil.MustHaveTag(TestResults{}, "Migration")
 )
 
 // CreateTestResults is an entry point for creating a new TestResults.
@@ -218,17 +185,11 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 		return nil
 	}
 
-	allResults, err := t.downloadBSON(ctx)
+	allResults, err := t.downloadParquet(ctx)
 	if err != nil && !pail.IsKeyNotFoundError(err) {
 		return errors.Wrap(err, "getting uploaded test results")
 	}
 	allResults = append(allResults, results...)
-
-	// TODO (EVG-16140): Stop calling this once we do the BSON to Parquet
-	// cutover.
-	if err := t.uploadBSON(ctx, allResults); err != nil {
-		return errors.Wrap(err, "appending BSON test results")
-	}
 
 	if err = t.uploadParquet(ctx, t.convertToParquet(allResults)); err != nil {
 		return errors.Wrap(err, "appending Parquet test results")
@@ -249,29 +210,11 @@ func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	return t.updateStatsAndFailedSample(ctx, results)
 }
 
-// TODO (EVG-16140): Remove this once we do the BSON to Parquet cutover.
-func (t *TestResults) uploadBSON(ctx context.Context, results []TestResult) error {
-	bucket, err := t.GetBucket(ctx)
-	if err != nil {
-		return err
-	}
-
-	data, err := bson.Marshal(&testResultsDoc{Results: results})
-	if err != nil {
-		return errors.Wrap(err, "marshalling BSON test results")
-	}
-
-	return errors.Wrap(bucket.Put(ctx, testResultsCollection, bytes.NewReader(data)), "uploading BSON test results")
-}
-
 func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestResults) error {
 	conf := &CedarConfig{}
 	conf.Setup(t.env)
 	if err := conf.Find(); err != nil {
 		return errors.Wrap(err, "getting application configuration")
-	}
-	if conf.Flags.DisableParquetTestResults {
-		return nil
 	}
 
 	bucket, err := t.GetPrestoBucket(ctx)
@@ -380,40 +323,12 @@ func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 
 		return results, catcher.Resolve()
 	case 1:
-		bsonResults, err := t.downloadBSON(ctx)
-		if err != nil && !pail.IsKeyNotFoundError(err) {
-			return nil, err
-		}
-
-		conf := &CedarConfig{}
-		conf.Setup(t.env)
-		if err := conf.Find(); err != nil {
-			return nil, errors.Wrap(err, "getting application configuration")
-		}
-		if !conf.Flags.DisableParquetTestResults {
-			parquetResults, err := t.downloadParquet(ctx)
-			if err != nil && !pail.IsKeyNotFoundError(err) {
-				return nil, err
-			} else if err == nil && getInvalidParquetAlertCount() < 5 {
-				if !reflect.DeepEqual(parquetResults, bsonResults) {
-					grip.Warning(message.Fields{
-						"message":   "BSON and Parquet test results differ",
-						"task_id":   t.Info.TaskID,
-						"execution": t.Info.Execution,
-					})
-					incInvalidParquetAlertCount()
-				}
-			}
-		}
-
-		return bsonResults, nil
+		return t.downloadParquet(ctx)
 	default:
 		return nil, errors.Errorf("unsupported test results artifact version '%d'", t.Artifact.Version)
 	}
 }
 
-// TODO (EVG-16140): Move this to Download (above) once we do the BSON to
-// Parquet cutover.
 func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error) {
 	prestoBucket, err := t.GetPrestoBucket(ctx)
 	if err != nil {
@@ -450,67 +365,6 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 	}
 
 	return results, nil
-}
-
-// TODO (EVG-16140): Remove this function once we do the BSON to Parquet
-// cutover.
-func (t *TestResults) downloadBSON(ctx context.Context) ([]TestResult, error) {
-	bucket, err := t.GetBucket(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := bucket.Get(ctx, testResultsCollection)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting BSON test results")
-	}
-
-	data, err := ioutil.ReadAll(r)
-	catcher := grip.NewBasicCatcher()
-	catcher.Wrap(err, "reading BSON test results")
-	catcher.Wrap(r.Close(), "closing BSON test results bucket reader")
-	if err := catcher.Resolve(); err != nil {
-		return nil, err
-	}
-
-	var resultsDoc testResultsDoc
-	if err = bson.Unmarshal(data, &resultsDoc); err != nil {
-		return nil, errors.Wrap(err, "unmarshalling BSON test results")
-	}
-
-	return resultsDoc.Results, nil
-}
-
-// DownloadAndConvertToParquet returns all of the test results stored in
-// offline blob storage converted to a ParquetTestResults struct for writing to
-// Apache Parquet format. The environment should not be nil.
-//
-// TODO (EVG-16140): Remove this function once we do the BSON to Parquet
-// cutover.
-func (t *TestResults) DownloadAndConvertToParquet(ctx context.Context) (*ParquetTestResults, error) {
-	t.populated = true
-	results, err := t.Download(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "downloading BSON test results")
-	}
-
-	return t.convertToParquet(results), nil
-}
-
-// DownloadConvertAndWriteParquet downloads existing BSON test results,
-// converts them to Apache Parquet format, and writes them to the Presto
-// bucket. The environment should not be nil.
-//
-// TODO (EVG-16140): Remove this function once we do the BSON to Parquet
-// cutover.
-func (t *TestResults) DownloadConvertAndWriteParquet(ctx context.Context) error {
-	t.populated = true
-	results, err := t.DownloadAndConvertToParquet(ctx)
-	if err != nil {
-		return err
-	}
-
-	return t.uploadParquet(ctx, results)
 }
 
 func (t *TestResults) convertToParquet(results []TestResult) *ParquetTestResults {
@@ -744,10 +598,6 @@ func (t TestResult) convertToParquet() ParquetTestResult {
 		TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true)),
 		TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true)),
 	}
-}
-
-type testResultsDoc struct {
-	Results []TestResult `bson:"results"`
 }
 
 // FindTestResultsOptions allow for querying for test results with or without

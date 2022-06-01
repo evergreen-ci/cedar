@@ -269,20 +269,9 @@ func TestTestResultsAppend(t *testing.T) {
 		require.NoError(t, tr.Append(ctx, results[0:5]))
 		require.NoError(t, tr.Append(ctx, results[5:]))
 
-		// Check BSON data.
-		var bsonResults testResultsDoc
-		r, err := testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
+		r, err := testBucket.Get(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
 		require.NoError(t, err)
 		data, err := ioutil.ReadAll(r)
-		assert.NoError(t, r.Close())
-		require.NoError(t, err)
-		require.NoError(t, bson.Unmarshal(data, &bsonResults))
-		assert.Equal(t, results, bsonResults.Results)
-
-		// Check Parquet data.
-		r, err = testBucket.Get(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
-		require.NoError(t, err)
-		data, err = ioutil.ReadAll(r)
 		assert.NoError(t, r.Close())
 		require.NoError(t, err)
 		pr, err := reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
@@ -335,15 +324,6 @@ func TestTestResultsAppend(t *testing.T) {
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, failedResults[0:3]))
 		require.NoError(t, tr.Append(ctx, failedResults[3:]))
-
-		// Check BSON data.
-		r, err = testBucket.Get(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection))
-		require.NoError(t, err)
-		data, err = ioutil.ReadAll(r)
-		assert.NoError(t, r.Close())
-		require.NoError(t, err)
-		require.NoError(t, bson.Unmarshal(data, &bsonResults))
-		assert.Equal(t, append(results, failedResults...), bsonResults.Results)
 
 		// Check Parquet data.
 		r, err = testBucket.Get(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
@@ -435,8 +415,7 @@ func TestTestResultsDownload(t *testing.T) {
 	conf.Bucket.PrestoTestResultsPrefix = "presto-test-results"
 	require.NoError(t, conf.Save())
 	t.Run("DownloadFromBucketVersion1", func(t *testing.T) {
-		savedBSON := testResultsDoc{}
-		savedBSON.Results = make([]TestResult, 10)
+		expectedResults := make([]TestResult, 10)
 		savedParquet := ParquetTestResults{
 			Version:     tr.Info.Version,
 			Variant:     tr.Info.Variant,
@@ -449,9 +428,9 @@ func TestTestResultsDownload(t *testing.T) {
 		}
 		for i := 0; i < 10; i++ {
 			result := getTestResult()
-			savedBSON.Results[i] = result
-			savedBSON.Results[i].TaskID = tr.Info.TaskID
-			savedBSON.Results[i].Execution = tr.Info.Execution
+			expectedResults[i] = result
+			expectedResults[i].TaskID = tr.Info.TaskID
+			expectedResults[i].Execution = tr.Info.Execution
 			savedParquet.Results[i] = ParquetTestResult{
 				TestName:        result.TestName,
 				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
@@ -467,18 +446,6 @@ func TestTestResultsDownload(t *testing.T) {
 				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
 			}
 		}
-
-		// Check BSON.
-		data, err := bson.Marshal(&savedBSON)
-		require.NoError(t, err)
-		require.NoError(t, testBucket.Put(ctx, fmt.Sprintf("%s/%s", tr.ID, testResultsCollection), bytes.NewReader(data)))
-
-		tr.Setup(env)
-		results, err := tr.Download(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, savedBSON.Results, results)
-
-		// Check Parquet.
 		w, err := testBucket.Writer(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
 		require.NoError(t, err)
 		pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
@@ -488,9 +455,9 @@ func TestTestResultsDownload(t *testing.T) {
 		require.NoError(t, w.Close())
 
 		tr.Setup(env)
-		results, err = tr.downloadParquet(ctx)
+		results, err := tr.Download(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, savedBSON.Results, results)
+		assert.Equal(t, expectedResults, results)
 	})
 	t.Run("DownloadFromBucketVersion0", func(t *testing.T) {
 		tr0 := getTestResults()
@@ -517,87 +484,6 @@ func TestTestResultsDownload(t *testing.T) {
 			assert.Equal(t, expected, result)
 			delete(resultMap, result.TestName)
 		}
-	})
-}
-
-func TestTestResultsDownloadAndConvertToParquet(t *testing.T) {
-	env := cedar.GetEnvironment()
-	db := env.GetDB()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "download-and-convert-parquet-test")
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, os.RemoveAll(tmpDir))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
-		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
-	}()
-
-	tr := getTestResults()
-	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr.ID})
-	require.NoError(t, err)
-
-	t.Run("NoEnv", func(t *testing.T) {
-		_, err = tr.DownloadAndConvertToParquet(ctx)
-		assert.Error(t, err)
-	})
-	tr.populated = true
-	t.Run("NoConfig", func(t *testing.T) {
-		tr.Setup(env)
-		_, err = tr.DownloadAndConvertToParquet(ctx)
-		assert.Error(t, err)
-	})
-	conf := &CedarConfig{populated: true}
-	conf.Setup(env)
-	require.NoError(t, conf.Save())
-	t.Run("ConfigWithoutBucket", func(t *testing.T) {
-		tr.Setup(env)
-		_, err = tr.DownloadAndConvertToParquet(ctx)
-		assert.Error(t, err)
-	})
-	conf.Bucket.TestResultsBucket = tmpDir
-	conf.Bucket.PrestoBucket = tmpDir
-	conf.Bucket.PrestoTestResultsPrefix = "presto-test-results"
-	require.NoError(t, conf.Save())
-	t.Run("DownloadFromBucket", func(t *testing.T) {
-		savedResults := testResultsDoc{}
-		savedResults.Results = make([]TestResult, 10)
-		for i := 0; i < 10; i++ {
-			savedResults.Results[i] = getTestResult()
-		}
-		data, err := bson.Marshal(&savedResults)
-		require.NoError(t, err)
-		require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
-		expected := &ParquetTestResults{
-			Version:     tr.Info.Version,
-			Variant:     tr.Info.Variant,
-			TaskName:    tr.Info.TaskName,
-			TaskID:      tr.Info.TaskID,
-			Execution:   int32(tr.Info.Execution),
-			RequestType: tr.Info.RequestType,
-			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
-		}
-		for _, result := range savedResults.Results {
-			expected.Results = append(expected.Results, ParquetTestResult{
-				TestName:        result.TestName,
-				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
-				GroupID:         utility.ToStringPtr(result.GroupID),
-				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
-				Status:          result.Status,
-				LogTestName:     utility.ToStringPtr(result.LogTestName),
-				LogURL:          utility.ToStringPtr(result.LogURL),
-				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
-				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
-				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
-				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
-				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
-			})
-		}
-
-		tr.Setup(env)
-		convertedResults, err := tr.DownloadAndConvertToParquet(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, expected, convertedResults)
 	})
 }
 
@@ -823,34 +709,36 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	tr1 := getTestResults()
 	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
+	tr1.populated = true
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr1)
 	require.NoError(t, err)
-	testBucket1, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr1.ID})
-	require.NoError(t, err)
 
-	savedResults1 := testResultsDoc{}
-	for i := 0; i < 10; i++ {
-		savedResults1.Results = append(savedResults1.Results, getTestResult())
+	savedResults1 := make([]TestResult, 10)
+	for i := 0; i < len(savedResults1); i++ {
+		result := getTestResult()
+		result.TaskID = tr1.Info.TaskID
+		result.Execution = tr1.Info.Execution
+		savedResults1[i] = result
 	}
-	data, err := bson.Marshal(&savedResults1)
-	require.NoError(t, err)
-	require.NoError(t, testBucket1.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+	tr1.Setup(env)
+	require.NoError(t, tr1.Append(ctx, savedResults1))
 
 	tr2 := getTestResults()
 	tr2.Info.DisplayTaskID = "display"
 	tr2.Info.Execution = 0
+	tr2.populated = true
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
-	testBucket2, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: tr2.ID})
-	require.NoError(t, err)
 
-	savedResults2 := testResultsDoc{}
-	for i := 0; i < 10; i++ {
-		savedResults2.Results = append(savedResults2.Results, getTestResult())
+	savedResults2 := make([]TestResult, 10)
+	for i := 0; i < len(savedResults2); i++ {
+		result := getTestResult()
+		result.TaskID = tr2.Info.TaskID
+		result.Execution = tr2.Info.Execution
+		savedResults2[i] = result
 	}
-	data, err = bson.Marshal(&savedResults2)
-	require.NoError(t, err)
-	require.NoError(t, testBucket2.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+	tr2.Setup(env)
+	require.NoError(t, tr2.Append(ctx, savedResults2))
 
 	t.Run("WithoutFilterAndSortOpts", func(t *testing.T) {
 		opts := FindAndDownloadTestResultsOptions{
@@ -863,23 +751,23 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, len(results), totalCount)
 
-		require.Len(t, results, len(savedResults1.Results)+len(savedResults2.Results))
-		for _, result := range append(savedResults1.Results, savedResults2.Results...) {
-			assert.Contains(t, results, result)
+		require.Len(t, results, len(savedResults1)+len(savedResults2))
+		for _, result := range append(savedResults1, savedResults2...) {
+			require.Contains(t, results, result)
 		}
 	})
 	t.Run("WithFilterAndSortOpts", func(t *testing.T) {
 		opts := FindAndDownloadTestResultsOptions{
 			Find:          FindTestResultsOptions{TaskID: tr1.Info.TaskID},
-			FilterAndSort: &FilterAndSortTestResultsOptions{Limit: len(savedResults1.Results) / 2},
+			FilterAndSort: &FilterAndSortTestResultsOptions{Limit: len(savedResults1) / 2},
 		}
 		results, totalCount, err := FindAndDownloadTestResults(ctx, env, opts)
 		require.NoError(t, err)
-		require.Equal(t, len(savedResults1.Results), totalCount)
+		require.Equal(t, len(savedResults1), totalCount)
 
-		require.Len(t, results, len(savedResults1.Results)/2)
+		require.Len(t, results, len(savedResults1)/2)
 		for i, result := range results {
-			assert.Equal(t, results[i], result)
+			assert.Equal(t, savedResults1[i], result)
 		}
 	})
 }
@@ -1180,12 +1068,10 @@ func TestFilterAndSortTestResults(t *testing.T) {
 	results := getResults()
 
 	base := getTestResults()
+	base.populated = true
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, base)
 	require.NoError(t, err)
-	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir, Prefix: base.ID})
-	require.NoError(t, err)
-	trDoc := testResultsDoc{}
-	for _, result := range []TestResult{
+	baseResults := []TestResult{
 		{
 			TestName: "A test",
 			Status:   "Pass",
@@ -1203,16 +1089,13 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			TestName: "D test",
 			Status:   "Fail",
 		},
-	} {
-		trDoc.Results = append(trDoc.Results, result)
 	}
-	data, err := bson.Marshal(&trDoc)
-	require.NoError(t, err)
-	require.NoError(t, testBucket.Put(ctx, testResultsCollection, bytes.NewReader(data)))
+	base.Setup(env)
+	require.NoError(t, base.Append(ctx, baseResults))
 	resultsWithBaseStatus := getResults()
-	require.Len(t, resultsWithBaseStatus, len(trDoc.Results))
+	require.Len(t, resultsWithBaseStatus, len(baseResults))
 	for i := range resultsWithBaseStatus {
-		resultsWithBaseStatus[i].BaseStatus = trDoc.Results[i].Status
+		resultsWithBaseStatus[i].BaseStatus = baseResults[i].Status
 	}
 
 	for _, test := range []struct {
