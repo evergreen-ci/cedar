@@ -176,6 +176,7 @@ func TestAddTestResults(t *testing.T) {
 
 			if test.invalidConf {
 				conf.Bucket.TestResultsBucket = ""
+				conf.Bucket.PrestoBucket = ""
 			} else {
 				conf.Bucket.TestResultsBucket = tmpDir
 				conf.Bucket.PrestoBucket = tmpDir
@@ -337,6 +338,7 @@ func TestStreamTestResults(t *testing.T) {
 
 			if test.invalidConf {
 				conf.Bucket.TestResultsBucket = ""
+				conf.Bucket.PrestoBucket = ""
 			} else {
 				conf.Bucket.TestResultsBucket = tmpDir
 				conf.Bucket.PrestoBucket = tmpDir
