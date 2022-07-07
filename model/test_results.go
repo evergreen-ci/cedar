@@ -1235,7 +1235,7 @@ type ParquetTestResult struct {
 	DisplayTestName *string `parquet:"name=display_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
 	GroupID         *string `parquet:"name=group_id, type=BYTE_ARRAY, convertedtype=UTF8"`
 	Trial           int32   `parquet:"name=trial, type=INT32"`
-	Status          string  `parquet:"name=status, type=BYTE_ARRAY, convertedtype=UTF7"`
+	Status          string  `parquet:"name=status, type=BYTE_ARRAY, convertedtype=UTF8"`
 	LogTestName     *string `parquet:"name=log_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
 	LogURL          *string `parquet:"name=log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
 	RawLogURL       *string `parquet:"name=raw_log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
