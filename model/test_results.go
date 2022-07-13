@@ -51,7 +51,9 @@ func init() {
 	      required binary version (STRING) = 0;
 	      required binary variant (STRING) = 0;
 	      required binary task_name (STRING) = 0;
+	      optional binary display_task_name (STRING) = 0;
 	      required binary task_id (STRING) = 0;
+	      optional binary display_task_id (STRING) = 0;
 	      required int32 execution = 0;
 	      required binary request_type (STRING) = 0;
 	      required int64 created_at (TIMESTAMP(MILLIS,true)) = 0;
@@ -61,15 +63,15 @@ func init() {
 		    required binary test_name (STRING) = 0;
 		    optional binary display_test_name (STRING) = 0;
 		    optional binary group_id (STRING) = 0;
-		    optional int32 trial = 0;
+		    required int32 trial = 0;
 		    required binary status (STRING) = 0;
 		    optional binary log_test_name (STRING) = 0;
 		    optional binary log_url (STRING) = 0;
 		    optional binary raw_log_url (STRING) = 0;
 		    optional int32 line_num = 0;
-		    optional int64 task_create_time (TIMESTAMP(MILLIS,true)) = 0;
-		    optional int64 test_start_time (TIMESTAMP(MILLIS,true)) = 0;
-		    optional int64 test_end_time (TIMESTAMP(MILLIS,true)) = 0;
+		    required int64 task_create_time (TIMESTAMP(MILLIS,true)) = 0;
+		    required int64 test_start_time (TIMESTAMP(MILLIS,true)) = 0;
+		    required int64 test_end_time (TIMESTAMP(MILLIS,true)) = 0;
 		  }
 		}
 	      }
