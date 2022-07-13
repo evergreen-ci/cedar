@@ -13,13 +13,11 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
+	goparquet "github.com/fraugster/parquet-go"
+	"github.com/fraugster/parquet-go/floor"
 	"github.com/mongodb/grip/sometimes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xitongsys/parquet-go-source/buffer"
-	"github.com/xitongsys/parquet-go/reader"
-	"github.com/xitongsys/parquet-go/types"
-	"github.com/xitongsys/parquet-go/writer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -275,11 +273,19 @@ func TestTestResultsAppend(t *testing.T) {
 		data, err := ioutil.ReadAll(r)
 		assert.NoError(t, r.Close())
 		require.NoError(t, err)
-		pr, err := reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
+		fr, err := goparquet.NewFileReader(bytes.NewReader(data))
 		require.NoError(t, err)
-		parquetResults := make([]ParquetTestResults, pr.GetNumRows())
-		require.NoError(t, pr.Read(&parquetResults))
-		pr.ReadStop()
+		pr := floor.NewReader(fr)
+		defer func() {
+			assert.NoError(t, pr.Close())
+		}()
+		var parquetResults []ParquetTestResults
+		for pr.Next() {
+			row := ParquetTestResults{}
+			require.NoError(t, pr.Scan(&row))
+			parquetResults = append(parquetResults, row)
+		}
+		require.NoError(t, pr.Err())
 		require.Len(t, parquetResults, 1)
 		expectedParquet := ParquetTestResults{
 			Version:     tr.Info.Version,
@@ -288,7 +294,7 @@ func TestTestResultsAppend(t *testing.T) {
 			TaskID:      tr.Info.TaskID,
 			Execution:   int32(tr.Info.Execution),
 			RequestType: tr.Info.RequestType,
-			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+			CreatedAt:   tr.CreatedAt.UTC(),
 		}
 		if tr.Info.DisplayTaskName != "" {
 			expectedParquet.DisplayTaskName = utility.ToStringPtr(tr.Info.DisplayTaskName)
@@ -299,10 +305,9 @@ func TestTestResultsAppend(t *testing.T) {
 				TestName:       result.TestName,
 				Trial:          int32(result.Trial),
 				Status:         result.Status,
-				LineNum:        int32(result.LineNum),
-				TaskCreateTime: types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true),
-				TestStartTime:  types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
-				TestEndTime:    types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+				TaskCreateTime: result.TaskCreateTime.UTC(),
+				TestStartTime:  result.TestStartTime.UTC(),
+				TestEndTime:    result.TestEndTime.UTC(),
 			})
 			if result.DisplayTestName != "" {
 				expectedParquet.Results[len(expectedParquet.Results)-1].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
@@ -310,7 +315,7 @@ func TestTestResultsAppend(t *testing.T) {
 				expectedParquet.Results[len(expectedParquet.Results)-1].LogTestName = utility.ToStringPtr(result.LogTestName)
 				expectedParquet.Results[len(expectedParquet.Results)-1].LogURL = utility.ToStringPtr(result.LogURL)
 				expectedParquet.Results[len(expectedParquet.Results)-1].RawLogURL = utility.ToStringPtr(result.RawLogURL)
-
+				expectedParquet.Results[len(expectedParquet.Results)-1].LineNum = utility.ToInt32Ptr(int32(result.LineNum))
 			}
 		}
 		assert.Equal(t, expectedParquet, parquetResults[0])
@@ -339,21 +344,28 @@ func TestTestResultsAppend(t *testing.T) {
 		data, err = ioutil.ReadAll(r)
 		assert.NoError(t, r.Close())
 		require.NoError(t, err)
-		pr, err = reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
+		fr, err = goparquet.NewFileReader(bytes.NewReader(data))
 		require.NoError(t, err)
-		parquetResults = make([]ParquetTestResults, pr.GetNumRows())
-		require.NoError(t, pr.Read(&parquetResults))
-		pr.ReadStop()
+		pr = floor.NewReader(fr)
+		defer func() {
+			assert.NoError(t, pr.Close())
+		}()
+		parquetResults = []ParquetTestResults{}
+		for pr.Next() {
+			row := ParquetTestResults{}
+			require.NoError(t, pr.Scan(&row))
+			parquetResults = append(parquetResults, row)
+		}
+		require.NoError(t, pr.Err())
 		require.Len(t, parquetResults, 1)
 		for _, result := range failedResults {
 			expectedParquet.Results = append(expectedParquet.Results, ParquetTestResult{
 				TestName:       result.TestName,
 				Trial:          int32(result.Trial),
 				Status:         result.Status,
-				LineNum:        int32(result.LineNum),
-				TaskCreateTime: types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true),
-				TestStartTime:  types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
-				TestEndTime:    types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+				TaskCreateTime: result.TaskCreateTime.UTC(),
+				TestStartTime:  result.TestStartTime.UTC(),
+				TestEndTime:    result.TestEndTime.UTC(),
 			})
 			if result.DisplayTestName != "" {
 				expectedParquet.Results[len(expectedParquet.Results)-1].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
@@ -361,7 +373,7 @@ func TestTestResultsAppend(t *testing.T) {
 				expectedParquet.Results[len(expectedParquet.Results)-1].LogTestName = utility.ToStringPtr(result.LogTestName)
 				expectedParquet.Results[len(expectedParquet.Results)-1].LogURL = utility.ToStringPtr(result.LogURL)
 				expectedParquet.Results[len(expectedParquet.Results)-1].RawLogURL = utility.ToStringPtr(result.RawLogURL)
-
+				expectedParquet.Results[len(expectedParquet.Results)-1].LineNum = utility.ToInt32Ptr(int32(result.LineNum))
 			}
 		}
 		assert.Equal(t, expectedParquet, parquetResults[0])
@@ -434,7 +446,7 @@ func TestTestResultsDownload(t *testing.T) {
 			TaskID:      tr.Info.TaskID,
 			Execution:   int32(tr.Info.Execution),
 			RequestType: tr.Info.RequestType,
-			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+			CreatedAt:   tr.CreatedAt.UTC(),
 			Results:     make([]ParquetTestResult, 10),
 		}
 		if tr.Info.DisplayTaskName != "" {
@@ -455,10 +467,9 @@ func TestTestResultsDownload(t *testing.T) {
 				LogTestName:     utility.ToStringPtr(result.LogTestName),
 				LogURL:          utility.ToStringPtr(result.LogURL),
 				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
-				LineNum:         int32(result.LineNum),
-				TaskCreateTime:  types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true),
-				TestStartTime:   types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true),
-				TestEndTime:     types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true),
+				TaskCreateTime:  result.TaskCreateTime.UTC(),
+				TestStartTime:   result.TestStartTime.UTC(),
+				TestEndTime:     result.TestEndTime.UTC(),
 			}
 			if result.DisplayTestName != "" {
 				savedParquet.Results[i].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
@@ -466,16 +477,14 @@ func TestTestResultsDownload(t *testing.T) {
 				savedParquet.Results[i].LogTestName = utility.ToStringPtr(result.LogTestName)
 				savedParquet.Results[i].LogURL = utility.ToStringPtr(result.LogURL)
 				savedParquet.Results[i].RawLogURL = utility.ToStringPtr(result.RawLogURL)
-
+				savedParquet.Results[i].LineNum = utility.ToInt32Ptr(int32(result.LineNum))
 			}
 		}
 		w, err := testBucket.Writer(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
 		require.NoError(t, err)
-		pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
-		require.NoError(t, err)
+		pw := floor.NewWriter(goparquet.NewFileWriter(w, goparquet.WithSchemaDefinition(parquetTestResultsSchemaDef)))
 		require.NoError(t, pw.Write(savedParquet))
-		require.NoError(t, pw.WriteStop())
-		require.NoError(t, w.Close())
+		require.NoError(t, pw.Close())
 
 		tr.Setup(env)
 		results, err := tr.Download(ctx)
@@ -1783,7 +1792,6 @@ func getTestResult() TestResult {
 		TestName:       utility.RandomString(),
 		Trial:          rand.Intn(10),
 		Status:         "Pass",
-		LineNum:        rand.Intn(1000),
 		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
 		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
 		TestEndTime:    time.Now().UTC().Round(time.Millisecond),
@@ -1796,6 +1804,7 @@ func getTestResult() TestResult {
 		result.LogTestName = utility.RandomString()
 		result.LogURL = utility.RandomString()
 		result.RawLogURL = utility.RandomString()
+		result.LineNum = rand.Intn(1000)
 	}
 
 	return result
