@@ -78,7 +78,7 @@ func init() {
 	    }
 	`)
 	if err != nil {
-		panic(errors.Wrap(err, "generating Parquet test results schema defintion"))
+		panic(errors.Wrap(err, "generating Parquet test results schema definition"))
 	}
 }
 
