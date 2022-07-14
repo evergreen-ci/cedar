@@ -19,7 +19,7 @@ type APITestResult struct {
 	TestName        *string `json:"test_name"`
 	DisplayTestName *string `json:"display_test_name,omitempty"`
 	GroupID         *string `json:"group_id,omitempty"`
-	Trial           int     `json:"trial,omitempty"`
+	Trial           int     `json:"trial"`
 	Status          *string `json:"status"`
 	BaseStatus      *string `json:"base_status,omitempty"`
 	LogTestName     *string `json:"log_test_name,omitempty"`
