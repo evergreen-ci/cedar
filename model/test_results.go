@@ -22,6 +22,7 @@ import (
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/fraugster/parquet-go/floor"
 	"github.com/fraugster/parquet-go/parquetschema"
+	"github.com/fraugster/parquet-go/parquetschema/autoschema"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
@@ -46,37 +47,7 @@ var parquetTestResultsSchemaDef *parquetschema.SchemaDefinition
 
 func init() {
 	var err error
-	parquetTestResultsSchemaDef, err = parquetschema.ParseSchemaDefinition(`
-	    message parquet_go_root {
-	      required binary version (STRING) = 0;
-	      required binary variant (STRING) = 0;
-	      required binary task_name (STRING) = 0;
-	      optional binary display_task_name (STRING) = 0;
-	      required binary task_id (STRING) = 0;
-	      optional binary display_task_id (STRING) = 0;
-	      required int32 execution = 0;
-	      required binary request_type (STRING) = 0;
-	      required int64 created_at (TIMESTAMP(MILLIS,true)) = 0;
-	      required group results (LIST) {
-		repeated group list {
-		  required group element {
-		    required binary test_name (STRING) = 0;
-		    optional binary display_test_name (STRING) = 0;
-		    optional binary group_id (STRING) = 0;
-		    required int32 trial = 0;
-		    required binary status (STRING) = 0;
-		    optional binary log_test_name (STRING) = 0;
-		    optional binary log_url (STRING) = 0;
-		    optional binary raw_log_url (STRING) = 0;
-		    optional int32 line_num = 0;
-		    required int64 task_create_time (TIMESTAMP(MILLIS,true)) = 0;
-		    required int64 test_start_time (TIMESTAMP(MILLIS,true)) = 0;
-		    required int64 test_end_time (TIMESTAMP(MILLIS,true)) = 0;
-		  }
-		}
-	      }
-	    }
-	`)
+	parquetTestResultsSchemaDef, err = autoschema.GenerateSchema(new(ParquetTestResults))
 	if err != nil {
 		panic(errors.Wrap(err, "generating Parquet test results schema definition"))
 	}
@@ -1257,16 +1228,16 @@ func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts F
 // ParquetTestResults describes a set of test results from a task execution to
 // be stored in Apache Parquet format.
 type ParquetTestResults struct {
-	Version         string              `parquet:"version"`
-	Variant         string              `parquet:"variant"`
-	TaskName        string              `parquet:"task_name"`
-	DisplayTaskName *string             `parquet:"display_task_name"`
-	TaskID          string              `parquet:"task_id"`
-	DisplayTaskID   *string             `parquet:"display_task_id"`
-	Execution       int32               `parquet:"execution"`
-	RequestType     string              `parquet:"request_type"`
-	CreatedAt       time.Time           `parquet:"created_at"`
-	Results         []ParquetTestResult `parquet:"results"`
+	Version         string              `parquet:"name=version"`
+	Variant         string              `parquet:"name=variant"`
+	TaskName        string              `parquet:"name=task_name"`
+	DisplayTaskName *string             `parquet:"name=display_task_name"`
+	TaskID          string              `parquet:"name=task_id"`
+	DisplayTaskID   *string             `parquet:"name=display_task_id"`
+	Execution       int32               `parquet:"name=execution"`
+	RequestType     string              `parquet:"name=request_type"`
+	CreatedAt       time.Time           `parquet:"name=created_at, timeunit=MILLIS"`
+	Results         []ParquetTestResult `parquet:"name=results"`
 }
 
 func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
@@ -1296,16 +1267,16 @@ func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
 // ParquetTestResult describes a single test result to be stored in Apache
 // Parquet file format.
 type ParquetTestResult struct {
-	TestName        string    `parquet:"test_name"`
-	DisplayTestName *string   `parquet:"display_test_name"`
-	GroupID         *string   `parquet:"group_id"`
-	Trial           int32     `parquet:"trial"`
-	Status          string    `parquet:"status"`
-	LogTestName     *string   `parquet:"log_test_name"`
-	LogURL          *string   `parquet:"log_url"`
-	RawLogURL       *string   `parquet:"raw_log_url"`
-	LineNum         *int32    `parquet:"line_num"`
-	TaskCreateTime  time.Time `parquet:"task_create_time"`
-	TestStartTime   time.Time `parquet:"test_start_time"`
-	TestEndTime     time.Time `parquet:"test_end_time"`
+	TestName        string    `parquet:"name=test_name"`
+	DisplayTestName *string   `parquet:"name=display_test_name"`
+	GroupID         *string   `parquet:"name=group_id"`
+	Trial           int32     `parquet:"name=trial"`
+	Status          string    `parquet:"name=status"`
+	LogTestName     *string   `parquet:"name=log_test_name"`
+	LogURL          *string   `parquet:"name=log_url"`
+	RawLogURL       *string   `parquet:"name=raw_log_url"`
+	LineNum         *int32    `parquet:"name=line_num"`
+	TaskCreateTime  time.Time `parquet:"name=task_create_time, timeunit=MILLIS"`
+	TestStartTime   time.Time `parquet:"name=test_start_time, timeunit=MILLIS"`
+	TestEndTime     time.Time `parquet:"name=test_end_time, timeunit=MILLIS"`
 }
