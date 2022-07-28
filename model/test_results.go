@@ -236,29 +236,22 @@ func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestRes
 	if err != nil {
 		return errors.Wrap(err, "creating Presto bucket writer")
 	}
-	var closedWriter bool
 	defer func() {
-		if !closedWriter {
-			_ = w.Close()
-		}
+		err = w.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing test results bucket writer",
+		}))
 	}()
 
 	pw := floor.NewWriter(goparquet.NewFileWriter(w, goparquet.WithSchemaDefinition(parquetTestResultsSchemaDef)))
 	defer func() {
-		if !closedWriter {
-			_ = pw.Close()
-		}
+		err = pw.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing Parquet test results writer",
+		}))
 	}()
 
-	if err = pw.Write(results); err != nil {
-		return errors.Wrap(err, "writing Parquet test results")
-	}
-
-	closedWriter = true
-	catcher := grip.NewBasicCatcher()
-	catcher.Wrap(pw.Close(), "closing Parquet writer")
-	catcher.Wrap(w.Close(), "closing Presto bucket writer")
-	return catcher.Resolve()
+	return errors.Wrap(pw.Write(results), "writing Parquet test results")
 }
 
 func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
@@ -354,13 +347,16 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting Parquet test results")
 	}
+	defer func() {
+		err = r.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing Presto test results bucket reader",
+		}))
+	}()
 
-	catcher := grip.NewBasicCatcher()
 	data, err := ioutil.ReadAll(r)
-	catcher.Wrap(err, "reading Parquet test results")
-	catcher.Wrap(r.Close(), "closing Presto bucket reader")
-	if catcher.HasErrors() {
-		return nil, catcher.Resolve()
+	if err != nil {
+		return nil, errors.Wrap(err, "reading Parquet test results")
 	}
 
 	fr, err := goparquet.NewFileReader(bytes.NewReader(data))
@@ -368,11 +364,11 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 		return nil, errors.Wrap(err, "creating Parquet reader")
 	}
 	pr := floor.NewReader(fr)
-	var readerClosed bool
 	defer func() {
-		if !readerClosed {
-			_ = pr.Close()
-		}
+		err = pr.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing Parquet test results reader",
+		}))
 	}()
 
 	var parquetResults []ParquetTestResults
@@ -387,10 +383,6 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 
 	if err := pr.Err(); err != nil {
 		return nil, errors.Wrap(err, "reading Parquet test results rows")
-	}
-	readerClosed = true
-	if err := pr.Close(); err != nil {
-		return nil, errors.Wrap(err, "closing Parquet reader")
 	}
 
 	var results []TestResult
