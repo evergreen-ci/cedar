@@ -13,12 +13,11 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
+	goparquet "github.com/fraugster/parquet-go"
+	"github.com/fraugster/parquet-go/floor"
+	"github.com/mongodb/grip/sometimes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xitongsys/parquet-go-source/buffer"
-	"github.com/xitongsys/parquet-go/reader"
-	"github.com/xitongsys/parquet-go/types"
-	"github.com/xitongsys/parquet-go/writer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -274,11 +273,19 @@ func TestTestResultsAppend(t *testing.T) {
 		data, err := ioutil.ReadAll(r)
 		assert.NoError(t, r.Close())
 		require.NoError(t, err)
-		pr, err := reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
+		fr, err := goparquet.NewFileReader(bytes.NewReader(data))
 		require.NoError(t, err)
-		parquetResults := make([]ParquetTestResults, pr.GetNumRows())
-		require.NoError(t, pr.Read(&parquetResults))
-		pr.ReadStop()
+		pr := floor.NewReader(fr)
+		defer func() {
+			assert.NoError(t, pr.Close())
+		}()
+		var parquetResults []ParquetTestResults
+		for pr.Next() {
+			row := ParquetTestResults{}
+			require.NoError(t, pr.Scan(&row))
+			parquetResults = append(parquetResults, row)
+		}
+		require.NoError(t, pr.Err())
 		require.Len(t, parquetResults, 1)
 		expectedParquet := ParquetTestResults{
 			Version:     tr.Info.Version,
@@ -287,23 +294,29 @@ func TestTestResultsAppend(t *testing.T) {
 			TaskID:      tr.Info.TaskID,
 			Execution:   int32(tr.Info.Execution),
 			RequestType: tr.Info.RequestType,
-			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+			CreatedAt:   tr.CreatedAt.UTC(),
+		}
+		if tr.Info.DisplayTaskName != "" {
+			expectedParquet.DisplayTaskName = utility.ToStringPtr(tr.Info.DisplayTaskName)
+			expectedParquet.DisplayTaskID = utility.ToStringPtr(tr.Info.DisplayTaskID)
 		}
 		for _, result := range results {
 			expectedParquet.Results = append(expectedParquet.Results, ParquetTestResult{
-				TestName:        result.TestName,
-				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
-				GroupID:         utility.ToStringPtr(result.GroupID),
-				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
-				Status:          result.Status,
-				LogTestName:     utility.ToStringPtr(result.LogTestName),
-				LogURL:          utility.ToStringPtr(result.LogURL),
-				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
-				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
-				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
-				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
-				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
+				TestName:       result.TestName,
+				Trial:          int32(result.Trial),
+				Status:         result.Status,
+				TaskCreateTime: result.TaskCreateTime.UTC(),
+				TestStartTime:  result.TestStartTime.UTC(),
+				TestEndTime:    result.TestEndTime.UTC(),
 			})
+			if result.DisplayTestName != "" {
+				expectedParquet.Results[len(expectedParquet.Results)-1].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
+				expectedParquet.Results[len(expectedParquet.Results)-1].GroupID = utility.ToStringPtr(result.GroupID)
+				expectedParquet.Results[len(expectedParquet.Results)-1].LogTestName = utility.ToStringPtr(result.LogTestName)
+				expectedParquet.Results[len(expectedParquet.Results)-1].LogURL = utility.ToStringPtr(result.LogURL)
+				expectedParquet.Results[len(expectedParquet.Results)-1].RawLogURL = utility.ToStringPtr(result.RawLogURL)
+				expectedParquet.Results[len(expectedParquet.Results)-1].LineNum = utility.ToInt32Ptr(int32(result.LineNum))
+			}
 		}
 		assert.Equal(t, expectedParquet, parquetResults[0])
 
@@ -319,7 +332,7 @@ func TestTestResultsAppend(t *testing.T) {
 			failedResults[i] = getTestResult()
 			failedResults[i].TaskID = tr.Info.TaskID
 			failedResults[i].Execution = tr.Info.Execution
-			failedResults[i].Status = "fail"
+			failedResults[i].Status = "Fail"
 		}
 		tr.Setup(env)
 		require.NoError(t, tr.Append(ctx, failedResults[0:3]))
@@ -331,27 +344,37 @@ func TestTestResultsAppend(t *testing.T) {
 		data, err = ioutil.ReadAll(r)
 		assert.NoError(t, r.Close())
 		require.NoError(t, err)
-		pr, err = reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
+		fr, err = goparquet.NewFileReader(bytes.NewReader(data))
 		require.NoError(t, err)
-		parquetResults = make([]ParquetTestResults, pr.GetNumRows())
-		require.NoError(t, pr.Read(&parquetResults))
-		pr.ReadStop()
+		pr = floor.NewReader(fr)
+		defer func() {
+			assert.NoError(t, pr.Close())
+		}()
+		parquetResults = []ParquetTestResults{}
+		for pr.Next() {
+			row := ParquetTestResults{}
+			require.NoError(t, pr.Scan(&row))
+			parquetResults = append(parquetResults, row)
+		}
+		require.NoError(t, pr.Err())
 		require.Len(t, parquetResults, 1)
 		for _, result := range failedResults {
 			expectedParquet.Results = append(expectedParquet.Results, ParquetTestResult{
-				TestName:        result.TestName,
-				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
-				GroupID:         utility.ToStringPtr(result.GroupID),
-				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
-				Status:          result.Status,
-				LogTestName:     utility.ToStringPtr(result.LogTestName),
-				LogURL:          utility.ToStringPtr(result.LogURL),
-				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
-				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
-				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
-				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
-				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
+				TestName:       result.TestName,
+				Trial:          int32(result.Trial),
+				Status:         result.Status,
+				TaskCreateTime: result.TaskCreateTime.UTC(),
+				TestStartTime:  result.TestStartTime.UTC(),
+				TestEndTime:    result.TestEndTime.UTC(),
 			})
+			if result.DisplayTestName != "" {
+				expectedParquet.Results[len(expectedParquet.Results)-1].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
+				expectedParquet.Results[len(expectedParquet.Results)-1].GroupID = utility.ToStringPtr(result.GroupID)
+				expectedParquet.Results[len(expectedParquet.Results)-1].LogTestName = utility.ToStringPtr(result.LogTestName)
+				expectedParquet.Results[len(expectedParquet.Results)-1].LogURL = utility.ToStringPtr(result.LogURL)
+				expectedParquet.Results[len(expectedParquet.Results)-1].RawLogURL = utility.ToStringPtr(result.RawLogURL)
+				expectedParquet.Results[len(expectedParquet.Results)-1].LineNum = utility.ToInt32Ptr(int32(result.LineNum))
+			}
 		}
 		assert.Equal(t, expectedParquet, parquetResults[0])
 
@@ -423,8 +446,12 @@ func TestTestResultsDownload(t *testing.T) {
 			TaskID:      tr.Info.TaskID,
 			Execution:   int32(tr.Info.Execution),
 			RequestType: tr.Info.RequestType,
-			CreatedAt:   types.TimeToTIMESTAMP_MILLIS(tr.CreatedAt.UTC(), true),
+			CreatedAt:   tr.CreatedAt.UTC(),
 			Results:     make([]ParquetTestResult, 10),
+		}
+		if tr.Info.DisplayTaskName != "" {
+			savedParquet.DisplayTaskName = utility.ToStringPtr(tr.Info.DisplayTaskName)
+			savedParquet.DisplayTaskID = utility.ToStringPtr(tr.Info.DisplayTaskID)
 		}
 		for i := 0; i < 10; i++ {
 			result := getTestResult()
@@ -433,26 +460,31 @@ func TestTestResultsDownload(t *testing.T) {
 			expectedResults[i].Execution = tr.Info.Execution
 			savedParquet.Results[i] = ParquetTestResult{
 				TestName:        result.TestName,
+				Trial:           int32(result.Trial),
 				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
 				GroupID:         utility.ToStringPtr(result.GroupID),
-				Trial:           utility.ToInt32Ptr(int32(result.Trial)),
 				Status:          result.Status,
 				LogTestName:     utility.ToStringPtr(result.LogTestName),
 				LogURL:          utility.ToStringPtr(result.LogURL),
 				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
-				LineNum:         utility.ToInt32Ptr(int32(result.LineNum)),
-				TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TaskCreateTime.UTC(), true)),
-				TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestStartTime.UTC(), true)),
-				TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(result.TestEndTime.UTC(), true)),
+				TaskCreateTime:  result.TaskCreateTime.UTC(),
+				TestStartTime:   result.TestStartTime.UTC(),
+				TestEndTime:     result.TestEndTime.UTC(),
+			}
+			if result.DisplayTestName != "" {
+				savedParquet.Results[i].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
+				savedParquet.Results[i].GroupID = utility.ToStringPtr(result.GroupID)
+				savedParquet.Results[i].LogTestName = utility.ToStringPtr(result.LogTestName)
+				savedParquet.Results[i].LogURL = utility.ToStringPtr(result.LogURL)
+				savedParquet.Results[i].RawLogURL = utility.ToStringPtr(result.RawLogURL)
+				savedParquet.Results[i].LineNum = utility.ToInt32Ptr(int32(result.LineNum))
 			}
 		}
 		w, err := testBucket.Writer(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
 		require.NoError(t, err)
-		pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
-		require.NoError(t, err)
+		pw := floor.NewWriter(goparquet.NewFileWriter(w, goparquet.WithSchemaDefinition(parquetTestResultsSchemaDef)))
 		require.NoError(t, pw.Write(savedParquet))
-		require.NoError(t, pw.WriteStop())
-		require.NoError(t, w.Close())
+		require.NoError(t, pw.Close())
 
 		tr.Setup(env)
 		results, err := tr.Download(ctx)
@@ -1735,6 +1767,13 @@ func getTestResults() *TestResults {
 		RequestType:            utility.RandomString(),
 		HistoricalDataDisabled: true,
 	}
+	// Optional fields, we should test that we handle them properly when
+	// they are populated and when they do not.
+	if sometimes.Half() {
+		info.DisplayTaskName = utility.RandomString()
+		info.DisplayTaskID = utility.RandomString()
+	}
+
 	return &TestResults{
 		ID:          info.ID(),
 		Info:        info,
@@ -1749,18 +1788,24 @@ func getTestResults() *TestResults {
 }
 
 func getTestResult() TestResult {
-	return TestResult{
-		TestName:        utility.RandomString(),
-		DisplayTestName: utility.RandomString(),
-		GroupID:         utility.RandomString(),
-		Trial:           rand.Intn(10),
-		Status:          "Pass",
-		LogTestName:     utility.RandomString(),
-		LogURL:          utility.RandomString(),
-		RawLogURL:       utility.RandomString(),
-		LineNum:         rand.Intn(1000),
-		TaskCreateTime:  time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
-		TestStartTime:   time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
-		TestEndTime:     time.Now().UTC().Round(time.Millisecond),
+	result := TestResult{
+		TestName:       utility.RandomString(),
+		Trial:          rand.Intn(10),
+		Status:         "Pass",
+		TaskCreateTime: time.Now().Add(-time.Hour).UTC().Round(time.Millisecond),
+		TestStartTime:  time.Now().Add(-30 * time.Hour).UTC().Round(time.Millisecond),
+		TestEndTime:    time.Now().UTC().Round(time.Millisecond),
 	}
+	// Optional fields, we should test that we handle them properly when
+	// they are populated and when they do not.
+	if sometimes.Half() {
+		result.DisplayTestName = utility.RandomString()
+		result.GroupID = utility.RandomString()
+		result.LogTestName = utility.RandomString()
+		result.LogURL = utility.RandomString()
+		result.RawLogURL = utility.RandomString()
+		result.LineNum = rand.Intn(1000)
+	}
+
+	return result
 }

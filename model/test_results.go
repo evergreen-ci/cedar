@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"fmt"
@@ -18,15 +19,15 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
 	"github.com/evergreen-ci/utility"
+	goparquet "github.com/fraugster/parquet-go"
+	"github.com/fraugster/parquet-go/floor"
+	"github.com/fraugster/parquet-go/parquetschema"
+	"github.com/fraugster/parquet-go/parquetschema/autoschema"
 	"github.com/mongodb/anser/bsonutil"
 	"github.com/mongodb/grip"
 	"github.com/mongodb/grip/message"
 	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
-	"github.com/xitongsys/parquet-go-source/buffer"
-	"github.com/xitongsys/parquet-go/reader"
-	"github.com/xitongsys/parquet-go/types"
-	"github.com/xitongsys/parquet-go/writer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -41,6 +42,16 @@ const (
 	testResultsCollection = "test_results"
 	parquetDateFormat     = "2006-01-02"
 )
+
+var parquetTestResultsSchemaDef *parquetschema.SchemaDefinition
+
+func init() {
+	var err error
+	parquetTestResultsSchemaDef, err = autoschema.GenerateSchema(new(ParquetTestResults))
+	if err != nil {
+		panic(errors.Wrap(err, "generating Parquet test results schema definition"))
+	}
+}
 
 // TestResults describes metadata for a task execution and its test results.
 type TestResults struct {
@@ -225,25 +236,22 @@ func (t *TestResults) uploadParquet(ctx context.Context, results *ParquetTestRes
 	if err != nil {
 		return errors.Wrap(err, "creating Presto bucket writer")
 	}
-	var closedWriter bool
 	defer func() {
-		if !closedWriter {
-			_ = w.Close()
-		}
+		err = w.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing test results bucket writer",
+		}))
 	}()
-	pw, err := writer.NewParquetWriterFromWriter(w, new(ParquetTestResults), 1)
-	if err != nil {
-		return errors.Wrap(err, "creating new Parquet writer")
-	}
-	if err = pw.Write(results); err != nil {
-		return errors.Wrap(err, "writing Parquet test results")
-	}
-	if err = pw.WriteStop(); err != nil {
-		return errors.Wrap(err, "stopping Parquet writer")
-	}
 
-	closedWriter = true
-	return errors.Wrap(w.Close(), "closing Presto bucket writer")
+	pw := floor.NewWriter(goparquet.NewFileWriter(w, goparquet.WithSchemaDefinition(parquetTestResultsSchemaDef)))
+	defer func() {
+		err = pw.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing Parquet test results writer",
+		}))
+	}()
+
+	return errors.Wrap(pw.Write(results), "writing Parquet test results")
 }
 
 func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []TestResult) error {
@@ -339,25 +347,43 @@ func (t *TestResults) downloadParquet(ctx context.Context) ([]TestResult, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting Parquet test results")
 	}
+	defer func() {
+		err = r.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing Presto test results bucket reader",
+		}))
+	}()
 
-	catcher := grip.NewBasicCatcher()
 	data, err := ioutil.ReadAll(r)
-	catcher.Wrap(err, "reading Parquet test results")
-	catcher.Wrap(r.Close(), "closing Presto bucket reader")
-	if catcher.HasErrors() {
-		return nil, catcher.Resolve()
+	if err != nil {
+		return nil, errors.Wrap(err, "reading Parquet test results")
 	}
 
-	pr, err := reader.NewParquetReader(buffer.NewBufferFileFromBytes(data), new(ParquetTestResults), 1)
+	fr, err := goparquet.NewFileReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, errors.Wrap(err, "creating Parquet reader")
 	}
+	pr := floor.NewReader(fr)
+	defer func() {
+		err = pr.Close()
+		grip.WarningWhen(err != nil, message.WrapError(err, message.Fields{
+			"message": "closing Parquet test results reader",
+		}))
+	}()
 
-	parquetResults := make([]ParquetTestResults, pr.GetNumRows())
-	if err := pr.Read(&parquetResults); err != nil {
-		return nil, errors.Wrap(err, "unmarshalling Parquet test results")
+	var parquetResults []ParquetTestResults
+	for pr.Next() {
+		row := ParquetTestResults{}
+		if err := pr.Scan(&row); err != nil {
+			return nil, errors.Wrap(err, "reading Parquet test results row")
+		}
+
+		parquetResults = append(parquetResults, row)
 	}
-	pr.ReadStop()
+
+	if err := pr.Err(); err != nil {
+		return nil, errors.Wrap(err, "reading Parquet test results rows")
+	}
 
 	var results []TestResult
 	for _, result := range parquetResults {
@@ -373,16 +399,24 @@ func (t *TestResults) convertToParquet(results []TestResult) *ParquetTestResults
 		convertedResults[i] = result.convertToParquet()
 	}
 
-	return &ParquetTestResults{
+	parquetResults := &ParquetTestResults{
 		Version:     t.Info.Version,
 		Variant:     t.Info.Variant,
 		TaskName:    t.Info.TaskName,
 		TaskID:      t.Info.TaskID,
 		Execution:   int32(t.Info.Execution),
 		RequestType: t.Info.RequestType,
-		CreatedAt:   types.TimeToTIMESTAMP_MILLIS(t.CreatedAt.UTC(), true),
+		CreatedAt:   t.CreatedAt.UTC(),
 		Results:     convertedResults,
 	}
+	if t.Info.DisplayTaskName != "" {
+		parquetResults.DisplayTaskName = utility.ToStringPtr(t.Info.DisplayTaskName)
+	}
+	if t.Info.DisplayTaskID != "" {
+		parquetResults.DisplayTaskID = utility.ToStringPtr(t.Info.DisplayTaskID)
+	}
+
+	return parquetResults
 }
 
 // Close "closes out" by populating the completed_at field. The environment
@@ -478,18 +512,18 @@ func (t *TestResults) GetPrestoBucket(ctx context.Context) (pail.Bucket, error) 
 
 // TestResultsInfo describes information unique to a single task execution.
 type TestResultsInfo struct {
-	Project                string `bson:"project,omitempty"`
-	Version                string `bson:"version,omitempty"`
-	Variant                string `bson:"variant,omitempty"`
-	TaskName               string `bson:"task_name,omitempty"`
+	Project                string `bson:"project"`
+	Version                string `bson:"version"`
+	Variant                string `bson:"variant"`
+	TaskName               string `bson:"task_name"`
 	DisplayTaskName        string `bson:"display_task_name,omitempty"`
-	TaskID                 string `bson:"task_id,omitempty"`
+	TaskID                 string `bson:"task_id"`
 	DisplayTaskID          string `bson:"display_task_id,omitempty"`
 	Execution              int    `bson:"execution"`
-	RequestType            string `bson:"request_type,omitempty"`
-	Mainline               bool   `bson:"mainline,omitempty"`
+	RequestType            string `bson:"request_type"`
+	Mainline               bool   `bson:"mainline"`
 	HistoricalDataDisabled bool   `bson:"historical_data_disabled"`
-	Schema                 int    `bson:"schema,omitempty"`
+	Schema                 int    `bson:"schema"`
 }
 
 var (
@@ -554,9 +588,9 @@ type TestResult struct {
 	TaskID          string    `bson:"task_id"`
 	Execution       int       `bson:"execution"`
 	TestName        string    `bson:"test_name"`
-	DisplayTestName string    `bson:"display_test_name"`
+	DisplayTestName string    `bson:"display_test_name,omitempty"`
 	GroupID         string    `bson:"group_id,omitempty"`
-	Trial           int       `bson:"trial,omitempty"`
+	Trial           int       `bson:"trial"`
 	Status          string    `bson:"status"`
 	BaseStatus      string    `bson:"-"`
 	LogTestName     string    `bson:"log_test_name,omitempty"`
@@ -581,20 +615,34 @@ func (t TestResult) getDuration() time.Duration {
 }
 
 func (t TestResult) convertToParquet() ParquetTestResult {
-	return ParquetTestResult{
-		TestName:        t.TestName,
-		DisplayTestName: utility.ToStringPtr(t.DisplayTestName),
-		GroupID:         utility.ToStringPtr(t.GroupID),
-		Trial:           utility.ToInt32Ptr(int32(t.Trial)),
-		Status:          t.Status,
-		LogTestName:     utility.ToStringPtr(t.LogTestName),
-		LogURL:          utility.ToStringPtr(t.LogURL),
-		RawLogURL:       utility.ToStringPtr(t.RawLogURL),
-		LineNum:         utility.ToInt32Ptr(int32(t.LineNum)),
-		TaskCreateTime:  utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TaskCreateTime.UTC(), true)),
-		TestStartTime:   utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TestStartTime.UTC(), true)),
-		TestEndTime:     utility.ToInt64Ptr(types.TimeToTIMESTAMP_MILLIS(t.TestEndTime.UTC(), true)),
+	result := ParquetTestResult{
+		TestName:       t.TestName,
+		Trial:          int32(t.Trial),
+		Status:         t.Status,
+		TaskCreateTime: t.TaskCreateTime.UTC(),
+		TestStartTime:  t.TestStartTime.UTC(),
+		TestEndTime:    t.TestEndTime.UTC(),
 	}
+	if t.DisplayTestName != "" {
+		result.DisplayTestName = utility.ToStringPtr(t.DisplayTestName)
+	}
+	if t.GroupID != "" {
+		result.GroupID = utility.ToStringPtr(t.GroupID)
+	}
+	if t.LogTestName != "" {
+		result.LogTestName = utility.ToStringPtr(t.LogTestName)
+	}
+	if t.LogURL != "" {
+		result.LogURL = utility.ToStringPtr(t.LogURL)
+	}
+	if t.RawLogURL != "" {
+		result.RawLogURL = utility.ToStringPtr(t.RawLogURL)
+	}
+	if t.LogTestName != "" || t.LogURL != "" || t.RawLogURL != "" {
+		result.LineNum = utility.ToInt32Ptr(int32(t.LineNum))
+	}
+
+	return result
 }
 
 // FindTestResultsOptions allow for querying for test results with or without
@@ -1172,14 +1220,16 @@ func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts F
 // ParquetTestResults describes a set of test results from a task execution to
 // be stored in Apache Parquet format.
 type ParquetTestResults struct {
-	Version     string              `parquet:"name=version, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Variant     string              `parquet:"name=variant, type=BYTE_ARRAY, convertedtype=UTF8"`
-	TaskName    string              `parquet:"name=task_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	TaskID      string              `parquet:"name=task_id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Execution   int32               `parquet:"name=execution, type=INT32"`
-	RequestType string              `parquet:"name=request_type, type=BYTE_ARRAY, convertedtype=UTF8"`
-	CreatedAt   int64               `parquet:"name=created_at, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	Results     []ParquetTestResult `parquet:"name=results, type=LIST"`
+	Version         string              `parquet:"name=version"`
+	Variant         string              `parquet:"name=variant"`
+	TaskName        string              `parquet:"name=task_name"`
+	DisplayTaskName *string             `parquet:"name=display_task_name"`
+	TaskID          string              `parquet:"name=task_id"`
+	DisplayTaskID   *string             `parquet:"name=display_task_id"`
+	Execution       int32               `parquet:"name=execution"`
+	RequestType     string              `parquet:"name=request_type"`
+	CreatedAt       time.Time           `parquet:"name=created_at, timeunit=MILLIS"`
+	Results         []ParquetTestResult `parquet:"name=results"`
 }
 
 func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
@@ -1191,15 +1241,15 @@ func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
 			TestName:        r.Results[i].TestName,
 			DisplayTestName: utility.FromStringPtr(r.Results[i].DisplayTestName),
 			GroupID:         utility.FromStringPtr(r.Results[i].GroupID),
-			Trial:           int(utility.FromInt32Ptr(r.Results[i].Trial)),
+			Trial:           int(r.Results[i].Trial),
 			Status:          r.Results[i].Status,
 			LogTestName:     utility.FromStringPtr(r.Results[i].LogTestName),
 			LogURL:          utility.FromStringPtr(r.Results[i].LogURL),
 			RawLogURL:       utility.FromStringPtr(r.Results[i].RawLogURL),
 			LineNum:         int(utility.FromInt32Ptr(r.Results[i].LineNum)),
-			TaskCreateTime:  time.Unix(0, utility.FromInt64Ptr(r.Results[i].TaskCreateTime)*1e6).UTC(),
-			TestStartTime:   time.Unix(0, utility.FromInt64Ptr(r.Results[i].TestStartTime)*1e6).UTC(),
-			TestEndTime:     time.Unix(0, utility.FromInt64Ptr(r.Results[i].TestEndTime)*1e6).UTC(),
+			TaskCreateTime:  r.Results[i].TaskCreateTime,
+			TestStartTime:   r.Results[i].TestStartTime,
+			TestEndTime:     r.Results[i].TestEndTime,
 		}
 	}
 
@@ -1209,16 +1259,16 @@ func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
 // ParquetTestResult describes a single test result to be stored in Apache
 // Parquet file format.
 type ParquetTestResult struct {
-	TestName        string  `parquet:"name=test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	DisplayTestName *string `parquet:"name=display_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	GroupID         *string `parquet:"name=group_id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Trial           *int32  `parquet:"name=trial, type=INT32"`
-	Status          string  `parquet:"name=status, type=BYTE_ARRAY, convertedtype=UTF8"`
-	LogTestName     *string `parquet:"name=log_test_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	LogURL          *string `parquet:"name=log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
-	RawLogURL       *string `parquet:"name=raw_log_url, type=BYTE_ARRAY, convertedtype=UTF8"`
-	LineNum         *int32  `parquet:"name=line_num, type=INT32"`
-	TaskCreateTime  *int64  `parquet:"name=task_create_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TestStartTime   *int64  `parquet:"name=test_start_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
-	TestEndTime     *int64  `parquet:"name=test_end_time, type=INT64, logicaltype=TIMESTAMP, logicaltype.unit=MILLIS, logicaltype.isadjustedtoutc=true"`
+	TestName        string    `parquet:"name=test_name"`
+	DisplayTestName *string   `parquet:"name=display_test_name"`
+	GroupID         *string   `parquet:"name=group_id"`
+	Trial           int32     `parquet:"name=trial"`
+	Status          string    `parquet:"name=status"`
+	LogTestName     *string   `parquet:"name=log_test_name"`
+	LogURL          *string   `parquet:"name=log_url"`
+	RawLogURL       *string   `parquet:"name=raw_log_url"`
+	LineNum         *int32    `parquet:"name=line_num"`
+	TaskCreateTime  time.Time `parquet:"name=task_create_time, timeunit=MILLIS"`
+	TestStartTime   time.Time `parquet:"name=test_start_time, timeunit=MILLIS"`
+	TestEndTime     time.Time `parquet:"name=test_end_time, timeunit=MILLIS"`
 }
