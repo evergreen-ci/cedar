@@ -8,6 +8,7 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/pail"
+	"github.com/evergreen-ci/utility"
 	"github.com/pkg/errors"
 )
 
@@ -44,7 +45,7 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 			Region:      defaultS3Region,
 			Permissions: pail.S3Permissions(permissions),
 			Credentials: pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
-			MaxRetries:  defaultS3MaxRetries,
+			MaxRetries:  utility.ToIntPtr(defaultS3MaxRetries),
 			Compress:    compress,
 		}
 		b, err = pail.NewS3Bucket(opts)
@@ -101,7 +102,7 @@ func (t PailType) CreatePresto(ctx context.Context, env cedar.Environment, prefi
 			Permissions:   pail.S3Permissions(permissions),
 			Credentials:   pail.CreateAWSCredentials(conf.Bucket.AWSKey, conf.Bucket.AWSSecret, ""),
 			AssumeRoleARN: conf.Bucket.PrestoRoleARN,
-			MaxRetries:    defaultS3MaxRetries,
+			MaxRetries:    utility.ToIntPtr(defaultS3MaxRetries),
 			Compress:      compress,
 		}
 		b, err := pail.NewS3Bucket(opts)
