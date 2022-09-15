@@ -699,19 +699,66 @@ func TestFindTestResults(t *testing.T) {
 		}
 		assert.Equal(t, 2, count)
 	})
+	t.Run("WithDisplayTaskIDAndRestartedExecution", func(t *testing.T) {
+		opts := FindTestResultsOptions{
+			TaskID:      "display",
+			Execution:   utility.ToIntPtr(1),
+			DisplayTask: true,
+		}
+		results, err := FindTestResults(ctx, env, opts)
+		require.NoError(t, err)
+		count := 0
+		for _, result := range results {
+			if result.ID == tr2.ID {
+				assert.Equal(t, tr2.ID, result.ID)
+				assert.Equal(t, tr2.Info, result.Info)
+				assert.Equal(t, tr2.Artifact, result.Artifact)
+				assert.True(t, result.populated)
+				assert.Equal(t, env, result.env)
+				count++
+			}
+			if result.ID == tr3.ID {
+				assert.Equal(t, tr3.ID, result.ID)
+				assert.Equal(t, tr3.Info, result.Info)
+				assert.Equal(t, tr3.Artifact, result.Artifact)
+				assert.True(t, result.populated)
+				assert.Equal(t, env, result.env)
+				count++
+			}
+		}
+		assert.Equal(t, 2, count)
+	})
 	t.Run("WithDisplayTaskIDWithoutExecution", func(t *testing.T) {
+		randomTask := getTestResults()
+		randomTask.Info.Execution = 1
+		_, err := db.Collection(testResultsCollection).InsertOne(ctx, randomTask)
+		require.NoError(t, err)
 		opts := FindTestResultsOptions{
 			TaskID:      "display",
 			DisplayTask: true,
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
-		require.Len(t, results, 1)
-		assert.Equal(t, tr2.ID, results[0].ID)
-		assert.Equal(t, tr2.Info, results[0].Info)
-		assert.Equal(t, tr2.Artifact, results[0].Artifact)
-		assert.True(t, results[0].populated)
-		assert.Equal(t, env, results[0].env)
+		count := 0
+		for _, result := range results {
+			if result.ID == tr2.ID {
+				assert.Equal(t, tr2.ID, result.ID)
+				assert.Equal(t, tr2.Info, result.Info)
+				assert.Equal(t, tr2.Artifact, result.Artifact)
+				assert.True(t, result.populated)
+				assert.Equal(t, env, result.env)
+				count++
+			}
+			if result.ID == tr3.ID {
+				assert.Equal(t, tr3.ID, result.ID)
+				assert.Equal(t, tr3.Info, result.Info)
+				assert.Equal(t, tr3.Artifact, result.Artifact)
+				assert.True(t, result.populated)
+				assert.Equal(t, env, result.env)
+				count++
+			}
+		}
+		assert.Equal(t, 2, count)
 	})
 }
 
