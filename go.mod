@@ -7,7 +7,7 @@ require (
 	github.com/evergreen-ci/aviation v0.0.0-20211123195311-5ddfd75b3753
 	github.com/evergreen-ci/birch v0.0.0-20211025210128-7f3409c2b515
 	github.com/evergreen-ci/certdepot v0.0.0-20211109153348-d681ebe95b66
-	github.com/evergreen-ci/gimlet v0.0.0-20220401150826-5898de01dbd8
+	github.com/evergreen-ci/gimlet v0.0.0-20220906161625-8fae2ee96785
 	github.com/evergreen-ci/pail v0.0.0-20220908201135-8a2090a672b7
 	github.com/evergreen-ci/poplar v0.0.0-20220119144730-b220d71c0330
 	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
