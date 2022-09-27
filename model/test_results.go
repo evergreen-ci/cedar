@@ -672,9 +672,15 @@ func (opts *FindTestResultsOptions) createFindOptions() *options.FindOptions {
 }
 
 func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
-	search := bson.M{
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID,
+	if opts.DisplayTask {
+		search := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): opts.TaskID}
+		if opts.Execution != nil {
+			search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = bson.M{"$lte": *opts.Execution}
+		}
+		return search
 	}
+
+	search := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID}
 	if opts.Execution != nil {
 		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
 	}
@@ -682,20 +688,9 @@ func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
 	return search
 }
 
-func (opts *FindTestResultsOptions) createFindQueryForDisplayTasks() map[string]interface{} {
-	search := bson.M{
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): opts.TaskID,
-	}
-	if opts.Execution != nil {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = bson.M{"$lte": *opts.Execution}
-	}
-
-	return search
-}
-
 func (opts *FindTestResultsOptions) createPipelineForDisplayTasks() []bson.M {
 	return []bson.M{
-		{"$match": opts.createFindQueryForDisplayTasks()},
+		{"$match": opts.createFindQuery()},
 		{"$sort": bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey): -1}},
 		{"$group": bson.M{
 			"_id":          "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey),
