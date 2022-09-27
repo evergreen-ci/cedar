@@ -980,8 +980,8 @@ func TestGetTestResultsStats(t *testing.T) {
 				DisplayTask: true,
 			},
 			expectedStats: TestResultsStats{
-				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount,
-				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount,
+				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount + tr4.Stats.TotalCount,
+				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount + tr4.Stats.FailedCount,
 			},
 		},
 	} {

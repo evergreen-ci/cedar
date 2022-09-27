@@ -693,6 +693,18 @@ func (opts *FindTestResultsOptions) createFindQueryForDisplayTasks() map[string]
 	return search
 }
 
+func (opts *FindTestResultsOptions) createPipelineForDisplayTasks() []bson.M {
+	return []bson.M{
+		{"$match": opts.createFindQueryForDisplayTasks()},
+		{"$sort": bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey): -1}},
+		{"$group": bson.M{
+			"_id":          "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey),
+			"test_results": bson.M{"$first": "$$ROOT"},
+		}},
+		{"$replaceRoot": bson.M{"newRoot": "$test_results"}},
+	}
+}
+
 func (opts *FindTestResultsOptions) createErrorMessage() string {
 	var msg string
 	if opts.DisplayTask {
@@ -723,15 +735,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestRe
 	var cur *mongo.Cursor
 	var err error
 	if opts.DisplayTask {
-		pipeline := []bson.M{
-			{"$match": opts.createFindQueryForDisplayTasks()},
-			{"$sort": bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey): -1}},
-			{"$group": bson.M{
-				"_id":          "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey),
-				"test_results": bson.M{"$first": "$$ROOT"},
-			}},
-			{"$replaceRoot": bson.M{"newRoot": "$test_results"}},
-		}
+		pipeline := opts.createPipelineForDisplayTasks()
 		cur, err = env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
 	} else {
 		cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
@@ -1152,26 +1156,18 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 		return stats, errors.Wrap(err, "invalid find options")
 	}
 
-	pipeline := []bson.M{
-		{"$match": opts.createFindQuery()},
-		{"$group": bson.M{
-			"_id": "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey),
+	pipeline := opts.createPipelineForDisplayTasks()
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id": nil,
 			testResultsStatsTotalCountKey: bson.M{
 				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
 			},
 			testResultsStatsFailedCountKey: bson.M{
 				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey),
 			},
-		}},
-	}
-	if opts.Execution == nil {
-		pipeline = append(pipeline, bson.M{
-			"$sort": bson.D{
-				{Key: "_id", Value: -1},
-			},
-		})
-	}
-	pipeline = append(pipeline, bson.M{"$limit": 1})
+		},
+	})
 
 	cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
 	if err != nil {
