@@ -257,7 +257,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 					FailedCount:   6,
 					FilteredCount: utility.ToIntPtr(6),
 				},
-				Results: append(s.apiResults["def"], s.apiResults["ghi"]...),
+				Results: append(append([]model.APITestResult{}, s.apiResults["def"]...), s.apiResults["ghi"]...),
 			},
 		},
 		{
@@ -272,7 +272,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 					FailedCount:   6,
 					FilteredCount: utility.ToIntPtr(6),
 				},
-				Results: append(s.apiResults["def"], s.apiResults["ghi"]...),
+				Results: append(append([]model.APITestResult{}, s.apiResults["def"]...), s.apiResults["ghi"]...),
 			},
 		},
 		{
@@ -290,7 +290,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 					FailedCount:   6,
 					FilteredCount: utility.ToIntPtr(2),
 				},
-				Results: append(s.apiResults["def"][1:2], s.apiResults["ghi"][1:2]...),
+				Results: []model.APITestResult{s.apiResults["def"][1], s.apiResults["ghi"][1]},
 			},
 		},
 	} {
