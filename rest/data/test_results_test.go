@@ -230,14 +230,17 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				DisplayTask: true,
 			},
 			stats: model.APITestResultsStats{
-				TotalCount:    3,
-				FailedCount:   3,
-				FilteredCount: utility.ToIntPtr(3),
+				TotalCount:    6,
+				FailedCount:   6,
+				FilteredCount: utility.ToIntPtr(6),
 			},
 			resultMap: map[string]model.APITestResult{
 				"task1_1_test0": s.apiResults["task1_1_test0"],
 				"task1_1_test1": s.apiResults["task1_1_test1"],
 				"task1_1_test2": s.apiResults["task1_1_test2"],
+				"task2_0_test0": s.apiResults["task2_0_test0"],
+				"task2_0_test1": s.apiResults["task2_0_test1"],
+				"task2_0_test2": s.apiResults["task2_0_test2"],
 			},
 		},
 		{
@@ -342,7 +345,14 @@ func (s *testResultsConnectorSuite) TestGetFailedTestResultsSample() {
 				TaskID:      "display_task1",
 				DisplayTask: true,
 			},
-			expectedResult: []string{"test0", "test1", "test2"},
+			expectedResult: []string{
+				"test0",
+				"test1",
+				"test2",
+				"test0",
+				"test1",
+				"test2",
+			},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
@@ -422,8 +432,8 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 				DisplayTask: true,
 			},
 			expectedResult: &model.APITestResultsStats{
-				TotalCount:  3,
-				FailedCount: 3,
+				TotalCount:  6,
+				FailedCount: 6,
 			},
 		},
 	} {

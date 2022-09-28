@@ -253,11 +253,11 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 			expectedResult: &model.APITestResults{
 				Stats: model.APITestResultsStats{
-					TotalCount:    3,
-					FailedCount:   3,
-					FilteredCount: utility.ToIntPtr(3),
+					TotalCount:    6,
+					FailedCount:   6,
+					FilteredCount: utility.ToIntPtr(6),
 				},
-				Results: s.apiResults["def"],
+				Results: append(s.apiResults["def"], s.apiResults["ghi"]...),
 			},
 		},
 		{
@@ -268,11 +268,11 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 			expectedResult: &model.APITestResults{
 				Stats: model.APITestResultsStats{
-					TotalCount:    3,
-					FailedCount:   3,
-					FilteredCount: utility.ToIntPtr(3),
+					TotalCount:    6,
+					FailedCount:   6,
+					FilteredCount: utility.ToIntPtr(6),
 				},
-				Results: s.apiResults["def"],
+				Results: append(s.apiResults["def"], s.apiResults["ghi"]...),
 			},
 		},
 		{
@@ -286,11 +286,11 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 			expectedResult: &model.APITestResults{
 				Stats: model.APITestResultsStats{
-					TotalCount:    3,
-					FailedCount:   3,
-					FilteredCount: utility.ToIntPtr(1),
+					TotalCount:    6,
+					FailedCount:   6,
+					FilteredCount: utility.ToIntPtr(2),
 				},
-				Results: s.apiResults["def"][1:2],
+				Results: append(s.apiResults["def"][1:2], s.apiResults["ghi"][1:2]...),
 			},
 		},
 	} {
@@ -309,7 +309,22 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 				s.Equal(http.StatusOK, resp.Status())
 				actualResult, ok := resp.Data().(*model.APITestResults)
 				s.Require().True(ok)
-				s.Equal(test.expectedResult, actualResult)
+				s.Equal(test.expectedResult.Stats.FailedCount, actualResult.Stats.FailedCount)
+				s.Equal(test.expectedResult.Stats.TotalCount, actualResult.Stats.TotalCount)
+				s.Equal(test.expectedResult.Stats.FilteredCount, actualResult.Stats.FilteredCount)
+				s.Equal(len(test.expectedResult.Results), len(actualResult.Results))
+				for _, expected := range test.expectedResult.Results {
+					found := false
+					for _, actual := range actualResult.Results {
+						if utility.FromStringPtr(expected.TestName) == utility.FromStringPtr(actual.TestName) &&
+							utility.FromStringPtr(expected.TaskID) == utility.FromStringPtr(actual.TaskID) &&
+							expected.Execution == actual.Execution {
+							found = true
+							break
+						}
+					}
+					s.True(found)
+				}
 			}
 		})
 	}
@@ -371,7 +386,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSample() {
 				TaskID:      "display_task1",
 				DisplayTask: true,
 			},
-			expectedResult: []string{"test0", "test1", "test2"},
+			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
 		},
 	} {
 		s.T().Run(test.name, func(t *testing.T) {
@@ -461,8 +476,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
 				DisplayTask: true,
 			},
 			expectedResult: &model.APITestResultsStats{
-				TotalCount:  3,
-				FailedCount: 3,
+				TotalCount:  6,
+				FailedCount: 6,
 			},
 		},
 	} {
@@ -502,7 +517,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandler() {
 	}
 	expectedResults := [][]model.APITestResult{
 		append(s.apiResults["abc"], s.apiResults["ghi"]...),
-		s.apiResults["def"],
+		append(s.apiResults["def"], s.apiResults["ghi"]...),
 	}
 
 	for i, opts := range optsList {
