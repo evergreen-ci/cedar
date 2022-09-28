@@ -727,8 +727,11 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestRe
 		return nil, errors.Wrap(err, "invalid find options")
 	}
 
-	var cur *mongo.Cursor
-	var err error
+	var (
+		cur *mongo.Cursor
+		err error
+	)
+
 	if opts.DisplayTask {
 		pipeline := opts.createPipelineForDisplayTasks()
 		cur, err = env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
