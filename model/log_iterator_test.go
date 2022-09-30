@@ -194,15 +194,10 @@ func TestLogIterator(t *testing.T) {
 func TestMergeLogIterator(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "merge-logs-test")
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, os.RemoveAll(tmpDir))
-	}()
-	bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
-	require.NoError(t, err)
 
 	t.Run("SingleLog", func(t *testing.T) {
+		bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: t.TempDir()})
+		require.NoError(t, err)
 		chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 		require.NoError(t, err)
 		timeRange := TimeRange{
@@ -227,6 +222,8 @@ func TestMergeLogIterator(t *testing.T) {
 		its := make([]LogIterator, numLogs)
 		lineMap := map[string]bool{}
 		for i := 0; i < numLogs; i++ {
+			bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: t.TempDir()})
+			require.NoError(t, err)
 			chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 			require.NoError(t, err)
 
@@ -263,6 +260,8 @@ func TestMergeLogIterator(t *testing.T) {
 		its := make([]LogIterator, numLogs)
 		lineMap := map[string]bool{}
 		for i := 0; i < numLogs; i++ {
+			bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: t.TempDir()})
+			require.NoError(t, err)
 			chunks, lines, err := GenerateTestLog(ctx, bucket, 100, 10)
 			require.NoError(t, err)
 
@@ -294,6 +293,8 @@ func TestMergeLogIterator(t *testing.T) {
 		assert.NoError(t, it.Close())
 	})
 	t.Run("SomeExhausted", func(t *testing.T) {
+		bucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: t.TempDir()})
+		require.NoError(t, err)
 		chunks, _, err := GenerateTestLog(ctx, bucket, 100, 10)
 		require.NoError(t, err)
 		timeRange := TimeRange{
