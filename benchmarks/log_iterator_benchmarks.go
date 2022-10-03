@@ -136,7 +136,7 @@ func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifac
 		EndAt:   artifact.Chunks[len(artifact.Chunks)-1].End,
 	}
 	return poplar.BenchmarkSuite{
-		{
+		&poplar.BenchmarkCase{
 			CaseName:         "SerializedIterator",
 			Bench:            getLogIteratorBenchmark(model.NewSerializedLogIterator(bucket, artifact.Chunks, tr)),
 			MinRuntime:       time.Millisecond,
@@ -147,7 +147,7 @@ func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifac
 			MaxIterations:    2,
 			Recorder:         poplar.RecorderPerf,
 		},
-		{
+		&poplar.BenchmarkCase{
 
 			CaseName:         "ParallelizedIterator",
 			Bench:            getLogIteratorBenchmark(model.NewParallelizedLogIterator(bucket, artifact.Chunks, tr)),
@@ -159,7 +159,7 @@ func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifac
 			MaxIterations:    2,
 			Recorder:         poplar.RecorderPerf,
 		},
-		{
+		&poplar.BenchmarkCase{
 
 			CaseName:         "BatchedIteratorBatchSize2",
 			Bench:            getLogIteratorBenchmark(model.NewBatchedLogIterator(bucket, artifact.Chunks, 2, tr)),
