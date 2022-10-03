@@ -394,10 +394,8 @@ func TestTestResultsDownload(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "download-test")
-	require.NoError(t, err)
+	tmpDir := t.TempDir()
 	defer func() {
-		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
