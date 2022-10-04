@@ -480,6 +480,8 @@ func TestTestResultsDownload(t *testing.T) {
 		}
 		w, err := testBucket.Writer(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
 		require.NoError(t, err)
+		defer func() { assert.NoError(t, w.Close()) }()
+
 		pw := floor.NewWriter(goparquet.NewFileWriter(w, goparquet.WithSchemaDefinition(parquetTestResultsSchemaDef)))
 		require.NoError(t, pw.Write(savedParquet))
 		require.NoError(t, pw.Close())
