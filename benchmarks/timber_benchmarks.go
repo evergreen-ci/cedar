@@ -83,7 +83,7 @@ func RunBasicSenderBenchmark(ctx context.Context) error {
 
 func getBasicSenderSuite(logSize int) poplar.BenchmarkSuite {
 	return poplar.BenchmarkSuite{
-		{
+		&poplar.BenchmarkCase{
 			CaseName:         "100KBBuffer",
 			Bench:            getBasicSenderBenchmark(logSize, 1e5),
 			MinRuntime:       time.Millisecond,
@@ -95,7 +95,7 @@ func getBasicSenderSuite(logSize int) poplar.BenchmarkSuite {
 			MaxIterations:    2,
 			Recorder:         poplar.RecorderPerf,
 		},
-		{
+		&poplar.BenchmarkCase{
 
 			CaseName:         "1MBBuffer",
 			Bench:            getBasicSenderBenchmark(logSize, 1e6),
@@ -108,7 +108,7 @@ func getBasicSenderSuite(logSize int) poplar.BenchmarkSuite {
 			MaxIterations:    2,
 			Recorder:         poplar.RecorderPerf,
 		},
-		{
+		&poplar.BenchmarkCase{
 
 			CaseName:         "10MBBuffer",
 			Bench:            getBasicSenderBenchmark(logSize, 1e7),
@@ -121,7 +121,7 @@ func getBasicSenderSuite(logSize int) poplar.BenchmarkSuite {
 			MaxIterations:    2,
 			Recorder:         poplar.RecorderPerf,
 		},
-		{
+		&poplar.BenchmarkCase{
 
 			CaseName:         "100MBBuffer",
 			Bench:            getBasicSenderBenchmark(logSize, 1e8),

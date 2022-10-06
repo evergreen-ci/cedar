@@ -394,10 +394,8 @@ func TestTestResultsDownload(t *testing.T) {
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tmpDir, err := ioutil.TempDir(".", "download-test")
-	require.NoError(t, err)
+	tmpDir := t.TempDir()
 	defer func() {
-		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
@@ -482,6 +480,8 @@ func TestTestResultsDownload(t *testing.T) {
 		}
 		w, err := testBucket.Writer(ctx, fmt.Sprintf("%s/%s", conf.Bucket.PrestoTestResultsPrefix, tr.PrestoPartitionKey()))
 		require.NoError(t, err)
+		defer func() { assert.NoError(t, w.Close()) }()
+
 		pw := floor.NewWriter(goparquet.NewFileWriter(w, goparquet.WithSchemaDefinition(parquetTestResultsSchemaDef)))
 		require.NoError(t, pw.Write(savedParquet))
 		require.NoError(t, pw.Close())
