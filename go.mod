@@ -21,7 +21,7 @@ require (
 	github.com/mongodb/jasper v0.0.0-20220214215554-82e5a72cff6b
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.8.2
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli v1.22.10
 	go.mongodb.org/mongo-driver v1.10.2
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
