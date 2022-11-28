@@ -175,11 +175,11 @@ func RunServer(ctx context.Context, srv *grpc.Server, addr string) (WaitFunc, er
 			srv.GracefulStop()
 		}()
 
-		timer := time.NewTimer(2 * time.Minute)
+		timer := time.NewTimer(1 * time.Minute)
 		select {
 		case <-gracefulStop:
 		case <-timer.C:
-			// In cases where it takes longer than 2 minutes to
+			// In cases where it takes longer than a minute to
 			// to a graceful shutdown, we should just kill the grpc
 			// server.
 			srv.Stop()
