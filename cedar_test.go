@@ -64,7 +64,7 @@ func (s *ServiceCacheSuite) TestQueueGetterRetrievesQueue() {
 	q = s.cache.GetRemoteQueue()
 	s.Nil(q)
 
-	q = queue.NewLocalOrdered(2)
+	q = queue.NewLocalLimitedSize(1, 1)
 	s.NotNil(q)
 	s.NoError(s.cache.SetLocalQueue(q))
 

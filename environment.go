@@ -111,7 +111,6 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 
 		queueOpts := queue.MongoDBQueueOptions{
 			NumWorkers: utility.ToIntPtr(conf.NumWorkers),
-			Ordered:    utility.FalsePtr(),
 			DB:         &opts,
 			Retryable: &queue.RetryableQueueOptions{
 				RetryHandler: amboy.RetryHandlerOptions{
@@ -164,7 +163,6 @@ func NewEnvironment(ctx context.Context, name string, conf *Configuration) (Envi
 
 		queueOpts := queue.MongoDBQueueOptions{
 			NumWorkers: utility.ToIntPtr(conf.NumWorkers),
-			Ordered:    utility.FalsePtr(),
 			DB:         &opts,
 			Retryable: &queue.RetryableQueueOptions{
 				RetryHandler: amboy.RetryHandlerOptions{
