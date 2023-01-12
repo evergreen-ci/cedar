@@ -104,13 +104,6 @@ type Connector interface {
 	// and paginating is not supported.
 	GetTestResultsStats(context.Context, TestResultsOptions) (*model.APITestResultsStats, error)
 
-	///////////////////////
-	// Historical Test Data
-	///////////////////////
-	// GetHistoricalTestData queries the historical test data using a
-	// filter.
-	GetHistoricalTestData(context.Context, dbModel.HistoricalTestDataFilter) ([]model.APIAggregatedHistoricalTestData, error)
-
 	/////////////////
 	// System Metrics
 	/////////////////

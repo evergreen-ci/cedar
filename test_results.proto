@@ -17,8 +17,6 @@ message TestResultsInfo {
   int32 execution = 8;
   string request_type = 9;
   bool mainline = 10;
-  repeated string historical_data_ignore = 11;
-  bool historical_data_disabled = 12;
 }
 
 message TestResults {

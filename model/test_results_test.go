@@ -1805,14 +1805,13 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 
 func getTestResults() *TestResults {
 	info := TestResultsInfo{
-		Project:                utility.RandomString(),
-		Version:                utility.RandomString(),
-		Variant:                utility.RandomString(),
-		TaskName:               utility.RandomString(),
-		TaskID:                 utility.RandomString(),
-		Execution:              rand.Intn(5),
-		RequestType:            utility.RandomString(),
-		HistoricalDataDisabled: true,
+		Project:     utility.RandomString(),
+		Version:     utility.RandomString(),
+		Variant:     utility.RandomString(),
+		TaskName:    utility.RandomString(),
+		TaskID:      utility.RandomString(),
+		Execution:   rand.Intn(5),
+		RequestType: utility.RandomString(),
 	}
 	// Optional fields, we should test that we handle them properly when
 	// they are populated and when they do not.

@@ -7,9 +7,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/anser/db"
-	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/message"
-	"github.com/mongodb/grip/recovery"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -83,24 +80,6 @@ func (s *testResultsService) AddTestResults(ctx context.Context, results *TestRe
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "appending test results for '%s'", results.TestResultsRecordId))
 	}
 
-	if !record.Info.HistoricalDataDisabled {
-		conf := model.NewCedarConfig(s.env)
-		if err := conf.Find(); err != nil {
-			grip.Error(message.WrapError(errors.Wrap(err, "finding Cedar configuration"), message.Fields{
-				"message":           "failed to update historical test data",
-				"test_results_info": record.Info,
-			}))
-			// If we can't find the Cedar configuration, we should
-			// not update the historical test data for these
-			// results.
-			conf.Flags.DisableHistoricalTestData = true
-		}
-
-		if !conf.Flags.DisableHistoricalTestData {
-			go s.updateHistoricalData(record, exportedResults)
-		}
-	}
-
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
 }
 
@@ -153,50 +132,4 @@ func (s *testResultsService) CloseTestResultsRecord(ctx context.Context, info *T
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing test results '%s'", record.ID))
 	}
 	return &TestResultsResponse{TestResultsRecordId: record.ID}, nil
-}
-
-func (s *testResultsService) updateHistoricalData(record *model.TestResults, results []model.TestResult) {
-	defer func() {
-		if err := recovery.HandlePanicWithError(recover(), nil, "historical test data update"); err != nil {
-			grip.Error(message.WrapError(err, message.Fields{
-				"message":           "failed to update historical test data",
-				"test_results_info": record.Info,
-			}))
-		}
-	}()
-
-	taskName := record.Info.DisplayTaskName
-	if taskName == "" {
-		taskName = record.Info.TaskName
-	}
-	for _, res := range results {
-		info := model.HistoricalTestDataInfo{
-			Project:     record.Info.Project,
-			Variant:     record.Info.Variant,
-			TaskName:    taskName,
-			TestName:    res.GetDisplayName(),
-			RequestType: record.Info.RequestType,
-			Date:        res.TestEndTime,
-		}
-		htd, err := model.CreateHistoricalTestData(info)
-		if err != nil {
-			grip.Error(message.WrapError(errors.Wrap(err, "creating historical test data"), message.Fields{
-				"message":                   "failed to update historical test data",
-				"test_results_info":         record.Info,
-				"historical_test_data_info": info,
-				"test_result":               res,
-			}))
-			continue
-		}
-		htd.Setup(s.env)
-
-		ctx, cancel := s.env.Context()
-		defer cancel()
-		grip.Error(message.WrapError(htd.Update(ctx, res), message.Fields{
-			"message":                   "failed to update historical test data",
-			"test_results_info":         record.Info,
-			"historical_test_data_info": info,
-			"test_result":               res,
-		}))
-	}
 }
