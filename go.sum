@@ -408,8 +408,8 @@ github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJ
 github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/mongodb/amboy v0.0.0-20220408143015-94858bb64f00/go.mod h1:pyAwlkip3M7Hw91UqQpTo9Oo7clNgGFdOqa9EvgvhbM=
 github.com/mongodb/amboy v0.0.0-20220408184825-b2a14e2c511d/go.mod h1:pyAwlkip3M7Hw91UqQpTo9Oo7clNgGFdOqa9EvgvhbM=
-github.com/mongodb/amboy v0.0.0-20221130184931-151f8470357e h1:o8rxCWagj8utHy0Tf1sh6fRA6WDJEpGBqoR8dxwyPAY=
-github.com/mongodb/amboy v0.0.0-20221130184931-151f8470357e/go.mod h1:ubHgKEE1PO1pZgg0Tv4TR0g5/UZQdtfJf4o1ZzK31Rw=
+github.com/mongodb/amboy v0.0.0-20230104160932-7df48345d788 h1:VPayMqJ0kGVmH6v48UV6D2cXLiVUhBGu5ehXrnjtwJ0=
+github.com/mongodb/amboy v0.0.0-20230104160932-7df48345d788/go.mod h1:UYTIPLkFo+09B0W6EcWsQ2z7EQem8iq/ORf4k16Z52k=
 github.com/mongodb/anser v0.0.0-20220408164649-99dd61768f4a h1:kgz0KyhlQvNcl4AdlR7IeExdK+uPMZFDTz6lTI+JXww=
 github.com/mongodb/anser v0.0.0-20220408164649-99dd61768f4a/go.mod h1:iiM0FTD1XWGSxZPdM3NkCQeZEqatn9lGqwIZy3RwtgE=
 github.com/mongodb/ftdc v0.0.0-20211018154918-80dd1c22e4cf/go.mod h1:qd800FxWJIh4VUqu2d9Cmzdpv1CGXMqdwkntAKbaLlY=
@@ -578,7 +578,6 @@ go.mongodb.org/mongo-driver v1.7.4/go.mod h1:NqaYOwnXWr5Pm7AOpO5QFxKJ503nbMse/R7
 go.mongodb.org/mongo-driver v1.8.3/go.mod h1:0sQWfOeY63QTntERDJJ/0SuKK0T1uVSgKCuAROlKEPY=
 go.mongodb.org/mongo-driver v1.8.4/go.mod h1:0sQWfOeY63QTntERDJJ/0SuKK0T1uVSgKCuAROlKEPY=
 go.mongodb.org/mongo-driver v1.10.1/go.mod h1:z4XpeoU6w+9Vht+jAFyLgVrD+jGSQQe0+CBWFHNiHt8=
-go.mongodb.org/mongo-driver v1.10.3/go.mod h1:z4XpeoU6w+9Vht+jAFyLgVrD+jGSQQe0+CBWFHNiHt8=
 go.mongodb.org/mongo-driver v1.11.1 h1:QP0znIRTuL0jf1oBQoAoM0C6ZJfBK4kx0Uumtv1A7w8=
 go.mongodb.org/mongo-driver v1.11.1/go.mod h1:s7p5vEtfbeR1gYi6pnj3c3/urpbLv2T5Sfd6Rp2HBB8=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
