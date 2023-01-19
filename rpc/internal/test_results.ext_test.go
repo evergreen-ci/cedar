@@ -22,79 +22,16 @@ func TestTestResultsInfoExport(t *testing.T) {
 		Mainline:        true,
 	}
 
-	t.Run("HistoricalTestDataEnabled", func(t *testing.T) {
-		modelInfo, err := info.Export()
-		require.NoError(t, err)
-		assert.Equal(t, info.Project, modelInfo.Project)
-		assert.Equal(t, info.Version, modelInfo.Version)
-		assert.Equal(t, info.Variant, modelInfo.Variant)
-		assert.Equal(t, info.TaskName, modelInfo.TaskName)
-		assert.Equal(t, info.DisplayTaskName, modelInfo.DisplayTaskName)
-		assert.Equal(t, info.TaskId, modelInfo.TaskID)
-		assert.Equal(t, int(info.Execution), modelInfo.Execution)
-		assert.Equal(t, info.RequestType, modelInfo.RequestType)
-		assert.False(t, modelInfo.HistoricalDataDisabled)
-		assert.Equal(t, info.Mainline, modelInfo.Mainline)
-	})
-	t.Run("HistoricalTestDataDisabled", func(t *testing.T) {
-		info.HistoricalDataDisabled = true
-
-		modelInfo, err := info.Export()
-		require.NoError(t, err)
-		assert.Equal(t, info.Project, modelInfo.Project)
-		assert.Equal(t, info.Version, modelInfo.Version)
-		assert.Equal(t, info.Variant, modelInfo.Variant)
-		assert.Equal(t, info.TaskName, modelInfo.TaskName)
-		assert.Equal(t, info.DisplayTaskName, modelInfo.DisplayTaskName)
-		assert.Equal(t, info.TaskId, modelInfo.TaskID)
-		assert.Equal(t, int(info.Execution), modelInfo.Execution)
-		assert.Equal(t, info.RequestType, modelInfo.RequestType)
-		assert.True(t, modelInfo.HistoricalDataDisabled)
-		assert.Equal(t, info.Mainline, modelInfo.Mainline)
-
-		info.HistoricalDataDisabled = false
-	})
-	t.Run("HistoricalTestDataIgnored", func(t *testing.T) {
-		t.Run("DisplayTaskName", func(t *testing.T) {
-			info.HistoricalDataIgnore = []string{"display_task_name"}
-
-			modelInfo, err := info.Export()
-			require.NoError(t, err)
-			assert.Equal(t, info.Project, modelInfo.Project)
-			assert.Equal(t, info.Version, modelInfo.Version)
-			assert.Equal(t, info.Variant, modelInfo.Variant)
-			assert.Equal(t, info.TaskName, modelInfo.TaskName)
-			assert.Equal(t, info.DisplayTaskName, modelInfo.DisplayTaskName)
-			assert.Equal(t, info.TaskId, modelInfo.TaskID)
-			assert.Equal(t, int(info.Execution), modelInfo.Execution)
-			assert.Equal(t, info.RequestType, modelInfo.RequestType)
-			assert.True(t, modelInfo.HistoricalDataDisabled)
-			assert.Equal(t, info.Mainline, modelInfo.Mainline)
-
-			info.HistoricalDataIgnore = nil
-		})
-		t.Run("TaskName", func(t *testing.T) {
-			displayTaskName := info.DisplayTaskName
-			info.DisplayTaskName = ""
-			info.HistoricalDataIgnore = []string{"task_name"}
-
-			modelInfo, err := info.Export()
-			require.NoError(t, err)
-			assert.Equal(t, info.Project, modelInfo.Project)
-			assert.Equal(t, info.Version, modelInfo.Version)
-			assert.Equal(t, info.Variant, modelInfo.Variant)
-			assert.Equal(t, info.TaskName, modelInfo.TaskName)
-			assert.Equal(t, info.DisplayTaskName, modelInfo.DisplayTaskName)
-			assert.Equal(t, info.TaskId, modelInfo.TaskID)
-			assert.Equal(t, int(info.Execution), modelInfo.Execution)
-			assert.Equal(t, info.RequestType, modelInfo.RequestType)
-			assert.True(t, modelInfo.HistoricalDataDisabled)
-			assert.Equal(t, info.Mainline, modelInfo.Mainline)
-
-			info.DisplayTaskName = displayTaskName
-			info.HistoricalDataIgnore = nil
-		})
-	})
+	modelInfo, err := info.Export()
+	require.NoError(t, err)
+	assert.Equal(t, info.Project, modelInfo.Project)
+	assert.Equal(t, info.Version, modelInfo.Version)
+	assert.Equal(t, info.Variant, modelInfo.Variant)
+	assert.Equal(t, info.TaskName, modelInfo.TaskName)
+	assert.Equal(t, info.DisplayTaskName, modelInfo.DisplayTaskName)
+	assert.Equal(t, info.TaskId, modelInfo.TaskID)
+	assert.Equal(t, int(info.Execution), modelInfo.Execution)
+	assert.Equal(t, info.RequestType, modelInfo.RequestType)
 }
 
 func TestTestResultExport(t *testing.T) {

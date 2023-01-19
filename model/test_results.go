@@ -512,33 +512,31 @@ func (t *TestResults) GetPrestoBucket(ctx context.Context) (pail.Bucket, error) 
 
 // TestResultsInfo describes information unique to a single task execution.
 type TestResultsInfo struct {
-	Project                string `bson:"project"`
-	Version                string `bson:"version"`
-	Variant                string `bson:"variant"`
-	TaskName               string `bson:"task_name"`
-	DisplayTaskName        string `bson:"display_task_name,omitempty"`
-	TaskID                 string `bson:"task_id"`
-	DisplayTaskID          string `bson:"display_task_id,omitempty"`
-	Execution              int    `bson:"execution"`
-	RequestType            string `bson:"request_type"`
-	Mainline               bool   `bson:"mainline"`
-	HistoricalDataDisabled bool   `bson:"historical_data_disabled"`
-	Schema                 int    `bson:"schema"`
+	Project         string `bson:"project"`
+	Version         string `bson:"version"`
+	Variant         string `bson:"variant"`
+	TaskName        string `bson:"task_name"`
+	DisplayTaskName string `bson:"display_task_name,omitempty"`
+	TaskID          string `bson:"task_id"`
+	DisplayTaskID   string `bson:"display_task_id,omitempty"`
+	Execution       int    `bson:"execution"`
+	RequestType     string `bson:"request_type"`
+	Mainline        bool   `bson:"mainline"`
+	Schema          int    `bson:"schema"`
 }
 
 var (
-	testResultsInfoProjectKey             = bsonutil.MustHaveTag(TestResultsInfo{}, "Project")
-	testResultsInfoVersionKey             = bsonutil.MustHaveTag(TestResultsInfo{}, "Version")
-	testResultsInfoVariantKey             = bsonutil.MustHaveTag(TestResultsInfo{}, "Variant")
-	testResultsInfoTaskNameKey            = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskName")
-	testResultsInfoDisplayTaskNameKey     = bsonutil.MustHaveTag(TestResultsInfo{}, "DisplayTaskName")
-	testResultsInfoTaskIDKey              = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskID")
-	testResultsInfoDisplayTaskIDKey       = bsonutil.MustHaveTag(TestResultsInfo{}, "DisplayTaskID")
-	testResultsInfoExecutionKey           = bsonutil.MustHaveTag(TestResultsInfo{}, "Execution")
-	testResultsInfoRequestTypeKey         = bsonutil.MustHaveTag(TestResultsInfo{}, "RequestType")
-	testResultsInfoMainlineKey            = bsonutil.MustHaveTag(TestResultsInfo{}, "Mainline")
-	testResultsInfoHistoricalDataDisabled = bsonutil.MustHaveTag(TestResultsInfo{}, "HistoricalDataDisabled")
-	testResultsInfoSchemaKey              = bsonutil.MustHaveTag(TestResultsInfo{}, "Schema")
+	testResultsInfoProjectKey         = bsonutil.MustHaveTag(TestResultsInfo{}, "Project")
+	testResultsInfoVersionKey         = bsonutil.MustHaveTag(TestResultsInfo{}, "Version")
+	testResultsInfoVariantKey         = bsonutil.MustHaveTag(TestResultsInfo{}, "Variant")
+	testResultsInfoTaskNameKey        = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskName")
+	testResultsInfoDisplayTaskNameKey = bsonutil.MustHaveTag(TestResultsInfo{}, "DisplayTaskName")
+	testResultsInfoTaskIDKey          = bsonutil.MustHaveTag(TestResultsInfo{}, "TaskID")
+	testResultsInfoDisplayTaskIDKey   = bsonutil.MustHaveTag(TestResultsInfo{}, "DisplayTaskID")
+	testResultsInfoExecutionKey       = bsonutil.MustHaveTag(TestResultsInfo{}, "Execution")
+	testResultsInfoRequestTypeKey     = bsonutil.MustHaveTag(TestResultsInfo{}, "RequestType")
+	testResultsInfoMainlineKey        = bsonutil.MustHaveTag(TestResultsInfo{}, "Mainline")
+	testResultsInfoSchemaKey          = bsonutil.MustHaveTag(TestResultsInfo{}, "Schema")
 )
 
 // ID creates a unique hash for a TestResults record.

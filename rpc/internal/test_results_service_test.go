@@ -207,22 +207,6 @@ func TestAddTestResults(t *testing.T) {
 					exportedResult.Execution = record.Info.Execution
 					assert.Equal(t, exportedResult, result)
 				}
-
-				time.Sleep(time.Second)
-				for _, res := range test.results.Results {
-					htdInfo := model.HistoricalTestDataInfo{
-						Project:     record.Info.Project,
-						Variant:     record.Info.Variant,
-						TaskName:    record.Info.DisplayTaskName,
-						TestName:    res.DisplayTestName,
-						RequestType: record.Info.RequestType,
-						Date:        res.TestEndTime.AsTime(),
-					}
-					htd, err := model.CreateHistoricalTestData(htdInfo)
-					require.NoError(t, err)
-					htd.Setup(env)
-					require.NoError(t, htd.Find(ctx))
-				}
 			}
 		})
 	}
@@ -375,24 +359,6 @@ func TestStreamTestResults(t *testing.T) {
 					combinedResults = append(combinedResults, test.results[i].Results...)
 				}
 				assert.Len(t, results, test.expectedCount)
-
-				time.Sleep(time.Second)
-				for _, results := range test.results {
-					for _, res := range results.Results {
-						htdInfo := model.HistoricalTestDataInfo{
-							Project:     record1.Info.Project,
-							Variant:     record1.Info.Variant,
-							TaskName:    record1.Info.DisplayTaskName,
-							TestName:    res.DisplayTestName,
-							RequestType: record1.Info.RequestType,
-							Date:        res.TestEndTime.AsTime(),
-						}
-						htd, err := model.CreateHistoricalTestData(htdInfo)
-						require.NoError(t, err)
-						htd.Setup(env)
-						require.NoError(t, htd.Find(ctx))
-					}
-				}
 			}
 		})
 	}
