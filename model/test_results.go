@@ -1176,57 +1176,6 @@ func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTe
 	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
 }
 
-// FindTestResultsByProjectOptions represent the set of options for finding
-// test results by project name.
-type FindTestResultsByProjectOptions struct {
-	Projects []string
-	StartAt  time.Time
-	EndAt    time.Time
-}
-
-func (o FindTestResultsByProjectOptions) validate() error {
-	catcher := grip.NewBasicCatcher()
-
-	catcher.NewWhen(len(o.Projects) == 0, "must specify at least one project")
-	catcher.NewWhen(o.StartAt.After(o.EndAt), "the start date cannot be greater than the end date")
-	catcher.NewWhen(o.EndAt.IsZero(), "end date cannot be zero")
-
-	return catcher.Resolve()
-}
-
-// FindTestResultsByProject returns all test results with the
-// given set of project names and within the given date interval.
-func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts FindTestResultsByProjectOptions) ([]TestResults, error) {
-	if err := opts.validate(); err != nil {
-		return nil, errors.Wrap(err, "invalid options")
-	}
-
-	filter := bson.M{
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoProjectKey): bson.M{"$in": opts.Projects},
-		testResultsCreatedAtKey: bson.M{
-			"$gte": opts.StartAt,
-			"$lt":  opts.EndAt,
-		},
-	}
-
-	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, filter)
-	if err != nil {
-		return nil, errors.Wrap(err, "finding test results")
-	}
-
-	var results []TestResults
-	if err = cur.All(ctx, &results); err != nil {
-		return nil, errors.Wrap(err, "decoding test results")
-	}
-
-	for i := range results {
-		results[i].env = env
-		results[i].populated = true
-	}
-
-	return results, nil
-}
-
 // ParquetTestResults describes a set of test results from a task execution to
 // be stored in Apache Parquet format.
 type ParquetTestResults struct {
