@@ -649,10 +649,10 @@ func (t TestResult) convertToParquet() ParquetTestResult {
 // task.
 type TestResultsTaskOptions struct {
 	TaskID string
-	// TODO (EVG=18798): Make this field required once Evergreen and Spruce
+	// TODO (EVG-18798): Make this field required once Evergreen and Spruce
 	// are updated.
 	Execution *int
-	// TODO (EVG=18798): Remove this field once Evergreen and Spruce are
+	// TODO (EVG-18798): Remove this field once Evergreen and Spruce are
 	// updated.
 	DisplayTask bool
 }
