@@ -30,13 +30,13 @@ const (
 // updated.
 
 type testResultsBaseHandler struct {
-	taskOpts   []data.TestResultsTaskOptions
+	taskOpts   data.TestResultsTaskOptions
 	filterOpts *data.TestResultsFilterAndSortOptions
 }
 
 // Parse fetches the task ID from the HTTP request.
 func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error {
-	h.taskOpts = append(h.taskOpts, data.TestResultsTaskOptions{TaskID: gimlet.GetVars(r)["task_id"]})
+	h.taskOpts.TaskID = gimlet.GetVars(r)["task_id"]
 
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
@@ -44,10 +44,10 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 		if err != nil {
 			return err
 		}
-		h.taskOpts[0].Execution = utility.ToIntPtr(exec)
+		h.taskOpts.Execution = utility.ToIntPtr(exec)
 	}
 	if vals.Get(isDisplayTask) == trueString {
-		h.taskOpts[0].DisplayTask = true
+		h.taskOpts.DisplayTask = true
 	}
 
 	return nil
@@ -111,7 +111,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 		h.filterOpts.BaseResults = []data.TestResultsTaskOptions{
 			{
 				TaskID:      baseTaskID,
-				DisplayTask: h.taskOpts[0].DisplayTask,
+				DisplayTask: h.taskOpts.DisplayTask,
 			},
 		}
 	}
@@ -128,15 +128,15 @@ func (h *testResultsGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 
 // Run finds and returns the desired test result based on the task ID.
 func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	testResults, err := h.sc.FindTestResults(ctx, h.taskOpts, h.filterOpts)
+	testResults, err := h.sc.FindTestResults(ctx, []data.TestResultsTaskOptions{h.taskOpts}, h.filterOpts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results by task ID '%s'", h.taskOpts[0].TaskID)
+		err = errors.Wrapf(err, "getting test results by task ID '%s'", h.taskOpts.TaskID)
 		logFindError(err, message.Fields{
 			"request":    gimlet.GetRequestID(ctx),
 			"method":     "GET",
 			"route":      "/test_results/task_id/{task_id}",
-			"task_id":    h.taskOpts[0].TaskID,
-			"is_display": h.taskOpts[0].DisplayTask,
+			"task_id":    h.taskOpts.TaskID,
+			"is_display": h.taskOpts.DisplayTask,
 		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
@@ -197,15 +197,15 @@ func (h *testResultsGetStatsHandler) Factory() gimlet.RouteHandler {
 
 // Run finds and returns the desired failed test results stats.
 func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
-	stats, err := h.sc.FindTestResultsStats(ctx, h.taskOpts)
+	stats, err := h.sc.FindTestResultsStats(ctx, []data.TestResultsTaskOptions{h.taskOpts})
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results stats by task ID '%s'", h.taskOpts[0].TaskID)
+		err = errors.Wrapf(err, "getting test results stats by task ID '%s'", h.taskOpts.TaskID)
 		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
 			"route":           "/test_results/task_id/{task_id}/stats",
-			"task_id":         h.taskOpts[0].TaskID,
-			"is_display_task": h.taskOpts[0].DisplayTask,
+			"task_id":         h.taskOpts.TaskID,
+			"is_display_task": h.taskOpts.DisplayTask,
 		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
@@ -237,15 +237,15 @@ func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
 
 // Run finds and returns the desired failed test results sample.
 func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
-	sample, err := h.sc.FindFailedTestResultsSample(ctx, h.taskOpts)
+	sample, err := h.sc.FindFailedTestResultsSample(ctx, []data.TestResultsTaskOptions{h.taskOpts})
 	if err != nil {
-		err = errors.Wrapf(err, "getting failed test results sample by task ID '%s'", h.taskOpts[0].TaskID)
+		err = errors.Wrapf(err, "getting failed test results sample by task ID '%s'", h.taskOpts.TaskID)
 		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
 			"route":           "/test_results/task_id/{task_id}/failed_sample",
-			"task_id":         h.taskOpts[0].TaskID,
-			"is_display_task": h.taskOpts[0].DisplayTask,
+			"task_id":         h.taskOpts.TaskID,
+			"is_display_task": h.taskOpts.DisplayTask,
 		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}

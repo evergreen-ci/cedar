@@ -132,10 +132,10 @@ type BuildloggerOptions struct {
 // task using the Connector functions.
 type TestResultsTaskOptions struct {
 	TaskID string `json:"task_id"`
-	// TODO (EVG=18798): Make this field required once Evergreen and Spruce
+	// TODO (EVG-18798): Make this field required once Evergreen and Spruce
 	// are updated.
 	Execution *int `json:"execution"`
-	// TODO (EVG=18798): Remove this field once Evergreen and Spruce are
+	// TODO (EVG-18798): Remove this field once Evergreen and Spruce are
 	// updated.
 	DisplayTask bool `json:"display_task"`
 }
