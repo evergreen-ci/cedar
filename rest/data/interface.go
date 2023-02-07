@@ -86,23 +86,18 @@ type Connector interface {
 	///////////////
 	// Test Results
 	///////////////
-	// FindTestResults queries the DB to find all test results with
-	// the given options. If the execution is nil, this will return the
-	// test results from the most recent execution.
-	FindTestResults(context.Context, TestResultsOptions) (*model.APITestResults, error)
-	// GetTestResultsFilteredSamples gets test result samples and filters them
-	// by test name regexes. Sorting and paginating are not supported.
-	GetTestResultsFilteredSamples(context.Context, TestSampleOptions) ([]model.APITestResultsSample, error)
-	// GetFailedTestResultsSample queries the DB to find all the
-	// sample of failed test results for the given options. If the
-	// execution is nil, this will return the sample from the most recent
-	// execution. Filtering, sorting, and paginating is not supported.
-	GetFailedTestResultsSample(context.Context, TestResultsOptions) ([]string, error)
-	// GetTestResultsStats queries the DB to aggregate basic stats
-	// of test results for the given options. If the execution is nil, this
-	// will return stats for the most recent execution. Filtering, sorting,
-	// and paginating is not supported.
-	GetTestResultsStats(context.Context, TestResultsOptions) (*model.APITestResultsStats, error)
+	// FindTestResults returns the merged test results of the given tasks
+	// and optional filter, sort, and pagination options.
+	FindTestResults(context.Context, []TestResultsTaskOptions, *TestResultsFilterAndSortOptions) (*model.APITestResults, error)
+	// FindTestResultsStats returns basic aggregated stats of test results
+	// results for the given tasks.
+	FindTestResultsStats(context.Context, []TestResultsTaskOptions) (*model.APITestResultsStats, error)
+	// FindTestResultsSample returns a merged list of the failed test
+	// results samples for the given tasks.
+	FindFailedTestResultsSample(context.Context, []TestResultsTaskOptions) ([]string, error)
+	// FindFailedTestResultsSamples returns failed test result samples for
+	// the given tasks and optional regex filters.
+	FindFailedTestResultsSamples(context.Context, []TestResultsTaskOptions, []string) ([]model.APITestResultsSample, error)
 
 	/////////////////
 	// System Metrics
@@ -133,40 +128,29 @@ type BuildloggerOptions struct {
 	SoftSizeLimit  int
 }
 
-// TestResultsOptions holds all values required to find a specific TestResults
-// or TestResult object using connector functions.
-type TestResultsOptions struct {
-	TaskID        string
-	Execution     *int
-	DisplayTask   bool
-	FilterAndSort *TestResultsFilterAndSortOptions
+// TestResultsTaskOptions specify the arguments for fetching test results by
+// task using the Connector functions.
+type TestResultsTaskOptions struct {
+	TaskID string `json:"task_id"`
+	// TODO (EVG-18798): Make this field required once Evergreen and Spruce
+	// are updated.
+	Execution *int `json:"execution"`
+	// TODO (EVG-18798): Remove this field once Evergreen and Spruce are
+	// updated.
+	DisplayTask bool `json:"display_task"`
 }
 
 // TestResultsFilterAndSortOptions holds all values required for filtering,
-// sorting, and paginating TestResult objects using connector functions.
+// sorting, and paginating test results using the Connector functions.
 type TestResultsFilterAndSortOptions struct {
-	TestName     string
-	Statuses     []string
-	GroupID      string
-	SortBy       string
-	SortOrderDSC bool
-	Limit        int
-	Page         int
-	BaseResults  *TestResultsOptions
-}
-
-// TestSampleOptions specifies the tasks to get the sample for
-// and regexes to filter the test names by.
-type TestSampleOptions struct {
-	Tasks        []TaskInfo `json:"tasks"`
-	RegexFilters []string   `json:"regex_filters"`
-}
-
-// TaskInfo specifies a set of test results to find.
-type TaskInfo struct {
-	TaskID      string `json:"task_id"`
-	Execution   int    `json:"execution"`
-	DisplayTask bool   `json:"display_task"`
+	TestName     string                   `json:"test_name"`
+	Statuses     []string                 `json:"statuses"`
+	GroupID      string                   `json:"group_id"`
+	SortBy       string                   `json:"sort_by"`
+	SortOrderDSC bool                     `json:"sort_order_dsc"`
+	Limit        int                      `json:"limit"`
+	Page         int                      `json:"page"`
+	BaseResults  []TestResultsTaskOptions `json:"base_results"`
 }
 
 // PerformanceOptions holds all values required to find a specific

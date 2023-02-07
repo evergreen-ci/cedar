@@ -83,8 +83,7 @@ func (a *APITestResultsStats) Import(i interface{}) error {
 	case dbModel.TestResultsStats:
 		a.TotalCount = stats.TotalCount
 		a.FailedCount = stats.FailedCount
-	case int:
-		a.FilteredCount = utility.ToIntPtr(stats)
+		a.FilteredCount = stats.FilteredCount
 	default:
 		return errors.Errorf("incorrect type %T when converting to APITTestResultsStats type", i)
 	}

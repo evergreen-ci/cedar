@@ -133,31 +133,29 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 
 func (s *testResultsConnectorSuite) TestFindTestResults() {
 	for _, test := range []struct {
-		name      string
-		opts      TestResultsOptions
-		stats     model.APITestResultsStats
-		resultMap map[string]model.APITestResult
-		hasErr    bool
+		name       string
+		taskOpts   []TestResultsTaskOptions
+		filterOpts *TestResultsFilterAndSortOptions
+		stats      model.APITestResultsStats
+		resultMap  map[string]model.APITestResult
+		hasErr     bool
 	}{
 		{
-			name:   "FailsWithEmptyOptions",
+			name:   "EmptyOptions",
 			hasErr: true,
 		},
 		{
-			name:   "FailsWhenTaskIDDNE",
-			opts:   TestResultsOptions{TaskID: "DNE"},
-			hasErr: true,
+			name:     "TaskIDDNE",
+			taskOpts: []TestResultsTaskOptions{{TaskID: "DNE"}},
+			stats:    model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},
 		},
 		{
-			name:   "FailsWhenDisplayTaskIDDNE",
-			opts:   TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-			hasErr: true,
-		},
-		{
-			name: "SucceedsWithTaskIDAndExecution",
-			opts: TestResultsOptions{
-				TaskID:    "task1",
-				Execution: utility.ToIntPtr(0),
+			name: "SingleTaskNoFiltering",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
+				},
 			},
 			stats: model.APITestResultsStats{
 				TotalCount:    3,
@@ -171,28 +169,14 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 		{
-			name: "SucceedsWithTaskIDAndNoExecution",
-			opts: TestResultsOptions{TaskID: "task1"},
-			stats: model.APITestResultsStats{
-				TotalCount:    3,
-				FailedCount:   3,
-				FilteredCount: utility.ToIntPtr(3),
-			},
-			resultMap: map[string]model.APITestResult{
-				"task1_1_test0": s.apiResults["task1_1_test0"],
-				"task1_1_test1": s.apiResults["task1_1_test1"],
-				"task1_1_test2": s.apiResults["task1_1_test2"],
-			},
-		},
-		{
-			name: "SucceedsWithTaskIDAndFilterAndSort",
-			opts: TestResultsOptions{
-				TaskID:    "task1",
-				Execution: utility.ToIntPtr(0),
-				FilterAndSort: &TestResultsFilterAndSortOptions{
-					TestName: "test1",
+			name: "SingleTaskFiltering",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
 				},
 			},
+			filterOpts: &TestResultsFilterAndSortOptions{TestName: "test1"},
 			stats: model.APITestResultsStats{
 				TotalCount:    3,
 				FailedCount:   3,
@@ -203,31 +187,16 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndExecution",
-			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				Execution:   utility.ToIntPtr(0),
-				DisplayTask: true,
-			},
-			stats: model.APITestResultsStats{
-				TotalCount:    6,
-				FailedCount:   6,
-				FilteredCount: utility.ToIntPtr(6),
-			},
-			resultMap: map[string]model.APITestResult{
-				"task1_0_test0": s.apiResults["task1_0_test0"],
-				"task1_0_test1": s.apiResults["task1_0_test1"],
-				"task1_0_test2": s.apiResults["task1_0_test2"],
-				"task2_0_test0": s.apiResults["task2_0_test0"],
-				"task2_0_test1": s.apiResults["task2_0_test1"],
-				"task2_0_test2": s.apiResults["task2_0_test2"],
-			},
-		},
-		{
-			name: "SucceedsWithDisplayTaskIDAndNoExecution",
-			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				DisplayTask: true,
+			name: "MultipleTasksNoFiltering",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
+				},
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
 			},
 			stats: model.APITestResultsStats{
 				TotalCount:    6,
@@ -244,15 +213,98 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndFilterAndSort",
-			opts: TestResultsOptions{
-				TaskID:    "display_task1",
-				Execution: utility.ToIntPtr(0),
-				FilterAndSort: &TestResultsFilterAndSortOptions{
-					TestName: "test2",
+			name: "MultipleTasksFiltering",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
 				},
-				DisplayTask: true,
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
 			},
+			filterOpts: &TestResultsFilterAndSortOptions{TestName: "test2"},
+			stats: model.APITestResultsStats{
+				TotalCount:    6,
+				FailedCount:   6,
+				FilteredCount: utility.ToIntPtr(2),
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_1_test2": s.apiResults["task1_1_test2"],
+				"task2_0_test2": s.apiResults["task2_0_test2"],
+			},
+		},
+		{
+			name:     "TaskIDAndNoExecution",
+			taskOpts: []TestResultsTaskOptions{{TaskID: "task1"}},
+			stats: model.APITestResultsStats{
+				TotalCount:    3,
+				FailedCount:   3,
+				FilteredCount: utility.ToIntPtr(3),
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_1_test0": s.apiResults["task1_1_test0"],
+				"task1_1_test1": s.apiResults["task1_1_test1"],
+				"task1_1_test2": s.apiResults["task1_1_test2"],
+			},
+		},
+
+		{
+			name: "DisplayTaskIDAndExecution",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					Execution:   utility.ToIntPtr(0),
+					DisplayTask: true,
+				},
+			},
+			stats: model.APITestResultsStats{
+				TotalCount:    6,
+				FailedCount:   6,
+				FilteredCount: utility.ToIntPtr(6),
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_0_test0": s.apiResults["task1_0_test0"],
+				"task1_0_test1": s.apiResults["task1_0_test1"],
+				"task1_0_test2": s.apiResults["task1_0_test2"],
+				"task2_0_test0": s.apiResults["task2_0_test0"],
+				"task2_0_test1": s.apiResults["task2_0_test1"],
+				"task2_0_test2": s.apiResults["task2_0_test2"],
+			},
+		},
+		{
+			name: "DisplayTaskIDAndNoExecution",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					DisplayTask: true,
+				},
+			},
+			stats: model.APITestResultsStats{
+				TotalCount:    6,
+				FailedCount:   6,
+				FilteredCount: utility.ToIntPtr(6),
+			},
+			resultMap: map[string]model.APITestResult{
+				"task1_1_test0": s.apiResults["task1_1_test0"],
+				"task1_1_test1": s.apiResults["task1_1_test1"],
+				"task1_1_test2": s.apiResults["task1_1_test2"],
+				"task2_0_test0": s.apiResults["task2_0_test0"],
+				"task2_0_test1": s.apiResults["task2_0_test1"],
+				"task2_0_test2": s.apiResults["task2_0_test2"],
+			},
+		},
+		{
+			name: "DisplayTaskIDAndFilterAndSort",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					Execution:   utility.ToIntPtr(0),
+					DisplayTask: true,
+				},
+			},
+			filterOpts: &TestResultsFilterAndSortOptions{TestName: "test2"},
 			stats: model.APITestResultsStats{
 				TotalCount:    6,
 				FailedCount:   6,
@@ -264,8 +316,8 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 		},
 	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			actualResult, err := s.sc.FindTestResults(s.ctx, test.opts)
+		s.Run(test.name, func() {
+			actualResult, err := s.sc.FindTestResults(s.ctx, test.taskOpts, test.filterOpts)
 
 			if test.hasErr {
 				s.Nil(actualResult)
@@ -289,46 +341,65 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 	}
 }
 
-func (s *testResultsConnectorSuite) TestGetFailedTestResultsSample() {
+func (s *testResultsConnectorSuite) TestFindFailedTestResultsSample() {
 	for _, test := range []struct {
 		name           string
-		opts           TestResultsOptions
+		opts           []TestResultsTaskOptions
 		expectedResult []string
 		hasErr         bool
 	}{
 		{
-			name:   "FailsWithEmptyOptions",
+			name:   "EmptyOptions",
 			hasErr: true,
 		},
 		{
-			name:   "FailsWhenTaskIDDNE",
-			opts:   TestResultsOptions{TaskID: "DNE"},
-			hasErr: true,
+			name: "TaskIDDNE",
+			opts: []TestResultsTaskOptions{{TaskID: "DNE"}},
 		},
 		{
-			name:   "FailsWhenDisplayTaskIDDNE",
-			opts:   TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-			hasErr: true,
-		},
-		{
-			name: "TaskIDWithExecution",
-			opts: TestResultsOptions{
-				TaskID:    "task1",
-				Execution: utility.ToIntPtr(0),
+			name: "SingleTask",
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
+				},
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
+			name: "MultipleTasks",
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
+				},
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			expectedResult: []string{
+				"test0",
+				"test1",
+				"test2",
+				"test0",
+				"test1",
+				"test2",
+			},
+		},
+		{
 			name:           "TaskIDWithoutExecution",
-			opts:           TestResultsOptions{TaskID: "task1"},
+			opts:           []TestResultsTaskOptions{{TaskID: "task1"}},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
 			name: "DisplayTaskIDWithExecution",
-			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				Execution:   utility.ToIntPtr(0),
-				DisplayTask: true,
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					Execution:   utility.ToIntPtr(0),
+					DisplayTask: true,
+				},
 			},
 			expectedResult: []string{
 				"test0",
@@ -341,9 +412,11 @@ func (s *testResultsConnectorSuite) TestGetFailedTestResultsSample() {
 		},
 		{
 			name: "DisplayTaskIDWithoutExecution",
-			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				DisplayTask: true,
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					DisplayTask: true,
+				},
 			},
 			expectedResult: []string{
 				"test0",
@@ -355,8 +428,8 @@ func (s *testResultsConnectorSuite) TestGetFailedTestResultsSample() {
 			},
 		},
 	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			actualResult, err := s.sc.GetFailedTestResultsSample(s.ctx, test.opts)
+		s.Run(test.name, func() {
+			actualResult, err := s.sc.FindFailedTestResultsSample(s.ctx, test.opts)
 
 			if test.hasErr {
 				s.Nil(actualResult)
@@ -373,32 +446,29 @@ func (s *testResultsConnectorSuite) TestGetFailedTestResultsSample() {
 	}
 }
 
-func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
+func (s *testResultsConnectorSuite) TestFindTestResultsStats() {
 	for _, test := range []struct {
 		name           string
-		opts           TestResultsOptions
+		opts           []TestResultsTaskOptions
 		expectedResult *model.APITestResultsStats
 		hasErr         bool
 	}{
 		{
-			name:   "FailsWithEmptyOptions",
+			name:   "EmptyOptions",
 			hasErr: true,
 		},
 		{
-			name:   "FailsWhenTaskIDDNE",
-			opts:   TestResultsOptions{TaskID: "DNE"},
-			hasErr: true,
+			name:           "TaskIDDNE",
+			opts:           []TestResultsTaskOptions{{TaskID: "DNE"}},
+			expectedResult: &model.APITestResultsStats{},
 		},
 		{
-			name:   "FailsWhenDisplayTaskIDDNE",
-			opts:   TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-			hasErr: true,
-		},
-		{
-			name: "TaskIDWithExecution",
-			opts: TestResultsOptions{
-				TaskID:    "task1",
-				Execution: utility.ToIntPtr(0),
+			name: "SingleTask",
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
+				},
 			},
 			expectedResult: &model.APITestResultsStats{
 				TotalCount:  3,
@@ -406,8 +476,25 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 			},
 		},
 		{
+			name: "MultipleTasks",
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
+				},
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  6,
+				FailedCount: 6,
+			},
+		},
+		{
 			name: "TaskIDWithoutExecution",
-			opts: TestResultsOptions{TaskID: "task1"},
+			opts: []TestResultsTaskOptions{{TaskID: "task1"}},
 			expectedResult: &model.APITestResultsStats{
 				TotalCount:  3,
 				FailedCount: 3,
@@ -415,10 +502,12 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 		},
 		{
 			name: "DisplayTaskIDWithExecution",
-			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				Execution:   utility.ToIntPtr(0),
-				DisplayTask: true,
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					Execution:   utility.ToIntPtr(0),
+					DisplayTask: true,
+				},
 			},
 			expectedResult: &model.APITestResultsStats{
 				TotalCount:  6,
@@ -427,9 +516,11 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 		},
 		{
 			name: "DisplayTaskIDWithoutExecution",
-			opts: TestResultsOptions{
-				TaskID:      "display_task1",
-				DisplayTask: true,
+			opts: []TestResultsTaskOptions{
+				{
+					TaskID:      "display_task1",
+					DisplayTask: true,
+				},
 			},
 			expectedResult: &model.APITestResultsStats{
 				TotalCount:  6,
@@ -437,8 +528,8 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 			},
 		},
 	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			actualResult, err := s.sc.GetTestResultsStats(s.ctx, test.opts)
+		s.Run(test.name, func() {
+			actualResult, err := s.sc.FindTestResultsStats(s.ctx, test.opts)
 
 			if test.hasErr {
 				s.Error(err)
@@ -450,15 +541,15 @@ func (s *testResultsConnectorSuite) TestGetTestResultsStats() {
 	}
 }
 
-func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
+func (s *testResultsConnectorSuite) TestFindFailedTestResultsSamples() {
 	for testName, testCase := range map[string]struct {
-		tasks          []TaskInfo
+		tasks          []TestResultsTaskOptions
 		expectedResult []model.APITestResultsSample
 		hasErr         bool
 	}{
 		"SingleTask": {
-			tasks: []TaskInfo{
-				{TaskID: "display_task2", DisplayTask: true},
+			tasks: []TestResultsTaskOptions{
+				{TaskID: "display_task2", DisplayTask: true, Execution: utility.ToIntPtr(0)},
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
@@ -469,14 +560,14 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 		},
 		"NoMatchingTask": {
-			tasks: []TaskInfo{
+			tasks: []TestResultsTaskOptions{
 				{TaskID: "doesNotExist"},
 			},
 			expectedResult: []model.APITestResultsSample{},
 		},
 		"MultipleExecutionTasks": {
-			tasks: []TaskInfo{
-				{TaskID: "display_task1", DisplayTask: true, Execution: 0},
+			tasks: []TestResultsTaskOptions{
+				{TaskID: "display_task1", DisplayTask: true, Execution: utility.ToIntPtr(0)},
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
@@ -487,8 +578,8 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 			},
 		},
 		"LaterExecution": {
-			tasks: []TaskInfo{
-				{TaskID: "display_task1", DisplayTask: true, Execution: 1},
+			tasks: []TestResultsTaskOptions{
+				{TaskID: "display_task1", DisplayTask: true, Execution: utility.ToIntPtr(1)},
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
@@ -501,7 +592,7 @@ func (s *testResultsConnectorSuite) TestGetTestResultsFilteredSamples() {
 		},
 	} {
 		s.Run(testName, func() {
-			samples, err := s.sc.GetTestResultsFilteredSamples(s.ctx, TestSampleOptions{Tasks: testCase.tasks})
+			samples, err := s.sc.FindFailedTestResultsSamples(s.ctx, testCase.tasks, nil)
 			if testCase.hasErr {
 				s.Error(err)
 			} else {

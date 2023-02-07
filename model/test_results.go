@@ -82,7 +82,7 @@ var (
 	testResultsFailedTestsSampleKey = bsonutil.MustHaveTag(TestResults{}, "FailedTestsSample")
 )
 
-// CreateTestResults is an entry point for creating a new TestResults.
+// CreateTestResults is an entry point for creating a new TestResults record.
 func CreateTestResults(info TestResultsInfo, artifactStorageType PailType) *TestResults {
 	return &TestResults{
 		ID:        info.ID(),
@@ -101,7 +101,7 @@ func CreateTestResults(info TestResultsInfo, artifactStorageType PailType) *Test
 // functions on TestResults.
 func (t *TestResults) Setup(e cedar.Environment) { t.env = e }
 
-// IsNil returns if the TestResults is populated or not.
+// IsNil returns if the TestResults record is populated or not.
 func (t *TestResults) IsNil() bool { return !t.populated }
 
 // PrestoPartitionKey returns the partition key for the S3 bucket in Presto.
@@ -109,8 +109,8 @@ func (t *TestResults) PrestoPartitionKey() string {
 	return fmt.Sprintf("task_create_iso=%s/project=%s/%s", t.CreatedAt.UTC().Format(parquetDateFormat), t.Info.Project, t.Artifact.Prefix)
 }
 
-// Find searches the DB for the TestResults. The environment should not be
-// nil.
+// Find searches the DB for the TestResults record. The environment should not
+// be nil.
 func (t *TestResults) Find(ctx context.Context) error {
 	if t.env == nil {
 		return errors.New("cannot find with a nil environment")
@@ -129,9 +129,9 @@ func (t *TestResults) Find(ctx context.Context) error {
 	return nil
 }
 
-// SaveNew saves a new TestResults to the DB, if a document with the same
-// ID already exists an error is returned. The TestResults should be populated
-// and the environment should not be nil.
+// SaveNew saves a new TestResults record to the DB, if a document with the
+// same ID already exists an error is returned. The TestResults record should
+// be populated and the environment should not be nil.
 func (t *TestResults) SaveNew(ctx context.Context) error {
 	if !t.populated {
 		return errors.New("cannot save unpopulated test results")
@@ -155,8 +155,8 @@ func (t *TestResults) SaveNew(ctx context.Context) error {
 	return errors.Wrapf(err, "saving new test results record '%s'", t.ID)
 }
 
-// Remove removes the test results document from the DB. The environment
-// should not be nil.
+// Remove removes the TestResults record from the DB. The environment should
+// not be nil.
 func (t *TestResults) Remove(ctx context.Context) error {
 	if t.env == nil {
 		return errors.New("cannot remove with a nil environment")
@@ -178,7 +178,7 @@ func (t *TestResults) Remove(ctx context.Context) error {
 }
 
 // Append uploads test results to the offline blob storage bucket configured
-// for the task execution. The TestResults should be populated and the
+// for the task execution. The TestResults record should be populated and the
 // environment should not be nil.
 func (t *TestResults) Append(ctx context.Context, results []TestResult) error {
 	if !t.populated {
@@ -298,7 +298,7 @@ func (t *TestResults) updateStatsAndFailedSample(ctx context.Context, results []
 }
 
 // Download returns a TestResult slice with the corresponding results stored in
-// the offline blob storage. The TestResults should be populated and the
+// the offline blob storage. The TestResults record should be populated and the
 // environment should not be nil.
 func (t *TestResults) Download(ctx context.Context) ([]TestResult, error) {
 	if !t.populated {
@@ -455,7 +455,7 @@ func (t *TestResults) Close(ctx context.Context) error {
 }
 
 // GetBucket returns a bucket of all test results specified by the TestResults
-// metadata object it's called on. The environment should not be nil.
+// record it's called on. The environment should not be nil.
 func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 	if t.bucket == "" {
 		conf := &CedarConfig{}
@@ -483,8 +483,8 @@ func (t *TestResults) GetBucket(ctx context.Context) (pail.Bucket, error) {
 }
 
 // GetPrestoBucket returns an S3 bucket of all test results specified by the
-// TestResults metadata object it's called on to be used with Presto. The
-// environment should not be nil.
+// TestResults record it's called on to be used with Presto. The environment
+// should not be nil.
 func (t *TestResults) GetPrestoBucket(ctx context.Context) (pail.Bucket, error) {
 	if t.prestoBucketPrefix == "" {
 		conf := &CedarConfig{}
@@ -563,11 +563,13 @@ func (id *TestResultsInfo) ID() string {
 
 // TestResultsStats describes basic stats of the test results.
 type TestResultsStats struct {
-	TotalCount  int `bson:"total_count"`
-	FailedCount int `bson:"failed_count"`
+	TotalCount    int  `bson:"total_count"`
+	FailedCount   int  `bson:"failed_count"`
+	FilteredCount *int `bson:"-"`
 }
 
-// TestResultsSample contains test names culled from a test result's FailedTestsSample.
+// TestResultsSample contains test names culled from a test result's
+// FailedTestsSample.
 type TestResultsSample struct {
 	TaskID                  string
 	Execution               int
@@ -581,7 +583,7 @@ var (
 )
 
 // TestResult describes a single test result to be stored as a BSON object in
-// some type of pail bucket storage.
+// some type of Pail bucket storage.
 type TestResult struct {
 	TaskID          string    `bson:"task_id"`
 	Execution       int       `bson:"execution"`
@@ -643,24 +645,19 @@ func (t TestResult) convertToParquet() ParquetTestResult {
 	return result
 }
 
-// FindTestResultsOptions allow for querying for test results with or without
-// an execution value.
-type FindTestResultsOptions struct {
-	TaskID      string
-	Execution   *int
+// TestResultsTaskOptions specify the criteria for querying test results by
+// task.
+type TestResultsTaskOptions struct {
+	TaskID string
+	// TODO (EVG-18798): Make this field required once Evergreen and Spruce
+	// are updated.
+	Execution *int
+	// TODO (EVG-18798): Remove this field once Evergreen and Spruce are
+	// updated.
 	DisplayTask bool
 }
 
-func (opts *FindTestResultsOptions) validate() error {
-	catcher := grip.NewBasicCatcher()
-
-	catcher.NewWhen(opts.TaskID == "", "must specify a task ID")
-	catcher.NewWhen(utility.FromIntPtr(opts.Execution) < 0, "cannot specify a negative execution number")
-
-	return catcher.Resolve()
-}
-
-func (opts *FindTestResultsOptions) createFindOptions() *options.FindOptions {
+func (opts *TestResultsTaskOptions) createFindOptions() *options.FindOptions {
 	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
 	if !opts.DisplayTask {
 		findOpts = findOpts.SetLimit(1)
@@ -669,24 +666,26 @@ func (opts *FindTestResultsOptions) createFindOptions() *options.FindOptions {
 	return findOpts
 }
 
-func (opts *FindTestResultsOptions) createFindQuery() map[string]interface{} {
+func (opts *TestResultsTaskOptions) createFindQuery() bson.M {
 	if opts.DisplayTask {
-		search := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): opts.TaskID}
+		query := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): opts.TaskID}
 		if opts.Execution != nil {
-			search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = bson.M{"$lte": *opts.Execution}
+			query[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = bson.M{"$lte": *opts.Execution}
 		}
-		return search
+
+		return query
 	}
 
-	search := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID}
+	query := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID}
 	if opts.Execution != nil {
-		search[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
+		query[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
 	}
 
-	return search
+	return query
 }
 
-func (opts *FindTestResultsOptions) createPipelineForDisplayTasks() []bson.M {
+// TODO (EVG-18798): Remove once Evergreen and Spruce are updated.
+func (opts *TestResultsTaskOptions) createPipelineForDisplayTasks() []bson.M {
 	return []bson.M{
 		{"$match": opts.createFindQuery()},
 		{"$sort": bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey): -1}},
@@ -698,54 +697,40 @@ func (opts *FindTestResultsOptions) createPipelineForDisplayTasks() []bson.M {
 	}
 }
 
-func (opts *FindTestResultsOptions) createErrorMessage() string {
-	var msg string
-	if opts.DisplayTask {
-		msg = fmt.Sprintf("could not find test results records with display task ID '%s'", opts.TaskID)
-	} else {
-		msg = fmt.Sprintf("could not find test results record with task ID '%s'", opts.TaskID)
-	}
-	if opts.Execution != nil {
-		msg += fmt.Sprintf(" and execution %d", opts.Execution)
-	}
-	msg += ""
-
-	return msg
-}
-
-// FindTestResults searches the DB for the TestResults associated with
-// the provided options. The environment should not be nil. If execution is
-// nil, it will default to the most recent execution.
-func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) ([]TestResults, error) {
+// FindTestResults returns the TestResults records for the given tasks. The
+// environment should not be nil.
+func FindTestResults(ctx context.Context, env cedar.Environment, opts []TestResultsTaskOptions) ([]TestResults, error) {
 	if env == nil {
 		return nil, errors.New("cannot find with a nil environment")
 	}
-
-	if err := opts.validate(); err != nil {
-		return nil, errors.Wrap(err, "invalid find options")
+	if len(opts) == 0 {
+		return nil, errors.New("must specify at least one task to search")
 	}
 
 	var (
 		cur *mongo.Cursor
 		err error
 	)
-
-	if opts.DisplayTask {
-		pipeline := opts.createPipelineForDisplayTasks()
-		cur, err = env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
+	if len(opts) == 1 {
+		if opts[0].DisplayTask {
+			cur, err = env.GetDB().Collection(testResultsCollection).Aggregate(ctx, opts[0].createPipelineForDisplayTasks())
+		} else {
+			cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts[0].createFindQuery(), opts[0].createFindOptions())
+		}
 	} else {
-		cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
+		findQueries := make([]bson.M, len(opts))
+		for i, task := range opts {
+			findQueries[i] = task.createFindQuery()
+		}
+		cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, bson.M{"$or": findQueries})
 	}
-
-	results := []TestResults{}
 	if err != nil {
 		return nil, errors.Wrap(err, "finding test results record(s)")
 	}
+
+	var results []TestResults
 	if err := cur.All(ctx, &results); err != nil {
 		return nil, errors.Wrap(err, "decoding test results record(s)")
-	}
-	if len(results) == 0 {
-		return nil, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
 	}
 
 	for i := range results {
@@ -755,64 +740,66 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts FindTestRe
 	return results, nil
 }
 
-// FindTestSamplesOptions specifies test results to collect test names from
-// and regex filters to apply to the test names.
-type FindTestSamplesOptions struct {
-	Tasks           []FindTestResultsOptions
-	TestNameRegexes []string
-}
-
-func (opts *FindTestSamplesOptions) createFindQuery() map[string]interface{} {
-	findQueries := []bson.M{}
-	for _, task := range opts.Tasks {
-		findQueries = append(findQueries, task.createFindQuery())
+// FindFailedTestResultsSamples fetches the TestResults records for the given
+// tasks and returns the filtered failed samples for each task. The environment
+// should not be nil.
+func FindFailedTestResultsSamples(ctx context.Context, env cedar.Environment, taskOpts []TestResultsTaskOptions, regexFilters []string) ([]TestResultsSample, error) {
+	if env == nil {
+		return nil, errors.New("cannot find with a nil environment")
+	}
+	if len(taskOpts) == 0 {
+		return nil, errors.New("must specify at least one task to search")
 	}
 
-	return bson.M{"$or": findQueries}
+	findQueries := []bson.M{}
+	for _, task := range taskOpts {
+		findQueries = append(findQueries, task.createFindQuery())
+	}
+	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, bson.M{"$or": findQueries})
+	if err != nil {
+		return nil, errors.Wrap(err, "finding test results record(s)")
+	}
+	var results []TestResults
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, errors.Wrap(err, "decoding test results record(s)")
+	}
+
+	return makeTestSamples(taskOpts, regexFilters, results)
 }
 
-func (opts *FindTestSamplesOptions) createFindOptions() *options.FindOptions {
-	return options.Find().SetProjection(bson.M{
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey):        1,
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): 1,
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey):     1,
-		testResultsFailedTestsSampleKey:                                                1,
-	})
-}
-
-func (opts *FindTestSamplesOptions) makeTestSamples(testResults []TestResults) ([]TestResultsSample, error) {
-	samples := opts.consolidateSamples(testResults)
-	if len(opts.TestNameRegexes) == 0 {
+func makeTestSamples(taskOpts []TestResultsTaskOptions, regexFilters []string, records []TestResults) ([]TestResultsSample, error) {
+	samples := consolidateSamples(taskOpts, records)
+	if len(regexFilters) == 0 {
 		return samples, nil
 	}
 
-	return filterTestNames(samples, opts.TestNameRegexes)
+	return filterTestSamples(samples, regexFilters)
 }
 
-func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults) []TestResultsSample {
+func consolidateSamples(opts []TestResultsTaskOptions, records []TestResults) []TestResultsSample {
 	type taskExecutionPair struct {
 		taskID    string
 		execution int
 	}
 	displayTaskMap := make(map[taskExecutionPair][]string)
 	executionTaskMap := make(map[taskExecutionPair][]string)
-	for _, result := range testResults {
-		if result.Info.DisplayTaskID != "" {
+	for _, record := range records {
+		if record.Info.DisplayTaskID != "" {
 			dt := taskExecutionPair{
-				taskID:    result.Info.DisplayTaskID,
-				execution: result.Info.Execution,
+				taskID:    record.Info.DisplayTaskID,
+				execution: record.Info.Execution,
 			}
-			displayTaskMap[dt] = append(displayTaskMap[dt], result.FailedTestsSample...)
+			displayTaskMap[dt] = append(displayTaskMap[dt], record.FailedTestsSample...)
 		}
 		et := taskExecutionPair{
-			taskID:    result.Info.TaskID,
-			execution: result.Info.Execution,
+			taskID:    record.Info.TaskID,
+			execution: record.Info.Execution,
 		}
-		executionTaskMap[et] = result.FailedTestsSample
+		executionTaskMap[et] = record.FailedTestsSample
 	}
 
-	samples := make([]TestResultsSample, 0, len(opts.Tasks))
-	for _, t := range opts.Tasks {
+	samples := make([]TestResultsSample, 0, len(opts))
+	for _, t := range opts {
 		pair := taskExecutionPair{
 			taskID:    t.TaskID,
 			execution: utility.FromIntPtr(t.Execution),
@@ -840,10 +827,10 @@ func (opts *FindTestSamplesOptions) consolidateSamples(testResults []TestResults
 	return samples
 }
 
-func filterTestNames(samples []TestResultsSample, regexStrings []string) ([]TestResultsSample, error) {
+func filterTestSamples(samples []TestResultsSample, regexFilters []string) ([]TestResultsSample, error) {
 	regexes := []*regexp.Regexp{}
-	for _, regexString := range regexStrings {
-		testNameRegex, err := regexp.Compile(regexString)
+	for _, filter := range regexFilters {
+		testNameRegex, err := regexp.Compile(filter)
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid regex")
 		}
@@ -865,25 +852,6 @@ func filterTestNames(samples []TestResultsSample, regexStrings []string) ([]Test
 	}
 
 	return filteredSamples, nil
-}
-
-// GetTestResultsFilteredSamples finds the specified test results and returns the filtered samples.
-// The environment should not be nil.
-func GetTestResultsFilteredSamples(ctx context.Context, env cedar.Environment, opts FindTestSamplesOptions) ([]TestResultsSample, error) {
-	if env == nil {
-		return nil, errors.New("cannot find with a nil environment")
-	}
-
-	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, opts.createFindQuery(), opts.createFindOptions())
-	if err != nil {
-		return nil, errors.Wrap(err, "finding test results record(s)")
-	}
-	results := []TestResults{}
-	if err := cur.All(ctx, &results); err != nil {
-		return nil, errors.Wrap(err, "decoding test results record(s)")
-	}
-
-	return opts.makeTestSamples(results)
 }
 
 // TestResultsSortBy describes the property by which to sort a set of test
@@ -908,9 +876,9 @@ func (s TestResultsSortBy) validate() error {
 	}
 }
 
-// FilterAndSortTestResultsOptions allow for filtering, sorting, and paginating
+// TestResultsFilterAndSortOptions allow for filtering, sorting, and paginating
 // a set of test results.
-type FilterAndSortTestResultsOptions struct {
+type TestResultsFilterAndSortOptions struct {
 	TestName     string
 	Statuses     []string
 	GroupID      string
@@ -918,13 +886,13 @@ type FilterAndSortTestResultsOptions struct {
 	SortOrderDSC bool
 	Limit        int
 	Page         int
-	BaseResults  *FindTestResultsOptions
+	BaseResults  []TestResultsTaskOptions
 
 	testNameRegex *regexp.Regexp
 	baseStatusMap map[string]string
 }
 
-func (o *FilterAndSortTestResultsOptions) validate() error {
+func (o *TestResultsFilterAndSortOptions) validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
@@ -944,25 +912,21 @@ func (o *FilterAndSortTestResultsOptions) validate() error {
 	return catcher.Resolve()
 }
 
-// FindAndDownloadTestResults allow for finding, downloading, filtering,
-// sorting, and paginating test results.
-type FindAndDownloadTestResultsOptions struct {
-	Find          FindTestResultsOptions
-	FilterAndSort *FilterAndSortTestResultsOptions
-}
-
-// FindAndDownloadTestResults searches the DB for the TestResults
-// associated with the provided options and returns the downloaded test
-// results filtered, sorted, and paginated. The environment should not be nil.
-// If execution is nil, it will default to the most recent execution.
-func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts FindAndDownloadTestResultsOptions) ([]TestResult, int, error) {
-	testResults, err := FindTestResults(ctx, env, opts.Find)
+// FindAndDownloadTestResults fetches the TestResults records for the given
+// tasks and returns the downloaded test results filtered, sorted, and
+// paginated. The environment should not be nil.
+func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, taskOpts []TestResultsTaskOptions, filterOpts *TestResultsFilterAndSortOptions) (TestResultsStats, []TestResult, error) {
+	testResults, err := FindTestResults(ctx, env, taskOpts)
 	if err != nil {
-		return nil, 0, err
+		return TestResultsStats{}, nil, errors.Wrap(err, "finding test results")
 	}
 
+	stats := TestResultsStats{}
 	testResultsChan := make(chan TestResults, len(testResults))
 	for i := range testResults {
+		stats.TotalCount += testResults[i].Stats.TotalCount
+		stats.FailedCount += testResults[i].Stats.FailedCount
+
 		testResultsChan <- testResults[i]
 	}
 	close(testResultsChan)
@@ -1015,15 +979,21 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, opts
 	cwg.Wait()
 
 	if catcher.HasErrors() {
-		return nil, 0, catcher.Resolve()
+		return TestResultsStats{}, nil, catcher.Resolve()
 	}
 
-	return filterAndSortTestResults(ctx, env, combinedResults, opts.FilterAndSort)
+	filteredResults, filteredCount, err := filterAndSortTestResults(ctx, env, combinedResults, filterOpts)
+	if err != nil {
+		return TestResultsStats{}, nil, errors.Wrap(err, "filtering and sorting test results")
+	}
+	stats.FilteredCount = &filteredCount
+
+	return stats, filteredResults, nil
 }
 
-// filterAndSortCedarTestResults takes a slice of TestResult objects and
-// returns a filtered sorted and paginated version of that slice.
-func filterAndSortTestResults(ctx context.Context, env cedar.Environment, results []TestResult, opts *FilterAndSortTestResultsOptions) ([]TestResult, int, error) {
+// filterAndSortCedarTestResults takes a slice of test results and returns a
+// filtered sorted and paginated version of that slice.
+func filterAndSortTestResults(ctx context.Context, env cedar.Environment, results []TestResult, opts *TestResultsFilterAndSortOptions) ([]TestResult, int, error) {
 	if opts == nil {
 		return results, len(results), nil
 	}
@@ -1033,7 +1003,7 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 	}
 
 	if opts.BaseResults != nil {
-		baseResults, _, err := FindAndDownloadTestResults(ctx, env, FindAndDownloadTestResultsOptions{Find: *opts.BaseResults})
+		_, baseResults, err := FindAndDownloadTestResults(ctx, env, opts.BaseResults, nil)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "getting base test results")
 		}
@@ -1067,7 +1037,7 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 	return results, totalCount, nil
 }
 
-func filterTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions) []TestResult {
+func filterTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions) []TestResult {
 	if opts.testNameRegex == nil && len(opts.Statuses) == 0 && opts.GroupID == "" {
 		return results
 	}
@@ -1090,7 +1060,7 @@ func filterTestResults(results []TestResult, opts *FilterAndSortTestResultsOptio
 	return filteredResults
 }
 
-func sortTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions) {
+func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions) {
 	switch opts.SortBy {
 	case TestResultsSortByStart:
 		sort.SliceStable(results, func(i, j int) bool {
@@ -1130,101 +1100,55 @@ func sortTestResults(results []TestResult, opts *FilterAndSortTestResultsOptions
 	}
 }
 
-// GetTestResultsStats fetches basic stats for the test results associated with
-// the provided options. The environment should not be nil. If execution is
-// nil, it will default to the most recent execution.
-func GetTestResultsStats(ctx context.Context, env cedar.Environment, opts FindTestResultsOptions) (TestResultsStats, error) {
-	var stats TestResultsStats
+// FindTestResultsStats fetches basic aggregated stats of the test results for
+// the given tasks. The environment should not be nil.
+func FindTestResultsStats(ctx context.Context, env cedar.Environment, opts []TestResultsTaskOptions) (TestResultsStats, error) {
+	if len(opts) == 0 {
+		return TestResultsStats{}, errors.New("must specify at least one task to search")
+	}
 
-	if !opts.DisplayTask {
-		testResultsRecords, err := FindTestResults(ctx, env, opts)
-		if err != nil {
-			return stats, err
+	if opts[0].DisplayTask {
+		if env == nil {
+			return TestResultsStats{}, errors.New("cannot find with a nil environment")
 		}
 
-		return testResultsRecords[0].Stats, nil
-	}
-
-	if env == nil {
-		return stats, errors.New("cannot find with a nil environment")
-	}
-	if err := opts.validate(); err != nil {
-		return stats, errors.Wrap(err, "invalid find options")
-	}
-
-	pipeline := opts.createPipelineForDisplayTasks()
-	pipeline = append(pipeline, bson.M{
-		"$group": bson.M{
-			"_id": nil,
-			testResultsStatsTotalCountKey: bson.M{
-				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
+		pipeline := opts[0].createPipelineForDisplayTasks()
+		pipeline = append(pipeline, bson.M{
+			"$group": bson.M{
+				"_id": nil,
+				testResultsStatsTotalCountKey: bson.M{
+					"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
+				},
+				testResultsStatsFailedCountKey: bson.M{
+					"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey),
+				},
 			},
-			testResultsStatsFailedCountKey: bson.M{
-				"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey),
-			},
-		},
-	})
+		})
+		cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
+		if err != nil {
+			return TestResultsStats{}, errors.Wrap(err, "aggregating test results stats")
+		}
+		if !cur.Next(ctx) {
+			return TestResultsStats{}, nil
+		}
 
-	cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
+		var stats TestResultsStats
+		return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
+	}
+
+	testResultsRecords, err := FindTestResults(ctx, env, opts)
 	if err != nil {
-		return stats, errors.Wrap(err, "aggregating test results stats")
-	}
-	if !cur.Next(ctx) {
-		return stats, errors.Wrap(mongo.ErrNoDocuments, opts.createErrorMessage())
+		return TestResultsStats{}, err
 	}
 
-	return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
-}
-
-// FindTestResultsByProjectOptions represent the set of options for finding
-// test results by project name.
-type FindTestResultsByProjectOptions struct {
-	Projects []string
-	StartAt  time.Time
-	EndAt    time.Time
-}
-
-func (o FindTestResultsByProjectOptions) validate() error {
-	catcher := grip.NewBasicCatcher()
-
-	catcher.NewWhen(len(o.Projects) == 0, "must specify at least one project")
-	catcher.NewWhen(o.StartAt.After(o.EndAt), "the start date cannot be greater than the end date")
-	catcher.NewWhen(o.EndAt.IsZero(), "end date cannot be zero")
-
-	return catcher.Resolve()
-}
-
-// FindTestResultsByProject returns all test results with the
-// given set of project names and within the given date interval.
-func FindTestResultsByProject(ctx context.Context, env cedar.Environment, opts FindTestResultsByProjectOptions) ([]TestResults, error) {
-	if err := opts.validate(); err != nil {
-		return nil, errors.Wrap(err, "invalid options")
+	var stats TestResultsStats
+	for _, trr := range testResultsRecords {
+		stats.TotalCount += trr.Stats.TotalCount
+		stats.FailedCount += trr.Stats.FailedCount
 	}
 
-	filter := bson.M{
-		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoProjectKey): bson.M{"$in": opts.Projects},
-		testResultsCreatedAtKey: bson.M{
-			"$gte": opts.StartAt,
-			"$lt":  opts.EndAt,
-		},
-	}
+	return stats, nil
 
-	cur, err := env.GetDB().Collection(testResultsCollection).Find(ctx, filter)
-	if err != nil {
-		return nil, errors.Wrap(err, "finding test results")
-	}
-
-	var results []TestResults
-	if err = cur.All(ctx, &results); err != nil {
-		return nil, errors.Wrap(err, "decoding test results")
-	}
-
-	for i := range results {
-		results[i].env = env
-		results[i].populated = true
-	}
-
-	return results, nil
 }
 
 // ParquetTestResults describes a set of test results from a task execution to

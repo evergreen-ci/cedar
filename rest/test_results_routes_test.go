@@ -31,6 +31,7 @@ func newTestEnv() (cedar.Environment, error) {
 		SocketTimeout:      time.Minute,
 		NumWorkers:         2,
 		DisableRemoteQueue: true,
+		DisableCache:       true,
 	})
 	if err != nil {
 		return nil, err
@@ -148,8 +149,6 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 		"task_id":             makeGetTestResultsByTaskID(s.sc),
 		"failed_tests_sample": makeGetTestResultsFailedSample(s.sc),
 		"stats":               makeGetTestResultsStats(s.sc),
-		"display_task_id":     makeGetTestResultsByDisplayTaskID(s.sc),
-		"test_name":           makeGetTestResultByTestName(s.sc),
 	}
 }
 
@@ -179,29 +178,27 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 	for _, test := range []struct {
 		name           string
 		ctx            context.Context
-		opts           data.TestResultsOptions
+		taskOpts       data.TestResultsTaskOptions
+		filterOpts     *data.TestResultsFilterAndSortOptions
 		expectedResult *model.APITestResults
 		errorStatus    int
 	}{
 		{
-			name:        "FailsWithContextError",
+			name:        "ContextError",
 			ctx:         canceledCtx,
-			opts:        data.TestResultsOptions{TaskID: "task1"},
+			taskOpts:    data.TestResultsTaskOptions{TaskID: "task1"},
 			errorStatus: http.StatusInternalServerError,
 		},
 		{
-			name:        "FailsWhenTaskIDDNE",
-			opts:        data.TestResultsOptions{TaskID: "DNE"},
-			errorStatus: http.StatusNotFound,
+			name:     "TaskIDDNE",
+			taskOpts: data.TestResultsTaskOptions{TaskID: "DNE"},
+			expectedResult: &model.APITestResults{
+				Stats: model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},
+			},
 		},
 		{
-			name:        "FailsWhenDisplayTaskIDDNE",
-			opts:        data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-			errorStatus: http.StatusNotFound,
-		},
-		{
-			name: "SucceedsWithTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "TaskIDAndExecution",
+			taskOpts: data.TestResultsTaskOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
 			},
@@ -215,8 +212,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 		},
 		{
-			name: "TaskIDWithoutExecution",
-			opts: data.TestResultsOptions{TaskID: "task1"},
+			name:     "TaskIDWithoutExecution",
+			taskOpts: data.TestResultsTaskOptions{TaskID: "task1"},
 			expectedResult: &model.APITestResults{
 				Stats: model.APITestResultsStats{
 					TotalCount:    3,
@@ -227,14 +224,12 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 		},
 		{
-			name: "SucceedsWithTaskIDAndFilterAndSort",
-			opts: data.TestResultsOptions{
+			name: "TaskIDAndFilterAndSort",
+			taskOpts: data.TestResultsTaskOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
-				FilterAndSort: &data.TestResultsFilterAndSortOptions{
-					TestName: "test1",
-				},
 			},
+			filterOpts: &data.TestResultsFilterAndSortOptions{TestName: "test1"},
 			expectedResult: &model.APITestResults{
 				Stats: model.APITestResultsStats{
 					TotalCount:    3,
@@ -245,8 +240,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndExecution",
+			taskOpts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(1),
 				DisplayTask: true,
@@ -261,8 +256,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndNoExecution",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndNoExecution",
+			taskOpts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
 			},
@@ -276,14 +271,12 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndFilterAndSort",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndFilterAndSort",
+			taskOpts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
-				FilterAndSort: &data.TestResultsFilterAndSortOptions{
-					TestName: "test1",
-				},
 			},
+			filterOpts: &data.TestResultsFilterAndSortOptions{TestName: "test1"},
 			expectedResult: &model.APITestResults{
 				Stats: model.APITestResultsStats{
 					TotalCount:    6,
@@ -294,8 +287,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTaskIDHandler() {
 			},
 		},
 	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			rh.opts = test.opts
+		s.Run(test.name, func() {
+			rh.taskOpts = test.taskOpts
+			rh.filterOpts = test.filterOpts
 			ctx := test.ctx
 			if ctx == nil {
 				ctx = context.TODO()
@@ -338,42 +332,36 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSample() {
 	for _, test := range []struct {
 		name           string
 		ctx            context.Context
-		opts           data.TestResultsOptions
+		opts           data.TestResultsTaskOptions
 		expectedResult []string
 		errorStatus    int
 	}{
 		{
-			name:        "FailsWithContextError",
+			name:        "ContextError",
 			ctx:         canceledCtx,
-			opts:        data.TestResultsOptions{TaskID: "task1"},
+			opts:        data.TestResultsTaskOptions{TaskID: "task1"},
 			errorStatus: http.StatusInternalServerError,
 		},
 		{
-			name:        "FailsWhenTaskIDDNE",
-			opts:        data.TestResultsOptions{TaskID: "DNE"},
-			errorStatus: http.StatusNotFound,
+			name: "TaskIDDNE",
+			opts: data.TestResultsTaskOptions{TaskID: "DNE"},
 		},
 		{
-			name:        "FailsWhenDisplayTaskIDDNE",
-			opts:        data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-			errorStatus: http.StatusNotFound,
-		},
-		{
-			name: "SucceedsWithTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "TaskIDAndExecution",
+			opts: data.TestResultsTaskOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
-			name:           "SucceedsWithTaskIDAndNoExecution",
-			opts:           data.TestResultsOptions{TaskID: "task1"},
+			name:           "TaskIDAndNoExecution",
+			opts:           data.TestResultsTaskOptions{TaskID: "task1"},
 			expectedResult: []string{"test0", "test1", "test2"},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndExecution",
+			opts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
@@ -381,16 +369,16 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSample() {
 			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndExecution",
+			opts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
 			},
 			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
 		},
 	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			rh.opts = test.opts
+		s.Run(test.name, func() {
+			rh.taskOpts = test.opts
 			ctx := test.ctx
 			if ctx == nil {
 				ctx = context.TODO()
@@ -418,29 +406,24 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
 	for _, test := range []struct {
 		name           string
 		ctx            context.Context
-		opts           data.TestResultsOptions
+		opts           data.TestResultsTaskOptions
 		expectedResult *model.APITestResultsStats
 		errorStatus    int
 	}{
 		{
-			name:        "FailsWithContextError",
+			name:        "ContextError",
 			ctx:         canceledCtx,
-			opts:        data.TestResultsOptions{TaskID: "task1"},
+			opts:        data.TestResultsTaskOptions{TaskID: "task1"},
 			errorStatus: http.StatusInternalServerError,
 		},
 		{
-			name:        "FailsWhenTaskIDDNE",
-			opts:        data.TestResultsOptions{TaskID: "DNE"},
-			errorStatus: http.StatusNotFound,
+			name:           "TaskIDDNE",
+			opts:           data.TestResultsTaskOptions{TaskID: "DNE"},
+			expectedResult: &model.APITestResultsStats{},
 		},
 		{
-			name:        "FailsWhenDisplayTaskIDDNE",
-			opts:        data.TestResultsOptions{TaskID: "DNE", DisplayTask: true},
-			errorStatus: http.StatusNotFound,
-		},
-		{
-			name: "SucceedsWithTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "TaskIDAndExecution",
+			opts: data.TestResultsTaskOptions{
 				TaskID:    "task1",
 				Execution: utility.ToIntPtr(0),
 			},
@@ -450,16 +433,16 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
 			},
 		},
 		{
-			name: "SucceedsWithTaskIDAndNoExecution",
-			opts: data.TestResultsOptions{TaskID: "task1"},
+			name: "TaskIDAndNoExecution",
+			opts: data.TestResultsTaskOptions{TaskID: "task1"},
 			expectedResult: &model.APITestResultsStats{
 				TotalCount:  3,
 				FailedCount: 3,
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndExecution",
+			opts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				Execution:   utility.ToIntPtr(0),
 				DisplayTask: true,
@@ -470,8 +453,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
 			},
 		},
 		{
-			name: "SucceedsWithDisplayTaskIDAndExecution",
-			opts: data.TestResultsOptions{
+			name: "DisplayTaskIDAndExecution",
+			opts: data.TestResultsTaskOptions{
 				TaskID:      "display_task1",
 				DisplayTask: true,
 			},
@@ -481,8 +464,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
 			},
 		},
 	} {
-		s.T().Run(test.name, func(t *testing.T) {
-			rh.opts = test.opts
+		s.Run(test.name, func() {
+			rh.taskOpts = test.opts
 			ctx := test.ctx
 			if ctx == nil {
 				ctx = context.TODO()
@@ -500,101 +483,6 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetStats() {
 			}
 		})
 	}
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandler() {
-	rh := s.rh["display_task_id"].(*testResultsGetByDisplayTaskIDHandler)
-	optsList := []data.TestResultsOptions{
-		{
-			TaskID:      "display_task1",
-			Execution:   utility.ToIntPtr(0),
-			DisplayTask: true,
-		},
-		{
-			TaskID:      "display_task1",
-			DisplayTask: true,
-		},
-	}
-	expectedResults := [][]model.APITestResult{
-		append(s.apiResults["abc"], s.apiResults["ghi"]...),
-		append(s.apiResults["def"], s.apiResults["ghi"]...),
-	}
-
-	for i, opts := range optsList {
-		rh.opts = opts
-
-		resp := rh.Run(context.TODO())
-		s.Require().NotNil(resp)
-		s.Equal(http.StatusOK, resp.Status())
-		actualResults, ok := resp.Data().([]model.APITestResult)
-		s.Require().True(ok)
-		s.Require().Len(actualResults, len(expectedResults[i]))
-		for _, actualResult := range actualResults {
-			s.Contains(expectedResults[i], actualResult)
-		}
-	}
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerNotFound() {
-	rh := s.rh["display_task_id"].(*testResultsGetByDisplayTaskIDHandler)
-	rh.opts.TaskID = "DNE"
-	rh.opts.DisplayTask = true
-
-	resp := rh.Run(context.TODO())
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusNotFound, resp.Status())
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultsGetByDisplayTaskIDHandlerCtxErr() {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	rh := s.rh["display_task_id"].(*testResultsGetByDisplayTaskIDHandler)
-	rh.opts.TaskID = "display_task1"
-	rh.opts.DisplayTask = true
-
-	resp := rh.Run(ctx)
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusInternalServerError, resp.Status())
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerFound() {
-	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
-	rh.opts.TaskID = "task1"
-	rh.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{TestName: "test1"}
-	rh.opts.Execution = utility.ToIntPtr(0)
-
-	expected := s.apiResults["abc"][1]
-
-	resp := rh.Run(context.TODO())
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusOK, resp.Status())
-	actual, ok := resp.Data().(*model.APITestResult)
-	s.Require().True(ok)
-	s.Equal(expected.TestName, actual.TestName)
-	s.Equal(expected.TaskID, actual.TaskID)
-	s.Equal(expected.Execution, actual.Execution)
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerNotFound() {
-	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
-	rh.opts.TaskID = "task1"
-	rh.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{TestName: "DNE"}
-
-	resp := rh.Run(context.TODO())
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusNotFound, resp.Status())
-}
-
-func (s *TestResultsHandlerSuite) TestTestResultGetByTestNameHandlerCtxErr() {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	rh := s.rh["test_name"].(*testResultGetByTestNameHandler)
-	rh.opts.TaskID = "task1"
-	rh.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{TestName: "test1"}
-
-	resp := rh.Run(ctx)
-	s.Require().NotNil(resp)
-	s.Equal(http.StatusInternalServerError, resp.Status())
 }
 
 func (s *TestResultsHandlerSuite) TestBaseParse() {
@@ -665,11 +553,11 @@ func (s *TestResultsHandlerSuite) testParseDefaults(handler, urlString string) {
 func getTestResultsExecution(rh gimlet.RouteHandler, handler string) *int {
 	switch handler {
 	case "task_id":
-		return rh.(*testResultsGetByTaskIDHandler).opts.Execution
+		return rh.(*testResultsGetByTaskIDHandler).taskOpts.Execution
 	case "failed_tests_sample":
-		return rh.(*testResultsGetFailedSampleHandler).opts.Execution
+		return rh.(*testResultsGetFailedSampleHandler).taskOpts.Execution
 	case "stats":
-		return rh.(*testResultsGetStatsHandler).opts.Execution
+		return rh.(*testResultsGetStatsHandler).taskOpts.Execution
 	default:
 		return nil
 	}
@@ -678,11 +566,11 @@ func getTestResultsExecution(rh gimlet.RouteHandler, handler string) *int {
 func getTestResultsDisplayTask(rh gimlet.RouteHandler, handler string) bool {
 	switch handler {
 	case "task_id":
-		return rh.(*testResultsGetByTaskIDHandler).opts.DisplayTask
+		return rh.(*testResultsGetByTaskIDHandler).taskOpts.DisplayTask
 	case "failed_tests_sample":
-		return rh.(*testResultsGetFailedSampleHandler).opts.DisplayTask
+		return rh.(*testResultsGetFailedSampleHandler).taskOpts.DisplayTask
 	case "stats":
-		return rh.(*testResultsGetStatsHandler).opts.DisplayTask
+		return rh.(*testResultsGetStatsHandler).taskOpts.DisplayTask
 	default:
 		return false
 	}
@@ -693,32 +581,32 @@ func (s *TestResultsHandlerSuite) TestTaskIDParse() {
 
 	// Test default.
 	urlString := "http://cedar.mongodb.com/rest/v1/test_results/task_id/task_id1"
-	expected := data.TestResultsOptions{}
+	expectedTaskOpts := data.TestResultsTaskOptions{}
 	req := &http.Request{Method: http.MethodGet}
 	req.URL, _ = url.Parse(urlString)
 
 	err := rh.Parse(context.TODO(), req)
 	s.Require().NoError(err)
-	s.Equal(expected, rh.opts)
+	s.Equal(expectedTaskOpts, rh.taskOpts)
+	s.Nil(rh.filterOpts)
 
 	// Test valid query parameters.
 	rh = rh.Factory().(*testResultsGetByTaskIDHandler)
 	urlString += "?test_name=test&status=fail&status=silentfail&group_id=group&sort_by=sort&sort_order_dsc=true&limit=5&page=2"
-	expected = data.TestResultsOptions{
-		FilterAndSort: &data.TestResultsFilterAndSortOptions{
-			TestName:     "test",
-			Statuses:     []string{"fail", "silentfail"},
-			GroupID:      "group",
-			SortBy:       "sort",
-			SortOrderDSC: true,
-			Limit:        5,
-			Page:         2,
-		},
+	expectedFilterOpts := &data.TestResultsFilterAndSortOptions{
+		TestName:     "test",
+		Statuses:     []string{"fail", "silentfail"},
+		GroupID:      "group",
+		SortBy:       "sort",
+		SortOrderDSC: true,
+		Limit:        5,
+		Page:         2,
 	}
 	req = &http.Request{Method: http.MethodGet}
 	req.URL, _ = url.Parse(urlString)
 
 	err = rh.Parse(context.TODO(), req)
 	s.Require().NoError(err)
-	s.Equal(expected, rh.opts)
+	s.Equal(expectedTaskOpts, rh.taskOpts)
+	s.Equal(expectedFilterOpts, rh.filterOpts)
 }

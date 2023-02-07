@@ -7,8 +7,6 @@ import (
 	dbModel "github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/cedar/rest/model"
 	"github.com/evergreen-ci/gimlet"
-	"github.com/evergreen-ci/utility"
-	"github.com/mongodb/anser/db"
 	"github.com/pkg/errors"
 )
 
@@ -16,26 +14,17 @@ import (
 // DBConnector Implementation
 /////////////////////////////
 
-func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) (*model.APITestResults, error) {
-	apiStats, err := dbc.GetTestResultsStats(ctx, opts)
+func (dbc *DBConnector) FindTestResults(ctx context.Context, taskOpts []TestResultsTaskOptions, filterOpts *TestResultsFilterAndSortOptions) (*model.APITestResults, error) {
+	stats, results, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsTaskOptions(taskOpts), convertToDBTestResultsFilterAndSortOptions(filterOpts))
 	if err != nil {
-		return nil, err
-	}
-
-	results, filteredCount, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBFindAndDownloadTestResultsOptions(opts))
-	if db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test results not found",
-		}
-	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    errors.Wrap(err, "retrieving test results").Error(),
 		}
 	}
 
-	if err = apiStats.Import(filteredCount); err != nil {
+	apiStats := &model.APITestResultsStats{}
+	if err = apiStats.Import(stats); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    errors.Wrapf(err, "importing stats into APITestResultsStats struct").Error(),
@@ -53,44 +42,9 @@ func (dbc *DBConnector) FindTestResults(ctx context.Context, opts TestResultsOpt
 	}, nil
 }
 
-// GetTestResultsFilteredSamples returns test names for the specified test results, filtered by the provided regexes.
-func (dbc *DBConnector) GetTestResultsFilteredSamples(ctx context.Context, opts TestSampleOptions) ([]model.APITestResultsSample, error) {
-	samples, err := dbModel.GetTestResultsFilteredSamples(ctx, dbc.env, convertToDBFindTestSampleOptions(opts))
+func (dbc *DBConnector) FindTestResultsStats(ctx context.Context, opts []TestResultsTaskOptions) (*model.APITestResultsStats, error) {
+	stats, err := dbModel.FindTestResultsStats(ctx, dbc.env, convertToDBTestResultsTaskOptions(opts))
 	if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "retrieving test results samples").Error(),
-		}
-	}
-
-	return importTestResultsSamples(samples)
-}
-
-func (dbc *DBConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
-	resultDocs, err := dbModel.FindTestResults(ctx, dbc.env, convertToDBFindTestResultsOptions(opts))
-	if db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test results not found",
-		}
-	} else if err != nil {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    errors.Wrap(err, "retrieving test results").Error(),
-		}
-	}
-
-	return extractFailedTestResultsSample(resultDocs...), nil
-}
-
-func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResultsOptions) (*model.APITestResultsStats, error) {
-	stats, err := dbModel.GetTestResultsStats(ctx, dbc.env, convertToDBFindTestResultsOptions(opts))
-	if db.ResultsNotFound(err) {
-		return nil, gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test results not found",
-		}
-	} else if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Message:    errors.Wrap(err, "retrieving test results stats").Error(),
@@ -108,23 +62,46 @@ func (dbc *DBConnector) GetTestResultsStats(ctx context.Context, opts TestResult
 	return apiStats, nil
 }
 
+func (dbc *DBConnector) FindFailedTestResultsSample(ctx context.Context, opts []TestResultsTaskOptions) ([]string, error) {
+	resultDocs, err := dbModel.FindTestResults(ctx, dbc.env, convertToDBTestResultsTaskOptions(opts))
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "retrieving test results").Error(),
+		}
+	}
+
+	return extractFailedTestResultsSample(resultDocs...), nil
+}
+
+func (dbc *DBConnector) FindFailedTestResultsSamples(ctx context.Context, taskOpts []TestResultsTaskOptions, regexFilters []string) ([]model.APITestResultsSample, error) {
+	samples, err := dbModel.FindFailedTestResultsSamples(ctx, dbc.env, convertToDBTestResultsTaskOptions(taskOpts), regexFilters)
+	if err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    errors.Wrap(err, "retrieving test results samples").Error(),
+		}
+	}
+
+	return importTestResultsSamples(samples)
+}
+
 ///////////////////////////////
 // MockConnector Implementation
 ///////////////////////////////
 
-func (mc *MockConnector) FindTestResults(ctx context.Context, opts TestResultsOptions) (*model.APITestResults, error) {
+func (mc *MockConnector) FindTestResults(_ context.Context, _ []TestResultsTaskOptions, _ *TestResultsFilterAndSortOptions) (*model.APITestResults, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (mc *MockConnector) GetTestResultsFilteredSamples(ctx context.Context, opts TestSampleOptions) ([]model.APITestResultsSample, error) {
+func (mc *MockConnector) FindTestResultsStats(_ context.Context, _ []TestResultsTaskOptions) (*model.APITestResultsStats, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (mc *MockConnector) GetFailedTestResultsSample(ctx context.Context, opts TestResultsOptions) ([]string, error) {
+func (mc *MockConnector) FindFailedTestResultsSample(ctx context.Context, _ []TestResultsTaskOptions) ([]string, error) {
 	return nil, errors.New("not implemented")
 }
-
-func (mc *MockConnector) GetTestResultsStats(ctx context.Context, opts TestResultsOptions) (*model.APITestResultsStats, error) {
+func (mc *MockConnector) FindFailedTestResultsSamples(ctx context.Context, _ []TestResultsTaskOptions, _ []string) ([]model.APITestResultsSample, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -181,46 +158,34 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 	return sample
 }
 
-func convertToDBFindTestSampleOptions(opts TestSampleOptions) dbModel.FindTestSamplesOptions {
-	dbOptions := dbModel.FindTestSamplesOptions{TestNameRegexes: opts.RegexFilters}
-	for _, t := range opts.Tasks {
-		dbOptions.Tasks = append(dbOptions.Tasks, dbModel.FindTestResultsOptions{
-			TaskID:      t.TaskID,
-			DisplayTask: t.DisplayTask,
-			Execution:   utility.ToIntPtr(t.Execution),
-		})
+func convertToDBTestResultsTaskOptions(opts []TestResultsTaskOptions) []dbModel.TestResultsTaskOptions {
+	if len(opts) == 0 {
+		return nil
 	}
-	return dbOptions
+
+	dbOpts := make([]dbModel.TestResultsTaskOptions, len(opts))
+	for i, task := range opts {
+		dbOpts[i].TaskID = task.TaskID
+		dbOpts[i].Execution = task.Execution
+		dbOpts[i].DisplayTask = task.DisplayTask
+	}
+
+	return dbOpts
 }
 
-func convertToDBFindTestResultsOptions(opts TestResultsOptions) dbModel.FindTestResultsOptions {
-	return dbModel.FindTestResultsOptions{
-		TaskID:      opts.TaskID,
-		Execution:   opts.Execution,
-		DisplayTask: opts.DisplayTask,
-	}
-}
-
-func convertToDBFindAndDownloadTestResultsOptions(opts TestResultsOptions) dbModel.FindAndDownloadTestResultsOptions {
-	var filterAndSort *dbModel.FilterAndSortTestResultsOptions
-	if opts.FilterAndSort != nil {
-		filterAndSort = &dbModel.FilterAndSortTestResultsOptions{
-			TestName:     opts.FilterAndSort.TestName,
-			Statuses:     opts.FilterAndSort.Statuses,
-			GroupID:      opts.FilterAndSort.GroupID,
-			SortBy:       dbModel.TestResultsSortBy(opts.FilterAndSort.SortBy),
-			SortOrderDSC: opts.FilterAndSort.SortOrderDSC,
-			Limit:        opts.FilterAndSort.Limit,
-			Page:         opts.FilterAndSort.Page,
-		}
-		if opts.FilterAndSort.BaseResults != nil {
-			baseOpts := convertToDBFindTestResultsOptions(*opts.FilterAndSort.BaseResults)
-			filterAndSort.BaseResults = &baseOpts
-		}
+func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOptions) *dbModel.TestResultsFilterAndSortOptions {
+	if opts == nil {
+		return nil
 	}
 
-	return dbModel.FindAndDownloadTestResultsOptions{
-		Find:          convertToDBFindTestResultsOptions(opts),
-		FilterAndSort: filterAndSort,
+	return &dbModel.TestResultsFilterAndSortOptions{
+		TestName:     opts.TestName,
+		Statuses:     opts.Statuses,
+		GroupID:      opts.GroupID,
+		SortBy:       dbModel.TestResultsSortBy(opts.SortBy),
+		SortOrderDSC: opts.SortOrderDSC,
+		Limit:        opts.Limit,
+		Page:         opts.Page,
+		BaseResults:  convertToDBTestResultsTaskOptions(opts.BaseResults),
 	}
 }

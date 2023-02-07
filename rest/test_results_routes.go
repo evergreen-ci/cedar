@@ -26,13 +26,17 @@ const (
 	testResultsBaseTaskID = "base_task_id"
 )
 
+// TODO (EVG-18798): Remove these route handlers once Spruce and Evergreen are
+// updated.
+
 type testResultsBaseHandler struct {
-	opts data.TestResultsOptions
+	taskOpts   data.TestResultsTaskOptions
+	filterOpts *data.TestResultsFilterAndSortOptions
 }
 
 // Parse fetches the task ID from the HTTP request.
 func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error {
-	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
+	h.taskOpts.TaskID = gimlet.GetVars(r)["task_id"]
 
 	vals := r.URL.Query()
 	if len(vals[execution]) > 0 {
@@ -40,10 +44,10 @@ func (h *testResultsBaseHandler) Parse(_ context.Context, r *http.Request) error
 		if err != nil {
 			return err
 		}
-		h.opts.Execution = utility.ToIntPtr(exec)
+		h.taskOpts.Execution = utility.ToIntPtr(exec)
 	}
 	if vals.Get(isDisplayTask) == trueString {
-		h.opts.DisplayTask = true
+		h.taskOpts.DisplayTask = true
 	}
 
 	return nil
@@ -92,7 +96,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 		return catcher.Resolve()
 	}
 
-	h.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{
+	h.filterOpts = &data.TestResultsFilterAndSortOptions{
 		TestName: testName,
 		Statuses: statuses,
 		GroupID:  groupID,
@@ -101,12 +105,14 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 		Page:     page,
 	}
 	if vals.Get(testResultsSortDSC) == trueString {
-		h.opts.FilterAndSort.SortOrderDSC = true
+		h.filterOpts.SortOrderDSC = true
 	}
 	if baseTaskID != "" {
-		h.opts.FilterAndSort.BaseResults = &data.TestResultsOptions{
-			TaskID:      baseTaskID,
-			DisplayTask: h.opts.DisplayTask,
+		h.filterOpts.BaseResults = []data.TestResultsTaskOptions{
+			{
+				TaskID:      baseTaskID,
+				DisplayTask: h.taskOpts.DisplayTask,
+			},
 		}
 	}
 
@@ -122,29 +128,29 @@ func (h *testResultsGetByTaskIDHandler) Factory() gimlet.RouteHandler {
 
 // Run finds and returns the desired test result based on the task ID.
 func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	testResults, err := h.sc.FindTestResults(ctx, h.opts)
+	testResults, err := h.sc.FindTestResults(ctx, []data.TestResultsTaskOptions{h.taskOpts}, h.filterOpts)
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results by task ID '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results by task ID '%s'", h.taskOpts.TaskID)
 		logFindError(err, message.Fields{
 			"request":    gimlet.GetRequestID(ctx),
 			"method":     "GET",
 			"route":      "/test_results/task_id/{task_id}",
-			"task_id":    h.opts.TaskID,
-			"is_display": h.opts.DisplayTask,
+			"task_id":    h.taskOpts.TaskID,
+			"is_display": h.taskOpts.DisplayTask,
 		})
 		return gimlet.MakeJSONErrorResponder(err)
 	}
 
 	var resp gimlet.Responder
 	resp = gimlet.NewJSONResponse(testResults)
-	if h.opts.FilterAndSort != nil && h.opts.FilterAndSort.Limit > 0 {
+	if h.filterOpts != nil && h.filterOpts.Limit > 0 {
 		pages := &gimlet.ResponsePages{
 			Prev: &gimlet.Page{
 				BaseURL:         h.sc.GetBaseURL(),
 				KeyQueryParam:   testResultsPage,
 				LimitQueryParam: testResultsLimit,
-				Key:             fmt.Sprintf("%d", h.opts.FilterAndSort.Page),
-				Limit:           h.opts.FilterAndSort.Limit,
+				Key:             fmt.Sprintf("%d", h.filterOpts.Page),
+				Limit:           h.filterOpts.Limit,
 				Relation:        "prev",
 			},
 		}
@@ -153,8 +159,8 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 				BaseURL:         h.sc.GetBaseURL(),
 				KeyQueryParam:   testResultsPage,
 				LimitQueryParam: testResultsLimit,
-				Key:             fmt.Sprintf("%d", h.opts.FilterAndSort.Page+1),
-				Limit:           h.opts.FilterAndSort.Limit,
+				Key:             fmt.Sprintf("%d", h.filterOpts.Page+1),
+				Limit:           h.filterOpts.Limit,
 				Relation:        "next",
 			}
 		}
@@ -165,95 +171,6 @@ func (h *testResultsGetByTaskIDHandler) Run(ctx context.Context) gimlet.Responde
 	}
 
 	return resp
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// GET /test_results/filtered_sample
-
-type testResultsGetFilteredSamplesHandler struct {
-	sc      data.Connector
-	options data.TestSampleOptions
-}
-
-func makeGetTestResultsFilteredSamples(sc data.Connector) gimlet.RouteHandler {
-	return &testResultsGetFilteredSamplesHandler{
-		sc: sc,
-	}
-}
-
-// Factory returns a pointer to a new testResultsGetFilteredSamplesHandler.
-func (h *testResultsGetFilteredSamplesHandler) Factory() gimlet.RouteHandler {
-	return &testResultsGetFilteredSamplesHandler{
-		sc: h.sc,
-	}
-}
-
-func (h *testResultsGetFilteredSamplesHandler) Parse(_ context.Context, r *http.Request) error {
-	body := utility.NewRequestReader(r)
-	defer body.Close()
-
-	if err := utility.ReadJSON(body, &h.options); err != nil {
-		return errors.Wrap(err, "argument read error")
-	}
-
-	return nil
-}
-
-// Run finds and returns the filtered test results sample.
-func (h *testResultsGetFilteredSamplesHandler) Run(ctx context.Context) gimlet.Responder {
-	samples, err := h.sc.GetTestResultsFilteredSamples(ctx, h.options)
-	if err != nil {
-		err = errors.Wrap(err, "getting filtered test results sample")
-		grip.Error(message.WrapError(err, message.Fields{
-			"request": gimlet.GetRequestID(ctx),
-			"method":  "GET",
-			"route":   "/test_results/filtered_samples",
-		}))
-		return gimlet.MakeJSONInternalErrorResponder(err)
-	}
-
-	return gimlet.NewJSONResponse(samples)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// GET /test_results/task_id/{task_id}/failed_sample
-
-type testResultsGetFailedSampleHandler struct {
-	sc data.Connector
-	testResultsBaseHandler
-}
-
-func makeGetTestResultsFailedSample(sc data.Connector) gimlet.RouteHandler {
-	return &testResultsGetFailedSampleHandler{
-		sc: sc,
-	}
-}
-
-// Factory returns a pointer to a new testResultsGetFailedSampleHandler.
-func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
-	return &testResultsGetFailedSampleHandler{
-		sc: h.sc,
-	}
-}
-
-// Run finds and returns the desired failed test results sample.
-func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
-	sample, err := h.sc.GetFailedTestResultsSample(ctx, h.opts)
-	if err != nil {
-		err = errors.Wrapf(err, "getting failed test results sample by task ID '%s'", h.opts.TaskID)
-		logFindError(err, message.Fields{
-			"request":         gimlet.GetRequestID(ctx),
-			"method":          "GET",
-			"route":           "/test_results/task_id/{task_id}/failed_sample",
-			"task_id":         h.opts.TaskID,
-			"is_display_task": h.opts.DisplayTask,
-		})
-		return gimlet.MakeJSONInternalErrorResponder(err)
-	}
-
-	return gimlet.NewJSONResponse(sample)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -280,15 +197,15 @@ func (h *testResultsGetStatsHandler) Factory() gimlet.RouteHandler {
 
 // Run finds and returns the desired failed test results stats.
 func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
-	stats, err := h.sc.GetTestResultsStats(ctx, h.opts)
+	stats, err := h.sc.FindTestResultsStats(ctx, []data.TestResultsTaskOptions{h.taskOpts})
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results stats by task ID '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting test results stats by task ID '%s'", h.taskOpts.TaskID)
 		logFindError(err, message.Fields{
 			"request":         gimlet.GetRequestID(ctx),
 			"method":          "GET",
 			"route":           "/test_results/task_id/{task_id}/stats",
-			"task_id":         h.opts.TaskID,
-			"is_display_task": h.opts.DisplayTask,
+			"task_id":         h.taskOpts.TaskID,
+			"is_display_task": h.taskOpts.DisplayTask,
 		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
@@ -298,121 +215,92 @@ func (h *testResultsGetStatsHandler) Run(ctx context.Context) gimlet.Responder {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// GET /test_results/display_task_id/{display_task_id}
+// GET /test_results/task_id/{task_id}/failed_sample
 
-type testResultsGetByDisplayTaskIDHandler struct {
-	opts data.TestResultsOptions
-	sc   data.Connector
+type testResultsGetFailedSampleHandler struct {
+	sc data.Connector
+	testResultsBaseHandler
 }
 
-func makeGetTestResultsByDisplayTaskID(sc data.Connector) gimlet.RouteHandler {
-	return &testResultsGetByDisplayTaskIDHandler{
+func makeGetTestResultsFailedSample(sc data.Connector) gimlet.RouteHandler {
+	return &testResultsGetFailedSampleHandler{
 		sc: sc,
 	}
 }
 
-// Factory returns a pointer to a new testResultsGetByDisplayTaskIDHandler.
-func (h *testResultsGetByDisplayTaskIDHandler) Factory() gimlet.RouteHandler {
-	return &testResultsGetByDisplayTaskIDHandler{
+// Factory returns a pointer to a new testResultsGetFailedSampleHandler.
+func (h *testResultsGetFailedSampleHandler) Factory() gimlet.RouteHandler {
+	return &testResultsGetFailedSampleHandler{
 		sc: h.sc,
 	}
 }
 
-// Parse fetches the display task ID from the HTTP request.
-func (h *testResultsGetByDisplayTaskIDHandler) Parse(_ context.Context, r *http.Request) error {
-
-	h.opts.TaskID = gimlet.GetVars(r)["display_task_id"]
-	h.opts.DisplayTask = true
-
-	vals := r.URL.Query()
-	if len(vals[execution]) > 0 {
-		exec, err := strconv.Atoi(vals[execution][0])
-		if err != nil {
-			return err
-		}
-		h.opts.Execution = utility.ToIntPtr(exec)
-	}
-
-	return nil
-}
-
-// Run finds and returns the desired test result based on the display_task_id.
-func (h *testResultsGetByDisplayTaskIDHandler) Run(ctx context.Context) gimlet.Responder {
-	testResults, err := h.sc.FindTestResults(ctx, h.opts)
+// Run finds and returns the desired failed test results sample.
+func (h *testResultsGetFailedSampleHandler) Run(ctx context.Context) gimlet.Responder {
+	sample, err := h.sc.FindFailedTestResultsSample(ctx, []data.TestResultsTaskOptions{h.taskOpts})
 	if err != nil {
-		err = errors.Wrapf(err, "getting test results by display task ID '%s'", h.opts.TaskID)
+		err = errors.Wrapf(err, "getting failed test results sample by task ID '%s'", h.taskOpts.TaskID)
 		logFindError(err, message.Fields{
-			"request": gimlet.GetRequestID(ctx),
-			"method":  "GET",
-			"route":   "/test_results/display_task_id/{display_task_id}",
-			"task_id": h.opts.TaskID,
-		})
-		return gimlet.MakeJSONErrorResponder(err)
-	}
-	return gimlet.NewJSONResponse(testResults.Results)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// GET /test_results/test_name/{task_id}/{test_name}
-
-type testResultGetByTestNameHandler struct {
-	opts data.TestResultsOptions
-	sc   data.Connector
-}
-
-func makeGetTestResultByTestName(sc data.Connector) gimlet.RouteHandler {
-	return &testResultGetByTestNameHandler{
-		sc: sc,
-	}
-}
-
-// Factory returns a pointer to a new testResultGetByTestNameHandler.
-func (h *testResultGetByTestNameHandler) Factory() gimlet.RouteHandler {
-	return &testResultGetByTestNameHandler{
-		sc: h.sc,
-	}
-}
-
-// Parse fetches the task ID, test name, and execution (if present)
-// from the HTTP request.
-func (h *testResultGetByTestNameHandler) Parse(_ context.Context, r *http.Request) error {
-	h.opts.TaskID = gimlet.GetVars(r)["task_id"]
-	h.opts.FilterAndSort = &data.TestResultsFilterAndSortOptions{
-		TestName: gimlet.GetVars(r)["test_name"],
-	}
-	vals := r.URL.Query()
-	if len(vals[execution]) > 0 {
-		exec, err := strconv.Atoi(vals[execution][0])
-		if err != nil {
-			return err
-		}
-		h.opts.Execution = utility.ToIntPtr(exec)
-	}
-
-	return nil
-}
-
-// Run finds and returns the desired test result.
-func (h *testResultGetByTestNameHandler) Run(ctx context.Context) gimlet.Responder {
-	testResults, err := h.sc.FindTestResults(ctx, h.opts)
-	if err != nil {
-		err = errors.Wrapf(err, "getting test result by task ID '%s' and test name '%s'", h.opts.TaskID, h.opts.FilterAndSort.TestName)
-		logFindError(err, message.Fields{
-			"request":   gimlet.GetRequestID(ctx),
-			"method":    "GET",
-			"route":     "/test_results/test_name/{task_id}/{test_name}",
-			"task_id":   h.opts.TaskID,
-			"test_name": h.opts.FilterAndSort.TestName,
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/test_results/task_id/{task_id}/failed_sample",
+			"task_id":         h.taskOpts.TaskID,
+			"is_display_task": h.taskOpts.DisplayTask,
 		})
 		return gimlet.MakeJSONInternalErrorResponder(err)
 	}
 
-	if len(testResults.Results) == 0 {
-		return gimlet.MakeJSONErrorResponder(gimlet.ErrorResponse{
-			StatusCode: http.StatusNotFound,
-			Message:    "test result not found",
-		})
+	return gimlet.NewJSONResponse(sample)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/filtered_samples
+
+type testResultsGetFilteredSamplesHandler struct {
+	sc      data.Connector
+	payload struct {
+		Tasks        []data.TestResultsTaskOptions `json:"tasks"`
+		RegexFilters []string                      `json:"regex_filters"`
 	}
-	return gimlet.NewJSONResponse(&testResults.Results[0])
+}
+
+func makeGetTestResultsFilteredSamples(sc data.Connector) gimlet.RouteHandler {
+	return &testResultsGetFilteredSamplesHandler{
+		sc: sc,
+	}
+}
+
+// Factory returns a pointer to a new testResultsGetFilteredSamplesHandler.
+func (h *testResultsGetFilteredSamplesHandler) Factory() gimlet.RouteHandler {
+	return &testResultsGetFilteredSamplesHandler{
+		sc: h.sc,
+	}
+}
+
+func (h *testResultsGetFilteredSamplesHandler) Parse(_ context.Context, r *http.Request) error {
+	body := utility.NewRequestReader(r)
+	defer body.Close()
+
+	if err := utility.ReadJSON(body, &h.payload); err != nil {
+		return errors.Wrap(err, "argument read error")
+	}
+
+	return nil
+}
+
+// Run finds and returns the filtered test results sample.
+func (h *testResultsGetFilteredSamplesHandler) Run(ctx context.Context) gimlet.Responder {
+	samples, err := h.sc.FindFailedTestResultsSamples(ctx, h.payload.Tasks, h.payload.RegexFilters)
+	if err != nil {
+		err = errors.Wrap(err, "getting filtered test results sample")
+		grip.Error(message.WrapError(err, message.Fields{
+			"request": gimlet.GetRequestID(ctx),
+			"method":  "GET",
+			"route":   "/test_results/filtered_samples",
+		}))
+		return gimlet.MakeJSONInternalErrorResponder(err)
+	}
+
+	return gimlet.NewJSONResponse(samples)
 }
