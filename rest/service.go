@@ -318,6 +318,9 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/meta").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogMetaByTestName(s.sc))
 	s.app.AddRoute("/buildlogger/test_name/{task_id}/{test_name}/group/{group_id}").Version(1).Get().Wrap(evgAuthReadLogByTaskID).RouteHandler(makeGetLogGroupByTestName(s.sc))
 
+	s.app.AddRoute("/test_results/tasks").Version(1).Get().RouteHandler(makeGetTestResultsByTasks(s.sc))
+	//s.app.AddRoute("/test_results/tasks/stats").Version(1).Get().RouteHandler(makeGetTestResultsStatsByTasks(s.sc))
+	//s.app.AddRoute("/test_results/tasks/failed_sample").Version(1).Get().RouteHandler(makeGetTestResultsFailedSampleByTasks(s.sc))
 	// TODO (EVG-18798): Remove these once Spruce and Evergreen are
 	// updated.
 	s.app.AddRoute("/test_results/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetTestResultsByTaskID(s.sc))

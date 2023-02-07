@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -25,6 +26,95 @@ const (
 	testResultsPage       = "page"
 	testResultsBaseTaskID = "base_task_id"
 )
+
+type testResultsTasksBaseHandler struct {
+	sc      data.Connector
+	payload struct {
+		TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
+		FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+	}
+}
+
+// Parse fetches the request payload.
+func (h *testResultsTasksBaseHandler) Parse(_ context.Context, r *http.Request) error {
+	if r.Body == nil {
+		return errors.New("must specify at least one task")
+	}
+	body := utility.NewRequestReader(r)
+	defer body.Close()
+
+	if err := json.NewDecoder(r.Body).Decode(&h.payload); err != nil {
+		return errors.Wrap(err, "decoding JSON request payload")
+	}
+
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/tasks
+
+type testResultsGetByTasksHandler struct {
+	testResultsTasksBaseHandler
+}
+
+func makeGetTestResultsByTasks(sc data.Connector) *testResultsGetByTasksHandler {
+	h := &testResultsGetByTasksHandler{}
+	h.sc = sc
+
+	return h
+}
+
+func (h *testResultsGetByTasksHandler) Factory() gimlet.RouteHandler {
+	newHandler := &testResultsGetByTasksHandler{}
+	newHandler.sc = h.sc
+
+	return newHandler
+}
+
+func (h *testResultsGetByTasksHandler) Run(ctx context.Context) gimlet.Responder {
+	testResults, err := h.sc.FindTestResults(ctx, h.payload.TaskOpts, h.payload.FilterOpts)
+	if err != nil {
+		err = errors.Wrap(err, "getting test results by tasks")
+		logFindError(err, message.Fields{
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/test_results/tasks",
+			"request_payload": h.payload,
+		})
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+
+	resp := gimlet.NewJSONResponse(testResults)
+	if h.payload.FilterOpts != nil && h.payload.FilterOpts.Limit > 0 {
+		pages := &gimlet.ResponsePages{
+			Prev: &gimlet.Page{
+				BaseURL:         h.sc.GetBaseURL(),
+				KeyQueryParam:   testResultsPage,
+				LimitQueryParam: testResultsLimit,
+				Key:             fmt.Sprintf("%d", h.payload.FilterOpts.Page),
+				Limit:           h.payload.FilterOpts.Limit,
+				Relation:        "prev",
+			},
+		}
+		if len(testResults.Results) > 0 {
+			pages.Next = &gimlet.Page{
+				BaseURL:         h.sc.GetBaseURL(),
+				KeyQueryParam:   testResultsPage,
+				LimitQueryParam: testResultsLimit,
+				Key:             fmt.Sprintf("%d", h.payload.FilterOpts.Page+1),
+				Limit:           h.payload.FilterOpts.Limit,
+				Relation:        "next",
+			}
+		}
+
+		if err := resp.SetPages(pages); err != nil {
+			return gimlet.NewJSONInternalErrorResponse(errors.Wrap(err, "setting response pages"))
+		}
+	}
+
+	return resp
+}
 
 // TODO (EVG-18798): Remove these route handlers once Spruce and Evergreen are
 // updated.
