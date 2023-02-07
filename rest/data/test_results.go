@@ -159,6 +159,10 @@ func extractFailedTestResultsSample(results ...dbModel.TestResults) []string {
 }
 
 func convertToDBTestResultsTaskOptions(opts []TestResultsTaskOptions) []dbModel.TestResultsTaskOptions {
+	if len(opts) == 0 {
+		return nil
+	}
+
 	dbOpts := make([]dbModel.TestResultsTaskOptions, len(opts))
 	for i, task := range opts {
 		dbOpts[i].TaskID = task.TaskID
@@ -182,5 +186,6 @@ func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOp
 		SortOrderDSC: opts.SortOrderDSC,
 		Limit:        opts.Limit,
 		Page:         opts.Page,
+		BaseResults:  convertToDBTestResultsTaskOptions(opts.BaseResults),
 	}
 }
