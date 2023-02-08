@@ -819,7 +819,29 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	conf.Setup(env)
 	require.NoError(t, conf.Save())
 
+	tr0 := getTestResults()
+	tr0.Info.TaskID = "task0"
+	tr0.Info.DisplayTaskID = "display"
+	tr0.Info.Execution = 0
+	tr0.populated = true
+	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr0)
+	require.NoError(t, err)
+
+	savedResults0 := make([]TestResult, 10)
+	for i := 0; i < len(savedResults0); i++ {
+		result := getTestResult()
+		result.TaskID = tr0.Info.TaskID
+		result.Execution = tr0.Info.Execution
+		if i%2 != 0 {
+			result.Status = "Fail"
+		}
+		savedResults0[i] = result
+	}
+	tr0.Setup(env)
+	require.NoError(t, tr0.Append(ctx, savedResults0))
+
 	tr1 := getTestResults()
+	tr1.Info.TaskID = "task1"
 	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
 	tr1.populated = true
@@ -831,17 +853,14 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 		result := getTestResult()
 		result.TaskID = tr1.Info.TaskID
 		result.Execution = tr1.Info.Execution
-		if i%2 != 0 {
-			result.Status = "Fail"
-		}
 		savedResults1[i] = result
 	}
 	tr1.Setup(env)
 	require.NoError(t, tr1.Append(ctx, savedResults1))
 
 	tr2 := getTestResults()
-	tr2.Info.DisplayTaskID = "display"
-	tr2.Info.Execution = 0
+	tr2.Info.TaskID = "task1"
+	tr2.Info.Execution = 1
 	tr2.populated = true
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
@@ -866,35 +885,37 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 				TaskID:    tr2.Info.TaskID,
 				Execution: utility.ToIntPtr(tr2.Info.Execution),
 			},
+			{
+				TaskID:    tr0.Info.TaskID,
+				Execution: utility.ToIntPtr(tr0.Info.Execution),
+			},
 		}
 		stats, results, err := FindAndDownloadTestResults(ctx, env, taskOpts, nil)
 		require.NoError(t, err)
 
-		require.Len(t, results, len(savedResults1)+len(savedResults2))
 		assert.Equal(t, len(results), stats.TotalCount)
 		assert.Equal(t, len(savedResults1)/2, stats.FailedCount)
 		assert.Equal(t, len(results), utility.FromIntPtr(stats.FilteredCount))
-		for _, result := range append(savedResults1, savedResults2...) {
-			require.Contains(t, results, result)
-		}
+		expectedResults := append(append(append([]TestResult{}, savedResults0...), savedResults1...), savedResults2...)
+		assert.Equal(t, expectedResults, results)
 	})
 	t.Run("WithFilterAndSortOpts", func(t *testing.T) {
 		taskOpts := []TestResultsTaskOptions{
 			{
-				TaskID:    tr1.Info.TaskID,
-				Execution: utility.ToIntPtr(tr1.Info.Execution),
+				TaskID:    tr0.Info.TaskID,
+				Execution: utility.ToIntPtr(tr0.Info.Execution),
 			},
 		}
 		filterOpts := &TestResultsFilterAndSortOptions{Statuses: []string{"Pass"}}
 		stats, results, err := FindAndDownloadTestResults(ctx, env, taskOpts, filterOpts)
 		require.NoError(t, err)
 
-		assert.Equal(t, len(savedResults1), stats.TotalCount)
-		assert.Equal(t, len(savedResults1)/2, stats.FailedCount)
-		assert.Equal(t, len(savedResults1)/2, utility.FromIntPtr(stats.FilteredCount))
-		require.Len(t, results, len(savedResults1)/2)
+		assert.Equal(t, len(savedResults0), stats.TotalCount)
+		assert.Equal(t, len(savedResults0)/2, stats.FailedCount)
+		assert.Equal(t, len(savedResults0)/2, utility.FromIntPtr(stats.FilteredCount))
+		require.Len(t, results, len(savedResults0)/2)
 		for i, result := range results {
-			assert.Equal(t, savedResults1[2*i], result)
+			require.Equal(t, savedResults0[2*i], result)
 		}
 	})
 }
