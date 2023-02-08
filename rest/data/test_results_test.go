@@ -145,6 +145,18 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			hasErr: true,
 		},
 		{
+			name: "InvalidFilterOptions",
+			taskOpts: []TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			filterOpts: &TestResultsFilterAndSortOptions{SortBy: "invalid_sort"},
+			hasErr:     true,
+		},
+
+		{
 			name:     "TaskIDDNE",
 			taskOpts: []TestResultsTaskOptions{{TaskID: "DNE"}},
 			stats:    model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},

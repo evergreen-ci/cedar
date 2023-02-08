@@ -1,8 +1,11 @@
 package rest
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -146,7 +149,6 @@ func (s *TestResultsHandlerSuite) setup(tempDir string) {
 	}
 
 	s.rh = map[string]gimlet.RouteHandler{
-		"tasks":               makeGetTestResultsByTasks(s.sc),
 		"task_id":             makeGetTestResultsByTaskID(s.sc),
 		"failed_tests_sample": makeGetTestResultsFailedSample(s.sc),
 		"stats":               makeGetTestResultsStats(s.sc),
@@ -171,10 +173,107 @@ func (s *TestResultsHandlerSuite) TearDownSuite() {
 	s.Require().NoError(err)
 }
 
+func (s *TestResultsHandlerSuite) TestTestResultsBaseHandler() {
+	for _, test := range []struct {
+		name    string
+		payload *struct {
+			TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
+			FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+		}
+		hasErr bool
+	}{
+		{
+			name:   "NoPayload",
+			hasErr: true,
+		},
+		{
+			name: "NoTaskOptions",
+			payload: &struct {
+				TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
+				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+			}{},
+			hasErr: true,
+		},
+		{
+			name: "OnlyTaskOptions",
+			payload: &struct {
+				TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
+				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+			}{
+				TaskOpts: []data.TestResultsTaskOptions{
+					{
+						TaskID:    "task1",
+						Execution: utility.ToIntPtr(1),
+					},
+					{
+						TaskID:    "task2",
+						Execution: utility.ToIntPtr(0),
+					},
+				},
+			},
+		},
+		{
+			name: "TaskAndFilterOptions",
+			payload: &struct {
+				TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
+				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+			}{
+				TaskOpts: []data.TestResultsTaskOptions{
+					{
+						TaskID:    "task1",
+						Execution: utility.ToIntPtr(1),
+					},
+					{
+						TaskID:    "task2",
+						Execution: utility.ToIntPtr(0),
+					},
+				},
+				FilterOpts: &data.TestResultsFilterAndSortOptions{
+					TestName:     "test1",
+					Statuses:     []string{"fail"},
+					GroupID:      "group",
+					SortBy:       "start",
+					SortOrderDSC: true,
+					Limit:        100,
+					Page:         1,
+					BaseResults: []data.TestResultsTaskOptions{
+						{
+							TaskID:    "base_task1",
+							Execution: utility.ToIntPtr(0),
+						},
+						{
+							TaskID:    "base_task2",
+							Execution: utility.ToIntPtr(1),
+						},
+					},
+				},
+			},
+		},
+	} {
+		s.Run(test.name, func() {
+			var body io.ReadCloser
+			if test.payload != nil {
+				data, err := json.Marshal(test.payload)
+				s.Require().NoError(err)
+				body = io.NopCloser(bytes.NewReader(data))
+			}
+			req := &http.Request{Body: body}
+
+			rh := &testResultsTasksBaseHandler{sc: s.sc}
+			err := rh.Parse(context.Background(), req)
+			if test.hasErr {
+				s.Error(err)
+			} else {
+				s.Require().NoError(err)
+				s.Equal(*test.payload, rh.payload)
+			}
+		})
+	}
+}
+
 func (s *TestResultsHandlerSuite) TestTestResultsGetByTasksHandler() {
 	canceledCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	rh := makeGetTestResultsByTasks(s.sc)
 
 	for _, test := range []struct {
 		name           string
@@ -194,6 +293,21 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTasksHandler() {
 				},
 			},
 			errorStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "InvalidFilterOptions",
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
+				},
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			filterOpts:  &data.TestResultsFilterAndSortOptions{SortBy: "invalid_sort"},
+			errorStatus: http.StatusBadRequest,
 		},
 		{
 			name: "TaskDNE",
@@ -272,8 +386,9 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTasksHandler() {
 		s.Run(test.name, func() {
 			ctx := test.ctx
 			if ctx == nil {
-				ctx = context.TODO()
+				ctx = context.Background()
 			}
+			rh := makeGetTestResultsByTasks(s.sc)
 			rh.payload.TaskOpts = test.taskOpts
 			rh.payload.FilterOpts = test.filterOpts
 			resp := rh.Run(ctx)
@@ -301,26 +416,146 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTasksHandler() {
 					}
 					s.True(found)
 				}
-				if rh.payload.FilterOpts != nil && rh.payload.FilterOpts.Limit > 0 {
-					pages := resp.Pages()
-					s.Require().NotNil(pages)
+			}
+		})
+	}
+}
 
-					s.Require().NotNil(pages.Prev)
-					s.Equal(s.sc.GetBaseURL(), pages.Prev.BaseURL)
-					s.Equal(testResultsPage, pages.Prev.KeyQueryParam)
-					s.Equal(testResultsLimit, pages.Prev.LimitQueryParam)
-					s.Equal(fmt.Sprintf("%d", rh.payload.FilterOpts.Page), pages.Prev.Key)
-					s.Equal(rh.payload.FilterOpts.Limit, pages.Prev.Limit)
-					s.Equal("prev", pages.Prev.Relation)
+func (s *TestResultsHandlerSuite) TestTestResultsGetStatsByTasksHandler() {
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
 
-					s.Require().NotNil(pages.Next)
-					s.Equal(s.sc.GetBaseURL(), pages.Next.BaseURL)
-					s.Equal(testResultsPage, pages.Next.KeyQueryParam)
-					s.Equal(testResultsLimit, pages.Next.LimitQueryParam)
-					s.Equal(fmt.Sprintf("%d", rh.payload.FilterOpts.Page+1), pages.Next.Key)
-					s.Equal(rh.payload.FilterOpts.Limit, pages.Next.Limit)
-					s.Equal("next", pages.Next.Relation)
-				}
+	for _, test := range []struct {
+		name           string
+		ctx            context.Context
+		taskOpts       []data.TestResultsTaskOptions
+		expectedResult *model.APITestResultsStats
+		errorStatus    int
+	}{
+		{
+			name: "ContextError",
+			ctx:  canceledCtx,
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			errorStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "TaskDNE",
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "DNE",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			expectedResult: &model.APITestResultsStats{},
+		},
+		{
+			name: "TasksExist",
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
+				},
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			expectedResult: &model.APITestResultsStats{
+				TotalCount:  6,
+				FailedCount: 6,
+			},
+		},
+	} {
+		s.Run(test.name, func() {
+			ctx := test.ctx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			rh := makeGetTestResultsStatsByTasks(s.sc)
+			rh.payload.TaskOpts = test.taskOpts
+			resp := rh.Run(ctx)
+
+			s.Require().NotNil(resp)
+			if test.errorStatus > 0 {
+				s.Equal(test.errorStatus, resp.Status())
+			} else {
+				s.Equal(http.StatusOK, resp.Status())
+				actualResult, ok := resp.Data().(*model.APITestResultsStats)
+				s.Require().True(ok)
+				s.Equal(test.expectedResult, actualResult)
+			}
+		})
+	}
+}
+
+func (s *TestResultsHandlerSuite) TestTestResultsGetFailedSampleByTasksHandler() {
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	for _, test := range []struct {
+		name           string
+		ctx            context.Context
+		taskOpts       []data.TestResultsTaskOptions
+		expectedResult []string
+		errorStatus    int
+	}{
+		{
+			name: "ContextError",
+			ctx:  canceledCtx,
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			errorStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "TaskDNE",
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "DNE",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+		},
+		{
+			name: "TasksExist",
+			taskOpts: []data.TestResultsTaskOptions{
+				{
+					TaskID:    "task1",
+					Execution: utility.ToIntPtr(1),
+				},
+				{
+					TaskID:    "task2",
+					Execution: utility.ToIntPtr(0),
+				},
+			},
+			expectedResult: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
+		},
+	} {
+		s.Run(test.name, func() {
+			ctx := test.ctx
+			if ctx == nil {
+				ctx = context.TODO()
+			}
+			rh := makeGetTestResultsFailedSampleByTasks(s.sc)
+			rh.payload.TaskOpts = test.taskOpts
+			resp := rh.Run(ctx)
+
+			s.Require().NotNil(resp)
+			if test.errorStatus > 0 {
+				s.Equal(test.errorStatus, resp.Status())
+			} else {
+				s.Equal(http.StatusOK, resp.Status())
+				actualResult, ok := resp.Data().([]string)
+				s.Require().True(ok)
+				s.Equal(test.expectedResult, actualResult)
 			}
 		})
 	}
