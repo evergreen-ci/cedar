@@ -893,7 +893,7 @@ type TestResultsFilterAndSortOptions struct {
 	baseStatusMap map[string]string
 }
 
-func (o *TestResultsFilterAndSortOptions) validate() error {
+func (o *TestResultsFilterAndSortOptions) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
@@ -991,7 +991,7 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 		return results, len(results), nil
 	}
 
-	if err := opts.validate(); err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
 	}
 
