@@ -1446,7 +1446,7 @@ func TestFilterTestNames(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.ElementsMatch(t, filteredSamples, []TestResultsSample{{MatchingFailedTestNames: testCase.expected}})
+				assert.Equal(t, filteredSamples, []TestResultsSample{{MatchingFailedTestNames: testCase.expected}})
 			}
 		})
 	}
@@ -1556,7 +1556,7 @@ func TestConsolidateSamples(t *testing.T) {
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			assert.ElementsMatch(t, consolidateSamples(testCase.tasks, testCase.results), testCase.expected)
+			assert.Equal(t, consolidateSamples(testCase.tasks, testCase.results), testCase.expected)
 		})
 	}
 }
@@ -1687,7 +1687,7 @@ func TestMakeTestSamples(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.ElementsMatch(t, samples, testCase.expected)
+				assert.Equal(t, samples, testCase.expected)
 			}
 		})
 	}
@@ -1768,7 +1768,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 
 			samples, err := FindFailedTestResultsSamples(ctx, env, testCase.tasks, nil)
 			assert.NoError(t, err)
-			assert.ElementsMatch(t, testCase.expected, samples)
+			assert.Equal(t, testCase.expected, samples)
 		})
 	}
 }

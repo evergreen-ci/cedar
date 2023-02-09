@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/evergreen-ci/cedar"
 	dbModel "github.com/evergreen-ci/cedar/model"
@@ -103,12 +104,15 @@ func (s *testResultsConnectorSuite) setupData() {
 
 		for i := 0; i < 3; i++ {
 			result := dbModel.TestResult{
-				TaskID:    testResults.Info.TaskID,
-				Execution: testResults.Info.Execution,
-				TestName:  fmt.Sprintf("test%d", i),
-				Trial:     0,
-				Status:    "teststatus-fail",
-				LineNum:   0,
+				TaskID:         testResults.Info.TaskID,
+				Execution:      testResults.Info.Execution,
+				TestName:       fmt.Sprintf("test%d", i),
+				Trial:          0,
+				Status:         "teststatus-fail",
+				LineNum:        0,
+				TaskCreateTime: time.Now().Round(time.Millisecond),
+				TestStartTime:  time.Now().Round(time.Millisecond),
+				TestEndTime:    time.Now().Round(time.Millisecond),
 			}
 
 			apiResult := model.APITestResult{}
@@ -133,12 +137,12 @@ func (s *testResultsConnectorSuite) TearDownSuite() {
 
 func (s *testResultsConnectorSuite) TestFindTestResults() {
 	for _, test := range []struct {
-		name       string
-		taskOpts   []TestResultsTaskOptions
-		filterOpts *TestResultsFilterAndSortOptions
-		stats      model.APITestResultsStats
-		resultMap  map[string]model.APITestResult
-		hasErr     bool
+		name            string
+		taskOpts        []TestResultsTaskOptions
+		filterOpts      *TestResultsFilterAndSortOptions
+		stats           model.APITestResultsStats
+		expectedResults []model.APITestResult
+		hasErr          bool
 	}{
 		{
 			name:   "EmptyOptions",
@@ -157,9 +161,10 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 		},
 
 		{
-			name:     "TaskIDDNE",
-			taskOpts: []TestResultsTaskOptions{{TaskID: "DNE"}},
-			stats:    model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},
+			name:            "TaskIDDNE",
+			taskOpts:        []TestResultsTaskOptions{{TaskID: "DNE"}},
+			stats:           model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},
+			expectedResults: []model.APITestResult{},
 		},
 		{
 			name: "SingleTaskNoFiltering",
@@ -174,10 +179,10 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   3,
 				FilteredCount: utility.ToIntPtr(3),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_0_test0": s.apiResults["task1_0_test0"],
-				"task1_0_test1": s.apiResults["task1_0_test1"],
-				"task1_0_test2": s.apiResults["task1_0_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_0_test0"],
+				s.apiResults["task1_0_test1"],
+				s.apiResults["task1_0_test2"],
 			},
 		},
 		{
@@ -194,9 +199,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   3,
 				FilteredCount: utility.ToIntPtr(1),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_0_test1": s.apiResults["task1_0_test1"],
-			},
+			expectedResults: []model.APITestResult{s.apiResults["task1_0_test1"]},
 		},
 		{
 			name: "MultipleTasksNoFiltering",
@@ -215,13 +218,13 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   6,
 				FilteredCount: utility.ToIntPtr(6),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_1_test0": s.apiResults["task1_1_test0"],
-				"task1_1_test1": s.apiResults["task1_1_test1"],
-				"task1_1_test2": s.apiResults["task1_1_test2"],
-				"task2_0_test0": s.apiResults["task2_0_test0"],
-				"task2_0_test1": s.apiResults["task2_0_test1"],
-				"task2_0_test2": s.apiResults["task2_0_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_1_test0"],
+				s.apiResults["task1_1_test1"],
+				s.apiResults["task1_1_test2"],
+				s.apiResults["task2_0_test0"],
+				s.apiResults["task2_0_test1"],
+				s.apiResults["task2_0_test2"],
 			},
 		},
 		{
@@ -242,9 +245,9 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   6,
 				FilteredCount: utility.ToIntPtr(2),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_1_test2": s.apiResults["task1_1_test2"],
-				"task2_0_test2": s.apiResults["task2_0_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_1_test2"],
+				s.apiResults["task2_0_test2"],
 			},
 		},
 		{
@@ -255,10 +258,10 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   3,
 				FilteredCount: utility.ToIntPtr(3),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_1_test0": s.apiResults["task1_1_test0"],
-				"task1_1_test1": s.apiResults["task1_1_test1"],
-				"task1_1_test2": s.apiResults["task1_1_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_1_test0"],
+				s.apiResults["task1_1_test1"],
+				s.apiResults["task1_1_test2"],
 			},
 		},
 
@@ -276,13 +279,13 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   6,
 				FilteredCount: utility.ToIntPtr(6),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_0_test0": s.apiResults["task1_0_test0"],
-				"task1_0_test1": s.apiResults["task1_0_test1"],
-				"task1_0_test2": s.apiResults["task1_0_test2"],
-				"task2_0_test0": s.apiResults["task2_0_test0"],
-				"task2_0_test1": s.apiResults["task2_0_test1"],
-				"task2_0_test2": s.apiResults["task2_0_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_0_test0"],
+				s.apiResults["task1_0_test1"],
+				s.apiResults["task1_0_test2"],
+				s.apiResults["task2_0_test0"],
+				s.apiResults["task2_0_test1"],
+				s.apiResults["task2_0_test2"],
 			},
 		},
 		{
@@ -298,13 +301,13 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   6,
 				FilteredCount: utility.ToIntPtr(6),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_1_test0": s.apiResults["task1_1_test0"],
-				"task1_1_test1": s.apiResults["task1_1_test1"],
-				"task1_1_test2": s.apiResults["task1_1_test2"],
-				"task2_0_test0": s.apiResults["task2_0_test0"],
-				"task2_0_test1": s.apiResults["task2_0_test1"],
-				"task2_0_test2": s.apiResults["task2_0_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_1_test0"],
+				s.apiResults["task1_1_test1"],
+				s.apiResults["task1_1_test2"],
+				s.apiResults["task2_0_test0"],
+				s.apiResults["task2_0_test1"],
+				s.apiResults["task2_0_test2"],
 			},
 		},
 		{
@@ -322,9 +325,9 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				FailedCount:   6,
 				FilteredCount: utility.ToIntPtr(2),
 			},
-			resultMap: map[string]model.APITestResult{
-				"task1_0_test2": s.apiResults["task1_0_test2"],
-				"task2_0_test2": s.apiResults["task2_0_test2"],
+			expectedResults: []model.APITestResult{
+				s.apiResults["task1_0_test2"],
+				s.apiResults["task2_0_test2"],
 			},
 		},
 	} {
@@ -338,16 +341,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 				s.Require().NoError(err)
 
 				s.Equal(test.stats, actualResult.Stats)
-				s.Len(actualResult.Results, len(test.resultMap))
-				for _, result := range actualResult.Results {
-					key := fmt.Sprintf("%s_%d_%s", *result.TaskID, result.Execution, *result.TestName)
-					expected, ok := test.resultMap[key]
-					s.Require().True(ok)
-					s.Equal(expected.TestName, result.TestName)
-					s.Equal(expected.TaskID, result.TaskID)
-					s.Equal(expected.Execution, result.Execution)
-					delete(test.resultMap, key)
-				}
+				s.Equal(actualResult.Results, test.expectedResults)
 			}
 		})
 	}
@@ -450,9 +444,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSample() {
 				s.Require().NoError(err)
 
 				s.Require().Len(actualResult, len(test.expectedResult))
-				for i := range actualResult {
-					s.Equal(test.expectedResult[i], actualResult[i])
-				}
+				s.Equal(test.expectedResult, actualResult)
 			}
 		})
 	}
@@ -609,7 +601,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSamples() {
 				s.Error(err)
 			} else {
 				s.NoError(err)
-				s.ElementsMatch(samples, testCase.expectedResult)
+				s.Equal(samples, testCase.expectedResult)
 			}
 		})
 	}

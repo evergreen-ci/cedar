@@ -318,7 +318,8 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTasksHandler() {
 				},
 			},
 			expectedResult: &model.APITestResults{
-				Stats: model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},
+				Stats:   model.APITestResultsStats{FilteredCount: utility.ToIntPtr(0)},
+				Results: []model.APITestResult{},
 			},
 		},
 		{
@@ -403,19 +404,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsGetByTasksHandler() {
 				s.Equal(test.expectedResult.Stats.FailedCount, actualResult.Stats.FailedCount)
 				s.Equal(test.expectedResult.Stats.TotalCount, actualResult.Stats.TotalCount)
 				s.Equal(test.expectedResult.Stats.FilteredCount, actualResult.Stats.FilteredCount)
-				s.Require().Equal(len(test.expectedResult.Results), len(actualResult.Results))
-				for _, expected := range test.expectedResult.Results {
-					found := false
-					for _, actual := range actualResult.Results {
-						if utility.FromStringPtr(expected.TestName) == utility.FromStringPtr(actual.TestName) &&
-							utility.FromStringPtr(expected.TaskID) == utility.FromStringPtr(actual.TaskID) &&
-							expected.Execution == actual.Execution {
-							found = true
-							break
-						}
-					}
-					s.True(found)
-				}
+				s.Equal(test.expectedResult.Results, actualResult.Results)
 			}
 		})
 	}
