@@ -150,7 +150,7 @@ type TestResultsFilterAndSortOptions struct {
 	SortOrderDSC bool                     `json:"sort_order_dsc"`
 	Limit        int                      `json:"limit"`
 	Page         int                      `json:"page"`
-	BaseResults  []TestResultsTaskOptions `json:"base_results"`
+	BaseTasks    []TestResultsTaskOptions `json:"base_tasks"`
 }
 
 // PerformanceOptions holds all values required to find a specific

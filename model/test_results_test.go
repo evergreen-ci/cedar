@@ -1162,7 +1162,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			hasErr: true,
 		},
 		{
-			name:   "SortByBaseStatusWithoutBaseResultsFindOptions",
+			name:   "SortByBaseStatusWithoutBaseTasksFindOptions",
 			opts:   &TestResultsFilterAndSortOptions{SortBy: TestResultsSortByBaseStatus},
 			hasErr: true,
 		},
@@ -1331,8 +1331,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 		{
 			name: "SortByBaseStatusASC",
 			opts: &TestResultsFilterAndSortOptions{
-				SortBy:      TestResultsSortByBaseStatus,
-				BaseResults: []TestResultsTaskOptions{{TaskID: base.Info.TaskID}},
+				SortBy:    TestResultsSortByBaseStatus,
+				BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID}},
 			},
 			expectedResults: []TestResult{
 				resultsWithBaseStatus[1],
@@ -1347,7 +1347,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &TestResultsFilterAndSortOptions{
 				SortBy:       TestResultsSortByBaseStatus,
 				SortOrderDSC: true,
-				BaseResults:  []TestResultsTaskOptions{{TaskID: base.Info.TaskID}},
+				BaseTasks:    []TestResultsTaskOptions{{TaskID: base.Info.TaskID}},
 			},
 			expectedResults: []TestResult{
 				resultsWithBaseStatus[0],
@@ -1359,7 +1359,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 		},
 		{
 			name: "BaseStatus",
-			opts: &TestResultsFilterAndSortOptions{BaseResults: []TestResultsTaskOptions{{TaskID: base.Info.TaskID}}},
+			opts: &TestResultsFilterAndSortOptions{BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID}}},
 			expectedResults: []TestResult{
 				resultsWithBaseStatus[0],
 				resultsWithBaseStatus[1],

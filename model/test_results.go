@@ -887,7 +887,7 @@ type TestResultsFilterAndSortOptions struct {
 	SortOrderDSC bool
 	Limit        int
 	Page         int
-	BaseResults  []TestResultsTaskOptions
+	BaseTasks    []TestResultsTaskOptions
 
 	testNameRegex *regexp.Regexp
 	baseStatusMap map[string]string
@@ -897,7 +897,7 @@ func (o *TestResultsFilterAndSortOptions) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
-	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && o.BaseResults == nil, "must specify base task ID when sorting by base status")
+	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && len(o.BaseTasks) == 0, "must specify base task ID when sorting by base status")
 	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
 	catcher.NewWhen(o.Page < 0, "page cannot be negative")
 	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
@@ -995,8 +995,8 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
 	}
 
-	if opts.BaseResults != nil {
-		_, baseResults, err := FindAndDownloadTestResults(ctx, env, opts.BaseResults, nil)
+	if opts.BaseTasks != nil {
+		_, baseResults, err := FindAndDownloadTestResults(ctx, env, opts.BaseTasks, nil)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "getting base test results")
 		}

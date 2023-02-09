@@ -190,7 +190,7 @@ func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOp
 		SortOrderDSC: opts.SortOrderDSC,
 		Limit:        opts.Limit,
 		Page:         opts.Page,
-		BaseResults:  convertToDBTestResultsTaskOptions(opts.BaseResults),
+		BaseTasks:    convertToDBTestResultsTaskOptions(opts.BaseTasks),
 	}
 	if err := dbOpts.Validate(); err != nil {
 		return nil, gimlet.ErrorResponse{

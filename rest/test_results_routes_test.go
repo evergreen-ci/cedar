@@ -236,7 +236,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsBaseHandler() {
 					SortOrderDSC: true,
 					Limit:        100,
 					Page:         1,
-					BaseResults: []data.TestResultsTaskOptions{
+					BaseTasks: []data.TestResultsTaskOptions{
 						{
 							TaskID:    "base_task1",
 							Execution: utility.ToIntPtr(0),

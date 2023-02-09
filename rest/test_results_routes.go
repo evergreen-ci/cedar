@@ -249,7 +249,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 		h.filterOpts.SortOrderDSC = true
 	}
 	if baseTaskID != "" {
-		h.filterOpts.BaseResults = []data.TestResultsTaskOptions{
+		h.filterOpts.BaseTasks = []data.TestResultsTaskOptions{
 			{
 				TaskID:      baseTaskID,
 				DisplayTask: h.taskOpts.DisplayTask,
