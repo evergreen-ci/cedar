@@ -70,6 +70,7 @@ type TestResults struct {
 	bucket             string
 	prestoBucketPrefix string
 	populated          bool
+	results            []TestResult
 }
 
 var (
@@ -886,17 +887,17 @@ type TestResultsFilterAndSortOptions struct {
 	SortOrderDSC bool
 	Limit        int
 	Page         int
-	BaseResults  []TestResultsTaskOptions
+	BaseTasks    []TestResultsTaskOptions
 
 	testNameRegex *regexp.Regexp
 	baseStatusMap map[string]string
 }
 
-func (o *TestResultsFilterAndSortOptions) validate() error {
+func (o *TestResultsFilterAndSortOptions) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
 	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
-	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && o.BaseResults == nil, "must specify base task ID when sorting by base status")
+	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && len(o.BaseTasks) == 0, "must specify base task ID when sorting by base status")
 	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
 	catcher.NewWhen(o.Page < 0, "page cannot be negative")
 	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
@@ -922,64 +923,56 @@ func FindAndDownloadTestResults(ctx context.Context, env cedar.Environment, task
 	}
 
 	stats := TestResultsStats{}
-	testResultsChan := make(chan TestResults, len(testResults))
+	toDownload := make(chan *TestResults, len(testResults))
 	for i := range testResults {
 		stats.TotalCount += testResults[i].Stats.TotalCount
 		stats.FailedCount += testResults[i].Stats.FailedCount
 
-		testResultsChan <- testResults[i]
+		toDownload <- &testResults[i]
 	}
-	close(testResultsChan)
+	close(toDownload)
 
-	var (
-		combinedResults []TestResult
-		cwg             sync.WaitGroup
-		pwg             sync.WaitGroup
-	)
-	combinedResultsChan := make(chan []TestResult, len(testResults))
+	var wg sync.WaitGroup
 	catcher := grip.NewBasicCatcher()
-	cwg.Add(1)
-	go func() {
-		defer func() {
-			catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results download consumer"))
-			cwg.Done()
-		}()
-
-		for results := range combinedResultsChan {
-			combinedResults = append(combinedResults, results...)
-		}
-	}()
-
 	for i := 0; i < runtime.NumCPU(); i++ {
-		pwg.Add(1)
+		wg.Add(1)
 		go func() {
 			defer func() {
 				catcher.Add(recovery.HandlePanicWithError(recover(), nil, "test results download producer"))
-				pwg.Done()
+				wg.Done()
 			}()
 
-			for trs := range testResultsChan {
+			for trs := range toDownload {
 				results, err := trs.Download(ctx)
 				if err != nil {
 					catcher.Add(err)
 					return
 				}
+				trs.results = results
 
-				select {
-				case <-ctx.Done():
-					catcher.Add(ctx.Err())
+				if err = ctx.Err(); err != nil {
+					catcher.Add(err)
 					return
-				case combinedResultsChan <- results:
 				}
 			}
 		}()
 	}
-	pwg.Wait()
-	close(combinedResultsChan)
-	cwg.Wait()
-
+	wg.Wait()
 	if catcher.HasErrors() {
 		return TestResultsStats{}, nil, catcher.Resolve()
+	}
+
+	// Sort the test results in order by (task ID, execution) to ensure
+	// that paginated responses return consistent results.
+	sort.SliceStable(testResults, func(i, j int) bool {
+		if testResults[i].Info.TaskID == testResults[j].Info.TaskID {
+			return testResults[i].Info.Execution < testResults[j].Info.Execution
+		}
+		return testResults[i].Info.TaskID < testResults[j].Info.TaskID
+	})
+	var combinedResults []TestResult
+	for _, trs := range testResults {
+		combinedResults = append(combinedResults, trs.results...)
 	}
 
 	filteredResults, filteredCount, err := filterAndSortTestResults(ctx, env, combinedResults, filterOpts)
@@ -998,12 +991,12 @@ func filterAndSortTestResults(ctx context.Context, env cedar.Environment, result
 		return results, len(results), nil
 	}
 
-	if err := opts.validate(); err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, 0, errors.Wrap(err, "validating filter and sort test results options")
 	}
 
-	if opts.BaseResults != nil {
-		_, baseResults, err := FindAndDownloadTestResults(ctx, env, opts.BaseResults, nil)
+	if opts.BaseTasks != nil {
+		_, baseResults, err := FindAndDownloadTestResults(ctx, env, opts.BaseTasks, nil)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "getting base test results")
 		}

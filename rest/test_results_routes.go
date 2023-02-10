@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -25,6 +26,146 @@ const (
 	testResultsPage       = "page"
 	testResultsBaseTaskID = "base_task_id"
 )
+
+type testResultsTasksBaseHandler struct {
+	sc      data.Connector
+	payload struct {
+		TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
+		FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+	}
+}
+
+func (h *testResultsTasksBaseHandler) Parse(_ context.Context, r *http.Request) error {
+	if r.Body == nil {
+		return errors.New("missing request payload")
+	}
+	body := utility.NewRequestReader(r)
+	defer body.Close()
+
+	if err := json.NewDecoder(r.Body).Decode(&h.payload); err != nil {
+		return errors.Wrap(err, "decoding JSON request payload")
+	}
+
+	if len(h.payload.TaskOpts) == 0 {
+		return errors.New("must specify at least one task in the request payload")
+	}
+
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/tasks
+
+type testResultsGetByTasksHandler struct {
+	testResultsTasksBaseHandler
+}
+
+func makeGetTestResultsByTasks(sc data.Connector) *testResultsGetByTasksHandler {
+	h := &testResultsGetByTasksHandler{}
+	h.sc = sc
+
+	return h
+}
+
+func (h *testResultsGetByTasksHandler) Factory() gimlet.RouteHandler {
+	newHandler := &testResultsGetByTasksHandler{}
+	newHandler.sc = h.sc
+
+	return newHandler
+}
+
+func (h *testResultsGetByTasksHandler) Run(ctx context.Context) gimlet.Responder {
+	testResults, err := h.sc.FindTestResults(ctx, h.payload.TaskOpts, h.payload.FilterOpts)
+	if err != nil {
+		err = errors.Wrap(err, "getting test results by tasks")
+		logFindError(err, message.Fields{
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/test_results/tasks",
+			"request_payload": h.payload,
+		})
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+
+	return gimlet.NewJSONResponse(testResults)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/tasks/stats
+
+type testResultsStatsGetByTasksHandler struct {
+	testResultsTasksBaseHandler
+}
+
+func makeGetTestResultsStatsByTasks(sc data.Connector) *testResultsStatsGetByTasksHandler {
+	h := &testResultsStatsGetByTasksHandler{}
+	h.sc = sc
+
+	return h
+}
+
+func (h *testResultsStatsGetByTasksHandler) Factory() gimlet.RouteHandler {
+	newHandler := &testResultsStatsGetByTasksHandler{}
+	newHandler.sc = h.sc
+
+	return newHandler
+}
+
+func (h *testResultsStatsGetByTasksHandler) Run(ctx context.Context) gimlet.Responder {
+	stats, err := h.sc.FindTestResultsStats(ctx, h.payload.TaskOpts)
+	if err != nil {
+		err = errors.Wrap(err, "getting test results stats by tasks")
+		logFindError(err, message.Fields{
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/test_results/tasks/stats",
+			"request_payload": h.payload,
+		})
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+
+	return gimlet.NewJSONResponse(stats)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GET /test_results/tasks/failed_sample
+
+type testResultsFailedSampleGetByTasksHandler struct {
+	testResultsTasksBaseHandler
+}
+
+func makeGetTestResultsFailedSampleByTasks(sc data.Connector) *testResultsFailedSampleGetByTasksHandler {
+	h := &testResultsFailedSampleGetByTasksHandler{}
+	h.sc = sc
+
+	return h
+}
+
+func (h *testResultsFailedSampleGetByTasksHandler) Factory() gimlet.RouteHandler {
+	newHandler := &testResultsFailedSampleGetByTasksHandler{}
+	newHandler.sc = h.sc
+
+	return newHandler
+}
+
+func (h *testResultsFailedSampleGetByTasksHandler) Run(ctx context.Context) gimlet.Responder {
+	sample, err := h.sc.FindFailedTestResultsSample(ctx, h.payload.TaskOpts)
+	if err != nil {
+		err = errors.Wrap(err, "getting failed test results sample by tasks")
+		logFindError(err, message.Fields{
+			"request":         gimlet.GetRequestID(ctx),
+			"method":          "GET",
+			"route":           "/test_results/tasks/failed_sample",
+			"request_payload": h.payload,
+		})
+		return gimlet.MakeJSONErrorResponder(err)
+	}
+
+	return gimlet.NewJSONResponse(sample)
+}
 
 // TODO (EVG-18798): Remove these route handlers once Spruce and Evergreen are
 // updated.
@@ -108,7 +249,7 @@ func (h *testResultsGetByTaskIDHandler) Parse(ctx context.Context, r *http.Reque
 		h.filterOpts.SortOrderDSC = true
 	}
 	if baseTaskID != "" {
-		h.filterOpts.BaseResults = []data.TestResultsTaskOptions{
+		h.filterOpts.BaseTasks = []data.TestResultsTaskOptions{
 			{
 				TaskID:      baseTaskID,
 				DisplayTask: h.taskOpts.DisplayTask,

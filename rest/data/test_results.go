@@ -15,7 +15,11 @@ import (
 /////////////////////////////
 
 func (dbc *DBConnector) FindTestResults(ctx context.Context, taskOpts []TestResultsTaskOptions, filterOpts *TestResultsFilterAndSortOptions) (*model.APITestResults, error) {
-	stats, results, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsTaskOptions(taskOpts), convertToDBTestResultsFilterAndSortOptions(filterOpts))
+	dbFilterOpts, err := convertToDBTestResultsFilterAndSortOptions(filterOpts)
+	if err != nil {
+		return nil, err
+	}
+	stats, results, err := dbModel.FindAndDownloadTestResults(ctx, dbc.env, convertToDBTestResultsTaskOptions(taskOpts), dbFilterOpts)
 	if err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -173,12 +177,12 @@ func convertToDBTestResultsTaskOptions(opts []TestResultsTaskOptions) []dbModel.
 	return dbOpts
 }
 
-func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOptions) *dbModel.TestResultsFilterAndSortOptions {
+func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOptions) (*dbModel.TestResultsFilterAndSortOptions, error) {
 	if opts == nil {
-		return nil
+		return nil, nil
 	}
 
-	return &dbModel.TestResultsFilterAndSortOptions{
+	dbOpts := &dbModel.TestResultsFilterAndSortOptions{
 		TestName:     opts.TestName,
 		Statuses:     opts.Statuses,
 		GroupID:      opts.GroupID,
@@ -186,6 +190,14 @@ func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOp
 		SortOrderDSC: opts.SortOrderDSC,
 		Limit:        opts.Limit,
 		Page:         opts.Page,
-		BaseResults:  convertToDBTestResultsTaskOptions(opts.BaseResults),
+		BaseTasks:    convertToDBTestResultsTaskOptions(opts.BaseTasks),
 	}
+	if err := dbOpts.Validate(); err != nil {
+		return nil, gimlet.ErrorResponse{
+			StatusCode: http.StatusBadRequest,
+			Message:    errors.Wrap(err, "invalid filter options").Error(),
+		}
+	}
+
+	return dbOpts, nil
 }
