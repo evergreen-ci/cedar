@@ -53,6 +53,37 @@ func TestCalculateDefaultRollups(t *testing.T) {
 	}
 }
 
+// Creates an FTDC with two 10 second operations, themselves separated by 5
+// seconds.
+func create25SecondOperations() ([]byte, error) {
+	collector := ftdc.NewDynamicCollector(5)
+	recorder := events.NewRawRecorder(collector)
+
+	recorder.BeginIteration()
+	recorder.IncOperations(1)
+	recorder.SetTime(time.Unix(1000000010, 0))
+	recorder.EndIteration(time.Duration(10 * time.Second))
+
+	recorder.BeginIteration()
+	recorder.IncOperations(1)
+	recorder.SetTime(time.Unix(1000000025, 0))
+	recorder.EndIteration(time.Duration(10 * time.Second))
+	data, err := collector.Resolve()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return data, nil
+}
+
+func TestCreatePerformanceStatsDuration(t *testing.T) {
+	ftdcBytes, err := create25SecondOperations()
+	assert.NoError(t, err)
+	chunkIterator := ftdc.ReadChunks(context.Background(), bytes.NewReader(ftdcBytes))
+	perfStats, err := CreatePerformanceStats(chunkIterator)
+	assert.NoError(t, err)
+	assert.Equal(t, perfStats.timers.totalWallTime, 25*time.Second)
+}
+
 func TestCalcFunctions(t *testing.T) {
 	s := &PerformanceStatistics{
 		counters: struct {
