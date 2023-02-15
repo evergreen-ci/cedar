@@ -62,12 +62,12 @@ func create25SecondOperations() ([]byte, error) {
 	recorder.BeginIteration()
 	recorder.IncOperations(1)
 	recorder.SetTime(time.Unix(1000000010, 0))
-	recorder.EndIteration(time.Duration(10 * time.Second))
+	recorder.EndIteration(10 * time.Second)
 
 	recorder.BeginIteration()
 	recorder.IncOperations(1)
 	recorder.SetTime(time.Unix(1000000025, 0))
-	recorder.EndIteration(time.Duration(10 * time.Second))
+	recorder.EndIteration(10 * time.Second)
 	data, err := collector.Resolve()
 	if err != nil {
 		return nil, errors.WithStack(err)
