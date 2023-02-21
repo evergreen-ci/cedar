@@ -31,7 +31,7 @@ type testResultsTasksBaseHandler struct {
 	sc      data.Connector
 	payload struct {
 		TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
-		FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+		FilterOpts *data.TestResultsFilterAndSortOptions `json:"filter"`
 	}
 }
 
