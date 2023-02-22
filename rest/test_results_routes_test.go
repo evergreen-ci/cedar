@@ -178,7 +178,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsBaseHandler() {
 		name    string
 		payload *struct {
 			TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
-			FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+			FilterOpts *data.TestResultsFilterAndSortOptions `json:"filter"`
 		}
 		hasErr bool
 	}{
@@ -190,7 +190,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsBaseHandler() {
 			name: "NoTaskOptions",
 			payload: &struct {
 				TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
-				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filter"`
 			}{},
 			hasErr: true,
 		},
@@ -198,7 +198,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsBaseHandler() {
 			name: "OnlyTaskOptions",
 			payload: &struct {
 				TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
-				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filter"`
 			}{
 				TaskOpts: []data.TestResultsTaskOptions{
 					{
@@ -216,7 +216,7 @@ func (s *TestResultsHandlerSuite) TestTestResultsBaseHandler() {
 			name: "TaskAndFilterOptions",
 			payload: &struct {
 				TaskOpts   []data.TestResultsTaskOptions         `json:"tasks"`
-				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filters"`
+				FilterOpts *data.TestResultsFilterAndSortOptions `json:"filter"`
 			}{
 				TaskOpts: []data.TestResultsTaskOptions{
 					{
