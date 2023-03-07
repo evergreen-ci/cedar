@@ -760,75 +760,15 @@ func FindFailedTestResultsSamples(ctx context.Context, env cedar.Environment, ta
 	if err != nil {
 		return nil, errors.Wrap(err, "finding test results record(s)")
 	}
-	var results []TestResults
-	if err := cur.All(ctx, &results); err != nil {
+	var records []TestResults
+	if err := cur.All(ctx, &records); err != nil {
 		return nil, errors.Wrap(err, "decoding test results record(s)")
 	}
 
-	return makeTestSamples(taskOpts, regexFilters, results)
+	return makeTestSamples(records, regexFilters)
 }
 
-func makeTestSamples(taskOpts []TestResultsTaskOptions, regexFilters []string, records []TestResults) ([]TestResultsSample, error) {
-	samples := consolidateSamples(taskOpts, records)
-	if len(regexFilters) == 0 {
-		return samples, nil
-	}
-
-	return filterTestSamples(samples, regexFilters)
-}
-
-func consolidateSamples(opts []TestResultsTaskOptions, records []TestResults) []TestResultsSample {
-	type taskExecutionPair struct {
-		taskID    string
-		execution int
-	}
-	displayTaskMap := make(map[taskExecutionPair][]string)
-	executionTaskMap := make(map[taskExecutionPair][]string)
-	for _, record := range records {
-		if record.Info.DisplayTaskID != "" {
-			dt := taskExecutionPair{
-				taskID:    record.Info.DisplayTaskID,
-				execution: record.Info.Execution,
-			}
-			displayTaskMap[dt] = append(displayTaskMap[dt], record.FailedTestsSample...)
-		}
-		et := taskExecutionPair{
-			taskID:    record.Info.TaskID,
-			execution: record.Info.Execution,
-		}
-		executionTaskMap[et] = record.FailedTestsSample
-	}
-
-	samples := make([]TestResultsSample, 0, len(opts))
-	for _, t := range opts {
-		pair := taskExecutionPair{
-			taskID:    t.TaskID,
-			execution: utility.FromIntPtr(t.Execution),
-		}
-
-		var names []string
-		var ok bool
-		if t.DisplayTask {
-			names, ok = displayTaskMap[pair]
-		} else {
-			names, ok = executionTaskMap[pair]
-		}
-		if !ok {
-			continue
-		}
-
-		samples = append(samples, TestResultsSample{
-			TaskID:                  t.TaskID,
-			Execution:               utility.FromIntPtr(t.Execution),
-			MatchingFailedTestNames: names,
-			TotalFailedTestNames:    len(names),
-		})
-	}
-
-	return samples
-}
-
-func filterTestSamples(samples []TestResultsSample, regexFilters []string) ([]TestResultsSample, error) {
+func makeTestSamples(records []TestResults, regexFilters []string) ([]TestResultsSample, error) {
 	regexes := []*regexp.Regexp{}
 	for _, filter := range regexFilters {
 		testNameRegex, err := regexp.Compile(filter)
@@ -838,21 +778,26 @@ func filterTestSamples(samples []TestResultsSample, regexFilters []string) ([]Te
 		regexes = append(regexes, testNameRegex)
 	}
 
-	filteredSamples := []TestResultsSample{}
-	for _, sample := range samples {
-		filteredNames := []string{}
-		for _, regex := range regexes {
-			for _, name := range sample.MatchingFailedTestNames {
-				if regex.MatchString(name) {
-					filteredNames = append(filteredNames, name)
+	samples := make([]TestResultsSample, len(records))
+	for i, record := range records {
+		samples[i].TaskID = record.Info.TaskID
+		samples[i].Execution = record.Info.Execution
+
+		samples[i].TotalFailedTestNames = len(record.FailedTestsSample)
+		for _, testName := range record.FailedTestsSample {
+			match := true
+			for _, regex := range regexes {
+				if match = regex.MatchString(testName); match {
+					break
 				}
 			}
+			if match {
+				samples[i].MatchingFailedTestNames = append(samples[i].MatchingFailedTestNames, testName)
+			}
 		}
-		sample.MatchingFailedTestNames = filteredNames
-		filteredSamples = append(filteredSamples, sample)
 	}
 
-	return filteredSamples, nil
+	return samples, nil
 }
 
 // TestResultsSortBy describes the property by which to sort a set of test
