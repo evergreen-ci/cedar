@@ -46,8 +46,6 @@ functions:
       args: ["${target}"]
       include_expansions_in_env: ["GOROOT", "RACE_DETECTOR"]
       env:
-        AUTH_USER: ${auth_user}
-        AUTH_API_KEY: ${auth_api_key}
         AWS_ACCESS_KEY_ID: ${aws_key}
         AWS_SECRET_ACCESS_KEY: ${aws_secret}
   set-up-mongodb:
@@ -120,9 +118,6 @@ tasks:
     name: test-model
   - <<: *run-build
     tags: ["test"]
-    name: test-evergreen
-  - <<: *run-build
-    tags: ["test"]
     name: test-rest-model
   - <<: *run-build
     tags: ["test"]
@@ -155,9 +150,6 @@ tasks:
   - <<: *run-build
     tags: ["lint"]
     name: lint-model
-  - <<: *run-build
-    tags: ["lint"]
-    name: lint-evergreen
   - <<: *run-build
     tags: ["lint"]
     name: lint-rest-model
