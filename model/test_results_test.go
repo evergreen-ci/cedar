@@ -1399,7 +1399,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 	}
 }
 
-func TestGetTestResultsFilteredSamples(t *testing.T) {
+func TestFindFailedTestResultsSamples(t *testing.T) {
 	env := cedar.GetEnvironment()
 	db := env.GetDB()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1414,7 +1414,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 	}
 	t0_2 := TestResults{
 		Info:              TestResultsInfo{TaskID: "t0", Execution: 2},
-		FailedTestsSample: []string{"test1", "test3", "test4"},
+		FailedTestsSample: []string{"test1", "test3", "test44"},
 	}
 	t1_0 := TestResults{
 		Info:              TestResultsInfo{TaskID: "t1"},
@@ -1486,7 +1486,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 				{TaskID: t1_0.Info.TaskID, Execution: utility.ToIntPtr(t1_0.Info.Execution)},
 				{TaskID: t1_1.Info.TaskID, Execution: utility.ToIntPtr(t1_1.Info.Execution)},
 			},
-			filters: []string{"test1", "test3"},
+			filters: []string{"test1", "test3", "test4", "test44"},
 			expected: []TestResultsSample{
 				{
 					TaskID:                  t0_0.Info.TaskID,
@@ -1497,7 +1497,7 @@ func TestGetTestResultsFilteredSamples(t *testing.T) {
 				{
 					TaskID:                  t0_2.Info.TaskID,
 					Execution:               t0_2.Info.Execution,
-					MatchingFailedTestNames: []string{"test1", "test3"},
+					MatchingFailedTestNames: []string{"test1", "test3", "test44"},
 					TotalFailedTestNames:    len(t0_2.FailedTestsSample),
 				},
 				{
