@@ -546,62 +546,69 @@ func (s *testResultsConnectorSuite) TestFindTestResultsStats() {
 }
 
 func (s *testResultsConnectorSuite) TestFindFailedTestResultsSamples() {
-	for testName, testCase := range map[string]struct {
+	for _, test := range []struct {
+		name           string
 		tasks          []TestResultsTaskOptions
+		filters        []string
 		expectedResult []model.APITestResultsSample
 		hasErr         bool
 	}{
-		"SingleTask": {
+		{
+			name: "InvalidFilter",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: "display_task2", DisplayTask: true, Execution: utility.ToIntPtr(0)},
+				{TaskID: "task3", Execution: utility.ToIntPtr(0)},
+			},
+			filters: []string{`[`},
+			hasErr:  true,
+		},
+		{
+			name: "NoFilter",
+			tasks: []TestResultsTaskOptions{
+				{TaskID: "task3", Execution: utility.ToIntPtr(0)},
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
-					TaskID:                  utility.ToStringPtr("display_task2"),
+					TaskID:                  utility.ToStringPtr("task3"),
 					MatchingFailedTestNames: []string{"test0", "test1", "test2"},
 					TotalFailedNames:        3,
 				},
 			},
 		},
-		"NoMatchingTask": {
-			tasks: []TestResultsTaskOptions{
-				{TaskID: "doesNotExist"},
-			},
+		{
+			name:           "NoMatchingTask",
+			tasks:          []TestResultsTaskOptions{{TaskID: "DNE"}},
 			expectedResult: []model.APITestResultsSample{},
 		},
-		"MultipleExecutionTasks": {
+		{
+			name: "WithFilters",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: "display_task1", DisplayTask: true, Execution: utility.ToIntPtr(0)},
+				{TaskID: "task1", Execution: utility.ToIntPtr(1)},
+				{TaskID: "task2", Execution: utility.ToIntPtr(0)},
 			},
+			filters: []string{"1", "2"},
 			expectedResult: []model.APITestResultsSample{
 				{
-					TaskID:                  utility.ToStringPtr("display_task1"),
-					MatchingFailedTestNames: []string{"test0", "test1", "test2", "test0", "test1", "test2"},
-					TotalFailedNames:        6,
-				},
-			},
-		},
-		"LaterExecution": {
-			tasks: []TestResultsTaskOptions{
-				{TaskID: "display_task1", DisplayTask: true, Execution: utility.ToIntPtr(1)},
-			},
-			expectedResult: []model.APITestResultsSample{
-				{
-					TaskID:                  utility.ToStringPtr("display_task1"),
+					TaskID:                  utility.ToStringPtr("task1"),
 					Execution:               1,
-					MatchingFailedTestNames: []string{"test0", "test1", "test2"},
+					MatchingFailedTestNames: []string{"test1", "test2"},
+					TotalFailedNames:        3,
+				},
+				{
+					TaskID:                  utility.ToStringPtr("task2"),
+					MatchingFailedTestNames: []string{"test1", "test2"},
 					TotalFailedNames:        3,
 				},
 			},
 		},
 	} {
-		s.Run(testName, func() {
-			samples, err := s.sc.FindFailedTestResultsSamples(s.ctx, testCase.tasks, nil)
-			if testCase.hasErr {
+		s.Run(test.name, func() {
+			samples, err := s.sc.FindFailedTestResultsSamples(s.ctx, test.tasks, test.filters)
+			if test.hasErr {
 				s.Error(err)
+				s.Nil(samples)
 			} else {
-				s.NoError(err)
-				s.Equal(samples, testCase.expectedResult)
+				s.Require().NoError(err)
+				s.Equal(samples, test.expectedResult)
 			}
 		})
 	}

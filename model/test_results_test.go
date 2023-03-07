@@ -1430,10 +1430,18 @@ func TestFindFailedTestResultsSamples(t *testing.T) {
 		name     string
 		tasks    []TestResultsTaskOptions
 		filters  []string
-		records  []TestResults
 		expected []TestResultsSample
 		hasErr   bool
 	}{
+		{
+			name:   "NilTaskOptions",
+			hasErr: true,
+		},
+		{
+			name:   "NoTaskOptions",
+			tasks:  []TestResultsTaskOptions{},
+			hasErr: true,
+		},
 		{
 			name:    "InvalidRegexHasError",
 			tasks:   []TestResultsTaskOptions{{TaskID: "t1"}},
