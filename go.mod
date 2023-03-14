@@ -13,7 +13,6 @@ require (
 	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
 	github.com/evergreen-ci/utility v0.0.0-20221202215218-c980e8dea464
 	github.com/fraugster/parquet-go v0.11.0
-	github.com/jpillora/backoff v1.0.0
 	github.com/mongodb/amboy v0.0.0-20230104160932-7df48345d788
 	github.com/mongodb/anser v0.0.0-20220408164649-99dd61768f4a
 	github.com/mongodb/ftdc v0.0.0-20220401165013-13e4af55e809
