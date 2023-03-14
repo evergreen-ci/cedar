@@ -153,7 +153,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			taskOpts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			filterOpts: &TestResultsFilterAndSortOptions{SortBy: "invalid_sort"},
@@ -171,7 +171,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			taskOpts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			stats: model.APITestResultsStats{
@@ -190,7 +190,7 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			taskOpts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			filterOpts: &TestResultsFilterAndSortOptions{TestName: "test1"},
@@ -206,11 +206,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			taskOpts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(1),
+					Execution: 1,
 				},
 				{
 					TaskID:    "task2",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			stats: model.APITestResultsStats{
@@ -232,11 +232,11 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			taskOpts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(1),
+					Execution: 1,
 				},
 				{
 					TaskID:    "task2",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			filterOpts: &TestResultsFilterAndSortOptions{TestName: "test2"},
@@ -247,86 +247,6 @@ func (s *testResultsConnectorSuite) TestFindTestResults() {
 			},
 			expectedResults: []model.APITestResult{
 				s.apiResults["task1_1_test2"],
-				s.apiResults["task2_0_test2"],
-			},
-		},
-		{
-			name:     "TaskIDAndNoExecution",
-			taskOpts: []TestResultsTaskOptions{{TaskID: "task1"}},
-			stats: model.APITestResultsStats{
-				TotalCount:    3,
-				FailedCount:   3,
-				FilteredCount: utility.ToIntPtr(3),
-			},
-			expectedResults: []model.APITestResult{
-				s.apiResults["task1_1_test0"],
-				s.apiResults["task1_1_test1"],
-				s.apiResults["task1_1_test2"],
-			},
-		},
-
-		{
-			name: "DisplayTaskIDAndExecution",
-			taskOpts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					Execution:   utility.ToIntPtr(0),
-					DisplayTask: true,
-				},
-			},
-			stats: model.APITestResultsStats{
-				TotalCount:    6,
-				FailedCount:   6,
-				FilteredCount: utility.ToIntPtr(6),
-			},
-			expectedResults: []model.APITestResult{
-				s.apiResults["task1_0_test0"],
-				s.apiResults["task1_0_test1"],
-				s.apiResults["task1_0_test2"],
-				s.apiResults["task2_0_test0"],
-				s.apiResults["task2_0_test1"],
-				s.apiResults["task2_0_test2"],
-			},
-		},
-		{
-			name: "DisplayTaskIDAndNoExecution",
-			taskOpts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					DisplayTask: true,
-				},
-			},
-			stats: model.APITestResultsStats{
-				TotalCount:    6,
-				FailedCount:   6,
-				FilteredCount: utility.ToIntPtr(6),
-			},
-			expectedResults: []model.APITestResult{
-				s.apiResults["task1_1_test0"],
-				s.apiResults["task1_1_test1"],
-				s.apiResults["task1_1_test2"],
-				s.apiResults["task2_0_test0"],
-				s.apiResults["task2_0_test1"],
-				s.apiResults["task2_0_test2"],
-			},
-		},
-		{
-			name: "DisplayTaskIDAndFilterAndSort",
-			taskOpts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					Execution:   utility.ToIntPtr(0),
-					DisplayTask: true,
-				},
-			},
-			filterOpts: &TestResultsFilterAndSortOptions{TestName: "test2"},
-			stats: model.APITestResultsStats{
-				TotalCount:    6,
-				FailedCount:   6,
-				FilteredCount: utility.ToIntPtr(2),
-			},
-			expectedResults: []model.APITestResult{
-				s.apiResults["task1_0_test2"],
 				s.apiResults["task2_0_test2"],
 			},
 		},
@@ -367,7 +287,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSample() {
 			opts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			expectedResult: []string{"test0", "test1", "test2"},
@@ -377,51 +297,11 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSample() {
 			opts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(1),
+					Execution: 1,
 				},
 				{
 					TaskID:    "task2",
-					Execution: utility.ToIntPtr(0),
-				},
-			},
-			expectedResult: []string{
-				"test0",
-				"test1",
-				"test2",
-				"test0",
-				"test1",
-				"test2",
-			},
-		},
-		{
-			name:           "TaskIDWithoutExecution",
-			opts:           []TestResultsTaskOptions{{TaskID: "task1"}},
-			expectedResult: []string{"test0", "test1", "test2"},
-		},
-		{
-			name: "DisplayTaskIDWithExecution",
-			opts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					Execution:   utility.ToIntPtr(0),
-					DisplayTask: true,
-				},
-			},
-			expectedResult: []string{
-				"test0",
-				"test1",
-				"test2",
-				"test0",
-				"test1",
-				"test2",
-			},
-		},
-		{
-			name: "DisplayTaskIDWithoutExecution",
-			opts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					DisplayTask: true,
+					Execution: 0,
 				},
 			},
 			expectedResult: []string{
@@ -471,7 +351,7 @@ func (s *testResultsConnectorSuite) TestFindTestResultsStats() {
 			opts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			expectedResult: &model.APITestResultsStats{
@@ -484,46 +364,11 @@ func (s *testResultsConnectorSuite) TestFindTestResultsStats() {
 			opts: []TestResultsTaskOptions{
 				{
 					TaskID:    "task1",
-					Execution: utility.ToIntPtr(1),
+					Execution: 1,
 				},
 				{
 					TaskID:    "task2",
-					Execution: utility.ToIntPtr(0),
-				},
-			},
-			expectedResult: &model.APITestResultsStats{
-				TotalCount:  6,
-				FailedCount: 6,
-			},
-		},
-		{
-			name: "TaskIDWithoutExecution",
-			opts: []TestResultsTaskOptions{{TaskID: "task1"}},
-			expectedResult: &model.APITestResultsStats{
-				TotalCount:  3,
-				FailedCount: 3,
-			},
-		},
-		{
-			name: "DisplayTaskIDWithExecution",
-			opts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					Execution:   utility.ToIntPtr(0),
-					DisplayTask: true,
-				},
-			},
-			expectedResult: &model.APITestResultsStats{
-				TotalCount:  6,
-				FailedCount: 6,
-			},
-		},
-		{
-			name: "DisplayTaskIDWithoutExecution",
-			opts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display_task1",
-					DisplayTask: true,
+					Execution: 0,
 				},
 			},
 			expectedResult: &model.APITestResultsStats{
@@ -556,7 +401,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSamples() {
 		{
 			name: "InvalidFilter",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: "task3", Execution: utility.ToIntPtr(0)},
+				{TaskID: "task3", Execution: 0},
 			},
 			filters: []string{`[`},
 			hasErr:  true,
@@ -564,7 +409,7 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSamples() {
 		{
 			name: "NoFilter",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: "task3", Execution: utility.ToIntPtr(0)},
+				{TaskID: "task3", Execution: 0},
 			},
 			expectedResult: []model.APITestResultsSample{
 				{
@@ -582,8 +427,8 @@ func (s *testResultsConnectorSuite) TestFindFailedTestResultsSamples() {
 		{
 			name: "WithFilters",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: "task1", Execution: utility.ToIntPtr(1)},
-				{TaskID: "task2", Execution: utility.ToIntPtr(0)},
+				{TaskID: "task1", Execution: 1},
+				{TaskID: "task2", Execution: 0},
 			},
 			filters: []string{"1", "2"},
 			expectedResult: []model.APITestResultsSample{
