@@ -30,7 +30,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -653,10 +652,6 @@ type TestResultsTaskOptions struct {
 	Execution int
 }
 
-func (opts *TestResultsTaskOptions) createFindOptions() *options.FindOptions {
-	return options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
-}
-
 func (opts *TestResultsTaskOptions) createFindQuery() bson.M {
 	return bson.M{
 		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey):    opts.TaskID,
@@ -679,7 +674,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts []TestResu
 		err error
 	)
 	if len(opts) == 1 {
-		cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts[0].createFindQuery(), opts[0].createFindOptions())
+		cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts[0].createFindQuery())
 	} else {
 		findQueries := make([]bson.M, len(opts))
 		for i, task := range opts {
