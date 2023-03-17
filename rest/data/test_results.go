@@ -171,7 +171,6 @@ func convertToDBTestResultsTaskOptions(opts []TestResultsTaskOptions) []dbModel.
 	for i, task := range opts {
 		dbOpts[i].TaskID = task.TaskID
 		dbOpts[i].Execution = task.Execution
-		dbOpts[i].DisplayTask = task.DisplayTask
 	}
 
 	return dbOpts

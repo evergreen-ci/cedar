@@ -584,20 +584,17 @@ func TestFindTestResults(t *testing.T) {
 	}()
 
 	tr1 := getTestResults()
-	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
 	_, err := db.Collection(testResultsCollection).InsertOne(ctx, tr1)
 	require.NoError(t, err)
 
 	tr2 := getTestResults()
-	tr2.Info.DisplayTaskID = "display"
 	tr2.Info.TaskID = tr1.Info.TaskID
 	tr2.Info.Execution = 1
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr2)
 	require.NoError(t, err)
 
 	tr3 := getTestResults()
-	tr3.Info.DisplayTaskID = "display"
 	tr3.Info.Execution = 0
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr3)
 	require.NoError(t, err)
@@ -611,7 +608,7 @@ func TestFindTestResults(t *testing.T) {
 		opts := []TestResultsTaskOptions{
 			{
 				TaskID:    tr1.Info.TaskID,
-				Execution: utility.ToIntPtr(tr1.Info.Execution),
+				Execution: tr1.Info.Execution,
 			},
 		}
 		results, err := FindTestResults(ctx, nil, opts)
@@ -628,7 +625,7 @@ func TestFindTestResults(t *testing.T) {
 		opts := []TestResultsTaskOptions{
 			{
 				TaskID:    tr1.Info.TaskID,
-				Execution: utility.ToIntPtr(tr1.Info.Execution),
+				Execution: tr1.Info.Execution,
 			},
 		}
 		results, err := FindTestResults(ctx, env, opts)
@@ -645,133 +642,16 @@ func TestFindTestResults(t *testing.T) {
 		opts := []TestResultsTaskOptions{
 			{
 				TaskID:    tr2.Info.TaskID,
-				Execution: utility.ToIntPtr(tr2.Info.Execution),
+				Execution: tr2.Info.Execution,
 			},
 			{
 				TaskID:    tr3.Info.TaskID,
-				Execution: utility.ToIntPtr(tr3.Info.Execution),
+				Execution: tr3.Info.Execution,
 			},
 		}
 		results, err := FindTestResults(ctx, env, opts)
 		require.NoError(t, err)
 		require.NotEmpty(t, results)
-
-		count := 0
-		for _, result := range results {
-			if result.ID == tr2.ID {
-				assert.Equal(t, tr2.ID, result.ID)
-				assert.Equal(t, tr2.Info, result.Info)
-				assert.Equal(t, tr2.Artifact, result.Artifact)
-				assert.True(t, result.populated)
-				assert.Equal(t, env, result.env)
-				count++
-			}
-			if result.ID == tr3.ID {
-				assert.Equal(t, tr3.ID, result.ID)
-				assert.Equal(t, tr3.Info, result.Info)
-				assert.Equal(t, tr3.Artifact, result.Artifact)
-				assert.True(t, result.populated)
-				assert.Equal(t, env, result.env)
-				count++
-			}
-		}
-		assert.Equal(t, 2, count)
-	})
-	t.Run("TaskIDWithoutExecution", func(t *testing.T) {
-		opts := []TestResultsTaskOptions{
-			{
-				TaskID: tr2.Info.TaskID,
-			},
-		}
-		results, err := FindTestResults(ctx, env, opts)
-		require.NoError(t, err)
-		require.NotEmpty(t, results)
-
-		assert.Equal(t, tr2.ID, results[0].ID)
-		assert.Equal(t, tr2.Info, results[0].Info)
-		assert.Equal(t, tr2.Artifact, results[0].Artifact)
-		assert.True(t, results[0].populated)
-		assert.Equal(t, env, results[0].env)
-	})
-	t.Run("DisplayTaskIDAndExecution", func(t *testing.T) {
-		opts := []TestResultsTaskOptions{
-			{
-				TaskID:      "display",
-				Execution:   utility.ToIntPtr(0),
-				DisplayTask: true,
-			},
-		}
-		results, err := FindTestResults(ctx, env, opts)
-		require.NoError(t, err)
-
-		count := 0
-		for _, result := range results {
-			if result.ID == tr1.ID {
-				assert.Equal(t, tr1.ID, result.ID)
-				assert.Equal(t, tr1.Info, result.Info)
-				assert.Equal(t, tr1.Artifact, result.Artifact)
-				assert.True(t, result.populated)
-				assert.Equal(t, env, result.env)
-				count++
-			}
-			if result.ID == tr3.ID {
-				assert.Equal(t, tr3.ID, result.ID)
-				assert.Equal(t, tr3.Info, result.Info)
-				assert.Equal(t, tr3.Artifact, result.Artifact)
-				assert.True(t, result.populated)
-				assert.Equal(t, env, result.env)
-				count++
-			}
-		}
-		assert.Equal(t, 2, count)
-	})
-	t.Run("DisplayTaskIDAndRestartedExecution", func(t *testing.T) {
-		opts := []TestResultsTaskOptions{
-			{
-				TaskID:      "display",
-				Execution:   utility.ToIntPtr(1),
-				DisplayTask: true,
-			},
-		}
-		results, err := FindTestResults(ctx, env, opts)
-		require.NoError(t, err)
-
-		count := 0
-		for _, result := range results {
-			if result.ID == tr2.ID {
-				assert.Equal(t, tr2.ID, result.ID)
-				assert.Equal(t, tr2.Info, result.Info)
-				assert.Equal(t, tr2.Artifact, result.Artifact)
-				assert.True(t, result.populated)
-				assert.Equal(t, env, result.env)
-				count++
-			}
-			if result.ID == tr3.ID {
-				assert.Equal(t, tr3.ID, result.ID)
-				assert.Equal(t, tr3.Info, result.Info)
-				assert.Equal(t, tr3.Artifact, result.Artifact)
-				assert.True(t, result.populated)
-				assert.Equal(t, env, result.env)
-				count++
-			}
-			fmt.Println(result.ID)
-		}
-		assert.Equal(t, 2, count)
-	})
-	t.Run("DisplayTaskIDWithoutExecution", func(t *testing.T) {
-		randomTask := getTestResults()
-		randomTask.Info.Execution = 1
-		_, err := db.Collection(testResultsCollection).InsertOne(ctx, randomTask)
-		require.NoError(t, err)
-
-		opts := []TestResultsTaskOptions{
-			{
-				TaskID:      "display",
-				DisplayTask: true,
-			},
-		}
-		results, err := FindTestResults(ctx, env, opts)
-		require.NoError(t, err)
 
 		count := 0
 		for _, result := range results {
@@ -821,7 +701,6 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 
 	tr0 := getTestResults()
 	tr0.Info.TaskID = "task0"
-	tr0.Info.DisplayTaskID = "display"
 	tr0.Info.Execution = 0
 	tr0.populated = true
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr0)
@@ -842,7 +721,6 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 
 	tr1 := getTestResults()
 	tr1.Info.TaskID = "task1"
-	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
 	tr1.populated = true
 	_, err = db.Collection(testResultsCollection).InsertOne(ctx, tr1)
@@ -879,15 +757,15 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 		taskOpts := []TestResultsTaskOptions{
 			{
 				TaskID:    tr1.Info.TaskID,
-				Execution: utility.ToIntPtr(tr1.Info.Execution),
+				Execution: tr1.Info.Execution,
 			},
 			{
 				TaskID:    tr2.Info.TaskID,
-				Execution: utility.ToIntPtr(tr2.Info.Execution),
+				Execution: tr2.Info.Execution,
 			},
 			{
 				TaskID:    tr0.Info.TaskID,
-				Execution: utility.ToIntPtr(tr0.Info.Execution),
+				Execution: tr0.Info.Execution,
 			},
 		}
 		stats, results, err := FindAndDownloadTestResults(ctx, env, taskOpts, nil)
@@ -903,7 +781,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 		taskOpts := []TestResultsTaskOptions{
 			{
 				TaskID:    tr0.Info.TaskID,
-				Execution: utility.ToIntPtr(tr0.Info.Execution),
+				Execution: tr0.Info.Execution,
 			},
 		}
 		filterOpts := &TestResultsFilterAndSortOptions{Statuses: []string{"Pass"}}
@@ -930,7 +808,6 @@ func TestFindTestResultsStats(t *testing.T) {
 	}()
 
 	tr1 := getTestResults()
-	tr1.Info.DisplayTaskID = "display"
 	tr1.Info.Execution = 0
 	tr1.Stats.TotalCount = 10
 	tr1.Stats.FailedCount = 5
@@ -938,7 +815,6 @@ func TestFindTestResultsStats(t *testing.T) {
 	require.NoError(t, err)
 
 	tr2 := getTestResults()
-	tr2.Info.DisplayTaskID = "display"
 	tr2.Info.TaskID = tr1.Info.TaskID
 	tr2.Info.Execution = 1
 	tr2.Stats.TotalCount = 30
@@ -947,7 +823,6 @@ func TestFindTestResultsStats(t *testing.T) {
 	require.NoError(t, err)
 
 	tr3 := getTestResults()
-	tr3.Info.DisplayTaskID = "display"
 	tr3.Info.Execution = 1
 	tr3.Stats.TotalCount = 100
 	tr3.Stats.FailedCount = 15
@@ -955,7 +830,6 @@ func TestFindTestResultsStats(t *testing.T) {
 	require.NoError(t, err)
 
 	tr4 := getTestResults()
-	tr4.Info.DisplayTaskID = "display"
 	tr4.Info.Execution = 0
 	tr4.Stats.TotalCount = 40
 	tr4.Stats.FailedCount = 20
@@ -978,7 +852,7 @@ func TestFindTestResultsStats(t *testing.T) {
 		{
 			name:   "NilEnv",
 			env:    nil,
-			opts:   []TestResultsTaskOptions{{TaskID: tr1.Info.DisplayTaskID}},
+			opts:   []TestResultsTaskOptions{{TaskID: tr1.Info.TaskID}},
 			hasErr: true,
 		},
 		{
@@ -992,7 +866,7 @@ func TestFindTestResultsStats(t *testing.T) {
 			opts: []TestResultsTaskOptions{
 				{
 					TaskID:    tr1.Info.TaskID,
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			expectedStats: tr1.Stats,
@@ -1003,51 +877,16 @@ func TestFindTestResultsStats(t *testing.T) {
 			opts: []TestResultsTaskOptions{
 				{
 					TaskID:    tr1.Info.TaskID,
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 				{
 					TaskID:    tr4.Info.TaskID,
-					Execution: utility.ToIntPtr(0),
+					Execution: 0,
 				},
 			},
 			expectedStats: TestResultsStats{
 				TotalCount:  tr1.Stats.TotalCount + tr4.Stats.TotalCount,
 				FailedCount: tr1.Stats.FailedCount + tr4.Stats.FailedCount,
-			},
-		},
-		{
-			name:          "TaskIDAndNoExecution",
-			env:           env,
-			opts:          []TestResultsTaskOptions{{TaskID: tr1.Info.TaskID}},
-			expectedStats: tr2.Stats,
-		},
-		{
-			name: "DisplayTaskIDAndExecution",
-			env:  env,
-			opts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display",
-					Execution:   utility.ToIntPtr(0),
-					DisplayTask: true,
-				},
-			},
-			expectedStats: TestResultsStats{
-				TotalCount:  tr1.Stats.TotalCount + tr4.Stats.TotalCount,
-				FailedCount: tr1.Stats.FailedCount + tr4.Stats.FailedCount,
-			},
-		},
-		{
-			name: "DisplayTaskIDAndNoExecution",
-			env:  env,
-			opts: []TestResultsTaskOptions{
-				{
-					TaskID:      "display",
-					DisplayTask: true,
-				},
-			},
-			expectedStats: TestResultsStats{
-				TotalCount:  tr2.Stats.TotalCount + tr3.Stats.TotalCount + tr4.Stats.TotalCount,
-				FailedCount: tr2.Stats.FailedCount + tr3.Stats.FailedCount + tr4.Stats.FailedCount,
 			},
 		},
 	} {
@@ -1332,7 +1171,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			name: "SortByBaseStatusASC",
 			opts: &TestResultsFilterAndSortOptions{
 				SortBy:    TestResultsSortByBaseStatus,
-				BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID}},
+				BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID, Execution: base.Info.Execution}},
 			},
 			expectedResults: []TestResult{
 				resultsWithBaseStatus[1],
@@ -1347,7 +1186,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &TestResultsFilterAndSortOptions{
 				SortBy:       TestResultsSortByBaseStatus,
 				SortOrderDSC: true,
-				BaseTasks:    []TestResultsTaskOptions{{TaskID: base.Info.TaskID}},
+				BaseTasks:    []TestResultsTaskOptions{{TaskID: base.Info.TaskID, Execution: base.Info.Execution}},
 			},
 			expectedResults: []TestResult{
 				resultsWithBaseStatus[0],
@@ -1359,7 +1198,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 		},
 		{
 			name: "BaseStatus",
-			opts: &TestResultsFilterAndSortOptions{BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID}}},
+			opts: &TestResultsFilterAndSortOptions{BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID, Execution: base.Info.Execution}}},
 			expectedResults: []TestResult{
 				resultsWithBaseStatus[0],
 				resultsWithBaseStatus[1],
@@ -1456,10 +1295,10 @@ func TestFindFailedTestResultsSamples(t *testing.T) {
 		{
 			name: "WithoutFilters",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: t0_0.Info.TaskID, Execution: utility.ToIntPtr(t0_0.Info.Execution)},
-				{TaskID: t0_2.Info.TaskID, Execution: utility.ToIntPtr(t0_2.Info.Execution)},
-				{TaskID: t1_0.Info.TaskID, Execution: utility.ToIntPtr(t1_0.Info.Execution)},
-				{TaskID: t1_1.Info.TaskID, Execution: utility.ToIntPtr(t1_1.Info.Execution)},
+				{TaskID: t0_0.Info.TaskID, Execution: t0_0.Info.Execution},
+				{TaskID: t0_2.Info.TaskID, Execution: t0_2.Info.Execution},
+				{TaskID: t1_0.Info.TaskID, Execution: t1_0.Info.Execution},
+				{TaskID: t1_1.Info.TaskID, Execution: t1_1.Info.Execution},
 			},
 			expected: []TestResultsSample{
 				{
@@ -1489,10 +1328,10 @@ func TestFindFailedTestResultsSamples(t *testing.T) {
 		{
 			name: "WithFilters",
 			tasks: []TestResultsTaskOptions{
-				{TaskID: t0_0.Info.TaskID, Execution: utility.ToIntPtr(t0_0.Info.Execution)},
-				{TaskID: t0_2.Info.TaskID, Execution: utility.ToIntPtr(t0_2.Info.Execution)},
-				{TaskID: t1_0.Info.TaskID, Execution: utility.ToIntPtr(t1_0.Info.Execution)},
-				{TaskID: t1_1.Info.TaskID, Execution: utility.ToIntPtr(t1_1.Info.Execution)},
+				{TaskID: t0_0.Info.TaskID, Execution: t0_0.Info.Execution},
+				{TaskID: t0_2.Info.TaskID, Execution: t0_2.Info.Execution},
+				{TaskID: t1_0.Info.TaskID, Execution: t1_0.Info.Execution},
+				{TaskID: t1_1.Info.TaskID, Execution: t1_1.Info.Execution},
 			},
 			filters: []string{"test1", "test3", "test4", "test44"},
 			expected: []TestResultsSample{

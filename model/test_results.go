@@ -30,7 +30,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -649,52 +648,14 @@ func (t TestResult) convertToParquet() ParquetTestResult {
 // TestResultsTaskOptions specify the criteria for querying test results by
 // task.
 type TestResultsTaskOptions struct {
-	TaskID string
-	// TODO (EVG-18798): Make this field required once Evergreen and Spruce
-	// are updated.
-	Execution *int
-	// TODO (EVG-18798): Remove this field once Evergreen and Spruce are
-	// updated.
-	DisplayTask bool
-}
-
-func (opts *TestResultsTaskOptions) createFindOptions() *options.FindOptions {
-	findOpts := options.Find().SetSort(bson.D{{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: -1}})
-	if !opts.DisplayTask {
-		findOpts = findOpts.SetLimit(1)
-	}
-
-	return findOpts
+	TaskID    string
+	Execution int
 }
 
 func (opts *TestResultsTaskOptions) createFindQuery() bson.M {
-	if opts.DisplayTask {
-		query := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoDisplayTaskIDKey): opts.TaskID}
-		if opts.Execution != nil {
-			query[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = bson.M{"$lte": *opts.Execution}
-		}
-
-		return query
-	}
-
-	query := bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey): opts.TaskID}
-	if opts.Execution != nil {
-		query[bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey)] = *opts.Execution
-	}
-
-	return query
-}
-
-// TODO (EVG-18798): Remove once Evergreen and Spruce are updated.
-func (opts *TestResultsTaskOptions) createPipelineForDisplayTasks() []bson.M {
-	return []bson.M{
-		{"$match": opts.createFindQuery()},
-		{"$sort": bson.M{bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey): -1}},
-		{"$group": bson.M{
-			"_id":          "$" + bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey),
-			"test_results": bson.M{"$first": "$$ROOT"},
-		}},
-		{"$replaceRoot": bson.M{"newRoot": "$test_results"}},
+	return bson.M{
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey):    opts.TaskID,
+		bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey): opts.Execution,
 	}
 }
 
@@ -713,11 +674,7 @@ func FindTestResults(ctx context.Context, env cedar.Environment, opts []TestResu
 		err error
 	)
 	if len(opts) == 1 {
-		if opts[0].DisplayTask {
-			cur, err = env.GetDB().Collection(testResultsCollection).Aggregate(ctx, opts[0].createPipelineForDisplayTasks())
-		} else {
-			cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts[0].createFindQuery(), opts[0].createFindOptions())
-		}
+		cur, err = env.GetDB().Collection(testResultsCollection).Find(ctx, opts[0].createFindQuery())
 	} else {
 		findQueries := make([]bson.M, len(opts))
 		for i, task := range opts {
@@ -1043,35 +1000,6 @@ func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions
 func FindTestResultsStats(ctx context.Context, env cedar.Environment, opts []TestResultsTaskOptions) (TestResultsStats, error) {
 	if len(opts) == 0 {
 		return TestResultsStats{}, errors.New("must specify at least one task to search")
-	}
-
-	if opts[0].DisplayTask {
-		if env == nil {
-			return TestResultsStats{}, errors.New("cannot find with a nil environment")
-		}
-
-		pipeline := opts[0].createPipelineForDisplayTasks()
-		pipeline = append(pipeline, bson.M{
-			"$group": bson.M{
-				"_id": nil,
-				testResultsStatsTotalCountKey: bson.M{
-					"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsTotalCountKey),
-				},
-				testResultsStatsFailedCountKey: bson.M{
-					"$sum": "$" + bsonutil.GetDottedKeyName(testResultsStatsKey, testResultsStatsFailedCountKey),
-				},
-			},
-		})
-		cur, err := env.GetDB().Collection(testResultsCollection).Aggregate(ctx, pipeline)
-		if err != nil {
-			return TestResultsStats{}, errors.Wrap(err, "aggregating test results stats")
-		}
-		if !cur.Next(ctx) {
-			return TestResultsStats{}, nil
-		}
-
-		var stats TestResultsStats
-		return stats, errors.Wrap(cur.Decode(&stats), "decoding aggregated test results stats")
 	}
 
 	testResultsRecords, err := FindTestResults(ctx, env, opts)
