@@ -145,7 +145,7 @@ type documentThroughput struct{}
 
 const (
 	documentThroughputName    = "DocumentThroughput"
-	documentThroughputVersion = 2
+	documentThroughputVersion = 1
 )
 
 func (f *documentThroughput) Type() string    { return documentThroughputName }
