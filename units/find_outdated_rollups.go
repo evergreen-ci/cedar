@@ -16,7 +16,7 @@ import (
 
 const (
 	findOutdatedRollupsJobName = "find-outdated-rollups"
-	maxOutdatedPerfResults     = 1000
+	maxOutdatedPerfResults     = 10000
 )
 
 type findOutdatedRollupsJob struct {
