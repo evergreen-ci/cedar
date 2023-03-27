@@ -120,7 +120,7 @@ type operationThroughput struct{}
 
 const (
 	operationThroughputName    = "OperationThroughput"
-	operationThroughputVersion = 4
+	operationThroughputVersion = 5
 )
 
 func (f *operationThroughput) Type() string    { return operationThroughputName }
@@ -145,7 +145,7 @@ type documentThroughput struct{}
 
 const (
 	documentThroughputName    = "DocumentThroughput"
-	documentThroughputVersion = 0
+	documentThroughputVersion = 1
 )
 
 func (f *documentThroughput) Type() string    { return documentThroughputName }
@@ -170,7 +170,7 @@ type sizeThroughput struct{}
 
 const (
 	sizeThroughputName    = "SizeThroughput"
-	sizeThroughputVersion = 4
+	sizeThroughputVersion = 5
 )
 
 func (f *sizeThroughput) Type() string    { return sizeThroughputName }
@@ -194,7 +194,7 @@ type errorThroughput struct{}
 
 const (
 	errorThroughputName    = "ErrorRate"
-	errorThroughputVersion = 4
+	errorThroughputVersion = 5
 )
 
 func (f *errorThroughput) Type() string    { return errorThroughputName }
@@ -366,7 +366,7 @@ type durationSum struct{}
 
 const (
 	durationSumName    = "DurationTotal"
-	durationSumVersion = 4
+	durationSumVersion = 5
 )
 
 func (f *durationSum) Type() string    { return durationSumName }

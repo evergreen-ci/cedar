@@ -51,6 +51,7 @@ func CalculateDefaultRollups(dx *ftdc.ChunkIterator, user bool) ([]model.PerfRol
 func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, error) {
 	perfStats := &PerformanceStatistics{}
 	lastValue := float64(0)
+	var firstTimestamp time.Time
 	var start time.Time
 	var end time.Time
 
@@ -91,7 +92,7 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 			case "ts":
 				if i == 0 {
 					t := metric.Values[0]
-					start = time.Unix(t/1000, t%1000*1000000)
+					firstTimestamp = time.Unix(t/1000, t%1000*1000000)
 				}
 				t := metric.Values[len(metric.Values)-1]
 				end = time.Unix(t/1000, t%1000*1000000)
@@ -103,6 +104,14 @@ func CreatePerformanceStats(dx *ftdc.ChunkIterator) (*PerformanceStatistics, err
 		}
 	}
 
+	// Since timestamps are at the end of operations, we need to subtract the
+	// first operation's duration from its timestamp to compute the total
+	// wallclock time including that first operation.
+	if len(perfStats.timers.extractedDurations) > 0 {
+		start = firstTimestamp.Add(-time.Duration(perfStats.timers.extractedDurations[0] * float64(time.Nanosecond)))
+	} else {
+		start = firstTimestamp
+	}
 	perfStats.timers.totalWallTime = end.Sub(start)
 
 	return perfStats, errors.WithStack(dx.Err())
