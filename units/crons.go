@@ -7,7 +7,6 @@ import (
 
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
-	"github.com/evergreen-ci/cedar/perf"
 	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/amboy"
 	"github.com/mongodb/grip"
@@ -70,14 +69,19 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 
 		return queue.Put(ctx, NewRemoteAmboyStatsCollector(env, utility.RoundPartOfMinute(0).Format(tsFormat)))
 	})
-	amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
-		job, err := NewFindOutdatedRollupsJob(perf.DefaultRollupFactories())
-		if err != nil {
-			return errors.WithStack(err)
-		}
+	/*
+		This is disabled for https://jira.mongodb.org/browse/EVG-19321. The Perf Build Baron Team would currently prefer
+		that historical data not change in order to not impact older build failures.
 
-		return queue.Put(ctx, job)
-	})
+		amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
+			job, err := NewFindOutdatedRollupsJob(perf.DefaultRollupFactories())
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			return queue.Put(ctx, job)
+		})
+	*/
 	amboy.IntervalQueueOperation(ctx, remote, 10*time.Minute, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
 		conf := model.NewCedarConfig(env)
 		if err := conf.Find(); err != nil {
