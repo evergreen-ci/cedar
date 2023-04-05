@@ -135,17 +135,28 @@ type TestResultsTaskOptions struct {
 	Execution int    `json:"execution"`
 }
 
+// TestResultsSortBy describes the property by which to sort a set of test
+// results using the Connector functions.
+type TestResultsSortBy struct {
+	Key          string `json:"key"`
+	SortOrderDSC bool   `json:"sort_order_dsc"`
+}
+
 // TestResultsFilterAndSortOptions holds all values required for filtering,
 // sorting, and paginating test results using the Connector functions.
 type TestResultsFilterAndSortOptions struct {
-	TestName     string                   `json:"test_name"`
-	Statuses     []string                 `json:"statuses"`
-	GroupID      string                   `json:"group_id"`
-	SortBy       string                   `json:"sort_by"`
-	SortOrderDSC bool                     `json:"sort_order_dsc"`
-	Limit        int                      `json:"limit"`
-	Page         int                      `json:"page"`
-	BaseTasks    []TestResultsTaskOptions `json:"base_tasks"`
+	TestName  string                   `json:"test_name"`
+	Statuses  []string                 `json:"statuses"`
+	GroupID   string                   `json:"group_id"`
+	Sort      []TestResultsSortBy      `json:"sort"`
+	Limit     int                      `json:"limit"`
+	Page      int                      `json:"page"`
+	BaseTasks []TestResultsTaskOptions `json:"base_tasks"`
+
+	// TODO (EVG-14306): Remove these two fields once Evergreen's GraphQL
+	// service is no longer using them.
+	SortBy       string `json:"sort_by"`
+	SortOrderDSC bool   `json:"sort_order_dsc"`
 }
 
 // PerformanceOptions holds all values required to find a specific

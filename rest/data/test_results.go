@@ -176,21 +176,46 @@ func convertToDBTestResultsTaskOptions(opts []TestResultsTaskOptions) []dbModel.
 	return dbOpts
 }
 
+func convertToDBTestResultsSortOptions(opts []TestResultsSortBy) []dbModel.TestResultsSortBy {
+	if len(opts) == 0 {
+		return nil
+	}
+
+	dbOpts := make([]dbModel.TestResultsSortBy, len(opts))
+	for i, sortBy := range opts {
+		dbOpts[i].Key = sortBy.Key
+		dbOpts[i].SortOrderDSC = sortBy.SortOrderDSC
+	}
+
+	return dbOpts
+}
+
 func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOptions) (*dbModel.TestResultsFilterAndSortOptions, error) {
 	if opts == nil {
 		return nil, nil
 	}
 
 	dbOpts := &dbModel.TestResultsFilterAndSortOptions{
-		TestName:     opts.TestName,
-		Statuses:     opts.Statuses,
-		GroupID:      opts.GroupID,
-		SortBy:       dbModel.TestResultsSortBy(opts.SortBy),
-		SortOrderDSC: opts.SortOrderDSC,
-		Limit:        opts.Limit,
-		Page:         opts.Page,
-		BaseTasks:    convertToDBTestResultsTaskOptions(opts.BaseTasks),
+		TestName:  opts.TestName,
+		Statuses:  opts.Statuses,
+		GroupID:   opts.GroupID,
+		Sort:      convertToDBTestResultsSortOptions(opts.Sort),
+		Limit:     opts.Limit,
+		Page:      opts.Page,
+		BaseTasks: convertToDBTestResultsTaskOptions(opts.BaseTasks),
 	}
+
+	// TODO (EVG-14306): Remove this logic once Evergreen's GraphQL service
+	// is no longer using these fields.
+	if opts.SortBy != "" {
+		dbOpts.Sort = []dbModel.TestResultsSortBy{
+			{
+				Key:          opts.SortBy,
+				SortOrderDSC: opts.SortOrderDSC,
+			},
+		}
+	}
+
 	if err := dbOpts.Validate(); err != nil {
 		return nil, gimlet.ErrorResponse{
 			StatusCode: http.StatusBadRequest,

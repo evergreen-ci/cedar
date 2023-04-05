@@ -759,37 +759,39 @@ func makeTestSamples(records []TestResults, regexFilters []string) ([]TestResult
 
 // TestResultsSortBy describes the property by which to sort a set of test
 // results.
-type TestResultsSortBy string
+type TestResultsSortBy struct {
+	Key          string
+	SortOrderDSC bool
+}
 
 const (
-	TestResultsSortByStart      TestResultsSortBy = "start"
-	TestResultsSortByDuration   TestResultsSortBy = "duration"
-	TestResultsSortByTestName   TestResultsSortBy = "test_name"
-	TestResultsSortByStatus     TestResultsSortBy = "status"
-	TestResultsSortByBaseStatus TestResultsSortBy = "base_status"
+	TestResultsSortByStartKey      = "start"
+	TestResultsSortByDurationKey   = "duration"
+	TestResultsSortByTestNameKey   = "test_name"
+	TestResultsSortByStatusKey     = "status"
+	TestResultsSortByBaseStatusKey = "base_status"
 )
 
 func (s TestResultsSortBy) validate() error {
-	switch s {
-	case TestResultsSortByStart, TestResultsSortByDuration, TestResultsSortByTestName,
-		TestResultsSortByStatus, TestResultsSortByBaseStatus:
+	switch s.Key {
+	case TestResultsSortByStartKey, TestResultsSortByDurationKey, TestResultsSortByTestNameKey,
+		TestResultsSortByStatusKey, TestResultsSortByBaseStatusKey:
 		return nil
 	default:
-		return errors.Errorf("unrecognized test results sort by key '%s'", s)
+		return errors.Errorf("unrecognized test results sort by key '%s'", s.Key)
 	}
 }
 
 // TestResultsFilterAndSortOptions allow for filtering, sorting, and paginating
 // a set of test results.
 type TestResultsFilterAndSortOptions struct {
-	TestName     string
-	Statuses     []string
-	GroupID      string
-	SortBy       TestResultsSortBy
-	SortOrderDSC bool
-	Limit        int
-	Page         int
-	BaseTasks    []TestResultsTaskOptions
+	TestName  string
+	Statuses  []string
+	GroupID   string
+	Sort      []TestResultsSortBy
+	Limit     int
+	Page      int
+	BaseTasks []TestResultsTaskOptions
 
 	testNameRegex *regexp.Regexp
 	baseStatusMap map[string]string
@@ -798,8 +800,18 @@ type TestResultsFilterAndSortOptions struct {
 func (o *TestResultsFilterAndSortOptions) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
-	catcher.AddWhen(o.SortBy != "", o.SortBy.validate())
-	catcher.NewWhen(o.SortBy == TestResultsSortByBaseStatus && len(o.BaseTasks) == 0, "must specify base task ID when sorting by base status")
+	seenSortByKeys := map[string]int{}
+	for _, sortBy := range o.Sort {
+		if err := sortBy.validate(); err != nil {
+			catcher.Add(err)
+		} else if seenSortByKeys[sortBy.Key] == 1 {
+			catcher.Errorf("duplicate sort by key '%s'", sortBy.Key)
+		} else {
+			catcher.NewWhen(sortBy.Key == TestResultsSortByBaseStatusKey && len(o.BaseTasks) == 0, "must specify base task ID when sorting by base status")
+		}
+
+		seenSortByKeys[sortBy.Key] += 1
+	}
 	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
 	catcher.NewWhen(o.Page < 0, "page cannot be negative")
 	catcher.NewWhen(o.Limit == 0 && o.Page > 0, "cannot specify a page without a limit")
@@ -956,43 +968,54 @@ func filterTestResults(results []TestResult, opts *TestResultsFilterAndSortOptio
 }
 
 func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions) {
-	switch opts.SortBy {
-	case TestResultsSortByStart:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].TestStartTime.After(results[j].TestStartTime)
+	sort.SliceStable(results, func(i, j int) bool {
+		for _, sortBy := range opts.Sort {
+			switch sortBy.Key {
+			case TestResultsSortByStartKey:
+				if results[i].TestStartTime == results[j].TestStartTime {
+					continue
+				}
+				if sortBy.SortOrderDSC {
+					return results[i].TestStartTime.After(results[j].TestStartTime)
+				}
+				return results[i].TestStartTime.Before(results[j].TestStartTime)
+			case TestResultsSortByDurationKey:
+				if results[i].getDuration() == results[j].getDuration() {
+					continue
+				}
+				if sortBy.SortOrderDSC {
+					return results[i].getDuration() > results[j].getDuration()
+				}
+				return results[i].getDuration() < results[j].getDuration()
+			case TestResultsSortByTestNameKey:
+				if results[i].GetDisplayName() == results[j].GetDisplayName() {
+					continue
+				}
+				if sortBy.SortOrderDSC {
+					return results[i].GetDisplayName() > results[j].GetDisplayName()
+				}
+				return results[i].GetDisplayName() < results[j].GetDisplayName()
+			case TestResultsSortByStatusKey:
+				if results[i].Status == results[j].Status {
+					continue
+				}
+				if sortBy.SortOrderDSC {
+					return results[i].Status > results[j].Status
+				}
+				return results[i].Status < results[j].Status
+			case TestResultsSortByBaseStatusKey:
+				if opts.baseStatusMap[results[i].GetDisplayName()] == opts.baseStatusMap[results[j].GetDisplayName()] {
+					continue
+				}
+				if sortBy.SortOrderDSC {
+					return opts.baseStatusMap[results[i].GetDisplayName()] > opts.baseStatusMap[results[j].GetDisplayName()]
+				}
+				return opts.baseStatusMap[results[i].GetDisplayName()] < opts.baseStatusMap[results[j].GetDisplayName()]
 			}
-			return results[i].TestStartTime.Before(results[j].TestStartTime)
-		})
-	case TestResultsSortByDuration:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].getDuration() > results[j].getDuration()
-			}
-			return results[i].getDuration() < results[j].getDuration()
-		})
-	case TestResultsSortByTestName:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].GetDisplayName() > results[j].GetDisplayName()
-			}
-			return results[i].GetDisplayName() < results[j].GetDisplayName()
-		})
-	case TestResultsSortByStatus:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return results[i].Status > results[j].Status
-			}
-			return results[i].Status < results[j].Status
-		})
-	case TestResultsSortByBaseStatus:
-		sort.SliceStable(results, func(i, j int) bool {
-			if opts.SortOrderDSC {
-				return opts.baseStatusMap[results[i].GetDisplayName()] > opts.baseStatusMap[results[j].GetDisplayName()]
-			}
-			return opts.baseStatusMap[results[i].GetDisplayName()] < opts.baseStatusMap[results[j].GetDisplayName()]
-		})
-	}
+		}
+
+		return false
+	})
 }
 
 // FindTestResultsStats fetches basic aggregated stats of the test results for
