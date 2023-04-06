@@ -1103,8 +1103,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &TestResultsFilterAndSortOptions{
 				Sort: []TestResultsSortBy{
 					{
-						Key:          TestResultsSortByDurationKey,
-						SortOrderDSC: true,
+						Key:      TestResultsSortByDurationKey,
+						OrderDSC: true,
 					},
 				},
 			},
@@ -1134,8 +1134,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &TestResultsFilterAndSortOptions{
 				Sort: []TestResultsSortBy{
 					{
-						Key:          TestResultsSortByTestNameKey,
-						SortOrderDSC: true,
+						Key:      TestResultsSortByTestNameKey,
+						OrderDSC: true,
 					},
 				},
 			},
@@ -1165,8 +1165,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &TestResultsFilterAndSortOptions{
 				Sort: []TestResultsSortBy{
 					{
-						Key:          TestResultsSortByStatusKey,
-						SortOrderDSC: true,
+						Key:      TestResultsSortByStatusKey,
+						OrderDSC: true,
 					},
 				},
 			},
@@ -1192,12 +1192,12 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			expectedCount: 4,
 		},
 		{
-			name: "SortByStartTimeDCS",
+			name: "SortByStartTimeDSC",
 			opts: &TestResultsFilterAndSortOptions{
 				Sort: []TestResultsSortBy{
 					{
-						Key:          TestResultsSortByStartKey,
-						SortOrderDSC: true,
+						Key:      TestResultsSortByStartKey,
+						OrderDSC: true,
 					},
 				},
 			},
@@ -1228,8 +1228,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			opts: &TestResultsFilterAndSortOptions{
 				Sort: []TestResultsSortBy{
 					{
-						Key:          TestResultsSortByBaseStatusKey,
-						SortOrderDSC: true,
+						Key:      TestResultsSortByBaseStatusKey,
+						OrderDSC: true,
 					},
 				},
 				BaseTasks: []TestResultsTaskOptions{{TaskID: base.Info.TaskID, Execution: base.Info.Execution}},
@@ -1250,8 +1250,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 						Key: TestResultsSortByStatusKey,
 					},
 					{
-						Key:          TestResultsSortByTestNameKey,
-						SortOrderDSC: true,
+						Key:      TestResultsSortByTestNameKey,
+						OrderDSC: true,
 					},
 				},
 			},

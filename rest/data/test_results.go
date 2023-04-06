@@ -184,7 +184,7 @@ func convertToDBTestResultsSortOptions(opts []TestResultsSortBy) []dbModel.TestR
 	dbOpts := make([]dbModel.TestResultsSortBy, len(opts))
 	for i, sortBy := range opts {
 		dbOpts[i].Key = sortBy.Key
-		dbOpts[i].SortOrderDSC = sortBy.SortOrderDSC
+		dbOpts[i].OrderDSC = sortBy.OrderDSC
 	}
 
 	return dbOpts
@@ -210,8 +210,8 @@ func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOp
 	if opts.SortBy != "" {
 		dbOpts.Sort = []dbModel.TestResultsSortBy{
 			{
-				Key:          opts.SortBy,
-				SortOrderDSC: opts.SortOrderDSC,
+				Key:      opts.SortBy,
+				OrderDSC: opts.SortOrderDSC,
 			},
 		}
 	}

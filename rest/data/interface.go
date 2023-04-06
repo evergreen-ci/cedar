@@ -138,8 +138,8 @@ type TestResultsTaskOptions struct {
 // TestResultsSortBy describes the properties by which to sort a set of test
 // results using the Connector functions.
 type TestResultsSortBy struct {
-	Key          string `json:"key"`
-	SortOrderDSC bool   `json:"sort_order_dsc"`
+	Key      string `json:"key"`
+	OrderDSC bool   `json:"order_dsc"`
 }
 
 // TestResultsFilterAndSortOptions holds all values required for filtering,

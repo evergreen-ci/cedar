@@ -760,8 +760,8 @@ func makeTestSamples(records []TestResults, regexFilters []string) ([]TestResult
 // TestResultsSortBy describes the properties by which to sort a set of test
 // results.
 type TestResultsSortBy struct {
-	Key          string
-	SortOrderDSC bool
+	Key      string
+	OrderDSC bool
 }
 
 const (
@@ -975,7 +975,7 @@ func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions
 				if results[i].TestStartTime == results[j].TestStartTime {
 					continue
 				}
-				if sortBy.SortOrderDSC {
+				if sortBy.OrderDSC {
 					return results[i].TestStartTime.After(results[j].TestStartTime)
 				}
 				return results[i].TestStartTime.Before(results[j].TestStartTime)
@@ -983,7 +983,7 @@ func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions
 				if results[i].getDuration() == results[j].getDuration() {
 					continue
 				}
-				if sortBy.SortOrderDSC {
+				if sortBy.OrderDSC {
 					return results[i].getDuration() > results[j].getDuration()
 				}
 				return results[i].getDuration() < results[j].getDuration()
@@ -991,7 +991,7 @@ func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions
 				if results[i].GetDisplayName() == results[j].GetDisplayName() {
 					continue
 				}
-				if sortBy.SortOrderDSC {
+				if sortBy.OrderDSC {
 					return results[i].GetDisplayName() > results[j].GetDisplayName()
 				}
 				return results[i].GetDisplayName() < results[j].GetDisplayName()
@@ -999,7 +999,7 @@ func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions
 				if results[i].Status == results[j].Status {
 					continue
 				}
-				if sortBy.SortOrderDSC {
+				if sortBy.OrderDSC {
 					return results[i].Status > results[j].Status
 				}
 				return results[i].Status < results[j].Status
@@ -1007,7 +1007,7 @@ func sortTestResults(results []TestResult, opts *TestResultsFilterAndSortOptions
 				if opts.baseStatusMap[results[i].GetDisplayName()] == opts.baseStatusMap[results[j].GetDisplayName()] {
 					continue
 				}
-				if sortBy.SortOrderDSC {
+				if sortBy.OrderDSC {
 					return opts.baseStatusMap[results[i].GetDisplayName()] > opts.baseStatusMap[results[j].GetDisplayName()]
 				}
 				return opts.baseStatusMap[results[i].GetDisplayName()] < opts.baseStatusMap[results[j].GetDisplayName()]
