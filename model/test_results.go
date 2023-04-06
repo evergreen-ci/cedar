@@ -757,7 +757,7 @@ func makeTestSamples(records []TestResults, regexFilters []string) ([]TestResult
 	return samples, nil
 }
 
-// TestResultsSortBy describes the property by which to sort a set of test
+// TestResultsSortBy describes the properties by which to sort a set of test
 // results.
 type TestResultsSortBy struct {
 	Key          string

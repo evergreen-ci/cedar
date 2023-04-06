@@ -135,7 +135,7 @@ type TestResultsTaskOptions struct {
 	Execution int    `json:"execution"`
 }
 
-// TestResultsSortBy describes the property by which to sort a set of test
+// TestResultsSortBy describes the properties by which to sort a set of test
 // results using the Connector functions.
 type TestResultsSortBy struct {
 	Key          string `json:"key"`
