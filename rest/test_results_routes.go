@@ -13,18 +13,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	isDisplayTask         = "display_task"
-	testResultsTestName   = "test_name"
-	testResultsStatus     = "status"
-	testResultsGroupID    = "group_id"
-	testResultsSortBy     = "sort_by"
-	testResultsSortDSC    = "sort_order_dsc"
-	testResultsLimit      = "limit"
-	testResultsPage       = "page"
-	testResultsBaseTaskID = "base_task_id"
-)
-
 type testResultsBaseHandler struct {
 	sc      data.Connector
 	payload struct {
