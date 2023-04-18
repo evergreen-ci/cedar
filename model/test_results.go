@@ -800,17 +800,17 @@ type TestResultsFilterAndSortOptions struct {
 func (o *TestResultsFilterAndSortOptions) Validate() error {
 	catcher := grip.NewBasicCatcher()
 
-	seenSortByKeys := map[string]int{}
+	seenSortByKeys := map[string]bool{}
 	for _, sortBy := range o.Sort {
 		if err := sortBy.validate(); err != nil {
 			catcher.Add(err)
-		} else if seenSortByKeys[sortBy.Key] == 1 {
+		} else if seenSortByKeys[sortBy.Key] {
 			catcher.Errorf("duplicate sort by key '%s'", sortBy.Key)
 		} else {
 			catcher.NewWhen(sortBy.Key == TestResultsSortByBaseStatusKey && len(o.BaseTasks) == 0, "must specify base task ID when sorting by base status")
 		}
 
-		seenSortByKeys[sortBy.Key] += 1
+		seenSortByKeys[sortBy.Key] = true
 	}
 	catcher.NewWhen(o.Limit < 0, "limit cannot be negative")
 	catcher.NewWhen(o.Page < 0, "page cannot be negative")
