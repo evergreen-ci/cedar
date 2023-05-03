@@ -215,7 +215,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing perf result record '%s'", record.ID))
 	}
 
-	hasEventData, err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts)
+	ftdcJobEnqueued, err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating FTDC rollups job")
 	}
@@ -224,7 +224,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	// there are user-submitted rollups AND no event data (FTDC artifact).
 	// In the latter case, the FTDC rollups job will take care of
 	// enqueueing the update time series job.
-	if record.Info.Mainline && len(record.Rollups.Stats) > 0 && !hasEventData {
+	if record.Info.Mainline && len(record.Rollups.Stats) > 0 && !ftdcJobEnqueued {
 		processingJob := units.NewUpdateTimeSeriesJob(record.CreateUnanalyzedSeries())
 		if err = amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob); err != nil {
 			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
@@ -235,6 +235,9 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 	return resp, nil
 }
 
+// addFTDCRollupsJob enqueues a new FTDC rollups job if and only if there is an
+// FTDC artifact present, specified by the `raw-events` artifact schema type. A
+// boolean indicating whether or not a job was enqueued is returned.
 func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) (bool, error) {
 	var hasEventData bool
 	q := srv.env.GetRemoteQueue()
@@ -245,7 +248,7 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 
 		if hasEventData {
-			return false, newRPCError(codes.InvalidArgument, errors.New("cannot have more than one raw events artifact"))
+			return true, newRPCError(codes.InvalidArgument, errors.New("cannot have more than one raw events artifact"))
 		}
 		hasEventData = true
 
