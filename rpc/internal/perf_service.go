@@ -54,20 +54,7 @@ func (srv *perfService) CreateMetricSeries(ctx context.Context, result *ResultDa
 	resp.Id = record.ID
 
 	if err := record.SaveNew(ctx); err != nil {
-		return resp, newRPCError(codes.Internal, errors.Wrap(err, "saving record"))
-	}
-
-	if record.Info.Mainline && len(record.Rollups.Stats) > 0 {
-		processingJob := units.NewUpdateTimeSeriesJob(record.CreateUnanalyzedSeries())
-		err := amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob)
-
-		if err != nil {
-			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
-		}
-	}
-
-	if err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts); err != nil {
-		return resp, errors.Wrap(err, "creating ftdc rollups job")
+		return nil, newRPCError(codes.Internal, errors.Wrap(err, "saving record"))
 	}
 
 	grip.Info(message.Fields{
@@ -96,8 +83,8 @@ func (srv *perfService) AttachArtifacts(ctx context.Context, artifactData *Artif
 	resp := &MetricsResponse{}
 	resp.Id = record.ID
 
-	if err := srv.addArtifacts(ctx, record, artifactData.Artifacts); err != nil {
-		return resp, err
+	for _, a := range artifactData.Artifacts {
+		record.Artifacts = append(record.Artifacts, *a.Export())
 	}
 
 	record.Setup(srv.env)
@@ -228,21 +215,28 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing perf result record '%s'", record.ID))
 	}
 
+	hasEventData, err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating FTDC rollups job")
+	}
+
+	// Only enqueue a new update time series job for mainline results if
+	// there are user-submitted rollups AND no event data (FTDC artifact).
+	// In the latter case, the FTDC rollups job will take care of
+	// enqueueing the update time series job.
+	if record.Info.Mainline && len(record.Rollups.Stats) > 0 && !hasEventData {
+		processingJob := units.NewUpdateTimeSeriesJob(record.CreateUnanalyzedSeries())
+		if err = amboy.EnqueueUniqueJob(ctx, srv.env.GetRemoteQueue(), processingJob); err != nil {
+			return nil, newRPCError(codes.Internal, errors.Wrapf(err, "creating signal processing job for perf result '%s'", record.ID))
+		}
+	}
+
 	resp.Success = true
 	return resp, nil
 }
 
-func (srv *perfService) addArtifacts(ctx context.Context, record *model.PerformanceResult, artifacts []*ArtifactInfo) error {
-	for _, a := range artifacts {
-		record.Artifacts = append(record.Artifacts, *a.Export())
-	}
-
-	return errors.Wrap(srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts), "creating FTDC rollups job")
-}
-
-func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) error {
+func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) (bool, error) {
 	var hasEventData bool
-
 	q := srv.env.GetRemoteQueue()
 
 	for _, artifact := range artifacts {
@@ -251,19 +245,19 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 
 		if hasEventData {
-			return newRPCError(codes.InvalidArgument, errors.New("cannot have more than one raw events artifact"))
+			return false, newRPCError(codes.InvalidArgument, errors.New("cannot have more than one raw events artifact"))
 		}
 		hasEventData = true
 
 		job, err := units.NewFTDCRollupsJob(id, &artifact, perf.DefaultRollupFactories(), false)
 		if err != nil {
-			return newRPCError(codes.InvalidArgument, errors.WithStack(err))
+			return false, newRPCError(codes.InvalidArgument, errors.WithStack(err))
 		}
 
 		if err = q.Put(ctx, job); err != nil {
-			return newRPCError(codes.Internal, errors.Wrap(err, "putting FTDC rollups job in the remote queue"))
+			return false, newRPCError(codes.Internal, errors.Wrap(err, "putting FTDC rollups job in the remote queue"))
 		}
 	}
 
-	return nil
+	return hasEventData, nil
 }

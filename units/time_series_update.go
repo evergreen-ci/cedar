@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/evergreen-ci/cedar"
@@ -57,7 +58,7 @@ func NewUpdateTimeSeriesJob(series model.UnanalyzedPerformanceSeries) amboy.Job 
 		series.Arguments,
 	)
 	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
-	j.SetScopes([]string{baseID})
+	j.SetScopes([]string{baseID, strings.Join(series.Measurements, ",")})
 	j.SetEnqueueAllScopes(true)
 	j.Series = series
 	return j

@@ -156,12 +156,44 @@ func TestCreateMetricSeries(t *testing.T) {
 		err          bool
 	}{
 		{
-			name: "TestValidData",
+			name: "TestValidDataMainline",
 			data: &ResultData{
 				Id: &ResultID{
 					Project:  "testProject",
 					Version:  "testVersion",
 					Mainline: true,
+				},
+				Artifacts: []*ArtifactInfo{
+					{
+						Location:  5,
+						Bucket:    "testdata",
+						Path:      "valid.ftdc",
+						CreatedAt: &timestamppb.Timestamp{},
+					},
+				},
+				Rollups: []*RollupValue{
+					{
+						Name:    "Max",
+						Value:   &RollupValue_Int{Int: 5},
+						Type:    0,
+						Version: 1,
+					},
+				},
+			},
+			expectedResp: &MetricsResponse{
+				Id: (&model.PerformanceResultInfo{
+					Project: "testProject",
+					Version: "testVersion",
+				}).ID(),
+				Success: true,
+			},
+		},
+		{
+			name: "TestValidDataNotMainline",
+			data: &ResultData{
+				Id: &ResultID{
+					Project: "testProject",
+					Version: "testVersion",
 				},
 				Artifacts: []*ArtifactInfo{
 					{
@@ -250,8 +282,15 @@ func TestCreateMetricSeries(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, test.expectedResp.Id, resp.Id)
 				assert.Equal(t, test.expectedResp.Success, resp.Success)
+
+				resp, err = client.CloseMetrics(ctx, &MetricsSeriesEnd{Id: test.expectedResp.Id})
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				require.Equal(t, test.expectedResp.Id, resp.Id)
+				require.Equal(t, true, resp.Success)
+
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
-				assert.True(t, foundSignalProcessingJob(t, ctx, env, resp.Id))
+				assert.Equal(t, test.data.Id.Mainline, foundSignalProcessingJob(t, ctx, env, resp.Id))
 			}
 		})
 	}
@@ -275,7 +314,7 @@ func TestAttachResultData(t *testing.T) {
 			name: "TestAttachArtifacts",
 			save: true,
 			resultData: &ResultData{
-				Id: &ResultID{},
+				Id: &ResultID{Mainline: true},
 			},
 			attachedData: &ArtifactData{
 				Id: (&model.PerformanceResultInfo{}).ID(),
@@ -313,7 +352,7 @@ func TestAttachResultData(t *testing.T) {
 			name: "TestAttachRollups",
 			save: true,
 			resultData: &ResultData{
-				Id: &ResultID{},
+				Id: &ResultID{Mainline: true},
 			},
 			attachedData: &RollupData{
 				Id: (&model.PerformanceResultInfo{}).ID(),
@@ -345,8 +384,8 @@ func TestAttachResultData(t *testing.T) {
 			defer func() {
 				require.NoError(t, tearDownEnv(env, false))
 			}()
-			port := getPort()
 
+			port := getPort()
 			require.NoError(t, startPerfService(ctx, env, port))
 			client, err := getGRPCClient(ctx, fmt.Sprintf("localhost:%d", port), []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
@@ -356,12 +395,16 @@ func TestAttachResultData(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			var resp *MetricsResponse
+			var (
+				resp    *MetricsResponse
+				rollups []*RollupValue
+			)
 			switch d := test.attachedData.(type) {
 			case *ArtifactData:
 				resp, err = client.AttachArtifacts(ctx, d)
 			case *RollupData:
 				resp, err = client.AttachRollups(ctx, d)
+				rollups = d.Rollups
 			default:
 				t.Error("unknown attached data type")
 			}
@@ -374,11 +417,17 @@ func TestAttachResultData(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, test.expectedResp.Id, resp.Id)
 				assert.Equal(t, test.expectedResp.Success, resp.Success)
+
+				resp, err = client.CloseMetrics(ctx, &MetricsSeriesEnd{Id: test.expectedResp.Id})
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				require.Equal(t, test.expectedResp.Id, resp.Id)
+				require.Equal(t, true, resp.Success)
+
+				checkRollups(t, ctx, env, resp.Id, rollups)
+				assert.True(t, foundSignalProcessingJob(t, ctx, env, resp.Id))
 			}
 
-			if test.checkRollups {
-				checkRollups(t, ctx, env, resp.Id, nil)
-			}
 		})
 	}
 }
