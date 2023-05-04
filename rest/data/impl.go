@@ -35,7 +35,6 @@ type MockConnector struct {
 	CachedPerformanceResults map[string]model.PerformanceResult
 	ChildMap                 map[string][]string
 	CachedLogs               map[string]model.Log
-	CachedSystemMetrics      map[string]model.SystemMetrics
 	Users                    map[string]bool
 	Bucket                   string
 

@@ -166,13 +166,6 @@ func GetRequiredIndexes() []SystemIndexes {
 		},
 		{
 			Keys: bson.D{
-				{Key: bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoTaskIDKey), Value: 1},
-				{Key: bsonutil.GetDottedKeyName(systemMetricsInfoKey, systemMetricsInfoExecutionKey), Value: 1},
-			},
-			Collection: systemMetricsCollection,
-		},
-		{
-			Keys: bson.D{
 				{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoTaskIDKey), Value: 1},
 				{Key: bsonutil.GetDottedKeyName(testResultsInfoKey, testResultsInfoExecutionKey), Value: 1},
 			},

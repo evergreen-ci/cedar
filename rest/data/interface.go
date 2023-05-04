@@ -98,14 +98,6 @@ type Connector interface {
 	// FindFailedTestResultsSamples returns failed test result samples for
 	// the given tasks and optional regex filters.
 	FindFailedTestResultsSamples(context.Context, []TestResultsTaskOptions, []string) ([]model.APITestResultsSample, error)
-
-	/////////////////
-	// System Metrics
-	/////////////////
-	// FindSystemMetricsByType returns the raw data for the given task id,
-	// execution, and metric type combination. It also returns the next
-	// index to use for pagination.
-	FindSystemMetricsByType(context.Context, dbModel.SystemMetricsFindOptions, dbModel.SystemMetricsDownloadOptions) ([]byte, int, error)
 }
 
 // BuildloggerOptions contains arguments for buildlogger related Connector

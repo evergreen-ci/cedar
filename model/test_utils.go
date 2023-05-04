@@ -1,15 +1,12 @@
 package model
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/evergreen-ci/pail"
-	"github.com/evergreen-ci/utility"
 	"github.com/mongodb/grip/level"
 	"github.com/pkg/errors"
 )
@@ -52,25 +49,6 @@ func GenerateTestLog(ctx context.Context, bucket pail.Bucket, size, chunkSize in
 	}
 
 	return chunks, lines, nil
-}
-
-// GenerateSystemMetrics is a convenience function to generate a specified
-// number of 32 byte random system metrics data chunks in the specified bucket.
-func GenerateSystemMetrics(ctx context.Context, bucket pail.Bucket, num int) ([]string, map[string][]byte, error) {
-	keys := []string{}
-	dataChunks := map[string][]byte{}
-
-	for i := 0; i < num; i++ {
-		key := fmt.Sprintf("chunk-%d", i)
-		keys = append(keys, key)
-		data := []byte(utility.RandomString())
-		dataChunks[key] = data
-		if err := bucket.Put(ctx, key, bytes.NewReader(data)); err != nil {
-			return []string{}, map[string][]byte{}, errors.Wrap(err, "creating system metrics chunks")
-		}
-	}
-
-	return keys, dataChunks, nil
 }
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
