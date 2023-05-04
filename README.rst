@@ -33,8 +33,6 @@ Data Types ~~~~~~~~~~
 
 - Test result logs and metadata for Evergreen tasks.
 
-- Host system metrics for tasks.
-
 - A simple log storage system, as a proof of concept. Logs stream from the client to the Cedar application which stores
   metadata about the logs and then saves data to S3. Out of band, jobs can process log data.
 
