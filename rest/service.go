@@ -322,6 +322,4 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/test_results/tasks/stats").Version(1).Get().RouteHandler(makeGetTestResultsStatsByTasks(s.sc))
 	s.app.AddRoute("/test_results/tasks/failed_sample").Version(1).Get().RouteHandler(makeGetTestResultsFailedSampleByTasks(s.sc))
 	s.app.AddRoute("/test_results/filtered_samples").Version(1).Get().RouteHandler(makeGetTestResultsFilteredSamples(s.sc))
-
-	s.app.AddRoute("/system_metrics/type/{task_id}/{type}").Version(1).Get().RouteHandler(makeGetSystemMetricsByType(s.sc))
 }
