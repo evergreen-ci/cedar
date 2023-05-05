@@ -58,7 +58,7 @@ func NewUpdateTimeSeriesJob(series model.UnanalyzedPerformanceSeries) amboy.Job 
 		series.Arguments,
 	)
 	j.SetID(fmt.Sprintf("%s.%s", baseID, time.Now().UTC()))
-	j.SetScopes([]string{baseID, strings.Join(series.Measurements, ",")})
+	j.SetScopes([]string{fmt.Sprintf("%s.%s", baseID, strings.Join(series.Measurements, "."))})
 	j.SetEnqueueAllScopes(true)
 	j.Series = series
 	return j
