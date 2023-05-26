@@ -52,19 +52,6 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-	case PailLegacyGridFS, PailGridFS:
-		client := env.GetClient()
-		conf := env.GetConfig()
-
-		opts := pail.GridFSOptions{
-			Database: conf.DatabaseName,
-			Name:     bucket,
-			Prefix:   prefix,
-		}
-		b, err = pail.NewGridFSBucketWithClient(ctx, client, opts)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
 	case PailLocal:
 		opts := pail.LocalOptions{
 			Path:   bucket,

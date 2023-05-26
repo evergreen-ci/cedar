@@ -36,6 +36,7 @@ type LogIterator interface {
 //////////////////////
 // Serialized Iterator
 //////////////////////
+
 type serializedIterator struct {
 	bucket               pail.Bucket
 	chunks               []LogChunkInfo
@@ -176,6 +177,7 @@ func (i *serializedIterator) Close() error {
 ///////////////////
 // Batched Iterator
 ///////////////////
+
 type batchedIterator struct {
 	bucket               pail.Bucket
 	batchSize            int
