@@ -17,10 +17,8 @@ import (
 type PailType string
 
 const (
-	PailS3           PailType = "s3"
-	PailLegacyGridFS PailType = "gridfs-legacy"
-	PailGridFS       PailType = "gridfs"
-	PailLocal        PailType = "local"
+	PailS3    PailType = "s3"
+	PailLocal PailType = "local"
 
 	defaultS3Region     = "us-east-1"
 	defaultS3MaxRetries = 10

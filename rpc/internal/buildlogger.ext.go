@@ -28,8 +28,6 @@ func (l LogStorage) Export() model.PailType {
 	switch l {
 	case LogStorage_LOG_STORAGE_S3:
 		return model.PailS3
-	case LogStorage_LOG_STORAGE_GRIDFS:
-		return model.PailGridFS
 	case LogStorage_LOG_STORAGE_LOCAL:
 		return model.PailLocal
 	default:

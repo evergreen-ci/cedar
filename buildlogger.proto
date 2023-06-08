@@ -29,7 +29,6 @@ message LogInfo{
 
 enum LogStorage {
   LOG_STORAGE_S3 = 0;
-  LOG_STORAGE_GRIDFS = 1;
   LOG_STORAGE_LOCAL = 2;
 }
 
