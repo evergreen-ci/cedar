@@ -48,7 +48,7 @@ func TestCreateLog(t *testing.T) {
 			name: "InvalidEnv",
 			data: &LogData{
 				Info:    &LogInfo{Project: "test3"},
-				Storage: LogStorage_LOG_STORAGE_GRIDFS,
+				Storage: LogStorage_LOG_STORAGE_S3,
 			},
 			env:    nil,
 			hasErr: true,

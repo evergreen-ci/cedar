@@ -11,8 +11,6 @@ type RollupValues []*RollupValue
 
 func (l StorageLocation) Export() model.PailType {
 	switch l {
-	case StorageLocation_GRIDFS:
-		return model.PailLegacyGridFS
 	case StorageLocation_CEDAR_S3, StorageLocation_PROJECT_S3:
 		return model.PailS3
 	case StorageLocation_LOCAL, StorageLocation_EPHEMERAL:

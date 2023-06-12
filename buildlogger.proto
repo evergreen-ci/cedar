@@ -29,7 +29,9 @@ message LogInfo{
 
 enum LogStorage {
   LOG_STORAGE_S3 = 0;
-  LOG_STORAGE_GRIDFS = 1;
+  // Pail no longer supports GridFS
+  reserved 1;
+  reserved "LOG_STORAGE_GRIDFS";
   LOG_STORAGE_LOCAL = 2;
 }
 

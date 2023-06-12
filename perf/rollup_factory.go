@@ -63,6 +63,7 @@ func DefaultRollupFactories() []RollupFactory { return defaultRollups }
 //////////////////
 // Default Means
 //////////////////
+
 type latencyAverage struct{}
 
 const (
@@ -116,6 +117,7 @@ func (f *sizeAverage) Calc(s *PerformanceStatistics, user bool) []model.PerfRoll
 ////////////////////////
 // Default Throughputs
 ////////////////////////
+
 type operationThroughput struct{}
 
 const (
@@ -218,6 +220,7 @@ func (f *errorThroughput) Calc(s *PerformanceStatistics, user bool) []model.Perf
 ////////////////////////
 // Default Percentiles
 ////////////////////////
+
 type latencyPercentile struct{}
 
 const (
@@ -294,6 +297,7 @@ func (f *latencyPercentile) Calc(s *PerformanceStatistics, user bool) []model.Pe
 ///////////////////
 // Default Bounds
 ///////////////////
+
 type workersBounds struct{}
 
 const (
@@ -362,6 +366,7 @@ func (f *latencyBounds) Calc(s *PerformanceStatistics, user bool) []model.PerfRo
 /////////////////
 // Default Sums
 /////////////////
+
 type durationSum struct{}
 
 const (

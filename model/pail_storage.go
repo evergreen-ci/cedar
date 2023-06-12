@@ -17,10 +17,8 @@ import (
 type PailType string
 
 const (
-	PailS3           PailType = "s3"
-	PailLegacyGridFS PailType = "gridfs-legacy"
-	PailGridFS       PailType = "gridfs"
-	PailLocal        PailType = "local"
+	PailS3    PailType = "s3"
+	PailLocal PailType = "local"
 
 	defaultS3Region     = "us-east-1"
 	defaultS3MaxRetries = 10
@@ -49,19 +47,6 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 			Compress:    compress,
 		}
 		b, err = pail.NewS3Bucket(opts)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-	case PailLegacyGridFS, PailGridFS:
-		client := env.GetClient()
-		conf := env.GetConfig()
-
-		opts := pail.GridFSOptions{
-			Database: conf.DatabaseName,
-			Name:     bucket,
-			Prefix:   prefix,
-		}
-		b, err = pail.NewGridFSBucketWithClient(ctx, client, opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

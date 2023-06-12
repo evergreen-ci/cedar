@@ -72,24 +72,6 @@ func TestGetDownloadURL(t *testing.T) {
 			},
 		},
 		{
-			name: "GridFSURL",
-			artifact: ArtifactInfo{
-				Type:   PailGridFS,
-				Bucket: s3Name,
-				Prefix: s3Prefix,
-				Path:   path,
-			},
-		},
-		{
-			name: "LegacyGridFSURL",
-			artifact: ArtifactInfo{
-				Type:   PailLegacyGridFS,
-				Bucket: s3Name,
-				Prefix: s3Prefix,
-				Path:   path,
-			},
-		},
-		{
 			name: "EmptyType",
 			artifact: ArtifactInfo{
 				Bucket: s3Name,

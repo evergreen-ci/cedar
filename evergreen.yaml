@@ -55,6 +55,16 @@ functions:
         include_expansions_in_env: ["MONGODB_URL"]
         working_dir: cedar
         command: make get-mongodb
+        env:
+          MONGODB_DECOMPRESS: ${MONGODB_DECOMPRESS|*decompress}
+    - command: subprocess.exec
+      type: setup
+      params:
+        include_expansions_in_env: ["MONGOSH_URL"]
+        working_dir: cedar
+        command: make get-mongosh
+        env:
+          MONGOSH_DECOMPRESS: ${MONGOSH_DECOMPRESS|*decompress}
     - command: subprocess.exec
       type: setup
       params:
@@ -217,56 +227,47 @@ task_groups:
 #           Buildvariants             #
 #######################################
 buildvariants:
-  - name: race-detector
-    display_name: Race Detector (Arch Linux)
-    expansions:
-      RACE_DETECTOR: true
-      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
-      GOROOT: /opt/golang/go1.16
-      curator_build: linux-amd64
-    run_on:
-      - archlinux-new-small
-    tasks: [ "testGroup" ]
-
   - name: lint
-    display_name: Lint (Arch Linux)
+    display_name: Lint
     expansions:
-      GOROOT: /opt/golang/go1.16
+      GOROOT: /opt/golang/go1.20
     run_on:
-      - archlinux-new-small
+      - ubuntu2204-small
     tasks:
       - name: lintGroup
       - name: verify-mod-tidy
 
   - name: ubuntu
-    display_name: Ubuntu 18.04
+    display_name: Ubuntu 22.04
     expansions:
-      GOROOT: /opt/golang/go1.16
-      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-4.2.0.tgz
+      GOROOT: /opt/golang/go1.20
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2204-6.0.6.tgz
+      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-linux-x64.tgz
+      RACE_DETECTOR: true
       curator_build: linux-amd64
     run_on:
-      - ubuntu1804-small
+      - ubuntu2204-small
     tasks: [ "dist", "testGroup" ]
 
   - name: macos
     display_name: macOS
     expansions:
-      GOROOT: /opt/golang/go1.16
-      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-4.2.0.tgz
+      GOROOT: /opt/golang/go1.20
+      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-arm64-6.0.6.tgz
+      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-darwin-arm64.zip
+      MONGOSH_DECOMPRESS: unzip
       curator_build: darwin-amd64
     run_on:
-      - macos-1014
+      - macos-1100-arm64
     tasks: [ "testGroup" ]
 
   - name: windows
     display_name: Windows
     run_on:
-      - windows-64-vs2019-small
-      - windows-64-vs2019-large
-      - windows-64-vs2017-small
-      - windows-64-vs2017-large
+      - windows-vsCurrent-small
     expansions:
-      MONGODB_URL: https://fastdl.mongodb.org/win32/mongodb-win32-x86_64-2012plus-4.2.0.zip
-      GOROOT: C:/golang/go1.16
+      MONGODB_URL: https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-6.0.6.zip
+      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-win32-x64.zip
+      GOROOT: C:/golang/go1.20
       curator_build: windows-amd64
     tasks: [ "testGroup" ]

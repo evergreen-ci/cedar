@@ -47,7 +47,9 @@ enum StorageLocation {
   UNKNOWN = 0;
   CEDAR_S3 = 1;
   PROJECT_S3 = 2;
-  GRIDFS = 3;
+  // Pail no longer supports GridFS
+  reserved 3;
+  reserved "GRIDFS";
   EPHEMERAL = 4;
   LOCAL = 5;
 }

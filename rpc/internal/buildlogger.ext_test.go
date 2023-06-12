@@ -60,11 +60,6 @@ func TestLogStorageExport(t *testing.T) {
 			expectedPailType: model.PailS3,
 		},
 		{
-			name:             "GridFS",
-			storageType:      LogStorage_LOG_STORAGE_GRIDFS,
-			expectedPailType: model.PailGridFS,
-		},
-		{
 			name:             "Local",
 			storageType:      LogStorage_LOG_STORAGE_LOCAL,
 			expectedPailType: model.PailLocal,
