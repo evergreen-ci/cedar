@@ -232,21 +232,21 @@ buildvariants:
     expansions:
       GOROOT: /opt/golang/go1.20
     run_on:
-      - ubuntu2204-small
+      - ubuntu2004-small
     tasks:
       - name: lintGroup
       - name: verify-mod-tidy
 
   - name: ubuntu
-    display_name: Ubuntu 22.04
+    display_name: Ubuntu 20.04
     expansions:
       GOROOT: /opt/golang/go1.20
-      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2204-6.0.6.tgz
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-6.0.6.tgz
       MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-linux-x64.tgz
       RACE_DETECTOR: true
       curator_build: linux-amd64
     run_on:
-      - ubuntu2204-small
+      - ubuntu2004-small
     tasks: [ "dist", "testGroup" ]
 
   - name: macos
