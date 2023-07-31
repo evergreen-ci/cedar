@@ -941,10 +941,11 @@ func TestFilterAndSortTestResults(t *testing.T) {
 				TestEndTime:     time.Date(1996, time.August, 31, 12, 5, 16, 0, time.UTC),
 			},
 			{
-				TestName:      "C test",
-				Status:        "Fail",
-				TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 2, time.UTC),
-				TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 15, 0, time.UTC),
+				TestName:        "C test",
+				DisplayTestName: "B",
+				Status:          "Fail",
+				TestStartTime:   time.Date(1996, time.August, 31, 12, 5, 10, 2, time.UTC),
+				TestEndTime:     time.Date(1996, time.August, 31, 12, 5, 15, 0, time.UTC),
 			},
 			{
 				TestName:      "D test",
@@ -972,8 +973,9 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			Status:          "Fail",
 		},
 		{
-			TestName: "C test",
-			Status:   "Pass",
+			TestName:        "C test",
+			DisplayTestName: "B",
+			Status:          "Pass",
 		},
 		{
 			TestName: "D test",
@@ -1054,7 +1056,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 		},
 		{
 			name: "TestNameRegexFilter",
-			opts: &TestResultsFilterAndSortOptions{TestName: "A|C"},
+			opts: &TestResultsFilterAndSortOptions{TestName: "A|B"},
 			expectedResults: []TestResult{
 				results[0],
 				results[2],
@@ -1064,7 +1066,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 		{
 			name: "TestNameExcludeDisplayNamesFilter",
 			opts: &TestResultsFilterAndSortOptions{
-				TestName:            "B test",
+				TestName:            "B",
 				ExcludeDisplayNames: true,
 			},
 			expectedResults: results[1:2],
