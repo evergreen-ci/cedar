@@ -1054,8 +1054,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 		},
 		{
 			name:            "TestNameExactMatchFilter",
-			opts:            &TestResultsFilterAndSortOptions{TestName: "A test"},
-			expectedResults: results[0:1],
+			opts:            &TestResultsFilterAndSortOptions{TestName: "B test"},
+			expectedResults: results[1:2],
 			expectedCount:   1,
 		},
 		{

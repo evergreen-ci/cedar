@@ -951,7 +951,7 @@ func filterTestResults(results []TestResult, opts *TestResultsFilterAndSortOptio
 
 	var filteredResults []TestResult
 	for _, result := range results {
-		if opts.testNameRegex != nil && !opts.testNameRegex.MatchString(result.GetDisplayName()) {
+		if opts.testNameRegex != nil && !opts.testNameRegex.MatchString(result.GetDisplayName()) && opts.TestName != result.TestName {
 			continue
 		}
 		if len(opts.Statuses) > 0 && !utility.StringSliceContains(opts.Statuses, result.Status) {
