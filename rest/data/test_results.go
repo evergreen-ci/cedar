@@ -196,13 +196,14 @@ func convertToDBTestResultsFilterAndSortOptions(opts *TestResultsFilterAndSortOp
 	}
 
 	dbOpts := &dbModel.TestResultsFilterAndSortOptions{
-		TestName:  opts.TestName,
-		Statuses:  opts.Statuses,
-		GroupID:   opts.GroupID,
-		Sort:      convertToDBTestResultsSortOptions(opts.Sort),
-		Limit:     opts.Limit,
-		Page:      opts.Page,
-		BaseTasks: convertToDBTestResultsTaskOptions(opts.BaseTasks),
+		TestName:            opts.TestName,
+		ExcludeDisplayNames: opts.ExcludeDisplayNames,
+		Statuses:            opts.Statuses,
+		GroupID:             opts.GroupID,
+		Sort:                convertToDBTestResultsSortOptions(opts.Sort),
+		Limit:               opts.Limit,
+		Page:                opts.Page,
+		BaseTasks:           convertToDBTestResultsTaskOptions(opts.BaseTasks),
 	}
 
 	// TODO (EVG-14306): Remove this logic once Evergreen's GraphQL service
