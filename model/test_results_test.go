@@ -941,10 +941,11 @@ func TestFilterAndSortTestResults(t *testing.T) {
 				TestEndTime:     time.Date(1996, time.August, 31, 12, 5, 16, 0, time.UTC),
 			},
 			{
-				TestName:      "C test",
-				Status:        "Fail",
-				TestStartTime: time.Date(1996, time.August, 31, 12, 5, 10, 2, time.UTC),
-				TestEndTime:   time.Date(1996, time.August, 31, 12, 5, 15, 0, time.UTC),
+				TestName:        "C test",
+				DisplayTestName: "B",
+				Status:          "Fail",
+				TestStartTime:   time.Date(1996, time.August, 31, 12, 5, 10, 2, time.UTC),
+				TestEndTime:     time.Date(1996, time.August, 31, 12, 5, 15, 0, time.UTC),
 			},
 			{
 				TestName:      "D test",
@@ -972,8 +973,9 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			Status:          "Fail",
 		},
 		{
-			TestName: "C test",
-			Status:   "Pass",
+			TestName:        "C test",
+			DisplayTestName: "B",
+			Status:          "Pass",
 		},
 		{
 			TestName: "D test",
@@ -1053,14 +1055,8 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			expectedCount:   4,
 		},
 		{
-			name:            "TestNameExactMatchFilter",
-			opts:            &TestResultsFilterAndSortOptions{TestName: "A test"},
-			expectedResults: results[0:1],
-			expectedCount:   1,
-		},
-		{
 			name: "TestNameRegexFilter",
-			opts: &TestResultsFilterAndSortOptions{TestName: "A|C"},
+			opts: &TestResultsFilterAndSortOptions{TestName: "A|B"},
 			expectedResults: []TestResult{
 				results[0],
 				results[2],
@@ -1068,8 +1064,17 @@ func TestFilterAndSortTestResults(t *testing.T) {
 			expectedCount: 2,
 		},
 		{
+			name: "TestNameExcludeDisplayNamesFilter",
+			opts: &TestResultsFilterAndSortOptions{
+				TestName:            "B",
+				ExcludeDisplayNames: true,
+			},
+			expectedResults: results[1:2],
+			expectedCount:   1,
+		},
+		{
 			name:            "DisplayTestNameFilter",
-			opts:            &TestResultsFilterAndSortOptions{TestName: "Display"},
+			opts:            &TestResultsFilterAndSortOptions{TestName: "Di"},
 			expectedResults: results[1:2],
 			expectedCount:   1,
 		},

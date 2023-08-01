@@ -785,13 +785,14 @@ func (s TestResultsSortBy) validate() error {
 // TestResultsFilterAndSortOptions allow for filtering, sorting, and paginating
 // a set of test results.
 type TestResultsFilterAndSortOptions struct {
-	TestName  string
-	Statuses  []string
-	GroupID   string
-	Sort      []TestResultsSortBy
-	Limit     int
-	Page      int
-	BaseTasks []TestResultsTaskOptions
+	TestName            string
+	ExcludeDisplayNames bool
+	Statuses            []string
+	GroupID             string
+	Sort                []TestResultsSortBy
+	Limit               int
+	Page                int
+	BaseTasks           []TestResultsTaskOptions
 
 	testNameRegex *regexp.Regexp
 	baseStatusMap map[string]string
@@ -951,8 +952,14 @@ func filterTestResults(results []TestResult, opts *TestResultsFilterAndSortOptio
 
 	var filteredResults []TestResult
 	for _, result := range results {
-		if opts.testNameRegex != nil && !opts.testNameRegex.MatchString(result.GetDisplayName()) {
-			continue
+		if opts.testNameRegex != nil {
+			if opts.ExcludeDisplayNames {
+				if !opts.testNameRegex.MatchString(result.TestName) {
+					continue
+				}
+			} else if !opts.testNameRegex.MatchString(result.GetDisplayName()) {
+				continue
+			}
 		}
 		if len(opts.Statuses) > 0 && !utility.StringSliceContains(opts.Statuses, result.Status) {
 			continue

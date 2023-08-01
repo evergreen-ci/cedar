@@ -137,13 +137,14 @@ type TestResultsSortBy struct {
 // TestResultsFilterAndSortOptions holds all values required for filtering,
 // sorting, and paginating test results using the Connector functions.
 type TestResultsFilterAndSortOptions struct {
-	TestName  string                   `json:"test_name"`
-	Statuses  []string                 `json:"statuses"`
-	GroupID   string                   `json:"group_id"`
-	Sort      []TestResultsSortBy      `json:"sort"`
-	Limit     int                      `json:"limit"`
-	Page      int                      `json:"page"`
-	BaseTasks []TestResultsTaskOptions `json:"base_tasks"`
+	TestName            string                   `json:"test_name"`
+	ExcludeDisplayNames bool                     `json:"exclude_display_names"`
+	Statuses            []string                 `json:"statuses"`
+	GroupID             string                   `json:"group_id"`
+	Sort                []TestResultsSortBy      `json:"sort"`
+	Limit               int                      `json:"limit"`
+	Page                int                      `json:"page"`
+	BaseTasks           []TestResultsTaskOptions `json:"base_tasks"`
 
 	// TODO (EVG-14306): Remove these two fields once Evergreen's GraphQL
 	// service is no longer using them.
