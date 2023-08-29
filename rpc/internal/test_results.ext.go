@@ -2,6 +2,7 @@ package internal
 
 import (
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 )
 
 // Export exports TestResultsInfo to the corresponding TestResultsInfo type in
@@ -24,24 +25,13 @@ func (t *TestResultsInfo) Export() (model.TestResultsInfo, error) {
 // Export exports TestResult to the corresponding TestResult type in the model
 // package.
 func (t *TestResult) Export() model.TestResult {
-	var logInfo *model.TestLogInfo
-	if t.LogInfo != nil {
-		logInfo = &model.TestLogInfo{
-			LogName:       t.LogInfo.LogName,
-			LogsToMerge:   t.LogInfo.LogsToMerge,
-			LineNum:       t.LogInfo.LineNum,
-			RenderingType: t.LogInfo.RenderingType,
-			Version:       t.LogInfo.Version,
-		}
-	}
-
 	return model.TestResult{
 		TestName:        t.TestName,
 		DisplayTestName: t.DisplayTestName,
 		GroupID:         t.GroupId,
 		Trial:           int(t.Trial),
 		Status:          t.Status,
-		LogInfo:         logInfo,
+		LogInfo:         t.LogInfo.Export(),
 		LogTestName:     t.LogTestName,
 		LogURL:          t.LogUrl,
 		RawLogURL:       t.RawLogUrl,
@@ -49,5 +39,25 @@ func (t *TestResult) Export() model.TestResult {
 		TaskCreateTime:  t.TaskCreateTime.AsTime(),
 		TestStartTime:   t.TestStartTime.AsTime(),
 		TestEndTime:     t.TestEndTime.AsTime(),
+	}
+}
+
+// Export exports TestLogInfo to the corresponding TestLogInfo type in the
+// model package.
+func (t *TestLogInfo) Export() *model.TestLogInfo {
+	if t == nil {
+		return nil
+	}
+	var logsToMerge []*string
+	for _, logName := range t.LogsToMerge {
+		logsToMerge = append(logsToMerge, utility.ToStringPtr(logName))
+	}
+
+	return &model.TestLogInfo{
+		LogName:       t.LogName,
+		LogsToMerge:   logsToMerge,
+		LineNum:       t.LineNum,
+		RenderingType: t.RenderingType,
+		Version:       t.Version,
 	}
 }

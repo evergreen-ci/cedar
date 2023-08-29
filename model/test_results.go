@@ -608,11 +608,11 @@ type TestResult struct {
 // TestLogInfo describes a metadata for a test result's log stored using
 // Evergreen logging.
 type TestLogInfo struct {
-	LogName       string   `parquet:"name=log_name" bson:"log_name"`
-	LogsToMerge   []string `parquet:"name=logs_to_merge" bson:"logs_to_merge,omitempty"`
-	LineNum       int32    `parquet:"name=line_num" bson:"line_num"`
-	RenderingType *string  `parquet:"name=rendering_type" bson:"rendering_type,omitempty"`
-	Version       int32    `parquet:"name=version" bson:"version"`
+	LogName       string    `parquet:"name=log_name" bson:"log_name"`
+	LogsToMerge   []*string `parquet:"name=logs_to_merge" bson:"logs_to_merge,omitempty"`
+	LineNum       int32     `parquet:"name=line_num" bson:"line_num"`
+	RenderingType *string   `parquet:"name=rendering_type" bson:"rendering_type,omitempty"`
+	Version       int32     `parquet:"name=version" bson:"version"`
 }
 
 // GetDisplayName returns the human-readable name of the test.

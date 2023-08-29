@@ -3,6 +3,7 @@ package internal
 import (
 	"testing"
 
+	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,30 +58,64 @@ func TestTestResultExport(t *testing.T) {
 		TestEndTime:    &timestamppb.Timestamp{Seconds: 1588278490},
 	}
 
-	t.Run("PopulatedLogInfo", func(t *testing.T) {
-		modelResult := result.Export()
+	modelResult := result.Export()
+	assert.Equal(t, result.TestName, modelResult.TestName)
+	assert.Equal(t, result.DisplayTestName, modelResult.DisplayTestName)
+	assert.Equal(t, int(result.Trial), modelResult.Trial)
+	assert.Equal(t, result.Status, modelResult.Status)
+	assert.Equal(t, result.LogInfo.Export(), modelResult.LogInfo)
+	assert.Equal(t, result.GroupId, modelResult.GroupID)
+	assert.Equal(t, result.LogTestName, modelResult.LogTestName)
+	assert.Equal(t, result.LogUrl, modelResult.LogURL)
+	assert.Equal(t, result.RawLogUrl, modelResult.RawLogURL)
+	assert.Equal(t, int(result.LineNum), modelResult.LineNum)
+	assert.Equal(t, result.TaskCreateTime.AsTime(), modelResult.TaskCreateTime)
+	assert.Equal(t, result.TestStartTime.AsTime(), modelResult.TestStartTime)
+	assert.Equal(t, result.TestEndTime.AsTime(), modelResult.TestEndTime)
+}
 
-		assert.Equal(t, result.TestName, modelResult.TestName)
-		assert.Equal(t, result.DisplayTestName, modelResult.DisplayTestName)
-		assert.Equal(t, int(result.Trial), modelResult.Trial)
-		assert.Equal(t, result.Status, modelResult.Status)
-		assert.Equal(t, result.LogInfo.LogName, modelResult.LogInfo.LogName)
-		assert.Equal(t, result.LogInfo.LogsToMerge, modelResult.LogInfo.LogsToMerge)
-		assert.Equal(t, result.LogInfo.LineNum, modelResult.LogInfo.LineNum)
-		assert.Equal(t, result.LogInfo.RenderingType, modelResult.LogInfo.RenderingType)
-		assert.Equal(t, result.LogInfo.Version, modelResult.LogInfo.Version)
-		assert.Equal(t, result.GroupId, modelResult.GroupID)
-		assert.Equal(t, result.LogTestName, modelResult.LogTestName)
-		assert.Equal(t, result.LogUrl, modelResult.LogURL)
-		assert.Equal(t, result.RawLogUrl, modelResult.RawLogURL)
-		assert.Equal(t, int(result.LineNum), modelResult.LineNum)
-		assert.Equal(t, result.TaskCreateTime.AsTime(), modelResult.TaskCreateTime)
-		assert.Equal(t, result.TestStartTime.AsTime(), modelResult.TestStartTime)
-		assert.Equal(t, result.TestEndTime.AsTime(), modelResult.TestEndTime)
-	})
-	t.Run("EmptyLogInfo", func(t *testing.T) {
-		result.LogInfo = nil
-		modelResult := result.Export()
-		assert.Nil(t, modelResult.LogInfo)
-	})
+func TestTestLogInfoExport(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		logInfo  *TestLogInfo
+		expected *model.TestLogInfo
+	}{
+		{
+			name: "Nil",
+		},
+		{
+			name: "OptionalsEmpty",
+			logInfo: &TestLogInfo{
+				LogName: "log0",
+				LineNum: 100,
+				Version: 1,
+			},
+			expected: &model.TestLogInfo{
+				LogName: "log0",
+				LineNum: 100,
+				Version: 1,
+			},
+		},
+		{
+			name: "OptionalsPopulated",
+			logInfo: &TestLogInfo{
+				LogName:       "log0",
+				LogsToMerge:   []string{"log1", "log2"},
+				LineNum:       100,
+				RenderingType: utility.ToStringPtr("resmoke"),
+				Version:       1,
+			},
+			expected: &model.TestLogInfo{
+				LogName:       "log0",
+				LogsToMerge:   []*string{utility.ToStringPtr("log1"), utility.ToStringPtr("log2")},
+				LineNum:       100,
+				RenderingType: utility.ToStringPtr("resmoke"),
+				Version:       1,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, test.logInfo.Export())
+		})
+	}
 }

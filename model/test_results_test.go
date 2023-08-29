@@ -1493,10 +1493,13 @@ func getTestResult() TestResult {
 		result.LineNum = rand.Intn(1000)
 		result.LogInfo = &TestLogInfo{
 			LogName:       utility.RandomString(),
-			LogsToMerge:   []string{utility.RandomString(), utility.RandomString()},
 			LineNum:       rand.Int31n(1000),
 			RenderingType: utility.ToStringPtr(utility.RandomString()),
 			Version:       rand.Int31n(5),
+		}
+		if sometimes.Half() {
+			result.LogInfo.LogsToMerge = []*string{utility.ToStringPtr(utility.RandomString()), utility.ToStringPtr(utility.RandomString())}
+			result.LogInfo.RenderingType = utility.ToStringPtr(utility.RandomString())
 		}
 	}
 
