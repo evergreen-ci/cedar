@@ -1496,7 +1496,7 @@ func getTestResult() TestResult {
 			LogsToMerge:   &[]string{utility.RandomString(), utility.RandomString()},
 			LineNum:       rand.Int31n(1000),
 			RenderingType: utility.ToStringPtr(utility.RandomString()),
-			Version:       0,
+			Version:       rand.Int31n(5),
 		}
 	}
 

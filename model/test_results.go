@@ -612,7 +612,7 @@ type TestLogInfo struct {
 	LogsToMerge   *[]string `parquet:"name=logs_to_merge" bson:"logs_to_merge,omitempty"`
 	LineNum       int32     `parquet:"name=line_num" bson:"line_num"`
 	RenderingType *string   `parquet:"name=rendering_type" bson:"rendering_type,omitempty"`
-	Version       int       `parquet:"name=version" bson:"version"`
+	Version       int32     `parquet:"name=version" bson:"version"`
 }
 
 // GetDisplayName returns the human-readable name of the test.
