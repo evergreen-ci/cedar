@@ -1498,7 +1498,7 @@ func getTestResult() TestResult {
 			Version:       rand.Int31n(5),
 		}
 		if sometimes.Half() {
-			result.LogInfo.LogsToMerge = []*string{utility.ToStringPtr(utility.RandomString()), utility.ToStringPtr(utility.RandomString())}
+			result.LogInfo.LogsToMerge = utility.ToStringPtrSlice([]string{utility.RandomString(), utility.RandomString()})
 			result.LogInfo.RenderingType = utility.ToStringPtr(utility.RandomString())
 		}
 	}

@@ -107,7 +107,7 @@ func TestTestLogInfoExport(t *testing.T) {
 			},
 			expected: &model.TestLogInfo{
 				LogName:       "log0",
-				LogsToMerge:   []*string{utility.ToStringPtr("log1"), utility.ToStringPtr("log2")},
+				LogsToMerge:   utility.ToStringPtrSlice([]string{"log1", "log2"}),
 				LineNum:       100,
 				RenderingType: utility.ToStringPtr("resmoke"),
 				Version:       1,

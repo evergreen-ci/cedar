@@ -48,14 +48,10 @@ func (t *TestLogInfo) Export() *model.TestLogInfo {
 	if t == nil {
 		return nil
 	}
-	var logsToMerge []*string
-	for _, logName := range t.LogsToMerge {
-		logsToMerge = append(logsToMerge, utility.ToStringPtr(logName))
-	}
 
 	return &model.TestLogInfo{
 		LogName:       t.LogName,
-		LogsToMerge:   logsToMerge,
+		LogsToMerge:   utility.ToStringPtrSlice(t.LogsToMerge),
 		LineNum:       t.LineNum,
 		RenderingType: t.RenderingType,
 		Version:       t.Version,
