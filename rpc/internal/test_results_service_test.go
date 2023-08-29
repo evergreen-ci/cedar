@@ -505,11 +505,18 @@ func getTestResult() *TestResult {
 		GroupId:         utility.RandomString(),
 		Trial:           rand.Int31n(10),
 		Status:          "Pass",
-		LogTestName:     utility.RandomString(),
-		LineNum:         rand.Int31n(1000),
-		TaskCreateTime:  &timestamppb.Timestamp{Seconds: now.Add(-time.Hour).Unix()},
-		TestStartTime:   &timestamppb.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
-		TestEndTime:     &timestamppb.Timestamp{Seconds: now.Unix()},
+		LogInfo: &TestLogInfo{
+			LogName:       utility.RandomString(),
+			LogsToMerge:   []string{utility.RandomString(), utility.RandomString()},
+			LineNum:       rand.Int31n(1000),
+			RenderingType: utility.ToStringPtr(utility.RandomString()),
+			Version:       rand.Int31n(5),
+		},
+		LogTestName:    utility.RandomString(),
+		LineNum:        rand.Int31n(1000),
+		TaskCreateTime: &timestamppb.Timestamp{Seconds: now.Add(-time.Hour).Unix()},
+		TestStartTime:  &timestamppb.Timestamp{Seconds: now.Add(-30 * time.Hour).Unix()},
+		TestEndTime:    &timestamppb.Timestamp{Seconds: now.Unix()},
 	}
 }
 

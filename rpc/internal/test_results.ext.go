@@ -24,12 +24,24 @@ func (t *TestResultsInfo) Export() (model.TestResultsInfo, error) {
 // Export exports TestResult to the corresponding TestResult type in the model
 // package.
 func (t *TestResult) Export() model.TestResult {
+	var logInfo *model.TestLogInfo
+	if t.LogInfo != nil {
+		logInfo = &model.TestLogInfo{
+			LogName:       t.LogInfo.LogName,
+			LogsToMerge:   t.LogInfo.LogsToMerge,
+			LineNum:       t.LogInfo.LineNum,
+			RenderingType: t.LogInfo.RenderingType,
+			Version:       t.LogInfo.Version,
+		}
+	}
+
 	return model.TestResult{
 		TestName:        t.TestName,
 		DisplayTestName: t.DisplayTestName,
 		GroupID:         t.GroupId,
 		Trial:           int(t.Trial),
 		Status:          t.Status,
+		LogInfo:         logInfo,
 		LogTestName:     t.LogTestName,
 		LogURL:          t.LogUrl,
 		RawLogURL:       t.RawLogUrl,
