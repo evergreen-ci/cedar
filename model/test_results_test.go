@@ -305,6 +305,7 @@ func TestTestResultsAppend(t *testing.T) {
 				TestName:       result.TestName,
 				Trial:          int32(result.Trial),
 				Status:         result.Status,
+				LogInfo:        result.LogInfo,
 				TaskCreateTime: result.TaskCreateTime.UTC(),
 				TestStartTime:  result.TestStartTime.UTC(),
 				TestEndTime:    result.TestEndTime.UTC(),
@@ -363,6 +364,7 @@ func TestTestResultsAppend(t *testing.T) {
 				TestName:       result.TestName,
 				Trial:          int32(result.Trial),
 				Status:         result.Status,
+				LogInfo:        result.LogInfo,
 				TaskCreateTime: result.TaskCreateTime.UTC(),
 				TestStartTime:  result.TestStartTime.UTC(),
 				TestEndTime:    result.TestEndTime.UTC(),
@@ -457,17 +459,14 @@ func TestTestResultsDownload(t *testing.T) {
 			expectedResults[i].TaskID = tr.Info.TaskID
 			expectedResults[i].Execution = tr.Info.Execution
 			savedParquet.Results[i] = ParquetTestResult{
-				TestName:        result.TestName,
-				Trial:           int32(result.Trial),
-				DisplayTestName: utility.ToStringPtr(result.DisplayTestName),
-				GroupID:         utility.ToStringPtr(result.GroupID),
-				Status:          result.Status,
-				LogTestName:     utility.ToStringPtr(result.LogTestName),
-				LogURL:          utility.ToStringPtr(result.LogURL),
-				RawLogURL:       utility.ToStringPtr(result.RawLogURL),
-				TaskCreateTime:  result.TaskCreateTime.UTC(),
-				TestStartTime:   result.TestStartTime.UTC(),
-				TestEndTime:     result.TestEndTime.UTC(),
+				TestName:       result.TestName,
+				Trial:          int32(result.Trial),
+				GroupID:        utility.ToStringPtr(result.GroupID),
+				Status:         result.Status,
+				LogInfo:        result.LogInfo,
+				TaskCreateTime: result.TaskCreateTime.UTC(),
+				TestStartTime:  result.TestStartTime.UTC(),
+				TestEndTime:    result.TestEndTime.UTC(),
 			}
 			if result.DisplayTestName != "" {
 				savedParquet.Results[i].DisplayTestName = utility.ToStringPtr(result.DisplayTestName)
@@ -1492,6 +1491,16 @@ func getTestResult() TestResult {
 		result.LogURL = utility.RandomString()
 		result.RawLogURL = utility.RandomString()
 		result.LineNum = rand.Intn(1000)
+		result.LogInfo = &TestLogInfo{
+			LogName:       utility.RandomString(),
+			LineNum:       rand.Int31n(1000),
+			RenderingType: utility.ToStringPtr(utility.RandomString()),
+			Version:       rand.Int31n(5),
+		}
+		if sometimes.Half() {
+			result.LogInfo.LogsToMerge = utility.ToStringPtrSlice([]string{utility.RandomString(), utility.RandomString()})
+			result.LogInfo.RenderingType = utility.ToStringPtr(utility.RandomString())
+		}
 	}
 
 	return result

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 )
 
 // Export exports TestResultsInfo to the corresponding TestResultsInfo type in
@@ -30,6 +31,7 @@ func (t *TestResult) Export() model.TestResult {
 		GroupID:         t.GroupId,
 		Trial:           int(t.Trial),
 		Status:          t.Status,
+		LogInfo:         t.LogInfo.Export(),
 		LogTestName:     t.LogTestName,
 		LogURL:          t.LogUrl,
 		RawLogURL:       t.RawLogUrl,
@@ -37,5 +39,21 @@ func (t *TestResult) Export() model.TestResult {
 		TaskCreateTime:  t.TaskCreateTime.AsTime(),
 		TestStartTime:   t.TestStartTime.AsTime(),
 		TestEndTime:     t.TestEndTime.AsTime(),
+	}
+}
+
+// Export exports TestLogInfo to the corresponding TestLogInfo type in the
+// model package.
+func (t *TestLogInfo) Export() *model.TestLogInfo {
+	if t == nil {
+		return nil
+	}
+
+	return &model.TestLogInfo{
+		LogName:       t.LogName,
+		LogsToMerge:   utility.ToStringPtrSlice(t.LogsToMerge),
+		LineNum:       t.LineNum,
+		RenderingType: t.RenderingType,
+		Version:       t.Version,
 	}
 }

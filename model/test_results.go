@@ -585,21 +585,34 @@ var (
 // TestResult describes a single test result to be stored as a BSON object in
 // some type of Pail bucket storage.
 type TestResult struct {
-	TaskID          string    `bson:"task_id"`
-	Execution       int       `bson:"execution"`
-	TestName        string    `bson:"test_name"`
-	DisplayTestName string    `bson:"display_test_name,omitempty"`
-	GroupID         string    `bson:"group_id,omitempty"`
-	Trial           int       `bson:"trial"`
-	Status          string    `bson:"status"`
-	BaseStatus      string    `bson:"-"`
-	LogTestName     string    `bson:"log_test_name,omitempty"`
-	LogURL          string    `bson:"log_url,omitempty"`
-	RawLogURL       string    `bson:"raw_log_url,omitempty"`
-	LineNum         int       `bson:"line_num"`
-	TaskCreateTime  time.Time `bson:"task_create_time"`
-	TestStartTime   time.Time `bson:"test_start_time"`
-	TestEndTime     time.Time `bson:"test_end_time"`
+	TaskID          string       `bson:"task_id"`
+	Execution       int          `bson:"execution"`
+	TestName        string       `bson:"test_name"`
+	DisplayTestName string       `bson:"display_test_name,omitempty"`
+	GroupID         string       `bson:"group_id,omitempty"`
+	Trial           int          `bson:"trial"`
+	Status          string       `bson:"status"`
+	BaseStatus      string       `bson:"-"`
+	LogInfo         *TestLogInfo `bson:"log_info,omitempty"`
+	TaskCreateTime  time.Time    `bson:"task_create_time"`
+	TestStartTime   time.Time    `bson:"test_start_time"`
+	TestEndTime     time.Time    `bson:"test_end_time"`
+
+	// Legacy test log fields.
+	LogTestName string `bson:"log_test_name,omitempty"`
+	LogURL      string `bson:"log_url,omitempty"`
+	RawLogURL   string `bson:"raw_log_url,omitempty"`
+	LineNum     int    `bson:"line_num"`
+}
+
+// TestLogInfo describes a metadata for a test result's log stored using
+// Evergreen logging.
+type TestLogInfo struct {
+	LogName       string    `parquet:"name=log_name" bson:"log_name"`
+	LogsToMerge   []*string `parquet:"name=logs_to_merge" bson:"logs_to_merge,omitempty"`
+	LineNum       int32     `parquet:"name=line_num" bson:"line_num"`
+	RenderingType *string   `parquet:"name=rendering_type" bson:"rendering_type,omitempty"`
+	Version       int32     `parquet:"name=version" bson:"version"`
 }
 
 // GetDisplayName returns the human-readable name of the test.
@@ -619,6 +632,7 @@ func (t TestResult) convertToParquet() ParquetTestResult {
 		TestName:       t.TestName,
 		Trial:          int32(t.Trial),
 		Status:         t.Status,
+		LogInfo:        t.LogInfo,
 		TaskCreateTime: t.TaskCreateTime.UTC(),
 		TestStartTime:  t.TestStartTime.UTC(),
 		TestEndTime:    t.TestEndTime.UTC(),
@@ -1073,6 +1087,7 @@ func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
 			GroupID:         utility.FromStringPtr(r.Results[i].GroupID),
 			Trial:           int(r.Results[i].Trial),
 			Status:          r.Results[i].Status,
+			LogInfo:         r.Results[i].LogInfo,
 			LogTestName:     utility.FromStringPtr(r.Results[i].LogTestName),
 			LogURL:          utility.FromStringPtr(r.Results[i].LogURL),
 			RawLogURL:       utility.FromStringPtr(r.Results[i].RawLogURL),
@@ -1089,16 +1104,19 @@ func (r ParquetTestResults) convertToTestResultSlice() []TestResult {
 // ParquetTestResult describes a single test result to be stored in Apache
 // Parquet file format.
 type ParquetTestResult struct {
-	TestName        string    `parquet:"name=test_name"`
-	DisplayTestName *string   `parquet:"name=display_test_name"`
-	GroupID         *string   `parquet:"name=group_id"`
-	Trial           int32     `parquet:"name=trial"`
-	Status          string    `parquet:"name=status"`
-	LogTestName     *string   `parquet:"name=log_test_name"`
-	LogURL          *string   `parquet:"name=log_url"`
-	RawLogURL       *string   `parquet:"name=raw_log_url"`
-	LineNum         *int32    `parquet:"name=line_num"`
-	TaskCreateTime  time.Time `parquet:"name=task_create_time, timeunit=MILLIS"`
-	TestStartTime   time.Time `parquet:"name=test_start_time, timeunit=MILLIS"`
-	TestEndTime     time.Time `parquet:"name=test_end_time, timeunit=MILLIS"`
+	TestName        string       `parquet:"name=test_name"`
+	DisplayTestName *string      `parquet:"name=display_test_name"`
+	GroupID         *string      `parquet:"name=group_id"`
+	Trial           int32        `parquet:"name=trial"`
+	Status          string       `parquet:"name=status"`
+	LogInfo         *TestLogInfo `parquet:"name=log_info"`
+	TaskCreateTime  time.Time    `parquet:"name=task_create_time, timeunit=MILLIS"`
+	TestStartTime   time.Time    `parquet:"name=test_start_time, timeunit=MILLIS"`
+	TestEndTime     time.Time    `parquet:"name=test_end_time, timeunit=MILLIS"`
+
+	// Legacy test log fields.
+	LogTestName *string `parquet:"name=log_test_name"`
+	LogURL      *string `parquet:"name=log_url"`
+	RawLogURL   *string `parquet:"name=raw_log_url"`
+	LineNum     *int32  `parquet:"name=line_num"`
 }

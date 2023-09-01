@@ -37,6 +37,15 @@ message TestResult {
   google.protobuf.Timestamp test_end_time = 10;
   string log_url = 11;
   string raw_log_url = 12;
+  TestLogInfo log_info = 13;
+}
+
+message TestLogInfo {
+  string log_name = 1;
+  repeated string logs_to_merge = 2;
+  int32 line_num = 3;
+  optional string rendering_type = 4;
+  int32 version = 5;
 }
 
 message TestResultsEndInfo {

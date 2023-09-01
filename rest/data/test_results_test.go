@@ -104,12 +104,14 @@ func (s *testResultsConnectorSuite) setupData() {
 
 		for i := 0; i < 3; i++ {
 			result := dbModel.TestResult{
-				TaskID:         testResults.Info.TaskID,
-				Execution:      testResults.Info.Execution,
-				TestName:       fmt.Sprintf("test%d", i),
-				Trial:          0,
-				Status:         "teststatus-fail",
-				LineNum:        0,
+				TaskID:    testResults.Info.TaskID,
+				Execution: testResults.Info.Execution,
+				TestName:  fmt.Sprintf("test%d", i),
+				Status:    "teststatus-fail",
+				LogInfo: &dbModel.TestLogInfo{
+					LogName: "log0",
+					LineNum: 100,
+				},
 				TaskCreateTime: time.Now().Round(time.Millisecond),
 				TestStartTime:  time.Now().Round(time.Millisecond),
 				TestEndTime:    time.Now().Round(time.Millisecond),

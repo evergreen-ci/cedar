@@ -3,6 +3,8 @@ package internal
 import (
 	"testing"
 
+	"github.com/evergreen-ci/cedar/model"
+	"github.com/evergreen-ci/utility"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -36,10 +38,17 @@ func TestTestResultsInfoExport(t *testing.T) {
 
 func TestTestResultExport(t *testing.T) {
 	result := TestResult{
-		TestName:       "test_name",
-		GroupId:        "group",
-		Trial:          1,
-		Status:         "status",
+		TestName: "test_name",
+		GroupId:  "group",
+		Trial:    1,
+		Status:   "status",
+		LogInfo: &TestLogInfo{
+			LogName:       "log0",
+			LogsToMerge:   []string{"log1", "log2"},
+			LineNum:       100,
+			RenderingType: utility.ToStringPtr("resmoke"),
+			Version:       1,
+		},
 		LogTestName:    "log_test_name",
 		LogUrl:         "log_url",
 		RawLogUrl:      "raw_log_url",
@@ -54,6 +63,7 @@ func TestTestResultExport(t *testing.T) {
 	assert.Equal(t, result.DisplayTestName, modelResult.DisplayTestName)
 	assert.Equal(t, int(result.Trial), modelResult.Trial)
 	assert.Equal(t, result.Status, modelResult.Status)
+	assert.Equal(t, result.LogInfo.Export(), modelResult.LogInfo)
 	assert.Equal(t, result.GroupId, modelResult.GroupID)
 	assert.Equal(t, result.LogTestName, modelResult.LogTestName)
 	assert.Equal(t, result.LogUrl, modelResult.LogURL)
@@ -62,4 +72,50 @@ func TestTestResultExport(t *testing.T) {
 	assert.Equal(t, result.TaskCreateTime.AsTime(), modelResult.TaskCreateTime)
 	assert.Equal(t, result.TestStartTime.AsTime(), modelResult.TestStartTime)
 	assert.Equal(t, result.TestEndTime.AsTime(), modelResult.TestEndTime)
+}
+
+func TestTestLogInfoExport(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		logInfo  *TestLogInfo
+		expected *model.TestLogInfo
+	}{
+		{
+			name: "Nil",
+		},
+		{
+			name: "OptionalsEmpty",
+			logInfo: &TestLogInfo{
+				LogName: "log0",
+				LineNum: 100,
+				Version: 1,
+			},
+			expected: &model.TestLogInfo{
+				LogName: "log0",
+				LineNum: 100,
+				Version: 1,
+			},
+		},
+		{
+			name: "OptionalsPopulated",
+			logInfo: &TestLogInfo{
+				LogName:       "log0",
+				LogsToMerge:   []string{"log1", "log2"},
+				LineNum:       100,
+				RenderingType: utility.ToStringPtr("resmoke"),
+				Version:       1,
+			},
+			expected: &model.TestLogInfo{
+				LogName:       "log0",
+				LogsToMerge:   utility.ToStringPtrSlice([]string{"log1", "log2"}),
+				LineNum:       100,
+				RenderingType: utility.ToStringPtr("resmoke"),
+				Version:       1,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, test.logInfo.Export())
+		})
+	}
 }
