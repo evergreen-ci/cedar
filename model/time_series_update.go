@@ -11,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+const maxTimeSeriesUpdateTime = -7 * 24 * time.Hour
+
 // PerfAnalysis contains information about when the associated performance
 // result was analyzed for change points.
 type PerfAnalysis struct {
@@ -48,7 +50,7 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey):  performanceResultId.Test,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey): performanceResultId.Arguments,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey):  true,
-		perfCreatedAtKey: bson.M{"$gt": time.Now().Add(-7 * 24 * time.Hour)},
+		perfCreatedAtKey: bson.M{"$gt": time.Now().Add(maxTimeSeriesUpdateTime)},
 	}
 	update := bson.M{
 		"$currentDate": bson.M{
@@ -127,7 +129,7 @@ func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) 
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey):    bson.M{"$not": bson.M{"$size": 0}},
-				perfCreatedAtKey: bson.M{"$gt": time.Now().Add(-7 * 24 * time.Hour)},
+				perfCreatedAtKey: bson.M{"$gt": time.Now().Add(maxTimeSeriesUpdateTime)},
 			},
 		},
 		{
