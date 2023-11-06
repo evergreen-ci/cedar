@@ -11,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+const maxTimeSeriesUpdateTime = -7 * 24 * time.Hour
+
 // PerfAnalysis contains information about when the associated performance
 // result was analyzed for change points.
 type PerfAnalysis struct {
@@ -37,8 +39,9 @@ func (p PerformanceResultSeriesID) String() string {
 	return fmt.Sprintf("%s %s %s %s %s", p.Project, p.Variant, p.Task, p.Test, p.Arguments)
 }
 
-// MarkPerformanceResultsAsAnalyzed marks all the performance results with the
-// given series ID as analyzed with the current date timestamp.
+// MarkPerformanceResultsAsAnalyzed marks the most recent mainline performance
+// results with the given series ID as analyzed with the current date
+// timestamp.
 func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment, performanceResultId PerformanceResultSeriesID) error {
 	filter := bson.M{
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey):   performanceResultId.Project,
@@ -46,8 +49,9 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey):  performanceResultId.Task,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey):  performanceResultId.Test,
 		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoArgumentsKey): performanceResultId.Arguments,
+		bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey):  true,
+		perfCreatedAtKey: bson.M{"$gt": time.Now().Add(maxTimeSeriesUpdateTime)},
 	}
-
 	update := bson.M{
 		"$currentDate": bson.M{
 			bsonutil.GetDottedKeyName(perfAnalysisKey, perfAnalysisProcessedAtKey): true,
@@ -57,6 +61,7 @@ func MarkPerformanceResultsAsAnalyzed(ctx context.Context, env cedar.Environment
 	if err != nil {
 		return errors.Wrapf(err, "marking performance results as analyzed for change points")
 	}
+
 	return nil
 }
 
@@ -110,8 +115,9 @@ func (s UnanalyzedPerformanceSeries) CreateSeriesIDs() []PerformanceResultSeries
 	return ids
 }
 
-// GetUnanalyzedPerformanceSeries queries the DB and gets all the
-// performance series that contain results that have not yet been analyzed.
+// GetUnanalyzedPerformanceSeries queries the DB and gets all the most recent
+// mainline performance series that contain results that have not yet been
+// analyzed.
 func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) ([]UnanalyzedPerformanceSeries, error) {
 	cur, err := env.GetDB().Collection(perfResultCollection).Aggregate(ctx, []bson.M{
 		{
@@ -123,6 +129,7 @@ func GetUnanalyzedPerformanceSeries(ctx context.Context, env cedar.Environment) 
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey): bson.M{"$exists": true},
 				bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey):    bson.M{"$not": bson.M{"$size": 0}},
+				perfCreatedAtKey: bson.M{"$gt": time.Now().Add(maxTimeSeriesUpdateTime)},
 			},
 		},
 		{
