@@ -20,8 +20,8 @@ require (
 	github.com/mongodb/jasper v0.0.0-20230104161055-c79ef0111b0e
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.9.0
-	github.com/stretchr/testify v1.8.3
-	github.com/urfave/cli v1.22.10
+	github.com/stretchr/testify v1.8.4
+	github.com/urfave/cli v1.22.14
 	go.mongodb.org/mongo-driver v1.11.6
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
@@ -43,7 +43,7 @@ require (
 	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dghubble/oauth1 v0.7.2 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
@@ -92,11 +92,10 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
-	github.com/russross/blackfriday/v2 v2.0.1 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.4 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
-	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/slack-go/slack v0.12.2 // indirect
 	github.com/square/certstrap v1.2.0 // indirect
