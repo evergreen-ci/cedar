@@ -1,0 +1,41 @@
+---
+kind: pipeline
+name: cedar
+type: kubernetes
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: trigger_staging
+    image: plugins/downstream
+    settings:
+      server: https://drone.corp.mongodb.com
+      token:
+        from_secret: downstream_token
+      deploy: staging
+      last_successful: true
+      repositories:
+        - evergreen-ci/cedar-deploys@main
+    when:
+      branch:
+      - staging
+      event:
+      - push
+
+  - name: trigger_main
+    image: plugins/downstream
+    settings:
+      server: https://drone.corp.mongodb.com
+      token:
+        from_secret: downstream_token
+      deploy: production
+      last_successful: true
+      repositories:
+        - evergreen-ci/cedar-deploys@main
+    when:
+      branch:
+      - main
+      event:
+      - push
