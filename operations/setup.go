@@ -14,15 +14,16 @@ import (
 )
 
 type serviceConf struct {
-	numWorkers  int
-	localQueue  bool
-	interactive bool
-	mongodbURI  string
-	bucket      string
-	dbName      string
-	queueName   string
-	dbUser      string
-	dbPwd       string
+	numWorkers          int
+	localQueue          bool
+	interactive         bool
+	mongodbURI          string
+	bucket              string
+	dbName              string
+	queueName           string
+	dbUser              string
+	dbPwd               string
+	disableLocalLogging bool
 }
 
 func (c *serviceConf) export() *cedar.Configuration {
@@ -41,15 +42,17 @@ func (c *serviceConf) export() *cedar.Configuration {
 func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (send.Sender, error) {
 	senders := []send.Sender{}
 
-	if c.interactive {
-		senders = append(senders, send.MakeNative())
-	} else {
-		sender, err := send.MakeDefaultSystem()
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
+	if !c.disableLocalLogging {
+		if c.interactive {
+			senders = append(senders, send.MakeNative())
+		} else {
+			sender, err := send.MakeDefaultSystem()
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
 
-		senders = append(senders, sender)
+			senders = append(senders, sender)
+		}
 	}
 
 	if conf.IsNil() {
@@ -182,7 +185,7 @@ func loadCredsFromYAML(filePath string) (*dbCreds, error) {
 	return creds, nil
 }
 
-func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string) *serviceConf {
+func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string, disableLocalLogging bool) *serviceConf {
 
 	creds := &dbCreds{}
 	var err error
@@ -192,12 +195,13 @@ func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName 
 	}
 
 	return &serviceConf{
-		numWorkers: numWorkers,
-		localQueue: localQueue,
-		mongodbURI: mongodbURI,
-		bucket:     bucket,
-		dbName:     dbName,
-		dbUser:     creds.DBUser,
-		dbPwd:      creds.DBPwd,
+		numWorkers:          numWorkers,
+		localQueue:          localQueue,
+		mongodbURI:          mongodbURI,
+		bucket:              bucket,
+		dbName:              dbName,
+		dbUser:              creds.DBUser,
+		dbPwd:               creds.DBPwd,
+		disableLocalLogging: disableLocalLogging,
 	}
 }

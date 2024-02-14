@@ -29,7 +29,7 @@ func dumpCedarConfig() cli.Command {
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
 
-			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile)
+			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile, false)
 			sc.interactive = true
 
 			if err := sc.setup(ctx); err != nil {
@@ -72,7 +72,7 @@ func loadCedarConfig() cli.Command {
 				return errors.WithStack(err)
 			}
 
-			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile)
+			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile, false)
 			sc.interactive = true
 			if err = sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
