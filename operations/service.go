@@ -92,9 +92,6 @@ func Service() cli.Command {
 			disableLocalLogging := c.Bool(disableLocalLoggingFlag)
 			port := c.Int(servicePortFlag)
 
-			println(disableLocalLogging)
-			return nil
-
 			rpcTLS := c.Bool(rpcTLSFlag)
 			rpcUserAuth := c.Bool(rpcUserAuthFlag)
 			rpcHost := c.String(rpcHostFlag)

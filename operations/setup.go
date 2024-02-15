@@ -42,17 +42,15 @@ func (c *serviceConf) export() *cedar.Configuration {
 func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (send.Sender, error) {
 	senders := []send.Sender{}
 
-	if !c.disableLocalLogging {
-		if c.interactive {
-			senders = append(senders, send.MakeNative())
-		} else {
-			sender, err := send.MakeDefaultSystem()
-			if err != nil {
-				return nil, errors.WithStack(err)
-			}
-
-			senders = append(senders, sender)
+	if c.interactive {
+		senders = append(senders, send.MakeNative())
+	} else if !c.disableLocalLogging {
+		sender, err := send.MakeDefaultSystem()
+		if err != nil {
+			return nil, errors.WithStack(err)
 		}
+
+		senders = append(senders, sender)
 	}
 
 	if conf.IsNil() {
