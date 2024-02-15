@@ -31,6 +31,7 @@ func Service() cli.Command {
 		envVarRPCHost           = "CEDAR_RPC_HOST"
 		envVarRESTPort          = "CEDAR_REST_PORT"
 		disableLocalLoggingFlag = "disableLocalLogging"
+		disableLocalLoggingEnv  = "DISABLE_LOCAL_LOGGING"
 
 		rpcHostFlag     = "rpcHost"
 		rpcPortFlag     = "rpcPort"
@@ -57,8 +58,9 @@ func Service() cli.Command {
 					Usage: "uses a locally-backed queue rather than MongoDB",
 				},
 				cli.BoolFlag{
-					Name:  disableLocalLoggingFlag,
-					Usage: "disable logging to stdout",
+					Name:   disableLocalLoggingFlag,
+					Usage:  "disable logging to stdout",
+					EnvVar: disableLocalLoggingEnv,
 				},
 				cli.IntFlag{
 					Name:   joinFlagNames(servicePortFlag, "p"),
@@ -89,6 +91,9 @@ func Service() cli.Command {
 			dbCredFile := c.String(dbCredsFileFlag)
 			disableLocalLogging := c.Bool(disableLocalLoggingFlag)
 			port := c.Int(servicePortFlag)
+
+			println(disableLocalLogging)
+			return nil
 
 			rpcTLS := c.Bool(rpcTLSFlag)
 			rpcUserAuth := c.Bool(rpcUserAuthFlag)
