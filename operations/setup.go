@@ -54,7 +54,11 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 	}
 
 	if conf.IsNil() {
-		return senders[0], nil
+		if len(senders) > 0 {
+			return senders[0], nil
+		} else {
+			return nil, errors.Errorf("no sender configured")
+		}
 	}
 
 	logLevel := grip.GetSender().Level()
