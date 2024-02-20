@@ -25,11 +25,13 @@ import (
 // responsible for starting the service.
 func Service() cli.Command {
 	const (
-		localQueueFlag  = "localQueue"
-		servicePortFlag = "port"
-		envVarRPCPort   = "CEDAR_RPC_PORT"
-		envVarRPCHost   = "CEDAR_RPC_HOST"
-		envVarRESTPort  = "CEDAR_REST_PORT"
+		localQueueFlag          = "localQueue"
+		servicePortFlag         = "port"
+		envVarRPCPort           = "CEDAR_RPC_PORT"
+		envVarRPCHost           = "CEDAR_RPC_HOST"
+		envVarRESTPort          = "CEDAR_REST_PORT"
+		disableLocalLoggingFlag = "disableLocalLogging"
+		disableLocalLoggingEnv  = "DISABLE_LOCAL_LOGGING"
 
 		rpcHostFlag     = "rpcHost"
 		rpcPortFlag     = "rpcPort"
@@ -54,6 +56,11 @@ func Service() cli.Command {
 				cli.BoolFlag{
 					Name:  localQueueFlag,
 					Usage: "uses a locally-backed queue rather than MongoDB",
+				},
+				cli.BoolFlag{
+					Name:   disableLocalLoggingFlag,
+					Usage:  "disable logging to stdout",
+					EnvVar: disableLocalLoggingEnv,
 				},
 				cli.IntFlag{
 					Name:   joinFlagNames(servicePortFlag, "p"),
@@ -82,6 +89,7 @@ func Service() cli.Command {
 			bucket := c.String(bucketNameFlag)
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
+			disableLocalLogging := c.Bool(disableLocalLoggingFlag)
 			port := c.Int(servicePortFlag)
 
 			rpcTLS := c.Bool(rpcTLSFlag)
@@ -94,7 +102,7 @@ func Service() cli.Command {
 			defer cancel()
 			go signalListener(ctx, cancel)
 
-			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName, dbCredFile)
+			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName, dbCredFile, disableLocalLogging)
 			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}

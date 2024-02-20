@@ -33,7 +33,7 @@ func Worker() cli.Command {
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
 
-			sc := newServiceConf(workers, false, mongodbURI, bucket, dbName, dbCredFile)
+			sc := newServiceConf(workers, false, mongodbURI, bucket, dbName, dbCredFile, false)
 			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
