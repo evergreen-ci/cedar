@@ -17,12 +17,13 @@ const testDBName = "cedar_test_config"
 
 func init() {
 	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
-		MongoDBURI:         "mongodb://localhost:27017",
-		DatabaseName:       testDBName,
-		SocketTimeout:      time.Minute,
-		NumWorkers:         2,
-		DisableRemoteQueue: true,
-		DisableCache:       true,
+		MongoDBURI:                "mongodb://localhost:27017",
+		DatabaseName:              testDBName,
+		SocketTimeout:             time.Minute,
+		NumWorkers:                2,
+		DisableRemoteQueue:        true,
+		DisableCache:              true,
+		DbConfigurationCollection: "configuration",
 	})
 	if err != nil {
 		panic(err)
@@ -53,12 +54,13 @@ func TestCedarConfig(t *testing.T) {
 		},
 		"FindErrorsWthBadDbName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CedarConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
-				MongoDBURI:              "mongodb://localhost:27017",
-				DatabaseName:            "\"", // intentionally invalid
-				NumWorkers:              2,
-				DisableRemoteQueue:      true,
-				DisableRemoteQueueGroup: true,
-				DisableCache:            true,
+				MongoDBURI:                "mongodb://localhost:27017",
+				DatabaseName:              "\"", // intentionally invalid
+				NumWorkers:                2,
+				DisableRemoteQueue:        true,
+				DisableRemoteQueueGroup:   true,
+				DisableCache:              true,
+				DbConfigurationCollection: "configuration",
 			})
 			require.NoError(t, err)
 
@@ -77,12 +79,13 @@ func TestCedarConfig(t *testing.T) {
 		},
 		"SaveErrorsWithBadDBName": func(ctx context.Context, t *testing.T, _ cedar.Environment, conf *CedarConfig) {
 			env, err := cedar.NewEnvironment(ctx, "broken-db-test", &cedar.Configuration{
-				MongoDBURI:              "mongodb://localhost:27017",
-				DatabaseName:            "\"", // intentionally invalid
-				NumWorkers:              2,
-				DisableRemoteQueue:      true,
-				DisableRemoteQueueGroup: true,
-				DisableCache:            true,
+				MongoDBURI:                "mongodb://localhost:27017",
+				DatabaseName:              "\"", // intentionally invalid
+				NumWorkers:                2,
+				DisableRemoteQueue:        true,
+				DisableRemoteQueueGroup:   true,
+				DisableCache:              true,
+				DbConfigurationCollection: "configuration",
 			})
 			require.NoError(t, err)
 
@@ -138,11 +141,12 @@ func TestCachedConfig(t *testing.T) {
 	defer cancel()
 
 	env, err := cedar.NewEnvironment(ctx, "test", &cedar.Configuration{
-		MongoDBURI:              "mongodb://localhost:27017",
-		NumWorkers:              2,
-		DisableRemoteQueue:      true,
-		DisableRemoteQueueGroup: true,
-		DatabaseName:            "cached-config-test",
+		MongoDBURI:                "mongodb://localhost:27017",
+		NumWorkers:                2,
+		DisableRemoteQueue:        true,
+		DisableRemoteQueueGroup:   true,
+		DatabaseName:              "cached-config-test",
+		DbConfigurationCollection: "configuration",
 	})
 	require.NoError(t, err)
 	defer func() {

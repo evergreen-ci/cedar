@@ -14,28 +14,30 @@ import (
 )
 
 type serviceConf struct {
-	numWorkers          int
-	localQueue          bool
-	interactive         bool
-	mongodbURI          string
-	bucket              string
-	dbName              string
-	queueName           string
-	dbUser              string
-	dbPwd               string
-	disableLocalLogging bool
+	numWorkers                int
+	localQueue                bool
+	interactive               bool
+	mongodbURI                string
+	bucket                    string
+	dbName                    string
+	queueName                 string
+	dbUser                    string
+	dbPwd                     string
+	disableLocalLogging       bool
+	dbConfigurationCollection string
 }
 
 func (c *serviceConf) export() *cedar.Configuration {
 	return &cedar.Configuration{
-		BucketName:         c.bucket,
-		QueueName:          c.queueName,
-		DatabaseName:       c.dbName,
-		MongoDBURI:         c.mongodbURI,
-		DisableRemoteQueue: c.localQueue,
-		NumWorkers:         c.numWorkers,
-		DBUser:             c.dbUser,
-		DBPwd:              c.dbPwd,
+		BucketName:                c.bucket,
+		QueueName:                 c.queueName,
+		DatabaseName:              c.dbName,
+		DbConfigurationCollection: c.dbConfigurationCollection,
+		MongoDBURI:                c.mongodbURI,
+		DisableRemoteQueue:        c.localQueue,
+		NumWorkers:                c.numWorkers,
+		DBUser:                    c.dbUser,
+		DBPwd:                     c.dbPwd,
 	}
 }
 
@@ -187,7 +189,7 @@ func loadCredsFromYAML(filePath string) (*dbCreds, error) {
 	return creds, nil
 }
 
-func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string, disableLocalLogging bool) *serviceConf {
+func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName string, dbCredFile string, disableLocalLogging bool, dbConfigurationCollection string) *serviceConf {
 
 	creds := &dbCreds{}
 	var err error
@@ -197,13 +199,14 @@ func newServiceConf(numWorkers int, localQueue bool, mongodbURI, bucket, dbName 
 	}
 
 	return &serviceConf{
-		numWorkers:          numWorkers,
-		localQueue:          localQueue,
-		mongodbURI:          mongodbURI,
-		bucket:              bucket,
-		dbName:              dbName,
-		dbUser:              creds.DBUser,
-		dbPwd:               creds.DBPwd,
-		disableLocalLogging: disableLocalLogging,
+		numWorkers:                numWorkers,
+		localQueue:                localQueue,
+		mongodbURI:                mongodbURI,
+		bucket:                    bucket,
+		dbName:                    dbName,
+		dbUser:                    creds.DBUser,
+		dbPwd:                     creds.DBPwd,
+		disableLocalLogging:       disableLocalLogging,
+		dbConfigurationCollection: dbConfigurationCollection,
 	}
 }

@@ -63,7 +63,7 @@ func (f *OperationalFlags) update(key string, value bool) error {
 	}
 	defer session.Close()
 
-	err = session.DB(conf.DatabaseName).C(configurationCollection).UpdateId(cedarConfigurationID, bson.M{"$set": bson.M{key: value}})
+	err = session.DB(conf.DatabaseName).C(conf.DbConfigurationCollection).UpdateId(cedarConfigurationID, bson.M{"$set": bson.M{key: value}})
 	if err != nil {
 		return errors.Wrapf(err, "setting operational flag '%s' to %t", key, value)
 	}

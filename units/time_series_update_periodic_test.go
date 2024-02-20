@@ -19,10 +19,11 @@ import (
 func setupPeriodic() {
 	dbName := "test_cedar_signal_processing_periodic"
 	env, err := cedar.NewEnvironment(context.Background(), dbName, &cedar.Configuration{
-		MongoDBURI:    "mongodb://localhost:27017",
-		DatabaseName:  dbName,
-		SocketTimeout: time.Minute,
-		NumWorkers:    2,
+		MongoDBURI:                "mongodb://localhost:27017",
+		DatabaseName:              dbName,
+		SocketTimeout:             time.Minute,
+		NumWorkers:                2,
+		DbConfigurationCollection: "configuration",
 	})
 	if err != nil {
 		panic(err)

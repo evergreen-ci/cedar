@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	configurationCollection = "configuration"
-	cedarConfigurationID    = "cedar-system-configuration"
+	cedarConfigurationID = "cedar-system-configuration"
 )
 
 type CedarConfig struct {
@@ -265,7 +264,7 @@ func (c *CedarConfig) Find() error {
 
 func (c *CedarConfig) find(ctx context.Context) error {
 	c.populated = false
-	if err := c.env.GetDB().Collection(configurationCollection).FindOne(ctx, bson.M{"_id": cedarConfigurationID}).Decode(c); err != nil {
+	if err := c.env.GetDB().Collection(c.env.GetConfig().DbConfigurationCollection).FindOne(ctx, bson.M{"_id": cedarConfigurationID}).Decode(c); err != nil {
 		return errors.Wrap(err, "finding app config document")
 	}
 
@@ -276,7 +275,7 @@ func (c *CedarConfig) find(ctx context.Context) error {
 }
 
 func (c *CedarConfig) createConfigWatcher(ctx context.Context) (chan interface{}, error) {
-	stream, err := c.env.GetDB().Collection(configurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
+	stream, err := c.env.GetDB().Collection(c.env.GetConfig().DbConfigurationCollection).Watch(ctx, bson.D{}, options.ChangeStream().SetFullDocument(options.UpdateLookup))
 	if err != nil {
 		return nil, errors.Wrap(err, "getting configuration collection change stream")
 	}
@@ -349,14 +348,14 @@ func (c *CedarConfig) Save() error {
 	defer cancel()
 
 	c.ID = cedarConfigurationID
-	updateResult, err := c.env.GetDB().Collection(configurationCollection).UpdateOne(
+	updateResult, err := c.env.GetDB().Collection(c.env.GetConfig().DbConfigurationCollection).UpdateOne(
 		ctx,
 		bson.M{"_id": cedarConfigurationID},
 		bson.M{"$set": c},
 		options.Update().SetUpsert(true),
 	)
 	grip.DebugWhen(err == nil, message.Fields{
-		"collection":    configurationCollection,
+		"collection":    c.env.GetConfig().DbConfigurationCollection,
 		"id":            cedarConfigurationID,
 		"operation":     "save application configuration",
 		"update_result": updateResult,
