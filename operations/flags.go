@@ -119,8 +119,8 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:   dbConfigurationCollectionFlag,
-			Usage:  "Specify a DB credential collection name",
-			EnvVar: "CEDAR_DB_CREDS_COLLECTION",
+			Usage:  "Specify a DB configuration collection name",
+			EnvVar: "CEDAR_DB_CONF_COLLECTION",
 			Value:  "configuration",
 		})
 }
