@@ -32,8 +32,9 @@ func Worker() cli.Command {
 			bucket := c.String(bucketNameFlag)
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
+			dbConfigurationCollection := c.String(dbConfigurationCollectionFlag)
 
-			sc := newServiceConf(workers, false, mongodbURI, bucket, dbName, dbCredFile, false)
+			sc := newServiceConf(workers, false, mongodbURI, bucket, dbName, dbCredFile, false, dbConfigurationCollection)
 			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}

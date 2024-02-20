@@ -206,7 +206,7 @@ func TestBuildloggerAppend(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 	}()
 
 	testBucket, err := pail.NewLocalBucket(pail.LocalOptions{Path: tmpDir})
@@ -318,7 +318,7 @@ func TestBuildloggerDownload(t *testing.T) {
 	defer cancel()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 	}()
 	log1, log2 := getTestLogs(time.Now())
 
@@ -440,7 +440,7 @@ func TestBuildloggerGetChunks(t *testing.T) {
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 	}()
 
 	t.Run("UnrecognizedArtifactVersion", func(t *testing.T) {
@@ -848,7 +848,7 @@ func TestBuildloggerMerge(t *testing.T) {
 	db := env.GetDB()
 	defer func() {
 		assert.NoError(t, db.Collection(buildloggerCollection).Drop(ctx))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 	}()
 	log1, log2 := getTestLogs(time.Now())
 

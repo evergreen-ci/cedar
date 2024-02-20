@@ -11,19 +11,20 @@ import (
 // Configuration defines configuration settings to initialize the global
 // environment without the presence of a DB to store the settings.
 type Configuration struct {
-	BucketName              string
-	DatabaseName            string
-	QueueName               string
-	MongoDBURI              string
-	MongoDBDialTimeout      time.Duration
-	SocketTimeout           time.Duration
-	DisableLocalQueue       bool
-	DisableRemoteQueue      bool
-	DisableRemoteQueueGroup bool
-	DisableCache            bool
-	NumWorkers              int
-	DBUser                  string
-	DBPwd                   string
+	BucketName                string
+	DatabaseName              string
+	QueueName                 string
+	MongoDBURI                string
+	DbConfigurationCollection string
+	MongoDBDialTimeout        time.Duration
+	SocketTimeout             time.Duration
+	DisableLocalQueue         bool
+	DisableRemoteQueue        bool
+	DisableRemoteQueueGroup   bool
+	DisableCache              bool
+	NumWorkers                int
+	DBUser                    string
+	DBPwd                     string
 }
 
 // Validate checks that all the required fields are set and sets defaults for

@@ -16,7 +16,7 @@ func init() {
 func TestServiceConfiguration(t *testing.T) {
 	configure := func(env cedar.Environment, numWorkers int, localQueue bool, mongodbURI, bucket, dbName string) error {
 
-		return newServiceConf(numWorkers, localQueue, mongodbURI, bucket, dbName, "", false).setup(context.TODO())
+		return newServiceConf(numWorkers, localQueue, mongodbURI, bucket, dbName, "", false, "").setup(context.TODO())
 	}
 
 	for name, test := range map[string]func(t *testing.T, env cedar.Environment){

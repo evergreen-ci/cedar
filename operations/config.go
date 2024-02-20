@@ -28,8 +28,9 @@ func dumpCedarConfig() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
+			dbConfigurationCollection := c.String(dbConfigurationCollectionFlag)
 
-			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile, false)
+			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile, false, dbConfigurationCollection)
 			sc.interactive = true
 
 			if err := sc.setup(ctx); err != nil {
@@ -66,13 +67,14 @@ func loadCedarConfig() cli.Command {
 			mongodbURI := c.String(dbURIFlag)
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
+			dbConfigurationCollection := c.String(dbConfigurationCollectionFlag)
 
 			conf, err := model.LoadCedarConfig(fileName)
 			if err != nil {
 				return errors.WithStack(err)
 			}
 
-			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile, false)
+			sc := newServiceConf(2, true, mongodbURI, "", dbName, dbCredFile, false, dbConfigurationCollection)
 			sc.interactive = true
 			if err = sc.setup(ctx); err != nil {
 				return errors.WithStack(err)

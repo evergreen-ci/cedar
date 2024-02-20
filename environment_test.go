@@ -21,7 +21,7 @@ func TestGlobalEnvironment(t *testing.T) {
 	first.(*envState).name = "cedar-init"
 	assert.Exactly(t, globalEnv, GetEnvironment())
 
-	env, err := NewEnvironment(context.TODO(), "second", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
+	env, err := NewEnvironment(context.TODO(), "second", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DbConfigurationCollection: "configuration"})
 	assert.NoError(t, err)
 	SetEnvironment(env)
 	second := GetEnvironment()
@@ -38,20 +38,20 @@ func TestDatabaseSessionAccessor(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is nil")
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017"})
+	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", DbConfigurationCollection: "configuration"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amboy workers")
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
+	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DbConfigurationCollection: "configuration"})
 	assert.NoError(t, err)
 	env.(*envState).client = nil
 	_, _, err = GetSessionWithConfig(env)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session is nil")
 
-	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName})
+	env, err = NewEnvironment(ctx, "test", &Configuration{MongoDBURI: "mongodb://localhost:27017", NumWorkers: 2, DatabaseName: testDatabaseName, DbConfigurationCollection: "configuration"})
 	assert.NoError(t, err)
 	conf, db, err := GetSessionWithConfig(env)
 	assert.NoError(t, err)
@@ -77,6 +77,7 @@ func TestEnvironmentConfiguration(t *testing.T) {
 		},
 		"ErrorsWithMongoDBThatDoesNotExist": func(t *testing.T, conf *Configuration) {
 			conf.MongoDBURI = "mongodb://localhost:27016"
+			conf.DbConfigurationCollection = "configuration"
 
 			env, err := NewEnvironment(ctx, ename, conf)
 			assert.Error(t, err)
@@ -125,11 +126,12 @@ func TestEnvironmentConfiguration(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			conf := &Configuration{
-				MongoDBURI:         "mongodb://localhost:27017",
-				NumWorkers:         2,
-				MongoDBDialTimeout: time.Second,
-				SocketTimeout:      10 * time.Second,
-				DatabaseName:       testDatabaseName,
+				MongoDBURI:                "mongodb://localhost:27017",
+				NumWorkers:                2,
+				MongoDBDialTimeout:        time.Second,
+				SocketTimeout:             10 * time.Second,
+				DatabaseName:              testDatabaseName,
+				DbConfigurationCollection: "configuration",
 			}
 			test(t, conf)
 		})

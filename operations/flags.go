@@ -21,9 +21,10 @@ const (
 	numWorkersFlag = "workers"
 	bucketNameFlag = "bucket"
 
-	dbURIFlag       = "dbUri"
-	dbNameFlag      = "dbName"
-	dbCredsFileFlag = "dbCreds"
+	dbURIFlag                     = "dbUri"
+	dbNameFlag                    = "dbName"
+	dbCredsFileFlag               = "dbCreds"
+	dbConfigurationCollectionFlag = "dbConfigurationCollection"
 
 	clientHostFlag = "host"
 	clientPortFlag = "port"
@@ -115,6 +116,12 @@ func dbFlags(flags ...cli.Flag) []cli.Flag {
 			Name:   dbCredsFileFlag,
 			Usage:  "specify a DB credential file location",
 			EnvVar: "CEDAR_DB_CREDS_FILE",
+		},
+		cli.StringFlag{
+			Name:   dbConfigurationCollectionFlag,
+			Usage:  "Specify a DB configuration collection name",
+			EnvVar: "CEDAR_DB_CONF_COLLECTION",
+			Value:  "configuration",
 		})
 }
 

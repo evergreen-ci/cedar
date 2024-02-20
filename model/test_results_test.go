@@ -220,7 +220,7 @@ func TestTestResultsAppend(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 
@@ -398,7 +398,7 @@ func TestTestResultsDownload(t *testing.T) {
 	defer cancel()
 	tmpDir := t.TempDir()
 	defer func() {
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 
@@ -684,7 +684,7 @@ func TestFindAndDownloadTestResults(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 	conf := &CedarConfig{
@@ -910,7 +910,7 @@ func TestFilterAndSortTestResults(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, os.RemoveAll(tmpDir))
-		assert.NoError(t, db.Collection(configurationCollection).Drop(ctx))
+		assert.NoError(t, db.Collection(env.GetConfig().DbConfigurationCollection).Drop(ctx))
 		assert.NoError(t, db.Collection(testResultsCollection).Drop(ctx))
 	}()
 	conf := &CedarConfig{

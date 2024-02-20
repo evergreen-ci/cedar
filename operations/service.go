@@ -90,6 +90,7 @@ func Service() cli.Command {
 			dbName := c.String(dbNameFlag)
 			dbCredFile := c.String(dbCredsFileFlag)
 			disableLocalLogging := c.Bool(disableLocalLoggingFlag)
+			dbConfigurationCollection := c.String(dbConfigurationCollectionFlag)
 			port := c.Int(servicePortFlag)
 
 			rpcTLS := c.Bool(rpcTLSFlag)
@@ -102,7 +103,7 @@ func Service() cli.Command {
 			defer cancel()
 			go signalListener(ctx, cancel)
 
-			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName, dbCredFile, disableLocalLogging)
+			sc := newServiceConf(workers, runLocal, mongodbURI, bucket, dbName, dbCredFile, disableLocalLogging, dbConfigurationCollection)
 			if err := sc.setup(ctx); err != nil {
 				return errors.WithStack(err)
 			}
