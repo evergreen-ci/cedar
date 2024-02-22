@@ -12,4 +12,6 @@ WORKDIR /project
 
 COPY --from=build /build/build/cedar .
 
+RUN apt-get update && apt-get install -y ca-certificates
+
 CMD /project/cedar --level=info service --rpcUserAuth --workers=1
