@@ -241,8 +241,8 @@ buildvariants:
     display_name: Ubuntu 20.04
     expansions:
       GOROOT: /opt/golang/go1.20
-      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-6.0.6.tgz
-      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-linux-x64.tgz
+      MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-7.0.7.tgz
+      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-2.2.2-linux-x64.tgz
       RACE_DETECTOR: true
       curator_build: linux-amd64
     run_on:
@@ -253,8 +253,8 @@ buildvariants:
     display_name: macOS
     expansions:
       GOROOT: /opt/golang/go1.20
-      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-arm64-6.0.6.tgz
-      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-darwin-arm64.zip
+      MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-arm64-7.0.7.tgz
+      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-2.2.2-darwin-arm64.zip
       MONGOSH_DECOMPRESS: unzip
       curator_build: darwin-amd64
     run_on:
@@ -266,8 +266,8 @@ buildvariants:
     run_on:
       - windows-vsCurrent-small
     expansions:
-      MONGODB_URL: https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-6.0.6.zip
-      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-1.9.0-win32-x64.zip
+      MONGODB_URL: https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-7.0.7.zip
+      MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-2.2.2-win32-x64.zip
       GOROOT: C:/golang/go1.20
       curator_build: windows-amd64
     tasks: [ "testGroup" ]
