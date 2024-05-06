@@ -61,7 +61,7 @@ The Cedar project uses a ``makefile`` to coordinate testing. Use the following c
 
 The artifact is at ``build/cedar``. The makefile provides the following targets:
 
-``test`` Runs all tests, sequentially, for all packages.
+``test`` Runs all tests, sequentially, for all packages. Some of the tests require a *replica set* to be running under http://127.0.0.1:27017.
 
 ``test-<package>`` Runs all tests for a specific package
 
