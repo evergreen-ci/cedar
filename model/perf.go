@@ -334,20 +334,21 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 // PerformanceResultInfo describes information unique to a single performance
 // result.
 type PerformanceResultInfo struct {
-	Project   string               `bson:"project,omitempty"`
-	Version   string               `bson:"version,omitempty"`
-	Variant   string               `bson:"variant,omitempty"`
-	Order     int                  `bson:"order,omitempty"`
-	TaskName  string               `bson:"task_name,omitempty"`
-	TaskID    string               `bson:"task_id,omitempty"`
-	Execution int                  `bson:"execution"`
-	TestName  string               `bson:"test_name,omitempty"`
-	Trial     int                  `bson:"trial"`
-	Parent    string               `bson:"parent,omitempty"`
-	Tags      []string             `bson:"tags,omitempty"`
-	Arguments PerformanceArguments `bson:"args,omitempty"`
-	Mainline  bool                 `bson:"mainline"`
-	Schema    int                  `bson:"schema,omitempty"`
+	Project          string               `bson:"project,omitempty"`
+	Version          string               `bson:"version,omitempty"`
+	Variant          string               `bson:"variant,omitempty"`
+	Order            int                  `bson:"order,omitempty"`
+	TaskName         string               `bson:"task_name,omitempty"`
+	TaskID           string               `bson:"task_id,omitempty"`
+	Execution        int                  `bson:"execution"`
+	TestName         string               `bson:"test_name,omitempty"`
+	Trial            int                  `bson:"trial"`
+	Parent           string               `bson:"parent,omitempty"`
+	Tags             []string             `bson:"tags,omitempty"`
+	Arguments        PerformanceArguments `bson:"args,omitempty"`
+	Mainline         bool                 `bson:"mainline"`
+	OverrideMainline bool                 `bson:"override_mainline"`
+	Schema           int                  `bson:"schema,omitempty"`
 }
 
 var (
