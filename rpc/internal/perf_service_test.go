@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -285,13 +284,11 @@ func TestCreateMetricSeries(t *testing.T) {
 				assert.Equal(t, test.expectedResp.Id, resp.Id)
 				assert.Equal(t, test.expectedResp.Success, resp.Success)
 
-				// Test that override mainline gets set
 				conf, sess, err := cedar.GetSessionWithConfig(env)
 				require.NoError(t, err)
 				result := &model.PerformanceResult{}
-				filter := bson.M{"_id": resp.Id, "info.override_mainline": bson.M{"$exists": true}}
-				assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").Find(filter).One(result))
-				assert.False(t, result.Info.OverrideMainline)
+				assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(resp.Id).One(result))
+				assert.False(t, result.Info.OverrideInfo.OverrideMainline)
 
 				resp, err = client.CloseMetrics(ctx, &MetricsSeriesEnd{Id: test.expectedResp.Id})
 				require.NoError(t, err)

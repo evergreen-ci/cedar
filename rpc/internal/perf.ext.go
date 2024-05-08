@@ -55,20 +55,19 @@ func (t RollupType) Export() model.MetricType {
 
 func (m *ResultID) Export() model.PerformanceResultInfo {
 	return model.PerformanceResultInfo{
-		Project:          m.Project,
-		Version:          m.Version,
-		Order:            int(m.Order),
-		Variant:          m.Variant,
-		TaskID:           m.TaskId,
-		TaskName:         m.TaskName,
-		Execution:        int(m.Execution),
-		TestName:         m.TestName,
-		Parent:           m.Parent,
-		Trial:            int(m.Trial),
-		Tags:             m.Tags,
-		Arguments:        m.Arguments,
-		Mainline:         m.Mainline,
-		OverrideMainline: false,
+		Project:   m.Project,
+		Version:   m.Version,
+		Order:     int(m.Order),
+		Variant:   m.Variant,
+		TaskID:    m.TaskId,
+		TaskName:  m.TaskName,
+		Execution: int(m.Execution),
+		TestName:  m.TestName,
+		Parent:    m.Parent,
+		Trial:     int(m.Trial),
+		Tags:      m.Tags,
+		Arguments: m.Arguments,
+		Mainline:  m.Mainline,
 	}
 }
 
