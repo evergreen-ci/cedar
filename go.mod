@@ -4,13 +4,13 @@ go 1.20
 
 require (
 	github.com/aclements/go-moremath v0.0.0-20210112150236-f10218a38794
-	github.com/evergreen-ci/aviation v0.0.0-20230104155639-a54c0c698c33
+	github.com/evergreen-ci/aviation v0.0.0-20240509141021-0e3a1c91cc79
 	github.com/evergreen-ci/birch v0.0.0-20230104155808-09f0a18c134f
 	github.com/evergreen-ci/certdepot v0.0.0-20220408180137-e70afe67cc1b
 	github.com/evergreen-ci/gimlet v0.0.0-20230317174941-7e759337ad2c
 	github.com/evergreen-ci/pail v0.0.0-20230104160750-81c3ed0279cf
-	github.com/evergreen-ci/poplar v0.0.0-20230523215417-3b666933139b
-	github.com/evergreen-ci/timber v0.0.0-20211109152550-dca0e0d04672
+	github.com/evergreen-ci/poplar v0.0.0-20240509153623-2de75d6eb493
+	github.com/evergreen-ci/timber v0.0.0-20240509150854-9d66df03b40e
 	github.com/evergreen-ci/utility v0.0.0-20230519193518-4d91d64f59fb
 	github.com/fraugster/parquet-go v0.11.0
 	github.com/mongodb/amboy v0.0.0-20230104160932-7df48345d788
@@ -52,7 +52,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/evergreen-ci/bond v0.0.0-20220411194221-3710ea2ac361 // indirect
-	github.com/evergreen-ci/juniper v0.0.0-20220118233332-0813edc78908 // indirect
+	github.com/evergreen-ci/juniper v0.0.0-20230901183147-c805ea7351aa // indirect
 	github.com/evergreen-ci/lru v0.0.0-20220404184951-eb0842380798 // indirect
 	github.com/evergreen-ci/negroni v1.0.1-0.20211028183800-67b6d7c2c035 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
@@ -87,7 +87,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
 	github.com/papertrail/go-tail v0.0.0-20221103124010-5087eb6a0a07 // indirect
-	github.com/peterhellberg/link v1.1.0 // indirect
+	github.com/peterhellberg/link v1.2.0 // indirect
 	github.com/phyber/negroni-gzip v1.0.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
