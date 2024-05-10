@@ -501,6 +501,11 @@ func getTestPerformanceResults() (*PerformanceResult, *PerformanceResult) {
 			Tags:      []string{"tag1", "tag2", "tag3"},
 			Arguments: map[string]int32{"threads": 64},
 			Mainline:  true,
+			OverrideInfo: OverrideInfo{
+				OverrideMainline: true,
+				Reason:           "test_reason",
+				User:             "test_user",
+			},
 		},
 		CreatedAt:   time.Now().Add(-24 * time.Hour).UTC().Truncate(time.Millisecond),
 		CompletedAt: time.Now().Add(-23 * time.Hour).UTC().Truncate(time.Millisecond),
