@@ -742,9 +742,9 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 // OverrideInfo describes if a patch build should override mainline results,
 // the reason for the override and the person that issued the override.
 type OverrideInfo struct {
-	OverrideMainline bool   `bson:"override_mainline"`
-	Reason           string `bson:"reason"`
-	User             string `bson:"user"`
+	OverrideMainline bool   `bson:"override_mainline,omitempty"`
+	Reason           string `bson:"reason,omitempty"`
+	User             string `bson:"user,omitempty"`
 }
 
 var (
