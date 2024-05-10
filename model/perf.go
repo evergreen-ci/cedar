@@ -744,14 +744,14 @@ func (r *PerformanceResults) FindOutdatedRollups(ctx context.Context, name strin
 // Also stores the information where in the timeseries the patch fits.
 type OverrideInfo struct {
 	OverrideMainline bool   `bson:"override_mainline"`
-	Order            int    `bson:"order,omitempty"`
+	BaseOrder        int    `bson:"base_order,omitempty"`
 	Reason           string `bson:"reason,omitempty"`
 	User             string `bson:"user,omitempty"`
 }
 
 var (
-	overrideInfoOverrideKey = bsonutil.MustHaveTag(OverrideInfo{}, "OverrideMainline")
-	overrideInfoOrderKey    = bsonutil.MustHaveTag(OverrideInfo{}, "Order")
-	overrideInfoReasonKey   = bsonutil.MustHaveTag(OverrideInfo{}, "Reason")
-	overrideInfoUserKey     = bsonutil.MustHaveTag(OverrideInfo{}, "User")
+	overrideInfoOverrideKey  = bsonutil.MustHaveTag(OverrideInfo{}, "OverrideMainline")
+	overrideInfoBaseOrderKey = bsonutil.MustHaveTag(OverrideInfo{}, "BaseOrder")
+	overrideInfoReasonKey    = bsonutil.MustHaveTag(OverrideInfo{}, "Reason")
+	overrideInfoUserKey      = bsonutil.MustHaveTag(OverrideInfo{}, "User")
 )
