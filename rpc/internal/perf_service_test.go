@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -284,12 +285,6 @@ func TestCreateMetricSeries(t *testing.T) {
 				assert.Equal(t, test.expectedResp.Id, resp.Id)
 				assert.Equal(t, test.expectedResp.Success, resp.Success)
 
-				conf, sess, err := cedar.GetSessionWithConfig(env)
-				require.NoError(t, err)
-				result := &model.PerformanceResult{}
-				assert.NoError(t, sess.DB(conf.DatabaseName).C("perf_results").FindId(resp.Id).One(result))
-				assert.False(t, result.Info.OverrideInfo.OverrideMainline)
-
 				resp, err = client.CloseMetrics(ctx, &MetricsSeriesEnd{Id: test.expectedResp.Id})
 				require.NoError(t, err)
 				require.NotNil(t, resp)
@@ -298,6 +293,10 @@ func TestCreateMetricSeries(t *testing.T) {
 
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 				assert.Equal(t, test.data.Id.Mainline, foundSignalProcessingJob(t, ctx, env, resp.Id))
+
+				var result model.PerformanceResult
+				require.NoError(t, env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": resp.Id}).Decode(&result))
+				assert.False(t, result.Info.OverrideInfo.OverrideMainline)
 			}
 		})
 	}
