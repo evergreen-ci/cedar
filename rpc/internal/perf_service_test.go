@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -292,6 +293,10 @@ func TestCreateMetricSeries(t *testing.T) {
 
 				checkRollups(t, ctx, env, resp.Id, test.data.Rollups)
 				assert.Equal(t, test.data.Id.Mainline, foundSignalProcessingJob(t, ctx, env, resp.Id))
+
+				var result model.PerformanceResult
+				require.NoError(t, env.GetDB().Collection("perf_results").FindOne(ctx, bson.M{"_id": resp.Id}).Decode(&result))
+				assert.False(t, result.Info.OverrideInfo.OverrideMainline)
 			}
 		})
 	}
