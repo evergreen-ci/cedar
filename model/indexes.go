@@ -122,6 +122,10 @@ func GetRequiredIndexes() []SystemIndexes {
 			Collection: perfResultCollection,
 		},
 		{
+			Keys:       bson.D{{Key: overrideInfoOverrideKey, Value: 1}},
+			Collection: perfResultCollection,
+		},
+		{
 			Keys: bson.D{
 				{Key: bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), Value: 1},
 				{Key: logCreatedAtKey, Value: -1},
