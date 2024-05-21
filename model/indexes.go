@@ -113,7 +113,7 @@ func GetRequiredIndexes() []SystemIndexes {
 		},
 		{
 			Keys: bson.D{
-				{Key: bsonutil.GetDottedKeyName(perfInfoKey, overrideInfoOverrideKey, perfResultInfoOverrideInfoKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOverrideInfoKey, overrideInfoOverrideKey), Value: 1},
 			},
 			Collection: perfResultCollection,
 		},
