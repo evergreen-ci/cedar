@@ -113,16 +113,18 @@ func GetRequiredIndexes() []SystemIndexes {
 		},
 		{
 			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, overrideInfoOverrideKey, perfResultInfoOverrideInfoKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
 				{Key: bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey), Value: 1},
 				{Key: perfFailedRollupAttempts, Value: 1},
 				{Key: bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey), Value: 1},
 				{Key: bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueVersionKey), Value: 1},
 				{Key: perfCreatedAtKey, Value: 1},
 			},
-			Collection: perfResultCollection,
-		},
-		{
-			Keys:       bson.D{{Key: overrideInfoOverrideKey, Value: 1}},
 			Collection: perfResultCollection,
 		},
 		{
