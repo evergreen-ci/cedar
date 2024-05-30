@@ -215,7 +215,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 		return nil, newRPCError(codes.Internal, errors.Wrapf(err, "closing perf result record '%s'", record.ID))
 	}
 
-	ftdcJobEnqueued, err := srv.addFTDCRollupsJob(ctx, record.ID, record.Artifacts)
+	ftdcJobEnqueued, err := srv.addFTDCRollupsJob(ctx, record)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating FTDC rollups job")
 	}
@@ -238,12 +238,12 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 // addFTDCRollupsJob enqueues a new FTDC rollups job if and only if there is an
 // FTDC artifact present, specified by the `raw-events` artifact schema type. A
 // boolean indicating whether or not a job was enqueued is returned.
-func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) (bool, error) {
+func (srv *perfService) addFTDCRollupsJob(ctx context.Context, record *model.PerformanceResult) (bool, error) {
 	var hasEventData bool
 	q := srv.env.GetRemoteQueue()
 	num_artifacts := 0
 
-	for _, artifact := range artifacts {
+	for _, artifact := range record.Artifacts {
 		if artifact.Schema != model.SchemaRawEvents {
 			continue
 		}
@@ -253,7 +253,7 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 		hasEventData = true
 
-		job, err := units.NewFTDCRollupsJob(id, &artifact, perf.DefaultRollupFactories(), false)
+		job, err := units.NewFTDCRollupsJob(record.ID, &artifact, perf.DefaultRollupFactories(), false)
 		if err != nil {
 			return false, newRPCError(codes.InvalidArgument, errors.WithStack(err))
 		}
@@ -263,11 +263,17 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		}
 		num_artifacts += 1
 	}
-	grip.Info(message.Fields{
-		"message":       "Just enqueued FTDC rollup jobs",
-		"id":            id,
-		"num_artifacts": num_artifacts,
-	})
+	if num_artifacts > 0 {
+		grip.Info(message.Fields{
+			"message":       "Just enqueued FTDC rollup jobs",
+			"num_artifacts": num_artifacts,
+			"project":       record.Info.Project,
+			"variant":       record.Info.Variant,
+			"task":          record.Info.TaskName,
+			"test":          record.Info.TestName,
+			"version":       record.Info.Version,
+		})
+	}
 
 	return hasEventData, nil
 }
