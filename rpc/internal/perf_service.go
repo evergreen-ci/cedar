@@ -260,6 +260,10 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		if err = q.Put(ctx, job); err != nil {
 			return false, newRPCError(codes.Internal, errors.Wrap(err, "putting FTDC rollups job in the remote queue"))
 		}
+		grip.Info(message.Fields{
+			"message": "Just enqueued FTDC rollup job",
+			"id":      id,
+		})
 	}
 
 	return hasEventData, nil
