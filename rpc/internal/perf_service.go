@@ -241,6 +241,7 @@ func (srv *perfService) CloseMetrics(ctx context.Context, end *MetricsSeriesEnd)
 func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifacts []model.ArtifactInfo) (bool, error) {
 	var hasEventData bool
 	q := srv.env.GetRemoteQueue()
+	num_artifacts := 0
 
 	for _, artifact := range artifacts {
 		if artifact.Schema != model.SchemaRawEvents {
@@ -260,11 +261,13 @@ func (srv *perfService) addFTDCRollupsJob(ctx context.Context, id string, artifa
 		if err = q.Put(ctx, job); err != nil {
 			return false, newRPCError(codes.Internal, errors.Wrap(err, "putting FTDC rollups job in the remote queue"))
 		}
-		grip.Info(message.Fields{
-			"message": "Just enqueued FTDC rollup job",
-			"id":      id,
-		})
+		num_artifacts += 1
 	}
+	grip.Info(message.Fields{
+		"message":       "Just enqueued FTDC rollup jobs",
+		"id":            id,
+		"num_artifacts": num_artifacts,
+	})
 
 	return hasEventData, nil
 }
