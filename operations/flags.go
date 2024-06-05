@@ -30,6 +30,9 @@ const (
 	clientPortFlag = "port"
 
 	flagNameflag = "flag"
+
+	ftdcFileLocation = "inputFile"
+	rollupOutputFile = "outputFile"
 )
 
 ////////////////////////////////////////////////////////////////////////
