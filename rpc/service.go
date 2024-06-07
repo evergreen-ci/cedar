@@ -141,8 +141,6 @@ func GetServer(env cedar.Environment, conf AuthConfig) (*grpc.Server, error) {
 	services := map[string]internal.HealthCheckResponse_ServingStatus{}
 	internal.AttachPerfService(env, srv)
 	services[internal.PerfServiceName()] = internal.HealthCheckResponse_SERVING
-	internal.AttachBuildloggerService(env, srv)
-	services[internal.BuildloggerServiceName()] = internal.HealthCheckResponse_SERVING
 	internal.AttachTestResultsService(env, srv)
 	services[internal.TestResultsServiceName()] = internal.HealthCheckResponse_SERVING
 	internal.AttachHealthService(services, srv)
