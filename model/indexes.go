@@ -89,6 +89,16 @@ func GetRequiredIndexes() []SystemIndexes {
 				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), Value: 1},
 				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), Value: 1},
 				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOverrideInfoKey, overrideInfoOverrideKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
 				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey), Value: 1},
 				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), Value: 1},
 			},
