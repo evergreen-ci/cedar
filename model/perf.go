@@ -334,39 +334,41 @@ func (result *PerformanceResult) Close(ctx context.Context, completedAt time.Tim
 // PerformanceResultInfo describes information unique to a single performance
 // result.
 type PerformanceResultInfo struct {
-	Project      string               `bson:"project,omitempty"`
-	Version      string               `bson:"version,omitempty"`
-	Variant      string               `bson:"variant,omitempty"`
-	Order        int                  `bson:"order,omitempty"`
-	TaskName     string               `bson:"task_name,omitempty"`
-	TaskID       string               `bson:"task_id,omitempty"`
-	Execution    int                  `bson:"execution"`
-	TestName     string               `bson:"test_name,omitempty"`
-	Trial        int                  `bson:"trial"`
-	Parent       string               `bson:"parent,omitempty"`
-	Tags         []string             `bson:"tags,omitempty"`
-	Arguments    PerformanceArguments `bson:"args,omitempty"`
-	Mainline     bool                 `bson:"mainline"`
-	OverrideInfo OverrideInfo         `bson:"override_info,omitempty"`
-	Schema       int                  `bson:"schema,omitempty"`
+	Project            string               `bson:"project,omitempty"`
+	Version            string               `bson:"version,omitempty"`
+	Variant            string               `bson:"variant,omitempty"`
+	Order              int                  `bson:"order,omitempty"`
+	TaskName           string               `bson:"task_name,omitempty"`
+	TaskID             string               `bson:"task_id,omitempty"`
+	Execution          int                  `bson:"execution"`
+	TestName           string               `bson:"test_name,omitempty"`
+	Trial              int                  `bson:"trial"`
+	Parent             string               `bson:"parent,omitempty"`
+	Tags               []string             `bson:"tags,omitempty"`
+	Arguments          PerformanceArguments `bson:"args,omitempty"`
+	Mainline           bool                 `bson:"mainline"`
+	OverrideInfo       OverrideInfo         `bson:"override_info,omitempty"`
+	Schema             int                  `bson:"schema,omitempty"`
+        ReferenceVersionID string               `bson:"version,omitempty"`
 }
 
 var (
-	perfResultInfoProjectKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
-	perfResultInfoVersionKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
-	perfResultInfoVariantKey      = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Variant")
-	perfResultInfoOrderKey        = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Order")
-	perfResultInfoTaskNameKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
-	perfResultInfoTaskIDKey       = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
-	perfResultInfoExecutionKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Execution")
-	perfResultInfoTestNameKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TestName")
-	perfResultInfoTrialKey        = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Trial")
-	perfResultInfoParentKey       = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Parent")
-	perfResultInfoTagsKey         = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Tags")
-	perfResultInfoArgumentsKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Arguments")
-	perfResultInfoMainlineKey     = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Mainline")
-	perfResultInfoOverrideInfoKey = bsonutil.MustHaveTag(PerformanceResultInfo{}, "OverrideInfo")
-	perfResultInfoSchemaKey       = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
+	perfResultInfoProjectKey         = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Project")
+	perfResultInfoVersionKey         = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Version")
+	perfResultInfoVariantKey         = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Variant")
+	perfResultInfoOrderKey           = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Order")
+	perfResultInfoTaskNameKey        = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskName")
+	perfResultInfoTaskIDKey          = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TaskID")
+	perfResultInfoExecutionKey       = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Execution")
+	perfResultInfoTestNameKey        = bsonutil.MustHaveTag(PerformanceResultInfo{}, "TestName")
+	perfResultInfoTrialKey           = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Trial")
+	perfResultInfoParentKey          = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Parent")
+	perfResultInfoTagsKey            = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Tags")
+	perfResultInfoArgumentsKey       = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Arguments")
+	perfResultInfoMainlineKey        = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Mainline")
+	perfResultInfoOverrideInfoKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "OverrideInfo")
+	perfResultInfoSchemaKey          = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
+        perfResultInfoReferenceVersionID = bsonutil.MustHaveTag(PerformanceResultInfo{}, "ReferenceVersionID")
 )
 
 // PerformanceArguments wraps map[string]int32 and implements the
