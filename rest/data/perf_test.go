@@ -120,13 +120,13 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 		},
 		{
 			info: &model.PerformanceResultInfo{
-				Project:  "test",
-				Version:  "0",
-				Order:    2,
-				TaskName: "task0",
-				TaskID:   "task0patch",
-				Mainline: false,
-                                ReferenceVersionID: "XYZ"
+				Project:            "test",
+				Version:            "0",
+				Order:              2,
+				TaskName:           "task0",
+				TaskID:             "task0patch",
+				Mainline:           false,
+				ReferenceVersionID: "XYZ",
 			},
 			parent: -1,
 		},

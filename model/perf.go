@@ -349,7 +349,7 @@ type PerformanceResultInfo struct {
 	Mainline           bool                 `bson:"mainline"`
 	OverrideInfo       OverrideInfo         `bson:"override_info,omitempty"`
 	Schema             int                  `bson:"schema,omitempty"`
-        ReferenceVersionID string               `bson:"version,omitempty"`
+	ReferenceVersionID string               `bson:"version,omitempty"`
 }
 
 var (
@@ -368,7 +368,7 @@ var (
 	perfResultInfoMainlineKey        = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Mainline")
 	perfResultInfoOverrideInfoKey    = bsonutil.MustHaveTag(PerformanceResultInfo{}, "OverrideInfo")
 	perfResultInfoSchemaKey          = bsonutil.MustHaveTag(PerformanceResultInfo{}, "Schema")
-        perfResultInfoReferenceVersionID = bsonutil.MustHaveTag(PerformanceResultInfo{}, "ReferenceVersionID")
+	perfResultInfoReferenceVersionID = bsonutil.MustHaveTag(PerformanceResultInfo{}, "ReferenceVersionID")
 )
 
 // PerformanceArguments wraps map[string]int32 and implements the
