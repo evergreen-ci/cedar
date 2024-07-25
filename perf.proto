@@ -23,6 +23,7 @@ message ResultID {
   bool mainline = 12;
   google.protobuf.Timestamp created_at = 13;
   int32 order = 14;
+  optional string ReferenceVersionID = 15;
 }
 
 message ResultData {
