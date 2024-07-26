@@ -153,7 +153,7 @@ func (s *PerfConnectorSuite) createPerformanceResults(env cedar.Environment) err
 			info: &model.PerformanceResultInfo{
 				Project: "removeThisOne",
 			},
-			parent: 6,
+			parent: 7,
 		},
 	}
 
@@ -363,7 +363,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultByIdDoesNotExist() {
 
 func (s *PerfConnectorSuite) TestRemovePerformanceResultById() {
 	// check that exists
-	expectedIDs := []string{s.results[6].info.ID(), s.results[7].info.ID()}
+	expectedIDs := []string{s.results[7].info.ID(), s.results[8].info.ID()}
 	for _, id := range expectedIDs {
 		actualResult, err := s.sc.FindPerformanceResultById(s.ctx, id)
 		s.Require().NoError(err)
@@ -566,7 +566,7 @@ func (s *PerfConnectorSuite) TestFindPerformanceResultsByVersion() {
 	s.T().Run("WithSkip", func(t *testing.T) {
 		actualResult, err = s.sc.FindPerformanceResults(s.ctx, PerformanceOptions{
 			Version: expectedVersion,
-			Skip:    3,
+			Skip:    4,
 		})
 		s.Equal(1, len(actualResult))
 		for _, result := range actualResult {
