@@ -349,7 +349,7 @@ type PerformanceResultInfo struct {
 	Mainline           bool                 `bson:"mainline"`
 	OverrideInfo       OverrideInfo         `bson:"override_info,omitempty"`
 	Schema             int                  `bson:"schema,omitempty"`
-	ReferenceVersionID string               `bson:"version,omitempty"`
+	ReferenceVersionID string               `bson:"reference_version_id,omitempty"`
 }
 
 var (
