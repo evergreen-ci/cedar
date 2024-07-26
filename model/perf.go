@@ -454,9 +454,9 @@ func (id *PerformanceResultInfo) ID() string {
 				_, _ = io.WriteString(hash, str)
 			}
 		}
-                if id.ReferenceVersionID != "" {
-                   	_, _ = io.WriteString(hash, id.ReferenceVersionID)
-}
+		if id.ReferenceVersionID != "" {
+			_, _ = io.WriteString(hash, id.ReferenceVersionID)
+		}
 	} else {
 		panic("unsupported schema")
 	}
