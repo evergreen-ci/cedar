@@ -10,6 +10,10 @@ import (
 )
 
 func TestBuildloggerImport(t *testing.T) {
+	t.Run("InvalidType", func(t *testing.T) {
+		apiLog := &APILog{}
+		assert.Error(t, apiLog.Import(dbmodel.TestLogInfo{}))
+	})
 	t.Run("ValidLog", func(t *testing.T) {
 		log := dbmodel.Log{
 			Info: dbmodel.LogInfo{
