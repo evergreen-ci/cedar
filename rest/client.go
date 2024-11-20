@@ -587,34 +587,3 @@ func (c *Client) GetUserCertificate(ctx context.Context, username, password, api
 func (c *Client) GetUserCertificateKey(ctx context.Context, username, password, apiKey string) (string, error) {
 	return c.authCredRequest(ctx, c.getURL("/v1/admin/users/certificate/key"), username, password, apiKey)
 }
-
-func (c *Client) RemovePerformanceResultById(ctx context.Context, id string) (string, error) {
-	url := c.getURL(fmt.Sprintf("/v1/perf/%s", id))
-
-	req, err := c.makeRequest(ctx, http.MethodDelete, url, nil)
-	if err != nil {
-		return "", errors.Wrap(err, "building request")
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return "", errors.Wrap(err, "making request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		srverr := gimlet.ErrorResponse{}
-		if err = gimlet.GetJSON(resp.Body, &srverr); err != nil {
-			return "", errors.Wrap(err, "parsing error message")
-		}
-
-		return "", srverr
-	}
-
-	out, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", errors.Wrap(err, "reading response")
-	}
-
-	return string(out), nil
-}
