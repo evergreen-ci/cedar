@@ -12,7 +12,7 @@ import (
 func TestBuildloggerImport(t *testing.T) {
 	t.Run("InvalidType", func(t *testing.T) {
 		apiLog := &APILog{}
-		assert.Error(t, apiLog.Import(dbmodel.TestLogInfo{}))
+		assert.Error(t, apiLog.Import(dbmodel.PerformanceResult{}))
 	})
 	t.Run("ValidLog", func(t *testing.T) {
 		log := dbmodel.Log{

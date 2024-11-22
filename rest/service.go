@@ -293,12 +293,21 @@ func (s *Service) addRoutes() {
 	s.app.AddRoute("/admin/ca").Version(1).Get().Wrap(checkDepot).Handler(s.fetchRootCert)
 	s.app.AddRoute("/admin/users/certificate").Version(1).Post().Get().Wrap(checkDepot).Handler(s.fetchUserCert)
 	s.app.AddRoute("/admin/users/certificate/key").Version(1).Post().Get().Wrap(checkDepot).Handler(s.fetchUserCertKey)
+	s.app.AddRoute("/admin/perf/change_points").Version(1).Post().Wrap(checkUser).RouteHandler(makePerfSignalProcessingRecalculate(s.sc))
 
 	s.app.AddRoute("/simple_log/{id}").Version(1).Post().Wrap(checkUser).Handler(s.simpleLogIngestion)
 	s.app.AddRoute("/simple_log/{id}").Version(1).Get().Handler(s.simpleLogRetrieval)
 	s.app.AddRoute("/simple_log/{id}/text").Version(1).Get().Handler(s.simpleLogGetText)
 	s.app.AddRoute("/system_info").Version(1).Post().Wrap(checkUser).Handler(s.recieveSystemInfo)
 	s.app.AddRoute("/system_info/host/{host}").Version(1).Post().Wrap(checkUser).Handler(s.fetchSystemInfo)
+
+	s.app.AddRoute("/perf/{id}").Version(1).Get().RouteHandler(makeGetPerfById(s.sc))
+	s.app.AddRoute("/perf/{id}").Version(1).Delete().Wrap(checkUser).RouteHandler(makeRemovePerfById(s.sc))
+	s.app.AddRoute("/perf/children/{id}").Version(1).Get().RouteHandler(makeGetPerfChildren(s.sc))
+	s.app.AddRoute("/perf/task_id/{task_id}").Version(1).Get().RouteHandler(makeGetPerfByTaskId(s.sc))
+	s.app.AddRoute("/perf/task_id/{task_id}/count").Version(1).Get().RouteHandler(makeCountPerfByTaskId(s.sc))
+	s.app.AddRoute("/perf/task_name/{task_name}").Version(1).Get().RouteHandler(makeGetPerfByTaskName(s.sc))
+	s.app.AddRoute("/perf/version/{version}").Version(1).Get().RouteHandler(makeGetPerfByVersion(s.sc))
 
 	s.app.AddRoute("/buildlogger/{id}").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogByID(s.sc))
 	s.app.AddRoute("/buildlogger/{id}/meta").Version(1).Get().Wrap(evgAuthReadLogByID).RouteHandler(makeGetLogMetaByID(s.sc))

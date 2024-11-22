@@ -69,6 +69,30 @@ func StartCrons(ctx context.Context, env cedar.Environment, rpcTLS bool) error {
 
 		return queue.Put(ctx, NewRemoteAmboyStatsCollector(env, utility.RoundPartOfMinute(0).Format(tsFormat)))
 	})
+	/*
+		This is disabled for https://jira.mongodb.org/browse/EVG-19321. The Perf Build Baron Team would currently prefer
+		that historical data not change in order to not impact older build failures.
+
+		amboy.IntervalQueueOperation(ctx, remote, time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
+			job, err := NewFindOutdatedRollupsJob(perf.DefaultRollupFactories())
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			return queue.Put(ctx, job)
+		})
+	*/
+	amboy.IntervalQueueOperation(ctx, remote, 10*time.Minute, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
+		conf := model.NewCedarConfig(env)
+		if err := conf.Find(); err != nil {
+			return errors.WithStack(err)
+		}
+		if conf.Flags.DisableSignalProcessing {
+			return nil
+		}
+		job := NewPeriodicTimeSeriesUpdateJob(utility.RoundPartOfHour(10).Format(tsFormat))
+		return queue.Put(ctx, job)
+	})
 	amboy.IntervalQueueOperation(ctx, remote, 24*time.Hour, time.Now(), opts, func(ctx context.Context, queue amboy.Queue) error {
 		conf := model.NewCedarConfig(env)
 		if err := conf.Find(); err != nil {

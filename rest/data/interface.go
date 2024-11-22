@@ -15,6 +15,27 @@ type Connector interface {
 	// GetBaseURL returns the API service URL.
 	GetBaseURL() string
 
+	////////////////////
+	// PerformanceResult
+	////////////////////
+	// FindPerformanceResultById returns the performance result with the
+	// given id.
+	FindPerformanceResultById(context.Context, string) (*model.APIPerformanceResult, error)
+	// RemovePerformanceResultById removes the performance result with the
+	// given ID and its children.
+	RemovePerformanceResultById(context.Context, string) (int, error)
+	// FindPerformanceResults returns all performance results that match the
+	// given options.
+	FindPerformanceResults(context.Context, PerformanceOptions) ([]model.APIPerformanceResult, error)
+	// FindPerformanceResultWithChildren returns the the performance result
+	// with the given ID and its children up to the given depth and
+	// filtered by the optional tags.
+	FindPerformanceResultWithChildren(context.Context, string, int, ...string) ([]model.APIPerformanceResult, error)
+	// ScheduleSignalProcessingRecalculateJobs returns once a signal
+	// processing recalculation job has been scheduled for each type of
+	// test (project/variant/task/test combo).
+	ScheduleSignalProcessingRecalculateJobs(context.Context) error
+
 	//////////////////
 	// Buildlogger Log
 	//////////////////

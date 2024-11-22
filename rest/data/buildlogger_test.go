@@ -10,42 +10,8 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/evergreen-ci/pail"
-	"github.com/mongodb/amboy/queue"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 )
-
-const testDBName = "cedar_rest_data_test"
-
-func init() {
-	env, err := cedar.NewEnvironment(context.Background(), testDBName, &cedar.Configuration{
-		MongoDBURI:                "mongodb://localhost:27017",
-		DatabaseName:              testDBName,
-		SocketTimeout:             time.Minute,
-		NumWorkers:                2,
-		DisableRemoteQueue:        true,
-		DisableCache:              true,
-		DbConfigurationCollection: "configuration",
-	})
-	if err != nil {
-		panic(err)
-	}
-	queue := queue.NewLocalLimitedSize(1, 100)
-	err = env.SetRemoteQueue(queue)
-	if err != nil {
-		panic(err)
-	}
-	cedar.SetEnvironment(env)
-}
-
-func tearDownEnv(env cedar.Environment) error {
-	conf, session, err := cedar.GetSessionWithConfig(env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer session.Close()
-	return errors.WithStack(session.DB(conf.DatabaseName).DropDatabase())
-}
 
 type buildloggerConnectorSuite struct {
 	ctx     context.Context
@@ -304,8 +270,6 @@ func (s *buildloggerConnectorSuite) TearDownSuite() {
 	defer s.cancel()
 	s.NoError(os.RemoveAll(s.tempDir))
 	s.NoError(s.env.GetDB().Drop(s.ctx))
-	err := tearDownEnv(s.env)
-	s.Require().NoError(err)
 }
 
 func (s *buildloggerConnectorSuite) TestFindLogByIDExists() {

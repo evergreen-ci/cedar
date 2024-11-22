@@ -141,6 +141,9 @@ tasks:
   - <<: *run-build
     tags: ["test"]
     name: test-cedar
+  - <<: *run-build
+    tags: ["test"]
+    name: test-perf
 
   - <<: *run-build
     tags: ["lint"]
@@ -172,6 +175,9 @@ tasks:
   - <<: *run-build
     tags: ["lint"]
     name: lint-cedar
+  - <<: *run-build
+    tags: ["lint"]
+    name: lint-perf
 
   - name: verify-mod-tidy
     tags: ["report"]

@@ -3,7 +3,9 @@ module github.com/evergreen-ci/cedar
 go 1.20
 
 require (
+	github.com/aclements/go-moremath v0.0.0-20210112150236-f10218a38794
 	github.com/evergreen-ci/aviation v0.0.0-20240509141021-0e3a1c91cc79
+	github.com/evergreen-ci/birch v0.0.0-20230104155808-09f0a18c134f
 	github.com/evergreen-ci/certdepot v0.0.0-20220408180137-e70afe67cc1b
 	github.com/evergreen-ci/gimlet v0.0.0-20230317174941-7e759337ad2c
 	github.com/evergreen-ci/pail v0.0.0-20230104160750-81c3ed0279cf
@@ -49,7 +51,6 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
-	github.com/evergreen-ci/birch v0.0.0-20230104155808-09f0a18c134f // indirect
 	github.com/evergreen-ci/bond v0.0.0-20220411194221-3710ea2ac361 // indirect
 	github.com/evergreen-ci/juniper v0.0.0-20230901183147-c805ea7351aa // indirect
 	github.com/evergreen-ci/lru v0.0.0-20220404184951-eb0842380798 // indirect
