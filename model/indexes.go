@@ -36,6 +36,109 @@ func GetRequiredIndexes() []SystemIndexes {
 			Collection: userCollection,
 		},
 		{
+			Keys:       bson.D{{Key: perfCreatedAtKey, Value: 1}, {Key: perfCompletedAtKey, Value: 1}},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTagsKey), Value: 1},
+				{Key: perfCreatedAtKey, Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskIDKey), Value: 1},
+				{Key: perfCreatedAtKey, Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTagsKey), Value: 1},
+				{Key: perfCreatedAtKey, Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey), Value: 1},
+				{Key: perfCreatedAtKey, Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys:       bson.D{{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoParentKey), Value: 1}},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTestNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOverrideInfoKey, overrideInfoOverrideKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoProjectKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVariantKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoTaskNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoMainlineKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOrderKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoOverrideInfoKey, overrideInfoOverrideKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfInfoKey, perfResultInfoVersionKey), Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
+			Keys: bson.D{
+				{Key: bsonutil.GetDottedKeyName(perfArtifactsKey, artifactInfoFormatKey), Value: 1},
+				{Key: perfFailedRollupAttempts, Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueNameKey), Value: 1},
+				{Key: bsonutil.GetDottedKeyName(perfRollupsKey, perfRollupsStatsKey, perfRollupValueVersionKey), Value: 1},
+				{Key: perfCreatedAtKey, Value: 1},
+			},
+			Collection: perfResultCollection,
+		},
+		{
 			Keys: bson.D{
 				{Key: bsonutil.GetDottedKeyName(logInfoKey, logInfoTaskIDKey), Value: 1},
 				{Key: logCreatedAtKey, Value: -1},
