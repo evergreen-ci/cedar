@@ -32,11 +32,10 @@ func (dbc *DBConnector) GetBaseURL() string { return dbc.baseURL }
 // MockConnector is a struct that implements the Connector interface backed by
 // a mock Cedar service layer.
 type MockConnector struct {
-	CachedPerformanceResults map[string]model.PerformanceResult
-	ChildMap                 map[string][]string
-	CachedLogs               map[string]model.Log
-	Users                    map[string]bool
-	Bucket                   string
+	ChildMap   map[string][]string
+	CachedLogs map[string]model.Log
+	Users      map[string]bool
+	Bucket     string
 
 	env cedar.Environment
 }
