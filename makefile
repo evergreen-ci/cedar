@@ -1,7 +1,7 @@
 # start project configuration
 name := cedar
 buildDir := build
-testPackages := $(name) rest rest-data rest-model units operations model perf rpc-internal
+testPackages := $(name) rest rest-data rest-model units operations model rpc-internal
 allPackages := $(testPackages) benchmarks rpc
 orgPath := github.com/evergreen-ci
 projectPath := $(orgPath)/$(name)

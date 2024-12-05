@@ -33,7 +33,6 @@ func buildApp() *cli.App {
 		operations.Service(),
 		operations.Client(),
 		operations.Worker(),
-		operations.CalculateRollups(),
 	}
 
 	// These are global options. Use this to configure logging or
