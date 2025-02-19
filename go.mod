@@ -1,6 +1,6 @@
 module github.com/evergreen-ci/cedar
 
-go 1.20
+go 1.24
 
 require (
 	github.com/evergreen-ci/aviation v0.0.0-20240509141021-0e3a1c91cc79
