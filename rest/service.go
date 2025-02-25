@@ -267,7 +267,9 @@ func (s *Service) Start(ctx context.Context) (gimlet.WaitFunc, error) {
 
 func (s *Service) addMiddleware() {
 	s.app.AddMiddleware(gimlet.MakeRecoveryLogger())
-	s.app.AddMiddleware(gimlet.UserMiddleware(s.UserManager, s.umConf))
+	// The context passed here doesn't actually matter here because it's only
+	// used if the user manager configuration specifies OIDC options.
+	s.app.AddMiddleware(gimlet.UserMiddleware(context.TODO(), s.UserManager, s.umConf))
 	s.app.AddMiddleware(gimlet.NewAuthenticationHandler(gimlet.NewBasicAuthenticator(nil, nil), s.UserManager))
 
 	if s.Conf.Service.CORSOrigins != nil {

@@ -267,7 +267,7 @@ func (s *Service) simpleLogGetText(w http.ResponseWriter, r *http.Request) {
 	for _, l := range allLogs.Slice() {
 		bucket, ok := buckets[l.Bucket]
 		if !ok {
-			bucket, err = pail.NewS3Bucket(pail.S3Options{Name: l.Bucket})
+			bucket, err = pail.NewS3Bucket(r.Context(), pail.S3Options{Name: l.Bucket})
 			if err != nil {
 				gimlet.WriteTextError(w, err.Error())
 				return

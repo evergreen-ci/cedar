@@ -71,7 +71,7 @@ func (j *saveSimpleLogToDBJob) Run(ctx context.Context) {
 
 	conf := j.env.GetConfig()
 
-	bucket, err := pail.NewS3Bucket(pail.S3Options{Name: conf.BucketName})
+	bucket, err := pail.NewS3Bucket(ctx, pail.S3Options{Name: conf.BucketName})
 	if err != nil {
 		j.AddError(errors.WithStack(err))
 		return
