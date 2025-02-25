@@ -126,7 +126,7 @@ func getLogIteratorBenchmarkSuite(ctx context.Context, artifact model.LogArtifac
 		Prefix: artifact.Prefix,
 		Region: "us-east-1",
 	}
-	bucket, err := pail.NewS3Bucket(opts)
+	bucket, err := pail.NewS3Bucket(ctx, opts)
 	if err != nil {
 		return poplar.BenchmarkSuite{}, errors.Wrap(err, "connecting to S3")
 	}
