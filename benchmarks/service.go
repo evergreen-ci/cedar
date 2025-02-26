@@ -84,7 +84,7 @@ func teardownBenchmark(ctx context.Context) error {
 		Name:   bucketName,
 		Region: "us-east-1",
 	}
-	bucket, err := pail.NewS3Bucket(opts)
+	bucket, err := pail.NewS3Bucket(ctx, opts)
 	if err != nil {
 		catcher.Wrap(err, "connecting to S3")
 	} else {
