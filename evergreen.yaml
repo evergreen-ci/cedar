@@ -224,7 +224,7 @@ buildvariants:
   - name: lint
     display_name: Lint
     expansions:
-      GOROOT: /opt/golang/go1.24
+      GOROOT: /opt/golang/go1.20
     run_on:
       - ubuntu2004-small
     tasks:
@@ -234,7 +234,7 @@ buildvariants:
   - name: ubuntu
     display_name: Ubuntu 20.04
     expansions:
-      GOROOT: /opt/golang/go1.24
+      GOROOT: /opt/golang/go1.20
       MONGODB_URL: https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-7.0.7.tgz
       MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-2.2.2-linux-x64.tgz
       RACE_DETECTOR: true
@@ -246,7 +246,7 @@ buildvariants:
   - name: macos
     display_name: macOS
     expansions:
-      GOROOT: /opt/golang/go1.24
+      GOROOT: /opt/golang/go1.20
       MONGODB_URL: https://fastdl.mongodb.org/osx/mongodb-macos-arm64-7.0.7.tgz
       MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-2.2.2-darwin-arm64.zip
       MONGOSH_DECOMPRESS: unzip
@@ -262,6 +262,6 @@ buildvariants:
     expansions:
       MONGODB_URL: https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-7.0.7.zip
       MONGOSH_URL: https://downloads.mongodb.com/compass/mongosh-2.2.2-win32-x64.zip
-      GOROOT: C:/golang/go1.24
+      GOROOT: C:/golang/go1.20
       curator_build: windows-amd64
     tasks: [ "testGroup" ]
