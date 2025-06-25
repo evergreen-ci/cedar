@@ -46,7 +46,7 @@ func (t PailType) Create(ctx context.Context, env cedar.Environment, bucket, pre
 			MaxRetries:  utility.ToIntPtr(defaultS3MaxRetries),
 			Compress:    compress,
 		}
-		b, err = pail.NewS3Bucket(ctx, opts)
+		b, err = pail.NewS3Bucket(opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -90,7 +90,7 @@ func (t PailType) CreatePresto(ctx context.Context, env cedar.Environment, prefi
 			MaxRetries:    utility.ToIntPtr(defaultS3MaxRetries),
 			Compress:      compress,
 		}
-		b, err := pail.NewS3Bucket(ctx, opts)
+		b, err := pail.NewS3Bucket(opts)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

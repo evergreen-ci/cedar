@@ -9,3 +9,7 @@ linters:
     - ineffassign
     - misspell
     - unconvert
+
+linters-settings:
+  govet:
+    check-shadowing: false
