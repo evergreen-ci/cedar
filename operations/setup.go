@@ -7,7 +7,6 @@ import (
 	"github.com/evergreen-ci/cedar"
 	"github.com/evergreen-ci/cedar/model"
 	"github.com/mongodb/grip"
-	"github.com/mongodb/grip/level"
 	"github.com/mongodb/grip/send"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -106,39 +105,39 @@ func (c *serviceConf) getSenders(ctx context.Context, conf *model.CedarConfig) (
 		senders = append(senders, sender)
 	}
 
-	if conf.Slack.Options != nil {
-		if err = conf.Slack.Options.Validate(); err != nil {
-			return nil, errors.Wrap(err, "invalid Slack configuration")
-		}
-
-		if conf.Slack.Token == "" || conf.Slack.Level == "" {
-			return nil, errors.Wrap(err, "must specify Slack token and logging threshold")
-		}
-
-		lvl := send.LevelInfo{
-			Default:   logLevel.Default,
-			Threshold: level.FromString(conf.Slack.Level),
-		}
-
-		sender, err = send.NewSlackLogger(conf.Slack.Options, conf.Slack.Token, lvl)
-		if err != nil {
-			return nil, errors.Wrap(err, "constructing Slack alert logger")
-		}
-		if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
-			return nil, errors.Wrap(err, "configuring error handler")
-		}
-
-		// TODO consider using a local queue to buffer
-		// these messages
-		bufferedSender, err := send.NewBufferedSender(ctx, sender, send.BufferedSenderOptions{
-			FlushInterval: conf.LoggerConfig.BufferDuration,
-			BufferSize:    conf.LoggerConfig.BufferCount,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "building buffered Slack logger")
-		}
-		senders = append(senders, bufferedSender)
-	}
+	// if conf.Slack.Options != nil {
+	//     if err = conf.Slack.Options.Validate(); err != nil {
+	//         return nil, errors.Wrap(err, "invalid Slack configuration")
+	//     }
+	//
+	//     if conf.Slack.Token == "" || conf.Slack.Level == "" {
+	//         return nil, errors.Wrap(err, "must specify Slack token and logging threshold")
+	//     }
+	//
+	//     lvl := send.LevelInfo{
+	//         Default:   logLevel.Default,
+	//         Threshold: level.FromString(conf.Slack.Level),
+	//     }
+	//
+	//     sender, err = send.NewSlackLogger(conf.Slack.Options, conf.Slack.Token, lvl)
+	//     if err != nil {
+	//         return nil, errors.Wrap(err, "constructing Slack alert logger")
+	//     }
+	//     if err = sender.SetErrorHandler(send.ErrorHandlerFromSender(fallback)); err != nil {
+	//         return nil, errors.Wrap(err, "configuring error handler")
+	//     }
+	//
+	//     // TODO consider using a local queue to buffer
+	//     // these messages
+	//     bufferedSender, err := send.NewBufferedSender(ctx, sender, send.BufferedSenderOptions{
+	//         FlushInterval: conf.LoggerConfig.BufferDuration,
+	//         BufferSize:    conf.LoggerConfig.BufferCount,
+	//     })
+	//     if err != nil {
+	//         return nil, errors.Wrap(err, "building buffered Slack logger")
+	//     }
+	//     senders = append(senders, bufferedSender)
+	// }
 
 	return send.NewConfiguredMultiSender(senders...), nil
 }
