@@ -2,6 +2,10 @@
 ``cedar`` -- Build Data Warehouse
 =================================
 
+Cedar is deprecated and is no longer maintained
+--------
+Its functionality has entirely been replaced by https://github.com/evergreen-ci/evergreen
+
 Overview
 --------
 
